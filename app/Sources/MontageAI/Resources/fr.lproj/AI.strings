@@ -23,3 +23,4 @@
 "cmd.enhance" = "Amélioration vidéo";
 "cmd.writerAdd" = "Ajouter le script";
 "cmd.clipper" = "Créateur de clips IA";
+"cmd.faceCover" = "Mosaïque des visages";

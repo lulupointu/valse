@@ -39,6 +39,8 @@ public final class AIUIState {
     /// Enhance quality / denoise / deflicker renders (clip → job + the enhancement being rendered).
     /// AI clipper dialog (nil = closed).
     var clipper: AIClipperState?
+    /// Face mosaic: faces matte jobs (clip → job).
+    public var faceJobs: [ClipID: JobID] = [:]
     public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false

@@ -43,7 +43,7 @@ struct AutoCaptionsPanel: View {
                         CapCheckbox(isOn: Binding(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
                         Text(loc: "captions.identifyFillers").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                     }
-                    SpeechModelCard(store: store)
+                    AdvancedSpeechSection(store: store)
                     if let err = ai.captionError { HintText(text: err, color: IStyle.warning) }
                     HStack {
                         Spacer()
@@ -112,6 +112,26 @@ struct AutoCaptionsPanel: View {
 }
 
 /// Speech engine status: whisper model installed / downloadable (with progress + cancel), Apple speech fallback.
+/// "Advanced ▸" disclosure holding the speech engine / model card (Automatic stays the default; UX_GAPS W10-2).
+struct AdvancedSpeechSection: View {
+    let store: EditorStore
+    @State private var open = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { open.toggle() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .semibold))
+                    Text(loc: "captions.advanced").font(Theme.Fonts.row)
+                }
+                .foregroundStyle(IStyle.label).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .testID("captions.advanced")
+            if open { SpeechModelCard(store: store) }
+        }
+    }
+}
+
 struct SpeechModelCard: View {
     let store: EditorStore
     var body: some View {

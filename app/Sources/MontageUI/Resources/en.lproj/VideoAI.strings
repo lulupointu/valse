@@ -135,3 +135,14 @@
 "clipper.save" = "Save";
 "clipper.done" = "Highlight clips added";
 "clipper.failed" = "Couldn't create clips. Try again.";
+
+/* W10 face mosaic (AI-051) */
+"faceCover.title" = "Face mosaic";
+"faceCover.style" = "Style";
+"faceCover.mosaic" = "Mosaic";
+"faceCover.blur" = "Blur";
+"faceCover.hint" = "Detects and follows every face in the clip and covers it.";
+"faceCover.job" = "Detecting faces...";
+"faceCover.applying" = "Detecting faces... %d%%";
+"faceCover.done" = "Faces covered";
+"faceCover.failed" = "Couldn't detect faces. Try again.";

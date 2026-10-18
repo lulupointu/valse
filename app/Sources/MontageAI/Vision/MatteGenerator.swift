@@ -13,6 +13,8 @@ public enum CutoutMode: Sendable, Equatable {
     case subject
     /// Objects chosen with clicks / brush strokes on one frame, propagated through the video ("Customized").
     case custom(CutoutSelection)
+    /// Faces (Vision face rectangles → feathered ellipses, held through short detection gaps). Face mosaic / blur (AI-051).
+    case faces
 
     /// `ClipMatte.kind` / `MatteStore` key.
     public var kind: String {
@@ -20,6 +22,7 @@ public enum CutoutMode: Sendable, Equatable {
         case .person: return "person"
         case .subject: return "subject"
         case .custom(let s): return "custom.\(s.id)"
+        case .faces: return "faces"
         }
     }
 }
@@ -85,6 +88,11 @@ public enum MatteGenerator {
             try handler.perform([req])
             guard let pb = req.results?.first?.pixelBuffer, let m = MaskBuffer(pb) else { throw AIToolError.noInput }
             return m.cgImage()
+        case .faces:
+            let req = VNDetectFaceRectanglesRequest()
+            try handler.perform([req])
+            return FaceMatte.image(width: min(image.width, 960), height: min(image.width, 960) * image.height / max(image.width, 1),
+                                   faces: (req.results ?? []).map(\.boundingBox))
         case .subject, .custom:
             let req = VNGenerateForegroundInstanceMaskRequest()
             try handler.perform([req])
@@ -131,6 +139,7 @@ public enum MatteGenerator {
         let personReq = personRequest(.balanced)
         let sequence = VNSequenceRequestHandler()
         var previous: MaskBuffer?
+        var faces = FaceMatte.Holder()
         var tracker: InstanceTracker?
         if case .custom(let sel) = mode {
             tracker = try await InstanceTracker(seed: sel, asset: av, track: track, size: CGSize(width: w, height: h))
@@ -139,6 +148,14 @@ public enum MatteGenerator {
             try Task.checkCancellation()
             guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
             let t = CMSampleBufferGetPresentationTimeStamp(sb)
+            if case .faces = mode {
+                let req = VNDetectFaceRectanglesRequest()
+                try autoreleasepool { try VNImageRequestHandler(cvPixelBuffer: pb).perform([req]) }
+                let boxes = faces.update((req.results ?? []).filter { $0.confidence > 0.4 }.map(\.boundingBox))
+                try await writer.append(FaceMatte.image(width: w, height: h, faces: boxes), at: Time(cmTime: t))
+                progress?(min(0.99, t.seconds / total))
+                continue
+            }
             let mask: MaskBuffer? = try autoreleasepool {
                 switch mode {
                 case .person:
@@ -152,6 +169,8 @@ public enum MatteGenerator {
                     return MaskBuffer(try obs.generateScaledMaskForImage(forInstances: obs.allInstances, from: handler))
                 case .custom:
                     return try tracker?.mask(for: pb)
+                case .faces:
+                    return nil
                 }
             }
             var m = mask ?? MaskBuffer(width: 64, height: 64)
@@ -296,4 +315,50 @@ struct MaskBuffer {
 
     /// Mean value 0…1 (tests).
     var coverage: Double { Double(pixels.reduce(0) { $0 + Int($1) }) / Double(max(pixels.count, 1)) / 255 }
+}
+
+/// Face matte drawing: Vision face boxes (normalized, y up) → white ellipses grown to cover hair / chin, soft edge.
+enum FaceMatte {
+    static func image(width w: Int, height h: Int, faces: [CGRect]) -> CGImage {
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w, space: CGColorSpaceCreateDeviceGray(),
+                            bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+        ctx.setFillColor(gray: 0, alpha: 1); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        for f in faces {
+            // CG is y-up like Vision's normalized boxes
+            let r = CGRect(x: f.minX * CGFloat(w), y: f.minY * CGFloat(h), width: f.width * CGFloat(w), height: f.height * CGFloat(h))
+            let g = r.insetBy(dx: -r.width * 0.25, dy: -r.height * 0.3).offsetBy(dx: 0, dy: r.height * 0.08)
+            // soft edge: concentric ellipses
+            for k in stride(from: 4, through: 0, by: -1) {
+                let inset = CGFloat(k) * g.width * 0.03
+                ctx.setFillColor(gray: 1 - CGFloat(k) * 0.2, alpha: 1)
+                ctx.fillEllipse(in: g.insetBy(dx: inset, dy: inset))
+            }
+        }
+        return ctx.makeImage()!
+    }
+
+    /// Keeps faces through short detection drop-outs (≤ 6 frames) and smooths box jitter.
+    struct Holder {
+        var tracks: [(box: CGRect, missing: Int)] = []
+        mutating func update(_ found: [CGRect]) -> [CGRect] {
+            var used = Set<Int>()
+            var next: [(box: CGRect, missing: Int)] = []
+            for t in tracks {
+                // nearest new box overlapping this track
+                if let (i, b) = found.enumerated().filter({ !used.contains($0.offset) && $0.element.intersects(t.box.insetBy(dx: -t.box.width * 0.3, dy: -t.box.height * 0.3)) })
+                    .min(by: { hypot($0.element.midX - t.box.midX, $0.element.midY - t.box.midY) < hypot($1.element.midX - t.box.midX, $1.element.midY - t.box.midY) }) {
+                    used.insert(i)
+                    let k: CGFloat = 0.6
+                    let m = CGRect(x: t.box.minX + (b.minX - t.box.minX) * k, y: t.box.minY + (b.minY - t.box.minY) * k,
+                                   width: t.box.width + (b.width - t.box.width) * k, height: t.box.height + (b.height - t.box.height) * k)
+                    next.append((m, 0))
+                } else if t.missing < 6 {
+                    next.append((t.box, t.missing + 1))
+                }
+            }
+            for (i, b) in found.enumerated() where !used.contains(i) { next.append((b, 0)) }
+            tracks = next
+            return next.map(\.box)
+        }
+    }
 }

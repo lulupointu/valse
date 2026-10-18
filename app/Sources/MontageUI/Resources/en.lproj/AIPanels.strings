@@ -96,8 +96,8 @@
 "inspector.tab.tts" = "Text to speech";
 "tts.search" = "Search voices";
 "tts.lang.all" = "All";
-"tts.lang.fr" = "FR-Français";
-"tts.lang.en" = "EN-English";
+"tts.lang.fr" = "Français";
+"tts.lang.en" = "English";
 "tts.voice.hq" = "High-quality voice";
 "tts.voice.compact" = "Compact voice (download Enhanced or Premium voices in System Settings ▸ Accessibility ▸ Spoken Content)";
 "tts.adjust" = "Adjust";
@@ -111,3 +111,7 @@
 "tts.failed" = "Couldn't generate speech. Try another voice.";
 "cmd.tts" = "Text to speech";
 "audio.job.isolate" = "Isolating voice...";
+"tts.voice.hqBadge" = "✦ Enhanced";
+"tts.voiceName.Grandma" = "Grandma";
+"tts.voiceName.Grandpa" = "Grandpa";
+"captions.advanced" = "Advanced";

@@ -96,8 +96,8 @@
 "inspector.tab.tts" = "Synthèse vocale";
 "tts.search" = "Rechercher des voix";
 "tts.lang.all" = "Toutes";
-"tts.lang.fr" = "FR-Français";
-"tts.lang.en" = "EN-English";
+"tts.lang.fr" = "Français";
+"tts.lang.en" = "English";
 "tts.voice.hq" = "Voix de haute qualité";
 "tts.voice.compact" = "Voix compacte (téléchargez des voix améliorées ou premium dans Réglages Système ▸ Accessibilité ▸ Contenu énoncé)";
 "tts.adjust" = "Ajuster";
@@ -111,3 +111,7 @@
 "tts.failed" = "Impossible de générer la voix. Essayez une autre voix.";
 "cmd.tts" = "Synthèse vocale";
 "audio.job.isolate" = "Isolation de la voix…";
+"tts.voice.hqBadge" = "✦ Améliorée";
+"tts.voiceName.Grandma" = "Mamie";
+"tts.voiceName.Grandpa" = "Papi";
+"captions.advanced" = "Avancé";

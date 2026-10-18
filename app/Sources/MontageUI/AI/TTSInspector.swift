@@ -31,6 +31,30 @@ enum TTSInspector {
 
 struct TTSVoicesSection: View {
     let ctx: InspectorContext
+
+    /// Voices grouped by locale (input order kept), names deduplicated within a group.
+    static func groups(_ voices: [TTSVoice]) -> [(locale: String, voices: [TTSVoice])] {
+        var order: [String] = [], byLocale: [String: [TTSVoice]] = [:]
+        for v in voices {
+            if byLocale[v.language] == nil { order.append(v.language); byLocale[v.language] = [] }
+            if let i = byLocale[v.language]!.firstIndex(where: { $0.name == v.name }) {
+                if v.quality > byLocale[v.language]![i].quality { byLocale[v.language]![i] = v }
+            } else { byLocale[v.language]!.append(v) }
+        }
+        return order.map { ($0, byLocale[$0]!) }
+    }
+
+    /// "Français (Canada)" in the UI language.
+    static func localeTitle(_ id: String) -> String {
+        let s = Locale(identifier: L10n.shared.language).localizedString(forIdentifier: id.replacingOccurrences(of: "-", with: "_")) ?? id
+        return s.prefix(1).uppercased() + s.dropFirst()
+    }
+
+    /// Character names with a translation (Grandma → Mamie); others are proper names.
+    static let localizedNames: Set<String> = ["Grandma", "Grandpa"]
+    static func displayName(_ v: TTSVoice) -> String {
+        localizedNames.contains(v.name) ? tr("tts.voiceName.\(v.name)") : v.name
+    }
     var body: some View {
         let st = TTSUIState.shared
         let langs = st.language == "auto" ? ["fr", "en"] : [st.language]
@@ -50,22 +74,26 @@ struct TTSVoicesSection: View {
                         .onTapGesture { st.language = id }
                 }
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 96), spacing: 10)], spacing: 10) {
-                ForEach(voices) { v in
-                    Button { st.voice = v.id; sample(v) } label: {
-                        VStack(spacing: 4) {
-                            Text(verbatim: v.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).multilineTextAlignment(.center)
-                                .lineLimit(2)
-                            Text(verbatim: v.language + (v.quality >= 1 ? " ✦" : "")).font(.system(size: 10)).foregroundStyle(IStyle.caption)
+            // one group per locale ("Français (Canada)"), each voice name once per group (best quality kept)
+            ForEach(Self.groups(voices), id: \.locale) { g in
+                GroupCaption(title: Self.localeTitle(g.locale))
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 96), spacing: 10)], spacing: 10) {
+                    ForEach(g.voices) { v in
+                        Button { st.voice = v.id; sample(v) } label: {
+                            VStack(spacing: 4) {
+                                Text(verbatim: Self.displayName(v)).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                    .multilineTextAlignment(.center).lineLimit(2)
+                                if v.quality >= 1 { Text(verbatim: tr("tts.voice.hqBadge")).font(.system(size: 10)).foregroundStyle(IStyle.caption) }
+                            }
+                            .frame(width: 84, height: 64)
+                            .background(IStyle.tile, in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(current == v.id ? Theme.accent : .clear, lineWidth: 2))
+                            .contentShape(Rectangle())
                         }
-                        .frame(width: 84, height: 64)
-                        .background(IStyle.tile, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(current == v.id ? Theme.accent : .clear, lineWidth: 2))
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .help(tr(v.quality >= 1 ? "tts.voice.hq" : "tts.voice.compact"))
+                        .testID("tts.voice.\(v.name.replacingOccurrences(of: " ", with: "_")).\(v.language)")
                     }
-                    .buttonStyle(.plain)
-                    .help(tr(v.quality >= 1 ? "tts.voice.hq" : "tts.voice.compact"))
-                    .testID("tts.voice.\(v.name.replacingOccurrences(of: " ", with: "_")).\(v.language)")
                 }
             }
             GroupCaption(title: tr("tts.adjust"))

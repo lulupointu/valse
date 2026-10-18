@@ -135,3 +135,14 @@
 "clipper.save" = "Enregistrer";
 "clipper.done" = "Clips mis en évidence ajoutés";
 "clipper.failed" = "Impossible de créer les clips. Réessaie.";
+
+/* W10 mosaïque des visages (AI-051) */
+"faceCover.title" = "Mosaïque des visages";
+"faceCover.style" = "Style";
+"faceCover.mosaic" = "Mosaïque";
+"faceCover.blur" = "Flou";
+"faceCover.hint" = "Détecte et suit chaque visage du clip et le masque.";
+"faceCover.job" = "Détection des visages…";
+"faceCover.applying" = "Détection des visages… %d %%";
+"faceCover.done" = "Visages masqués";
+"faceCover.failed" = "Impossible de détecter les visages. Réessaie.";
