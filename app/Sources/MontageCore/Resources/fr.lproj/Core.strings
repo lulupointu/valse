@@ -1,0 +1,68 @@
+/* Commandes (libellés annuler/rétablir) */
+"cmd.edit" = "Modification";
+"cmd.editClip" = "Modifier le clip";
+"cmd.import" = "Importer des médias";
+"cmd.addClip" = "Ajouter un clip";
+"cmd.move" = "Déplacer";
+"cmd.trim" = "Rogner";
+"cmd.split" = "Fractionner";
+"cmd.delete" = "Supprimer";
+"cmd.speed" = "Vitesse";
+"cmd.transition" = "Transition";
+"cmd.timelineOption" = "Option de la timeline";
+"cmd.projectSettings" = "Paramètres du projet";
+"cmd.transform" = "Transformation";
+"cmd.opacity" = "Opacité";
+"cmd.volume" = "Volume";
+"cmd.blend" = "Mode de fusion";
+"cmd.effect" = "Effet";
+"cmd.filter" = "Filtre";
+"cmd.animation" = "Animation";
+"cmd.keyframe" = "Image clé";
+"cmd.text" = "Texte";
+
+/* Erreurs */
+"error.clipNotFound" = "Le clip n'existe plus.";
+"error.trackNotFound" = "La piste n'existe plus.";
+"error.mediaNotFound" = "Fichier média introuvable.";
+"error.trackLocked" = "La piste est verrouillée.";
+"error.invalidTime" = "Impossible à cette position.";
+"error.incompatibleTrack" = "Ce clip ne peut pas aller sur cette piste.";
+"error.nothingToDo" = "Rien à faire.";
+"error.notAPackage" = "Ce n'est pas un projet Montage.";
+"error.unreadable" = "Impossible de lire le fichier du projet.";
+"error.newerSchema" = "Ce projet a été créé avec une version plus récente de Montage.";
+"error.migrationFailed" = "Impossible de mettre à jour le projet.";
+
+/* Propriétés animables */
+"prop.position" = "Position";
+"prop.scale" = "Échelle";
+"prop.rotation" = "Rotation";
+"prop.opacity" = "Opacité";
+"prop.volume" = "Volume";
+"prop.maskCenter" = "Position du masque";
+"prop.maskSize" = "Taille du masque";
+"prop.maskFeather" = "Contour progressif";
+"prop.maskRotation" = "Rotation du masque";
+"prop.textColor" = "Couleur du texte";
+
+/* Modes de fusion */
+"blend.normal" = "Normal";
+"blend.darken" = "Obscurcir";
+"blend.multiply" = "Produit";
+"blend.colorBurn" = "Densité couleur +";
+"blend.lighten" = "Éclaircir";
+"blend.screen" = "Superposition claire";
+"blend.colorDodge" = "Densité couleur -";
+"blend.add" = "Addition";
+"blend.overlay" = "Incrustation";
+"blend.softLight" = "Lumière tamisée";
+"blend.hardLight" = "Lumière crue";
+"blend.difference" = "Différence";
+"blend.exclusion" = "Exclusion";
+
+/* Masques */
+"mask.linear" = "Linéaire";
+"mask.mirror" = "Miroir";
+"mask.circle" = "Cercle";
+"mask.rectangle" = "Rectangle";

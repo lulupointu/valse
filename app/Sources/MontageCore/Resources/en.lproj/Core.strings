@@ -1,0 +1,68 @@
+/* Commands (undo/redo labels) */
+"cmd.edit" = "Edit";
+"cmd.editClip" = "Edit clip";
+"cmd.import" = "Import media";
+"cmd.addClip" = "Add clip";
+"cmd.move" = "Move";
+"cmd.trim" = "Trim";
+"cmd.split" = "Split";
+"cmd.delete" = "Delete";
+"cmd.speed" = "Speed";
+"cmd.transition" = "Transition";
+"cmd.timelineOption" = "Timeline option";
+"cmd.projectSettings" = "Project settings";
+"cmd.transform" = "Transform";
+"cmd.opacity" = "Opacity";
+"cmd.volume" = "Volume";
+"cmd.blend" = "Blend mode";
+"cmd.effect" = "Effect";
+"cmd.filter" = "Filter";
+"cmd.animation" = "Animation";
+"cmd.keyframe" = "Keyframe";
+"cmd.text" = "Text";
+
+/* Errors */
+"error.clipNotFound" = "The clip no longer exists.";
+"error.trackNotFound" = "The track no longer exists.";
+"error.mediaNotFound" = "Media file not found.";
+"error.trackLocked" = "The track is locked.";
+"error.invalidTime" = "This can't be done at this position.";
+"error.incompatibleTrack" = "This clip can't go on that track.";
+"error.nothingToDo" = "Nothing to do.";
+"error.notAPackage" = "This is not a Montage project.";
+"error.unreadable" = "The project file could not be read.";
+"error.newerSchema" = "This project was created with a newer version of Montage.";
+"error.migrationFailed" = "The project could not be upgraded.";
+
+/* Animatable properties */
+"prop.position" = "Position";
+"prop.scale" = "Scale";
+"prop.rotation" = "Rotate";
+"prop.opacity" = "Opacity";
+"prop.volume" = "Volume";
+"prop.maskCenter" = "Mask position";
+"prop.maskSize" = "Mask size";
+"prop.maskFeather" = "Feather";
+"prop.maskRotation" = "Mask rotation";
+"prop.textColor" = "Text color";
+
+/* Blend modes */
+"blend.normal" = "Normal";
+"blend.darken" = "Darken";
+"blend.multiply" = "Multiply";
+"blend.colorBurn" = "Color burn";
+"blend.lighten" = "Lighten";
+"blend.screen" = "Screen";
+"blend.colorDodge" = "Color dodge";
+"blend.add" = "Add";
+"blend.overlay" = "Overlay";
+"blend.softLight" = "Soft light";
+"blend.hardLight" = "Hard light";
+"blend.difference" = "Difference";
+"blend.exclusion" = "Exclusion";
+
+/* Masks */
+"mask.linear" = "Linear";
+"mask.mirror" = "Mirror";
+"mask.circle" = "Circle";
+"mask.rectangle" = "Rectangle";
