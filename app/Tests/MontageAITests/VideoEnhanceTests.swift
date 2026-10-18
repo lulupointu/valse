@@ -123,6 +123,33 @@ import MontageTestSupport
             #expect(p[id].mediaID == a.id && p[id].enhance == nil)
         }
     }
+
+    @Test func upscaledSizes() {
+        #expect(VideoEnhancer.upscaledSize(.hd, width: 1280, height: 720) == (2560, 1440))
+        #expect(VideoEnhancer.upscaledSize(.uhd, width: 1920, height: 1080) == (3840, 2160))
+        #expect(VideoEnhancer.upscaledSize(.uhd, width: 640, height: 360) == (2560, 1440))   // ×4 max
+        #expect(VideoEnhancer.upscaledSize(.uhd, width: 1280, height: 720) == (3840, 2160))
+    }
+
+    /// AI2: sources above 960 px (and UHD) go through VideoToolbox's full ML super resolution (×4 + downscale).
+    @Test func enhanceQualityAbove960pxAndUHD() async throws {
+        try await HeavyWorkGate.run {
+            let url = try await TestMedia.video(.movingBox(.white, .red), seconds: 0.5, size: CGSize(width: 1280, height: 720))
+            var p = TestProject(canvas: Size2(1280, 720))
+            let id = try await p.addMedia(url)
+            let a = p.project.media[0]
+            guard VideoEnhancer.fullScalerSupports(1280, 720) else { print("skip: no full super resolution on this Mac"); return }
+            #expect(VideoEnhancer.canUpscale(a))
+            let cmd = try await VideoEnhanceJob.run(project: p.project, clipID: id, enhancement: VideoEnhancement(original: a.id, upscale: .uhd))
+            try cmd.apply(to: &p.project)
+            let now = try #require(p[id].mediaID.flatMap(p.project.asset))
+            #expect(now.pixelSize == Size2(3840, 2160))
+            #expect(abs(now.duration.seconds - 0.5) < 0.1)
+            // the white background stays white, the red box stays red
+            let img = try await p.render(at: 0.25)
+            #expect(img.average(x: 0, y: 0, w: 1, h: 0.15).luma > 0.85)
+        }
+    }
 }
 
 struct SplitMix64 {

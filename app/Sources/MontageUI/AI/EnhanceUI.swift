@@ -55,12 +55,19 @@ struct EnhanceProgress: View {
 struct EnhanceQualitySection: View {
     let ctx: InspectorContext
     var body: some View {
+        let e = ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance
+        let target = e?.upscale ?? .hd
         VStack(alignment: .leading, spacing: 4) {
             EnhanceProgress(ctx: ctx)
             InlineRow(label: tr("enhance.quality.level")) {
-                Dropdown(items: [(UpscaleTarget.hd, tr(UpscaleTarget.hd.nameKey))], selection: .hd) { _ in }
+                // AI2: UHD (up to 4K) and sources above 960 px use VideoToolbox's full ML super resolution
+                SegmentedTabs(UpscaleTarget.allCases.map { (id: $0.rawValue, title: tr($0.nameKey)) }, selection: Binding(get: { target.rawValue }, set: { v in
+                    guard let id = ctx.clip?.id, let t = UpscaleTarget(rawValue: v), e?.upscale != nil else { return }
+                    ctx.store.updateEnhancement(id) { $0.upscale = t }
+                }))
+                .testID("enhance.quality.target")
             }
-            HintText(text: tr("enhance.quality.hint"))
+            HintText(text: tr(target == .hd ? "enhance.quality.hint" : "enhance.quality.hintUHD"))
         }
     }
 }

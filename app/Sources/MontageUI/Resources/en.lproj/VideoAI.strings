@@ -67,8 +67,9 @@
 "enhance.quality.level" = "Quality";
 "enhance.quality.hd" = "HD";
 "enhance.quality.uhd" = "UHD";
-"enhance.quality.hint" = "HD makes videos clearer and more natural (on-device super resolution ×2).";
-"enhance.quality.unavailable" = "Available for videos up to 960 px on this Mac";
+"enhance.quality.hint" = "HD makes videos clearer and more natural (on-device super resolution ×2, also above 960 px).";
+"enhance.quality.unavailable" = "Available for videos up to 1080p on this Mac";
+"enhance.quality.hintUHD" = "UHD provides more precise and vivid details (on-device super resolution up to 4K; the first use downloads the macOS model).";
 "enhance.denoise" = "Reduce image noise";
 "enhance.flicker" = "Remove flickers";
 "enhance.flicker.mode" = "Mode";

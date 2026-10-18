@@ -23,11 +23,28 @@ public enum VideoEnhancer {
         directory.appendingPathComponent("\(a.contentHash)-\(e.key).mov")
     }
 
-    /// Whether ×2 super resolution applies to this media (low-latency scaler limits).
+    /// Whether super resolution applies to this media: the low-latency ×2 scaler (≤ 960 px) or VideoToolbox's full
+    /// ML super resolution scaler (×4, sources up to 1920×1080; its OS model downloads on first use).
     public static func canUpscale(_ a: MediaAsset) -> Bool {
-        guard #available(macOS 26.0, *), VTLowLatencySuperResolutionScalerConfiguration.isSupported else { return false }
         let (w, h) = rawSize(a)
+        return lowLatencySupports(w, h) || fullScalerSupports(w, h)
+    }
+
+    static func lowLatencySupports(_ w: Int, _ h: Int) -> Bool {
+        guard #available(macOS 26.0, *), VTLowLatencySuperResolutionScalerConfiguration.isSupported else { return false }
         return !VTLowLatencySuperResolutionScalerConfiguration.supportedScaleFactors(frameWidth: w, frameHeight: h).isEmpty
+    }
+
+    static func fullScalerSupports(_ w: Int, _ h: Int) -> Bool {
+        guard #available(macOS 26.0, *), VTSuperResolutionScalerConfiguration.isSupported,
+              VTSuperResolutionScalerConfiguration.supportedScaleFactors.contains(4) else { return false }
+        return max(w, h) <= 1920 && min(w, h) <= 1080 && w >= 64 && h >= 64
+    }
+
+    /// Output size of an upscale: HD = ×2, UHD = up to 3840 px on the long side (×4 max); even dimensions.
+    public static func upscaledSize(_ target: UpscaleTarget, width w: Int, height h: Int) -> (Int, Int) {
+        let k: Double = target == .hd ? 2 : min(4, max(2, 3840 / Double(max(w, h))))
+        return (Int((Double(w) * k / 2).rounded()) * 2, Int((Double(h) * k / 2).rounded()) * 2)
     }
 
     static func rawSize(_ a: MediaAsset) -> (Int, Int) {
@@ -57,7 +74,9 @@ public enum VideoEnhancer {
         }
         // 2. processing pass
         let upscale = e.upscale != nil && canUpscale(a)
-        let (ow, oh) = upscale ? (w * 2, h * 2) : (w, h)
+        let (ow, oh) = upscale ? upscaledSize(e.upscale!, width: w, height: h) : (w, h)
+        // ×2 on small sources: the low-latency scaler; anything else: the full scaler (×4) then a GPU downscale
+        let useFull = upscale && !(ow == w * 2 && oh == h * 2 && lowLatencySupports(w, h))
         let tmp = out.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).mov")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let writer = try AVAssetWriter(outputURL: tmp, fileType: .mov)
@@ -104,7 +123,10 @@ public enum VideoEnhancer {
         var scale: ((CVPixelBuffer, CMTime) async throws -> CVPixelBuffer)?
         var endScaler: (() -> Void)?
         var newBuffer: () -> CVPixelBuffer? = { makeBuffer(w, h) }
-        if upscale, #available(macOS 26.0, *) {
+        if upscale, useFull, #available(macOS 26.0, *) {
+            let sc = try await FullScaler(width: w, height: h, outWidth: ow, outHeight: oh)
+            scale = { try await sc.scale($0, pts: $1) }; endScaler = { sc.end() }
+        } else if upscale, #available(macOS 26.0, *) {
             let sc = try Scaler(width: w, height: h)
             scale = { try await sc.scale($0, pts: $1) }; endScaler = { sc.end() }
             newBuffer = { sc.sourceBuffer() }
@@ -295,6 +317,67 @@ public enum VideoEnhancer {
             return dst
         }
         func end() { processor.endSession() }
+    }
+
+    /// VideoToolbox ML super resolution (×4, temporal: previous source/output frames are fed back), then a
+    /// VTPixelTransferSession downscale to the requested output size. Downloads the OS model first if needed.
+    @available(macOS 26.0, *)
+    final class FullScaler: @unchecked Sendable {
+        let processor = VTFrameProcessor()
+        let srcPool: CVPixelBufferPool, dstPool: CVPixelBufferPool, outPool: CVPixelBufferPool
+        let transfer: VTPixelTransferSession
+        var previous: (src: VTFrameProcessorFrame, out: VTFrameProcessorFrame)?
+
+        init(width: Int, height: Int, outWidth: Int, outHeight: Int) async throws {
+            guard let cfg = VTSuperResolutionScalerConfiguration(frameWidth: width, frameHeight: height, scaleFactor: 4, inputType: .video,
+                                                                 usePrecomputedFlow: false, qualityPrioritization: .normal,
+                                                                 revision: VTSuperResolutionScalerConfiguration.defaultRevision)
+            else { throw AIToolError.unavailable("super resolution: unsupported size") }
+            if cfg.configurationModelStatus != .ready {
+                let box = UncheckedSendable(cfg)
+                try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                    box.value.downloadConfigurationModel { err in if let err { c.resume(throwing: err) } else { c.resume() } }
+                }
+            }
+            try processor.startSession(configuration: cfg)
+            var a: CVPixelBufferPool?, b: CVPixelBufferPool?, o: CVPixelBufferPool?
+            CVPixelBufferPoolCreate(nil, nil, cfg.sourcePixelBufferAttributes as CFDictionary, &a)
+            CVPixelBufferPoolCreate(nil, nil, cfg.destinationPixelBufferAttributes as CFDictionary, &b)
+            CVPixelBufferPoolCreate(nil, nil, [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                                               kCVPixelBufferWidthKey as String: outWidth, kCVPixelBufferHeightKey as String: outHeight,
+                                               kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary, &o)
+            var t: VTPixelTransferSession?
+            VTPixelTransferSessionCreate(allocator: nil, pixelTransferSessionOut: &t)
+            guard let a, let b, let o, let t else { throw AIToolError.noInput }
+            srcPool = a; dstPool = b; outPool = o; transfer = t
+        }
+
+        func make(_ pool: CVPixelBufferPool) throws -> CVPixelBuffer {
+            var pb: CVPixelBuffer?
+            CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pb)
+            guard let pb else { throw AIToolError.noInput }
+            return pb
+        }
+
+        func scale(_ work: CVPixelBuffer, pts: CMTime) async throws -> CVPixelBuffer {
+            let src = try make(srcPool), dst = try make(dstPool), out = try make(outPool)
+            guard VTPixelTransferSessionTransferImage(transfer, from: work, to: src) == noErr,
+                  let fs = VTFrameProcessorFrame(buffer: src, presentationTimeStamp: pts),
+                  let fd = VTFrameProcessorFrame(buffer: dst, presentationTimeStamp: pts),
+                  let params = VTSuperResolutionScalerParameters(sourceFrame: fs, previousFrame: previous?.src,
+                                                                  previousOutputFrame: previous?.out, opticalFlow: nil,
+                                                                  submissionMode: .sequential, destinationFrame: fd)
+            else { throw AIToolError.noInput }
+            let box = UncheckedSendable(params)
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                processor.process(parameters: box.value) { _, err in if let err { c.resume(throwing: err) } else { c.resume() } }
+            }
+            previous = (fs, fd)
+            guard VTPixelTransferSessionTransferImage(transfer, from: dst, to: out) == noErr else { throw AIToolError.noInput }
+            return out
+        }
+
+        func end() { processor.endSession(); VTPixelTransferSessionInvalidate(transfer) }
     }
 }
 
