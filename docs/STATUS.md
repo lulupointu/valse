@@ -32,7 +32,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | merged (all 8 gaps fixed) | main 9b94922 |
 | BUG1 | Owner bugs: crash on voice-changer clip in project 1018; HDR(HLG) footage colours wrong in SDR / washed in HDR | 4 | running | |
 | BUG2 | Owner bugs: auto captions too big (out of 9:16 frame); caption timing early/late/badly cut | 4 | running | |
-| FIN | Final polish backlog (collect here): text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
+| FIN | Final polish backlog (collect here): flaky W13 `libraryPreviewLeavesTimelineUntouched` (playhead race under load); text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
 | AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | merged (AI-048, AI-005, TX-038, TX-030, TX-034, AI-024/CL-020, AI-025, AI-013 (hand + custom box), CL-019 done; AI-041 track object; AI-031 Home wizard; quit-mid-job + LaMa segfault fixed) | worktree-agent-ace3ab6274c22fd67 |
 | MUS | Music & sound library usable on Instagram (AU-001, AU-025): bundled royalty-free/CC0 music + SFX with license metadata, mood/genre browse, "similar sounds" via local audio embeddings | 3 | running | |
 
