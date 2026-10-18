@@ -118,6 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let config = UITestDriver.Config(script: script, outDir: options.uitestOut, baselines: options.baselines,
                                              updateBaselines: options.updateBaselines)
             UITestDriver.projectHook = { [weak self] spec in try await self?.app.uitestSetUp(spec) ?? false }
+            StateDump.appHook = { [weak self] in self?.app.stateDump() ?? [:] }
             let code = await UITestDriver(store: store, window: window, config: config).run()
             exit(code)
         }

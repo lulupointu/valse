@@ -1,0 +1,42 @@
+// W12 Settings: every tab, edit defaults, performance (proxies), live language switch en → fr → en (no relaunch).
+{
+  "project": "home",
+  "steps": [
+    {"click": "id:home.top.settings"},
+    {"expect": [{"path": "app.modal", "equals": "settings"}, {"path": "ui.anchors", "contains": "settings.language.fr"}]},
+    {"snapshot": "settings-general", "element": "id:settings"},
+    {"click": "id:settings.tab.edit"},
+    {"click": "id:settings.field.imageDuration"},
+    {"type": "3", "replace": true},
+    {"key": "return"},
+    {"snapshot": "settings-edit", "element": "id:settings"},
+    {"click": "id:settings.tab.performance"},
+    {"click": "id:settings.check.useProxies"},
+    {"snapshot": "settings-performance", "element": "id:settings", "baseline": true},
+    {"click": "id:settings.tab.export"},
+    {"snapshot": "settings-export", "element": "id:settings"},
+    {"click": "id:settings.tab.project"},
+    {"snapshot": "settings-project", "element": "id:settings"},
+    {"click": "id:settings.tab.shortcuts"},
+    {"snapshot": "settings-shortcuts", "element": "id:settings"},
+    {"click": "id:settings.tab.about"},
+    {"snapshot": "settings-about", "element": "id:settings"},
+    {"click": "id:settings.tab.general"},
+    {"click": "id:settings.language.fr"},
+    // nothing applied before Save
+    {"expect": [{"path": "ui.language", "equals": "en"}, {"path": "app.settings.imageDuration", "equals": 5}]},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "ui.language", "equals": "fr"}, {"path": "app.modal", "equals": ""},
+                {"path": "app.settings.imageDuration", "equals": 3}, {"path": "app.settings.useProxies", "equals": false},
+                {"path": "ui.menu", "contains": "Fichier"}, {"path": "ui.menu", "contains": "Chronologie"}]},
+    {"waitFor": {"path": "ui.toast", "exists": false, "timeout": 6}},
+    {"snapshot": "home-fr", "baseline": true},
+    {"menu": "menu.app/menu.settings"},
+    {"click": "id:settings.tab.performance"},
+    {"snapshot": "settings-performance-fr", "element": "id:settings"},
+    {"click": "id:settings.tab.general"},
+    {"click": "id:settings.language.en"},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "ui.language", "equals": "en"}, {"path": "ui.menu", "contains": "File"}]}
+  ]
+}

@@ -119,21 +119,30 @@ struct ShortcutList: View {
                 }
             }
             .background(Theme.inset.opacity(compact ? 0 : 0.6), in: RoundedRectangle(cornerRadius: 8))
-            Text(loc: recording == nil ? "keymap.hint" : "keymap.recordingHint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if let p = pending {
+                // inline conflict prompt ("⌘B shortcut already belongs to Split. Override it?")
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 13)).foregroundStyle(Color(hex: 0xE8B33A))
+                    Text(loc: "keymap.conflict.message", p.binding.display, p.conflicts.map { tr($0.titleKey) }.joined(separator: ", "))
+                        .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button(tr("common.cancel")) { pending = nil }.buttonStyle(SecondaryButtonStyle()).testID("keymap.conflict.cancel")
+                    Button(tr("keymap.conflict.override")) {
+                        keymap.assign(p.binding, to: p.id)
+                        pending = nil
+                    }
+                    .buttonStyle(AccentButtonStyle()).testID("keymap.conflict.override")
+                }
+                .padding(.horizontal, 12).frame(height: 40)
+                .background(Color(hex: 0xE8B33A).opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: 0xE8B33A).opacity(0.4)))
+                .testID("keymap.conflict")
+            } else {
+                Text(loc: recording == nil ? "keymap.hint" : "keymap.recordingHint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .onDisappear(perform: stopRecording)
-        .alert(tr("keymap.conflict.title"), isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } })) {
-            Button(tr("keymap.conflict.override")) {
-                if let p = pending { keymap.assign(p.binding, to: p.id) }
-                pending = nil
-            }
-            Button(tr("common.cancel"), role: .cancel) { pending = nil }
-        } message: {
-            if let p = pending {
-                Text(loc: "keymap.conflict.message", p.binding.display, p.conflicts.map { tr($0.titleKey) }.joined(separator: ", "))
-            }
-        }
     }
 
     func column(_ items: [KeymapEntry]) -> some View {

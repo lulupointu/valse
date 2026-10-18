@@ -45,7 +45,8 @@
 "home.empty.recents" = "Les projets que vous ouvrez apparaissent ici.";
 "home.trash.hint" = "Les projets de la corbeille sont supprimés au bout de %d jours.";
 "home.trash.empty" = "Vider la corbeille";
-"home.selected" = "%d sélectionné(s)";
+"home.selected.one" = "%d sélectionné";
+"home.selected.other" = "%d sélectionnés";
 "home.open" = "Ouvrir";
 "home.rename" = "Renommer";
 "home.duplicate" = "Dupliquer";
@@ -62,8 +63,10 @@
 "home.more" = "Plus";
 "home.card.help" = "Modifié le %@ — cliquez pour ouvrir, ⌘-clic pour sélectionner";
 "home.card.trashedHelp" = "Dans la corbeille — clic droit pour restaurer";
-"home.trashed" = "%d projet(s) placé(s) dans la corbeille";
-"home.imported" = "%d projet(s) importé(s)";
+"home.trashed.one" = "%d projet placé dans la corbeille";
+"home.trashed.other" = "%d projets placés dans la corbeille";
+"home.imported.one" = "%d projet importé";
+"home.imported.other" = "%d projets importés";
 "home.savedToProject" = "Enregistré dans le projet";
 "home.error.fileOperation" = "L'opération n'a pas pu aboutir.";
 "home.error.import" = "Ce n'est pas un projet Montage.";
@@ -98,7 +101,8 @@
 
 /* Rétablir les liens */
 "relink.title" = "Médias introuvables";
-"relink.message" = "%d fichier(s) média de ce projet sont introuvables. Localisez-en un : Montage cherche aussi les autres dans le même dossier.";
+"relink.message.one" = "%d fichier média de ce projet est introuvable. Localisez-le : Montage cherche aussi les autres fichiers manquants dans le même dossier.";
+"relink.message.other" = "%d fichiers média de ce projet sont introuvables. Localisez-en un : Montage cherche aussi les autres dans le même dossier.";
 "relink.locate" = "Localiser…";
 "relink.locateMessage" = "Localiser « %@ »";
 "relink.searchFolder" = "Chercher dans un dossier…";

@@ -1,0 +1,44 @@
+// W12 project flow: one-click New project → editor → Back to home ("Saved to project"), custom New project dialog,
+// File ▸ Version history (save version), Recents, open a card, Templates entry.
+{
+  "project": "home:3",
+  "steps": [
+    {"click": "id:home.newProject"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 5}},
+    {"expect": {"path": "app.projectName", "notEquals": ""}},
+    {"menu": "menu.app/menu.home"},
+    {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 5}},
+    {"waitFor": {"path": "ui.toast", "equals": "Saved to project", "timeout": 3}},
+    {"expect": {"path": "app.projects.count", "equals": 4}},
+    // custom dialog
+    {"click": "id:home.newProject.custom"},
+    {"expect": {"path": "app.modal", "equals": "newProject"}},
+    {"snapshot": "new-project-dialog"},
+    {"click": "id:newProject.name"},
+    {"type": "Custom one", "replace": true},
+    {"click": "id:dialog.ok"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 5}},
+    {"expect": [{"path": "app.projectName", "equals": "Custom one"}, {"path": "app.modal", "equals": ""}]},
+    // version history
+    {"menu": "menu.file/menu.versions"},
+    {"expect": {"path": "app.modal", "equals": "versions"}},
+    {"click": "id:version.saveNow"},
+    {"waitFor": {"path": "ui.anchors", "contains": "version.row.0", "timeout": 3}},
+    {"snapshot": "versions"},
+    {"click": "id:dialog.close"},
+    {"expect": {"path": "app.modal", "equals": ""}},
+    {"menu": "menu.app/menu.home"},
+    {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 5}},
+    // recents: last opened first
+    {"click": "id:home.nav.recents"},
+    {"expect": [{"path": "app.scope", "equals": "recents"}, {"path": "app.projects.0", "equals": "Custom one"}]},
+    {"click": "id:home.card.0"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 5}},
+    {"expect": {"path": "app.projectName", "equals": "Custom one"}},
+    {"menu": "menu.app/menu.home"},
+    {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 5}},
+    {"click": "id:home.nav.templates"},
+    {"expect": {"path": "app.section", "equals": "templates"}},
+    {"snapshot": "templates"}
+  ]
+}

@@ -218,6 +218,7 @@ public final class AppModel {
 
     public func duplicate(_ items: [LibraryEntry]) {
         let urls = items.map(\.url)
+        selectedIDs = []
         run { lib in for u in urls { try lib.duplicate(u) } }
     }
 
@@ -228,7 +229,7 @@ public final class AppModel {
         Task {
             do {
                 lastTrashed = try await Task.detached { try lib.moveToTrash(urls) }.value
-                store.showToast(tr("home.trashed", urls.count))
+                store.showToast(trCount("home.trashed", urls.count))
             } catch {
                 store.showToast(tr("home.error.fileOperation"), error: true)
             }
@@ -297,7 +298,7 @@ public final class AppModel {
             for u in urls {
                 if (try? await Task.detached { try lib.importProject(from: u) }.value) != nil { ok += 1 }
             }
-            if ok > 0 { store.showToast(tr("home.imported", ok)) } else { store.showToast(tr("home.error.import"), error: true) }
+            if ok > 0 { store.showToast(trCount("home.imported", ok)) } else { store.showToast(tr("home.error.import"), error: true) }
             await refresh()
         }
     }
@@ -370,4 +371,10 @@ public final class AppModel {
             if u.pathExtension == ProjectPackage.fileExtension { open(u) } else { store.showToast(tr("error.notAPackage"), error: true) }
         }
     }
+}
+
+/// Count-dependent string: `<key>.one` / `<key>.other` (French uses the singular for 0 and 1).
+@MainActor func trCount(_ key: String, _ n: Int) -> String {
+    let one = L10n.shared.language.hasPrefix("fr") ? n <= 1 : n == 1
+    return tr(key + (one ? ".one" : ".other"), n)
 }

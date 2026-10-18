@@ -21,6 +21,7 @@ struct NewProjectDialog: View {
                         TextField("", text: $name).textFieldStyle(.plain).font(.system(size: 12))
                             .padding(.horizontal, 8).frame(height: 28)
                             .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
+                            .testID("newProject.name")
                     }
                     SettingsRow(tr("details.ratio")) {
                         Dropdown(items: ProjectSettingsSheet.ratios.map { ($0, ProjectSettingsSheet.ratioTitle($0)) }, selection: ratio) { ratio = $0 }
@@ -87,12 +88,12 @@ struct ProjectDetailsDialog: View {
                 Rectangle().fill(Theme.separator).frame(height: 1)
                 DetailRow(label: tr("home.details.media"), value: "\(s.mediaCount)")
                 DetailRow(label: tr("home.details.clips"), value: "\(s.clipCount)")
-                DetailRow(label: tr("home.col.size"), value: CacheManager.format(entry.sizeBytes))
+                DetailRow(label: tr("home.col.size"), value: HomeFormat.bytes(entry.sizeBytes))
                 DetailRow(label: tr("home.details.created"), value: HomeFormat.date(s.createdAt))
                 DetailRow(label: tr("home.col.modified"), value: HomeFormat.date(s.modifiedAt))
                 DetailRow(label: tr("details.saved"), value: entry.url.path)
                 HStack(spacing: 8) {
-                    DetailRow(label: tr("home.details.cache"), value: app.cacheSizes[entry.id].map(CacheManager.format) ?? "…")
+                    DetailRow(label: tr("home.details.cache"), value: app.cacheSizes[entry.id].map(HomeFormat.bytes) ?? "…")
                     Button { app.clearCache(entry) } label: { Image(systemName: "trash").font(.system(size: 12)) }
                         .buttonStyle(.plain).foregroundStyle(Theme.textSecondary)
                         .frame(width: 28, height: 28).background(Theme.stepper, in: RoundedRectangle(cornerRadius: 4))
@@ -123,7 +124,7 @@ struct VersionHistoryDialog: View {
                 Text(loc: "version.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                 ScrollView {
                     LazyVStack(spacing: 2) {
-                        ForEach(versions) { v in
+                        ForEach(Array(versions.enumerated()), id: \.element.id) { i, v in
                             HStack {
                                 Image(systemName: icon(v.kind)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).frame(width: 18)
                                 VStack(alignment: .leading, spacing: 1) {
@@ -139,6 +140,7 @@ struct VersionHistoryDialog: View {
                             .contentShape(Rectangle())
                             .onTapGesture { selected = v }
                             .onTapGesture(count: 2) { restore(v) }
+                            .testID("version.row.\(i)")
                         }
                         if versions.isEmpty {
                             Text(loc: "version.empty").font(.system(size: 12)).foregroundStyle(Theme.textTertiary).padding(.vertical, 30)
@@ -148,10 +150,10 @@ struct VersionHistoryDialog: View {
                 .frame(height: 280)
                 .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
                 HStack {
-                    Button(tr("version.saveNow")) { app.store.saveVersionNow(); reloadSoon() }.buttonStyle(SecondaryButtonStyle())
+                    Button(tr("version.saveNow")) { app.store.saveVersionNow(); reloadSoon() }.buttonStyle(SecondaryButtonStyle()).testID("version.saveNow")
                     Spacer()
                     Button(tr("version.restore")) { if let selected { restore(selected) } }
-                        .buttonStyle(AccentButtonStyle()).disabled(selected == nil).opacity(selected == nil ? 0.5 : 1)
+                        .buttonStyle(AccentButtonStyle()).disabled(selected == nil).opacity(selected == nil ? 0.5 : 1).testID("version.restore")
                 }
             }
             .padding(16)
@@ -180,7 +182,7 @@ struct RelinkDialog: View {
         let missing = app.store.missingMedia
         DialogCard(title: tr("relink.title"), width: 480, onClose: { app.modal = nil }) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(loc: "relink.message", missing.count).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                Text(verbatim: trCount("relink.message", missing.count)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 ScrollView {
                     VStack(spacing: 2) {
@@ -209,7 +211,7 @@ struct RelinkDialog: View {
                 HStack {
                     Button(tr("relink.searchFolder")) { searchFolder() }.buttonStyle(SecondaryButtonStyle()).disabled(missing.isEmpty)
                     Spacer()
-                    Button(missing.isEmpty ? tr("common.done") : tr("relink.later")) { app.modal = nil }.buttonStyle(AccentButtonStyle())
+                    Button(missing.isEmpty ? tr("common.done") : tr("relink.later")) { app.modal = nil }.buttonStyle(AccentButtonStyle()).testID("relink.close")
                 }
             }
             .padding(16)

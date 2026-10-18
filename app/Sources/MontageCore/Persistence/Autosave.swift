@@ -4,7 +4,7 @@ import Foundation
 /// A lock left behind by a dead process means the previous session crashed (the autosaved state is then what the
 /// user gets back, at most `AutosavePolicy.idleDelay` old).
 public enum SessionLock {
-    static let fileName = ".session.lock"
+    public static let fileName = ".session.lock"
 
     /// Takes the lock. Returns true if a stale lock from a crashed session was found.
     @discardableResult

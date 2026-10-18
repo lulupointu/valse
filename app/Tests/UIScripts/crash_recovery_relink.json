@@ -1,0 +1,17 @@
+// W12 crash recovery prompt ("Montage quit unexpectedly… Recover project") and the relink dialog for missing media.
+{
+  "project": "home:3:crash:missing",
+  "steps": [
+    {"expect": {"path": "app.modal", "equals": "recovery"}},
+    {"snapshot": "recovery"},
+    {"click": "id:dialog.ok"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 5}},
+    {"expect": [{"path": "app.projectName", "equals": "Vacances à Biarritz"}, {"path": "app.modal", "equals": "relink"}]},
+    {"snapshot": "relink"},
+    {"click": "id:relink.close"},
+    {"expect": {"path": "app.modal", "equals": ""}},
+    {"menu": "menu.app/menu.home"},
+    {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 5}},
+    {"expect": [{"path": "app.modal", "equals": ""}, {"path": "app.projects.count", "equals": 3}]}
+  ]
+}

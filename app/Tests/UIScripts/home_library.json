@@ -1,0 +1,60 @@
+// W12 Home: grid, search, list view + column sort, folders, trash, multi-select, duplicate, rename, delete → Trash.
+{
+  "project": "home:12",
+  "steps": [
+    {"expect": [{"path": "app.screen", "equals": "home"}, {"path": "app.projects.count", "equals": 11}, {"path": "app.trashCount", "equals": 1},
+                {"path": "app.folders", "equals": ["Travel", "Clients"]}]},
+    {"snapshot": "home-grid", "baseline": true, "tolerance": 0.02, "threshold": 32},
+    // search
+    {"click": "id:home.search"},
+    {"type": "vlog"},
+    {"expect": [{"path": "app.search", "equals": "vlog"}, {"path": "app.projects", "equals": ["Gym vlog"]}]},
+    {"click": "id:home.search.clear"},
+    {"expect": {"path": "app.projects.count", "equals": 11}},
+    // list view, sort by name (ascending), back to grid
+    {"click": "id:home.view.list"},
+    {"expect": {"path": "app.viewMode", "equals": "list"}},
+    {"click": "id:home.col.name"},
+    {"expect": [{"path": "app.sort", "equals": "name"}, {"path": "app.ascending", "equals": true}, {"path": "app.projects.0", "equals": "Birthday 2026"}]},
+    {"snapshot": "home-list", "element": "id:home.row.0"},
+    {"click": "id:home.col.name"},
+    {"expect": {"path": "app.ascending", "equals": false}},
+    {"click": "id:home.col.modified"},
+    {"click": "id:home.view.grid"},
+    {"expect": {"path": "app.viewMode", "equals": "grid"}},
+    // folders
+    {"click": "id:home.nav.folder.0"},
+    {"expect": [{"path": "app.scope", "equals": "folder:Travel"}, {"path": "app.projects.count", "equals": 2}]},
+    {"click": "id:home.nav.home"},
+    // ⌘-click two cards → selection bar → duplicate
+    {"click": "id:home.card.2", "modifiers": ["cmd"]},
+    {"click": "id:home.card.3", "modifiers": ["cmd"]},
+    {"expect": {"path": "app.selected.count", "equals": 2}},
+    {"click": "id:home.selection.duplicate"},
+    {"waitFor": {"path": "app.projects.count", "equals": 13, "timeout": 5}},
+    // Edit ▸ Rename on a single selection
+    {"click": "id:home.card.0", "modifiers": ["cmd"]},
+    {"expect": {"path": "app.selected.count", "equals": 1}},
+    {"menu": "menu.edit/home.rename"},
+    {"expect": {"path": "app.renaming", "notEquals": ""}},
+    {"type": "Renamed project", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "app.projects", "contains": "Renamed project", "timeout": 5}},
+    // ⌫ moves the selection to the Trash (toast, no confirmation)
+    {"click": "id:home.card.0", "modifiers": ["cmd"]},
+    {"key": "delete"},
+    {"waitFor": {"path": "app.trashCount", "equals": 2, "timeout": 5}},
+    {"expect": {"path": "ui.toast", "exists": true}},
+    // Trash: click selects, ⌫ deletes forever
+    {"click": "id:home.nav.trash"},
+    {"expect": [{"path": "app.scope", "equals": "trash"}, {"path": "app.projects.count", "equals": 2}]},
+    {"snapshot": "home-trash"},
+    {"click": "id:home.card.0"},
+    {"expect": {"path": "app.selected.count", "equals": 1}},
+    {"key": "delete"},
+    {"waitFor": {"path": "app.trashCount", "equals": 1, "timeout": 5}},
+    {"click": "id:home.trash.empty"},
+    {"waitFor": {"path": "app.trashCount", "equals": 0, "timeout": 5}},
+    {"expect": {"path": "ui.anchors", "contains": "home.empty"}}
+  ]
+}

@@ -14,9 +14,13 @@ import MontageEngine
 ///   blend, selected}`
 /// - `ui`: `{inspectorTab, inspectorTabs, assetTab, exportSheet, language, toast, pixelsPerSecond, scrollTime, scrollY,
 ///   menu: [top-level menu titles], anchors: [testIDs on screen]}`
+/// - `app` (when the app shell runs): `{screen, modal, section, scope, search, sort, ascending, viewMode, selected, renaming,
+///   projects: [visible names], entries: [{name, folder, trashed}], folders, trashCount, settings, keymap}`
 /// - `media`: `[{id, name, kind, duration}]`; `project`: the full `Project` JSON (as saved in project.json)
 @MainActor
 public enum StateDump {
+    /// App-level state (W12 `AppModel`: screen, Home library, modal, settings) → `app` in the dump.
+    public static var appHook: (@MainActor () -> [String: Any])?
     public static func make(_ store: EditorStore, includeProject: Bool = true) -> [String: Any] {
         let p = store.project
         let tl = p.timeline
@@ -82,6 +86,7 @@ public enum StateDump {
             "ui": ui,
         ]
         if let m = tl.mainTrackIndex { d["main"] = tracks[m] }
+        if let app = appHook?() { d["app"] = app }
         if includeProject, let data = try? JSONEncoder().encode(p), let obj = try? JSONSerialization.jsonObject(with: data) {
             d["project"] = obj
         }

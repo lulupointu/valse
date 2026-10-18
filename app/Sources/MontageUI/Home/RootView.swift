@@ -26,6 +26,8 @@ public struct RootView: View {
                     .onTapGesture { if modal.dismissesOnBackdrop { app.modal = nil } }
                     .transition(.opacity)
                 ModalHost(app: app, modal: modal)
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0.55) }
+                    .onDisappear { if app.modal == nil { SnapshotRegistry.shared.modal = nil } }
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     .id("\(modal.id)-\(locale.revision)")
             }
@@ -83,6 +85,7 @@ struct DialogCard<Content: View>: View {
                     Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                         .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("common.close"))
                         .keyboardShortcut(.cancelAction)
+                        .testID("dialog.close")
                 }
             }
             .padding(.horizontal, 16).frame(height: 44)
@@ -92,7 +95,8 @@ struct DialogCard<Content: View>: View {
         .frame(width: width)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.06)))
-        .shadow(color: .black.opacity(0.5), radius: 30, y: 10)
+        // CPU-rendered blur makes offscreen test snapshots take seconds: no shadow under UI tests
+        .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.5), radius: TestAnchors.isEnabled ? 0 : 30, y: 10)
     }
 }
 
@@ -110,11 +114,13 @@ struct DialogFooter: View {
                     .background(Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: 6)).contentShape(Rectangle())
             }
             .buttonStyle(.plain).keyboardShortcut(.cancelAction)
+            .testID("dialog.cancel")
             Button(action: onOK) {
                 Text(verbatim: okTitle).font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
                     .background(Theme.accent.opacity(okEnabled ? 1 : 0.4), in: RoundedRectangle(cornerRadius: 6)).contentShape(Rectangle())
             }
             .buttonStyle(.plain).keyboardShortcut(.defaultAction).disabled(!okEnabled)
+            .testID("dialog.ok")
         }
         .foregroundStyle(.white)
     }
@@ -137,6 +143,7 @@ struct TextPromptDialog: View {
                     .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
                     .focused($focused)
                     .onSubmit(commit)
+                    .testID("dialog.field")
                 DialogFooter(okTitle: tr("common.ok"), okEnabled: !text.trimmingCharacters(in: .whitespaces).isEmpty, onCancel: onClose, onOK: commit)
             }
             .padding(16)

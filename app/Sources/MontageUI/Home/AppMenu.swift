@@ -56,11 +56,25 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
     /// `multilineOnly` (undo/redo): single-line fields (inspector numbers, names) commit on Return, so ⌘Z there undoes
     /// the edit in the project, like CapCut; only multi-line text editors keep their own typing undo.
     private func textAware(_ id: String, _ selector: Selector, regID: String?, multilineOnly: Bool = false,
+                           home: (@MainActor (AppModel) -> Void)? = nil,
                            _ fallback: @escaping @MainActor (EditorStore) -> Void) -> NSMenuItem {
         item(id, id: regID ?? id) { [unowned self] in
             if let r = NSApp.keyWindow?.firstResponder as? NSText, !(multilineOnly && (r as? NSTextView)?.isFieldEditor == true),
                NSApp.sendAction(selector, to: nil, from: nil) { return }
-            if self.inEditor { fallback(self.store) }
+            if self.inEditor { fallback(self.store) } else if self.onHome, let home { home(self.app) }
+        }
+    }
+
+    var onHome: Bool { app.screen == .home && app.modal == nil }
+
+    /// A registry command that acts on the selected projects when Home is showing (Edit ▸ Duplicate / Delete).
+    private func homeAware(_ id: String, _ titleKey: String? = nil, home: @escaping @MainActor (AppModel) -> Void) -> NSMenuItem {
+        let s = ShortcutRegistry.all.first { $0.id == id }
+        return item(titleKey ?? s?.titleKey ?? id, id: id, enabled: { [unowned self] in
+            self.inEditor || (self.onHome && !self.app.selectedIDs.isEmpty)
+        }) { [unowned self] in
+            if self.onHome { home(self.app); return }
+            ShortcutRegistry.all.first { $0.id == id }?.action(self.store)
         }
     }
 
@@ -142,9 +156,13 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             textAware("menu.cut", #selector(NSText.cut(_:)), regID: "cut") { $0.cutSelection() },
             textAware("menu.copy", #selector(NSText.copy(_:)), regID: "copy") { $0.copySelection() },
             textAware("menu.paste", #selector(NSText.paste(_:)), regID: "paste") { $0.paste() },
-            reg("duplicate"),
-            reg("delete", "menu.delete"),
-            textAware("shortcut.selectAll", #selector(NSText.selectAll(_:)), regID: "selectAll") { $0.selectAll() },
+            homeAware("duplicate") { $0.duplicate($0.selectedEntries) },
+            homeAware("delete", "menu.delete") { $0.trashOrDeleteSelection() },
+            item("home.rename", enabled: { [unowned self] in self.onHome && self.app.selectedIDs.count == 1 }) { [unowned self] in
+                self.app.renamingID = self.app.selectedIDs.first
+            },
+            textAware("shortcut.selectAll", #selector(NSText.selectAll(_:)), regID: "selectAll",
+                      home: { $0.selectedIDs = Set($0.visibleEntries.map(\.id)) }) { $0.selectAll() },
             reg("deselect"),
             .separator(),
             reg("copyAttributes"),

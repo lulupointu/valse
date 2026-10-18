@@ -24,7 +24,7 @@ struct SettingsView: View {
         _tab = State(initialValue: initialTab)
     }
 
-    var width: CGFloat { tab == .shortcuts ? 760 : 580 }
+    var width: CGFloat { tab == .shortcuts ? 760 : 640 }
     var dirty: Bool {
         draft != app.preferences.settings || language != L10n.shared.languagePreference
             || keymap.preset != Keymap.shared.preset || keymap.overrides != Keymap.shared.overrides
@@ -105,7 +105,7 @@ struct SettingsTabBar: View {
                     Text(verbatim: tr(t.nameKey))
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(selection == t ? Theme.textPrimary : Theme.textSecondary)
-                        .lineLimit(1)
+                        .lineLimit(1).minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity, minHeight: 28)
                         .background(selection == t ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
                         .contentShape(Rectangle())
@@ -269,7 +269,7 @@ struct CacheSizeRow: View {
     let onClear: () -> Void
     var body: some View {
         HStack(spacing: 8) {
-            Text(verbatim: size.map(CacheManager.format) ?? "…").font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.textPrimary)
+            Text(verbatim: size.map(HomeFormat.bytes) ?? "…").font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
             SmallSquareButton(symbol: "trash", help: tr("cache.clear"), id: "clear.\(id)", enabled: enabled && (size ?? 0) > 0, action: onClear)
         }
@@ -355,7 +355,7 @@ struct ProjectSettingsTab: View {
                         HStack {
                             Text(verbatim: tr(c.nameKey)).font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
                             Spacer()
-                            Text(verbatim: CacheManager.format(s)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).monospacedDigit()
+                            Text(verbatim: HomeFormat.bytes(s)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).monospacedDigit()
                         }
                         .frame(maxWidth: 260)
                     }

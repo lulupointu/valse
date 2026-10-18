@@ -64,6 +64,11 @@ nonisolated public enum JSONPath {
                 else if let a = v as? [Any] { if !a.contains(where: { equal($0, expected, tol) }) { return fail("to contain \(show(expected))") } }
                 else if let d = v as? [String: Any], let k = expected as? String { if d[k] == nil { return fail("to contain key \(k)") } }
                 else { return fail("a string/array containing \(show(expected))") }
+            case "notContains":
+                if let s = v as? String, let e = expected as? String { if s.contains(e) { return fail("not to contain \(show(e))") } }
+                else if let a = v as? [Any] { if a.contains(where: { equal($0, expected, tol) }) { return fail("not to contain \(show(expected))") } }
+                else if let d = v as? [String: Any], let k = expected as? String { if d[k] != nil { return fail("not to contain key \(k)") } }
+                else if v != nil && !(v is NSNull) { return fail("a string/array not containing \(show(expected))") }
             case "count":
                 let n = (v as? [Any])?.count ?? (v as? [String: Any])?.count ?? (v as? String)?.count
                 if n == nil || number(expected).map({ Double(n!) != $0 }) ?? true { return fail("count \(show(expected))") }

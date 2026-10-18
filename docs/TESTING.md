@@ -83,8 +83,8 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 
 After every input step the driver waits until all posted events were dispatched plus `settle` seconds (default 0.25).
 
-`expect` operators: `equals`, `notEquals`, `approx` (+`tolerance`, default 0.001), `gt`/`gte`/`lt`/`lte`, `contains`
-(string / array / dictionary key), `count`, `exists` (true/false). Numbers compare with 1e-6 tolerance.
+`expect` operators: `equals`, `notEquals`, `approx` (+`tolerance`, default 0.001), `gt`/`gte`/`lt`/`lte`, `contains` /
+`notContains` (string / array / dictionary key), `count`, `exists` (true/false). Numbers compare with 1e-6 tolerance.
 
 ### State dump (what `path` reads)
 

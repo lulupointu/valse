@@ -40,8 +40,13 @@ public final class AppPreferences {
     private func applyGlobals() {
         EditDefaults.current = settings.editDefaults
         ProxyManager.shared.policy = ProxyManager.Policy(rawValue: settings.proxyPolicy) ?? .auto
+        let s = settings
+        ExportDialogModel.firstExportDefaults = { p in
+            (Self.exportDefaults(s, for: p), s.exportDirectory.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) })
+        }
         guard !HomeSandbox.isActive else { return }  // never touch the user's path overrides from a sandbox
         let d = UserDefaults.standard
+        d.set(settings.hardwareEncoding, forKey: ExportDialogModel.hardwareDefaultsKey)
         if let p = settings.projectsDirectory, !p.isEmpty { d.set(p, forKey: MontagePaths.draftsOverrideKey) } else { d.removeObject(forKey: MontagePaths.draftsOverrideKey) }
         if let p = settings.cacheDirectory, !p.isEmpty { d.set(p, forKey: MontagePaths.cacheOverrideKey) } else { d.removeObject(forKey: MontagePaths.cacheOverrideKey) }
     }
@@ -65,7 +70,9 @@ public final class AppPreferences {
     }
 
     /// Export dialog defaults (Settings ▸ Export) for a project.
-    public func exportDefaults(for project: Project) -> ExportSettings {
+    public func exportDefaults(for project: Project) -> ExportSettings { Self.exportDefaults(settings, for: project) }
+
+    public nonisolated static func exportDefaults(_ settings: AppSettings, for project: Project) -> ExportSettings {
         var e = ExportSettings()
         e.codec = ExportSettings.Codec(rawValue: settings.exportCodec) ?? e.codec
         e.bitrateMode = ExportSettings.BitrateMode(rawValue: settings.exportBitrate) ?? e.bitrateMode
@@ -85,7 +92,7 @@ public final class AppPreferences {
         return FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first!
     }
 
-    static func frameRate(_ fps: Double) -> FrameRate {
+    nonisolated static func frameRate(_ fps: Double) -> FrameRate {
         FrameRate.common.min { abs($0.fps - fps) < abs($1.fps - fps) } ?? .fps30
     }
 

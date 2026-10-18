@@ -23,13 +23,27 @@ public enum HomeSandbox {
 
 extension AppModel {
     /// UI test `"project": "home"` / `"home:12"`: Home screen over a sandboxed library with N sample projects.
+    /// `"home:3:crash"`: the newest project looks like it was open when the app crashed (stale session lock) → the
+    /// recovery prompt. `"home:3:missing"`: the newest project references a media file that doesn't exist (relink).
     public func uitestSetUp(_ spec: String) async throws -> Bool {
         guard spec == "home" || spec.hasPrefix("home:") else { return false }
-        let n = Int(spec.split(separator: ":").last ?? "") ?? 0
-        await populateDemoLibrary(count: spec == "home" ? 0 : n)
+        let parts = spec.split(separator: ":").map(String.init)
+        let n = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
+        await populateDemoLibrary(count: n)
         screen = .home
         modal = nil
+        if parts.contains("missing"), let url = visibleEntries.first?.url, var p = try? ProjectPackage.load(from: url) {
+            let a = MediaAsset(name: "Interview.mov", kind: .video, url: URL(fileURLWithPath: "/Volumes/Missing Drive/Interview.mov"),
+                               duration: Time(8), pixelSize: .hd1080, frameRate: .fps30, hasVideo: true, hasAudio: true, contentHash: "missing-demo")
+            p.media.append(a)
+            try? ProjectPackage.save(p, to: url)
+        }
+        if parts.contains("crash"), let url = visibleEntries.first?.url {
+            // a pid that can't be alive: the session "crashed"
+            try? "99999999".write(to: url.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)
+        }
         await refresh()
+        if parts.contains("crash") { checkCrashRecovery() }
         return true
     }
 
@@ -114,5 +128,52 @@ extension AppModel {
             default: break
             }
         }
+    }
+}
+
+extension AppModel {
+    /// `app` section of the UI-test state dump (docs/TESTING.md).
+    public func stateDump() -> [String: Any] {
+        let scopeName: String = {
+            switch scope {
+            case .all: return "all"
+            case .recents: return "recents"
+            case .trash: return "trash"
+            case .folder(let id): return "folder:" + (folders.first { $0.id == id }?.name ?? "?")
+            }
+        }()
+        let visible = visibleEntries
+        let s = preferences.settings
+        let km = Keymap.shared
+        return [
+            "screen": screen == .home ? "home" : "editor",
+            "modal": modal?.id ?? "",
+            "section": section == .projects ? "projects" : "templates",
+            "scope": scopeName,
+            "search": isSearching ? search : "",
+            "sort": sort.rawValue, "ascending": ascending,
+            "viewMode": viewMode.rawValue,
+            "selected": visible.filter { selectedIDs.contains($0.id) }.map(\.name),
+            "renaming": entries.first { $0.id == renamingID }?.name ?? "",
+            "projects": visible.map(\.name),
+            "entries": entries.map { e in
+                ["name": e.name, "folder": folders.first { $0.id == e.folderID }?.name ?? "", "trashed": e.trashedAt != nil] as [String: Any]
+            },
+            "folders": folders.map(\.name),
+            "trashCount": trashCount,
+            "projectName": store.projectName,
+            "settings": [
+                "language": L10n.shared.languagePreference, "previewQuality": s.previewQuality, "useProxies": s.useProxies,
+                "proxyPolicy": s.proxyPolicy, "imageDuration": s.imageDuration, "stepFrames": s.stepFrames,
+                "freezeDuration": s.freezeDuration, "exportCodec": s.exportCodec, "exportResolution": s.exportResolution,
+                "autoRender": s.autoRender, "renderCacheLimitGB": s.renderCacheLimitGB, "hardwareEncoding": s.hardwareEncoding,
+                "cacheAutoDeleteDays": s.cacheAutoDeleteDays ?? 0,
+            ] as [String: Any],
+            "keymap": [
+                "preset": km.preset.rawValue,
+                "overrides": km.overrides.count,
+                "bindings": Dictionary(uniqueKeysWithValues: km.entries.map { ($0.id, km.binding(for: $0.id)?.display ?? "") }),
+            ] as [String: Any],
+        ]
     }
 }

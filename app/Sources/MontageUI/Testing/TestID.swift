@@ -16,11 +16,17 @@ struct TestIDModifier: ViewModifier {
     /// Identifies this view instance: when a view tree is rebuilt (e.g. language switch), the old instance's
     /// `onDisappear` may run after the new one registered — it must not remove the new frame.
     @State private var token = UUID()
+    /// Last frame, so an id change without a geometry change (index-based ids in a re-sorted list) re-registers.
+    @State private var frame: CGRect?
     func body(content: Content) -> some View {
         if TestAnchors.isEnabled {
             content
                 .accessibilityIdentifier(id)
-                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { TestAnchors.shared.set(id, $0, token: token) }
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { frame = $0; TestAnchors.shared.set(id, $0, token: token) }
+                .onChange(of: id) { old, new in
+                    TestAnchors.shared.remove(old, token: token)
+                    if let frame { TestAnchors.shared.set(new, frame, token: token) }
+                }
                 .onDisappear { TestAnchors.shared.remove(id, token: token) }
         } else {
             content.accessibilityIdentifier(id)
@@ -35,12 +41,21 @@ public final class TestAnchors {
     /// Set by the UI test driver before the window is built. Off in normal runs (no geometry tracking cost).
     public nonisolated(unsafe) static var isEnabled = false
     private(set) var frames: [String: CGRect] = [:]
-    private var owners: [String: UUID] = [:]
+    /// Every live view instance claiming an id, oldest first (a view being removed can still report geometry after
+    /// its replacement registered; when it disappears, the remaining owner's frame wins).
+    private var owners: [String: [(token: UUID, frame: CGRect)]] = [:]
 
-    func set(_ id: String, _ frame: CGRect, token: UUID) { frames[id] = frame; owners[id] = token }
+    func set(_ id: String, _ frame: CGRect, token: UUID) {
+        var list = owners[id] ?? []
+        if let i = list.firstIndex(where: { $0.token == token }) { list[i].frame = frame } else { list.append((token, frame)) }
+        owners[id] = list
+        frames[id] = list.last?.frame
+    }
     func remove(_ id: String, token: UUID) {
-        guard owners[id] == token else { return }
-        frames[id] = nil; owners[id] = nil
+        guard var list = owners[id] else { return }
+        list.removeAll { $0.token == token }
+        owners[id] = list.isEmpty ? nil : list
+        frames[id] = list.last?.frame
     }
     public var ids: [String] { frames.keys.sorted() }
     public func frame(_ id: String) -> CGRect? { frames[id] }

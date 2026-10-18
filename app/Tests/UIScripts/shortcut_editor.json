@@ -1,0 +1,35 @@
+// W12 shortcut editor: record a binding, conflict prompt ("⌘B already belongs to Split. Override it?"), Save,
+// layout presets (Final Cut Pro / Premiere Pro), Reset to defaults.
+{
+  "project": "home",
+  "steps": [
+    {"click": "id:home.top.shortcuts"},
+    {"expect": {"path": "app.modal", "equals": "shortcuts"}},
+    {"click": "id:keymap.binding.deleteLeft"},
+    {"key": "cmd+b"},
+    {"expect": {"path": "ui.anchors", "contains": "keymap.conflict"}},
+    {"snapshot": "shortcut-conflict", "element": "id:shortcuts"},
+    {"click": "id:keymap.conflict.override"},
+    {"expect": {"path": "ui.anchors", "notContains": "keymap.conflict"}},
+    // not applied before Save
+    {"expect": {"path": "app.keymap.bindings.deleteLeft", "equals": "Q"}},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.modal", "equals": ""}, {"path": "app.keymap.bindings.deleteLeft", "equals": "⌘B"},
+                {"path": "app.keymap.bindings.split", "equals": ""}, {"path": "app.keymap.overrides", "equals": 2}]},
+    // a free key: no prompt
+    {"click": "id:home.top.shortcuts"},
+    {"click": "id:keymap.binding.split"},
+    {"key": "cmd+k"},
+    {"expect": {"path": "ui.anchors", "notContains": "keymap.conflict"}},
+    {"click": "id:keymap.preset.premiere"},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.keymap.preset", "equals": "premiere"}, {"path": "app.keymap.overrides", "equals": 0},
+                {"path": "app.keymap.bindings.split", "equals": "⌘K"}, {"path": "app.keymap.bindings.selectMode", "equals": "V"}]},
+    {"click": "id:home.top.shortcuts"},
+    {"click": "id:keymap.preset.finalCut"},
+    {"snapshot": "shortcuts-finalcut", "element": "id:shortcuts"},
+    {"click": "id:keymap.reset"},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.keymap.preset", "equals": "capcut"}, {"path": "app.keymap.bindings.split", "equals": "⌘B"}]}
+  ]
+}

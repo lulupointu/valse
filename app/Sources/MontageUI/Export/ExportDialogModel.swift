@@ -46,6 +46,8 @@ public final class ExportDialogModel {
     public static let defaultsKey = "montage.export.dialog.v1"
     /// Settings ▸ Performance "Speed up hardware encoding" (UI owned by W12). Default on.
     public static let hardwareDefaultsKey = "montage.export.hardwareEncoding"
+    /// Settings ▸ Export defaults (W12): video settings + folder for the first export (nothing remembered yet).
+    public nonisolated(unsafe) static var firstExportDefaults: (@Sendable (Project) -> (video: ExportSettings, folder: URL?))?
 
     public var remembered: Remembered
     public var title: String
@@ -95,6 +97,10 @@ public final class ExportDialogModel {
             r.video.frameRate = ExportSettings.frameRates.min { abs($0.fps - project.settings.frameRate.fps) < abs($1.fps - project.settings.frameRate.fps) } ?? .fps30
             let short = min(project.settings.canvasSize.width, project.settings.canvasSize.height)
             r.video.resolution = ExportSettings.Resolution.allCases.last { Double($0.rawValue) <= short + 1 } ?? .p1080
+            if let d = Self.firstExportDefaults?(project) {
+                r.video = d.video
+                if let f = d.folder { r.folderPath = f.path }
+            }
         }
         remembered = r
         folder = r.folderPath.map { URL(fileURLWithPath: $0) }.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }

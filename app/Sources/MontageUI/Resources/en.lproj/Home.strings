@@ -45,7 +45,8 @@
 "home.empty.recents" = "Projects you open appear here.";
 "home.trash.hint" = "Projects in the Trash are deleted after %d days.";
 "home.trash.empty" = "Empty Trash";
-"home.selected" = "%d selected";
+"home.selected.one" = "%d selected";
+"home.selected.other" = "%d selected";
 "home.open" = "Open";
 "home.rename" = "Rename";
 "home.duplicate" = "Duplicate";
@@ -62,8 +63,10 @@
 "home.more" = "More";
 "home.card.help" = "Modified %@ — click to open, ⌘-click to select";
 "home.card.trashedHelp" = "In the Trash — right-click to restore";
-"home.trashed" = "Moved %d project(s) to the Trash";
-"home.imported" = "Imported %d project(s)";
+"home.trashed.one" = "Moved %d project to the Trash";
+"home.trashed.other" = "Moved %d projects to the Trash";
+"home.imported.one" = "Imported %d project";
+"home.imported.other" = "Imported %d projects";
 "home.savedToProject" = "Saved to project";
 "home.error.fileOperation" = "The operation couldn't be completed.";
 "home.error.import" = "This is not a Montage project.";
@@ -98,7 +101,8 @@
 
 /* Relink */
 "relink.title" = "Media not found";
-"relink.message" = "%d media file(s) of this project can't be found. Locate one and Montage also looks for the others in the same folder.";
+"relink.message.one" = "%d media file of this project can't be found. Locate it and Montage also looks for other missing files in the same folder.";
+"relink.message.other" = "%d media files of this project can't be found. Locate one and Montage also looks for the others in the same folder.";
 "relink.locate" = "Locate…";
 "relink.locateMessage" = "Locate “%@”";
 "relink.searchFolder" = "Search a folder…";

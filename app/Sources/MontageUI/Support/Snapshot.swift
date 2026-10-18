@@ -11,6 +11,9 @@ public final class SnapshotRegistry {
     weak var timeline: TimelineView?
     /// Transparent AppKit overlay drawn over the player (canvas handles, guides); composited after the Metal views.
     weak var playerOverlay: NSView?
+    /// App-level modal dialog (W12 RootView): window-content frame (top-left origin) and backdrop opacity. The Metal
+    /// views are composited after `cacheDisplay`, so they're dimmed and the dialog is redrawn over them.
+    public var modal: (frame: CGRect, dim: CGFloat)?
     /// Frame (content coordinates, top-left origin) of an in-window modal (export dialog) drawn by SwiftUI above the
     /// Metal views: when set, the Metal views are dimmed like the modal backdrop and the modal is redrawn on top.
     public var modalFrame: CGRect?
@@ -55,6 +58,19 @@ public final class SnapshotRegistry {
             ctx.saveGState(); ctx.clip(to: rect)
             ctx.draw(base, in: CGRect(x: 0, y: 0, width: base.width, height: base.height))
             ctx.restoreGState()
+        }
+        if let m = modal {
+            for view in [player as NSView?, timeline as NSView?].compactMap({ $0 }) where view.window === window {
+                let r = view.convert(view.bounds, to: content)
+                let y = content.isFlipped ? bounds.height - r.maxY : r.minY
+                ctx.setFillColor(CGColor(gray: 0, alpha: m.dim))
+                ctx.fill(CGRect(x: r.minX * scale, y: y * scale, width: r.width * scale, height: r.height * scale))
+            }
+            let px = CGRect(x: m.frame.minX * scale, y: m.frame.minY * scale, width: m.frame.width * scale, height: m.frame.height * scale)
+                .integral.intersection(CGRect(x: 0, y: 0, width: base.width, height: base.height))
+            if !px.isEmpty, let crop = base.cropping(to: px) {  // CGImage crop: top-left origin
+                ctx.draw(crop, in: CGRect(x: px.minX, y: CGFloat(base.height) - px.maxY, width: px.width, height: px.height))
+            }
         }
         return ctx.makeImage()
     }

@@ -65,26 +65,26 @@ struct HomeSidebar: View {
             }
             .padding(.top, 44).padding(.bottom, 20).padding(.leading, 6)
             Text(loc: "home.videoEditing").font(.system(size: 11)).foregroundStyle(Theme.textTertiary).padding(.leading, 6).padding(.bottom, 4)
-            NavItem(symbol: "house", title: tr("home.nav.home"), selected: app.section == .projects && app.scope == .all) {
+            NavItem(symbol: "house", title: tr("home.nav.home"), selected: app.section == .projects && app.scope == .all, id: "home") {
                 app.section = .projects; app.scope = .all
             }
-            NavItem(symbol: "clock", title: tr("home.nav.recents"), selected: app.section == .projects && app.scope == .recents) {
+            NavItem(symbol: "clock", title: tr("home.nav.recents"), selected: app.section == .projects && app.scope == .recents, id: "recents") {
                 app.section = .projects; app.scope = .recents
             }
-            NavItem(symbol: "rectangle.stack", title: tr("home.nav.templates"), selected: app.section == .templates) { app.section = .templates }
+            NavItem(symbol: "rectangle.stack", title: tr("home.nav.templates"), selected: app.section == .templates, id: "templates") { app.section = .templates }
             Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 10)
             HStack {
                 Text(loc: "home.folders").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                 Spacer()
                 Button { app.modal = .newFolder } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
-                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("home.folder.create"))
+                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("home.folder.create")).testID("home.folder.add")
             }
             .padding(.horizontal, 6).padding(.bottom, 2)
             ScrollView {
                 VStack(spacing: 2) {
-                    ForEach(app.folders) { f in
+                    ForEach(Array(app.folders.enumerated()), id: \.element.id) { i, f in
                         NavItem(symbol: "folder", title: f.name, selected: app.section == .projects && app.scope == .folder(f.id),
-                                badge: app.entries.filter { $0.folderID == f.id && $0.trashedAt == nil }.count) {
+                                badge: app.entries.filter { $0.folderID == f.id && $0.trashedAt == nil }.count, id: "folder.\(i)") {
                             app.section = .projects; app.scope = .folder(f.id)
                         }
                         .contextMenu {
@@ -103,9 +103,9 @@ struct HomeSidebar: View {
             }
             Spacer(minLength: 8)
             NavItem(symbol: "trash", title: tr("home.nav.trash"), selected: app.section == .projects && app.scope == .trash,
-                    badge: app.trashCount) { app.section = .projects; app.scope = .trash }
+                    badge: app.trashCount, id: "trash") { app.section = .projects; app.scope = .trash }
                 .dropDestination(for: String.self) { ids, _ in app.trash(app.entries.filter { ids.contains($0.id) }); return true }
-            NavItem(symbol: "gearshape", title: tr("menu.settings"), selected: false) { app.modal = .settings(.general) }
+            NavItem(symbol: "gearshape", title: tr("menu.settings"), selected: false, id: "settings") { app.modal = .settings(.general) }
                 .padding(.bottom, 14)
         }
         .padding(.horizontal, 16)
@@ -118,6 +118,7 @@ struct NavItem: View {
     let title: String
     let selected: Bool
     var badge: Int = 0
+    var id: String = ""
     let action: () -> Void
     @State private var hover = false
     var body: some View {
@@ -135,6 +136,7 @@ struct NavItem: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+        .testID("home.nav.\(id)")
     }
 }
 
@@ -145,9 +147,9 @@ struct HomeTopBar: View {
     var body: some View {
         HStack(spacing: 14) {
             Spacer()
-            IconButton("square.and.arrow.down", help: tr("home.importProject")) { app.importProjectPanel() }
-            IconButton("keyboard", help: tr("menu.shortcuts")) { app.modal = .shortcuts }
-            IconButton("gearshape", help: tr("menu.settings")) { app.modal = .settings(.general) }
+            IconButton("square.and.arrow.down", help: tr("home.importProject")) { app.importProjectPanel() }.testID("home.top.import")
+            IconButton("keyboard", help: tr("menu.shortcuts")) { app.modal = .shortcuts }.testID("home.top.shortcuts")
+            IconButton("gearshape", help: tr("menu.settings")) { app.modal = .settings(.general) }.testID("home.top.settings")
         }
         .padding(.horizontal, 20)
         .frame(height: 40)
@@ -175,12 +177,12 @@ struct ProjectsColumn: View {
                     EmptyProjects(app: app)
                 } else if app.viewMode == .grid {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 140, maximum: 170), spacing: 24, alignment: .top)], alignment: .leading, spacing: 22) {
-                        ForEach(list) { e in ProjectCard(app: app, entry: e, all: list) }
+                        ForEach(Array(list.enumerated()), id: \.element.id) { i, e in ProjectCard(app: app, entry: e, all: list).testID("home.card.\(i)") }
                     }
                 } else {
                     ProjectListHeader(app: app)
                     LazyVStack(spacing: 0) {
-                        ForEach(list) { e in ProjectRow(app: app, entry: e, all: list) }
+                        ForEach(Array(list.enumerated()), id: \.element.id) { i, e in ProjectRow(app: app, entry: e, all: list).testID("home.row.\(i)") }
                     }
                 }
             }
@@ -206,7 +208,7 @@ extension AppModel {
 
     /// Click handling: plain click opens, ⌘-click toggles, ⇧-click extends the selection.
     func click(_ e: LibraryEntry, in list: [LibraryEntry]) {
-        let mods = NSEvent.modifierFlags
+        let mods = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags  // the click's own modifiers
         if mods.contains(.command) {
             if selectedIDs.contains(e.id) { selectedIDs.remove(e.id) } else { selectedIDs.insert(e.id) }
         } else if mods.contains(.shift), let anchor = list.firstIndex(where: { selectedIDs.contains($0.id) }),
@@ -257,9 +259,11 @@ struct NewProjectHero: View {
             }
             .buttonStyle(.plain)
             .help(tr("home.newProject.customHelp"))
+            .testID("home.newProject.custom")
             .padding(12)
         }
         .accessibilityLabel(Text(loc: "home.newProject"))
+        .testID("home.newProject")
     }
 }
 
@@ -269,7 +273,9 @@ struct HomeFeatureRow: View {
     var body: some View {
         HStack(spacing: 14) {
             FeatureCard(symbol: "rectangle.stack.badge.play", title: tr("home.nav.templates"), subtitle: tr("home.templates.subtitle")) { app.section = .templates }
+                .testID("home.feature.templates")
             FeatureCard(symbol: "square.and.arrow.down.on.square", title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
+                .testID("home.feature.import")
             Spacer(minLength: 0)
         }
     }
@@ -326,22 +332,22 @@ struct ProjectsHeader: View {
             }
             Spacer()
             if app.scope == .trash, count > 0 {
-                Button(tr("home.trash.empty")) { app.emptyTrash() }.buttonStyle(SecondaryButtonStyle())
+                Button(tr("home.trash.empty")) { app.emptyTrash() }.buttonStyle(SecondaryButtonStyle()).testID("home.trash.empty")
             }
             if app.isSearching {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                     TextField(tr("home.search.placeholder"), text: $app.search)
-                        .textFieldStyle(.plain).font(.system(size: 12)).focused($searchFocused)
+                        .textFieldStyle(.plain).font(.system(size: 12)).focused($searchFocused).testID("home.search.field")
                         .onExitCommand { app.search = ""; app.isSearching = false }
                     Button { app.search = ""; app.isSearching = false } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
-                        .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
+                        .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).testID("home.search.clear")
                 }
                 .padding(.horizontal, 8).frame(width: 220, height: 28)
                 .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
                 .onAppear { searchFocused = true }
             } else {
-                HeaderButton(symbol: "magnifyingglass", help: tr("home.search")) { app.isSearching = true }
+                HeaderButton(symbol: "magnifyingglass", help: tr("home.search")) { app.isSearching = true }.testID("home.search")
                     .keyboardShortcut("f", modifiers: .command)
             }
             Menu {
@@ -361,9 +367,10 @@ struct ProjectsHeader: View {
             .padding(.horizontal, 10).frame(height: 28)
             .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
             .help(tr("home.sort"))
+            .testID("home.sort")
             HStack(spacing: 0) {
-                HeaderButton(symbol: "square.grid.2x2", help: tr("home.view.grid"), active: app.viewMode == .grid) { app.setViewMode(.grid) }
-                HeaderButton(symbol: "list.bullet", help: tr("home.view.list"), active: app.viewMode == .list) { app.setViewMode(.list) }
+                HeaderButton(symbol: "square.grid.2x2", help: tr("home.view.grid"), active: app.viewMode == .grid) { app.setViewMode(.grid) }.testID("home.view.grid")
+                HeaderButton(symbol: "list.bullet", help: tr("home.view.list"), active: app.viewMode == .list) { app.setViewMode(.list) }.testID("home.view.list")
             }
             .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
         }
@@ -400,6 +407,7 @@ struct EmptyProjects: View {
             }
         }
         .frame(maxWidth: .infinity).padding(.top, 40)
+        .testID("home.empty")
     }
     var message: String {
         if app.isSearching && !app.search.isEmpty { return tr("home.empty.search", app.search) }
@@ -417,14 +425,14 @@ struct SelectionBar: View {
     @Bindable var app: AppModel
     var body: some View {
         HStack(spacing: 10) {
-            Text(loc: "home.selected", app.selectedIDs.count).font(.system(size: 12)).foregroundStyle(.white)
+            Text(verbatim: trCount("home.selected", app.selectedIDs.count)).font(.system(size: 12)).foregroundStyle(.white)
             if app.scope == .trash {
-                Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle())
-                Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle())
+                Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.restore")
+                Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.deleteForever")
             } else {
                 MoveToFolderMenu(app: app, items: app.selectedEntries)
-                Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle())
-                Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle())
+                Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.duplicate")
+                Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.delete")
             }
             Button { app.selectedIDs = [] } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
                 .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("common.cancel"))
@@ -522,7 +530,7 @@ struct ProjectCard: View {
                 Text(verbatim: entry.name).font(.system(size: 13)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
                     .onTapGesture(count: 2) { if entry.trashedAt == nil { app.renamingID = entry.id } }
             }
-            Text(verbatim: "\(CacheManager.format(entry.sizeBytes)) | \(HomeFormat.duration(entry.summary.duration))")
+            Text(verbatim: "\(HomeFormat.bytes(entry.sizeBytes)) | \(HomeFormat.duration(entry.summary.duration))")
                 .font(.system(size: 12)).foregroundStyle(Theme.textTertiary).lineLimit(1)
         }
         .contentShape(Rectangle())
@@ -551,6 +559,7 @@ struct InlineRenameField: View {
             .focused($focused)
             .onSubmit { onCommit(text) }
             .onExitCommand(perform: onCancel)
+            .testID("home.rename.field")
             .onAppear { text = initial; focused = true }
             .onChange(of: focused) { _, f in if !f { onCommit(text) } }
     }
@@ -608,7 +617,7 @@ struct ProjectListHeader: View {
             col(tr("home.col.modified"), .modified).frame(width: 160, alignment: .leading)
             col(tr("home.col.duration"), .duration).frame(width: 90, alignment: .leading)
             col(tr("home.col.size"), .size).frame(width: 90, alignment: .leading)
-            Text(loc: "home.col.format").frame(width: 110, alignment: .leading)
+            Text(loc: "home.col.format").frame(width: 140, alignment: .leading)
         }
         .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
         .padding(.horizontal, 8)
@@ -621,6 +630,7 @@ struct ProjectListHeader: View {
             }
         }
         .buttonStyle(.plain)
+        .testID("home.col.\(s.rawValue)")
     }
 }
 
@@ -643,8 +653,8 @@ struct ProjectRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Text(verbatim: HomeFormat.date(entry.modifiedAt)).frame(width: 160, alignment: .leading)
             Text(verbatim: HomeFormat.duration(entry.summary.duration)).frame(width: 90, alignment: .leading)
-            Text(verbatim: CacheManager.format(entry.sizeBytes)).frame(width: 90, alignment: .leading)
-            Text(verbatim: HomeFormat.format(entry.summary)).frame(width: 110, alignment: .leading)
+            Text(verbatim: HomeFormat.bytes(entry.sizeBytes)).frame(width: 90, alignment: .leading)
+            Text(verbatim: HomeFormat.format(entry.summary)).lineLimit(1).frame(width: 140, alignment: .leading)
         }
         .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
         .padding(.horizontal, 8).frame(height: 44)
@@ -658,6 +668,19 @@ struct ProjectRow: View {
 }
 
 enum HomeFormat {
+    /// File sizes in the app language (en "1.2 MB", fr "1,2 Mo"; decimal units like Finder).
+    @MainActor static func bytes(_ n: Int64) -> String {
+        let fr = L10n.shared.language.hasPrefix("fr")
+        let units = fr ? ["octets", "Ko", "Mo", "Go", "To"] : ["bytes", "KB", "MB", "GB", "TB"]
+        var v = Double(max(0, n)), i = 0
+        while v >= 1000, i < units.count - 1 { v /= 1000; i += 1 }
+        if i == 0 { return "\(Int(v)) \(fr && n <= 1 ? "octet" : (!fr && n == 1 ? "byte" : units[0]))" }
+        let f = NumberFormatter()
+        f.locale = L10n.shared.locale
+        f.minimumFractionDigits = 0
+        f.maximumFractionDigits = v < 10 ? 1 : 0
+        return "\(f.string(from: NSNumber(value: v)) ?? "\(v)") \(units[i])"
+    }
     /// CapCut card duration "00:00" (mm:ss, h:mm:ss beyond an hour).
     static func duration(_ t: Time) -> String {
         let s = Int(t.seconds.rounded())
