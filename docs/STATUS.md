@@ -70,6 +70,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - Proxies mandatory (4K HEVC decode ≈1.1–1.3 GB for 4 streams; no stack scrubs <50 ms p95 on originals).
 - FFmpeg only as a separate LGPL sidecar process producing ProRes+PCM mezzanine (ARCHITECTURE §6.1).
 - Integration: each team rebases on main, runs scripts/test.sh, ff-merges; if blocked by permission check, orchestrator merges (AGENT_GUIDE).
+- W12 merged although `playbackDeliversFramesInRealTime` failed — only under load avg 140–270, passes alone, change doesn't touch playback. Perf team adding a test semaphore (max 2 heavy runs, perf.sh exclusive) + load-aware realtime test.
 - Agents never send real mouse/keyboard input while teams run in parallel; real-input E2E pass is phase 4.
 
 ## Engineering gotchas (read!)
