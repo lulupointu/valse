@@ -51,7 +51,7 @@ enum BuiltinInspector {
         ], appliesTo: any(.video, .image, .text, .sticker)),
         InspectorTab(id: "adjust", titleKey: "inspector.tab.adjust", order: 6, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
-        ], footer: { ctx, sub in
+        ] + ColorGradingInspector.subTabs, footer: { ctx, sub in
             guard sub == nil || sub == "basic", ctx.kind != .adjustment, AdjustBasicSection.instance(ctx.clip) != nil else { return nil }
             return AnyView(PillButton(title: tr("inspector.applyToAll")) { AdjustBasicSection.applyToAll(ctx) })
         }, appliesTo: any(.video, .image, .adjustment)),
@@ -122,7 +122,7 @@ enum BuiltinInspector {
         InspectorSection(id: "adjust.basic", tab: "adjust", subTab: "basic", order: 10, titleKey: "inspector.adjust.section",
                          chrome: AdjustBasicSection.chrome) { AnyView(AdjustBasicSection(ctx: $0)) },
         InspectorSection(id: "adjust.others", tab: "adjust", subTab: "basic", order: 20, titleKey: nil,
-                         appliesTo: { ctx in (ctx.clip?.effects ?? []).contains { $0.typeID != BuiltinAdjustments.basic.id && !$0.typeID.hasPrefix("ai.look.") && Registries.effects[$0.typeID]?.category == .adjustment } }) {
+                         appliesTo: { ctx in (ctx.clip?.effects ?? []).contains { OtherAdjustmentBlocks.listed($0) } }) {
             AnyView(OtherAdjustmentBlocks(ctx: $0))
         },
 
@@ -131,4 +131,5 @@ enum BuiltinInspector {
         InspectorSection(id: "specialEffects.details", tab: "specialEffects", subTab: "basic", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
         InspectorSection(id: "filter.details", tab: "filter", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
     ] + RenderFeatureInspector.sections + AudioInspector.sections + TextInspector.sections + AIInspector.sections
+      + ColorGradingInspector.sections
 }

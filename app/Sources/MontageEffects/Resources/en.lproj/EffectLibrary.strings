@@ -12,7 +12,7 @@
 "effect.group.light" = "Light";
 "effect.group.dreamy" = "Dreamy";
 "effect.group.bling" = "Bling";
-"effect.group.nature" = "Nature & weather";
+"effect.group.nature" = "Nature";
 "effect.group.frame" = "Frames";
 "effect.group.body" = "Body effects";
 
@@ -26,7 +26,28 @@
 "fx.param.vertical" = "Vertical";
 "fx.param.border" = "Border";
 "fx.param.segments" = "Segments";
-"fx.param.strength" = "Strength";
+
+/* Adjust ▸ Basic (added params) */
+"adjust.hue" = "Hue";
+"adjust.whites" = "Whites";
+"adjust.blacks" = "Blacks";
+"adjust.sharpen" = "Sharpen";
+"adjust.clarity" = "Clarity";
+"adjust.grain" = "Particles";
+"adjust.fade" = "Fade";
+"adjust.auto" = "Auto adjust";
+"adjust.group.auto" = "Auto";
+"wheels.mode" = "Mode";
+"wheels.mode.primary" = "Primary";
+"wheels.mode.log" = "Log";
+"wheels.primary.lift" = "Shadows";
+"wheels.primary.gamma" = "Middle grey";
+"wheels.primary.gain" = "Highlights";
+"wheels.primary.offset" = "Offset";
+"wheels.log.lift" = "Shadows";
+"wheels.log.gamma" = "Midtones";
+"wheels.log.gain" = "Highlights";
+"wheels.log.offset" = "Offset";
 
 /* Effects */
 "effect.halftone" = "Halftone";

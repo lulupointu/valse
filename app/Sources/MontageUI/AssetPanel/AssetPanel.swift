@@ -76,9 +76,7 @@ enum BuiltinAssetTabs {
             }))
         },
         AssetTab(id: "effects", titleKey: "tab.effects", symbol: "sparkles", order: 4) { store in
-            AnyView(RegistryGrid(store: store, groups: grouped(Registries.effects(in: .effect), \.groupKey), tile: { d in
-                .init(id: d.id, title: tr(d.nameKey), symbol: d.symbol, payload: DragPayload.effect(d.id)) { store.applyEffect(d) }
-            }))
+            AnyView(EffectLibraryTab(store: store, category: .effect))
         },
         AssetTab(id: "transitions", titleKey: "tab.transitions", symbol: "square.split.2x1", order: 5) { store in
             AnyView(RegistryGrid(store: store, groups: grouped(Registries.transitions.all, \.groupKey), tile: { d in
@@ -86,14 +84,10 @@ enum BuiltinAssetTabs {
             }))
         },
         AssetTab(id: "filters", titleKey: "tab.filters", symbol: "camera.filters", order: 7) { store in
-            AnyView(RegistryGrid(store: store, groups: grouped(Registries.effects(in: .filter), \.groupKey), tile: { d in
-                .init(id: d.id, title: tr(d.nameKey), symbol: d.symbol, payload: DragPayload.effect(d.id)) { store.applyEffect(d) }
-            }))
+            AnyView(EffectLibraryTab(store: store, category: .filter))
         },
         AssetTab(id: "adjustment", titleKey: "tab.adjustment", symbol: "slider.horizontal.3", order: 8) { store in
-            AnyView(RegistryGrid(store: store, groups: grouped(Registries.effects(in: .adjustment), \.groupKey), tile: { d in
-                .init(id: d.id, title: tr(d.nameKey), symbol: d.symbol, payload: DragPayload.effect(d.id)) { store.applyEffect(d) }
-            }))
+            AnyView(EffectLibraryTab(store: store, category: .adjustment))
         },
         AssetTab(id: "templates", titleKey: "tab.templates", symbol: "rectangle.stack", order: 9) { _ in
             AnyView(EmptyState(symbol: "rectangle.stack", title: tr("templates.empty")))

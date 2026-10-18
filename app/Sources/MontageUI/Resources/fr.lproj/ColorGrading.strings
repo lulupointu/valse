@@ -1,0 +1,21 @@
+/* Ajuster ▸ TSL · Courbes · Roue chromatique · Réglage auto (W4) */
+"inspector.sub.hsl" = "TSL";
+"inspector.sub.curves" = "Courbes";
+"inspector.sub.wheels" = "Roue chromatique";
+"inspector.hsl.section" = "Basique";
+"inspector.curves.section" = "Toutes";
+"inspector.hsl.hue" = "Teinte";
+"inspector.hsl.saturation" = "Saturation";
+"inspector.hsl.lightness" = "Luminosité";
+"hsl.range.red" = "Rouge";
+"hsl.range.orange" = "Orange";
+"hsl.range.yellow" = "Jaune";
+"hsl.range.green" = "Vert";
+"hsl.range.cyan" = "Cyan";
+"hsl.range.blue" = "Bleu";
+"hsl.range.purple" = "Violet";
+"hsl.range.magenta" = "Magenta";
+"inspector.curves.hint" = "Cliquez pour ajouter un point, faites-le glisser pour le déplacer, double-cliquez pour le supprimer.";
+"autoAdjust.hint" = "Cochez pour corriger l’exposition, le contraste et la balance des blancs d’après l’image sous la tête de lecture.";
+"autoAdjust.failed" = "Impossible d’analyser cette image.";
+"cmd.autoAdjust" = "Réglage auto";

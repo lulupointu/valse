@@ -1,0 +1,13 @@
+/* Onglets Effets / Filtres / Réglage (W4) */
+"fxlib.favorites" = "Favoris";
+"fxlib.trending" = "Tendances";
+"fxlib.featured" = "À la une";
+"fxlib.results" = "Résultats de recherche";
+"fxlib.search.effects" = "Rechercher des effets";
+"fxlib.search.filters" = "Rechercher des filtres";
+"fxlib.search.adjustments" = "Rechercher des réglages";
+"fxlib.clearSearch" = "Effacer la recherche";
+"fxlib.noResults" = "Aucun résultat. Essayez un autre mot.";
+"fxlib.favorites.empty" = "Survolez une carte et cliquez sur ☆ pour l’ajouter à vos favoris.";
+"fxlib.addFavorite" = "Ajouter aux favoris";
+"fxlib.removeFavorite" = "Retirer des favoris";

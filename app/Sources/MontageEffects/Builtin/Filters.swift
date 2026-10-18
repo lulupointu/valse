@@ -263,5 +263,11 @@ public enum BuiltinFilters {
         look("sunKissed", "style", ["warm", "glow", "summer"]) { $0.temperature = 0.4; $0.exposure = 0.2; $0.highlights = -0.2; $0.fade = 0.15; $0.highlightTint = V(0.05, 0.03, 0.0) },
     ]
 
+    /// Curated "Featured" picks shown first in the Filters tab (ids).
+    public static let featured: [String] = [
+        "natural", "tealOrange", "goldenHour", "film400", "fresh", "vintage", "silver", "peach", "blockbuster", "seventies",
+        "pastel", "nightCity", "delicious", "moonlight", "chrome", "milk",
+    ].map { "montage.filter.\($0)" }
+
     public static let all: [EffectDescriptor] = legacy + portrait + life + food + landscape + movies + film + bw + night + style
 }

@@ -137,10 +137,13 @@ struct FilterDetailsBlock: View {
 /// Other adjustment-category entries on the clip (e.g. HSL/LUT descriptors added later): generated blocks.
 struct OtherAdjustmentBlocks: View {
     let ctx: InspectorContext
+    /// Adjustment-category entries without a dedicated section (HSL / Curves / Color wheel / Auto adjust have sub-tabs).
+    static func listed(_ e: EffectInstance) -> Bool {
+        e.typeID != BuiltinAdjustments.basic.id && !ColorGradingInspector.ownIDs.contains(e.typeID)
+            && !e.typeID.hasPrefix("ai.look.") && Registries.effects[e.typeID]?.category == .adjustment
+    }
     var body: some View {
-        let list = (ctx.clip?.effects ?? []).filter {
-            $0.typeID != BuiltinAdjustments.basic.id && !$0.typeID.hasPrefix("ai.look.") && Registries.effects[$0.typeID]?.category == .adjustment
-        }
+        let list = (ctx.clip?.effects ?? []).filter(Self.listed)
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in
                 if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }

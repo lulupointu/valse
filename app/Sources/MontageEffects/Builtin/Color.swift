@@ -2,6 +2,58 @@ import MontageCore
 
 /// Colour-grading descriptors (CapCut Adjust ▸ HSL / Curves / Color wheel, plus a physically-based white balance).
 /// All parameters are scalars, so they get generated inspector sliders and keyframes for free.
+/// CPU mirror of the Curves shader (editor drawing, tests): monotone cubic through sorted points.
+public enum ColorCurveMath {
+    public static let maxPoints = 8
+    public typealias Point = (x: Double, y: Double)
+
+    /// The points of `channel` from an instance's params (descriptor defaults for missing keys).
+    public static func points(_ params: [String: ParamValue], channel: String) -> [Point] {
+        let d = BuiltinColor.curves
+        func v(_ k: String) -> Double {
+            if let s = params[k]?.scalar { return s }
+            if case .scalar(_, _, let def)? = d.params.first(where: { $0.key == k })?.kind { return def }
+            return 0
+        }
+        let n = min(max(Int(v("\(channel).n").rounded()), 2), maxPoints)
+        return (0..<n).map { (v("\(channel).x\($0)"), v("\(channel).y\($0)")) }
+    }
+
+    /// Params for `channel` holding `pts` (sorted by x, clamped to [0, 1], 2…8 points).
+    public static func params(_ pts: [Point], channel: String) -> [String: ParamValue] {
+        let sorted = pts.map { (x: min(max($0.x, 0), 1), y: min(max($0.y, 0), 1)) }.sorted { $0.x < $1.x }.prefix(maxPoints)
+        var out: [String: ParamValue] = ["\(channel).n": .scalar(Double(sorted.count))]
+        for k in 0..<maxPoints {
+            let p = k < sorted.count ? sorted[sorted.startIndex + k] : (x: 1.0, y: 1.0)
+            out["\(channel).x\(k)"] = .scalar(p.x); out["\(channel).y\(k)"] = .scalar(p.y)
+        }
+        return out
+    }
+
+    public static var identity: [Point] { BuiltinColor.curveKnots.map { ($0, $0) } }
+
+    public static func evaluate(_ pts: [Point], _ x: Double) -> Double {
+        let n = pts.count
+        guard n >= 2 else { return x }
+        let xc = min(max(x, 0), 1)
+        if xc <= pts[0].x { return pts[0].y }
+        if xc >= pts[n - 1].x { return pts[n - 1].y }
+        var d = [Double](repeating: 0, count: n - 1), m = [Double](repeating: 0, count: n)
+        for k in 0..<(n - 1) { d[k] = (pts[k + 1].y - pts[k].y) / max(pts[k + 1].x - pts[k].x, 1e-4) }
+        m[0] = d[0]; m[n - 1] = d[n - 2]
+        if n > 2 { for k in 1..<(n - 1) { m[k] = d[k - 1] * d[k] <= 0 ? 0 : (d[k - 1] + d[k]) * 0.5 } }
+        for k in 0..<(n - 1) {
+            if abs(d[k]) < 1e-6 { m[k] = 0; m[k + 1] = 0; continue }
+            let a = m[k] / d[k], b = m[k + 1] / d[k], r = a * a + b * b
+            if r > 9 { let t = 3 / r.squareRoot(); m[k] = t * a * d[k]; m[k + 1] = t * b * d[k] }
+        }
+        var i = 0
+        for k in 0..<(n - 1) where xc >= pts[k].x { i = k }
+        let h = max(pts[i + 1].x - pts[i].x, 1e-4), t = (xc - pts[i].x) / h, t2 = t * t, t3 = t2 * t
+        return (2 * t3 - 3 * t2 + 1) * pts[i].y + (t3 - 2 * t2 + t) * h * m[i] + (-2 * t3 + 3 * t2) * pts[i + 1].y + (t3 - t2) * h * m[i + 1]
+    }
+}
+
 public enum BuiltinColor {
     /// The 8 CapCut HSL colour ranges, with their centre hue in degrees.
     public static let hslRanges: [(key: String, hue: Double)] = [
@@ -42,51 +94,63 @@ public enum BuiltinColor {
         }
         """)
 
-    /// Curve control points: fixed x positions, adjustable y (CapCut lets you drag points; we expose 5 knots).
+    /// Default curve knots (identity diagonal) — the first 5 point slots of every channel.
     public static let curveKnots: [Double] = [0, 0.25, 0.5, 0.75, 1]
     public static let curveChannels = ["luma", "red", "green", "blue"]
 
-    /// Curves: Brightness (luma) + R + G + B, 5 knots each, monotone cubic (Fritsch–Carlson) interpolation so the
-    /// curve never overshoots. Luma is applied to all channels first, then the per-channel curves.
-    /// Params: `<channel>.y<k>` (k = 0…4), defaults on the identity diagonal.
+    /// Curves: Brightness (luma) + R + G + B, each 2…8 free points (CapCut: click to add, drag, double-click to
+    /// remove), monotone cubic (Fritsch–Carlson) so the curve never overshoots. Luma is applied to all channels first,
+    /// then the per-channel curves. `ColorCurveMath` mirrors the shader on the CPU (editor drawing, tests).
+    /// Params per channel (p[] order): `<ch>.n` (point count), `<ch>.x0…x7`, `<ch>.y0…y7` — points sorted by x.
+    /// Defaults: 5 points on the diagonal, so projects saved with the older fixed-knot version (`<ch>.y0…y4` only)
+    /// decode unchanged.
     public static let curves = EffectDescriptor(
         id: "montage.color.curves", category: .adjustment, nameKey: "adjust.curves", groupKey: "adjust.group.color",
-        params: curveChannels.flatMap { ch in
-            curveKnots.enumerated().map { k, x in ParamSpec.scalar("\(ch).y\(k)", "curves.\(ch)", 0, 1, x, display: 100) }
+        params: curveChannels.flatMap { ch -> [ParamSpec] in
+            [ParamSpec.scalar("\(ch).n", "curves.\(ch)", 2, Double(ColorCurveMath.maxPoints), 5)]
+            + (0..<ColorCurveMath.maxPoints).map { k in ParamSpec.scalar("\(ch).x\(k)", "curves.\(ch)", 0, 1, k < 5 ? curveKnots[k] : 1, display: 100) }
+            + (0..<ColorCurveMath.maxPoints).map { k in ParamSpec.scalar("\(ch).y\(k)", "curves.\(ch)", 0, 1, k < 5 ? curveKnots[k] : 1, display: 100) }
         },
         symbol: "point.topleft.down.to.point.bottomright.curvepath",
         shader: """
-        inline float curve5(constant float* y, float x) {
-            const float h = 0.25;
-            float d[4]; float m[5];
-            for (int k = 0; k < 4; k++) { d[k] = (y[k + 1] - y[k]) / h; }
-            m[0] = d[0]; m[4] = d[3];
-            for (int k = 1; k < 4; k++) { m[k] = d[k - 1] * d[k] <= 0.0 ? 0.0 : (d[k - 1] + d[k]) * 0.5; }
-            for (int k = 0; k < 4; k++) {
+        inline float curveN(constant float* c, float x) {
+            int n = clamp(int(c[0] + 0.5), 2, 8);
+            constant float* xs = c + 1;
+            constant float* ys = c + 9;
+            float xc = saturate(x);
+            if (xc <= xs[0]) return ys[0];
+            if (xc >= xs[n - 1]) return ys[n - 1];
+            float d[7]; float m[8];
+            for (int k = 0; k < n - 1; k++) { d[k] = (ys[k + 1] - ys[k]) / max(xs[k + 1] - xs[k], 1e-4); }
+            m[0] = d[0]; m[n - 1] = d[n - 2];
+            for (int k = 1; k < n - 1; k++) { m[k] = d[k - 1] * d[k] <= 0.0 ? 0.0 : (d[k - 1] + d[k]) * 0.5; }
+            for (int k = 0; k < n - 1; k++) {
                 if (abs(d[k]) < 1e-6) { m[k] = 0.0; m[k + 1] = 0.0; continue; }
                 float a = m[k] / d[k], b = m[k + 1] / d[k];
                 float r = a * a + b * b;
                 if (r > 9.0) { float tt = 3.0 / sqrt(r); m[k] = tt * a * d[k]; m[k + 1] = tt * b * d[k]; }
             }
-            float xc = saturate(x);
-            int i = min(int(xc / h), 3);
-            float t = (xc - float(i) * h) / h;
+            int i = 0;
+            for (int k = 0; k < n - 1; k++) { if (xc >= xs[k]) { i = k; } }
+            float h = max(xs[i + 1] - xs[i], 1e-4);
+            float t = (xc - xs[i]) / h;
             float t2 = t * t, t3 = t2 * t;
-            return (2.0 * t3 - 3.0 * t2 + 1.0) * y[i] + (t3 - 2.0 * t2 + t) * h * m[i]
-                 + (-2.0 * t3 + 3.0 * t2) * y[i + 1] + (t3 - t2) * h * m[i + 1];
+            return (2.0 * t3 - 3.0 * t2 + 1.0) * ys[i] + (t3 - 2.0 * t2 + t) * h * m[i]
+                 + (-2.0 * t3 + 3.0 * t2) * ys[i + 1] + (t3 - t2) * h * m[i + 1];
         }
         float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx) {
             float4 c = src.sample(s, uv);
             float3 o = saturate(c.rgb);
-            o = float3(curve5(p, o.r), curve5(p, o.g), curve5(p, o.b));
-            o = float3(curve5(p + 5, o.r), curve5(p + 10, o.g), curve5(p + 15, o.b));
+            o = float3(curveN(p, o.r), curveN(p, o.g), curveN(p, o.b));
+            o = float3(curveN(p + 17, o.r), curveN(p + 34, o.g), curveN(p + 51, o.b));
             return float4(saturate(o), c.a);
         }
         """)
 
     public static let wheelNames = ["lift", "gamma", "gain", "offset"]
 
-    /// Primary colour wheels (Lift / Gamma / Gain / Offset, ASC-CDL style). Each wheel has a puck (hue 0…360° +
+    /// Colour wheels (CapCut Primary / Log). Primary = Lift / Gamma / Gain / Offset, ASC-CDL style; Log = the same four
+    /// wheels acting as Shadows / Midtones / Highlights / Offset on smooth luminance ranges (`mode` param). Each wheel has a puck (hue 0…360° +
     /// amount 0…1, a chroma-only tint) and a luma slider (−1…1). `strength` mixes the grade with the source.
     /// lift: c + v·(1−c) · gamma: c^(1/(1+v)) · gain: c·(1+v) · offset: c + v/2.
     public static let colorWheels = EffectDescriptor(
@@ -95,7 +159,7 @@ public enum BuiltinColor {
             [ParamSpec.scalar("\(w).hue", "wheels.\(w).hue", 0, 360, 0),
              .scalar("\(w).amount", "wheels.\(w).amount", 0, 1, 0, display: 100),
              .scalar("\(w).luma", "wheels.\(w).luma", -1, 1, 0, display: 100)]
-        },
+        } + [ParamSpec("mode", nameKey: "wheels.mode", .choice(optionKeys: ["wheels.mode.primary", "wheels.mode.log"], defaultValue: 0))],
         symbol: "circle.circle",
         shader: """
         inline float3 wheel(constant float* w) {
@@ -107,10 +171,18 @@ public enum BuiltinColor {
             float4 c = src.sample(s, uv);
             float3 o = saturate(c.rgb);
             float3 lift = wheel(p + 1), gam = wheel(p + 4), gain = wheel(p + 7), off = wheel(p + 10);
-            o = o + lift * (1.0 - o);
-            o = o * (1.0 + gain);
-            o = pow(max(o, 0.0), 1.0 / max(1.0 + gam, 0.05));
-            o = o + off * 0.5;
+            if (p[13] < 0.5) {
+                o = o + lift * (1.0 - o);
+                o = o * (1.0 + gain);
+                o = pow(max(o, 0.0), 1.0 / max(1.0 + gam, 0.05));
+                o = o + off * 0.5;
+            } else {
+                // Log wheels: Shadows / Midtones / Highlights act on luminance ranges (smooth, overlapping)
+                float l = fx_luma(o);
+                float ws = 1.0 - smoothstep(0.0, 0.42, l), wh = smoothstep(0.58, 1.0, l);
+                float wm = saturate(1.0 - ws - wh);
+                o = o + lift * ws * 0.8 + gam * wm * 0.8 + gain * wh * 0.8 + off * 0.5;
+            }
             return float4(mix(c.rgb, saturate(o), saturate(p[0])), c.a);
         }
         """)

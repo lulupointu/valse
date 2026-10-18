@@ -12,7 +12,7 @@
 "effect.group.light" = "Lumière";
 "effect.group.dreamy" = "Onirique";
 "effect.group.bling" = "Paillettes";
-"effect.group.nature" = "Nature et météo";
+"effect.group.nature" = "Nature";
 "effect.group.frame" = "Cadres";
 "effect.group.body" = "Effets corporels";
 
@@ -26,7 +26,28 @@
 "fx.param.vertical" = "Vertical";
 "fx.param.border" = "Bordure";
 "fx.param.segments" = "Segments";
-"fx.param.strength" = "Intensité";
+
+/* Adjust ▸ Basic (added params) */
+"adjust.hue" = "Teinte";
+"adjust.whites" = "Blancs";
+"adjust.blacks" = "Noirs";
+"adjust.sharpen" = "Affiner";
+"adjust.clarity" = "Clarté";
+"adjust.grain" = "Particules";
+"adjust.fade" = "Fondu";
+"adjust.auto" = "Réglage auto";
+"adjust.group.auto" = "Auto";
+"wheels.mode" = "Mode";
+"wheels.mode.primary" = "Primaire";
+"wheels.mode.log" = "Log";
+"wheels.primary.lift" = "Ombres";
+"wheels.primary.gamma" = "Gris moyen";
+"wheels.primary.gain" = "Hautes lumières";
+"wheels.primary.offset" = "Décalage";
+"wheels.log.lift" = "Ombres";
+"wheels.log.gamma" = "Tons moyens";
+"wheels.log.gain" = "Hautes lumières";
+"wheels.log.offset" = "Décalage";
 
 /* Effects */
 "effect.halftone" = "Demi-teinte";

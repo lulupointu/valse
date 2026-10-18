@@ -66,6 +66,12 @@ public enum BuiltinEffects {
 
     public static let all: [EffectDescriptor] = [blur, vignette, glitch, pixelate] + library
 
+    /// Curated "Trending" picks shown first in the Effects tab (ids).
+    public static let trending: [String] = [
+        "shake", "rgbSplit", "vhs", "lightLeak", "glow", "sparkle", "zoomBeat", "digitalGlitch", "cinemaBars", "snow",
+        "filmGrain", "split4", "kaleidoscope", "flash", "dreamy", "neonOutline", "fireworks", "halftone", "fisheye", "hearts",
+    ].map { "montage.effect.\($0)" }
+
     /// The procedural effects library (FXKit bases × presets), in asset-panel order.
     public static let library: [EffectDescriptor] = FXBlur.all + FXGlitch.all + FXArt.all + FXDistort.all + FXLight.all + FXParticles.all
 }

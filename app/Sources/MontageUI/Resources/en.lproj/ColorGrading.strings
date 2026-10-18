@@ -1,0 +1,21 @@
+/* Adjust ▸ HSL · Curves · Color wheel · Auto adjust (W4) */
+"inspector.sub.hsl" = "HSL";
+"inspector.sub.curves" = "Curves";
+"inspector.sub.wheels" = "Color wheel";
+"inspector.hsl.section" = "Basic";
+"inspector.curves.section" = "All";
+"inspector.hsl.hue" = "Hue";
+"inspector.hsl.saturation" = "Saturation";
+"inspector.hsl.lightness" = "Brightness";
+"hsl.range.red" = "Red";
+"hsl.range.orange" = "Orange";
+"hsl.range.yellow" = "Yellow";
+"hsl.range.green" = "Green";
+"hsl.range.cyan" = "Cyan";
+"hsl.range.blue" = "Blue";
+"hsl.range.purple" = "Purple";
+"hsl.range.magenta" = "Magenta";
+"inspector.curves.hint" = "Click to add a point, drag to move it, double-click to remove it.";
+"autoAdjust.hint" = "Check to correct exposure, contrast and white balance from the frame under the playhead.";
+"autoAdjust.failed" = "Couldn't analyse this frame.";
+"cmd.autoAdjust" = "Auto adjust";

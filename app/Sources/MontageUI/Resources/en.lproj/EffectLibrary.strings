@@ -1,0 +1,13 @@
+/* Effects / Filters / Adjustment asset tabs (W4) */
+"fxlib.favorites" = "Favorites";
+"fxlib.trending" = "Trending";
+"fxlib.featured" = "Featured";
+"fxlib.results" = "Search results";
+"fxlib.search.effects" = "Search for effects";
+"fxlib.search.filters" = "Search for filters";
+"fxlib.search.adjustments" = "Search adjustments";
+"fxlib.clearSearch" = "Clear search";
+"fxlib.noResults" = "No results. Try another word.";
+"fxlib.favorites.empty" = "Hover a card and click ☆ to add it to your favorites.";
+"fxlib.addFavorite" = "Add to favorites";
+"fxlib.removeFavorite" = "Remove from favorites";
