@@ -14,9 +14,9 @@
 "player.quality.full.title" = "Full quality";
 "player.quality.full.detail" = "Original video resolution";
 "player.quality.full.short" = "Full";
-"player.quality.auto.title" = "High quality";
-"player.quality.auto.detail" = "Smooth playback, no impact on exported video";
-"player.quality.auto.short" = "High";
+"player.quality.auto.title" = "Automatic (recommended)";
+"player.quality.auto.detail" = "Adapts the preview to this Mac (1080p, 720p with 8 GB), no impact on exported video";
+"player.quality.auto.short" = "Auto";
 "player.quality.half.title" = "Medium quality";
 "player.quality.half.detail" = "Smoother playback, no impact on exported video";
 "player.quality.half.short" = "Med";
@@ -85,3 +85,24 @@
 "shortcut.playerZoomFit" = "Zoom to fit player";
 "shortcut.rulers" = "Show/hide rulers";
 "shortcut.guides" = "Show/hide guides";
+"shortcut.exitPreview" = "Exit preview";
+
+/* Library / source preview (W2-3) */
+"player.previewing" = "Previewing — %@";
+"player.preview.kind.video" = "Video";
+"player.preview.kind.image" = "Image";
+"player.preview.kind.audio" = "Audio";
+"player.preview.kind.effect" = "Effects";
+"player.preview.kind.filter" = "Filters";
+"player.preview.kind.sticker" = "Stickers";
+"player.preview.kind.text" = "Text";
+"player.preview.exit" = "Back to the timeline (esc)";
+
+/* Color oscilloscope (W2-6) */
+"player.scope" = "Color oscilloscope";
+"player.scope.off" = "Turn off";
+"player.scope.waveform" = "Luma waveform";
+"player.scope.parade" = "RGB parade";
+
+/* Canvas eyedropper (W2-8) */
+"player.eyedropper.hint" = "Click the video to pick a colour · esc to cancel";

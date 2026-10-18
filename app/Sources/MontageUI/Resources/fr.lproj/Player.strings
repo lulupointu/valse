@@ -14,9 +14,9 @@
 "player.quality.full.title" = "Qualité maximale";
 "player.quality.full.detail" = "Résolution vidéo d'origine";
 "player.quality.full.short" = "Max";
-"player.quality.auto.title" = "Haute qualité";
-"player.quality.auto.detail" = "Lecture fluide, sans effet sur la vidéo exportée";
-"player.quality.auto.short" = "Haute";
+"player.quality.auto.title" = "Automatique (recommandé)";
+"player.quality.auto.detail" = "Adapte l'aperçu à ce Mac (1080p, 720p avec 8 Go), sans effet sur la vidéo exportée";
+"player.quality.auto.short" = "Auto";
 "player.quality.half.title" = "Qualité moyenne";
 "player.quality.half.detail" = "Lecture plus fluide, sans effet sur la vidéo exportée";
 "player.quality.half.short" = "Moy.";
@@ -85,3 +85,24 @@
 "shortcut.playerZoomFit" = "Ajuster le lecteur";
 "shortcut.rulers" = "Afficher/masquer les règles";
 "shortcut.guides" = "Afficher/masquer les repères";
+"shortcut.exitPreview" = "Quitter l'aperçu";
+
+/* Library / source preview (W2-3) */
+"player.previewing" = "Aperçu — %@";
+"player.preview.kind.video" = "Vidéo";
+"player.preview.kind.image" = "Image";
+"player.preview.kind.audio" = "Audio";
+"player.preview.kind.effect" = "Effets";
+"player.preview.kind.filter" = "Filtres";
+"player.preview.kind.sticker" = "Stickers";
+"player.preview.kind.text" = "Texte";
+"player.preview.exit" = "Revenir à la timeline (échap)";
+
+/* Color oscilloscope (W2-6) */
+"player.scope" = "Oscilloscope des couleurs";
+"player.scope.off" = "Désactiver";
+"player.scope.waveform" = "Forme d'onde (luminance)";
+"player.scope.parade" = "Parade RVB";
+
+/* Canvas eyedropper (W2-8) */
+"player.eyedropper.hint" = "Cliquez sur la vidéo pour prélever une couleur · échap pour annuler";

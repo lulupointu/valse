@@ -125,7 +125,7 @@ public final class EditorStore {
         sessionStorage = EditSession(project: project)
         self.packageURL = packageURL
         engine = PlaybackEngine(project: project)
-        engine.onTimeUpdate = { [weak self] t in self?.transport.playhead = t }
+        engine.onTimeUpdate = { [weak self] t in self?.engineTimeDidUpdate(t) }
         engine.onPlayStateChange = { [weak self] playing in self?.transport.isPlaying = playing }
         ProxyManager.shared.onProxyReady = { [weak self] hash in
             guard let self else { return }
@@ -191,6 +191,7 @@ public final class EditorStore {
     }
 
     private func didChangeProject() {
+        if isPreviewing { exitPreview() }   // an edit ends a library preview (W2-3)
         engine.update(project: session.project)
         syncProjectSlices()
         // assign only on change: every assignment notifies all views reading `selection`
@@ -235,6 +236,7 @@ public final class EditorStore {
     }
 
     private func selectionDidChange() {
+        if isPreviewing { exitPreview() }
         if !selection.isEmpty, selectedTransition != nil { selectedTransition = nil }
         syncSelectionSlices()
         if playerUI.loopEnabled { updateLoopRange() }
@@ -372,7 +374,10 @@ public final class EditorStore {
     // MARK: Transport
 
     public func togglePlay() { engine.togglePlay() }
-    public func seek(to t: Time, exact: Bool = true) { engine.seek(to: t, exact: exact) }
+    public func seek(to t: Time, exact: Bool = true) {
+        if isPreviewing { exitPreview() }
+        engine.seek(to: t, exact: exact)
+    }
     public func step(frames: Int) { engine.step(frames: frames) }
 
     /// J / K / L shuttle (repeated J/L doubles the speed, K stops).

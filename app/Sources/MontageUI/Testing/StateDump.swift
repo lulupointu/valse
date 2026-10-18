@@ -84,6 +84,10 @@ public enum StateDump {
             }),
         ]
         if let t = store.toast { ui["toast"] = t.message }
+        if let pv = store.playerUI.preview {
+            ui["preview"] = ["kind": pv.kind.rawValue, "item": pv.itemID, "duration": pv.range.duration.seconds,
+                             "time": (store.playerUI.previewTime - pv.range.start).seconds] as [String: Any]
+        }
         ui["export"] = ExportStateDump.make(store.exports)
         if let k = store.timelineUI.selectedKeyframe { ui["selectedKeyframe"] = ["key": k.key, "time": k.time.seconds] as [String: Any] }
         ui["keyframePanel"] = store.keyframeUI.showsPanel

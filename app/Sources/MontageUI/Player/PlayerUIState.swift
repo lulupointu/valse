@@ -43,6 +43,9 @@ public final class PlayerUIState {
     /// Modal canvas tool (AI cutout brush, W10): when set it receives all left-mouse input on the canvas and draws its
     /// own overlay. nil = normal selection/transform behaviour.
     public var canvasTool: (any CanvasTool)?
+    /// Library / source preview ("Previewing — Effects", W2-3) and its own playhead (the timeline playhead stays put).
+    public var preview: PlayerPreview?
+    public var previewTime: Time = .zero
 
     public var isZoomed: Bool { abs(zoom - 1) > 0.001 || pan != .zero }
 }

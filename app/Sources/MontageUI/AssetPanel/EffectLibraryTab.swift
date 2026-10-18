@@ -210,7 +210,7 @@ struct EffectLibraryTab: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
                             ForEach(items) { d in
                                 EffectCard(descriptor: d, selected: selected == d.id,
-                                           select: { selected = d.id }, add: { selected = d.id; store.applyEffect(d) })
+                                           select: { selected = d.id; store.previewEffect(d) }, add: { selected = d.id; store.applyEffect(d) })
                                     .testID("asset.tile.\(d.id)")
                             }
                         }

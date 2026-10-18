@@ -156,6 +156,7 @@ struct MediaCard: View {
         .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
         .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
         .onTapGesture(count: 2) { store.addToTimeline(asset.id) }
+        .onTapGesture { store.previewMedia(asset.id) }   // "Previewing — Video" in the player (W2-3)
         .onDrag { NSItemProvider(object: DragPayload.media(asset.id) as NSString) }
         .task(id: asset.id) {
             if asset.kind == .audio { return }

@@ -50,7 +50,7 @@ final class CanvasOverlayView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     var viewport: PlayerViewport {
-        PlayerViewport(viewSize: bounds.size, canvas: store.project.settings.canvasSize, zoom: store.playerUI.zoom,
+        PlayerViewport(viewSize: bounds.size, canvas: store.playerUI.preview?.canvas ?? store.project.settings.canvasSize, zoom: store.playerUI.zoom,
                        pan: store.playerUI.pan)
     }
 
@@ -81,7 +81,7 @@ final class CanvasOverlayView: NSView {
         _ = (ui.zoom, ui.pan, ui.showRulers, ui.showGuides, ui.guides, ui.safeZone, ui.editingTextClip)
         _ = ui.canvasTool?.revision
         _ = store.project.settings.canvasSize
-        _ = (store.inspectorTab, InspectorUIState.shared.subTab)
+        _ = (store.inspectorTab, InspectorUIState.shared.subTab, ui.preview)
         if !store.selection.isEmpty {
             _ = store.project.timeline
             _ = store.transport.playhead
@@ -188,6 +188,9 @@ final class CanvasOverlayView: NSView {
             return
         }
         MotionPathDrawing.draw(ctx, viewport: vp, store: store)   // W5: position keyframes path (MontageUI/Keyframes)
+
+        // library / source preview: the timeline's layers aren't on screen, so no selection or mask handles
+        if ui.preview != nil { return }
 
         if let mt = maskTarget {
             drawMask(MaskFrame(layer: mt.layer.geometry, mask: mt.mask), layer: mt.layer, mask: mt.mask, vp, ctx)
@@ -409,6 +412,7 @@ final class CanvasOverlayView: NSView {
         store.playerUI.canvasHasFocus = true
         let v = convert(e.locationInWindow, from: nil)
         if textEditor != nil { store.playerUI.editingTextClip = nil; endTextEditing(); return }
+        if store.isPreviewing { store.exitPreview(); return }
         let vp = viewport
         let p = vp.toCanvas(v)
         let ui = store.playerUI

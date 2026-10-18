@@ -12,7 +12,14 @@ public struct PlayerPanel: View {
     public var body: some View {
         Panel {
             HStack {
-                Text(loc: "panel.player").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
+                if let pv = store.playerUI.preview {
+                    // "Previewing — Effects" (UX.md §4.1): library / source preview, Esc or ✕ returns to the timeline
+                    Text(verbatim: tr("player.previewing", tr(pv.titleKey))).font(Theme.Fonts.panelTitle)
+                        .foregroundStyle(Theme.textPrimary).testID("player.previewTitle")
+                    IconButton("xmark", help: tr("player.preview.exit")) { store.exitPreview() }.testID("player.exitPreview")
+                } else {
+                    Text(loc: "panel.player").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
+                }
                 Spacer()
                 PlayerMenuButton(store: store)
             }
@@ -72,9 +79,12 @@ struct TransportBar: View {
         let rate = store.projectSettings.frameRate
         ZStack {
             HStack(spacing: 4) {
-                Text(verbatim: Timecode.string(transport.playhead, rate: rate)).foregroundStyle(Theme.accent)
+                // while previewing a library item the timecode shows the item's own time / duration
+                let pv = ui.preview
+                let now = pv.map { (ui.previewTime - $0.range.start).clamped(.zero, $0.range.duration) } ?? transport.playhead
+                Text(verbatim: Timecode.string(now, rate: rate)).foregroundStyle(Theme.accent)
                 Text(verbatim: "/").foregroundStyle(Theme.textTertiary)
-                Text(verbatim: Timecode.string(store.projectDuration, rate: rate)).foregroundStyle(Theme.textSecondary)
+                Text(verbatim: Timecode.string(pv?.range.duration ?? store.projectDuration, rate: rate)).foregroundStyle(Theme.textSecondary)
                 Spacer()
                 PopupButton(help: tr("player.quality")) { BoxLabel(text: tr(PlayerMenus.qualityShortKey(store.previewQuality))) }
                     menu: { PlayerMenus.quality(store) }

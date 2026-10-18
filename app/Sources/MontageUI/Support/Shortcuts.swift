@@ -71,6 +71,7 @@ public enum ShortcutRegistry {
         // Player (UX.md §8.2 "Player")
         Shortcut("playerFullscreen", "shortcut.playerFullscreen", .char("f"), [.shift, .command]) { $0.togglePlayerFullscreen() },
         Shortcut("exitPlayerFullscreen", "shortcut.exitFullscreen", .escape, isEnabled: { $0.playerUI.isFullscreen }) { $0.setPlayerFullscreen(false) },
+        Shortcut("exitPreview", "shortcut.exitPreview", .escape, isEnabled: { $0.isPreviewing && !$0.playerUI.isFullscreen }) { $0.exitPreview() },
         Shortcut("playerZoomIn", "shortcut.playerZoomIn", .char("+"), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
         Shortcut("playerZoomInEq", "shortcut.playerZoomIn", .char("="), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
         Shortcut("playerZoomOut", "shortcut.playerZoomOut", .char("_"), [.option, .shift]) { $0.zoomPlayer(by: 0.8) },

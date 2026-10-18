@@ -84,7 +84,7 @@ struct StickerLibraryTab: View {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
                             ForEach(items) { s in
-                                StickerCard(sticker: s, selected: selected == s.id, select: { selected = s.id },
+                                StickerCard(sticker: s, selected: selected == s.id, select: { selected = s.id; store.previewSticker(s.id) },
                                             add: { selected = s.id; store.addGeneratorClip(.sticker(id: s.id)) })
                                     .testID("asset.tile.\(s.id)")
                             }
