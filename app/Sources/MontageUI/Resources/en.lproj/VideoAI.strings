@@ -24,3 +24,11 @@
 "reframe.done" = "Auto reframe applied";
 "reframe.failed" = "Couldn't apply auto reframe. Try again later.";
 "reframe.cancelled" = "Auto reframe canceled";
+"audio.job.separate" = "Separating audio...";
+"tlmenu.separateAudio.getStems" = "Instruments… (download the stem model)";
+"stem.vocals" = "Vocals (music)";
+"stem.drums" = "Drums";
+"stem.bass" = "Bass";
+"stem.other" = "Other instruments";
+"stem.guitar" = "Guitar";
+"stem.piano" = "Piano";

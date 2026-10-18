@@ -115,6 +115,7 @@ struct SpeechModelCard: View {
     var body: some View {
         let mm = ModelManager.shared
         let spec = ModelCatalog.whisperTurbo
+        let _ = mm.states
         let state = mm.state(spec)
         let runtime = WhisperRuntime.cliURL != nil
         VStack(alignment: .leading, spacing: 8) {
@@ -138,9 +139,6 @@ struct SpeechModelCard: View {
         }
         .padding(10)
         .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-        .sheet(isPresented: Binding(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
-            ModelManagerSheet { store.ai.isModelSheetPresented = false }
-        }
     }
 
     func engineLine(_ s: AIModelState, _ runtime: Bool) -> String {

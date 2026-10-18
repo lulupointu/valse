@@ -6,3 +6,7 @@
 "model.error.network" = "Couldn't download the model. Check your connection and try again.";
 "model.error.cancelled" = "Download canceled";
 "model.error.io" = "Couldn't save the model file.";
+"model.demucs4" = "HTDemucs (4 stems)";
+"model.demucs4.desc" = "Music source separation: vocals, drums, bass and other instruments.";
+"model.demucs6" = "HTDemucs (6 stems)";
+"model.demucs6.desc" = "Music source separation with guitar and piano stems too.";

@@ -6,3 +6,7 @@
 "model.error.network" = "Impossible de télécharger le modèle. Vérifiez votre connexion et réessayez.";
 "model.error.cancelled" = "Téléchargement annulé";
 "model.error.io" = "Impossible d'enregistrer le fichier du modèle.";
+"model.demucs4" = "HTDemucs (4 pistes)";
+"model.demucs4.desc" = "Séparation de sources musicales : voix, batterie, basses et autres instruments.";
+"model.demucs6" = "HTDemucs (6 pistes)";
+"model.demucs6.desc" = "Séparation de sources musicales, avec aussi la guitare et le piano.";

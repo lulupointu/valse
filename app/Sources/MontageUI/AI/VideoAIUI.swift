@@ -77,17 +77,37 @@ extension EditorStore {
         }
     }
 
-    /// Separate audio ▸ Vocals / Background music: ML stems, added as a linked audio clip under the source (whose own
-    /// sound is muted), like CapCut's separated stem clips. Stems are copied next to generated media so projects keep
-    /// working after a cache purge.
-    public func separateAudio(_ clipID: ClipID, keepVoice: Bool) {
+    /// Which separated sound a "Separate audio" entry makes.
+    public enum SeparatedPart: Hashable, Sendable {
+        /// Speech (AUSoundIsolation ML) / everything but the speech.
+        case voice, background
+        /// HTDemucs music stems.
+        case stem(StemSeparator.Stem)
+        var storeKind: String {
+            switch self { case .voice: return "voice"; case .background: return "novoice"; case .stem(let s): return s.storeKind }
+        }
+        var nameKey: String {
+            switch self {
+            case .voice: return "tlmenu.separateAudio.vocals"
+            case .background: return "tlmenu.separateAudio.music"
+            case .stem(let s): return s.nameKey
+            }
+        }
+    }
+
+    public func separateAudio(_ clipID: ClipID, keepVoice: Bool) { separateAudio(clipID, part: keepVoice ? .voice : .background) }
+
+    /// Separate audio (AU-009/010): ML stems, added as an audio clip under the source (whose own sound is muted), like
+    /// CapCut's separated stem clips. Stems are copied next to generated media so projects keep working after a cache purge.
+    public func separateAudio(_ clipID: ClipID, part: SeparatedPart) {
         guard let clip = project.timeline.clip(clipID), let asset = clip.mediaID.flatMap(project.asset), asset.hasAudio else { return }
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "audio.job.isolate", priority: 0, subject: clipID.description) { progress in
-                try await VoiceIsolator.separate(asset) { progress.report($0) }
+            let id = await JobQueue.shared.enqueue(titleKey: "audio.job.separate", priority: 0, subject: clipID.description) { progress in
+                if case .stem = part { try await StemSeparator.separate(asset) { progress.report($0) } }
+                else { try await VoiceIsolator.separate(asset) { progress.report($0) } }
             }
             guard await JobQueue.shared.wait(id) == .done,
-                  let stem = AudioStemStore.shared.readyStem(media: asset, kind: keepVoice ? "voice" : "novoice") else {
+                  let stem = AudioStemStore.shared.readyStem(media: asset, kind: part.storeKind) else {
                 showToast(tr("audio.separate.failed"), error: true); return
             }
             do {
@@ -96,7 +116,7 @@ extension EditorStore {
                 let dst = dir.appendingPathComponent(stem.lastPathComponent)
                 if !FileManager.default.fileExists(atPath: dst.path) { try FileManager.default.copyItem(at: stem, to: dst) }
                 var stemAsset = try await MediaProbe.probe(dst)
-                stemAsset.name = asset.name + " · " + tr(keepVoice ? "tlmenu.separateAudio.vocals" : "tlmenu.separateAudio.music")
+                stemAsset.name = asset.name + " · " + tr(part.nameKey)
                 let sa = stemAsset
                 perform(Edit("cmd.separateAudio") { p in
                     guard var src = p.timeline.clip(clipID) else { throw EditError.clipNotFound }

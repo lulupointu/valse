@@ -1,5 +1,6 @@
 import AppKit
 import MontageCore
+import MontageAI
 import MontageEffects
 
 /// Timeline context menus (UX.md §6.5–6.6, [87](../../../../docs/ux/87_ctx_menu_clip.png)): clip, keyframe, marker,
@@ -94,7 +95,11 @@ extension TimelineView {
             sub("tlmenu.separateAudio", [
                 item("tlmenu.separateAudio.vocals", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: true) } },
                 item("tlmenu.separateAudio.music", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: false) } },
-            ]),
+            ] + (StemSeparator.availableStems.isEmpty
+                 ? [item("tlmenu.separateAudio.getStems") { s.ai.isModelSheetPresented = true; s.activeAssetTab = "text" }]
+                 : StemSeparator.availableStems.map { st in
+                    item(st.nameKey, enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, part: .stem(st)) } }
+                 })),
             item(hasExtract ? "tlmenu.restoreAudio" : "tlmenu.extractAudio", "s", [.control, .shift],
                  enabled: hasExtract || (isVideo && asset?.hasAudio == true && single?.audio.isMuted == false)) { s.extractOrRestoreAudio() },
             item("tlmenu.syncAudio", enabled: false) {},

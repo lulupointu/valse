@@ -56,6 +56,9 @@ public struct EditorView: View {
         .background(Theme.window)
         .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
         .sheet(isPresented: $store.isExportSheetPresented) { ExportSheet(store: store) }
+        .sheet(isPresented: Binding(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
+            ModelManagerSheet { store.ai.isModelSheetPresented = false }   // W10 AI models
+        }
         .preferredColorScheme(.dark)
         .id(locale.revision)
     }

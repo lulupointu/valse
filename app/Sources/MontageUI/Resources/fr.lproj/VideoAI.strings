@@ -24,3 +24,11 @@
 "reframe.done" = "Recadrage automatique appliqué";
 "reframe.failed" = "Impossible d'appliquer le recadrage automatique. Réessayez plus tard.";
 "reframe.cancelled" = "Recadrage automatique annulé";
+"audio.job.separate" = "Séparation audio en cours…";
+"tlmenu.separateAudio.getStems" = "Instruments… (télécharger le modèle de séparation)";
+"stem.vocals" = "Chant";
+"stem.drums" = "Batterie";
+"stem.bass" = "Basses";
+"stem.other" = "Autres";
+"stem.guitar" = "Guitare";
+"stem.piano" = "Piano";
