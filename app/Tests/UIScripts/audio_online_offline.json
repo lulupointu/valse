@@ -1,0 +1,18 @@
+// MUS online: offline state (mock key "offline" simulates no connection) with Retry + "Browse the offline library".
+{
+  "project": "empty",
+  "steps": [
+    {"click": "id:asset.tab.audio"},
+    {"click": "id:asset.nav.online.trending"},
+    {"click": "id:online.state.noKey.primary"},
+    {"click": "id:settings.music.key.freesound"},
+    {"type": "offline"},
+    {"click": "id:settings.music.save.freesound"},
+    {"click": "id:dialog.close"},
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "offline", "timeout": 10}},
+    {"expect": {"path": "ui.anchors", "contains": "online.state.offline"}},
+    {"snapshot": "online-offline", "element": "id:panel.assets"},
+    {"click": "id:online.state.offline.secondary"},
+    {"expect": {"path": "ui.assets.nav.audio", "equals": "group:Offline music"}}
+  ]
+}

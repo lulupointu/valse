@@ -1,0 +1,76 @@
+// MUS online (AU-001 / AU-002): Audio ▸ Online with mocked providers (no network in tests): setup state without keys
+// (and no request), key entry in Settings ▸ Music, Trending / Moods / search, streamed preview, CC BY "Credit" license
+// card, Use → downloaded + added at the playhead, online sound effects by category, favourites.
+{
+  "project": "empty",
+  "steps": [
+    {"click": "id:asset.tab.audio"},
+    {"click": "id:asset.nav.online.forYou"},
+    {"expect": [{"path": "ui.assets.online.phase", "equals": "noKey"}, {"path": "ui.assets.online.requests", "equals": 0},
+                {"path": "ui.anchors", "contains": "online.state.noKey"}]},
+    {"snapshot": "online-setup", "element": "id:panel.assets"},
+    // "Set up in Settings" → Settings ▸ Music
+    {"click": "id:online.state.noKey.primary"},
+    {"expect": [{"path": "app.modal", "equals": "settings"}, {"path": "ui.anchors", "contains": "settings.music.key.freesound"}]},
+    {"click": "id:settings.music.key.freesound"},
+    {"type": "test-freesound-key"},
+    {"click": "id:settings.music.save.freesound"},
+    {"click": "id:settings.music.key.jamendo"},
+    {"type": "test-jamendo-key"},
+    {"click": "id:settings.music.save.jamendo"},
+    {"expect": [{"path": "ui.assets.online.keys", "contains": "freesound"}, {"path": "ui.assets.online.keys", "contains": "jamendo"},
+                {"path": "ui.anchors", "contains": "settings.music.remove.jamendo"}]},
+    {"snapshot": "settings-music", "element": "id:settings"},
+    {"click": "id:dialog.close"},
+    {"expect": {"path": "app.modal", "equals": ""}},
+    // For you loads right away
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
+    {"expect": {"path": "ui.assets.online.count", "gte": 10}},
+    // Trending
+    {"click": "id:asset.nav.online.trending"},
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
+    {"expect": [{"path": "ui.assets.online.results", "contains": "online.jamendo.170"}, {"path": "ui.assets.count.audio", "gte": 10}]},
+    {"snapshot": "online-trending", "element": "id:panel.assets"},
+    // Moods ▸ Epic
+    {"click": "id:asset.nav.online.moods"},
+    {"click": "id:online.mood.epic"},
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
+    {"expect": [{"path": "ui.assets.online.mood", "equals": "epic"}, {"path": "ui.assets.online.count", "gte": 6}]},
+    // search goes online while an Online entry is selected
+    {"click": "id:asset.nav.online.trending"},
+    {"click": "id:asset.search"},
+    {"type": "summer"},
+    {"wait": 0.6},
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
+    {"expect": [{"path": "ui.assets.query.audio", "equals": "summer"}, {"path": "ui.assets.online.count", "gte": 6}]},
+    {"click": "id:asset.search.clear"},
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
+    // preview streams (playing state), license card of a CC BY track shows the credit
+    {"click": "id:asset.tile.online.jamendo.170", "at": [0.3, 0.5]},
+    {"waitFor": {"path": "ui.assets.playing", "equals": "online.jamendo.170", "timeout": 10}},
+    {"click": "id:asset.tile.online.jamendo.170.license"},
+    {"expect": [{"path": "ui.assets.licenseCard", "equals": "online.jamendo.170"}, {"path": "ui.anchors", "contains": "audio.license.copyCredit"}]},
+    {"wait": 0.5},
+    {"snapshot": "online-license", "element": "id:panel.assets"},
+    {"click": "id:audio.license.close"},
+    // favourite → listed by Favorites (kept offline)
+    {"click": "id:asset.tile.online.jamendo.170.favorite"},
+    {"expect": {"path": "ui.assets.online.saved", "contains": "online.jamendo.170"}},
+    // Use: downloaded once, added at the playhead with its name
+    {"click": "id:asset.tile.online.jamendo.170.add"},
+    {"waitFor": {"path": "tracks.count", "gte": 2, "timeout": 20}},
+    {"expect": [{"path": "tracks.1.kind", "equals": "audio"}, {"path": "tracks.1.clips.count", "equals": 1},
+                {"path": "media.0.name", "equals": "Sunny Walk"}]},
+    {"click": "id:asset.nav.favorites"},
+    {"expect": {"path": "ui.assets.count.audio", "equals": 1}},
+    // online sound effects by category
+    {"click": "id:asset.nav.online.sfx"},
+    {"click": "id:online.sfxcat.transition"},
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
+    {"expect": [{"path": "ui.assets.online.sfxCategory", "equals": "transition"}, {"path": "ui.assets.online.results", "contains": "online.freesound.9000"}]},
+    {"snapshot": "online-sfx", "element": "id:panel.assets"},
+    {"seek": 0},
+    {"click": "id:asset.tile.online.freesound.9000.add"},
+    {"waitFor": {"path": "media.count", "equals": 2, "timeout": 20}}
+  ]
+}

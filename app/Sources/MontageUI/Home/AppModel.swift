@@ -81,6 +81,7 @@ public final class AppModel {
         preferences.store = store
         preferences.apply(to: store)
         TitleBar.showShortcuts = { [weak self] in self?.modal = .shortcuts }
+        OnlineAudioState.openSettings = { [weak self] in self?.modal = .settings(.music) }
         if let v = UserDefaults.standard.string(forKey: "MontageHomeViewMode"), let m = ViewMode(rawValue: v) { viewMode = m }
         if let v = UserDefaults.standard.string(forKey: "MontageHomeSort"), let s = LibrarySort(rawValue: v) { sort = s }
     }

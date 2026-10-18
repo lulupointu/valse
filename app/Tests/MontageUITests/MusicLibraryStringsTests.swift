@@ -4,20 +4,12 @@ import MontageCore
 import MontageEngine
 @testable import MontageUI
 
-/// Every dynamic key of the built-in music libraries (generated + bundled CC0 library) is localized in en and fr.
+/// Every dynamic key of the built-in music libraries (bundled CC0 library + online search) is localized in en and fr.
 @MainActor struct MusicLibraryStringsTests {
-    @Test func musicLibraryKeysAreLocalized() {
-        MontageBootstrap.registerResources()
-        let keys = MusicLibrary.all.map(\.nameKey) + MusicLibrary.genres.map { "music.genre.\($0)" } + MusicLibrary.moods.map { "music.mood.\($0)" }
-        let en = L10n.shared.keys(for: "en"), fr = L10n.shared.keys(for: "fr")
-        let missing = Set(keys).filter { !en.contains($0) || !fr.contains($0) }.sorted()
-        #expect(missing.isEmpty, "missing: \(missing)")
-    }
-
     @Test func contentLibraryKeysAreLocalized() {
         MontageBootstrap.registerResources()
         let items = ContentLibrary.items
-        var keys = ContentLibrary.musicCategories.map { "music.cat.\($0)" } + ["music.cat.generated"]
+        var keys = ContentLibrary.musicCategories.map { "music.cat.\($0)" } 
             + ContentLibrary.sfxCategories.map { "sfx.category.\($0)" } + ContentLibrary.moods.map { "music.mood.\($0)" }
         keys += items.compactMap(\.name).map { "sfx.n.\($0)" }
         keys += items.compactMap(\.mood).map { "music.mood.\($0)" }

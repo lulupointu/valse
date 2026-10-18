@@ -299,6 +299,16 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   copies it into `Montage.app/Contents/Resources/Content`. Runtime is offline: `ContentLibrary.directory` = bundle, else
   `MONTAGE_CONTENT_DIR`, else the developer cache. **Add a track**: one entry in `music_sources.json`, run the fetch with `--pin`,
   commit both JSON files; `ContentLibraryTests` validates licenses, provenance, analysis and the installed files.
+- **Online music + SFX search (MUS, owner exception to local-only)**: `MontageEngine/Audio/Online/` — `OnlineAudioProvider`
+  (`FreesoundProvider`, `JamendoProvider`: `request(query,key)` + `parse(data)`), `OnlineLicensePolicy` (CC0 / PDM = "Safe ✓",
+  CC BY = "Credit", everything else dropped), `OnlineAudioHTTP` (the only network seam; `MockOnlineAudioHTTP` in tests / UI-test
+  mode serves Freesound/Jamendo-shaped JSON + local tones), `OnlineAudioDownloads` (cache `<cache>/OnlineAudio`, then copied into
+  `<project>/media` with a `<file>.license.json` sidecar), keys in the Keychain (`KeychainSecretStore`; `MemorySecretStore` in tests).
+  UI: `AudioLibraryOnline.swift` (`OnlineAudioState`, Audio ▸ Online: For you / Trending / Moods / Genres / Sound effects,
+  24 h query cache, streamed previews via `LibraryAudioPreview.stream`), Settings ▸ Music (`MusicSettings.swift`).
+  Rule: nothing outside these types touches the network, and only when the user opens / searches Audio ▸ Online.
+  **Add a provider**: implement `OnlineAudioProvider`, append it to `OnlineAudioProviders.all`, add
+  `settings.music.provider.<id>` (en + fr) and a mock response in `MockOnlineAudioHTTP`.
 - **Add a voice preset**: one entry in `VoiceEffects.filters`/`characters` (design = pitch/formant/robot + live nodes) + `voice.<id>` in
   MontageUI `Audio.strings` (en + fr). `AudioDSPTests.everyVoicePresetProducesSaneOutput` checks it automatically.
 - **UI**: `MontageUI/Audio/*` — inspector sections registered via `AudioInspector.sections/tabs` (video ▸ Audio [Basic · Voice changer];

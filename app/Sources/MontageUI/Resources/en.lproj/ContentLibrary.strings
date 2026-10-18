@@ -11,7 +11,14 @@
 "music.cat.electronic" = "Electronic";
 "music.cat.funny" = "Funny";
 "music.cat.jazz" = "Jazz & funk";
-"music.cat.generated" = "Generated";
+"music.mood.chill" = "Chill";
+"music.mood.dreamy" = "Dreamy";
+"music.mood.energetic" = "Energetic";
+"music.mood.epic" = "Epic";
+"music.mood.happy" = "Happy";
+"music.mood.romantic" = "Romantic";
+"music.mood.sad" = "Sad";
+"music.mood.tense" = "Tense";
 "music.mood.inspiring" = "Inspiring";
 "music.mood.playful" = "Playful";
 "music.mood.groovy" = "Groovy";

@@ -5,7 +5,8 @@ import MontageCore
 import MontageEngine
 
 /// Asset panel ▸ Audio (UX.md §3.4, AU-001/002/003/025): Yours · Extracted · Music folder · Favorites · Recent ·
-/// (Similar) · Music ▾ (bundled CC0 tracks by category + Generated) · Sound effects ▾. List rows: cover · title ✓ /
+/// (Similar) · Online ▾ (For you · Trending · Moods · Genres · Sound effects — AudioLibraryOnline.swift) ·
+/// Offline music ▾ (bundled CC0 tracks by category) · Offline sound effects ▾. List rows: cover · title ✓ /
 /// "artist · 02:09 · 120 BPM" · Similar · ☆ · ⊕; click = preview (▶/❚❚, progress + beats over the waveform),
 /// double-click / ⊕ / drag adds at the playhead.
 struct AudioLibraryTab: View {
@@ -21,8 +22,10 @@ struct AudioLibraryTab: View {
             MediaBinView(store: store, kinds: [.audio], tab: "audio").audioRowItem($0, used: store.usedMediaIDs.contains($0.id))
         }, inRail: false)
         let similar = AudioSimilarState.shared
-        let sections = [bin] + AudioLibrarySections.music(store, usedURLs)
-            + AudioLibrarySections.sfx(store, usedURLs, generated: SoundEffects.all.map { sfxItem($0, usedURLs) })
+        let online = OnlineAudioState.shared
+        // online tracks the user favourited / used: searchable + listed by Favorites / Recent (not in the rail)
+        let saved = LibrarySection(id: "online.saved", title: tr("online.group"), items: online.savedItems(store: store), inRail: false)
+        let sections = [bin, saved] + AudioLibrarySections.music(store, usedURLs) + AudioLibrarySections.sfx(store, usedURLs)
         var nav: [(id: String, title: String)] = [("yours", tr("audio.lib.imported")), ("extracted", tr("audio.lib.extracted")),
                                                   ("folder", tr("audio.lib.folder"))]
         if similar.seed != nil { nav.append((AudioSimilarState.navID, tr("audio.similar.nav"))) }
@@ -34,43 +37,29 @@ struct AudioLibraryTab: View {
                                   case "extracted": return AnyView(ExtractedAudioView(store: store))
                                   case "folder": return AnyView(LocalMusicView(store: store))
                                   case AudioSimilarState.navID: return AnyView(AudioSimilarView(store: store, sections: sections))
+                                  case let n where OnlineAudioState.navIDs.contains(n): return AnyView(OnlineAudioView(store: store, nav: n))
                                   default: return AnyView(MediaTab(store: store, kinds: [.audio]))
                                   }
                               },
+                              customGroups: [(tr("online.group"), OnlineAudioState.navEntries)],
                               initialNav: AudioLibrarySections.defaultNav, yoursGroup: tr("asset.nav.yours")) {
             SimilarToClipBar(store: store)
         }
         .onDisappear { preview.stop() }
-    }
-
-    func sfxItem(_ d: SoundEffectDescriptor, _ used: Set<URL>) -> LibraryItem {
-        let id = "sfx.\(d.id)"
-        return LibraryItem(id: id, title: tr(d.nameKey),
-                           subtitle: "\(tr("sfx.category.\(d.category)")) · \(Timecode.shortDuration(Time(d.duration)))",
-                           keywords: [d.id, d.category, tr("audio.lib.sfx"), tr("music.cat.generated")],
-                           art: .cover(AudioCovers.sfx(d.category), symbol: "waveform"),
-                           payload: AudioLibraryPayload.sfx(d.id),
-                           added: used.contains(SoundEffects.url(for: d).standardizedFileURL),
-                           busy: rendering.busy.contains(id), playing: preview.playingID == id,
-                           add: { [store] in AudioLibraryRendering.shared.add(id, name: tr(d.nameKey), store: store) { try SoundEffects.file(d) } },
-                           click: { LibraryAudioPreview.shared.toggle(id) { try SoundEffects.file(d) } })
+        .onChange(of: AssetLibraryStore.shared.favoriteIDs("audio") + AssetLibraryStore.shared.recentIDs("audio")) { _, ids in
+            online.keepSaved(ids)
+        }
     }
 }
 
-/// Library payloads for the timeline ("montage-music:<id>", "montage-sfx:<id>").
+/// Library payloads for the timeline ("montage-lib:<id>", "montage-online:<provider:id>", "montage-file:<path>").
 enum AudioLibraryPayload {
-    static func music(_ id: String) -> String { "montage-music:\(id)" }
-    static func sfx(_ id: String) -> String { "montage-sfx:\(id)" }
     /// Bundled CC0 library item (`ContentLibrary`).
     static func library(_ id: String) -> String { "montage-lib:\(id)" }
 
     static func file(_ url: URL) -> String { "montage-file:\(url.path)" }
 
     static let dropHandler: LibraryDropHandlers.Handler = { s, store, time, target in
-        if s.hasPrefix("montage-sfx:"), let d = SoundEffects.all.first(where: { $0.id == String(s.dropFirst(12)) }) {
-            AudioLibraryRendering.shared.add("sfx.\(d.id)", name: tr(d.nameKey), store: store, at: time, target: target) { try SoundEffects.file(d) }
-            return true
-        }
         if s.hasPrefix("montage-file:") {
             store.importFiles([URL(fileURLWithPath: String(s.dropFirst(13)))], thenInsertAt: time, target: target)
             return true
@@ -79,7 +68,6 @@ enum AudioLibraryPayload {
     }
 
     static let dropDuration: LibraryDropHandlers.Duration = { s, _ in
-        if s.hasPrefix("montage-sfx:") { return SoundEffects.all.first { $0.id == String(s.dropFirst(12)) }.map { Time($0.duration) } }
         return AudioLibrarySections.dropDuration(s)
     }
 }
@@ -126,6 +114,9 @@ final class LibraryAudioPreview {
     /// Pre-computed beat markers per row id (fraction of the track, 0…1) drawn on the preview strip.
     private(set) var beatMarks: [String: [Double]] = [:]
     @ObservationIgnored private var player: AVAudioPlayer?
+    /// Online previews stream with AVPlayer (Audio ▸ Online) until the file is cached.
+    @ObservationIgnored private var streamer: AVPlayer?
+    @ObservationIgnored private var streamDuration: Double = 0
 
     /// Waveform / beats known in advance (library manifest): the strip draws them before any decoding.
     func seed(_ id: String, peaks p: [Int]?, beats: [Double]?, duration: Double?) {
@@ -134,8 +125,45 @@ final class LibraryAudioPreview {
     }
     @ObservationIgnored private var endTask: Task<Void, Never>?
 
-    var currentTime: Double { player?.currentTime ?? 0 }
-    var duration: Double { player?.duration ?? 0 }
+    var currentTime: Double {
+        if let s = streamer { let t = s.currentTime().seconds; return t.isFinite ? t : 0 }
+        return player?.currentTime ?? 0
+    }
+    var duration: Double {
+        if let s = streamer {
+            let d = s.currentItem?.duration.seconds ?? .nan
+            return d.isFinite && d > 0 ? d : streamDuration
+        }
+        return player?.duration ?? 0
+    }
+
+    /// Streams a remote preview (`peaks` computed later from `cached` once the background download finishes).
+    func stream(_ id: String, url: URL, duration: Double, cached: (@Sendable () async -> URL?)? = nil) {
+        if playingID == id { stop(); return }
+        stop()
+        let p = AVPlayer(url: url)
+        p.automaticallyWaitsToMinimizeStalling = false
+        streamer = p
+        streamDuration = duration
+        playingID = id
+        p.play()
+        if peaks[id] == nil, let cached {
+            Task {
+                guard let file = await cached() else { return }
+                let pk = await Task.detached(priority: .utility) { AudioPeaks.compute(file, bars: 120) }.value
+                if !pk.isEmpty { peaks[id] = pk }
+            }
+        }
+        endTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            while let self, self.playingID == id, let s = self.streamer {
+                let t = s.currentTime().seconds, d = self.duration
+                if s.currentItem?.status == .failed || (d > 0 && t >= d - 0.05) { break }
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            if let self, self.playingID == id { self.stop() }
+        }
+    }
 
     func toggle(_ id: String, _ make: @escaping @Sendable () throws -> URL) {
         if playingID == id { stop(); return }
@@ -167,6 +195,9 @@ final class LibraryAudioPreview {
     }
 
     func seek(fraction: Double) {
+        if let s = streamer {
+            s.seek(to: CMTime(seconds: max(0, min(1, fraction)) * duration, preferredTimescale: 600)); return
+        }
         guard let p = player else { return }
         p.currentTime = max(0, min(1, fraction)) * p.duration
     }
@@ -174,6 +205,7 @@ final class LibraryAudioPreview {
     func stop() {
         endTask?.cancel(); endTask = nil
         player?.stop(); player = nil; playingID = nil
+        streamer?.pause(); streamer = nil
     }
 }
 

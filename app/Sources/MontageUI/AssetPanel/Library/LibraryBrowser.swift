@@ -46,6 +46,9 @@ struct LibraryLicense {
     var retrieved: String
     /// Extra "label: value" rows (BPM, key, duration…), already localized.
     var details: [(String, String)] = []
+    /// CC BY (online items): usable on social media, but the author must be credited — amber "Credit" badge,
+    /// the credit line (copyable) in the card.
+    var credit: String? = nil
 }
 
 /// Card picture.
@@ -125,6 +128,9 @@ struct LibraryBrowser<Header: View>: View {
     /// Extra rail entries before the sections whose content the caller draws (e.g. Media ▸ Import).
     var customNav: [(id: String, title: String)] = []
     var customContent: ((String) -> AnyView)? = nil
+    /// Extra rail groups (after "Yours", before the sections) whose entries the caller draws with `customContent`,
+    /// search included: while one of them is selected the query goes to the caller (e.g. Audio ▸ Online search).
+    var customGroups: [(group: String, entries: [(id: String, title: String)])] = []
     var emptyHint: String? = nil
     /// Rail entry selected the first time (default: the first custom entry, else the first section).
     var initialNav: String? = nil
@@ -144,6 +150,10 @@ struct LibraryBrowser<Header: View>: View {
         out += customNav.map { .init(id: $0.id, title: $0.title, group: y) }
         if showsFavorites { out.append(.init(id: LibraryNav.favorites, title: tr("asset.nav.favorites"), symbol: "star", group: y)) }
         if showsRecents { out.append(.init(id: LibraryNav.recent, title: tr("asset.nav.recent"), symbol: "clock", group: y)) }
+        for g in customGroups {
+            out.append(.init(id: "group:" + g.group, title: g.group, isGroup: true))
+            out += g.entries.map { .init(id: $0.id, title: $0.title, group: g.group) }
+        }
         var groups: [String] = []
         for s in sections where s.inRail {
             if let g = s.group {
@@ -170,9 +180,14 @@ struct LibraryBrowser<Header: View>: View {
         }
     }
 
+    var customGroupEntries: [String] { customGroups.flatMap { $0.entries.map(\.id) } }
+
     @ViewBuilder func content(_ nav: String) -> some View {
         let query = state.query[tab] ?? ""
-        if !LibrarySearch.fold(query).isEmpty {
+        let groupFirst = customGroups.first { "group:" + $0.group == nav }?.entries.first?.id
+        if let custom = customContent, customGroupEntries.contains(nav) || groupFirst != nil {
+            custom(groupFirst ?? nav)
+        } else if !LibrarySearch.fold(query).isEmpty {
             let r = LibrarySearch.results(sections, query)
             LibraryItemsView(tab: tab, namespace: namespace, title: tr("asset.results", r.count), items: r, style: style,
                              empty: tr("asset.empty.search", query))
@@ -408,7 +423,7 @@ struct LibraryRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         Text(verbatim: item.title).font(.system(size: 13)).foregroundStyle(item.playing ? Theme.accent : Theme.textPrimary).lineLimit(1)
-                        if item.license != nil { SafeForSocialBadge(itemID: item.id) }
+                        if let l = item.license { SafeForSocialBadge(itemID: item.id, needsCredit: l.credit != nil) }
                         if item.added { AddedChip(inline: true) }
                     }
                     if let s = item.subtitle {
@@ -630,15 +645,15 @@ struct CategoryRail: View {
         let open = !collapsed.contains(e.title)
         let sel = selection == e.id
         return HStack(spacing: 4) {
-            Text(verbatim: e.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.9)
-                .layoutPriority(1)
+            Text(verbatim: e.title).font(.system(size: 12, weight: .semibold)).lineLimit(2).minimumScaleFactor(0.9)
+                .fixedSize(horizontal: false, vertical: true).layoutPriority(1)
             Spacer(minLength: 0)
             Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 8, weight: .bold))
                 .frame(width: 10, height: 20).contentShape(Rectangle())
                 .onTapGesture { if open { collapsed.insert(e.title) } else { collapsed.remove(e.title) } }
         }
         .foregroundStyle(sel ? Theme.accent : Theme.textPrimary)
-        .padding(.leading, 8).padding(.trailing, 3).frame(height: 28)
+        .padding(.leading, 8).padding(.trailing, 3).padding(.vertical, 4).frame(minHeight: 28)
         .background(sel ? Theme.accentDim.opacity(0.45) : Color(hex: 0x2A2A2A), in: RoundedRectangle(cornerRadius: 4))
         .contentShape(Rectangle())
         .onTapGesture { selection = e.id; AssetPanelState.shared.query[tab] = nil }

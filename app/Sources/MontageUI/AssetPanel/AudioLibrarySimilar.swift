@@ -158,19 +158,23 @@ final class LicenseCardState {
 /// Green ✓ seal next to a library row's title; click opens the license card (the row's popover).
 struct SafeForSocialBadge: View {
     let itemID: String
+    /// CC BY: amber "Credit" badge (safe for social media once the author is credited).
+    var needsCredit = false
+    static let green = Color(hex: 0x5BD08A), amber = Color(hex: 0xF0B44C)
     var body: some View {
         let open = LicenseCardState.shared.shownID == itemID
+        let c = needsCredit ? Self.amber : Self.green
         Button { LicenseCardState.shared.toggle(itemID) } label: {
             HStack(spacing: 2) {
-                Image(systemName: "checkmark.seal.fill").font(.system(size: 10))
-                Text(loc: "audio.license.safeShort").font(.system(size: 9, weight: .semibold))
+                Image(systemName: needsCredit ? "person.crop.circle.badge.checkmark" : "checkmark.seal.fill").font(.system(size: 10))
+                Text(loc: needsCredit ? "audio.license.creditShort" : "audio.license.safeShort").font(.system(size: 9, weight: .semibold))
             }
-            .foregroundStyle(Color(hex: 0x5BD08A))
+            .foregroundStyle(c)
             .padding(.horizontal, 4).frame(height: 15)
-            .background(Color(hex: 0x5BD08A).opacity(open ? 0.28 : 0.14), in: RoundedRectangle(cornerRadius: 3))
+            .background(c.opacity(open ? 0.28 : 0.14), in: RoundedRectangle(cornerRadius: 3))
         }
         .buttonStyle(.plain)
-        .help(tr("audio.license.safe"))
+        .help(tr(needsCredit ? "audio.license.creditTitle" : "audio.license.safe"))
         .testID("asset.tile.\(itemID).license")
     }
 }
@@ -182,16 +186,36 @@ struct LicenseCard: View {
     let license: LibraryLicense
 
     var body: some View {
+        let credit = license.credit
+        let tint = credit == nil ? SafeForSocialBadge.green : SafeForSocialBadge.amber
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 6) {
-                Image(systemName: "checkmark.seal.fill").font(.system(size: 13)).foregroundStyle(Color(hex: 0x5BD08A))
-                Text(loc: "audio.license.safe").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Image(systemName: credit == nil ? "checkmark.seal.fill" : "person.crop.circle.badge.checkmark").font(.system(size: 13))
+                    .foregroundStyle(tint)
+                Text(loc: credit == nil ? "audio.license.safe" : "audio.license.creditTitle").font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer(minLength: 0)
                 IconButton("xmark", help: tr("audio.similar.close")) { LicenseCardState.shared.close() }
                     .testID("audio.license.close")
             }
-            Text(loc: "audio.license.body").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+            Text(loc: credit == nil ? "audio.license.body" : "audio.license.creditBody").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            if let credit {
+                HStack(alignment: .top, spacing: 6) {
+                    Text(verbatim: credit).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textPrimary)
+                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(credit, forType: .string)
+                    } label: {
+                        Text(loc: "audio.license.copyCredit").font(.system(size: 10.5, weight: .medium)).foregroundStyle(Theme.accent)
+                    }
+                    .buttonStyle(.plain).testID("audio.license.copyCredit")
+                }
+                .padding(6)
+                .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 4))
+            }
             VStack(alignment: .leading, spacing: 3) {
                 row(tr("audio.license.license"), license.licenseName)
                 row(tr("audio.license.author"), license.author)
@@ -206,7 +230,7 @@ struct LicenseCard: View {
         }
         .padding(10)
         .background(Color(hex: 0x262626), in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: 0x5BD08A).opacity(0.35), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(tint.opacity(0.35), lineWidth: 1))
         .overlay(alignment: .topLeading) {
             // popover arrow pointing at the badge
             Path { p in p.move(to: CGPoint(x: 0, y: 6)); p.addLine(to: CGPoint(x: 6, y: 0)); p.addLine(to: CGPoint(x: 12, y: 6)) }

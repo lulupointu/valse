@@ -17,7 +17,6 @@ import MontageTestSupport
         MontageBootstrap.registerResources()
         var keys: [String] = VoiceEffects.all.map(\.nameKey) + VoiceEffects.all.flatMap { $0.params.map(\.nameKey) }
         keys += VoiceCategory.allCases.map(\.nameKey) + ChannelMode.allCases.map(\.nameKey) + VocalSeparation.allCases.map(\.nameKey)
-        keys += SoundEffects.all.map(\.nameKey) + SoundEffects.categories.map { "sfx.category.\($0)" }
         keys += LoudnessNormalization.targets.map { "audio.loudness.target.\(Int(-$0))" }
         keys += EQEditor.presets.map { "audio.eq.\($0.id)" }
         keys += AudioInspector.sections.compactMap(\.titleKey) + AudioInspector.tabs.map(\.titleKey) + [AudioInspector.voiceSubTab.titleKey]
@@ -127,11 +126,5 @@ import MontageTestSupport
         }.value
         #expect(abs(Double(frames) / 48000 - 1) < 0.05)
         #expect(abs(f - 440) < 3)
-    }
-
-    @Test func soundEffectsSynthesize() async throws {
-        // off the main actor: synthesis is CPU work (and other suites need the main thread)
-        let urls = try await Task.detached { try SoundEffects.all.map { try SoundEffects.file($0) } }.value
-        for u in urls { #expect(FileManager.default.fileExists(atPath: u.path), "\(u.lastPathComponent)") }
     }
 }

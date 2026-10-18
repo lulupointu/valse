@@ -4,7 +4,7 @@ import MontageCore
 import MontageEngine
 
 public enum SettingsTab: String, CaseIterable, Sendable {
-    case general, project, edit, performance, export, shortcuts, about
+    case general, project, edit, performance, export, music, shortcuts, about
     var nameKey: String { "settings.tab.\(rawValue)" }
 }
 
@@ -42,6 +42,7 @@ struct SettingsView: View {
                         case .edit: EditSettings(draft: $draft)
                         case .performance: PerformanceSettings(draft: $draft, sizes: cacheSizes, editing: app.screen == .editor, clear: clear)
                         case .export: ExportDefaultsSettings(draft: $draft)
+                        case .music: MusicSettings()
                         case .shortcuts: ShortcutList(keymap: keymap, compact: true)
                         case .about: AboutPanel()
                         }

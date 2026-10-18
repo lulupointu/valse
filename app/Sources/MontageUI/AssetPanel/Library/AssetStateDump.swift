@@ -26,6 +26,7 @@ enum AssetStateDump {
             // bundled CC0 music/SFX library (MUS): similar-sounds panel, open license card
             "similar": AudioSimilarState.shared.dump,
             "licenseCard": LicenseCardState.shared.shownID ?? "",
+            "online": OnlineAudioState.shared.dump,
             "library": ["music": ContentLibrary.availableMusic.count, "sfx": ContentLibrary.availableSFX.count] as [String: Any],
             // library / source preview (W2 `PlayerPreview`): time is relative to the previewed item
             "preview": ["active": store.isPreviewing, "kind": store.playerUI.preview?.kind.rawValue ?? "",

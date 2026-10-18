@@ -1,0 +1,23 @@
+// MUS online in French: setup state, Settings ▸ Musique, Tendances list with "Libre" / "Crédit" badges (baselines).
+{
+  "project": "empty",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:asset.tab.audio"},
+    {"click": "id:asset.nav.online.forYou"},
+    {"expect": {"path": "ui.assets.online.phase", "equals": "noKey"}},
+    {"snapshot": "audio_online_setup_fr", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:online.state.noKey.primary"},
+    {"click": "id:settings.music.key.jamendo"},
+    {"type": "k"},
+    {"click": "id:settings.music.save.jamendo"},
+    {"click": "id:settings.music.key.freesound"},
+    {"type": "k"},
+    {"click": "id:settings.music.save.freesound"},
+    {"snapshot": "settings_music_fr", "element": "id:settings", "baseline": true},
+    {"click": "id:dialog.close"},
+    {"click": "id:asset.nav.online.trending"},
+    {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
+    {"snapshot": "audio_online_trending_fr", "element": "id:panel.assets", "baseline": true}
+  ]
+}

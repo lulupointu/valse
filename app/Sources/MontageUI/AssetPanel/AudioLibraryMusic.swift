@@ -2,13 +2,13 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 
-/// Audio ▸ Music ▾ / Sound effects ▾ (AU-001 / AU-002): the bundled CC0 library (`ContentLibrary`: real tracks from
-/// FreePD / Free Music Archive, sound effects from Kenney / OpenGameArt / Wikimedia Commons), one rail entry per
-/// category, plus a "Generated" entry with the procedurally synthesized tracks / effects (`MusicLibrary`,
-/// `SoundEffects`). Rows: title + "safe for social media" badge, "artist · 02:09 · 120 BPM", ☆, Similar, ⊕.
+/// Audio ▸ Offline music ▾ / Offline sound effects ▾ (AU-001 / AU-002): the bundled CC0 library ("Featured offline",
+/// `ContentLibrary`: real tracks from FreePD / Free Music Archive, sound effects from Kenney / OpenGameArt / Wikimedia
+/// Commons), one rail entry per category. No generated / synthesized audio (owner decision). Online search lives in
+/// AudioLibraryOnline.swift. Rows: title + "safe for social media" badge, "artist · 02:09 · 120 BPM", ☆, Similar, ⊕.
 @MainActor
 enum AudioLibrarySections {
-    static var defaultNav: String { "group:" + tr("audio.lib.music") }
+    static var defaultNav: String { "group:" + tr("audio.lib.offlineMusic") }
 
     static func music(_ store: EditorStore, _ used: Set<URL>) -> [LibrarySection] {
         let busy = AudioLibraryRendering.shared.busy
@@ -19,15 +19,12 @@ enum AudioLibrarySections {
             guard !items.isEmpty else { return nil }
             return LibrarySection(id: "music.cat.\(c)", title: tr("music.cat.\(c)"),
                                   items: items.map { libraryItem($0, store: store, used: used, busy: busy, playing: playing) },
-                                  group: tr("audio.lib.music"))
+                                  group: tr("audio.lib.offlineMusic"))
         }
-        out.append(LibrarySection(id: "music.generated", title: tr("music.cat.generated"),
-                                  items: MusicLibrary.all.map { item($0, store: store, used: used, busy: busy, playing: playing) },
-                                  group: tr("audio.lib.music")))
         return out
     }
 
-    static func sfx(_ store: EditorStore, _ used: Set<URL>, generated: [LibraryItem]) -> [LibrarySection] {
+    static func sfx(_ store: EditorStore, _ used: Set<URL>) -> [LibrarySection] {
         let busy = AudioLibraryRendering.shared.busy
         let playing = LibraryAudioPreview.shared.playingID
         let lib = ContentLibrary.availableSFX
@@ -36,9 +33,8 @@ enum AudioLibrarySections {
             guard !items.isEmpty else { return nil }
             return LibrarySection(id: "sfx.cat.\(c)", title: tr("sfx.category.\(c)"),
                                   items: items.map { libraryItem($0, store: store, used: used, busy: busy, playing: playing) },
-                                  group: tr("audio.lib.sfx"))
+                                  group: tr("audio.lib.offlineSfx"))
         }
-        out.append(LibrarySection(id: "sfx.generated", title: tr("music.cat.generated"), items: generated, group: tr("audio.lib.sfx")))
         return out
     }
 
@@ -140,37 +136,6 @@ enum AudioLibrarySections {
         }
     }
 
-    // MARK: Generated (procedural) tracks
-
-    static func item(_ d: MusicTrackDescriptor, store: EditorStore, used: Set<URL>, busy: Set<String>, playing: String?) -> LibraryItem {
-        let id = "music.\(d.id)"
-        return LibraryItem(id: id, title: tr(d.nameKey),
-                           subtitle: "\(MusicLibrary.artist) · \(tr("music.genre.\(d.genre)")) · \(Timecode.shortDuration(Time(d.duration)))",
-                           keywords: d.tags + [d.genre, d.mood, tr("music.genre.\(d.genre)"), tr("music.mood.\(d.mood)"), "\(Int(d.bpm)) bpm",
-                                               tr("music.cat.generated")],
-                           art: .cover(AudioCovers.colors(d.genre), symbol: symbol(d.genre)),
-                           payload: AudioLibraryPayload.music(d.id),
-                           added: used.contains(MusicLibrary.url(for: d).standardizedFileURL),
-                           busy: busy.contains(id), playing: playing == id,
-                           add: { [store] in AudioLibraryRendering.shared.add(id, name: tr(d.nameKey), store: store) { try MusicLibrary.file(d) } },
-                           click: { LibraryAudioPreview.shared.toggle(id) { try MusicLibrary.file(d) } })
-    }
-
-    static func symbol(_ genre: String) -> String {
-        switch genre {
-        case "lofi": return "cloud.moon"
-        case "cinematic": return "film"
-        case "hiphop": return "headphones"
-        case "electronic": return "waveform.path"
-        case "acoustic": return "guitars"
-        case "corporate": return "briefcase"
-        case "ambient": return "leaf"
-        case "chiptune": return "gamecontroller"
-        case "jazz": return "music.quarternote.3"
-        default: return "music.note"
-        }
-    }
-
     // MARK: Drag & drop
 
     static func handleDrop(_ s: String, store: EditorStore, time: Time, target: InsertTarget) -> Bool {
@@ -178,14 +143,11 @@ enum AudioLibrarySections {
             addLibrary(c, store: store, at: time, target: target)
             return true
         }
-        guard s.hasPrefix("montage-music:"), let d = MusicLibrary.track(id: String(s.dropFirst(14))) else { return false }
-        AudioLibraryRendering.shared.add("music.\(d.id)", name: tr(d.nameKey), store: store, at: time, target: target) { try MusicLibrary.file(d) }
-        return true
+        return OnlineAudioDrop.handle(s, store: store, time: time, target: target)
     }
 
     static func dropDuration(_ s: String) -> Time? {
         if s.hasPrefix("montage-lib:"), let c = ContentLibrary.item(id: String(s.dropFirst(12))) { return Time(c.duration ?? 1) }
-        guard s.hasPrefix("montage-music:"), let d = MusicLibrary.track(id: String(s.dropFirst(14))) else { return nil }
-        return Time(d.duration)
+        return OnlineAudioDrop.duration(s)
     }
 }

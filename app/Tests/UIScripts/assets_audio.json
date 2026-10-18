@@ -1,36 +1,29 @@
-// Audio tab (W13): Music ▾ ▸ Generated (locally synthesized tracks), debounced search, ☆ favourite → Favorites, click =
-// preview (rendered once, plays with a waveform strip), ⊕ adds at the playhead, a sound effect dropped on the timeline.
-// Works without the bundled CC0 library (see audio_library.json for that one).
+// Audio tab: offline library rows — ☆ favourite → Favorites, debounced local search, a library sound effect dropped on
+// the timeline (montage-lib payload). (No generated / synthesized audio any more: owner decision; see audio_library.json
+// and audio_online.json for the rest.)
 {
   "project": "empty",
+  "requires": {"content": true},
   "steps": [
     {"click": "id:asset.tab.audio"},
-    {"expect": [{"path": "ui.assetTab", "equals": "audio"}, {"path": "ui.assets.count.audio", "gte": 30}]},
+    {"expect": [{"path": "ui.assetTab", "equals": "audio"}, {"path": "ui.assets.count.audio", "gte": 40}]},
     {"snapshot": "audio-music", "element": "id:panel.assets"},
-    {"click": "id:asset.nav.music.generated"},
+    {"click": "id:asset.nav.music.cat.chill"},
     {"expect": {"path": "ui.assets.count.audio", "gte": 3}},
     {"click": "id:asset.search"},
     {"type": "jazz"},
     {"wait": 0.5},
     {"expect": [{"path": "ui.assets.query.audio", "equals": "jazz"}, {"path": "ui.assets.count.audio", "gte": 3}]},
     {"click": "id:asset.search.clear"},
-    {"click": "id:asset.nav.music.generated"},
-    {"click": "id:asset.tile.music.pop.sunny.favorite"},
-    {"expect": {"path": "ui.assets.favorites.audio.0", "equals": "music.pop.sunny"}},
+    {"click": "id:asset.nav.music.cat.vlog"},
+    {"click": "id:asset.tile.lib.freepd.fresh-focus.favorite"},
+    {"expect": {"path": "ui.assets.favorites.audio.0", "equals": "lib.freepd.fresh-focus"}},
     {"click": "id:asset.nav.favorites"},
     {"expect": {"path": "ui.assets.count.audio", "equals": 1}},
-    // preview: click the row (renders the track off-main, then plays)
-    {"click": "id:asset.tile.music.pop.sunny", "at": [0.4, 0.5]},
-    {"waitFor": {"path": "ui.assets.playing", "equals": "music.pop.sunny", "timeout": 30}},
-    {"wait": 0.8},
-    {"snapshot": "audio-preview", "element": "id:panel.assets"},
-    {"click": "id:asset.tile.music.pop.sunny.add"},
-    {"waitFor": {"path": "tracks.count", "gte": 2, "timeout": 30}},
-    {"expect": [{"path": "tracks.1.kind", "equals": "audio"}, {"path": "tracks.1.clips.count", "equals": 1},
-                {"path": "media.count", "equals": 1}, {"path": "media.0.name", "equals": "Sunny Day"}]},
-    {"drop": {"string": "montage-sfx:whoosh"}, "on": "time:5@ruler", "offset": [0, 120]},
-    {"waitFor": {"path": "media.count", "equals": 2, "timeout": 20}},
-    {"click": "id:asset.nav.sfx.generated"},
+    {"drop": {"string": "montage-lib:sfx.transition.swish-1"}, "on": "time:0@ruler", "offset": [0, 120]},
+    {"waitFor": {"path": "media.count", "equals": 1, "timeout": 20}},
+    {"expect": {"path": "tracks.count", "gte": 2}},
+    {"click": "id:asset.nav.sfx.cat.transition"},
     {"snapshot": "audio-sfx", "element": "id:panel.assets"}
   ]
 }
