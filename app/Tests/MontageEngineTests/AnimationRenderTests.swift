@@ -9,7 +9,7 @@ import MontageTestSupport
 /// W5 animation presets, rendered through the real compositor: In ends at the clip's rest state, Out starts at it,
 /// Loops are seamless, Combos rest mid-clip, and every preset visibly moves the layer somewhere.
 @Suite(.serialized) struct AnimationRenderTests {
-    static let canvas = Size2(160, 90)
+    static let canvas = Size2(96, 54)
 
     /// A white, half-size solid layer (with a red stripe so rotations/flips show) on black.
     static func frame(_ anim: AnimationDescriptor?, progress: Double) -> FrameDescription {
@@ -78,7 +78,8 @@ import MontageTestSupport
         var problems: [String] = []
         for d in BuiltinAnimations.all {
             let probes: [Double] = d.phase == .in ? [0, 0.3, 1] : d.phase == .out ? [0, 0.7, 0.999] : [0, 0.15, 0.4, 0.5, 0.65]
-            let frames = probes.compactMap { Self.render(d, $0) }
+            let frames = PresetPreviewRenderer.render(probes.map { Self.frame(d, progress: $0) }, width: Int(Self.canvas.width),
+                                                      height: Int(Self.canvas.height)).compactMap { $0.map(Bitmap.init) }
             guard frames.count == probes.count else { problems.append("\(d.id): no render"); continue }
             let diffs = frames.map { Self.diff($0, rest) }
             switch d.phase {

@@ -22,6 +22,22 @@ public enum PresetPreviewRenderer {
         return image(from: out)
     }
 
+    /// Several frame descriptions in one command buffer (one GPU round trip).
+    public static func render(_ frames: [FrameDescription], media: [MediaID: MediaAsset] = [:],
+                              sources: any FrameSourceProvider = DictionarySourceProvider([:]),
+                              width: Int, height: Int) -> [CGImage?] {
+        let ctx = MetalContext.shared
+        guard let cmd = ctx.queue.makeCommandBuffer() else { return frames.map { _ in nil } }
+        let outs = frames.map { f -> MTLTexture? in
+            guard let out = sharedBGRA(width, height) else { return nil }
+            FrameRenderer.shared.encode(f, media: media, sources: sources, output: out, commandBuffer: cmd)
+            return out
+        }
+        cmd.commit()
+        cmd.waitUntilCompleted()
+        return outs.map { $0.flatMap(image(from:)) }
+    }
+
     /// One frame of transition `d` from texture `a` to `b` at `progress` (params default to the descriptor's).
     public static func transitionFrame(_ d: TransitionDescriptor, from a: MTLTexture, to b: MTLTexture, progress: Double,
                                        params: [String: ParamValue]? = nil, width: Int, height: Int,

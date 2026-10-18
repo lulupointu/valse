@@ -281,7 +281,7 @@ public final class FrameRenderer: @unchecked Sendable {
             rgbaSource = r.texture; unpremultiply = true
             sourceSizeOverride = r.canvasSize
         case .sticker(let id):
-            guard let r = text.sticker(id, canvasSide: l.sourceSize.height, outputScale: outScale) else { return nil }
+            guard let r = text.sticker(id, canvasSide: l.sourceSize.height, outputScale: outScale, time: l.localTime.seconds) else { return nil }
             rgbaSource = r.texture; unpremultiply = true
             sourceSizeOverride = r.canvasSize
         case .solid:

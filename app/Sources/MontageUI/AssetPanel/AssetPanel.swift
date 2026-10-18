@@ -110,6 +110,8 @@ struct RegistryGrid<Item>: View {
         let title: String
         let symbol: String?
         var emoji: String? = nil
+        /// Rendered picture (animated stickers' still), shown instead of the symbol.
+        var image: CGImage? = nil
         let payload: String
         let add: () -> Void
     }
@@ -140,7 +142,8 @@ struct AssetTile<Item>: View {
             ZStack(alignment: .bottomTrailing) {
                 RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
                     .overlay {
-                        if let e = tile.emoji { Text(verbatim: e).font(.system(size: 34)) }
+                        if let img = tile.image { Image(decorative: img, scale: 2).resizable().aspectRatio(contentMode: .fit).padding(10) }
+                        else if let e = tile.emoji { Text(verbatim: e).font(.system(size: 34)) }
                         else if let s = tile.symbol { Image(systemName: s).font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85)) }
                     }
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))

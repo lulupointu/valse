@@ -241,7 +241,11 @@ public struct VectorLayer: Sendable, Hashable {
 /// Sticker (asset panel "Stickers"). `emoji` stickers render through Core Text; `image` stickers load a bundled PNG;
 /// `vector` stickers (shapes, arrows, callouts, decorations) are drawn procedurally.
 public struct StickerDescriptor: Sendable, Identifiable {
-    public enum Source: Sendable { case emoji(String), image(resource: String, bundle: @Sendable () -> Bundle), vector([VectorLayer]) }
+    public enum Source: Sendable {
+        case emoji(String), image(resource: String, bundle: @Sendable () -> Bundle), vector([VectorLayer])
+        /// Bundled Bodymovin JSON played in a loop from the clip start (MontageEngine `LottieRenderer`, W5).
+        case lottie(resource: String, bundle: @Sendable () -> Bundle)
+    }
     public let id: String
     public let nameKey: String
     public let groupKey: String

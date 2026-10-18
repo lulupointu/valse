@@ -32,7 +32,7 @@ public enum TextMetrics {
             var t = TextContent(string: e)
             t.fontSize = 0.8
             return FrameRenderer.shared.text.measure(t, canvasSize: Size2(side * 16 / 9, side))
-        case .image, .vector:
+        case .image, .vector, .lottie:
             return Size2(side, side)
         }
     }

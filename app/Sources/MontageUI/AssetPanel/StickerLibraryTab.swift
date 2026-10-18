@@ -42,6 +42,8 @@ enum StickerCatalog {
 enum StickerThumbnails {
     static var cache: [String: CGImage] = [:]
     static func image(_ s: StickerDescriptor) -> CGImage? {
+        // W5: animated (Lottie) stickers show their poster frame (LottieLibrary caches it)
+        if case .lottie(let r, let b) = s.source { return b().url(forResource: r, withExtension: nil).flatMap { LottieLibrary.shared.thumbnail($0) } }
         guard case .vector(let layers) = s.source else { return nil }
         if let i = cache[s.id] { return i }
         let img = VectorStickerRenderer.image(layers, px: 144)

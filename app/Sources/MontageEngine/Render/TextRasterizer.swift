@@ -124,7 +124,7 @@ public final class TextRasterizer: @unchecked Sendable {
         return (Vec2(Double(tb.midX - b.midX), Double(tb.midY - b.midY)), Size2(Double(tb.width), Double(tb.height)))
     }
 
-    public func sticker(_ id: String, canvasSide: Double, outputScale: Double) -> Result? {
+    public func sticker(_ id: String, canvasSide: Double, outputScale: Double, time: Double = 0) -> Result? {
         guard let d = Registries.stickers[id] else { return nil }
         switch d.source {
         case .emoji(let e):
@@ -144,6 +144,12 @@ public final class TextRasterizer: @unchecked Sendable {
                 vectorCache[key] = tex; vectorOrder.append(key)
                 if vectorOrder.count > 64 { vectorCache[vectorOrder.removeFirst()] = nil }
             }
+            return Result(texture: tex, canvasSize: Size2(canvasSide, canvasSide))
+        case .lottie(let name, let bundle):
+            // W5: animated sticker frame at clip time (cached per Lottie frame; side quantized to 32 px, ≤ 1024)
+            guard let url = bundle().url(forResource: name, withExtension: nil) else { return nil }
+            let side = min(1024, max(32, (Int((canvasSide * outputScale).rounded(.up)) + 31) / 32 * 32))
+            guard let tex = LottieLibrary.shared.texture(url, seconds: time, side: side) else { return nil }
             return Result(texture: tex, canvasSize: Size2(canvasSide, canvasSide))
         }
     }
