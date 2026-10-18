@@ -55,6 +55,14 @@ public struct EditorView: View {
         }
         .background(Theme.window)
         .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
+        .overlay(alignment: .topTrailing) {
+            // W5: during UI tests the keyframe panel (normally a floating NSPanel) lives in the offscreen test window
+            if TestAnchors.isEnabled && store.keyframeUI.showsPanel {
+                KeyframePanel(store: store).frame(width: 500, height: 420)   // over the (SwiftUI) inspector, clear of Metal views
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.separator))
+                    .testID("panel.keyframes").padding(.top, 60).padding(.trailing, 14)
+            }
+        }
         .overlay {
             // Export window: an in-window modal (dimmed editor, centred 720×663 dialog), like CapCut's modal window.
             if store.isExportSheetPresented { ExportModal(store: store) }

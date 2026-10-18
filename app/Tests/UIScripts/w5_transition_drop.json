@@ -1,0 +1,28 @@
+// W5: drop a transition on the Sunset|Forest cut, set its duration and softness in the inspector, undo both;
+// then [Apply to all] puts the same transition at every cut of the main track (one undo step).
+{
+  "project": "demo",
+  "steps": [
+    {"drop": {"transition": "montage.transition.wipeLeft"}, "on": "time:10.5@main"},
+    {"expect": [{"path": "main.clips.1.transition", "equals": "montage.transition.wipeLeft"},
+                {"path": "main.clips.1.transitionDuration", "approx": 0.5}]},
+    {"click": "id:transition.duration.field"},
+    {"type": "1", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "main.clips.1.transitionDuration", "approx": 1.0}},
+    {"click": "id:transition.param.softness.field"},
+    {"type": "40", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "undo.name", "equals": "cmd.transition"}},
+    {"snapshot": "transition-inspector", "element": "id:panel.inspector", "baseline": "w5_transition_inspector"},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "main.clips.1.transitionDuration", "approx": 0.5}},
+    {"click": "id:transition.applyAll"},
+    {"expect": [{"path": "main.clips.0.transition", "equals": "montage.transition.wipeLeft"},
+                {"path": "main.clips.1.transition", "equals": "montage.transition.wipeLeft"},
+                {"path": "main.clips.-1.transition", "exists": false}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "main.clips.0.transition", "equals": "montage.transition.dissolve"}}
+  ]
+}

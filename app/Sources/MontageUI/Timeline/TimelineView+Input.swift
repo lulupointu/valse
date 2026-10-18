@@ -21,6 +21,8 @@ extension TimelineView {
         let tl = store.project.timeline
         let mods = e.modifierFlags
         if let anchor = previewAnchor { previewAnchor = nil; _ = anchor }
+        // Clicking the timeline ends inspector field editing so shortcuts (⇧⌥K, ⌘B…) reach the editor again.
+        if window?.firstResponder is NSTextView { window?.makeFirstResponder(nil) }
         defer { dirty = true }
 
         // scrollbar

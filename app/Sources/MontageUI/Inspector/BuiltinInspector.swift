@@ -23,7 +23,7 @@ enum BuiltinInspector {
         InspectorTab(id: "details", titleKey: "inspector.tab.details", order: -10,
                      footer: { ctx, _ in AnyView(ModifyProjectButton(store: ctx.store)) }, appliesTo: any(.none)),
         InspectorTab(id: "transition", titleKey: "inspector.tab.transition", order: -9,
-                     footer: { ctx, _ in AnyView(PillButton(title: tr("inspector.applyToAll")) { TransitionSection.applyToAll(ctx) }) },
+                     footer: { ctx, _ in AnyView(PillButton(title: tr("inspector.applyToAll")) { TransitionSection.applyToAll(ctx) }.testID("transition.applyAll")) },
                      appliesTo: any(.transition)),
         InspectorTab(id: "properties", titleKey: "inspector.tab.properties", order: -8, appliesTo: any(.multiple)),
         // Text + Captions tabs: text engine (W7), MontageUI/Text/TextInspector.swift

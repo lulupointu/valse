@@ -41,7 +41,7 @@ struct AnimationPickerSection: View {
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
             TileGrid {
                 if query.isEmpty {
-                    Tile(title: tr("anim.none"), selected: cur == nil) { apply(nil) } content: {
+                    Tile(title: tr("anim.none"), selected: cur == nil, testID: "anim.none") { apply(nil) } content: {
                         Image(systemName: "nosign").font(.system(size: 26, weight: .light)).foregroundStyle(Color(white: 0.75))
                     }
                 }
@@ -106,7 +106,7 @@ struct AnimationPickerSection: View {
     }
 }
 
-/// Tile that animates its glyph with the descriptor's own `apply` while hovered (a cheap, faithful preview).
+/// Tile that animates a sample picture with the descriptor's own `apply` while hovered (a cheap, faithful preview).
 struct AnimationTile: View {
     let descriptor: AnimationDescriptor
     let selected: Bool
@@ -115,31 +115,28 @@ struct AnimationTile: View {
     @State private var start = Date()
 
     var body: some View {
-        Tile(title: tr(descriptor.nameKey), selected: selected, action: action) {
+        Tile(title: tr(descriptor.nameKey), selected: selected, testID: "anim.\(descriptor.id.replacingOccurrences(of: "montage.anim.", with: ""))", action: action) {
           if descriptor.glyph != nil {
             // per-glyph text animation (text engine, W7)
             GlyphAnimationPreview(descriptor: descriptor, playing: hover, start: start)
           } else {
+            // CapCut tiles show a sample picture caught mid-animation on black; hover plays the animation.
             SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover)) { tl in
                 let state = state(at: tl.date)
-                ZStack {
-                    LinearGradient(colors: [Color(hex: 0x2C5364), Color(hex: 0x203A43)], startPoint: .top, endPoint: .bottom)
-                    RoundedRectangle(cornerRadius: 4).fill(Color(hex: 0x57BECB).opacity(0.85))
-                        .frame(width: 30, height: 22)
-                        .overlay(Image(systemName: descriptor.symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white))
-                        .mask(alignment: .topLeading) {
-                            GeometryReader { g in
-                                let r = state.reveal
-                                Rectangle().frame(width: g.size.width * max(0, 1 - r.left - r.right),
-                                                  height: g.size.height * max(0, 1 - r.top - r.bottom))
-                                    .offset(x: g.size.width * r.left, y: g.size.height * r.top)
-                            }
-                        }
-                        .scaleEffect(x: state.transform.scale.x, y: state.transform.scale.y)
-                        .rotationEffect(.degrees(state.transform.rotation))
-                        .offset(x: state.transform.position.x * 62, y: state.transform.position.y * 62)
-                        .opacity(state.opacity)
-                        .blur(radius: state.blur * 62)
+                // one Canvas: transforms, reveal mask, blur and clipping are rasterised together (never overflow the tile)
+                Canvas { ctx, size in
+                    let w = size.width, h = size.height
+                    ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+                    let r = state.reveal
+                    ctx.clip(to: Path(CGRect(x: w * r.left, y: h * r.top, width: w * max(0, 1 - r.left - r.right),
+                                             height: h * max(0, 1 - r.top - r.bottom))))
+                    ctx.opacity = state.opacity
+                    if state.blur > 0 { ctx.addFilter(.blur(radius: state.blur * w)) }
+                    ctx.translateBy(x: w / 2 + state.transform.position.x * w, y: h / 2 + state.transform.position.y * h)
+                    ctx.rotate(by: .degrees(state.transform.rotation))
+                    ctx.scaleBy(x: state.transform.scale.x, y: state.transform.scale.y)
+                    ctx.translateBy(x: -w / 2, y: -h / 2)
+                    AnimationSampleScene.draw(in: &ctx, size: size)
                 }
             }
           }
@@ -150,12 +147,35 @@ struct AnimationTile: View {
     /// Hover loops the animation (with a short hold at the end); idle shows the clip's resting state.
     func state(at date: Date) -> AnimatedLayerState {
         var s = AnimatedLayerState(transform: Transform(), opacity: 1)
-        guard hover else { return s }
+        guard hover else {
+            // still: the animation caught part-way, so tiles read differently at rest (like CapCut's stills)
+            descriptor.apply(descriptor.phase == .out ? 0.65 : (descriptor.phase == .combo ? 0.25 : 0.35), &s)
+            return s
+        }
         let d = max(descriptor.defaultDuration.seconds, 0.3)
         let cycle = d + 0.4
         let t = date.timeIntervalSince(start).truncatingRemainder(dividingBy: cycle)
         let p = min(t / d, 1)
         descriptor.apply(descriptor.phase == .combo ? (t / d).truncatingRemainder(dividingBy: 1) : p, &s)
         return s
+    }
+}
+
+/// Small vector landscape (sky, sun, hills, lake) used as the animated subject of animation tiles: no assets, crisp at
+/// any size, and its asymmetric layout makes slides / flips / rotations readable.
+enum AnimationSampleScene {
+    static func draw(in ctx: inout GraphicsContext, size: CGSize) {
+        let w = size.width, h = size.height
+        ctx.fill(Path(CGRect(origin: .zero, size: size)),
+                 with: .linearGradient(Gradient(colors: [Color(hex: 0x3E7CB1), Color(hex: 0xF2A65A)]),
+                                       startPoint: .zero, endPoint: CGPoint(x: 0, y: h)))
+        ctx.fill(Path(ellipseIn: CGRect(x: w * 0.62, y: h * 0.16, width: w * 0.24, height: w * 0.24)), with: .color(Color(hex: 0xFFE08A)))
+        var hills = Path()
+        hills.move(to: CGPoint(x: 0, y: h * 0.72)); hills.addLine(to: CGPoint(x: w * 0.3, y: h * 0.42))
+        hills.addLine(to: CGPoint(x: w * 0.55, y: h * 0.66)); hills.addLine(to: CGPoint(x: w * 0.78, y: h * 0.48))
+        hills.addLine(to: CGPoint(x: w, y: h * 0.7)); hills.addLine(to: CGPoint(x: w, y: h)); hills.addLine(to: CGPoint(x: 0, y: h))
+        hills.closeSubpath()
+        ctx.fill(hills, with: .color(Color(hex: 0x4B3F72)))
+        ctx.fill(Path(CGRect(x: 0, y: h * 0.8, width: w, height: h * 0.2)), with: .color(Color(hex: 0x2A9D8F)))
     }
 }

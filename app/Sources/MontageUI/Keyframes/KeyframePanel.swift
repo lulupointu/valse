@@ -18,7 +18,7 @@ struct KeyframePanel: View {
                     Text(verbatim: clip.name ?? tr("keyframes.panel.clip")).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                     Spacer()
-                    Button(tr("keyframes.reset")) { KeyframePanel.confirmReset(store) }
+                    Button(tr("keyframes.reset")) { KeyframePanel.confirmReset(store) }.testID("keyframes.reset")
                         .buttonStyle(.plain).font(Theme.Fonts.row).foregroundStyle(clip.keyframes.isEmpty ? Theme.textTertiary : Theme.textSecondary)
                         .disabled(clip.keyframes.isEmpty)
                 }
@@ -222,7 +222,7 @@ struct KeyframeCurveEditor: View {
                         VStack(alignment: .leading, spacing: 8) {
                             EasingPresetGrid(selected: easing) { store.setKeyframeEasing($0, ref) }
                             Button(tr("keyframes.curve.applyAll")) { store.setKeyframeEasing(easing, ref, allSegments: true) }
-                                .buttonStyle(.plain).font(Theme.Fonts.row).foregroundStyle(Theme.accent)
+                                .buttonStyle(.plain).font(Theme.Fonts.row).foregroundStyle(Theme.accent).testID("keyframes.applyAll")
                         }
                     }
                 }
@@ -243,9 +243,11 @@ struct CurveGraph: View {
     @State private var dragging: Int?
     /// Visible progress range (rebound curves overshoot).
     static let yMin = -0.4, yMax = 1.4
+    /// Horizontal inset so the 0 / 1 ends and the handles at x = 0 / 1 are not clipped by the graph edge.
+    static let inset: CGFloat = 8
 
     static func point(_ x: Double, _ y: Double, in s: CGSize) -> CGPoint {
-        CGPoint(x: x * s.width, y: (1 - (y - yMin) / (yMax - yMin)) * s.height)
+        CGPoint(x: inset + x * max(s.width - 2 * inset, 1), y: (1 - (y - yMin) / (yMax - yMin)) * s.height)
     }
 
     var body: some View {
@@ -266,7 +268,7 @@ struct CurveGraph: View {
                     let m = max(sp.map(abs).max() ?? 1, 1e-6)
                     for (i, v) in sp.enumerated() {
                         let x = Double(i) / 96
-                        let p = CGPoint(x: x * size.width, y: size.height * (0.92 - 0.84 * (v / m)))
+                        let p = CGPoint(x: Self.inset + x * (size.width - 2 * Self.inset), y: size.height * (0.92 - 0.84 * (v / m)))
                         i == 0 ? curve.move(to: p) : curve.addLine(to: p)
                     }
                 }
@@ -282,7 +284,7 @@ struct CurveGraph: View {
             }
             .gesture(DragGesture(minimumDistance: 0).onChanged { v in
                 guard mode == .value else { return }
-                let x = min(max(Double(v.location.x / s.width), 0), 1)
+                let x = min(max(Double((v.location.x - Self.inset) / max(s.width - 2 * Self.inset, 1)), 0), 1)
                 let y = min(max(Self.yMax - Double(v.location.y / s.height) * (Self.yMax - Self.yMin), Self.yMin), Self.yMax)
                 let c = easing.controlPoints ?? (0.33, 0.33, 0.67, 0.67)
                 if dragging == nil {
@@ -311,6 +313,13 @@ struct EasingPresetGrid: View {
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 52, maximum: 60), spacing: 6)], alignment: .leading, spacing: 6) {
             ForEach(EasingPreset.all) { p in
+                Button { apply(p.easing) } label: { presetLabel(p) }
+                    .buttonStyle(.plain).help(tr(p.nameKey)).testID("keyframes.preset.\(p.id)")
+            }
+        }
+    }
+
+    func presetLabel(_ p: EasingPreset) -> some View {
                 VStack(spacing: 2) {
                     EasingGlyph(easing: p.easing)
                         .frame(width: 44, height: 34)
@@ -320,10 +329,6 @@ struct EasingPresetGrid: View {
                 }
                 .frame(width: 56)
                 .contentShape(Rectangle())
-                .onTapGesture { apply(p.easing) }
-                .help(tr(p.nameKey))
-            }
-        }
     }
 }
 

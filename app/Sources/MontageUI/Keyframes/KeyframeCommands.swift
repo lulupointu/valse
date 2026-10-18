@@ -112,6 +112,8 @@ final class KeyframePanelController: NSObject, NSWindowDelegate {
 
     func sync(_ store: EditorStore) {
         self.store = store
+        // UI tests: no real window may appear on screen; EditorView hosts the panel inside the offscreen test window.
+        if TestAnchors.isEnabled { return }
         if store.keyframeUI.showsPanel {
             let p = panel ?? make(store)
             panel = p

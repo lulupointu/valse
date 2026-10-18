@@ -129,15 +129,17 @@ struct SubTabBar: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(items, id: \.id) { item in
-                Text(verbatim: item.title)
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, minHeight: 26)
-                    .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
-                    .contentShape(Rectangle())
-                    .onTapGesture { onSelect(item.id) }
-                    .accessibilityAddTraits(.isButton)
+                Button { onSelect(item.id) } label: {
+                    Text(verbatim: item.title)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textSecondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, minHeight: 26)
+                        .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .testID("inspector.sub.\(item.id)")
             }
         }
         .padding(1)

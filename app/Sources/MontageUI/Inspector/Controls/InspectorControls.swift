@@ -151,7 +151,8 @@ struct NumericField: View {
         .opacity(enabled ? 1 : 0.35)
         .disabled(!enabled)
         .onAppear { text = display }
-        .onChange(of: display) { _, v in if !focused { text = v } }
+        // also while focused when the field still shows the previous value (after ⏎ the commit re-renders `display`)
+        .onChange(of: display) { old, v in if !focused || text == old { text = v } }
         .onChange(of: focused) { _, f in if !f { text = display } }
     }
 }
@@ -462,10 +463,21 @@ struct Tile<Content: View>: View {
     var selected = false
     var enabled = true
     var size: CGFloat = 62
+    var testID: String? = nil
     let action: () -> Void
     @ViewBuilder let content: () -> Content
     @State private var hover = false
     var body: some View {
+        Button { if enabled { action() } } label: { label }
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+            .onHover { hover = $0 }
+            .opacity(enabled ? 1 : 0.4)
+            .accessibilityLabel(Text(verbatim: title))
+            .testID(testID ?? "tile.\(title)")
+    }
+
+    private var label: some View {
         VStack(spacing: 5) {
             ZStack {
                 RoundedRectangle(cornerRadius: 6).fill(IStyle.tile)
@@ -479,11 +491,6 @@ struct Tile<Content: View>: View {
                 .lineLimit(1).truncationMode(.middle).frame(width: size + 10)
         }
         .contentShape(Rectangle())
-        .onTapGesture { if enabled { action() } }
-        .onHover { hover = $0 }
-        .opacity(enabled ? 1 : 0.4)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(Text(verbatim: title))
     }
 }
 

@@ -248,7 +248,7 @@ struct TransitionSection: View {
                           onChange: { u in write(scale.fromUnit(u), live: true) },
                           onEnd: { store.endGesture() },
                           commit: { write($0, live: false) },
-                          step: { write(value + Double($0) * 0.1, live: false) })
+                          step: { write(value + Double($0) * 0.1, live: false) }, testID: "transition.duration")
             TransitionParamRows(ctx: ctx)   // W5: direction / colour / softness… (MontageUI/Transitions)
         }
     }

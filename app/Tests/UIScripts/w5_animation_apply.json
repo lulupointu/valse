@@ -1,0 +1,28 @@
+// W5: Animation tab on the Forest clip: In ▸ Bounce in, then None (undo restores Bounce); Out ▸ Fade out;
+// Combo ▸ Zoom in & out replaces In/Out (CapCut: combo and in/out are exclusive); undo brings In/Out back.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/2"},
+    {"click": "id:inspector.tab.animation"},
+    {"click": "id:anim.in.bounce"},
+    {"expect": {"path": "selectedClips.0.animIn", "equals": "montage.anim.in.bounce"}},
+    {"snapshot": "animation-in", "element": "id:panel.inspector", "baseline": "w5_animation_in"},
+    {"click": "id:anim.none"},
+    {"expect": {"path": "selectedClips.0.animIn", "equals": ""}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.animIn", "equals": "montage.anim.in.bounce"}},
+    {"click": "id:inspector.sub.out"},
+    {"click": "id:anim.out.fade"},
+    {"expect": [{"path": "selectedClips.0.animOut", "equals": "montage.anim.out.fade"},
+                {"path": "selectedClips.0.animIn", "equals": "montage.anim.in.bounce"}]},
+    {"click": "id:inspector.sub.combo"},
+    {"click": "id:anim.combo.zoomInOut"},
+    {"dump": "combo"},
+    {"expect": {"path": "selectedClips.0.animCombo", "equals": "montage.anim.combo.zoomInOut"}},
+    {"snapshot": "animation-combo", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "selectedClips.0.animCombo", "equals": ""},
+                {"path": "selectedClips.0.animOut", "equals": "montage.anim.out.fade"}]}
+  ]
+}

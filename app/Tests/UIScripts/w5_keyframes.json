@@ -1,0 +1,22 @@
+// W5: ⇧⌥K adds Position & Size keyframes at the playhead; editing Scale elsewhere auto-adds one; undo.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/2"},
+    {"seek": 11},
+    {"key": "opt+shift+k"},
+    {"expect": [{"path": "selectedClips.0.keyframeCounts.transform_position", "equals": 1},
+                {"path": "selectedClips.0.keyframeCounts.transform_rotation", "equals": 1}]},
+    {"seek": 13},
+    {"click": "id:slider.Scale.field"},
+    {"type": "150", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.transform_scale", "equals": 2}},
+    {"click": "time:13@ruler"},
+    {"key": "opt+shift+k"},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.transform_position", "equals": 2}},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.transform_scale", "equals": 1}}
+  ]
+}

@@ -1,0 +1,18 @@
+// W5: Transitions tab — search, pick a tile, ⊕ replaces the transition at the nearest cut; refused on a lone overlay clip.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.transitions"},
+    {"click": "id:transitions.search"},
+    {"type": "heart"},
+    {"wait": 1.0},
+    {"click": "id:transition.tile.heart"},
+    {"click": "id:transition.add.heart"},
+    {"expect": [{"path": "main.clips.0.transition", "equals": "montage.transition.heart"},
+                {"path": "main.clips.0.transitionDuration", "approx": 0.5}]},
+    {"snapshot": "transitions-search", "element": "id:panel.assets", "baseline": "w5_transitions_search", "threshold": 40, "tolerance": 0.03},
+    {"click": "clip:1/0"},
+    {"click": "id:transition.add.heart"},
+    {"expect": [{"path": "ui.toast", "contains": "continuous"}, {"path": "tracks.1.clips.0.transition", "exists": false}]}
+  ]
+}

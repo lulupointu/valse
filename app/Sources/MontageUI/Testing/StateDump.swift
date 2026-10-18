@@ -36,7 +36,13 @@ public enum StateDump {
             ]
             if let n = c.name { d["name"] = n }
             if case .text(let t) = c.content { d["text"] = t.string }
-            if let t = c.transitionOut { d["transition"] = t.typeID }
+            if let t = c.transitionOut { d["transition"] = t.typeID; d["transitionDuration"] = t.duration.seconds }
+            // W5: animations and keyframe counts per property
+            d["animIn"] = c.animations.inAnim?.typeID ?? ""
+            d["animOut"] = c.animations.outAnim?.typeID ?? ""
+            d["animCombo"] = c.animations.combo?.typeID ?? ""
+            d["keyframeCounts"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.count) })   // "transform_position"
+            d["keyframeEasings"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.map { Self.easingName($0.easing) }) })
             return d
         }
         func trackSummary(_ t: Track, _ i: Int) -> [String: Any] {
@@ -72,6 +78,8 @@ public enum StateDump {
         ]
         if let t = store.toast { ui["toast"] = t.message }
         ui["export"] = ExportStateDump.make(store.exports)
+        if let k = store.timelineUI.selectedKeyframe { ui["selectedKeyframe"] = ["key": k.key, "time": k.time.seconds] as [String: Any] }
+        ui["keyframePanel"] = store.keyframeUI.showsPanel
         var d: [String: Any] = [
             "playhead": store.transport.playhead.seconds,
             "duration": p.duration.seconds,
@@ -91,6 +99,12 @@ public enum StateDump {
             d["project"] = obj
         }
         return d
+    }
+
+    /// Preset id when the easing is a library preset ("easeIn", "quadOut"…), else its case name ("bezier").
+    static func easingName(_ e: Easing) -> String {
+        if let p = EasingPreset.all.first(where: { $0.easing == e }) { return p.id }
+        return String(String(describing: e).prefix { $0.isLetter })
     }
 
     static func kind(_ c: ClipContent) -> String {

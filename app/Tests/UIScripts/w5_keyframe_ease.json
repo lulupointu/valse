@@ -1,0 +1,23 @@
+// W5: add keyframes at two times, select the first diamond on the timeline, ⌥K opens the keyframe panel,
+// click the "Ease in" preset curve → the segment is eased; "Apply to all segments"; undo.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/2"},
+    {"seek": 11},
+    {"key": "opt+shift+k"},
+    {"seek": 14},
+    {"key": "opt+shift+k"},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.transform_position", "equals": 2}},
+    {"click": "clip:main/2:0.083333", "offset": [0, 32]},
+    {"expect": [{"path": "ui.selectedKeyframe.time", "approx": 0.5, "tolerance": 0.05}, {"path": "playhead", "approx": 11, "tolerance": 0.05}]},
+    {"key": "opt+k"},
+    {"expect": {"path": "ui.keyframePanel", "equals": true}},
+    {"click": "id:keyframes.preset.easeIn"},
+    {"dump": "eased"},
+    {"expect": {"path": "undo.name", "equals": "cmd.keyframeCurve"}},
+    {"snapshot": "keyframe-panel", "element": "id:panel.keyframes", "baseline": "w5_keyframe_panel"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.name", "notEquals": "cmd.keyframeCurve"}}
+  ]
+}

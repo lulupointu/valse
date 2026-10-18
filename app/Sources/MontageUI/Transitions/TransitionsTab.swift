@@ -11,6 +11,8 @@ struct TransitionsTab: View {
     let store: EditorStore
     @State private var group = ""
     @State private var query = ""
+    /// Last clicked tile (shows its ⊕ without hover, like CapCut's selected card).
+    @State private var highlighted: String?
 
     var body: some View {
         let groups = BuiltinAssetTabs.grouped(Registries.transitions.all, \.groupKey)
@@ -20,11 +22,13 @@ struct TransitionsTab: View {
             : Registries.transitions.all.filter { tr($0.nameKey).lowercased().contains(q) || tr($0.groupKey).lowercased().contains(q) }
         let selectedType = store.selectedTransition.flatMap { store.project.timeline.clip($0)?.transitionOut?.typeID }
         HStack(spacing: 0) {
-            SubNav(items: groups.map { ($0.0, tr($0.0)) }, selection: Binding(get: { current }, set: { group = $0; query = "" }))
+            // while searching no category is highlighted (results span all of them)
+            SubNav(items: groups.map { ($0.0, tr($0.0)) }, selection: Binding(get: { q.isEmpty ? current : "" }, set: { group = $0; query = "" }))
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                     TextField(tr("transitions.search"), text: $query).textFieldStyle(.plain).font(.system(size: 12))
+                        .testID("transitions.search")
                     if !query.isEmpty {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
                             .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
@@ -38,11 +42,12 @@ struct TransitionsTab: View {
                         Text(verbatim: q.isEmpty ? tr(current) : tr("transitions.results"))
                             .font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
                         if items.isEmpty { Text(loc: "transitions.noResults").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 10)], spacing: 12) {
+                        // UX.md §3.2: 86 pt squares, 16 pt gaps (4 per row at the default panel width)
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 86, maximum: 104), spacing: 16)], spacing: 12) {
                             ForEach(items) { d in
-                                TransitionTile(descriptor: d, selected: selectedType == d.id,
+                                TransitionTile(descriptor: d, selected: selectedType == d.id, highlighted: highlighted == d.id,
                                                add: { store.applyTransition(d) },
-                                               select: { if store.selectedTransition != nil { store.applyTransition(d) } })
+                                               select: { highlighted = d.id; if store.selectedTransition != nil { store.applyTransition(d) } })
                             }
                         }
                     }
@@ -57,28 +62,36 @@ struct TransitionsTab: View {
 struct TransitionTile: View {
     let descriptor: TransitionDescriptor
     let selected: Bool
+    var highlighted = false
     let add: () -> Void
     let select: () -> Void
     @State private var hover = false
     @State private var start = Date()
+
+    var shortID: String { descriptor.id.replacingOccurrences(of: "montage.transition.", with: "") }
 
     var body: some View {
         let thumbs = TransitionThumbnails.shared
         let _ = thumbs.revision
         VStack(spacing: 5) {
             ZStack(alignment: .bottomTrailing) {
-                SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover)) { tl in
-                    picture(at: tl.date, thumbs)
+                Button(action: select) {
+                    SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover)) { tl in
+                        picture(at: tl.date, thumbs)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(selected || highlighted ? Theme.accent : (hover ? Theme.accent.opacity(0.7) : .clear),
+                                      lineWidth: selected ? 2 : 1.5))
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.7) : .clear), lineWidth: selected ? 2 : 1.5))
-                if hover {
+                .buttonStyle(.plain)
+                .testID("transition.tile.\(shortID)")
+                if hover || highlighted {
                     Button(action: add) {
                         Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
                             .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                     }
-                    .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))
+                    .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack")).testID("transition.add.\(shortID)")
                 }
             }
             .aspectRatio(1, contentMode: .fit)
@@ -87,8 +100,7 @@ struct TransitionTile: View {
         }
         .contentShape(Rectangle())
         .onHover { h in hover = h; if h { start = Date() } }
-        .onTapGesture(count: 2, perform: add)
-        .onTapGesture(perform: select)
+        .simultaneousGesture(TapGesture(count: 2).onEnded(add))
         .onDrag { NSItemProvider(object: DragPayload.transition(descriptor.id) as NSString) }
         .help(tr(descriptor.nameKey))
     }
@@ -207,7 +219,8 @@ struct TransitionParamRows: View {
                           onChange: { u in write(.scalar(Self.snap(scale.fromUnit(u), integral: integral && k == 1)), true) },
                           onEnd: { store.endGesture() },
                           commit: { x in write(.scalar(min(max(x / k, lo), hi)), false) },
-                          step: { s in write(.scalar(min(max(v + Double(s) * (integral ? 1 / k : 0.01), lo), hi)), false) })
+                          step: { s in write(.scalar(min(max(v + Double(s) * (integral ? 1 / k : 0.01), lo), hi)), false) },
+                          testID: "transition.param.\(spec.key)")
         case .color:
             InlineRow(label: tr(spec.nameKey)) {
                 ColorSwatchButton(color: { if case .color(let c) = value { return c }; return .white }()) { c in write(.color(c), false) }
