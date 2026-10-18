@@ -1,0 +1,20 @@
+"job.proxy" = "Creating proxy";
+"job.waveform" = "Analyzing audio";
+"error.unsupportedMedia" = "This file format is not supported.";
+
+"export.error.empty" = "There is nothing to export yet.";
+"export.error.cancelled" = "Export cancelled.";
+"export.error.failed" = "Export failed.";
+"export.codec.h264" = "H.264";
+"export.codec.hevc" = "HEVC (H.265)";
+"export.codec.proRes422" = "Apple ProRes 422";
+"export.codec.proRes4444" = "Apple ProRes 4444";
+"export.bitrate.lower" = "Lower";
+"export.bitrate.recommended" = "Recommended";
+"export.bitrate.higher" = "Higher";
+"export.bitrate.custom" = "Custom";
+
+"preview.quality.auto" = "Auto";
+"preview.quality.full" = "Full";
+"preview.quality.half" = "1/2";
+"preview.quality.quarter" = "1/4";
