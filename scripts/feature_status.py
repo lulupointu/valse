@@ -19,9 +19,9 @@ if want:
 by = collections.OrderedDict()
 for a, i, n, p, k, s in rows: by.setdefault(a, collections.Counter())[k] += 1
 tot = collections.Counter()
-print(f"{'area':45} {'done':>5} {'part':>5} {'block':>5} {'todo':>5}")
+print(f"{"area":45} {"done":>5} {"part":>5} {"block":>5} {"todo":>5} {"wont":>5}")
 for a, c in by.items():
-    tot.update(c); other = sum(v for k, v in c.items() if k not in ("done", "partial", "blocked"))
-    print(f"{a[:45]:45} {c['done']:5} {c['partial']:5} {c['blocked']:5} {other:5}")
-other = sum(v for k, v in tot.items() if k not in ("done", "partial", "blocked"))
-print(f"{'TOTAL (' + str(len(rows)) + ')':45} {tot['done']:5} {tot['partial']:5} {tot['blocked']:5} {other:5}")
+    tot.update(c); other = sum(v for k, v in c.items() if k not in ("done", "partial", "blocked", "wontdo"))
+    print(f"{a[:45]:45} {c['done']:5} {c['partial']:5} {c['blocked']:5} {other:5} {c['wontdo']:5}")
+other = sum(v for k, v in tot.items() if k not in ("done", "partial", "blocked", "wontdo"))
+print(f"{'TOTAL (' + str(len(rows)) + ')':45} {tot['done']:5} {tot['partial']:5} {tot['blocked']:5} {other:5} {tot['wontdo']:5}")

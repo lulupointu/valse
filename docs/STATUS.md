@@ -30,8 +30,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
 | POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | running | |
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | running | |
-| AI2 | AI wave 2: P1 rest (voice clone, s2s voice changer, camera tracking hand, relight, AI movement, EditPilot agent) + local generative (SD image gen/expand/remix via Core ML, music/SFX gen) | 3 | queued (after load fix) | |
-| — | Templates (TP), Retouch/body (RT) | 3 | queued (depend on W7, W10) | |
+| AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | queued | |
+| MUS | Music & sound library usable on Instagram (AU-001, AU-025): bundled royalty-free/CC0 music + SFX with license metadata, mood/genre browse, "similar sounds" via local audio embeddings | 3 | queued (after W13 merge) | |
 
 ## Cross-team requests / blockers (open)
 | From | Needs from | What | Feature IDs |
@@ -67,6 +67,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Decisions log
+- 2026-10-18 Owner dropped 69 features (FEATURES.md status `wontdo`): cloud-only, generative AI, advanced voice AI (clone/s2s/overdub/translator), templates (TP-*), retouch/body (RT-*, AI-017, AI-052). EXCEPTION kept: music library + similar sounds (AU-001, AU-025) — must be a local library of tracks/sounds safe to use on Instagram (royalty-free/CC0, license recorded per item).
 - 2026-10-18 Stack: native Swift/Metal/AVFoundation (STACK.md, owner-approved). macOS-only; cross-platform is a bonus.
 - Proxies mandatory (4K HEVC decode ≈1.1–1.3 GB for 4 streams; no stack scrubs <50 ms p95 on originals).
 - FFmpeg only as a separate LGPL sidecar process producing ProRes+PCM mezzanine (ARCHITECTURE §6.1).
