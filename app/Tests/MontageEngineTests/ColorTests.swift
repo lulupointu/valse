@@ -53,7 +53,7 @@ import MontageTestSupport
     }
 
     @Test func missingLUTSkipsEffect() async throws {
-        let d = EffectDescriptor(id: "user.lut.missing", category: .adjustment, nameKey: "x", groupKey: "x",
+        let d = EffectDescriptor(id: "test.lut.missing", category: .adjustment, nameKey: "x", groupKey: "x",
                                  inputs: [.lut3D(id: "user.lut.nope")],
                                  shader: "float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx, texture3d<float> lut, sampler s3) { return float4(1,0,1,1); }")
         Registries.effects.register(d)

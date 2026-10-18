@@ -1,0 +1,8 @@
+"error.folderNotFound" = "Ce dossier n’existe plus.";
+"error.folderTooDeep" = "Les dossiers peuvent être imbriqués sur 10 niveaux au maximum.";
+"error.folderCycle" = "Un dossier ne peut pas être déplacé dans lui-même.";
+"error.folderName" = "Saisissez un nom de dossier.";
+"cmd.newFolder" = "Nouveau dossier";
+"cmd.renameFolder" = "Renommer le dossier";
+"cmd.moveToFolder" = "Déplacer vers le dossier";
+"cmd.deleteFolder" = "Supprimer le dossier";

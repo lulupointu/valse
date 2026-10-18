@@ -188,6 +188,9 @@ public enum SyntheticMedia {
         }
     }
 
+    /// 48 kHz stereo 16-bit sine chunk (test media).
+    public static func sineSampleBuffer(start: Int, count: Int, hz: Double) -> CMSampleBuffer? { sineBuffer(start: start, count: count, hz: hz) }
+
     static func sineBuffer(start: Int, count: Int, hz: Double) -> CMSampleBuffer? {
         var samples = [Int16](repeating: 0, count: count * 2)
         for i in 0..<count {

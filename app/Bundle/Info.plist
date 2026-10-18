@@ -28,6 +28,12 @@
       <key>LSTypeIsPackage</key><true/>
       <key>LSItemContentTypes</key><array><string>fr.montage.project</string></array>
     </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Media</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>public.movie</string><string>public.audio</string><string>public.image</string></array>
+    </dict>
   </array>
   <key>UTExportedTypeDeclarations</key>
   <array>

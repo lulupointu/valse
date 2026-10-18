@@ -13,6 +13,8 @@ public struct Project: Codable, Sendable, Equatable {
     /// Media bin, in import order.
     public var media: [MediaAsset]
     public var timeline: Timeline
+    /// Media bin folders (nil = none; use `folders`). Optional so older files decode.
+    public var mediaFolders: [MediaFolder]?
     public var createdAt: Date
     public var modifiedAt: Date
 
@@ -112,6 +114,16 @@ public struct MediaAsset: Codable, Sendable, Equatable, Identifiable {
     }
     public var isHDR: Bool { transfer != .sdr }
     public var isWideGamut: Bool { colorPrimaries == "ITU_R_2020" }
+    /// Bin folder (nil = root).
+    public var folderID: MediaFolderID?
+    /// Set when the file needs a one-time conversion to be playable (GIF, image sequence, FFmpeg-only formats).
+    public var conversion: MediaConversion?
+    /// Image-sequence layout when `conversion == .imageSequence`.
+    public var sequence: ImageSequenceInfo?
+    /// Probed technical details (Material info, audio streams, alpha, VFR).
+    public var techInfo: MediaTechInfo?
+    /// Paired motion video of a Live Photo (HEIC + MOV with the same name).
+    public var livePhotoVideoURL: URL?
 
     public init(id: MediaID = MediaID(), name: String, kind: MediaKind, url: URL, duration: Time, pixelSize: Size2,
                 frameRate: FrameRate?, hasVideo: Bool, hasAudio: Bool, contentHash: String, fileSize: Int64 = 0,

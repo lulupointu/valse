@@ -1,0 +1,8 @@
+"error.folderNotFound" = "This folder no longer exists.";
+"error.folderTooDeep" = "Folders can be nested up to 10 levels.";
+"error.folderCycle" = "A folder can't be moved into itself.";
+"error.folderName" = "Enter a folder name.";
+"cmd.newFolder" = "New folder";
+"cmd.renameFolder" = "Rename folder";
+"cmd.moveToFolder" = "Move to folder";
+"cmd.deleteFolder" = "Delete folder";

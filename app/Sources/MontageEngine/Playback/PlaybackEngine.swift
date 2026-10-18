@@ -32,7 +32,7 @@ public final class PlaybackEngine {
     public var previewQuality: PreviewQuality = .auto { didSet { if oldValue != previewQuality { forceRebuild() } } }
     /// Chooses original vs proxy files for preview. Replace to plug in proxies; call `forceRebuild()` when it changes.
     public var sourceChooser: @Sendable (MediaAsset) -> MediaSourceChoice = { a in
-        MediaSourceChoice(video: ProxyManager.shared.readyProxyURL(for: a) ?? a.url, audio: a.url)
+        MediaSourceChoice(video: ProxyManager.shared.readyProxyURL(for: a) ?? PlayableMediaCache.shared.resolvedURL(for: a), audio: PlayableMediaCache.shared.resolvedURL(for: a))
     }
 
     /// Playhead updates (≈30 Hz while playing, and after seeks).

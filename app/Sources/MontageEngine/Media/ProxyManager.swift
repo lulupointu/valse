@@ -49,10 +49,10 @@ public final class ProxyManager: @unchecked Sendable {
 
     /// Queues proxy generation for the assets that need one (idempotent).
     public func request(_ assets: [MediaAsset], force: Bool = false) async {
-        for a in assets where (force || shouldGenerate(a)) && a.kind == .video {
+        for a in assets where (force || shouldGenerate(a)) && a.kind == .video && !PlayableMediaCache.shared.needsConversion(a) {
             let skip = lock.withLock { ready.contains(a.contentHash) || pending[a.contentHash] != nil }
             if skip { continue }
-            let src = a.url, dst = proxyURL(for: a), hash = a.contentHash
+            let src = PlayableMediaCache.shared.resolvedURL(for: a), dst = proxyURL(for: a), hash = a.contentHash
             let id = await JobQueue.shared.enqueue(titleKey: "job.proxy", detail: a.name, priority: -1, subject: hash) { progress in
                 try await ProxyManager.generate(source: src, to: dst, progress: progress)
             }
