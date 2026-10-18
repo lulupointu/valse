@@ -30,6 +30,13 @@ public actor AssetCache {
         let audio: AVAssetTrack?
         let videoRange: CMTimeRange
         let audioRange: CMTimeRange
+        /// Every audio stream (multi-track media, MI-014) with its range.
+        var audios: [(AVAssetTrack, CMTimeRange)] = []
+        /// Audio stream `index` (nil/out of range = first).
+        func audioStream(_ index: Int?) -> (AVAssetTrack, CMTimeRange)? {
+            if let index, audios.indices.contains(index) { return audios[index] }
+            return audio.map { ($0, audioRange) }
+        }
     }
     private var entries: [URL: Entry] = [:]
 
@@ -40,7 +47,8 @@ public actor AssetCache {
         let a = try await asset.loadTracks(withMediaType: .audio).first
         let vr = try await v?.load(.timeRange) ?? .zero
         let ar = try await a?.load(.timeRange) ?? .zero
-        let e = Entry(asset: asset, video: v, audio: a, videoRange: vr, audioRange: ar)
+        var e = Entry(asset: asset, video: v, audio: a, videoRange: vr, audioRange: ar)
+        for t in try await asset.loadTracks(withMediaType: .audio) { e.audios.append((t, try await t.load(.timeRange))) }
         entries[url] = e
         return e
     }
@@ -63,7 +71,7 @@ public enum CompositionBuilder {
 
     public static func build(project: Project, purpose: RenderPurpose, renderSize: CGSize? = nil,
                              frameRate: FrameRate? = nil, state existingState: RenderState? = nil,
-                             sources: @Sendable (MediaAsset) -> MediaSourceChoice = { MediaSourceChoice(video: $0.url, audio: $0.url) })
+                             sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
         defer { Task { await buildLock.signal() } }
@@ -109,7 +117,7 @@ public enum CompositionBuilder {
                 }
                 let audible = asset.hasAudio && !clip.audio.isMuted && !track.isMuted && clip.audio.volume > 0
                 let audioEntry = audible ? try await AssetCache.shared.entry(choice.audio) : nil
-                if let audioEntry, let src = audioEntry.audio {
+                if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(clip.audioStreamIndex) {
                     if aLanes[lane] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                         let p = AVMutableAudioMixInputParameters(track: at)
                         p.trackID = at.trackID
@@ -118,7 +126,7 @@ public enum CompositionBuilder {
                         aLanes[lane] = (at, p)
                     }
                     if let (at, p) = aLanes[lane] {
-                        try insert(clip: clip, segments: segments, from: src, sourceRange: audioEntry.audioRange, into: at)
+                        try insert(clip: clip, segments: segments, from: src, sourceRange: srcAudioRange, into: at)
                         applyVolume(clip, to: p)
                         if !clip.audio.preservePitch && !clip.speed.isNormal { p.audioTimePitchAlgorithm = .varispeed }
                     }
@@ -206,7 +214,7 @@ public enum CompositionBuilder {
             for c in t.clips {
                 guard let id = c.mediaID, let a = project.asset(id) else { continue }
                 h.combine(c.id); h.combine(id); h.combine(c.start); h.combine(c.duration); h.combine(c.sourceStart)
-                h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audio)
+                h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audio); h.combine(c.audioStreamIndex)
                 h.combine(c.keyframes[ParamKey.volume.raw])
                 h.combine(sources(a))
             }

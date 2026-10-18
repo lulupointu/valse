@@ -10,16 +10,25 @@ struct MediaTab: View {
     var kinds: Set<MediaKind> = [.video, .image, .audio]
     @State private var nav = "import"
     @State private var dropTargeted = false
+    /// Open bin folder (nil = root). Folders are shown in the full Media tab only.
+    @State private var folder: MediaFolderID?
 
-    var items: [MediaAsset] { store.project.media.filter { kinds.contains($0.kind) } }
+    var showsFolders: Bool { kinds.count == 3 }
+    var items: [MediaAsset] {
+        store.project.media.filter { kinds.contains($0.kind) && (!showsFolders || $0.folderID == currentFolder) }
+    }
+    var folders: [MediaFolder] { showsFolders ? BinOps.children(of: currentFolder, in: store.project) : [] }
+    /// The open folder, if it still exists (undo may remove it).
+    var currentFolder: MediaFolderID? { folder.flatMap { f in store.project.folders.contains { $0.id == f } ? f : nil } }
+    var missingCount: Int { store.project.media.filter(store.isMissing).count }
 
     var body: some View {
         HStack(spacing: 0) {
             SubNav(items: [("import", tr("media.nav.import")), ("library", tr("media.nav.library"))], selection: $nav)
             Group {
                 if nav == "library" {
-                    EmptyState(symbol: "books.vertical", title: tr("media.library.empty"))
-                } else if items.isEmpty {
+                    ColorClipsGrid(store: store)
+                } else if store.project.media.isEmpty {
                     dropZone
                 } else {
                     VStack(spacing: 0) {
@@ -28,11 +37,22 @@ struct MediaTab: View {
                                 Label(tr("media.import"), systemImage: "plus").font(.system(size: 12))
                             }
                             .buttonStyle(SecondaryButtonStyle())
+                            if showsFolders {
+                                IconButton("folder.badge.plus", help: tr("media.folder.new")) { _ = store.createFolder(in: currentFolder) }
+                            }
                             Spacer()
+                            if missingCount > 0 {
+                                Button { LinkMediaPanel.runFolder(store) } label: {
+                                    Label(tr("media.missing", missingCount), systemImage: "exclamationmark.triangle").font(.system(size: 11))
+                                }
+                                .buttonStyle(.plain).foregroundStyle(.orange).help(tr("media.linkFolder.message"))
+                            }
                         }
                         .padding(.horizontal, 12).padding(.vertical, 8)
+                        if showsFolders && currentFolder != nil { BinBreadcrumb(store: store, folder: $folder) }
                         ScrollView {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96, maximum: 130), spacing: 10)], spacing: 12) {
+                                ForEach(folders) { f in FolderCard(store: store, folder: f, current: $folder) }
                                 ForEach(items) { a in MediaCard(store: store, asset: a) }
                             }
                             .padding(.horizontal, 12).padding(.bottom, 12)
@@ -43,7 +63,7 @@ struct MediaTab: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
-            loadURLs(providers) { store.importFiles($0) }
+            loadURLs(providers) { store.importMedia($0, folder: showsFolders ? currentFolder : nil) }
             return true
         }
         .overlay { if dropTargeted { RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2).padding(4) } }
@@ -74,6 +94,7 @@ struct MediaCard: View {
     let asset: MediaAsset
     @State private var image: CGImage?
     @State private var hover = false
+    @State private var showInfo = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -96,8 +117,13 @@ struct MediaCard: View {
                 }
             }
             .overlay(alignment: .topLeading) {
-                if store.proxyPending.contains(asset.contentHash) {
+                if store.convertPending.contains(asset.contentHash) {
+                    ProgressView().controlSize(.mini).padding(4).help(tr("job.convert"))
+                } else if store.proxyPending.contains(asset.contentHash) {
                     ProgressView().controlSize(.mini).padding(4).help(tr("job.proxy"))
+                } else if asset.livePhotoVideoURL != nil {
+                    Text(loc: "media.livePhoto").font(.system(size: 9, weight: .semibold)).padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3)).padding(4)
                 }
             }
             .overlay(alignment: .topTrailing) {
@@ -109,10 +135,23 @@ struct MediaCard: View {
                     .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))
                 }
             }
+            .overlay {
+                if store.isMissing(asset) {
+                    ZStack {
+                        Color.black.opacity(0.6)
+                        Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .onTapGesture { LinkMediaPanel.run(store, asset) }
+                    .help(tr("media.link"))
+                }
+            }
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
             Text(verbatim: asset.name).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
         }
         .onHover { hover = $0 }
+        .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
+        .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
         .onTapGesture(count: 2) { store.addToTimeline(asset.id) }
         .onDrag { NSItemProvider(object: DragPayload.media(asset.id) as NSString) }
         .task(id: asset.id) {
@@ -128,7 +167,7 @@ enum ImportPanel {
         let p = NSOpenPanel()
         p.allowsMultipleSelection = true
         p.canChooseDirectories = true
-        p.allowedContentTypes = [.movie, .audio, .image, .folder]
+        p.allowedContentTypes = [.movie, .audio, .image, .folder, .font, .data]
         p.message = tr("media.importMessage")
         p.prompt = tr("media.import")
         if p.runModal() == .OK { store.importFiles(p.urls) }

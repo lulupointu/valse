@@ -47,6 +47,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
 
     // Audio
     public var audio: AudioProps
+    /// Audio stream of the media to play (multi-track files, MI-014). nil = first stream.
+    public var audioStreamIndex: Int?
 
     /// Keyframe tracks keyed by `ParamKey.raw` (e.g. "transform.position", "opacity", "effect.<id>.<param>").
     public var keyframes: [String: KeyframeTrack]

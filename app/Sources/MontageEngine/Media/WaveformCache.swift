@@ -35,7 +35,7 @@ public final class WaveformCache: @unchecked Sendable {
         if let d = try? Data(contentsOf: file) {
             let w = Waveform(peaks: [UInt8](d)); lock.withLock { memory[a.contentHash] = w }; return w
         }
-        guard let w = try? await Self.compute(a.url) else { return nil }
+        guard let w = try? await Self.compute(PlayableMediaCache.shared.resolvedURL(for: a)) else { return nil }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try? Data(w.peaks).write(to: file)
         lock.withLock { memory[a.contentHash] = w }

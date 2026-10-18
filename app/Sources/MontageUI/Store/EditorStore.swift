@@ -52,6 +52,8 @@ public final class EditorStore {
     public var previewQuality: PreviewQuality = .auto { didSet { engine.previewQuality = previewQuality } }
     /// Media hash → proxy generating.
     public var proxyPending: Set<String> = []
+    /// Media hash → being converted to a playable file (GIF, image sequence, FFmpeg-only format).
+    public var convertPending: Set<String> = []
 
     @ObservationIgnored public let engine: PlaybackEngine
     @ObservationIgnored private var autosaveTask: Task<Void, Never>?
@@ -77,6 +79,7 @@ public final class EditorStore {
             for await list in await JobQueue.shared.updates() { self?.jobs = list }
         }
         if let packageURL { SessionLock.acquire(packageURL) }
+        installMediaPipelineHooks()
     }
 
     // MARK: Editing
@@ -90,6 +93,8 @@ public final class EditorStore {
             return true
         } catch let e as EditError {
             if e != .nothingToDo { showToast(tr(e.messageKey), error: true) }
+        } catch let e as BinOps.BinError {
+            showToast(tr(e.messageKey), error: true)
         } catch {
             showToast(String(describing: error), error: true)
         }
@@ -149,27 +154,7 @@ public final class EditorStore {
     // MARK: Import & insert
 
     public func importFiles(_ urls: [URL], thenInsertAt time: Time? = nil, target: InsertTarget = .automatic) {
-        let files = MediaProbe.expand(urls)
-        guard !files.isEmpty else { return }
-        Task {
-            let (assets, failed) = await MediaProbe.probeAll(files)
-            if !failed.isEmpty { showToast(tr("toast.importFailed", failed.count), error: true) }
-            guard !assets.isEmpty else { return }
-            let existing = Dictionary(project.media.map { ($0.contentHash, $0) }, uniquingKeysWith: { a, _ in a })
-            let fresh = assets.filter { existing[$0.contentHash] == nil }
-            if !fresh.isEmpty { perform(AddMedia(fresh)) }
-            let all = assets.map { existing[$0.contentHash] ?? $0 }
-            await ProxyManager.shared.request(all)
-            proxyPending.formUnion(all.filter { ProxyManager.shared.isPending($0) }.map(\.contentHash))
-            if let time {
-                var t = time
-                for a in all {
-                    addToTimeline(a.id, at: t, target: target)
-                    t += a.defaultClipDuration
-                }
-            }
-            for a in all { Task.detached { _ = await ThumbnailCache.shared.thumbnail(a, at: .zero, height: 96) } }
-        }
+        importMedia(urls, thenInsertAt: time, target: target)
     }
 
     /// Adds a media item at `time` (default: playhead; main track inserts at the nearest cut).
@@ -326,6 +311,7 @@ public final class EditorStore {
         engine.update(project: p, force: true)
         engine.seek(to: .zero)
         Task { await ProxyManager.shared.request(p.media) }
+        requestConversions(p.media)
         if crashed { showToast(tr("toast.recovered")) }
     }
 
@@ -340,6 +326,7 @@ public final class EditorStore {
         engine.update(project: p, force: true)
         engine.seek(to: .zero)
         Task { await ProxyManager.shared.request(p.media) }
+        requestConversions(p.media)
     }
 
     public func close() {

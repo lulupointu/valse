@@ -46,10 +46,10 @@ public final class ThumbnailCache: @unchecked Sendable {
         await semaphore.wait()
         defer { Task { await semaphore.signal() } }
         let img: CGImage?
-        if a.kind == .image {
+        if a.kind == .image || (PlayableMediaCache.shared.needsConversion(a) && a.conversion != .ffmpeg) {
             img = Self.imageThumb(a.url, height: height)
         } else {
-            let url = ProxyManager.shared.readyProxyURL(for: a) ?? a.url
+            let url = ProxyManager.shared.readyProxyURL(for: a) ?? PlayableMediaCache.shared.resolvedURL(for: a)
             img = await videoThumb(url, at: Double(q) * Self.quantum, height: height)
         }
         if let img { store(img, k); Self.saveJPEG(img, file) }
