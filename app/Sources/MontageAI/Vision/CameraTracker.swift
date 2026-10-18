@@ -39,6 +39,10 @@ public enum CameraTracker {
                     let r = VNDetectFaceRectanglesRequest(); try h.perform([r])
                     return (r.results ?? []).filter { $0.confidence > 0.5 }.map(\.boundingBox)
                 }
+                if target == .hand {
+                    let r = VNDetectHumanHandPoseRequest(); r.maximumHandCount = 2; try h.perform([r])
+                    return (r.results ?? []).compactMap { Self.handRect($0) }
+                }
                 let r = VNDetectHumanRectanglesRequest(); r.upperBodyOnly = false; try h.perform([r])
                 return (r.results ?? []).filter { $0.confidence > 0.4 }.map(\.boundingBox)
             }
@@ -54,6 +58,15 @@ public enum CameraTracker {
             progress?(min(1, (t - range.start.seconds) / total))
         }
         return result
+    }
+
+    /// Square box (Vision coordinates, origin bottom-left) around a hand pose's confident joints.
+    static func handRect(_ o: VNHumanHandPoseObservation) -> CGRect? {
+        guard let pts = try? o.recognizedPoints(.all) else { return nil }
+        let joints = pts.values.map { (x: Double($0.location.x), y: Double($0.location.y), confidence: Double($0.confidence)) }
+        guard let b = CameraLock.handBox(joints) else { return nil }
+        let cy = 1 - b.y   // back to Vision's bottom-left origin
+        return CGRect(x: b.x - b.size / 2, y: cy - b.size / 2, width: b.size, height: b.size)
     }
 }
 

@@ -37,7 +37,7 @@ struct CameraLockSection: View {
             InlineRow(label: tr("cameraLock.target")) {
                 Dropdown(items: CameraLockOptions.Target.allCases.map { ($0, tr($0.nameKey)) }, selection: o.target) { v in update { $0.target = v } }
             }
-            ToggleLine(label: tr(o.target == .face ? "cameraLock.keepFace" : "cameraLock.keepBody"),
+            ToggleLine(label: tr(o.target.keepSizeKey),
                        isOn: Binding(get: { o.keepSize }, set: { v in update { $0.keepSize = v } }))
             InlineRow(label: tr("cameraLock.fill")) {
                 Dropdown(items: CameraLockOptions.Fill.allCases.map { ($0, tr($0.nameKey)) }, selection: o.fill) { v in update { $0.fill = v } }

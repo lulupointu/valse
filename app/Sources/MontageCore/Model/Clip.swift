@@ -90,6 +90,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var removal: ObjectRemovalInfo?
     /// Adjust ▸ Mask (W3): limits the clip's Adjust-tab grading (adjustment-category effects) to a region.
     public var adjustMask: Mask?
+    /// AI movement (AI2, AI/AIMovement.swift): position/scale(/rotation) keyframes of a subject-centred camera move.
+    public var aiMovement: AIMovementOptions?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

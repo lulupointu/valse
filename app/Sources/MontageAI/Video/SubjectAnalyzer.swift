@@ -48,7 +48,21 @@ public enum SubjectAnalyzer {
 
     /// Subject centre in normalised display coordinates (origin top-left) + confidence.
     static func subject(_ pb: CVPixelBuffer, orientation: CGImagePropertyOrientation) throws -> (x: Double, y: Double, c: Double) {
-        let handler = VNImageRequestHandler(cvPixelBuffer: pb, orientation: orientation)
+        try subject(VNImageRequestHandler(cvPixelBuffer: pb, orientation: orientation))
+    }
+
+    /// Subject of a still image (AI movement Ken Burns on photos), decoded at ≤ 512 px.
+    public static func still(_ url: URL) throws -> SubjectSample {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let img = CGImageSourceCreateThumbnailAtIndex(src, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
+                                                                     kCGImageSourceCreateThumbnailWithTransform: true,
+                                                                     kCGImageSourceThumbnailMaxPixelSize: 512] as CFDictionary)
+        else { throw AIToolError.noInput }
+        let s = try subject(VNImageRequestHandler(cgImage: img))
+        return SubjectSample(time: 0, x: s.x, y: s.y, confidence: s.c)
+    }
+
+    static func subject(_ handler: VNImageRequestHandler) throws -> (x: Double, y: Double, c: Double) {
         let faces = VNDetectFaceRectanglesRequest()
         let humans = VNDetectHumanRectanglesRequest()
         humans.upperBodyOnly = false

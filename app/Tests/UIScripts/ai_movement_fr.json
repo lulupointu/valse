@@ -1,0 +1,21 @@
+// AI2 (AI-025) in French: Mouvement par l'IA section (Dynamique / Doux / Secouer / Zoomer, Force, Synchroniser sur le rythme).
+// Zoom with the demo's beat markers → punch keyframes; ⌘Z removes the whole move in one step.
+{
+  "project": "demo",
+  "lang": "fr",
+  "size": [1687, 2600],
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.section.video.aiMovement", "at": [0.035, 0.5]},
+    {"waitFor": {"path": "selectedClips.0.keyframeCounts.transform_scale", "gt": 1, "timeout": 20}},
+    {"click": "id:aiMovement.preset.zoom"},
+    {"wait": 1},
+    {"expect": [{"path": "selectedClips.0.keyframeCounts.transform_scale", "gt": 3},
+                {"path": "selectedClips.0.keyframeCounts.transform_rotation", "exists": false}]},
+    {"snapshot": "ai-movement-fr", "element": "id:inspector.section.video.aiMovement", "baseline": true, "tolerance": 0.01},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.transform_scale", "exists": false}}
+  ]
+}

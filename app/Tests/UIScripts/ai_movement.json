@@ -1,0 +1,23 @@
+// AI2 (AI-025): Video ▸ Basic ▸ ☐ AI movement → subject analysis job → scale/position keyframes (one undo step);
+// preset chips re-apply from the cached analysis (Shake adds rotation keys); unticking removes the move.
+{
+  "project": "demo",
+  "size": [1687, 2600],
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.section.video.aiMovement", "at": [0.035, 0.5]},
+    {"waitFor": {"path": "selectedClips.0.keyframeCounts.transform_scale", "gt": 1, "timeout": 20}},
+    {"expect": [{"path": "undo.name", "equals": "cmd.aiMovement"},
+                {"path": "ui.anchors", "contains": "aiMovement.preset.shake"},
+                {"path": "ui.anchors", "contains": "aiMovement.strength"}]},
+    {"click": "id:aiMovement.preset.shake"},
+    {"waitFor": {"path": "selectedClips.0.keyframeCounts.transform_rotation", "gt": 10, "timeout": 10}},
+    {"snapshot": "ai-movement-shake", "element": "id:inspector.section.video.aiMovement", "baseline": true, "tolerance": 0.01},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.transform_rotation", "exists": false}},
+    {"click": "id:inspector.section.video.aiMovement", "at": [0.035, 0.08]},
+    {"wait": 0.5},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.transform_scale", "exists": false}}
+  ]
+}

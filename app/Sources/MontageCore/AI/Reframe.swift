@@ -89,6 +89,7 @@ public enum ReframePath {
         clip.crop = CropRect()
         clip.stabilization = nil
         clip.cameraLock = nil   // camera tracking and auto reframe exclude each other
+        if clip.aiMovement != nil { clip.aiMovement = nil; clip.keyframes[ParamKey.rotation.raw] = nil }   // so does AI movement
         clip.keyframes[ParamKey.position.raw] = nil
         clip.keyframes[ParamKey.scale.raw] = nil
         clip.transform.scale = Vec2(k, k)

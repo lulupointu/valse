@@ -1,0 +1,17 @@
+/* AI2 : mouvement par l'IA (AI-025) + suivi de la caméra sur la main (AI-013) */
+"aiMovement.title" = "Mouvement par l'IA";
+"aiMovement.preset.dynamic" = "Dynamique";
+"aiMovement.preset.soft" = "Doux";
+"aiMovement.preset.shake" = "Secouer";
+"aiMovement.preset.zoom" = "Zoomer";
+"aiMovement.strength" = "Force";
+"aiMovement.beats" = "Synchroniser sur le rythme";
+"aiMovement.hint" = "Ajoute un mouvement de caméra centré sur le sujet. Le recadrage automatique et le suivi de la caméra de ce clip sont supprimés.";
+"aiMovement.job" = "Application du mouvement par l'IA…";
+"aiMovement.applying" = "Application du mouvement par l'IA… %d %%";
+"aiMovement.done" = "Mouvement par l'IA appliqué";
+"aiMovement.failed" = "Impossible d'appliquer le mouvement par l'IA. Réessayez.";
+"aiMovement.cancelled" = "Mouvement par l'IA annulé";
+"cmd.aiMovement" = "Mouvement par l'IA";
+"cameraLock.target.hand" = "Main";
+"cameraLock.keepHand" = "Conserver la taille de la main";

@@ -5,8 +5,12 @@ import Foundation
 
 public struct CameraLockOptions: Hashable, Codable, Sendable {
     public enum Target: String, Codable, Sendable, CaseIterable {
-        case face, body
+        case face, body, hand
         public var nameKey: String { "cameraLock.target.\(rawValue)" }
+        /// "Keep face size" / "Keep body size" / "Keep hand size".
+        public var keepSizeKey: String {
+            switch self { case .face: return "cameraLock.keepFace"; case .body: return "cameraLock.keepBody"; case .hand: return "cameraLock.keepHand" }
+        }
     }
     public enum Fill: String, Codable, Sendable, CaseIterable {
         /// Revealed edges show the canvas (project background).
@@ -33,6 +37,17 @@ public struct LockSample: Hashable, Codable, Sendable {
 }
 
 public enum CameraLock {
+    /// Hand target (AI-013): box (centre + size, normalised display coords, origin top-left) around the confident
+    /// joints of one detected hand pose. `points` = Vision-normalised joint locations (origin bottom-left).
+    /// Size = the larger side, padded ×1.3 like a face box; nil when fewer than 4 joints are confident.
+    public static func handBox(_ points: [(x: Double, y: Double, confidence: Double)], minConfidence: Double = 0.3) -> (x: Double, y: Double, size: Double)? {
+        let ok = points.filter { $0.confidence >= minConfidence }
+        guard ok.count >= 4 else { return nil }
+        let xs = ok.map(\.x), ys = ok.map { 1 - $0.y }
+        let (x0, x1, y0, y1) = (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
+        return ((x0 + x1) / 2, (y0 + y1) / 2, max(x1 - x0, y1 - y0) * 1.3)
+    }
+
     /// Fills gaps by holding the last seen subject (size 0 = not found) and Gaussian-smooths (σ ≈ 0.35 s).
     public static func smooth(_ s: [LockSample]) -> [LockSample] {
         guard let firstFound = s.first(where: { $0.size > 0 }) else { return [] }
@@ -79,6 +94,8 @@ public enum CameraLock {
         if sk.count > 1 { clip.keyframes[ParamKey.scale.raw] = KeyframeTrack(sk) }
         clip.cameraLock = o
         clip.reframe = nil   // excludes auto reframe
+        clip.aiMovement = nil   // and AI movement
+        clip.keyframes[ParamKey.rotation.raw] = nil
         if o.fill == .blur { clip.canvas = .blur(level: 3) }
     }
 

@@ -1,0 +1,17 @@
+/* AI2: AI movement (AI-025) + camera tracking hand target (AI-013) */
+"aiMovement.title" = "AI movement";
+"aiMovement.preset.dynamic" = "Dynamic";
+"aiMovement.preset.soft" = "Soft";
+"aiMovement.preset.shake" = "Shake";
+"aiMovement.preset.zoom" = "Zoom";
+"aiMovement.strength" = "Strength";
+"aiMovement.beats" = "Sync to beats";
+"aiMovement.hint" = "Adds a camera move centred on the subject. Auto reframe and camera tracking on this clip are removed.";
+"aiMovement.job" = "Applying AI movement...";
+"aiMovement.applying" = "Applying AI movement... %d%%";
+"aiMovement.done" = "AI movement applied";
+"aiMovement.failed" = "Couldn't apply AI movement. Try again.";
+"aiMovement.cancelled" = "AI movement canceled";
+"cmd.aiMovement" = "AI movement";
+"cameraLock.target.hand" = "Hand";
+"cameraLock.keepHand" = "Keep hand size";

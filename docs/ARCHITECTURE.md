@@ -399,6 +399,11 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Face mosaic / camera tracking**: `CutoutMode.faces` (Vision face boxes, `FaceMatte.Holder` keeps them through drop-outs) →
   `FaceCover` adds a linked copy of the clip above with Pixelate/Blur + `faces` matte. `CameraTracker` (faces / humans at 10 fps)
   → Core `CameraLock` (smoothed path → position/scale keyframes, `Clip.cameraLock`, excludes `Clip.reframe`).
+  Hand target: `VNDetectHumanHandPoseRequest` → `CameraLock.handBox` (confident joints, ×1.3 square).
+- **AI movement** (AI-025): `AIMovementJob` (SubjectAnalyzer samples at 2 fps / `SubjectAnalyzer.still` for photos, cached in
+  memory per media range) → Core `AIMovement.apply` (preset poses: zoom / soft Ken Burns / dynamic segments / 12 Hz seeded shake,
+  beats from `AIMovement.beats` = every clip's `beats` under the clip) → position / scale (/ rotation) keyframes clamped so the frame
+  keeps covering the canvas; `Clip.aiMovement`; it, `Clip.reframe` and `Clip.cameraLock` exclude each other. UI `AIMovementUI.swift`.
 - **AI remove**: `LaMaInpainter` (Core ML LaMa 800², zip from the model manager → compiled `Caches/Montage/models/LaMa.mlmodelc`;
   mask bbox ×2 crop → 800 px → feathered paste-back) → `ObjectRemover` (image PNG / per-frame video ≤ 30 s) → `ObjectRemovalJob`
   swaps the clip's media (`Clip.removal`, strokes = `RemovalStroke` raw source coords). UI `AIRemoveUI.swift` (`RemoveBrushTool`).
