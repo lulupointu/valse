@@ -71,4 +71,4 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 
 ## Known risks
 - Apple on-device French STT WER ~13% without OS model download → whisper.cpp (large-v3-turbo, 547 MB) as quality path.
-- Session interruptions (restart, auth) stop agents; worktrees keep work — resume via SendMessage.
+- Session interruptions (restart, auth, account switch) stop agents; worktrees keep work. Resume via SendMessage; if the transcript is gone, start a continuation agent pinned to the existing worktree path (worktree = source of truth, not the agent).
