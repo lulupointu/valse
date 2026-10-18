@@ -11,6 +11,9 @@ public final class ExportCenter {
     public let queue = ExportQueue()
     /// Set by "Export selected clips" / "Export in/out range" before presenting the dialog.
     public var requestedScope: ExportScope?
+    /// The open dialog's state (nil when closed) and the jobs its progress view shows.
+    public var dialog: ExportDialogModel?
+    public var shownJobs: [ExportJobItem] = []
     public init() {}
 }
 
@@ -30,7 +33,23 @@ extension EditorStore {
     public func openExport(scope: ExportScope? = nil) {
         guard project.duration > .zero else { showToast(tr("export.error.empty"), error: true); return }
         exports.requestedScope = scope
+        exports.dialog = ExportDialogModel(project: project, title: projectName, selection: selection, scope: scope)
+        exports.shownJobs = []
         isExportSheetPresented = true
+    }
+
+    public func closeExportDialog() {
+        isExportSheetPresented = false
+        exports.requestedScope = nil
+        exports.dialog = nil
+        exports.shownJobs = []
+    }
+
+    /// Dialog "Export": saves the choices and queues one job per output set.
+    public func confirmExport() {
+        guard let m = exports.dialog, m.canExport else { return }
+        m.save()
+        exports.shownJobs = m.specs().map { exports.queue.enqueue($0) }
     }
 
     /// Timeline ▸ "Export selected clips" (EX-013): one file per selected clip.
@@ -65,4 +84,33 @@ extension EditorStore {
     /// Queues a job directly (tests, scripted exports).
     @discardableResult
     public func enqueueExport(_ spec: ExportJobSpec) -> ExportJobItem { exports.queue.enqueue(spec) }
+}
+
+/// `ui.export` in the UI-test state dump: dialog choices and queue jobs.
+@MainActor
+enum ExportStateDump {
+    static func make(_ c: ExportCenter) -> [String: Any] {
+        var d: [String: Any] = [:]
+        if let m = c.dialog {
+            let r = m.remembered
+            d["dialog"] = [
+                "title": m.title, "folder": m.folder.path, "scope": m.scope.rawValue,
+                "video": r.videoEnabled, "audio": r.audioEnabled, "gif": r.gifEnabled, "captions": r.captionsEnabled,
+                "codec": r.video.codec.rawValue, "resolution": r.video.resolution.rawValue, "fps": r.video.frameRate.fps,
+                "container": r.video.effectiveContainer.rawValue, "audioFormat": r.audio.format.rawValue,
+                "gifResolution": r.gif.resolution.rawValue, "estimatedBytes": m.estimatedBytes, "canExport": m.canExport,
+                "outputs": m.specs().flatMap { $0.plannedOutputs().map(\.url.lastPathComponent) },
+            ] as [String: Any]
+        }
+        func job(_ j: ExportJobItem) -> [String: Any] {
+            let state: String
+            switch j.state { case .queued: state = "queued"; case .running: state = "running"; case .done: state = "done"
+            case .failed: state = "failed"; case .cancelled: state = "cancelled" }
+            return ["title": j.title, "state": state, "progress": j.progress, "written": j.written.map(\.path),
+                    "outputs": j.outputs.map(\.url.lastPathComponent)]
+        }
+        d["jobs"] = c.queue.items.map(job)
+        d["shown"] = c.shownJobs.map(job)
+        return d
+    }
 }

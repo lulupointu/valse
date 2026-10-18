@@ -1,0 +1,27 @@
+// W11: ⌘E opens the CapCut export dialog (defaults: video on, 1080P-or-canvas, H.264, mov); tick Export audio + GIF,
+// the estimate updates; Export queues the job and the window turns into the progress view; the job finishes with
+// a .mov, an .mp3 and a .gif; Close dismisses it and the title-bar queue indicator stays.
+{
+  "project": "demo",
+  "steps": [
+    {"key": "cmd+e"},
+    {"waitFor": {"path": "ui.exportSheet", "equals": true, "timeout": 5}},
+    {"expect": [{"path": "ui.export.dialog.video", "equals": true}, {"path": "ui.export.dialog.audio", "equals": false},
+                {"path": "ui.export.dialog.codec", "equals": "h264"}, {"path": "ui.export.dialog.container", "equals": "mov"},
+                {"path": "ui.export.dialog.canExport", "equals": true}]},
+    {"snapshot": "dialog-default", "element": "id:export.dialog"},
+    {"click": "id:export.section.audio"},
+    {"click": "id:export.section.gif"},
+    {"expect": [{"path": "ui.export.dialog.audio", "equals": true}, {"path": "ui.export.dialog.gif", "equals": true},
+                {"path": "ui.export.dialog.outputs.count", "equals": 3},
+                {"path": "ui.export.dialog.outputs", "contains": "Demo.mp3"}]},
+    {"snapshot": "dialog-audio-gif", "element": "id:export.dialog"},
+    {"click": "id:export.confirm"},
+    {"waitFor": {"path": "ui.export.shown.0.state", "equals": "done", "timeout": 90}},
+    {"expect": [{"path": "ui.export.shown.0.written.count", "equals": 3}, {"path": "ui.export.jobs.count", "equals": 1}]},
+    {"snapshot": "dialog-done", "element": "id:export.dialog"},
+    {"click": "id:export.close"},
+    {"expect": [{"path": "ui.exportSheet", "equals": false}]},
+    {"expect": {"path": "ui.anchors", "contains": "titlebar.exportQueue"}}
+  ]
+}

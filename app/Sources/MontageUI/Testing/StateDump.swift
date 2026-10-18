@@ -67,6 +67,7 @@ public enum StateDump {
             }),
         ]
         if let t = store.toast { ui["toast"] = t.message }
+        ui["export"] = ExportStateDump.make(store.exports)
         var d: [String: Any] = [
             "playhead": store.transport.playhead.seconds,
             "duration": p.duration.seconds,

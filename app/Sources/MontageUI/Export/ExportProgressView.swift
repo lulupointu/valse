@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import AVKit
+import AVFoundation
 import MontageCore
 import MontageEngine
 
@@ -39,14 +39,14 @@ struct ExportProgressView: View {
             Rectangle().fill(ExportStyle.separator).frame(height: 1)
             HStack(spacing: 10) {
                 Button { reveal() } label: { Label(tr("export.openFolder"), systemImage: "folder") }
-                    .buttonStyle(ExportButtonStyle(accent: false)).disabled(jobs.allSatisfy { $0.written.isEmpty })
+                    .buttonStyle(ExportButtonStyle(accent: false)).disabled(jobs.allSatisfy { $0.written.isEmpty }).testID("export.openFolder")
                 Spacer()
                 if running {
-                    Button(tr("export.stop")) { jobs.forEach(store.exports.queue.cancel) }.buttonStyle(ExportButtonStyle(accent: false))
+                    Button(tr("export.stop")) { jobs.forEach(store.exports.queue.cancel) }.buttonStyle(ExportButtonStyle(accent: false)).testID("export.stop")
                 }
                 Button(tr(running ? "export.hide" : "export.close")) { onClose() }
-                    .buttonStyle(ExportButtonStyle(accent: false)).keyboardShortcut(.cancelAction)
-                ShareButton(urls: jobs.flatMap(\.written)).disabled(!allDone)
+                    .buttonStyle(ExportButtonStyle(accent: false)).keyboardShortcut(.cancelAction).testID("export.close")
+                ShareButton(urls: jobs.flatMap(\.written)).disabled(!allDone).frame(width: 96).testID("export.share")
             }
             .padding(.horizontal, 16).frame(height: 60)
         }
@@ -56,7 +56,12 @@ struct ExportProgressView: View {
     var preview: some View {
         ZStack {
             if let player, allDone {
-                VideoPlayer(player: player)
+                PlayerLayerView(player: player)
+                Button { player.timeControlStatus == .playing ? player.pause() : player.play() } label: {
+                    Image(systemName: "playpause.fill").font(.system(size: 12)).foregroundStyle(.white).padding(6)
+                        .background(Color.black.opacity(0.5), in: Circle())
+                }
+                .buttonStyle(.plain).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading).padding(8)
             } else {
                 Group { if let cover { Image(nsImage: cover).resizable().aspectRatio(contentMode: .fit) } else { Color.black } }
                 Color.black.opacity(0.55)
@@ -68,6 +73,7 @@ struct ExportProgressView: View {
         }
         .frame(width: 320, height: 180)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .testID("export.progress")
     }
 
     func reveal() {
@@ -181,6 +187,7 @@ struct ExportQueueButton: View {
             }
             .buttonStyle(.plain)
             .help(tr("export.queue"))
+            .testID("titlebar.exportQueue")
             .popover(isPresented: $open, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -196,4 +203,16 @@ struct ExportQueueButton: View {
             }
         }
     }
+}
+
+/// Plays the exported file in the progress view (AVPlayerLayer; AVKit's SwiftUI player isn't usable from SwiftPM builds).
+struct PlayerLayerView: NSViewRepresentable {
+    let player: AVPlayer
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView(); v.wantsLayer = true
+        let l = AVPlayerLayer(player: player); l.videoGravity = .resizeAspect
+        v.layer = l
+        return v
+    }
+    func updateNSView(_ v: NSView, context: Context) { (v.layer as? AVPlayerLayer)?.player = player }
 }

@@ -63,8 +63,29 @@ public final class ExportDialogModel {
     public let project: Project
     public let selectedClipIDs: [ClipID]
 
+    /// UI tests (`--uitest`) never touch the user's defaults or ~/Movies.
+    static var isUITest: Bool { TestAnchors.isEnabled }
+    /// Fresh per test process (choices persist between dialogs of one script, never across runs).
+    static let uiTestDefaults: UserDefaults = {
+        UserDefaults.standard.removePersistentDomain(forName: "montage.uitest.export")
+        return UserDefaults(suiteName: "montage.uitest.export") ?? .standard
+    }()
+
+    public convenience init(project: Project, title: String, selection: Set<ClipID>, scope: ExportScope? = nil) {
+        self.init(project: project, title: title, selection: selection, scope: scope, defaults: Self.isUITest ? Self.uiTestDefaults : .standard)
+        if Self.isUITest { folder = Self.uiTestFolder }
+    }
+
+    /// Emptied once per test process, so output names don't depend on earlier runs.
+    static let uiTestFolder: URL = {
+        let u = FileManager.default.temporaryDirectory.appendingPathComponent("montage-uitest-exports", isDirectory: true)
+        try? FileManager.default.removeItem(at: u)
+        try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
+        return u
+    }()
+
     public init(project: Project, title: String, selection: Set<ClipID>, scope: ExportScope? = nil,
-                defaults: UserDefaults = .standard) {
+                defaults: UserDefaults) {
         self.project = project
         self.title = title
         var r = (defaults.data(forKey: Self.defaultsKey)).flatMap { try? JSONDecoder().decode(Remembered.self, from: $0) } ?? Remembered()
@@ -89,7 +110,8 @@ public final class ExportDialogModel {
         FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
     }
 
-    public func save(defaults: UserDefaults = .standard) {
+    public func save(defaults: UserDefaults? = nil) {
+        let defaults = defaults ?? (Self.isUITest ? Self.uiTestDefaults : .standard)
         var r = remembered
         r.folderPath = folder.path
         if let d = try? JSONEncoder().encode(r) { defaults.set(d, forKey: Self.defaultsKey) }

@@ -86,22 +86,64 @@ struct ExportRow<Content: View>: View {
 
 /// "☑ Video exporting ▴" section header: checkbox enables the output; the chevron collapses the section.
 struct ExportSectionHeader: View {
+    let id: String
     let title: String
     @Binding var isOn: Bool
     @Binding var expanded: Bool
     var enabled = true
     var body: some View {
         HStack(spacing: 8) {
-            CapCheckbox(isOn: $isOn, enabled: enabled)
-            Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(enabled ? .white : ExportStyle.disabledLabel)
-                .onTapGesture { if enabled { isOn.toggle() } }
+            Button { isOn.toggle() } label: {
+                HStack(spacing: 8) {
+                    ExportCheckboxBox(isOn: isOn)
+                    Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(enabled ? .white : ExportStyle.disabledLabel)
+                }.contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).disabled(!enabled).testID("export.section.\(id)")
             Button { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
                 Image(systemName: expanded ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill").font(.system(size: 7))
                     .foregroundStyle(enabled ? Theme.textSecondary : ExportStyle.disabledLabel).frame(width: 16, height: 16)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain).testID("export.section.\(id).expand")
             Spacer()
         }
         .frame(height: 32)
+    }
+}
+
+/// CapCut checkbox look as a Button (synthetic UI-test clicks reach Buttons, not tap gestures).
+struct ExportCheckbox: View {
+    @Binding var isOn: Bool
+    var enabled = true
+    var body: some View {
+        Button { isOn.toggle() } label: { ExportCheckboxBox(isOn: isOn) }
+            .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.4)
+    }
+}
+
+struct ExportCheckboxBox: View {
+    let isOn: Bool
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
+            if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+        }
+        .frame(width: 16, height: 16)
+    }
+}
+
+/// 36×20 switch (CapToggle look) as a Button.
+struct ExportToggle: View {
+    @Binding var isOn: Bool
+    var enabled = true
+    var body: some View {
+        Button { withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() } } label: {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Capsule().fill(isOn ? Theme.accent : Theme.stepper).frame(width: 36, height: 20)
+                Circle().fill(Color.white).frame(width: 14, height: 14).padding(.horizontal, 3)
+            }
+            .frame(width: 36, height: 20).contentShape(Capsule())
+        }
+        .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.4)
     }
 }

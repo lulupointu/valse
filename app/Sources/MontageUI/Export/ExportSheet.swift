@@ -1,9 +1,31 @@
 import SwiftUI
 import AppKit
-import AVKit
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
+
+/// Dimmed backdrop + dialog (hit-testing blocked behind it).
+struct ExportModal: View {
+    @Bindable var store: EditorStore
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.5).ignoresSafeArea().contentShape(Rectangle()).onTapGesture {}
+            if let model = store.exports.dialog {
+                ExportSheet(store: store, model: model)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+                    .shadow(color: .black.opacity(0.5), radius: 24)
+                    .background(GeometryReader { g in
+                        Color.clear
+                            .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
+                            .onChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
+                    })
+            }
+        }
+        .onAppear { if store.exports.dialog == nil { store.openExport(scope: store.exports.requestedScope) } }
+        .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
+    }
+}
 
 /// Export dialog (UX.md §7.1, screenshots 110/112/113/114): 720×663 "Export-<name>" window. Left: cover preview with
 /// "Edit cover". Right (scrolls): Title, Export to, range, ☑ Video exporting (preset, resolution, bit rate, codec,
@@ -12,15 +34,9 @@ import MontageEngine
 /// running in the background queue (title-bar indicator).
 struct ExportSheet: View {
     @Bindable var store: EditorStore
-    @State private var model: ExportDialogModel
-    @State private var jobs: [ExportJobItem] = []
+    @Bindable var model: ExportDialogModel
     @State private var coverPopover = false
-
-    init(store: EditorStore) {
-        self.store = store
-        _model = State(initialValue: ExportDialogModel(project: store.project, title: store.projectName, selection: store.selection,
-                                                       scope: store.exports.requestedScope))
-    }
+    var jobs: [ExportJobItem] { store.exports.shownJobs }
 
     static let size = CGSize(width: 720, height: 663)
 
@@ -36,6 +52,7 @@ struct ExportSheet: View {
         }
         .frame(width: Self.size.width, height: Self.size.height)
         .background(ExportStyle.background)
+        .testID("export.dialog")
         .task {
             model.mp3Available = await MP3Encoder.isAvailable()
             await model.refreshCover()
@@ -43,10 +60,7 @@ struct ExportSheet: View {
         .onChange(of: model.coverTime) { Task { await model.refreshCover() } }
     }
 
-    func close() {
-        store.isExportSheetPresented = false
-        store.exports.requestedScope = nil
-    }
+    func close() { store.closeExportDialog() }
 
     // MARK: Form
 
@@ -97,7 +111,7 @@ struct ExportSheet: View {
                 .foregroundStyle(.white).padding(.horizontal, 7).frame(height: 22)
                 .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
             }
-            .buttonStyle(.plain).padding(8)
+            .buttonStyle(.plain).padding(8).testID("export.editCover")
             .popover(isPresented: $coverPopover, arrowEdge: .bottom) { CoverEditor(model: model, store: store) }
         }
         .frame(width: 320, height: 180)
@@ -110,6 +124,7 @@ struct ExportSheet: View {
             ExportRow(label: tr("export.titleField")) {
                 TextField("", text: $model.title).textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(.white)
                     .padding(.horizontal, 8).frame(height: 24).background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                    .testID("export.title")
             }
             ExportRow(label: tr("export.location")) {
                 HStack(spacing: 6) {
@@ -119,7 +134,7 @@ struct ExportSheet: View {
                     Button { chooseFolder() } label: {
                         Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(.white).frame(width: 26, height: 24)
                             .background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
-                    }.buttonStyle(.plain).help(tr("export.choose"))
+                    }.buttonStyle(.plain).help(tr("export.choose")).testID("export.folder")
                 }
             }
             if model.isAvailable(.inOut) || model.isAvailable(.selectedClips) {
@@ -130,7 +145,7 @@ struct ExportSheet: View {
                 }
                 if model.scope == .selectedClips {
                     HStack(spacing: 8) {
-                        CapCheckbox(isOn: $model.includeAllLayers)
+                        ExportCheckbox(isOn: $model.includeAllLayers)
                         Text(loc: "export.includeAll").font(.system(size: 12)).foregroundStyle(ExportStyle.label)
                     }.padding(.leading, ExportStyle.labelWidth + 12)
                 }
@@ -166,7 +181,7 @@ struct ExportSheet: View {
         let on = model.remembered.videoEnabled
         let hdr = model.colorSpace.isHDR
         return VStack(alignment: .leading, spacing: 4) {
-            ExportSectionHeader(title: tr("export.video"), isOn: $model.remembered.videoEnabled, expanded: expandedBinding("video"))
+            ExportSectionHeader(id: "video", title: tr("export.video"), isOn: $model.remembered.videoEnabled, expanded: expandedBinding("video"))
             if model.expanded.contains("video") {
                 ExportRow(label: tr("export.preset"), enabled: on) {
                     ExportDropdown(items: [ExportMenuItem<String>(id: "", title: tr("export.preset.custom"))]
@@ -243,7 +258,7 @@ struct ExportSheet: View {
                 if let detail { Text(verbatim: detail).font(.system(size: 10.5)).foregroundStyle(Theme.textTertiary) }
             }
             Spacer()
-            CapToggle(isOn: isOn, enabled: enabled)
+            ExportToggle(isOn: isOn, enabled: enabled)
         }
         .frame(minHeight: ExportStyle.rowHeight)
     }
@@ -258,7 +273,7 @@ struct ExportSheet: View {
         let a = model.remembered.audio
         let on = model.remembered.audioEnabled
         return VStack(alignment: .leading, spacing: 4) {
-            ExportSectionHeader(title: tr("export.audio"), isOn: $model.remembered.audioEnabled, expanded: expandedBinding("audio"))
+            ExportSectionHeader(id: "audio", title: tr("export.audio"), isOn: $model.remembered.audioEnabled, expanded: expandedBinding("audio"))
             if model.expanded.contains("audio") {
                 ExportRow(label: tr("export.format"), enabled: on) {
                     ExportDropdown(items: AudioOutputSettings.Format.menuOrder.map { f in
@@ -294,7 +309,7 @@ struct ExportSheet: View {
     var gifSection: some View {
         let on = model.remembered.gifEnabled
         return VStack(alignment: .leading, spacing: 4) {
-            ExportSectionHeader(title: tr("export.gif"), isOn: $model.remembered.gifEnabled, expanded: expandedBinding("gif"))
+            ExportSectionHeader(id: "gif", title: tr("export.gif"), isOn: $model.remembered.gifEnabled, expanded: expandedBinding("gif"))
             if model.expanded.contains("gif") {
                 ExportRow(label: tr("export.resolution"), enabled: on) {
                     ExportDropdown(items: GIFSettings.Resolution.allCases.map { ExportMenuItem(id: $0, title: $0.label) },
@@ -308,7 +323,7 @@ struct ExportSheet: View {
         let available = model.hasCaptions
         let on = model.remembered.captionsEnabled && available
         return VStack(alignment: .leading, spacing: 4) {
-            ExportSectionHeader(title: tr("export.captions"), isOn: Binding(get: { on }, set: { model.remembered.captionsEnabled = $0 }),
+            ExportSectionHeader(id: "captions", title: tr("export.captions"), isOn: Binding(get: { on }, set: { model.remembered.captionsEnabled = $0 }),
                                 expanded: expandedBinding("captions"), enabled: available)
             if model.expanded.contains("captions") {
                 ExportRow(label: tr("export.format"), enabled: on) {
@@ -330,7 +345,7 @@ struct ExportSheet: View {
         return HStack(spacing: 10) {
             Image(systemName: "film").font(.system(size: 14)).foregroundStyle(ExportStyle.label)
             VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: model.footerText).font(.system(size: 12.5)).foregroundStyle(.white)
+                Text(verbatim: model.footerText).font(.system(size: 12.5)).foregroundStyle(.white).testID("export.estimate")
                 if !pre.missingMedia.isEmpty {
                     Text(verbatim: tr("export.error.missingMedia", pre.missingMedia.joined(separator: ", "))).font(Theme.Fonts.hint).foregroundStyle(.red).lineLimit(1)
                 } else if !pre.hasEnoughSpace {
@@ -339,18 +354,15 @@ struct ExportSheet: View {
             }
             Spacer()
             Button(tr("common.cancel")) { close() }
-                .buttonStyle(ExportButtonStyle(accent: false)).keyboardShortcut(.cancelAction)
+                .buttonStyle(ExportButtonStyle(accent: false)).keyboardShortcut(.cancelAction).testID("export.cancel")
             Button(tr("export.export")) { startExport() }
                 .buttonStyle(ExportButtonStyle(accent: true)).keyboardShortcut(.defaultAction)
-                .disabled(!model.canExport)
+                .disabled(!model.canExport).testID("export.confirm")
         }
         .padding(.horizontal, 16).frame(height: 60)
     }
 
-    func startExport() {
-        model.save()
-        jobs = model.specs().map { store.exports.queue.enqueue($0) }
-    }
+    func startExport() { store.confirmExport() }
 }
 
 extension ProjectColorSpace {
@@ -394,7 +406,7 @@ struct CoverEditor: View {
                 Button(tr("export.cover.import")) { importImage() }.buttonStyle(SecondaryButtonStyle())
             }
             HStack(spacing: 8) {
-                CapCheckbox(isOn: Binding(get: { model.remembered.video.prependCover }, set: { b in model.editVideo { $0.prependCover = b } }))
+                ExportCheckbox(isOn: Binding(get: { model.remembered.video.prependCover }, set: { b in model.editVideo { $0.prependCover = b } }))
                 Text(loc: "export.cover.prepend").font(.system(size: 12)).foregroundStyle(ExportStyle.label)
             }
         }
