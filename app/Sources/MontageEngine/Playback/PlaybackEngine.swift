@@ -68,6 +68,9 @@ public final class PlaybackEngine {
             let playing = p.rate != 0
             Task { @MainActor in self?.onPlayStateChange?(playing) }
         }
+        ReverseManager.shared.onReady = { [weak self] _ in self?.forceRebuild() }
+        StabilizationStore.shared.onReady = { [weak self] _ in self?.onRedrawNeeded?() }
+        MatteStore.shared.onMatteReady = { [weak self] _, _ in self?.forceRebuild() }
         update(project: project, force: true)
     }
 
@@ -75,6 +78,7 @@ public final class PlaybackEngine {
 
     public func update(project: Project, force: Bool = false) {
         self.project = project
+        requestDerivedMedia(project)
         state.update(project: project)
         let size = Self.previewSize(canvas: project.settings.canvasSize, quality: previewQuality)
         var h = Hasher()
@@ -91,6 +95,31 @@ public final class PlaybackEngine {
     }
 
     public func forceRebuild() { update(project: project, force: true) }
+
+    /// Background renders the project needs (reversed media, stabilization analysis, decoder-budget proxies);
+    /// each is idempotent and rebuilds/redraws the preview when ready. Clip ids are job subjects so the timeline can
+    /// show progress on the clip.
+    private func requestDerivedMedia(_ project: Project) {
+        var reverse: [(MediaAsset, ClipID)] = [], stabilize: [(MediaAsset, ClipID)] = []
+        for t in project.timeline.tracks {
+            for c in t.clips {
+                guard let id = c.mediaID, let a = project.asset(id), a.kind == .video else { continue }
+                if c.reversed, ReverseManager.shared.readyURL(for: a) == nil, ReverseManager.shared.pendingJob(for: a) == nil {
+                    reverse.append((a, c.id))
+                }
+                if c.stabilization != nil, !StabilizationStore.shared.isAnalyzed(a), !StabilizationStore.shared.isPending(a) {
+                    stabilize.append((a, c.id))
+                }
+            }
+        }
+        let heavy = DecoderBudget.mediaNeedingProxies(project)
+        guard !reverse.isEmpty || !stabilize.isEmpty || !heavy.isEmpty else { return }
+        Task {
+            for (a, c) in reverse { await ReverseManager.shared.request(a, subject: c.description) }
+            for (a, c) in stabilize { await StabilizationStore.shared.request(a, subject: c.description) }
+            if !heavy.isEmpty { await ProxyManager.shared.request(heavy, force: true) }
+        }
+    }
 
     /// Rebuilds are debounced (40 ms) so continuous drags (trim/move) coalesce into few builds.
     private func rebuild(_ project: Project, debounce: Bool) {

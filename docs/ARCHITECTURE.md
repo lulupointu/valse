@@ -218,6 +218,12 @@ Effect shader contract (see `EffectDescriptor` docs): `float4 effect(float2 uv, 
 
 Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` model fields, `CoreShaders.swift`, `EditorStore.swift`, `BuiltinInspector.swift` `sections` list, `Package.swift`.
 
+## 17b. Timeline editing (W1)
+
+- **Ops**: `MontageCore/Editing/TimelineOps+Editing.swift` (groups, `moveClips`/`trimClips` for multi-selection, clipboard `copyItems`/`paste`/`duplicate`, `pasteAttributes`, `freezeFrame`, `toggleReverse`, gaps, `roll`/`slip`, markers, beats, `extractAudio`/`restoreAudio`, `replaceMedia`, `arrange`, `reorderTrack`, in/out). Linkage follows `Timeline.linkageExcluded` (`followsMain`); deleting a main clip deletes the clips linked to it.
+- **Model fields** (all optional, old files decode unchanged, no schema bump): `Clip.groupID / freezeFrame / beats / extractedFrom / colorLabel`, `Track.heightPreset / waveformScale`, `Timeline.linkageExcluded / inPoint / outPoint`, `Marker.note`. A freeze clip is a media clip whose speed maps a one-frame source extent to its duration (renders with the existing pipeline; trimming keeps the extent).
+- **UI**: `TimelineUIState` (`store.timelineUI`: tool, scroll, clipboard, selected transition/marker/keyframe, preview axis), `EditorStore+Timeline.swift` (every toolbar/shortcut/menu command), `TimelineLayout` (hit-testing incl. transitions/keyframes/markers, insertion slots, marquee, `SnapIndex`), `TimelineView` (drawing) + `TimelineView+Input.swift` (gestures) + `TimelineMenus.swift`, `TimelineShortcuts.swift` (appended to `ShortcutRegistry.builtins`). Gestures: ⌥ edge = roll, ⌘⌥ body = slip, ⌥ body = duplicate, ⌘ = no snapping.
+
 ## 18. Known gaps (foundation)
 
-Reverse playback rendering, freeze frame, speed-curve editor UI, on-canvas handles, marquee selection, markers UI, home screen and settings window, AI matte applied in the compositor, audio effects chain, HDR export, a hover-preview axis that scrubs the player (the hover line is drawn but doesn't scrub), and the Templates/Library content.
+Reverse playback rendering, speed-curve editor UI, on-canvas handles, home screen and settings window, AI matte applied in the compositor, audio effects chain, HDR export, compound clips (nested-timeline rendering), auto beat detection, and the Templates/Library content.

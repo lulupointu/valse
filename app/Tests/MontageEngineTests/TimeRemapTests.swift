@@ -33,7 +33,7 @@ import MontageTestSupport
     @Test func reversedClipPlaysBackwardsFrameExact() async throws {
         var p = TestProject()
         let id = try await p.addVideo(.frameIndex, seconds: 2)
-        try TimelineOps.setReversed(id, true, in: &p.project.timeline)
+        try TimelineOps.toggleReverse([id], in: &p.project.timeline)
         // render goes through the export path: the reversed render is produced (or reused) first
         for k in [0, 15, 40, 59] {
             let got = Self.level(try await p.render(at: Double(k) / 30))
@@ -46,7 +46,7 @@ import MontageTestSupport
         let id = try await p.addVideo(.frameIndex, seconds: 2)
         try TimelineOps.trim(id, edge: .head, to: 0.5, in: &p.project)     // source [0.5, 2.0)
         try TimelineOps.trim(id, edge: .tail, to: 1.0, in: &p.project)     // source [0.5, 1.5)
-        try TimelineOps.setReversed(id, true, in: &p.project.timeline)
+        try TimelineOps.toggleReverse([id], in: &p.project.timeline)
         // first frame shows the last source frame of the range (frame 44), then counts down
         #expect(abs(Self.level(try await p.render(at: 0)) - Self.expectedLevel(frame: 44)) < 2.0)
         #expect(abs(Self.level(try await p.render(at: 10.0 / 30)) - Self.expectedLevel(frame: 34)) < 2.0)
@@ -72,7 +72,7 @@ import MontageTestSupport
         c.keyframes[ParamKey.opacity.raw] = KeyframeTrack([Keyframe(time: 1, value: .scalar(0)), Keyframe(time: 4, value: .scalar(1))])
         var tl = Timeline()
         tl.tracks[tl.mainTrackIndex!].clips = [c]
-        try TimelineOps.setReversed(c.id, true, in: &tl)
+        try TimelineOps.toggleReverse([c.id], in: &tl)
         let k = tl.clip(c.id)!.keyframes[ParamKey.opacity.raw]!.keyframes
         #expect(k.map(\.time) == [Time(0), Time(3)])
     }
@@ -80,14 +80,11 @@ import MontageTestSupport
     @Test func freezeFrameInsertsStillAndRipples() async throws {
         var p = TestProject()
         let id = try await p.addVideo(.frameIndex, seconds: 2)
-        let asset = p.project.media[0]
-        let still = try await FrameGrabber.freezeStill(of: asset, at: p[id].sourceTime(at: 1.0),
-                                                       into: TestMedia.directory.appendingPathComponent("freeze"), name: "Freeze")
-        let fid = try TimelineOps.insertFreeze(of: id, at: 1.0, still: still, in: &p.project)
+        let fid = try TimelineOps.freezeFrame(id, at: 1.0, in: &p.project)
         #expect(TimelineOps.validate(p.project.timeline).isEmpty)
         #expect(p.project.duration == Time(5))
         #expect(p[fid].start == Time(1) && p[fid].duration == Time(3))
-        #expect(p[fid].freezeOf?.sourceTime == Time(1))
+        #expect(p[fid].isFreezeFrame)
         for t in [1.2, 3.9] {
             let lv = Self.level(try await p.render(at: t)); #expect(abs(lv - Self.expectedLevel(frame: 30)) < 2.0, "t=\(t) lv=\(lv)")
         }

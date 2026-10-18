@@ -39,6 +39,8 @@ public final class EditorStore {
     public var project: Project { session.project }
     public var selection: Set<ClipID> = [] { didSet { if selection != oldValue { selectionDidChange() } } }
     public let transport = TransportState()
+    /// Timeline view state: tool mode, scroll, clipboard, selected transition/marker (W1, MontageUI/Timeline).
+    public let timelineUI = TimelineUIState()
     /// Timeline zoom (points per second).
     public var pixelsPerSecond: Double = 40
     public private(set) var packageURL: URL?

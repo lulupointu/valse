@@ -14,6 +14,19 @@ public enum TrackKind: String, Codable, Sendable, CaseIterable {
     public var acceptsMedia: Bool { self == .video || self == .audio }
 }
 
+/// Track height preset (CapCut "Track height ▸ Short / Default / Tall").
+public enum TrackHeight: String, Codable, Sendable, CaseIterable {
+    case short, standard, tall
+    public var scale: Double { switch self { case .short: return 0.65; case .standard: return 1; case .tall: return 1.5 } }
+    public var nameKey: String { "track.height.\(rawValue)" }
+}
+
+/// Item types configurable in "Linkage settings" (UX.md §6.6).
+public enum LinkageCategory: String, Codable, Sendable, CaseIterable {
+    case text, effects, stickers, filters, adjust, overlay, audio
+    public var nameKey: String { "linkage.\(rawValue)" }
+}
+
 public struct Track: Codable, Sendable, Equatable, Identifiable {
     public var id: TrackID
     public var kind: TrackKind
@@ -26,6 +39,10 @@ public struct Track: Codable, Sendable, Equatable, Identifiable {
     /// Sorted by `start`. Clips never overlap, except main-track neighbours joined by a transition
     /// (the next clip starts `transition.duration` before the previous one ends).
     public var clips: [Clip]
+    /// Lane height preset ("Track height" in the ⋯ menu). nil = default.
+    public var heightPreset: TrackHeight?
+    /// Audio waveform size (0.3 / 0.6 / 1.0). nil = 0.3 (CapCut default 30 %).
+    public var waveformScale: Double?
 
     public init(kind: TrackKind, isMain: Bool = false, clips: [Clip] = []) {
         id = TrackID(); self.kind = kind; self.isMain = isMain
@@ -72,6 +89,11 @@ public struct Timeline: Codable, Sendable, Equatable {
     /// CapCut "Auto snapping".
     public var snapping: Bool
     public var markers: [Marker]
+    /// Linkage settings: categories that do NOT follow the main track (nil/empty = all linked, CapCut default).
+    public var linkageExcluded: [LinkageCategory]?
+    /// In / out points (I / O) for range operations. nil = not set.
+    public var inPoint: Time?
+    public var outPoint: Time?
 
     public init() {
         tracks = [Track(kind: .video, isMain: true)]

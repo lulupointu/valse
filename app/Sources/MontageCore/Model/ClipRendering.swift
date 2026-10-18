@@ -126,9 +126,3 @@ public struct StabilizationTrack: Codable, Sendable, Equatable {
     }
 }
 
-/// Where a freeze-frame still came from.
-public struct FreezeOrigin: Hashable, Codable, Sendable {
-    public var media: MediaID
-    public var sourceTime: Time
-    public init(media: MediaID, sourceTime: Time) { self.media = media; self.sourceTime = sourceTime }
-}

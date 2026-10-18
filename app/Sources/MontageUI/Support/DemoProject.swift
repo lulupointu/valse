@@ -59,7 +59,9 @@ public enum DemoProject {
         // music
         var m = TimelineOps.makeClip(for: assets[4], at: .zero)
         m.audio.volume = 0.5; m.audio.fadeOut = Time(1)
+        m.beats = stride(from: 1.0, to: 12, by: 2).map { Time($0) }
         try TimelineOps.insert(m, into: &p)
+        _ = try TimelineOps.addMarker(at: Time(8), in: &p.timeline)
         return p
     }
 }

@@ -53,20 +53,4 @@ public enum FrameGrabber {
         return ctx.makeImage() ?? src
     }
 
-    /// Freeze frame: writes the frame at `time` as a PNG into `directory` and returns it as an image media asset.
-    public static func freezeStill(of asset: MediaAsset, at time: Time, into directory: URL, name: String) async throws -> MediaAsset {
-        let img = try await image(of: asset, at: time)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent("freeze-\(asset.contentHash.prefix(8))-\(time.ticks).png")
-        if !FileManager.default.fileExists(atPath: url.path) {
-            guard let dst = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) else {
-                throw MediaProbeError.unreadable(url, "png")
-            }
-            CGImageDestinationAddImage(dst, img, nil)
-            guard CGImageDestinationFinalize(dst) else { throw MediaProbeError.unreadable(url, "png") }
-        }
-        var still = try await MediaProbe.probe(url)
-        still.name = name
-        return still
-    }
 }
