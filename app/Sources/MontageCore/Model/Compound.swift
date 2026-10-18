@@ -145,7 +145,7 @@ extension TimelineOps {
         }
         removeEmptyTracks(&tl)
         project.timeline = tl
-        if !project.timeline.tracks.contains(where: { $0.clips.contains { $0.content == .compound(cid) } }) {
+        if !MultiTimelineOps.allTimelines(project).contains(where: { $0.tracks.contains { $0.clips.contains { $0.content == .compound(cid) } } }) {
             project.compounds?.removeAll { $0.id == cid }
         }
     }

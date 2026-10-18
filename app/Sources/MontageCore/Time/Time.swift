@@ -124,24 +124,3 @@ public struct TimeRange: Hashable, Codable, Sendable, CustomStringConvertible {
     public var description: String { "[\(start) +\(duration)]" }
 }
 
-/// HH:MM:SS:FF timecode formatting (CapCut shows `00:00:12:05`).
-public enum Timecode {
-    public static func string(_ t: Time, rate: FrameRate, showFrames: Bool = true) -> String {
-        let neg = t.ticks < 0
-        let frames = rate.frame(containing: Time(ticks: abs(t.ticks)))
-        let fpsInt = Int64(rate.fps.rounded())
-        let totalSeconds = frames / max(fpsInt, 1)
-        let ff = frames % max(fpsInt, 1)
-        let h = totalSeconds / 3600, m = (totalSeconds / 60) % 60, s = totalSeconds % 60
-        let base = showFrames ? String(format: "%02lld:%02lld:%02lld:%02lld", h, m, s, ff)
-                              : String(format: "%02lld:%02lld:%02lld", h, m, s)
-        return neg ? "-" + base : base
-    }
-
-    /// Compact duration label for clips, e.g. "3.2s" or "1:05".
-    public static func shortDuration(_ t: Time) -> String {
-        let s = t.seconds
-        if s < 60 { return String(format: "%.1fs", s) }
-        return String(format: "%d:%02d", Int(s) / 60, Int(s) % 60)
-    }
-}

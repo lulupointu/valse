@@ -22,6 +22,10 @@ public struct Project: Codable, Sendable, Equatable {
 
     /// Diarized caption speakers (names + colours, AI-005 / TX-038). Optional so older files decode.
     public var speakers: [CaptionSpeaker]?
+    /// Multi-timeline (TL-023): every timeline in tab order; nil = one timeline. The active one is live in
+    /// `timeline` / `settings` (see `TimelineSlot`). Optional so older files decode.
+    public var timelines: [TimelineSlot]?
+    public var activeTimelineID: TimelineSlotID?
     public var createdAt: Date
     public var modifiedAt: Date
 
@@ -56,6 +60,9 @@ public struct ProjectSettings: Codable, Sendable, Equatable {
     public var aspectPreset: String
     /// Working/output colour space (SDR Rec.709 by default; HDR = Rec.2020 HLG/PQ, 10-bit export).
     public var colorSpace: ProjectColorSpace
+    /// Project settings ▸ Import material: true = copy imported files into the package, false = keep them in place,
+    /// nil = follow Settings ▸ Project (SE-010).
+    public var copyMediaOnImport: Bool?
 
     public init(canvasSize: Size2 = .hd1080, frameRate: FrameRate = .fps30,
                 backgroundColor: RGBA = .black, aspectPreset: String = "16:9", colorSpace: ProjectColorSpace = .sdr709) {
@@ -63,7 +70,7 @@ public struct ProjectSettings: Codable, Sendable, Equatable {
         self.backgroundColor = backgroundColor; self.aspectPreset = aspectPreset; self.colorSpace = colorSpace
     }
 
-    private enum CodingKeys: String, CodingKey { case canvasSize, frameRate, backgroundColor, aspectPreset, colorSpace }
+    private enum CodingKeys: String, CodingKey { case canvasSize, frameRate, backgroundColor, aspectPreset, colorSpace, copyMediaOnImport }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -72,6 +79,7 @@ public struct ProjectSettings: Codable, Sendable, Equatable {
         backgroundColor = try c.decode(RGBA.self, forKey: .backgroundColor)
         aspectPreset = try c.decode(String.self, forKey: .aspectPreset)
         colorSpace = try c.decodeIfPresent(ProjectColorSpace.self, forKey: .colorSpace) ?? .sdr709
+        copyMediaOnImport = try c.decodeIfPresent(Bool.self, forKey: .copyMediaOnImport)
     }
 
     /// Ratio presets offered by the player "Ratio" menu: (id, width, height) at 1080p-class sizes.

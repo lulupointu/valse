@@ -59,13 +59,21 @@ struct ReframeSection: View {
 
 extension EditorStore {
     /// Split scenes: shot detection over the clip's source range, then one split per cut (one undo step).
-    public func splitScenes(_ clipID: ClipID) {
+    /// "Split scenes" (TL-034): `.scene` = fewer clips (stricter threshold, ≥ 2 s scenes), `.shot` = every shot change.
+    public enum SceneSplitMode: Sendable { case scene, shot
+        var options: SceneDetector.Options {
+            self == .scene ? SceneDetector.Options(threshold: 0.55, minShot: 2) : SceneDetector.Options(threshold: 0.35, minShot: 0.5)
+        }
+    }
+
+    public func splitScenes(_ clipID: ClipID, mode: SceneSplitMode = .shot) {
+        let options = mode.options
         guard let clip = project.timeline.clip(clipID), let asset = clip.mediaID.flatMap(project.asset), asset.kind == .video else { return }
         let range = clip.sourceRange
         let box = CutsBox()
         Task {
             let id = await JobQueue.shared.enqueue(titleKey: "scenes.job", priority: 1, subject: clipID.description) { progress in
-                box.cuts = try await SceneDetector.cuts(asset.url, range: range) { progress.report($0) }
+                box.cuts = try await SceneDetector.cuts(asset.url, range: range, options: options) { progress.report($0) }
             }
             guard await JobQueue.shared.wait(id) == .done else { showToast(tr("scenes.failed"), error: true); return }
             guard let c = project.timeline.clip(clipID) else { return }

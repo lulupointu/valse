@@ -1,0 +1,24 @@
+// Finisher SE-008 / SE-011 / AU-024 / TL-032: Settings ▸ Edit time code + drop-frame + scrub audio; Settings ▸ Audio
+// (devices, preview volume); saved values reach the app; the player timecode switches to HH:MM:SS.ms.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"menu": "menu.app/menu.settings"},
+    {"click": "id:settings.tab.edit"},
+    {"click": "id:settings.check.dropFrame"},
+    {"snapshot": "settings-edit-timecode", "element": "id:settings"},
+    {"click": "id:settings.tab.audio"},
+    {"click": "id:settings.switch.scrubAudioAudio"},
+    {"click": "id:settings.field.monitorVolume"},
+    {"type": "80", "replace": true},
+    {"key": "return"},
+    {"snapshot": "settings-audio", "element": "id:settings"},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.settings.scrubAudio", "equals": true}, {"path": "app.settings.dropFrame", "equals": true},
+                {"path": "app.settings.monitorVolume", "approx": 0.8}]},
+    {"seek": 2.5},
+    {"drag": "time:2@ruler", "to": "time:4@ruler", "steps": 8},
+    {"expect": {"path": "playhead", "approx": 4, "tolerance": 0.1}}
+  ]
+}

@@ -118,7 +118,7 @@ public enum Ducking {
     /// Gain envelope for `clip` (which has `audio.ducking`), or nil if nothing triggers it.
     public static func envelope(for clip: Clip, in project: Project, waveforms: [MediaID: Waveform]) -> Envelope? {
         guard let duck = clip.audio.ducking else { return nil }
-        let triggers = project.timeline.tracks.filter { !$0.isMuted }.flatMap(\.clips).filter { c in
+        let triggers = project.timeline.tracks.filter { project.timeline.isAudible($0) }.flatMap(\.clips).filter { c in
             (c.id != clip.id && c.audio.ducking == nil && c.audio.isAudible && c.isEnabled
                 && c.mediaID.flatMap { waveforms[$0] } != nil && c.range.intersection(clip.range) != nil)
         }

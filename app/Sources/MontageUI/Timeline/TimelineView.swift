@@ -506,6 +506,7 @@ final class TimelineView: NSView {
         items.append(("lock", t.isLocked ? "lock.slash" : "lock", t.isLocked))
         if t.kind.isVisual { items.append(("eye", t.isHidden ? "eye.slash" : "eye", t.isHidden)) }
         if t.kind == .audio || t.kind == .video { items.append(("mute", t.isMuted ? "speaker.slash" : "speaker.wave.2", t.isMuted)) }
+        if t.kind == .audio { items.append(("solo", t.isSolo == true ? "headphones.circle.fill" : "headphones", t.isSolo == true)) }
         if t.kind == .audio || t.kind == .video { items.append(("more", "ellipsis", false)) }
         // 14 pt glyphs (SymbolImages pad their 40 px tile by 10 %, hence the 17 pt rect), 22 pt pitch.
         let step: CGFloat = 22, side: CGFloat = 17
@@ -569,7 +570,7 @@ final class TimelineView: NSView {
             if audioStrip > 0 {
                 let sr = CGRect(x: r.minX, y: r.maxY - audioStrip, width: r.width, height: audioStrip)
                 c.rect(sr, RGBA(hex: 0x163A3F, alpha: alpha), radius: 0)
-                if !clip.audio.isMuted && !track.isMuted { drawWaveform(&c, clip, asset: asset, in: sr, layout: l, color: Theme.waveformOnVideo, scale: 0.9) }
+                if !clip.audio.isMuted && store.project.timeline.isAudible(track) { drawWaveform(&c, clip, asset: asset, in: sr, layout: l, color: Theme.waveformOnVideo, scale: 0.9) }
             }
         }
         // Waveform (audio clips)

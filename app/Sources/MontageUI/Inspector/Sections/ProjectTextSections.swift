@@ -14,12 +14,13 @@ struct DetailsSection: View {
         VStack(alignment: .leading, spacing: 4) {
             DetailRow(label: tr("details.name"), value: store.projectName)
             DetailRow(label: tr("details.saved"), value: store.packageURL?.path ?? tr("details.notSaved"))
-            DetailRow(label: tr("details.importMaterial"), value: tr("details.importMaterial.keep"))
+            DetailRow(label: tr("details.importMaterial"), value: tr(store.copiesMediaOnImport ? "details.importMaterial.copy" : "details.importMaterial.keep"))
             DetailRow(label: tr("details.proxy"), value: tr("details.proxy.\(ProxyManager.shared.policy.rawValue)"))
             Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 8)
             DetailRow(label: tr("details.ratio"), value: ProjectSettingsSheet.ratioTitle(s.aspectPreset))
             DetailRow(label: tr("details.resolution"), value: "\(Int(s.canvasSize.width))×\(Int(s.canvasSize.height))")
             DetailRow(label: tr("details.frameRate"), value: Fmt.unit(Fmt.num(s.frameRate.fps, 2), "fps"))
+            DetailRow(label: tr("details.colorSpace"), value: tr(s.colorSpace.nameKey))
         }
     }
 }
@@ -46,15 +47,24 @@ struct ModifyProjectButton: View {
     }
 }
 
-/// Project settings dialog (UX.md §2.4, [108]): Name, Save to, Ratio, Resolution, Frame rate; Cancel / Save.
+/// Project settings dialog (UX.md §2.4, [108]): Name, Save to, Import material, Color space; Timeline settings
+/// (TL-043): Ratio, Resolution (presets or Customized W×H), Frame rate, "Apply to all timelines"; Cancel / Save.
 struct ProjectSettingsSheet: View {
     @Bindable var store: EditorStore
     @Binding var isPresented: Bool
     @State private var name = ""
     @State private var ratio = "16:9"
     @State private var short = 1080
+    @State private var customW = 1920
+    @State private var customH = 1080
     @State private var fps = FrameRate.fps30
+    @State private var colorSpace = ProjectColorSpace.sdr709
+    @State private var copyMedia = false
+    @State private var applyToAll = true
     @State private var tab = "details"
+
+    /// Resolution dropdown id of "Customized".
+    static let customResolution = -1
 
     static let ratios = ["original", "16:9", "4:3", "2.35:1", "2:1", "1.85:1", "9:16", "3:4", "1:1", "4:5", "21:9"]
     static let resolutions = [480, 720, 1080, 1440, 2160]
@@ -97,19 +107,50 @@ struct ProjectSettingsSheet: View {
                             Text(verbatim: store.packageURL?.path ?? MontagePaths.draftsDirectory.path)
                                 .font(.system(size: 12)).foregroundStyle(IStyle.caption).lineLimit(2)
                         }
+                        row(tr("details.importMaterial")) {
+                            HStack(spacing: 16) {
+                                RadioLine(label: tr("details.importMaterial.copy"), selected: copyMedia, id: "importCopy") { copyMedia = true }
+                                RadioLine(label: tr("details.importMaterial.keep"), selected: !copyMedia, id: "importKeep") { copyMedia = false }
+                            }
+                        }
+                        row(tr("details.colorSpace")) {
+                            Dropdown(items: ProjectColorSpace.allCases.map { ($0, tr($0.nameKey)) }, selection: colorSpace) { colorSpace = $0 }
+                                .frame(width: 220).testID("projectSettings.colorSpace")
+                        }
                         Rectangle().fill(Theme.separator).frame(height: 1)
                         Text(loc: "settings.project.timeline").font(.system(size: 12, weight: .medium)).foregroundStyle(IStyle.caption)
                         row(tr("details.ratio")) {
                             Dropdown(items: Self.ratios.map { ($0, Self.ratioTitle($0)) }, selection: ratio) { ratio = $0 }
                         }
                         row(tr("details.resolution")) {
-                            Dropdown(items: Self.resolutions.map { r in
-                                let sz = Self.size(ratio: ratio, short: r, original: original)
-                                return (r, "\(r)p (\(Int(sz.width))×\(Int(sz.height)))")
-                            }, selection: short) { short = $0 }
+                            VStack(alignment: .leading, spacing: 6) {
+                                Dropdown(items: Self.resolutions.map { r in
+                                    let sz = Self.size(ratio: ratio, short: r, original: original)
+                                    return (r, "\(r)p (\(Int(sz.width))×\(Int(sz.height)))")
+                                } + [(Self.customResolution, tr("projectSettings.customized"))], selection: short) { v in
+                                    if v == Self.customResolution && short != v {
+                                        let sz = Self.size(ratio: ratio, short: short, original: original)
+                                        customW = Int(sz.width); customH = Int(sz.height)
+                                    }
+                                    short = v
+                                }
+                                .testID("projectSettings.resolution")
+                                if short == Self.customResolution {
+                                    HStack(spacing: 6) {
+                                        SizeField(value: $customW, prefix: "W").testID("projectSettings.width")
+                                        Text(verbatim: "×").foregroundStyle(IStyle.caption)
+                                        SizeField(value: $customH, prefix: "H").testID("projectSettings.height")
+                                    }
+                                }
+                            }
                         }
                         row(tr("details.frameRate")) {
                             Dropdown(items: FrameRate.common.map { ($0, String(format: "%.2f fps", $0.fps)) }, selection: fps) { fps = $0 }
+                        }
+                        if store.otherTimelineCount > 0 {
+                            row(tr("projectSettings.applyTo")) {
+                                CheckLine(label: tr("projectSettings.applyToAll"), isOn: $applyToAll, id: "applyToAll")
+                            }
                         }
                     } else {
                         row(tr("details.proxy")) {
@@ -130,7 +171,7 @@ struct ProjectSettingsSheet: View {
                         Text(loc: "common.save").font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
                             .background(Theme.accent, in: RoundedRectangle(cornerRadius: 6))
                     }
-                    .buttonStyle(.plain).keyboardShortcut(.defaultAction)
+                    .buttonStyle(.plain).keyboardShortcut(.defaultAction).testID("projectSettings.save")
                 }
                 .foregroundStyle(.white)
             }
@@ -139,12 +180,18 @@ struct ProjectSettingsSheet: View {
         .frame(width: 512)
         .background(Theme.panel)
         .preferredColorScheme(.dark)
+        .testID("projectSettings")
         .onAppear {
             let s = store.project.settings
             name = store.projectName
             ratio = Self.ratios.contains(s.aspectPreset) ? s.aspectPreset : "16:9"
-            short = Self.resolutions.min { abs(Double($0) - min(s.canvasSize.width, s.canvasSize.height)) < abs(Double($1) - min(s.canvasSize.width, s.canvasSize.height)) } ?? 1080
+            let shortSide = Int(min(s.canvasSize.width, s.canvasSize.height))
+            let preset = Self.resolutions.first { Self.size(ratio: ratio, short: $0, original: original) == s.canvasSize }
+            short = s.aspectPreset == "custom" ? Self.customResolution : (preset ?? (Self.resolutions.contains(shortSide) ? shortSide : Self.customResolution))
+            customW = Int(s.canvasSize.width); customH = Int(s.canvasSize.height)
             fps = s.frameRate
+            colorSpace = s.colorSpace
+            copyMedia = store.copiesMediaOnImport
         }
     }
 
@@ -156,17 +203,51 @@ struct ProjectSettingsSheet: View {
         .frame(minHeight: 30)
     }
 
+    /// Canvas size the dialog describes (custom sizes are clamped to 16…8192 and made even).
+    var chosenSize: Size2 {
+        if short == Self.customResolution {
+            func even(_ v: Int) -> Double { Double(min(max(v, 16), 8192) / 2 * 2) }
+            return Size2(even(customW), even(customH))
+        }
+        return Self.size(ratio: ratio, short: short, original: original)
+    }
+
     func save() {
-        let size = Self.size(ratio: ratio, short: short, original: original)
-        let n = name, r = ratio, f = fps
+        let size = chosenSize
+        let n = name, f = fps, cs = colorSpace, copy = copyMedia, all = applyToAll
+        // a customized size whose shape matches no preset is a "Customized" ratio (CapCut player ratio menu)
+        let r = short == Self.customResolution && Self.size(ratio: ratio, short: Int(min(size.width, size.height)), original: original) != size
+            ? "custom" : ratio
         store.perform(Edit("cmd.projectSettings") { p in
             p.name = n
-            p.settings.canvasSize = size
-            p.settings.aspectPreset = r
-            p.settings.frameRate = f
+            func apply(_ s: inout ProjectSettings) {
+                s.canvasSize = size; s.aspectPreset = r; s.frameRate = f; s.colorSpace = cs
+            }
+            apply(&p.settings)
+            p.settings.copyMediaOnImport = copy
+            if all { for i in (p.timelines ?? []).indices { apply(&p.timelines![i].settings) } }
         })
         isPresented = false
     }
+}
+
+/// Integer pixel field (Customized resolution).
+struct SizeField: View {
+    @Binding var value: Int
+    let prefix: String
+    @State private var text = ""
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(verbatim: prefix).font(.system(size: 11)).foregroundStyle(IStyle.caption)
+            TextField("", text: $text).textFieldStyle(.plain).font(Theme.Fonts.numeric).multilineTextAlignment(.center)
+                .onSubmit { commit() }
+                .onChange(of: text) { _, _ in commit() }
+        }
+        .padding(.horizontal, 6).frame(width: 84, height: 26)
+        .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
+        .onAppear { text = "\(value)" }
+    }
+    func commit() { if let v = Int(text.filter(\.isNumber)), v > 0 { value = v } }
 }
 
 // MARK: - Multi-selection

@@ -209,6 +209,13 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             reg("nextCut"),
             .separator(),
             ed("menu.renderPreview") { $0.renderPreview(range: nil) },
+            .separator(),
+            ed("timelines.new") { $0.newTimeline() },
+            item("timelines.newWithSelection", enabled: { [unowned self] in self.inEditor && !self.store.selection.isEmpty }) { [unowned self] in
+                self.store.newTimeline(withSelection: true)
+            },
+            item("timelines.next", enabled: { [unowned self] in self.inEditor && self.store.timelineSlots.count > 1 }) { [unowned self] in self.store.cycleTimeline(1) },
+            item("timelines.previous", enabled: { [unowned self] in self.inEditor && self.store.timelineSlots.count > 1 }) { [unowned self] in self.store.cycleTimeline(-1) },
         ]))
         main.addItem(menu("menu.marker", [
             reg("marker"),

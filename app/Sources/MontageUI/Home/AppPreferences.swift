@@ -39,6 +39,7 @@ public final class AppPreferences {
 
     private func applyGlobals() {
         EditDefaults.current = settings.editDefaults
+        TimecodeDisplay.current = settings.timecodeDisplay
         ProxyManager.shared.policy = ProxyManager.Policy(rawValue: settings.proxyPolicy) ?? .auto
         let s = settings
         ExportDialogModel.firstExportDefaults = { p in
@@ -58,6 +59,10 @@ public final class AppPreferences {
         let q = PreviewQuality(rawValue: settings.previewQuality) ?? .auto
         if store.previewQuality != q { store.previewQuality = q }
         if store.playerUI.usesProxies != settings.useProxies { store.setUsesProxies(settings.useProxies) }
+        // Settings ▸ Audio: preview output device + monitor volume (a missing device falls back to the default)
+        let uid = AudioDevices.id(forUID: settings.audioOutputDeviceUID, in: AudioDevices.outputs()) != nil ? settings.audioOutputDeviceUID : nil
+        if store.engine.player.audioOutputDeviceUniqueID != uid { store.engine.player.audioOutputDeviceUniqueID = uid }
+        store.engine.player.volume = Float(min(max(settings.monitorVolume, 0), 1))
         if previous?.proxyPolicy != settings.proxyPolicy { Task { await ProxyManager.shared.request(store.project.media) } }
     }
 

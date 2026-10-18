@@ -9,8 +9,11 @@ import Foundation
 public enum CompoundFlattening {
     public static func decodeTracks(_ project: Project, depth: Int = 0) -> [Track] {
         var out = project.timeline.tracks
+        // Solo (AU-029): when any track is soloed, every other track is silenced (applied before nesting, so a
+        // compound on a silenced track is silenced too).
+        if project.timeline.hasSolo { for i in out.indices { out[i].isMuted = !project.timeline.isAudible(out[i]) } }
         guard depth < Project.maxCompoundDepth, !(project.compounds ?? []).isEmpty else { return out }
-        for parent in project.timeline.tracks {
+        for parent in out.prefix(project.timeline.tracks.count) {
             for c in parent.clips where c.isEnabled {
                 guard case .compound(let cid) = c.content, let comp = project.compound(cid) else { continue }
                 for nt in decodeTracks(project.nested(comp), depth: depth + 1) {

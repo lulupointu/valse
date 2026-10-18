@@ -93,7 +93,10 @@ extension TimelineView {
                 item("tlmenu.crop", enabled: visual && single != nil) { s.inspectorTab = "video" },
             ]),
             // W10 AI entries
-            item("tlmenu.splitScenes", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id) } },
+            sub("tlmenu.splitScenes", [
+                item("tlmenu.splitScenes.scene", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id, mode: .scene) } },
+                item("tlmenu.splitScenes.shot", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id, mode: .shot) } },
+            ]),
             item("tlmenu.generateCaptions", enabled: single.map { c in c.mediaID.flatMap(s.project.asset)?.hasAudio ?? false } ?? false) {
                 if let c = single { s.ai.captionSource = .clip(c.id); s.generateCaptions() }
             },
@@ -291,7 +294,10 @@ extension TimelineView {
             item(t.isLocked ? "track.unlock" : "track.lock") { s.toggleTrack(id, \.isLocked, key: "cmd.trackLock") },
         ]
         if t.kind.isVisual { items.append(item(t.isHidden ? "track.show" : "track.hide") { s.toggleTrack(id, \.isHidden, key: "cmd.trackHide") }) }
-        if t.kind == .audio || t.kind == .video { items.append(item(t.isMuted ? "track.unmute" : "track.mute") { s.toggleTrack(id, \.isMuted, key: "cmd.trackMute") }) }
+        if t.kind == .audio || t.kind == .video {
+            items.append(item(t.isMuted ? "track.unmute" : "track.mute") { s.toggleTrack(id, \.isMuted, key: "cmd.trackMute") })
+            items.append(item(t.isSolo == true ? "track.unsolo" : "track.solo") { s.toggleSolo(id) })
+        }
         items.append(.separator())
         items.append(sub("track.height", TrackHeight.allCases.map { h in
             item(h.nameKey, checked: (t.heightPreset ?? .standard) == h) { s.setTrackHeight(id, h) }

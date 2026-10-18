@@ -8,6 +8,10 @@ public struct TimelinePanel: View {
 
     public var body: some View {
         VStack(spacing: 0) {
+            if (store.project.timelines?.count ?? 0) > 1 {
+                TimelineTabs(store: store)
+                Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
+            }
             TimelineToolbar(store: store)
             Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
             TimelineHost(store: store)

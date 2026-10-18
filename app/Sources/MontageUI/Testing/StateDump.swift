@@ -62,7 +62,7 @@ public enum StateDump {
         }
         func trackSummary(_ t: Track, _ i: Int) -> [String: Any] {
             ["index": i, "id": t.id.description, "kind": t.kind.rawValue, "isMain": t.isMain, "locked": t.isLocked,
-             "hidden": t.isHidden, "muted": t.isMuted,
+             "hidden": t.isHidden, "muted": t.isMuted, "solo": t.isSolo == true, "audible": tl.isAudible(t),
              "clips": t.clips.enumerated().map { clipSummary($1, track: i, index: $0) }]
         }
         let tracks = tl.tracks.enumerated().map { trackSummary($1, $0) }

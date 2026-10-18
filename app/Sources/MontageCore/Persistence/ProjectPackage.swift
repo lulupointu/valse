@@ -56,6 +56,8 @@ public enum ProjectPackage {
         var p = project
         let base = packageURL.deletingLastPathComponent()
         for i in p.media.indices { p.media[i].relativePath = relativePath(from: base, to: p.media[i].url) }
+        // multi-timeline: the active slot's copy would duplicate `timeline` (stale); store it empty
+        if let i = MultiTimelineOps.activeIndex(p) { p.timelines![i].timeline = Timeline(); p.timelines![i].settings = p.settings }
         let data = try encoder().encode(p)
         try data.write(to: packageURL.appendingPathComponent(projectFileName), options: .atomic)
         try? encoder().encode(ProjectSummary(p)).write(to: packageURL.appendingPathComponent(summaryFileName), options: .atomic)

@@ -1,0 +1,27 @@
+// Finisher TL-023 / TL-043 / SE-010: New timeline from the Timeline menu (tab strip appears, empty timeline),
+// switch back by its tab, New timeline with the selected clip, then Project settings (import material = copy) saved
+// to the active timeline.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"menu": "menu.timeline/timelines.new"},
+    {"expect": [{"path": "project.timelines.count", "equals": 2}, {"path": "main.clips.count", "equals": 0},
+                {"path": "undo.name", "equals": "cmd.newTimeline"}, {"path": "ui.anchors", "contains": "timelines.tab.1"}]},
+    {"snapshot": "timeline-tabs", "element": "id:panel.timeline"},
+    {"click": "id:timelines.tab.0"},
+    {"expect": [{"path": "main.clips.count", "equals": 3}, {"path": "undo.name", "equals": "cmd.switchTimeline"}]},
+    {"click": "clip:main/1"},
+    {"menu": "menu.timeline/timelines.newWithSelection"},
+    {"expect": [{"path": "project.timelines.count", "equals": 3}, {"path": "main.clips.count", "equals": 1},
+                {"path": "project.timelines.1.name", "equals": "Timeline 3"}]},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "project.timelines.count", "equals": 2}, {"path": "main.clips.count", "equals": 3}]},
+    {"menu": "menu.file/menu.projectSettings"},
+    {"expect": {"path": "ui.anchors", "contains": "projectSettings"}},
+    {"click": "id:settings.radio.importCopy"},
+    {"snapshot": "project-settings", "element": "id:projectSettings"},
+    {"click": "id:projectSettings.save"},
+    {"expect": [{"path": "project.settings.copyMediaOnImport", "equals": true}, {"path": "undo.name", "equals": "cmd.projectSettings"}]}
+  ]
+}

@@ -83,9 +83,10 @@ struct TransportBar: View {
                 // while previewing a library item the timecode shows the item's own time / duration
                 let pv = ui.preview
                 let now = pv.map { (ui.previewTime - $0.range.start).clamped(.zero, $0.range.duration) } ?? transport.playhead
-                Text(verbatim: Timecode.string(now, rate: rate)).foregroundStyle(Theme.accent)
+                TimecodeEntry(store: store, time: now, rate: rate, editable: pv == nil)
                 Text(verbatim: "/").foregroundStyle(Theme.textTertiary)
-                Text(verbatim: Timecode.string(pv?.range.duration ?? store.projectDuration, rate: rate)).foregroundStyle(Theme.textSecondary)
+                Text(verbatim: Timecode.display(pv?.range.duration ?? store.projectDuration, rate: rate)).foregroundStyle(Theme.textSecondary)
+                    .testID("player.duration")
                 Spacer()
                 PopupButton(help: tr("player.quality")) { BoxLabel(text: tr(PlayerMenus.qualityShortKey(store.previewQuality))) }
                     menu: { PlayerMenus.quality(store) }
@@ -111,6 +112,54 @@ struct TransportBar: View {
         .frame(height: 36)
         .opacity(store.isPlayerEmpty ? 0.35 : 1)
         .disabled(store.isPlayerEmpty)
+    }
+}
+
+/// Current-time timecode of the player (TL-037): click to type a timecode (HH:MM:SS:FF, digits right-aligned, `+10` /
+/// `-1:00` relative), Return seeks there (clamped to the project), Esc cancels. Format follows Settings ▸ Edit ▸ Time code.
+struct TimecodeEntry: View {
+    @Bindable var store: EditorStore
+    let time: Time
+    let rate: FrameRate
+    var editable = true
+    @State private var editing = false
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        let label = Timecode.display(time, rate: rate)
+        if editing {
+            TextField("", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 11).monospacedDigit())
+                .foregroundStyle(Theme.accent)
+                .frame(width: CGFloat(label.count) * 7 + 8)
+                .padding(.horizontal, 2)
+                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 3))
+                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accent.opacity(0.8), lineWidth: 1))
+                .focused($focused)
+                .onSubmit { commit() }
+                .onExitCommand { editing = false }
+                .onChange(of: focused) { _, f in if !f { editing = false } }
+                .onAppear { text = label; focused = true }
+                .testID("player.timecode.field")
+        } else {
+            Text(verbatim: label).foregroundStyle(Theme.accent)
+                .contentShape(Rectangle())
+                .onTapGesture { if editable && !store.isPlayerEmpty { store.engine.pause(); editing = true } }
+                .help(tr("player.timecode.help"))
+                .testID("player.timecode")
+        }
+    }
+
+    func commit() {
+        let d = TimecodeDisplay.current
+        if let t = Timecode.parse(text, rate: rate, style: d.style, dropFrame: d.dropFrame, relativeTo: time) {
+            store.seek(to: rate.snap(t.clamped(.zero, store.projectDuration)))
+        } else {
+            store.showToast(tr("player.timecode.invalid"), error: true)
+        }
+        editing = false
     }
 }
 

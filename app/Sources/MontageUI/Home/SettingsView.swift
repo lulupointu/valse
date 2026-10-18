@@ -4,7 +4,7 @@ import MontageCore
 import MontageEngine
 
 public enum SettingsTab: String, CaseIterable, Sendable {
-    case general, project, edit, performance, export, music, shortcuts, about
+    case general, project, edit, audio, performance, export, music, shortcuts, about
     var nameKey: String { "settings.tab.\(rawValue)" }
 }
 
@@ -40,6 +40,7 @@ struct SettingsView: View {
                         case .general: GeneralSettings(draft: $draft, language: $language)
                         case .project: ProjectSettingsTab(draft: $draft, sizes: cacheSizes, editing: app.screen == .editor, clear: clear)
                         case .edit: EditSettings(draft: $draft)
+                        case .audio: AudioSettings(draft: $draft)
                         case .performance: PerformanceSettings(draft: $draft, sizes: cacheSizes, editing: app.screen == .editor, clear: clear)
                         case .export: ExportDefaultsSettings(draft: $draft)
                         case .music: MusicSettings()
@@ -352,6 +353,12 @@ struct ProjectSettingsTab: View {
                         onChoose: editing ? nil : { if let p = chooseFolder(tr("settings.saveTo"), start: draft.projectsDirectory) { draft.projectsDirectory = p } },
                         onReset: draft.projectsDirectory == nil || editing ? nil : { draft.projectsDirectory = nil }, id: "saveTo")
         }
+        SettingsRow(tr("details.importMaterial"), hint: tr("settings.importMaterial.hint")) {
+            HStack(spacing: 16) {
+                RadioLine(label: tr("details.importMaterial.copy"), selected: draft.copyMediaOnImport, id: "importCopy") { draft.copyMediaOnImport = true }
+                RadioLine(label: tr("details.importMaterial.keep"), selected: !draft.copyMediaOnImport, id: "importKeep") { draft.copyMediaOnImport = false }
+            }
+        }
         SettingsDivider()
         SettingsRow(tr("settings.cacheManagement")) {
             RadioLine(label: tr("settings.cache.keep"), selected: draft.cacheAutoDeleteDays == nil, id: "keep") { draft.cacheAutoDeleteDays = nil }
@@ -426,6 +433,16 @@ struct EditSettings: View {
                 }
             }
         }
+        SettingsRow(tr("settings.timecode")) {
+            Dropdown(items: TimecodeStyle.allCases.map { ($0.rawValue, tr($0.nameKey)) }, selection: draft.timecodeStyle) { draft.timecodeStyle = $0 }
+                .frame(width: 200)
+            if draft.timecodeStyle == TimecodeStyle.frames.rawValue {
+                CheckLine(label: tr("settings.dropFrame"), isOn: $draft.dropFrame, id: "dropFrame")
+            }
+        }
+        SettingsRow(tr("settings.scrubAudio"), hint: tr("settings.scrubAudio.hint")) {
+            SwitchButton(isOn: $draft.scrubAudio, id: "scrubAudio")
+        }
         SettingsDivider()
         Text(loc: "settings.newProjects").font(.system(size: 12, weight: .medium)).foregroundStyle(IStyle.caption).padding(.bottom, 4)
         SettingsRow(tr("details.frameRate")) {
@@ -435,6 +452,43 @@ struct EditSettings: View {
         SettingsRow(tr("details.ratio"), hint: draft.defaultRatio == "original" ? tr("newProject.originalHint") : nil) {
             Dropdown(items: ProjectSettingsSheet.ratios.map { ($0, ProjectSettingsSheet.ratioTitle($0)) }, selection: draft.defaultRatio) { draft.defaultRatio = $0 }
                 .frame(width: 200)
+        }
+    }
+}
+
+/// Settings ▸ Audio (SE-011 / AU-024): preview output device, default voice-over input, monitor volume, scrub audio,
+/// export notification sound.
+struct AudioSettings: View {
+    @Binding var draft: AppSettings
+    @State private var outputs: [AudioDevices.Device] = []
+    @State private var inputs: [AudioDevices.Device] = []
+    var body: some View {
+        SettingsRow(tr("settings.audio.output"), hint: tr("settings.audio.output.hint")) {
+            Dropdown(items: [("", tr("settings.audio.systemDefault"))] + outputs.map { ($0.uid, $0.name) },
+                     selection: draft.audioOutputDeviceUID ?? "") { draft.audioOutputDeviceUID = $0.isEmpty ? nil : $0 }
+                .frame(width: 280).testID("settings.audio.output")
+        }
+        SettingsRow(tr("settings.audio.input")) {
+            Dropdown(items: [("", tr("settings.audio.systemDefault"))] + inputs.map { ($0.uid, $0.name) },
+                     selection: draft.audioInputDeviceUID ?? "") { draft.audioInputDeviceUID = $0.isEmpty ? nil : $0 }
+                .frame(width: 280).testID("settings.audio.input")
+        }
+        SettingsDivider()
+        SettingsRow(tr("settings.audio.monitor"), hint: tr("settings.audio.monitor.hint")) {
+            NumberSetting(value: Binding(get: { (draft.monitorVolume * 100).rounded() }, set: { draft.monitorVolume = $0 / 100 }),
+                          range: 0...100, unit: "%", id: "monitorVolume")
+        }
+        SettingsRow(tr("settings.scrubAudio"), hint: tr("settings.scrubAudio.hint")) {
+            SwitchButton(isOn: $draft.scrubAudio, id: "scrubAudioAudio")
+        }
+        SettingsRow(tr("settings.notifications")) {
+            CheckLine(label: tr("settings.exportSound"), isOn: $draft.exportSound, id: "exportSoundAudio")
+            Button(tr("settings.audio.testSound")) { NotificationSounds.play(.success) }
+                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("settings.button.testSound")
+        }
+        .onAppear {
+            // UI tests: no machine-dependent device names in snapshots
+            if !TestAnchors.isEnabled { outputs = AudioDevices.outputs(); inputs = AudioDevices.inputs() }
         }
     }
 }

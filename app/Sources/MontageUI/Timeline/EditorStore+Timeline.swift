@@ -291,6 +291,16 @@ extension EditorStore {
         edit(key) { p in if let i = p.timeline.trackIndex(id) { p.timeline.tracks[i][keyPath: flag].toggle() } }
     }
 
+    /// Solo / unsolo a track (AU-029). Soloing also unmutes it so it is heard.
+    public func toggleSolo(_ id: TrackID) {
+        edit("cmd.trackSolo") { p in
+            guard let i = p.timeline.trackIndex(id) else { return }
+            let on = p.timeline.tracks[i].isSolo != true
+            p.timeline.tracks[i].isSolo = on ? true : nil
+            if on { p.timeline.tracks[i].isMuted = false }
+        }
+    }
+
     public func setTrackHeight(_ id: TrackID, _ h: TrackHeight) {
         edit("cmd.trackHeight") { p in if let i = p.timeline.trackIndex(id) { p.timeline.tracks[i].heightPreset = h == .standard ? nil : h } }
     }

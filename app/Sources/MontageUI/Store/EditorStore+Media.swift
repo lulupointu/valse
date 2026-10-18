@@ -35,6 +35,7 @@ extension EditorStore {
                 })
             }
             let all = assets.map { existing[$0.contentHash] ?? $0 }
+            if !fresh.isEmpty && copiesMediaOnImport { copyMediaToProject(quiet: true) }
             await PlayableMediaCache.shared.request(all)
             convertPending.formUnion(all.filter { PlayableMediaCache.shared.isPending($0) }.map(\.contentHash))
             await ProxyManager.shared.request(all)
@@ -142,7 +143,8 @@ extension EditorStore {
 
     // MARK: Copy media to project (consolidate)
 
-    public func copyMediaToProject() {
+    /// `quiet`: after an import with "Import material: Copy to project" (SE-010), no toast.
+    public func copyMediaToProject(quiet: Bool = false) {
         if packageURL == nil { save() }
         guard let pkg = packageURL else { return }
         let snapshot = project
@@ -155,7 +157,7 @@ extension EditorStore {
             let map = box.map
             guard !map.isEmpty else { return }
             perform(Edit("cmd.consolidate") { MediaRelinker.apply(map, to: &$0) })
-            showToast(tr("toast.consolidated", map.count))
+            if !quiet { showToast(tr("toast.consolidated", map.count)) }
         }
     }
 

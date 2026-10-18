@@ -42,8 +42,18 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var defaultRatio = "original"
     /// Time code display: "frames" (HH:MM:SS:FF, CapCut default) or "seconds" (HH:MM:SS.ms).
     public var timecodeStyle = "frames"
+    /// Drop-frame time code (HH:MM:SS;FF) for 29.97 / 59.94 fps projects.
+    public var dropFrame = false
     /// Play audio while scrubbing (CapCut default off).
     public var scrubAudio = false
+
+    // MARK: Audio (SE-011 / AU-024)
+    /// Preview output device UID (nil = system default).
+    public var audioOutputDeviceUID: String?
+    /// Default voice-over input device UID (nil = system default).
+    public var audioInputDeviceUID: String?
+    /// Preview monitor ("master") volume 0…1; never affects export.
+    public var monitorVolume = 1.0
 
     // MARK: Performance
     /// `PreviewQuality` raw value ("auto", "full", "half", "quarter").
@@ -80,6 +90,11 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var defaultFrameRate: FrameRate {
         get { defaultFrameRateNum > 0 && defaultFrameRateDen > 0 ? FrameRate(defaultFrameRateNum, defaultFrameRateDen) : .fps30 }
         set { defaultFrameRateNum = newValue.numerator; defaultFrameRateDen = newValue.denominator }
+    }
+
+    /// Time code display the UI reads (`TimecodeDisplay.current`).
+    public var timecodeDisplay: TimecodeDisplay {
+        TimecodeDisplay(style: TimecodeStyle(rawValue: timecodeStyle) ?? .frames, dropFrame: dropFrame)
     }
 
     /// Edit defaults the model layer reads (`EditDefaults.current`).

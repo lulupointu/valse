@@ -1,0 +1,47 @@
+/* Finisher: timecode, timeline settings, track solo, audio, layouts, recording (TL/PB/SP/AU/SE/MI finisher rows) */
+"timecode.style.frames" = "HH:MM:SS+image";
+"timecode.style.seconds" = "HH:MM:SS.ms";
+"settings.timecode" = "Code temporel";
+"settings.dropFrame" = "Code temporel drop-frame (29,97 / 59,94 i/s)";
+"settings.scrubAudio" = "Lire l'audio pendant le défilement";
+"settings.scrubAudio.hint" = "Entendez l'audio sous la tête de lecture quand vous la faites glisser sur la chronologie.";
+"player.timecode.help" = "Cliquez pour saisir un code temporel";
+"player.timecode.invalid" = "Code temporel non valide";
+
+"track.solo" = "Piste en solo";
+"track.unsolo" = "Désactiver le solo";
+"cmd.trackSolo" = "Piste en solo";
+
+"details.importMaterial.copy" = "Copier dans le projet";
+"settings.importMaterial.hint" = "Par défaut pour les nouveaux projets. Chaque projet peut le modifier dans ses paramètres.";
+"projectSettings.customized" = "Personnalisé";
+"projectSettings.applyTo" = "Appliquer à";
+"projectSettings.applyToAll" = "Toutes les chronologies";
+
+"timelines.nameN" = "Chronologie %d";
+"timelines.copyOf" = "Copie de %@";
+"timelines.created" = "%@ créée";
+"timelines.new" = "Nouvelle chronologie";
+"timelines.newWithSelection" = "Nouvelle chronologie avec la sélection";
+"timelines.next" = "Chronologie suivante";
+"timelines.previous" = "Chronologie précédente";
+"timelines.rename" = "Renommer";
+"timelines.duplicate" = "Dupliquer";
+"timelines.delete" = "Supprimer la chronologie";
+"cmd.newTimeline" = "Nouvelle chronologie";
+"cmd.switchTimeline" = "Changer de chronologie";
+"cmd.renameTimeline" = "Renommer la chronologie";
+"cmd.duplicateTimeline" = "Dupliquer la chronologie";
+"cmd.deleteTimeline" = "Supprimer la chronologie";
+
+"tlmenu.splitScenes.scene" = "Diviser par scène (moins de clips)";
+"tlmenu.splitScenes.shot" = "Diviser par plan (plus de clips)";
+
+"settings.tab.audio" = "Audio";
+"settings.audio.output" = "Périphérique de sortie audio";
+"settings.audio.output.hint" = "Sortie de la lecture de l'aperçu. L'exportation n'est pas concernée.";
+"settings.audio.input" = "Périphérique d'entrée pour l'enregistrement";
+"settings.audio.systemDefault" = "Par défaut du système";
+"settings.audio.monitor" = "Volume de l'aperçu";
+"settings.audio.monitor.hint" = "Volume général du lecteur uniquement ; l'audio exporté garde ses niveaux.";
+"settings.audio.testSound" = "Écouter le son";

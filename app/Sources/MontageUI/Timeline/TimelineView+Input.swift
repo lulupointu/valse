@@ -121,6 +121,7 @@ extension TimelineView {
         case .none, .pending: break
         case .scrub:
             store.seek(to: l.time(atX: pt.x), exact: false)
+            store.scrubAudio(at: l.time(atX: pt.x))
         case .scrollbar(let grab):
             guard let thumb = scrollbarThumb(l) else { return }
             let trackW = l.clipAreaWidth - 8 - thumb.width
@@ -427,6 +428,7 @@ extension TimelineView {
             case "lock": store.toggleTrack(tid, \.isLocked, key: "cmd.trackLock")
             case "eye": store.toggleTrack(tid, \.isHidden, key: "cmd.trackHide")
             case "mute": store.toggleTrack(tid, \.isMuted, key: "cmd.trackMute")
+            case "solo": store.toggleSolo(tid)
             case "more": NSMenu.popUpContextMenu(trackMenu(track), with: e, for: self)
             default: break
             }

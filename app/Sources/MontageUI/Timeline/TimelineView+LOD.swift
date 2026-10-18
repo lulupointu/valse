@@ -184,7 +184,7 @@ extension TimelineView {
             if audioStrip > 0 {
                 let sr = CGRect(x: r.minX, y: r.maxY - audioStrip, width: r.width, height: audioStrip)
                 c.rect(sr, RGBA(hex: 0x163A3F, alpha: dim), radius: 0)
-                if !track.isMuted { drawRunWaveform(&c, run, range, in: sr, layout: l, color: Theme.waveformOnVideo, scale: 0.9) }
+                if store.project.timeline.isAudible(track) { drawRunWaveform(&c, run, range, in: sr, layout: l, color: Theme.waveformOnVideo, scale: 0.9) }
             }
         }
         if track.kind == .audio {

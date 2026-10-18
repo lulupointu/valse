@@ -168,13 +168,13 @@ extension AppModel {
             "trashCount": trashCount,
             "projectName": store.projectName,
             "renderedRanges": store.renderedPreviewRanges().map { [$0.start.seconds, $0.end.seconds] },
-            "settings": [
-                "language": L10n.shared.languagePreference, "previewQuality": s.previewQuality, "useProxies": s.useProxies,
-                "proxyPolicy": s.proxyPolicy, "imageDuration": s.imageDuration, "stepFrames": s.stepFrames,
-                "freezeDuration": s.freezeDuration, "exportCodec": s.exportCodec, "exportResolution": s.exportResolution,
-                "autoRender": s.autoRender, "renderCacheLimitGB": s.renderCacheLimitGB, "hardwareEncoding": s.hardwareEncoding,
-                "cacheAutoDeleteDays": s.cacheAutoDeleteDays ?? 0,
-            ] as [String: Any],
+            "settings": {
+                // every AppSettings field (encoded), plus the language preference
+                var d = ((try? JSONEncoder().encode(s)).flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]) ?? [:]
+                d["language"] = L10n.shared.languagePreference
+                d["cacheAutoDeleteDays"] = s.cacheAutoDeleteDays ?? 0
+                return d
+            }(),
             "keymap": [
                 "preset": km.preset.rawValue,
                 "overrides": km.overrides.count,

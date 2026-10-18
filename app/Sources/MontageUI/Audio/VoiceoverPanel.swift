@@ -9,7 +9,8 @@ struct VoiceoverPanel: View {
     let store: EditorStore
     @State private var recorder = VoiceRecorder()
     @State private var devices: [VoiceRecorder.InputDevice] = VoiceRecorder.inputDevices()
-    @State private var device: UInt32 = 0
+    @State private var device: UInt32 = AudioDevices.id(forUID: AppPreferences.shared.settings.audioInputDeviceUID,
+                                                         in: AudioDevices.inputs()) ?? 0
     @State private var echoReduction = false
     @State private var muteProject = true
     @State private var phase: Phase = .idle

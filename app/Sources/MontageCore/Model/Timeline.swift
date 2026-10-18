@@ -46,6 +46,8 @@ public struct Track: Codable, Sendable, Equatable, Identifiable {
     /// Caption track (imported subtitles / auto captions): exported as SRT/TXT and optionally not burnt in (W11).
     /// nil = false (older files).
     public var isCaptions: Bool?
+    /// Solo (AU-029, not in CapCut): while any track is soloed only soloed tracks are heard. nil = false.
+    public var isSolo: Bool?
 
     public init(kind: TrackKind, isMain: Bool = false, clips: [Clip] = []) {
         id = TrackID(); self.kind = kind; self.isMain = isMain
@@ -102,6 +104,12 @@ public struct Timeline: Codable, Sendable, Equatable {
     /// In / out points (I / O) for range operations. nil = not set.
     public var inPoint: Time?
     public var outPoint: Time?
+
+    /// Any track soloed (AU-029)?
+    public var hasSolo: Bool { tracks.contains { $0.isSolo == true } }
+
+    /// Whether a track's audio is heard: not muted, and soloed when any track is soloed.
+    public func isAudible(_ t: Track) -> Bool { !t.isMuted && (t.isSolo == true || !hasSolo) }
 
     public init() {
         tracks = [Track(kind: .video, isMain: true)]

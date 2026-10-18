@@ -1,0 +1,47 @@
+/* Finisher: timecode, timeline settings, track solo, audio, layouts, recording (TL/PB/SP/AU/SE/MI finisher rows) */
+"timecode.style.frames" = "HH:MM:SS+frame";
+"timecode.style.seconds" = "HH:MM:SS.ms";
+"settings.timecode" = "Time code";
+"settings.dropFrame" = "Drop-frame time code (29.97 / 59.94 fps)";
+"settings.scrubAudio" = "Play audio while scrubbing";
+"settings.scrubAudio.hint" = "Hear the audio under the playhead while you drag it on the timeline.";
+"player.timecode.help" = "Click to enter a time code";
+"player.timecode.invalid" = "Invalid time code";
+
+"track.solo" = "Solo track";
+"track.unsolo" = "Unsolo track";
+"cmd.trackSolo" = "Solo track";
+
+"details.importMaterial.copy" = "Copy to project";
+"settings.importMaterial.hint" = "Default for new projects. Each project can change it in Project settings.";
+"projectSettings.customized" = "Customized";
+"projectSettings.applyTo" = "Apply to";
+"projectSettings.applyToAll" = "All timelines";
+
+"timelines.nameN" = "Timeline %d";
+"timelines.copyOf" = "%@ copy";
+"timelines.created" = "%@ created";
+"timelines.new" = "New timeline";
+"timelines.newWithSelection" = "New timeline with selected items";
+"timelines.next" = "Next timeline";
+"timelines.previous" = "Previous timeline";
+"timelines.rename" = "Rename";
+"timelines.duplicate" = "Duplicate";
+"timelines.delete" = "Delete timeline";
+"cmd.newTimeline" = "New timeline";
+"cmd.switchTimeline" = "Switch timeline";
+"cmd.renameTimeline" = "Rename timeline";
+"cmd.duplicateTimeline" = "Duplicate timeline";
+"cmd.deleteTimeline" = "Delete timeline";
+
+"tlmenu.splitScenes.scene" = "Split by scene (fewer clips)";
+"tlmenu.splitScenes.shot" = "Split by shot (more clips)";
+
+"settings.tab.audio" = "Audio";
+"settings.audio.output" = "Sound output device";
+"settings.audio.output.hint" = "Where the preview plays. Export is not affected.";
+"settings.audio.input" = "Recording input device";
+"settings.audio.systemDefault" = "System default";
+"settings.audio.monitor" = "Preview volume";
+"settings.audio.monitor.hint" = "Master volume of the player only; exported audio keeps its levels.";
+"settings.audio.testSound" = "Play sound";
