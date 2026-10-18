@@ -199,6 +199,9 @@ public final class Keymap {
             m("menu.shortcuts", "k", [.command, .option]), m("menu.quit", "q"), m("menu.hide", "h"),
             m("menu.minimize", "m", .command, .other), m("menu.fullscreen", "f", [.command, .control], .other),
             m("menu.exportFrame", nil, .command, .other),
+            m("menu.freeze", nil, .command, .timeline), m("menu.reverse", nil, .command, .timeline),
+            m("menu.mirror", nil, .command, .timeline), m("menu.rotate", nil, .command, .timeline),
+            m("menu.renderPreview", nil, .command, .timeline),
         ]
     }()
 

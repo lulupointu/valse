@@ -15,6 +15,7 @@ public struct RootView: View {
             switch app.screen {
             case .home:
                 HomeView(app: app)
+                    .id(locale.revision)  // live language switch (EditorView rebuilds itself)
                     .transition(.opacity)
             case .editor:
                 EditorView(store: app.store)
@@ -26,14 +27,13 @@ public struct RootView: View {
                     .transition(.opacity)
                 ModalHost(app: app, modal: modal)
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                    .id(modal.id)
+                    .id("\(modal.id)-\(locale.revision)")
             }
         }
         .animation(.easeOut(duration: 0.2), value: app.screen)
         .animation(.easeOut(duration: 0.15), value: app.modal?.id)
         .background(app.screen == .home ? Theme.home : Theme.window)
         .preferredColorScheme(.dark)
-        .id(locale.revision)
     }
 }
 

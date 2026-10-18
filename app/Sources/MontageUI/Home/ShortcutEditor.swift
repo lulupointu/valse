@@ -185,13 +185,16 @@ struct ShortcutList: View {
         recording = id
         Keymap.isRecording = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
-            MainActor.assumeIsolated {
-                if e.keyCode == 53 && e.modifierFlags.intersection(KeyBinding.relevantModifiers).isEmpty { stopRecording(); return nil }  // esc cancels
-                guard let b = KeyBinding(event: e), let id = recording else { return e }
+            let esc = e.keyCode == 53 && e.modifierFlags.intersection(KeyBinding.relevantModifiers).isEmpty
+            let key = ShortcutRegistry.key(for: e).map { KeyBinding($0, e.modifierFlags) }
+            let consumed: Bool = MainActor.assumeIsolated {
+                if esc { stopRecording(); return true }  // esc cancels
+                guard let b = key, let id = recording else { return false }
                 stopRecording()
                 record(b, for: id)
-                return nil
+                return true
             }
+            return consumed ? nil : e
         }
     }
 

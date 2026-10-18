@@ -37,7 +37,7 @@ struct NewProjectDialog: View {
                     SettingsRow(tr("details.frameRate")) {
                         Dropdown(items: FrameRate.common.map { ($0, HomeFormat.fps($0)) }, selection: fps) { fps = $0 }
                     }
-                    SettingsRow(tr("colorspace.title")) {
+                    SettingsRow(tr("details.colorSpace")) {
                         Dropdown(items: ProjectColorSpace.allCases.map { ($0, tr($0.nameKey)) }, selection: colorSpace) { colorSpace = $0 }
                     }
                 }

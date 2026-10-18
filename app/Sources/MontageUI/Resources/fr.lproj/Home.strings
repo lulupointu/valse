@@ -1,0 +1,253 @@
+/* W12 — Accueil, gestion des projets, paramètres, éditeur de raccourcis, menus */
+
+/* Accueil */
+"home.videoEditing" = "Montage vidéo";
+"home.nav.home" = "Accueil";
+"home.nav.recents" = "Récents";
+"home.nav.templates" = "Modèles";
+"home.nav.trash" = "Corbeille";
+"home.folders" = "Dossiers";
+"home.folders.empty" = "Aucun dossier";
+"home.folder.new" = "Nouveau dossier";
+"home.folder.create" = "Nouveau dossier";
+"home.folder.rename" = "Renommer le dossier";
+"home.folder.delete" = "Supprimer le dossier (garde les projets)";
+"home.folder.none" = "Aucun dossier";
+"home.newProject" = "Nouveau projet";
+"home.newProject.custom" = "Personnaliser";
+"home.newProject.customHelp" = "Nouveau projet avec format, résolution et fréquence d'images";
+"home.templates.subtitle" = "Partir d'un montage prêt à l'emploi";
+"home.templates.title" = "Modèles";
+"home.templates.soon" = "Les modèles arrivent bientôt. En attendant, créez un projet et utilisez les bibliothèques Texte et Effets.";
+"home.importProject" = "Importer un projet";
+"home.importProject.subtitle" = "Ouvrir un paquet .montage ou un .zip empaqueté";
+"home.projects" = "Projets";
+"home.search" = "Rechercher des projets (⌘F)";
+"home.search.placeholder" = "Rechercher des projets";
+"home.sort" = "Trier";
+"home.sort.modified" = "Date de modification";
+"home.sort.created" = "Date de création";
+"home.sort.opened" = "Dernière ouverture";
+"home.sort.name" = "Nom";
+"home.sort.size" = "Taille";
+"home.sort.duration" = "Durée";
+"home.view.grid" = "Grille";
+"home.view.list" = "Liste";
+"home.col.name" = "Nom";
+"home.col.modified" = "Modifié";
+"home.col.duration" = "Durée";
+"home.col.size" = "Taille";
+"home.col.format" = "Format";
+"home.empty" = "Vos projets apparaîtront ici.";
+"home.empty.search" = "Aucun projet ne correspond à « %@ ».";
+"home.empty.trash" = "La corbeille est vide.";
+"home.empty.folder" = "Ce dossier est vide. Glissez-y des projets, ou utilisez … ▸ Déplacer vers.";
+"home.empty.recents" = "Les projets que vous ouvrez apparaissent ici.";
+"home.trash.hint" = "Les projets de la corbeille sont supprimés au bout de %d jours.";
+"home.trash.empty" = "Vider la corbeille";
+"home.selected" = "%d sélectionné(s)";
+"home.open" = "Ouvrir";
+"home.rename" = "Renommer";
+"home.duplicate" = "Dupliquer";
+"home.moveTo" = "Déplacer vers";
+"home.delete" = "Supprimer";
+"home.restore" = "Restaurer";
+"home.deleteForever" = "Supprimer définitivement";
+"home.showInFinder" = "Afficher dans le Finder";
+"home.details" = "Détails";
+"home.details.media" = "Médias";
+"home.details.clips" = "Clips";
+"home.details.created" = "Créé";
+"home.details.cache" = "Cache";
+"home.more" = "Plus";
+"home.card.help" = "Modifié le %@ — cliquez pour ouvrir, ⌘-clic pour sélectionner";
+"home.card.trashedHelp" = "Dans la corbeille — clic droit pour restaurer";
+"home.trashed" = "%d projet(s) placé(s) dans la corbeille";
+"home.imported" = "%d projet(s) importé(s)";
+"home.savedToProject" = "Enregistré dans le projet";
+"home.error.fileOperation" = "L'opération n'a pas pu aboutir.";
+"home.error.import" = "Ce n'est pas un projet Montage.";
+"error.openElsewhere" = "Ce projet est ouvert dans une autre fenêtre Montage.";
+
+/* Nouveau projet */
+"newProject.title" = "Nouveau projet";
+"newProject.create" = "Créer";
+"newProject.originalHint" = "Original : le premier clip ajouté définit le format et la résolution.";
+
+/* Récupération */
+"recovery.title" = "Montage s'est fermé de manière inattendue";
+"recovery.message" = "Voulez-vous récupérer le projet non enregistré ?";
+"recovery.hint" = "Montage enregistre automatiquement toutes les quelques secondes : au plus les dernières secondes de travail sont perdues.";
+"recovery.recover" = "Récupérer le projet";
+"recovery.notNow" = "Plus tard";
+
+/* Versions */
+"version.title" = "Historique des versions";
+"version.hint" = "Montage conserve une version toutes les quelques minutes pendant le montage et à la fermeture du projet. Restaurer conserve aussi l'état actuel comme version, et peut être annulé.";
+"version.empty" = "Aucune version pour l'instant.";
+"version.saveNow" = "Enregistrer une version";
+"version.restore" = "Restaurer";
+"version.saved" = "Version enregistrée";
+"version.unchanged" = "Aucune modification depuis la dernière version";
+"version.restored" = "Version du %@ restaurée";
+"version.kind.auto" = "Automatique";
+"version.kind.manual" = "Enregistrée par vous";
+"version.kind.close" = "À la fermeture du projet";
+"version.kind.beforeRestore" = "Avant la restauration d'une version";
+"cmd.restoreVersion" = "Restaurer une version";
+
+/* Rétablir les liens */
+"relink.title" = "Médias introuvables";
+"relink.message" = "%d fichier(s) média de ce projet sont introuvables. Localisez-en un : Montage cherche aussi les autres dans le même dossier.";
+"relink.locate" = "Localiser…";
+"relink.locateMessage" = "Localiser « %@ »";
+"relink.searchFolder" = "Chercher dans un dossier…";
+"relink.searchMessage" = "Choisissez un dossier où chercher les médias manquants";
+"relink.later" = "Plus tard";
+"relink.allFound" = "Tous les médias sont retrouvés";
+
+/* Empaqueter */
+"pack.choose" = "Empaqueter ici";
+"pack.message" = "Choisissez où enregistrer une copie du projet avec tous ses médias.";
+"pack.zip" = "Compresser en .zip";
+"job.pack" = "Empaquetage du projet";
+"toast.packed" = "Empaqueté : %@";
+"toast.packFailed" = "Le projet n'a pas pu être empaqueté.";
+"toast.saved" = "Enregistré";
+
+/* Cache */
+"cache.clear" = "Vider le cache";
+"cache.cleared" = "Cache vidé";
+"cache.proxies" = "Proxys";
+"cache.thumbs" = "Miniatures";
+"cache.waveforms" = "Formes d'onde";
+"cache.render" = "Cache de rendu";
+"cache.converted" = "Médias convertis";
+"cache.reversed" = "Clips inversés";
+"cache.audio" = "Rendus audio";
+"cache.stabilization" = "Stabilisation";
+"cache.mattes" = "Masques de découpage";
+"cache.other" = "Autre";
+
+/* Paramètres */
+"settings.tab.general" = "Général";
+"settings.tab.project" = "Projet";
+"settings.tab.edit" = "Montage";
+"settings.tab.performance" = "Performances";
+"settings.tab.export" = "Exportation";
+"settings.tab.shortcuts" = "Raccourcis";
+"settings.tab.about" = "À propos";
+"settings.saved" = "Paramètres enregistrés";
+"settings.unsaved.title" = "Modifications non enregistrées";
+"settings.unsaved.message" = "Fermer les paramètres ? Vos modifications ne seront pas enregistrées.";
+"settings.choose" = "Choisir…";
+"settings.resetDefault" = "Valeur par défaut";
+"settings.language.hint" = "L'interface change immédiatement, sans redémarrage.";
+"settings.theme" = "Thème";
+"settings.theme.dark" = "Sombre";
+"settings.theme.hint" = "Comme CapCut, Montage utilise un thème sombre conçu pour la vidéo.";
+"settings.notifications" = "Notifications";
+"settings.notifyExport" = "M'avertir à la fin d'une exportation";
+"settings.exportSound" = "Jouer un son à la fin d'une exportation";
+"settings.saveTo" = "Enregistrer dans";
+"settings.saveTo.hint" = "Dossier des nouveaux projets. Les projets existants restent où ils sont et restent listés. Fermez le projet pour le modifier.";
+"settings.cacheManagement" = "Gestion du cache";
+"settings.cache.keep" = "Ne pas supprimer les fichiers du cache";
+"settings.cache.autoDelete" = "Supprimer le cache inutilisé depuis";
+"settings.cache.days" = "%d jours";
+"settings.cacheSize" = "Taille du cache";
+"settings.cache.editingHint" = "Les proxys et médias convertis ne peuvent être vidés que depuis l'accueil.";
+"settings.stepFrames" = "Avancer ou reculer de plusieurs images";
+"settings.stepFrames.hint" = "⇧← / ⇧→ dans la chronologie.";
+"settings.unit.frames" = "images";
+"settings.unit.seconds" = "s";
+"settings.imageDuration" = "Durée des images";
+"settings.freezeDuration" = "Durée de l'arrêt sur image";
+"settings.transitionDuration" = "Durée des transitions";
+"settings.transitionDuration.custom" = "Identique pour toutes les transitions";
+"settings.transitionDuration.hint" = "Désactivé : chaque transition utilise sa durée par défaut.";
+"settings.newProjects" = "Nouveaux projets";
+"settings.encode" = "Encodage";
+"settings.hwEncode" = "Accélérer l'encodage matériel";
+"settings.hwDecode.hint" = "Le décodage utilise toujours le moteur multimédia d'Apple silicon.";
+"settings.previewQuality.hint" = "Auto choisit %@ sur ce Mac. Une qualité plus basse rend la lecture plus fluide ; l'exportation n'est jamais affectée.";
+"settings.proxy" = "Proxy";
+"settings.useProxies" = "Utiliser les proxys dans l'aperçu";
+"settings.useProxies.hint" = "Montez avec des copies légères des grosses vidéos ; l'exportation utilise toujours les originaux.";
+"settings.proxyCreation" = "Créer des proxys";
+"settings.proxyPolicy.auto" = "Automatiquement pour les grosses vidéos";
+"settings.proxyPolicy.always" = "Pour toutes les vidéos";
+"settings.proxyPolicy.never" = "Jamais";
+"settings.proxyLocation" = "Emplacement des proxys";
+"settings.proxySize" = "Taille des proxys";
+"settings.renderCacheSize" = "Taille du cache de rendu";
+"settings.autoClear" = "Nettoyage automatique";
+"settings.autoClear.hint" = "Le cache de rendu est vidé s'il dépasse %d Go.";
+"settings.autoRender" = "Rendu automatique";
+"settings.autoRender.hint" = "Effectuer automatiquement le rendu des passages lourds pour un aperçu plus fluide.";
+"settings.cacheLocation" = "Emplacement du cache";
+"settings.cacheLocation.hint" = "Prend effet au prochain démarrage de Montage.";
+"settings.export.followProject" = "Comme le projet";
+"settings.export.hint" = "Valeurs par défaut de la fenêtre d'exportation. Vous pouvez toujours les modifier à chaque exportation.";
+
+/* Éditeur de raccourcis */
+"keymap.category.timeline" = "Chronologie";
+"keymap.category.player" = "Lecteur";
+"keymap.category.basic" = "Base";
+"keymap.category.other" = "Autres";
+"keymap.preset" = "Disposition";
+"keymap.preset.capcut" = "CapCut";
+"keymap.preset.finalCut" = "Final Cut Pro";
+"keymap.preset.premiere" = "Premiere Pro";
+"keymap.customized" = "Personnalisée";
+"keymap.reset" = "Rétablir les valeurs par défaut";
+"keymap.search" = "Rechercher une commande ou une touche";
+"keymap.noResults" = "Aucune commande correspondante.";
+"keymap.hint" = "Cliquez sur un raccourci pour le modifier.";
+"keymap.recordingHint" = "Appuyez sur la nouvelle combinaison de touches, ou sur échap pour annuler.";
+"keymap.pressKeys" = "Appuyez…";
+"keymap.unbound" = "Aucun";
+"keymap.changed" = "Modifié";
+"keymap.clickToRecord" = "Cliquez, puis appuyez sur le nouveau raccourci";
+"keymap.unbind" = "Supprimer le raccourci";
+"keymap.resetOne" = "Valeur par défaut";
+"keymap.conflict.title" = "Raccourci déjà utilisé";
+"keymap.conflict.message" = "%1$@ est déjà attribué à « %2$@ ». Le remplacer ?";
+"keymap.conflict.override" = "Remplacer";
+"keymap.unsaved.title" = "Modifications non enregistrées";
+"keymap.unsaved.message" = "Fermer la fenêtre des raccourcis ? Vos modifications ne seront pas enregistrées.";
+
+/* À propos */
+"about.version" = "Version %@";
+"about.local" = "Fonctionne à 100 % sur ce Mac : pas de compte, pas de cloud, aucun accès réseau.";
+"about.licenses" = "Logiciels tiers";
+"about.use.ffmpeg" = "Convertit les formats que macOS ne lit pas (programme séparé)";
+"about.use.whispercpp" = "Reconnaissance vocale locale pour les sous-titres";
+"about.use.whisperModels" = "Modèle de reconnaissance vocale (pack IA optionnel)";
+"about.use.freeverb" = "Réverbération du modulateur vocal";
+"about.use.apple" = "Vidéo, graphismes et IA locale";
+
+/* Menus */
+"menu.settings" = "Paramètres…";
+"menu.home" = "Retour à l'accueil";
+"menu.openRecent" = "Ouvrir un projet récent";
+"menu.openRecent.none" = "Aucun projet récent";
+"menu.importProject" = "Importer un projet…";
+"menu.packProject" = "Empaqueter le projet";
+"menu.versions" = "Historique des versions…";
+"menu.relink" = "Rétablir les liens des médias…";
+"menu.projectSettings" = "Paramètres du projet…";
+"menu.exportFrame" = "Exporter l'image…";
+"menu.clip" = "Clip";
+"menu.freeze" = "Arrêt sur image";
+"menu.reverse" = "Inverser";
+"menu.mirror" = "Mettre en miroir";
+"menu.rotate" = "Pivoter";
+"menu.timeline" = "Chronologie";
+"menu.renderPreview" = "Rendu de l'aperçu";
+"menu.marker" = "Marqueur";
+"menu.help" = "Aide";
+"menu.shortcuts" = "Raccourcis clavier…";
+"menu.licenses" = "Licences tierces";
+
+"common.close" = "Fermer";

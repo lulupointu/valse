@@ -217,7 +217,7 @@ struct NumberSetting: View {
     func format(_ v: Double) -> String { String(format: "%.\(decimals)f", locale: L10n.shared.locale, v) }
     func set(_ v: Double) { value = min(max((v / step).rounded() * step, range.lowerBound), range.upperBound); text = format(value) }
     func commit() {
-        if let v = NumericField.number(text.replacingOccurrences(of: ",", with: ".")) { set(v) }
+        if let v = NumberParse.number(text) { set(v) }
         text = format(value)
     }
 }

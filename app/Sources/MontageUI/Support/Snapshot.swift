@@ -19,7 +19,9 @@ public final class SnapshotRegistry {
         guard let content = window.contentView else { return nil }
         let bounds = content.bounds
         guard let rep = content.bitmapImageRepForCachingDisplay(in: bounds) else { return nil }
+        let hidden = Self.hideBackdrops(content)
         content.cacheDisplay(in: bounds, to: rep)
+        hidden.forEach { $0.isHidden = false }
         guard let base = rep.cgImage else { return nil }
         let scale = CGFloat(base.width) / bounds.width
         guard let ctx = CGContext(data: nil, width: base.width, height: base.height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -55,6 +57,21 @@ public final class SnapshotRegistry {
             ctx.restoreGState()
         }
         return ctx.makeImage()
+    }
+
+    /// macOS 26 scroll views carry a "scroll pocket" (edge blur: BackdropView / PortalView) that `cacheDisplay` can't
+    /// render and paints opaque white over the whole scroll view: hide those views while snapshotting.
+    static func hideBackdrops(_ v: NSView) -> [NSView] {
+        var out: [NSView] = []
+        for sub in v.subviews {
+            let name = String(describing: type(of: sub))
+            if !sub.isHidden, name == "NSScrollPocket" || name == "BackdropView" || name == "PortalView" {
+                sub.isHidden = true; out.append(sub)
+            } else {
+                out += hideBackdrops(sub)
+            }
+        }
+        return out
     }
 
     public func writePNG(window: NSWindow, to url: URL) -> Bool {

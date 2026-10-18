@@ -16,6 +16,7 @@ import MontageUI
 ///   --uitest <script.json>    run a UI test script in an offscreen, never-activated window, then exit (docs/TESTING.md)
 ///     --uitest-out <dir>      where snapshots / dumps / report.json go (default build/uitest/<name>)
 ///     --baselines <dir>       screenshot baselines (app/Tests/Baselines); --update-baselines rewrites them
+///   --home-demo <n>           temporary library with n sample projects (settings isolated); --ui-state <spec> opens a dialog
 ///   --imgdiff <a.png> <b.png> [--threshold 16] [--tolerance 0.005] [--diff out.png]   compare two images, JSON result
 struct Options {
     var open: URL?
@@ -32,6 +33,10 @@ struct Options {
     var uitestOut: URL?
     var baselines: URL?
     var updateBaselines = false
+    /// --home-demo <n>: fill a temporary project library with n sample projects (screenshots, perf); isolates settings.
+    var homeDemo: Int?
+    /// --ui-state "settings=performance" | "shortcuts" | "newProject" | "home" | "versions" | "details=0" … (screenshots)
+    var uiState: String?
 
     init(_ args: [String]) {
         var i = 1
@@ -50,6 +55,8 @@ struct Options {
             case "--uitest-out": uitestOut = next().map { URL(fileURLWithPath: $0, isDirectory: true) }
             case "--baselines": baselines = next().map { URL(fileURLWithPath: $0, isDirectory: true) }
             case "--update-baselines": updateBaselines = true
+            case "--home-demo": homeDemo = next().flatMap(Int.init)
+            case "--ui-state": uiState = next()
             case "--size":
                 if let s = next() {
                     let p = s.split(separator: "x").compactMap { Double($0) }
@@ -67,21 +74,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let options = Options(CommandLine.arguments)
     var window: NSWindow!
     var store: EditorStore!
+    var app: AppModel!
+    var menuBuilder: AppMenuBuilder?
     var keyMonitor: Any?
 
     func applicationDidFinishLaunching(_ n: Notification) {
         MontageBootstrap.registerResources()
         if let lang = options.lang { L10n.shared.setLanguageForSession(lang) }
+        if options.uitest != nil || options.homeDemo != nil { HomeSandbox.isolate(uitest: options.uitest != nil) }
         store = EditorStore()
+        app = AppModel(store: store)
+        // UI tests and --open/--demo start in the editor; the normal launch shows Home.
+        if options.uitest != nil || options.open != nil || options.demo { app.screen = .editor }
         buildMenu()
         makeWindow()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
-            guard let self, e.window === self.window else { return e }
+            guard let self, e.window === self.window, self.app.modal == nil else { return e }
+            if self.app.screen == .home {
+                // ⌫ / ⌘⌫ on Home: trash the selected projects (in the Trash: delete forever)
+                let m = e.modifierFlags.intersection([.command, .option, .control, .shift])
+                guard e.keyCode == 51 || e.keyCode == 117, m.isEmpty || m == .command, !(e.window?.firstResponder is NSText),
+                      !self.app.selectedIDs.isEmpty else { return e }
+                self.app.trashOrDeleteSelection()
+                return nil
+            }
             return ShortcutRegistry.handle(e, store: self.store) ? nil : e
         }
         NotificationCenter.default.addObserver(forName: L10n.didChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.buildMenu() }
         }
+        NotificationCenter.default.addObserver(forName: Keymap.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.buildMenu() }
+        }
+        if options.uitest == nil { CacheCleaner.runAutomaticCleanup(AppPreferences.shared.settings) }
         Task { await loadInitialProject() }
         if let q = options.quitAfter {
             DispatchQueue.main.asyncAfter(deadline: .now() + q) { NSApp.terminate(nil) }
@@ -92,12 +117,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let script = options.uitest {
             let config = UITestDriver.Config(script: script, outDir: options.uitestOut, baselines: options.baselines,
                                              updateBaselines: options.updateBaselines)
+            UITestDriver.projectHook = { [weak self] spec in try await self?.app.uitestSetUp(spec) ?? false }
             let code = await UITestDriver(store: store, window: window, config: config).run()
             exit(code)
         }
         do {
+            if let n = options.homeDemo { await app.populateDemoLibrary(count: n) }
             if let url = options.open {
-                try store.open(url)
+                app.open(url)
             } else if options.demo {
                 let p = try await DemoProject.make()
                 store.autosaveEnabled = false
@@ -108,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             store.showToast(String(describing: error), error: true)
         }
         if let spec = options.playerState { PlayerDebugState.apply(spec, to: store) }
+        if let spec = options.uiState { await app.applyDebugState(spec) }
         if let snap = options.snapshot {
             // give the compositor, thumbnails and SwiftUI layout time to settle
             try? await Task.sleep(for: .seconds(3))
@@ -129,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         w.title = "Montage"
         w.delegate = self
         w.isReleasedWhenClosed = false
-        w.contentView = NSHostingView(rootView: EditorView(store: store))
+        w.contentView = NSHostingView(rootView: RootView(app: app))
         w.center()
         if options.uitest != nil {
             w.orderBack(nil)  // offscreen (UITestWindow), never activated
@@ -150,109 +178,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Finder "Open With" / drop on the Dock icon (MI-028): projects open, media files are imported.
     func application(_ application: NSApplication, open urls: [URL]) {
-        guard let store else { return }
+        guard let store, let app else { return }
         let projects = urls.filter { $0.pathExtension.lowercased() == ProjectPackage.fileExtension }
-        if let p = projects.first {
-            do { try store.open(p) } catch { store.showToast(tr("error.unreadable"), error: true) }
-        }
+        if let p = projects.first { app.open(p) }
         let media = urls.filter { !projects.contains($0) }
-        if !media.isEmpty { store.importMedia(media) }
+        if !media.isEmpty, app.screen == .editor { store.importMedia(media) }
     }
     func applicationWillTerminate(_ notification: Notification) { store?.close() }
+
+    /// Quit saves the open project (version + cover) before exiting.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let app, app.screen == .editor, store.packageURL != nil, options.uitest == nil else { return .terminateNow }
+        Task { await store.closeProject(); sender.reply(toApplicationShouldTerminate: true) }
+        return .terminateLater
+    }
 
     // MARK: Menu
 
     func buildMenu() {
-        let main = NSMenu()
-        func menu(_ titleKey: String, _ items: [NSMenuItem]) {
-            let item = NSMenuItem()
-            let m = NSMenu(title: tr(titleKey))
-            items.forEach(m.addItem)
-            item.submenu = m
-            main.addItem(item)
-        }
-        func item(_ key: String, _ equiv: String, _ mods: NSEvent.ModifierFlags = .command, _ action: @escaping @MainActor () -> Void) -> NSMenuItem {
-            let target = ClosureTarget(action)
-            let i = NSMenuItem(title: tr(key), action: #selector(ClosureTarget.fire), keyEquivalent: equiv)
-            i.target = target
-            i.representedObject = target  // retains the target
-            i.keyEquivalentModifierMask = mods
-            return i
-        }
-        menu("menu.app", [
-            item("menu.about", "") { NSApp.orderFrontStandardAboutPanel(nil) },
-            .separator(),
-            item("menu.hide", "h") { NSApp.hide(nil) },
-            item("menu.quit", "q") { NSApp.terminate(nil) },
-        ])
-        menu("menu.file", [
-            item("menu.new", "n") { [weak self] in self?.newProject() },
-            item("menu.open", "o") { [weak self] in self?.openProject() },
-            item("menu.save", "s") { [weak self] in self?.store.save() },
-            item("menu.saveAs", "s", [.command, .shift]) { [weak self] in self?.saveProjectAs() },
-            .separator(),
-            item("menu.import", "i") { [weak self] in self?.importMedia() },
-            item("menu.export", "e") { [weak self] in self?.store.openExport() },
-            item("export.menu.selected", "") { [weak self] in self?.store.exportSelectedClips() },
-            item("export.menu.range", "") { [weak self] in self?.store.exportInOutRange() },
-            item("player.exportStill", "") { [weak self] in self?.store.exportStillFrame() },
-            {
-                let i = NSMenuItem(title: tr("export.menu.timeline"), action: nil, keyEquivalent: "")
-                let m = NSMenu(title: tr("export.menu.timeline"))
-                for f in TimelineInterchange.Format.allCases {
-                    m.addItem(item("export.timeline.\(f.rawValue)", "") { [weak self] in self?.store.exportTimeline(f) })
-                }
-                i.submenu = m
-                return i
-            }(),
-        ])
-        menu("menu.edit", [
-            item("menu.undo", "z") { [weak self] in self?.store.undo() },
-            item("menu.redo", "z", [.command, .shift]) { [weak self] in self?.store.redo() },
-            .separator(),
-            item("menu.split", "") { [weak self] in self?.store.splitAtPlayhead() },
-            item("menu.delete", "") { [weak self] in self?.store.deleteSelection() },
-            .separator(),
-            NSMenuItem(title: tr("menu.cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x"),
-            NSMenuItem(title: tr("menu.copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c"),
-            NSMenuItem(title: tr("menu.paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
-        ])
-        menu("menu.view", [
-            item("menu.zoomIn", "") { [weak self] in self?.store.zoom(by: 1.25) },
-            item("menu.zoomOut", "") { [weak self] in self?.store.zoom(by: 0.8) },
-            .separator(),
-            item("shortcut.playerZoomIn", "") { [weak self] in self?.store.zoomPlayer(by: 1.25) },
-            item("shortcut.playerZoomOut", "") { [weak self] in self?.store.zoomPlayer(by: 0.8) },
-            item("shortcut.playerZoomFit", "") { [weak self] in self?.store.resetPlayerZoom() },
-            item("shortcut.rulers", "") { [weak self] in self?.store.playerUI.showRulers.toggle() },
-            item("shortcut.guides", "") { [weak self] in self?.store.playerUI.showGuides.toggle() },
-            item("player.loop", "") { [weak self] in self?.store.toggleLoop() },
-            item("shortcut.playerFullscreen", "") { [weak self] in self?.store.togglePlayerFullscreen() },
-            .separator(),
-            item("menu.language.en", "") { L10n.shared.setLanguagePreference("en") },
-            item("menu.language.fr", "") { L10n.shared.setLanguagePreference("fr") },
-            item("menu.language.system", "") { L10n.shared.setLanguagePreference("system") },
-        ])
-        menu("menu.window", [
-            item("menu.minimize", "m") { NSApp.keyWindow?.miniaturize(nil) },
-            item("menu.fullscreen", "f", [.command, .control]) { NSApp.keyWindow?.toggleFullScreen(nil) },
-        ])
-        NSApp.mainMenu = main
-    }
-
-    func newProject() {
-        store.close()
-        store.load(project: Project())
-    }
-
-    func openProject() {
-        let p = NSOpenPanel()
-        p.allowedContentTypes = [.init(filenameExtension: ProjectPackage.fileExtension) ?? .package]
-        p.treatsFilePackagesAsDirectories = false
-        p.canChooseDirectories = true
-        if p.runModal() == .OK, let u = p.url {
-            do { try store.open(u) } catch { store.showToast(tr("error.unreadable"), error: true) }
-        }
+        let b = menuBuilder ?? AppMenuBuilder(app: app)
+        b.importMedia = { [weak self] in self?.importMedia() }
+        b.saveAs = { [weak self] in self?.saveProjectAs() }
+        menuBuilder = b
+        NSApp.mainMenu = b.build()
     }
 
     func saveProjectAs() {

@@ -40,6 +40,7 @@ public final class AppPreferences {
     private func applyGlobals() {
         EditDefaults.current = settings.editDefaults
         ProxyManager.shared.policy = ProxyManager.Policy(rawValue: settings.proxyPolicy) ?? .auto
+        guard !HomeSandbox.isActive else { return }  // never touch the user's path overrides from a sandbox
         let d = UserDefaults.standard
         if let p = settings.projectsDirectory, !p.isEmpty { d.set(p, forKey: MontagePaths.draftsOverrideKey) } else { d.removeObject(forKey: MontagePaths.draftsOverrideKey) }
         if let p = settings.cacheDirectory, !p.isEmpty { d.set(p, forKey: MontagePaths.cacheOverrideKey) } else { d.removeObject(forKey: MontagePaths.cacheOverrideKey) }
@@ -100,7 +101,7 @@ public final class AppPreferences {
 
 /// Clears caches through the engine objects that own them (they also keep in-memory "ready" lists).
 @MainActor
-enum CacheCleaner {
+public enum CacheCleaner {
     static func clear(_ c: CacheManager.Category) {
         switch c {
         case .proxies: ProxyManager.shared.deleteAll()
@@ -133,7 +134,7 @@ enum CacheCleaner {
     }
 
     /// Settings ▸ "Auto delete cache N days ago" and "Auto clear N GB" (run at launch, off-main for the file walk).
-    static func runAutomaticCleanup(_ s: AppSettings) {
+    public static func runAutomaticCleanup(_ s: AppSettings) {
         let days = s.cacheAutoDeleteDays, limit = Int64(s.renderCacheLimitGB * 1_073_741_824)
         Task.detached(priority: .utility) {
             let m = CacheManager()

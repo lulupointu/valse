@@ -177,6 +177,9 @@ public final class UITestDriver {
         return w
     }
 
+    /// App-level project setups (e.g. W12's `"project": "home"`): return true when handled.
+    public static var projectHook: (@MainActor (String) async throws -> Bool)?
+
     public init(store: EditorStore, window: NSWindow, config: Config) {
         self.store = store; self.window = window; self.config = config
     }
@@ -261,6 +264,10 @@ public final class UITestDriver {
             window.setContentSize(NSSize(width: size[0].doubleValue, height: size[1].doubleValue))
         }
         let project = (script["project"] as? String) ?? "empty"
+        if let hook = Self.projectHook, try await hook(project) {
+            try await idle(settle: (script["settle"] as? NSNumber)?.doubleValue ?? 1.5)
+            return
+        }
         switch project {
         case "empty":
             store.load(project: Project())

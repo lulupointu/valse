@@ -1,6 +1,6 @@
 #!/bin/bash
 # Launches Montage in the BACKGROUND (never steals focus, never sends input), captures its window to a PNG, quits it.
-# Usage: scripts/screenshot.sh [-o out.png] [--open project.montage] [--demo] [--lang en|fr] [--size 1687x983] [--wait 4] [--offscreen] [--player-state spec]
+# Usage: scripts/screenshot.sh [-o out.png] [--open project.montage] [--demo] [--lang en|fr] [--size 1687x983] [--wait 4] [--offscreen] [--player-state spec] [--home-demo N] [--ui-state spec]
 #   Default output: build/screenshots/montage-<lang|default>.png
 #   Capture uses `screencapture -l <windowID>` (window capture, works for windows behind other apps; needs Screen Recording
 #   permission for the terminal). With --offscreen, or when screencapture fails, the app renders itself offscreen
@@ -18,6 +18,8 @@ while [[ $# -gt 0 ]]; do
     --wait) WAIT="$2"; shift 2;;
     --offscreen) OFFSCREEN=1; shift;;
     --player-state) APPARGS+=(--player-state "$2"); shift 2;;
+    --home-demo) APPARGS+=(--home-demo "$2"); shift 2;;
+    --ui-state) APPARGS+=(--ui-state "$2"); shift 2;;
     *) echo "unknown arg $1"; exit 2;;
   esac
 done

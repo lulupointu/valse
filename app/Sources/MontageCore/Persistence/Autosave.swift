@@ -46,6 +46,8 @@ public enum MontagePaths {
     /// UserDefaults keys of the Settings overrides (absolute paths).
     public static let draftsOverrideKey = "MontageProjectsDirectory"
     public static let cacheOverrideKey = "MontageCacheDirectory"
+    /// Only set in the volatile argument domain (UI tests / demo screenshots isolate settings and the library).
+    public static let supportOverrideKey = "MontageSupportDirectory"
 
     static func override(_ key: String) -> URL? {
         guard let p = UserDefaults.standard.string(forKey: key), !p.isEmpty else { return nil }
@@ -78,6 +80,7 @@ public enum MontagePaths {
 
     /// ~/Library/Application Support/Montage — settings, recent projects, AI packs.
     public static var supportDirectory: URL {
+        if let o = override(supportOverrideKey) { return o }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return base.appendingPathComponent("Montage", isDirectory: true)
     }

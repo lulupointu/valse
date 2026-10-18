@@ -34,7 +34,7 @@ struct HomeView: View {
 
 enum HomeDrop {
     static func load(_ providers: [NSItemProvider], _ done: @escaping @MainActor ([URL]) -> Void) {
-        let box = URLBox()
+        let box = HomeURLBox()
         let group = DispatchGroup()
         for p in providers {
             group.enter()
@@ -44,7 +44,7 @@ enum HomeDrop {
     }
 }
 
-nonisolated final class URLBox: @unchecked Sendable {
+nonisolated final class HomeURLBox: @unchecked Sendable {
     private let lock = NSLock()
     private var _urls: [URL] = []
     func append(_ u: URL) { lock.withLock { _urls.append(u) } }
@@ -191,7 +191,6 @@ struct ProjectsColumn: View {
         .contentShape(Rectangle())
         .onTapGesture { app.selectedIDs = []; app.renamingID = nil }
         .overlay(alignment: .bottom) { if app.selectedIDs.count > 1 { SelectionBar(app: app) } }
-        .background(DeleteKeyCatcher { app.trashOrDeleteSelection() })
     }
 }
 
@@ -199,7 +198,7 @@ extension AppModel {
     var selectedEntries: [LibraryEntry] { visibleEntries.filter { selectedIDs.contains($0.id) } }
 
     /// ⌫ on Home: move the selection to the Trash (in the Trash: delete permanently).
-    func trashOrDeleteSelection() {
+    public func trashOrDeleteSelection() {
         let items = selectedEntries
         guard !items.isEmpty, renamingID == nil, modal == nil, screen == .home else { return }
         if scope == .trash { deletePermanently(items) } else { trash(items) }
@@ -562,16 +561,17 @@ struct CoverView: View {
     let entry: LibraryEntry
     @State private var image: NSImage?
     var body: some View {
-        ZStack {
-            Rectangle().fill(Color(hex: 0x1B1B1C))
-            if let image {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-            } else {
-                Image(systemName: entry.summary.clipCount == 0 ? "plus.rectangle.on.rectangle" : "film")
-                    .font(.system(size: 20, weight: .light)).foregroundStyle(Theme.textTertiary.opacity(0.6))
+        // The fill rectangle sizes the view; the cover is an overlay so its aspect-fill never grows the card.
+        Rectangle().fill(Color(hex: 0x1B1B1C))
+            .overlay {
+                if let image {
+                    Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    Image(systemName: entry.summary.clipCount == 0 ? "plus.rectangle.on.rectangle" : "film")
+                        .font(.system(size: 20, weight: .light)).foregroundStyle(Theme.textTertiary.opacity(0.6))
+                }
             }
-        }
-        .clipped()
+            .clipped()
         .task(id: "\(entry.id)|\(entry.modifiedAt.timeIntervalSince1970)") { image = await CoverCache.shared.image(for: entry) }
     }
 }
@@ -678,38 +678,6 @@ enum HomeFormat {
     }
 }
 
-/// ⌫ / ⌦ on Home when no text field has focus.
-struct DeleteKeyCatcher: NSViewRepresentable {
-    let action: @MainActor () -> Void
-    func makeNSView(context: Context) -> NSView {
-        let v = CatcherView()
-        v.action = action
-        return v
-    }
-    func updateNSView(_ v: NSView, context: Context) { (v as? CatcherView)?.action = action }
-    final class CatcherView: NSView {
-        var action: (@MainActor () -> Void)?
-        private var monitor: Any?
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
-            guard window != nil else { return }
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
-                let m = e.modifierFlags.intersection([.command, .option, .control, .shift])
-                guard let self, e.window === self.window, e.keyCode == 51 || e.keyCode == 117, m.isEmpty || m == .command,
-                      !(e.window?.firstResponder is NSText) else { return e }
-                MainActor.assumeIsolated { self.action?() }
-                return nil
-            }
-        }
-        override func removeFromSuperview() {
-            if let monitor { NSEvent.removeMonitor(monitor) }
-            monitor = nil
-            super.removeFromSuperview()
-        }
-    }
-}
-
 /// Templates entry point (content arrives with the templates workstream).
 struct TemplatesPlaceholder: View {
     @Bindable var app: AppModel
@@ -725,3 +693,4 @@ struct TemplatesPlaceholder: View {
         .background(Theme.home)
     }
 }
+
