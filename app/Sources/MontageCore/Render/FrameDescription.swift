@@ -235,3 +235,20 @@ public struct LayerGeometry: Equatable, Sendable {
         return abs(x) <= abs(halfSize.x) && abs(y) <= abs(halfSize.y)
     }
 }
+
+extension LayerDescription {
+    /// Public memberwise init (engine-synthesized layers, e.g. render-cache frames); feature fields default to off.
+    public init(clipID: ClipID, trackID: TrackID, source: LayerSource, sourceSize: Size2, transform: Transform, opacity: Double,
+                blendMode: BlendMode, crop: CropRect, mask: Mask?, effects: [ResolvedEffect], animations: [ActiveAnimation],
+                localTime: Time) {
+        self.clipID = clipID; self.trackID = trackID; self.source = source; self.sourceSize = sourceSize
+        self.transform = transform; self.opacity = opacity; self.blendMode = blendMode; self.crop = crop; self.mask = mask
+        self.effects = effects; self.animations = animations; self.localTime = localTime
+    }
+}
+
+extension FrameDescription {
+    public init(time: Time, canvasSize: Size2, background: RGBA, items: [RenderItem]) {
+        self.time = time; self.canvasSize = canvasSize; self.background = background; self.items = items
+    }
+}

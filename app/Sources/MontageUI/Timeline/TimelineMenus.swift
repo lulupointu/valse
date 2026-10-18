@@ -115,7 +115,17 @@ extension TimelineView {
                 item("tlmenu.range.out", "o", []) { s.setOutPoint() },
                 item("tlmenu.range.clear", enabled: s.project.timeline.inPoint != nil || s.project.timeline.outPoint != nil) { s.clearRange() },
             ]),
-            sub("tlmenu.render", [item("tlmenu.render.all", enabled: false) {}]),
+            sub("tlmenu.render", [
+                item("tlmenu.render.all") { s.renderPreview(range: nil) },
+                item("tlmenu.render.inOut", enabled: s.project.timeline.inPoint != nil || s.project.timeline.outPoint != nil) {
+                    s.renderPreview(range: TimeRange(start: s.project.timeline.inPoint ?? .zero,
+                                                     end: s.project.timeline.outPoint ?? s.project.duration))
+                },
+                item("tlmenu.render.selection", enabled: !clips.isEmpty) {
+                    s.renderPreview(range: TimeRange(start: clips.map(\.start).min() ?? .zero, end: clips.map(\.end).max() ?? .zero))
+                },
+                item("tlmenu.render.clear") { s.clearRenderCache() },
+            ]),
         ]
         if kind == .audio {
             items.insert(contentsOf: [

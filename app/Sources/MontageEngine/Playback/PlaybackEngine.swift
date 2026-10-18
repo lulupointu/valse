@@ -71,6 +71,7 @@ public final class PlaybackEngine {
         ReverseManager.shared.onReady = { [weak self] _ in self?.forceRebuild() }
         StabilizationStore.shared.onReady = { [weak self] _ in self?.onRedrawNeeded?() }
         MatteStore.shared.onMatteReady = { [weak self] _, _ in self?.forceRebuild() }
+        RenderCache.shared.onReady = { [weak self] _ in self?.forceRebuild() }
         update(project: project, force: true)
     }
 
@@ -84,6 +85,8 @@ public final class PlaybackEngine {
         var h = Hasher()
         h.combine(CompositionBuilder.structureKey(project, sources: sourceChooser))
         h.combine(size.width); h.combine(size.height)
+        // a newly finished (or invalidated → re-rendered) cache segment changes the lanes
+        for s in RenderCache.shared.validSegments(project, size: size) { h.combine(s.key) }
         let key = h.finalize()
         if force || key != structureKey {
             structureKey = key

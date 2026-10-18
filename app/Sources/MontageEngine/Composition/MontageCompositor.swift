@@ -15,6 +15,11 @@ public final class RenderState: @unchecked Sendable {
     private var _media: [MediaID: MediaAsset]
     private var _trackMap: [ClipID: CMPersistentTrackID]
     private var _auxMap: [ClipID: [AuxRole: CMPersistentTrackID]] = [:]
+    private var _cached: [(range: TimeRange, key: String, track: CMPersistentTrackID)] = []
+    private var _validCached: [(range: TimeRange, track: CMPersistentTrackID)] = []
+    private var _cacheSize: CGSize = .zero
+    /// Frames served from the preview render cache (stats/tests).
+    public private(set) var cacheHits = 0
     private var recent: [(time: Time, sources: [ClipID: CVPixelBuffer], aux: [ClipID: [AuxRole: CVPixelBuffer]])] = []
     /// Output frames composed (stats).
     public private(set) var framesComposed = 0
@@ -32,8 +37,29 @@ public final class RenderState: @unchecked Sendable {
 
     public func update(project: Project) {
         let media = Dictionary(uniqueKeysWithValues: project.media.map { ($0.id, $0) })
-        lock.withLock { _project = project; _media = media }
+        let (cached, size) = lock.withLock { (_cached, _cacheSize) }
+        let valid = Self.validate(cached, project: project, size: size)
+        lock.withLock { _project = project; _media = media; _validCached = valid }
     }
+
+    /// Pre-rendered segments of the current composition; only those whose content key still matches the live project
+    /// are served (edits invalidate them without a rebuild).
+    public func update(cachedSegments: [(range: TimeRange, key: String, track: CMPersistentTrackID)], renderSize: CGSize) {
+        let project = lock.withLock { _project }
+        let valid = Self.validate(cachedSegments, project: project, size: renderSize)
+        lock.withLock { _cached = cachedSegments; _cacheSize = renderSize; _validCached = valid }
+    }
+
+    static func validate(_ c: [(range: TimeRange, key: String, track: CMPersistentTrackID)], project: Project, size: CGSize)
+    -> [(range: TimeRange, track: CMPersistentTrackID)] {
+        c.filter { RenderCache.key(project, range: $0.range, size: size) == $0.key }.map { ($0.range, $0.track) }
+    }
+
+    func cachedTrack(at t: Time) -> CMPersistentTrackID? {
+        lock.withLock { _validCached.first { $0.range.contains(t) }?.track }
+    }
+
+    func noteCacheHit() { lock.withLock { cacheHits += 1 } }
 
     public func update(trackMap: [ClipID: CMPersistentTrackID]) { lock.withLock { _trackMap = trackMap } }
     public func update(auxMap: [ClipID: [AuxRole: CMPersistentTrackID]]) { lock.withLock { _auxMap = auxMap } }
@@ -138,6 +164,10 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
         }
         let (project, media, trackMap) = instr.state.snapshot()
         let t = Time(cmTime: request.compositionTime)
+        if let tid = instr.state.cachedTrack(at: t), let pb = request.sourceFrame(byTrackID: tid) {
+            renderCached(pb, request: request, project: project, out: out, outTex: outTex, outCV: outCV, cmd: cmd, state: instr.state)
+            return
+        }
         let frame = FrameEvaluator.evaluate(project, at: t)
         var buffers: [ClipID: CVPixelBuffer] = [:]
         var aux: [ClipID: [AuxRole: CVPixelBuffer]] = [:]
@@ -165,6 +195,30 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
 /// HDR projects (Rec.2020 HLG/PQ): composes into 16-bit half-float RGBA buffers so 10-bit export keeps precision.
 public final class MontageHDRCompositor: MontageCompositor, @unchecked Sendable {
     override class var outputPixelFormat: OSType { kCVPixelFormatType_64RGBAHalf }
+}
+
+extension MontageCompositor {
+    /// Cached segment frame: drawn as one full-canvas layer through the same renderer (scaling/format conversion only).
+    fileprivate func renderCached(_ pb: CVPixelBuffer, request: AVAsynchronousVideoCompositionRequest, project: Project,
+                                  out: CVPixelBuffer, outTex: MTLTexture, outCV: CVMetalTexture, cmd: MTLCommandBuffer, state: RenderState) {
+        let canvas = project.settings.canvasSize
+        let fake = MediaAsset(name: "render-cache", kind: .video, url: URL(fileURLWithPath: "/dev/null"), duration: .zero,
+                              pixelSize: canvas, frameRate: nil, hasVideo: true, hasAudio: false, contentHash: "render-cache")
+        let clip = ClipID()
+        let layer = LayerDescription(clipID: clip, trackID: TrackID(), source: .media(fake.id, sourceTime: .zero), sourceSize: canvas,
+                                     transform: Transform(), opacity: 1, blendMode: .normal, crop: CropRect(), mask: nil,
+                                     effects: [], animations: [], localTime: .zero)
+        let frame = FrameDescription(time: Time(cmTime: request.compositionTime), canvasSize: canvas,
+                                     background: project.settings.backgroundColor, items: [.layer(layer)])
+        FrameRenderer.shared.encode(frame, media: [fake.id: fake], sources: DictionarySourceProvider([clip: pb]), output: outTex, commandBuffer: cmd)
+        state.noteCacheHit()
+        let box = UncheckedSendable((request, out, outCV, pb))
+        cmd.addCompletedHandler { cb in
+            let (request, out, _, _) = box.value
+            if let err = cb.error { request.finish(with: err) } else { request.finish(withComposedVideoFrame: out) }
+        }
+        cmd.commit()
+    }
 }
 
 /// Wraps a non-Sendable value to cross a concurrency boundary when the caller guarantees exclusive use.

@@ -167,10 +167,25 @@ public enum CompositionBuilder {
             for a in aLanes.compactMap({ $0 }) { audioParams.append(a.1) }
         }
 
+        // Preview render cache: valid pre-rendered segments as passthrough lanes (see RenderCache).
+        var cached: [(range: TimeRange, key: String, track: CMPersistentTrackID)] = []
+        let size = renderSize ?? CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
+        if purpose == .preview {
+            for seg in RenderCache.shared.validSegments(project, size: size) {
+                guard let src = try await AssetCache.shared.entry(seg.url).video,
+                      let ct = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
+                let fileRange = try await src.load(.timeRange)
+                try ct.insertTimeRange(fileRange, of: src, at: seg.range.start.cmTime)
+                cached.append((seg.range, seg.key, ct.trackID))
+                videoTrackIDs.append(ct.trackID)
+            }
+        }
+
         let state = existingState ?? RenderState(project: project, keepsRecentSources: purpose == .preview)
         state.update(project: project)
         state.update(trackMap: trackMap)
         state.update(auxMap: auxMap)
+        state.update(cachedSegments: cached, renderSize: size)
 
         let vc = AVMutableVideoComposition()
         let space = project.settings.colorSpace

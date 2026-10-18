@@ -23,3 +23,8 @@
 "cmd.stabilize" = "Stabilize";
 "cmd.motionBlur" = "Motion blur";
 "cmd.slowmo" = "Smooth slow-mo";
+"tlmenu.render.inOut" = "In to out";
+"tlmenu.render.selection" = "Selected clips";
+"tlmenu.render.clear" = "Delete render cache";
+"toast.renderStarted" = "Rendering preview in the background…";
+"toast.renderDone" = "This part is rendered for a smooth preview";

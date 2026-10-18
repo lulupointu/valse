@@ -23,3 +23,8 @@
 "cmd.stabilize" = "Stabiliser";
 "cmd.motionBlur" = "Flou de mouvement";
 "cmd.slowmo" = "Ralenti fluide";
+"tlmenu.render.inOut" = "Du point d’entrée au point de sortie";
+"tlmenu.render.selection" = "Clips sélectionnés";
+"tlmenu.render.clear" = "Supprimer le cache de rendu";
+"toast.renderStarted" = "Rendu de l’aperçu en arrière-plan…";
+"toast.renderDone" = "Cette partie est rendue pour un aperçu fluide";

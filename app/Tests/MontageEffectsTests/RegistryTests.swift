@@ -5,7 +5,7 @@ import MontageEffects
 @Suite struct RegistryTests {
     @Test func idsAreUniqueAndNamespaced() {
         let ids = (Registries.effects.all.map(\.id) + Registries.transitions.all.map(\.id) + Registries.animations.all.map(\.id))
-            .filter { !$0.hasPrefix("test.") }  // other tests register extensions
+            .filter { !$0.hasPrefix("test.") && !$0.hasPrefix("user.") }  // other tests register extensions / user LUTs
         #expect(Set(ids).count == ids.count)
         #expect(ids.allSatisfy { $0.hasPrefix("montage.") })
     }
