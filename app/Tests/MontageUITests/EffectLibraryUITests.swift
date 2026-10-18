@@ -46,7 +46,7 @@ import MontageTestSupport
         let groups = StickerCatalog.groups()
         #expect(groups.first == "sticker.group.emoji" && groups.contains("sticker.group.shapes"))
         let total = groups.reduce(0) { $0 + StickerCatalog.entries(nav: $1, favorites: []).count }
-        #expect(total == Registries.stickers.all.count)
+        #expect(total == Registries.stickers.all.filter { $0.groupKey != StickerCatalog.yoursNav }.count)   // + imported (Yours)
         #expect(StickerCatalog.search("heart").contains { $0.id == "montage.sticker.heartPink" })
         #expect(StickerCatalog.search("circle yellow").contains { $0.id == "montage.sticker.shape.circle.yellow" })
         L10n.shared.setLanguageForSession("fr")

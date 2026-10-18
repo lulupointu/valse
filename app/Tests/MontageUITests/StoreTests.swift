@@ -113,7 +113,7 @@ import MontageTestSupport
         keys += Registries.effects.all.filter { $0.id.hasPrefix("montage.") }.flatMap { [$0.nameKey, $0.groupKey] + $0.params.map(\.nameKey) }
         keys += Registries.transitions.all.flatMap { [$0.nameKey, $0.groupKey] + $0.params.map(\.nameKey) }
         keys += Registries.animations.all.map(\.nameKey)
-        keys += Registries.stickers.all.flatMap { [$0.nameKey, $0.groupKey] }
+        keys += Registries.stickers.all.flatMap { s -> [String] in if case .user = s.source { return [s.groupKey] }; return [s.nameKey, s.groupKey] }   // imported stickers carry user names
         keys += Registries.textStyles.all.map(\.nameKey)
         keys += AIRegistry.tools.all.flatMap { [$0.nameKey, $0.descriptionKey] }
         keys += AssetTabRegistry.tabs.map(\.titleKey)
