@@ -30,6 +30,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
 | POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | merged (lanes, cover editor, mask handles incl. pen/text, previewing mode, scopes, Adjust footer/Mask) | main 1efcb9a |
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | merged (all 8 gaps fixed) | main 9b94922 |
+| BUG1 | Owner bugs: crash on voice-changer clip in project 1018; HDR(HLG) footage colours wrong in SDR / washed in HDR | 4 | running | |
+| BUG2 | Owner bugs: auto captions too big (out of 9:16 frame); caption timing early/late/badly cut | 4 | running | |
 | FIN | Final polish backlog (collect here): text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
 | AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | running | |
 | MUS | Music & sound library usable on Instagram (AU-001, AU-025): bundled royalty-free/CC0 music + SFX with license metadata, mood/genre browse, "similar sounds" via local audio embeddings | 3 | running | |
@@ -74,6 +76,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Decisions log
+- 2026-10-19 Owner: NO AI-generated/procedural music. Music & SFX library must offer real ONLINE search (Instagram-like) — explicit exception to local-only, limited to the music/SFX browser (user-supplied API keys e.g. Pixabay/Freesound, download-on-add so projects work offline). Rest of app stays offline.
 - 2026-10-18 Owner dropped 69 features (FEATURES.md status `wontdo`): cloud-only, generative AI, advanced voice AI (clone/s2s/overdub/translator), templates (TP-*), retouch/body (RT-*, AI-017, AI-052). EXCEPTION kept: music library + similar sounds (AU-001, AU-025) — must be a local library of tracks/sounds safe to use on Instagram (royalty-free/CC0, license recorded per item).
 - 2026-10-18 Stack: native Swift/Metal/AVFoundation (STACK.md, owner-approved). macOS-only; cross-platform is a bonus.
 - Proxies mandatory (4K HEVC decode ≈1.1–1.3 GB for 4 streams; no stack scrubs <50 ms p95 on originals).
