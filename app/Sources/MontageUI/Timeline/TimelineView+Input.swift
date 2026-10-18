@@ -476,8 +476,9 @@ extension TimelineView {
         let l = layoutNow
         var t = l.time(atX: pt.x)
         if let s = sender.draggingPasteboard.string(forType: .string), case .transition = DragPayload.parse(s) {
-            if let cut = nearestCut(to: t) { t = cut.end }
-            dropIndicator = (t, l.mainRowIndex)
+            let (cut, row) = transitionDropCut(at: pt, l)
+            if let cut { t = cut.end - (cut.transitionOut?.duration ?? .zero) / 2.0 }
+            dropIndicator = (t, row ?? l.mainRowIndex)
         } else {
             let s = l.snap(t, timeline: store.project.timeline, playhead: store.transport.playhead)
             t = s.0
@@ -489,6 +490,17 @@ extension TimelineView {
     }
 
     override func draggingExited(_ sender: (any NSDraggingInfo)?) { dropIndicator = nil; insertionSlot = nil; dirty = true }
+
+    /// Cut a transition dragged at `pt` attaches to: a continuous cut on the hovered overlay video track (PiP, TR-004)
+    /// within 40 pt, else the main-track cut nearest the cursor. Returns the left clip and its row.
+    func transitionDropCut(at pt: CGPoint, _ l: TimelineLayout) -> (Clip?, Int?) {
+        let t = l.time(atX: pt.x)
+        if let ri = l.rowIndex(atY: pt.y), !l.rows[ri].isMain, l.rows[ri].kind == .video,
+           let c = TimelineOps.transitionCut(near: t, track: l.rows[ri].trackID, in: store.project.timeline, within: l.duration(points: 40)) {
+            return (c, ri)
+        }
+        return (nearestCut(to: t), l.mainRowIndex)
+    }
 
     /// Main-track clip whose end is the cut nearest `t`.
     func nearestCut(to t: Time) -> Clip? {
@@ -518,9 +530,8 @@ extension TimelineView {
             store.applyEffect(d)
         case .transition(let typeID):
             guard let d = Registries.transitions[typeID] else { return false }
-            if let cut = nearestCut(to: l.time(atX: pt.x)) { store.selection = [cut.id] }
+            if let cut = transitionDropCut(at: pt, l).0 { store.selection = [cut.id] }
             store.applyTransition(d)
-            if let id = store.selection.first { ui.selectedTransition = id }
         case .sticker(let id):
             store.seek(to: time); store.addGeneratorClip(.sticker(id: id))
         case .text(let styleID):

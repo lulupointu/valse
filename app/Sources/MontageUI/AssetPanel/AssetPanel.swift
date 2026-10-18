@@ -78,9 +78,7 @@ enum BuiltinAssetTabs {
             AnyView(EffectLibraryTab(store: store, category: .effect).id(EffectCategory.effect))
         },
         AssetTab(id: "transitions", titleKey: "tab.transitions", symbol: "square.split.2x1", order: 5) { store in
-            AnyView(RegistryGrid(store: store, groups: grouped(Registries.transitions.all, \.groupKey), tile: { d in
-                .init(id: d.id, title: tr(d.nameKey), symbol: d.symbol, payload: DragPayload.transition(d.id)) { store.applyTransition(d) }
-            }))
+            AnyView(TransitionsTab(store: store))   // W5: MontageUI/Transitions
         },
         AssetTab(id: "filters", titleKey: "tab.filters", symbol: "camera.filters", order: 7) { store in
             AnyView(EffectLibraryTab(store: store, category: .filter).id(EffectCategory.filter))

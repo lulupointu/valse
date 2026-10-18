@@ -36,7 +36,7 @@ public enum InsertTarget: Equatable, Sendable {
 
 /// Pure timeline editing operations on `Timeline` (and `Project` where media is needed).
 /// All functions are deterministic, never touch I/O, and keep these invariants (checked by `validate()`):
-/// - clips sorted by start, no overlap on a track except main-track transitions;
+/// - clips sorted by start, no overlap on a track except transitions (clip i overlaps i+1 by its `transitionOut`);
 /// - with `mainTrackMagnet`, main-track clips are contiguous from 0;
 /// - exactly one main track; no empty non-main tracks after an edit.
 /// Commands (Commands.swift) wrap these for undo.
@@ -327,6 +327,9 @@ public enum TimelineOps {
     public static func setTransition(_ id: ClipID, _ transition: TransitionInstance?, in tl: inout Timeline) throws {
         guard let loc = tl.locate(id) else { throw EditError.clipNotFound }
         guard loc.clip + 1 < tl.tracks[loc.track].clips.count || transition == nil else { throw EditError.invalidTime }
+        if !tl.tracks[loc.track].isMain {   // PiP transitions (TimelineOps+Transitions.swift)
+            try setOverlayTransition(track: loc.track, clip: loc.clip, transition, in: &tl); return
+        }
         let oldMainStarts = mainStarts(tl)
         tl.tracks[loc.track].clips[loc.clip].transitionOut = transition
         clampTransitions(&tl.tracks[loc.track])
@@ -396,6 +399,7 @@ public enum TimelineOps {
             let maxD = min(track.clips[i].duration, track.clips[i + 1].duration) / 2.0
             if tr.duration > maxD { tr.duration = maxD; track.clips[i].transitionOut = tr }
         }
+        normalizeOverlayTransitions(&track)
     }
 
     // MARK: Tracks
@@ -438,7 +442,7 @@ public enum TimelineOps {
                 if i > 0 {
                     let p = t.clips[i - 1]
                     if p.start > c.start { problems.append("track \(t.id.short) not sorted") }
-                    let allowed = t.isMain ? (p.transitionOut?.duration ?? .zero) : .zero
+                    let allowed = p.transitionOut?.duration ?? .zero   // main and overlay (PiP) transitions
                     if p.end - c.start > allowed { problems.append("overlap \(p.id.short)/\(c.id.short)") }
                 }
             }

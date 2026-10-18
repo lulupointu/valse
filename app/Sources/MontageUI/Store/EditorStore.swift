@@ -316,15 +316,25 @@ public final class EditorStore {
         }
     }
 
-    /// Applies a transition after the selected main-track clip (or the cut nearest the playhead).
+    /// Applies a transition at a cut: after the selected video clip (main or overlay track), replacing the selected
+    /// transition, or at the main-track cut nearest the playhead. Refuses with CapCut's toasts when there is no
+    /// continuous clip after the target or a neighbour is too short (TR-007). Replacing keeps the duration.
     public func applyTransition(_ d: TransitionDescriptor) {
-        guard let main = project.timeline.mainTrack, main.clips.count > 1 else { showToast(tr("toast.needTwoClips"), error: true); return }
-        let sel = selectedClips.first { c in main.clips.contains { $0.id == c.id } }
-        let target = sel ?? main.clips.dropLast().min { abs(($0.end - transport.playhead).ticks) < abs(($1.end - transport.playhead).ticks) }
-        guard let target, target.id != main.clips.last?.id else { return }
-        if perform(SetTransition(target.id, d.makeInstance())) {
+        let tl = project.timeline
+        let videoSel = selectedClips.first { c in tl.locate(c.id).map { tl.tracks[$0.track].kind == .video } ?? false }
+        var target: Clip? = videoSel ?? selectedTransition.flatMap { tl.clip($0) }
+        if target == nil {
+            guard let main = tl.mainTrack, main.clips.count > 1 else { showToast(tr("toast.needTwoClips"), error: true); return }
+            target = main.clips.dropLast().min { abs(($0.end - transport.playhead).ticks) < abs(($1.end - transport.playhead).ticks) }
+        }
+        guard let target else { return }
+        if let issue = TimelineOps.transitionIssue(after: target.id, in: tl) { showToast(tr(issue.messageKey), error: true); return }
+        var inst = d.makeInstance()
+        if let old = target.transitionOut { inst.duration = old.duration }
+        if perform(SetTransition(target.id, inst)) {
             selection = []
             selectedTransition = target.id
+            EffectPipelines.shared.prewarm(project)
         }
     }
 

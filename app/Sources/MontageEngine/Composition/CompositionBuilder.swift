@@ -104,7 +104,8 @@ public enum CompositionBuilder {
         for track in CompoundFlattening.decodeTracks(project) {
             let mediaClips = track.clips.filter { $0.isEnabled && $0.mediaID.flatMap(project.asset) != nil }
             guard !mediaClips.isEmpty else { continue }
-            let lanes = track.isMain ? 2 : 1
+            // A/B lanes where neighbours overlap: the main track and overlay tracks with transitions (PiP, TR-004)
+            let lanes = track.isMain || track.clips.contains(where: { $0.transitionOut != nil }) ? 2 : 1
             var vLanes: [AVMutableCompositionTrack?] = Array(repeating: nil, count: lanes)
             var aLanes: [(AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?] = Array(repeating: nil, count: lanes)
             var auxLanes: [String: AVMutableCompositionTrack] = [:]
@@ -112,7 +113,7 @@ public enum CompositionBuilder {
             var laneClips: [[Clip]] = Array(repeating: [], count: lanes)
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
-                let lane = track.isMain ? i % 2 : 0
+                let lane = lanes == 2 ? i % 2 : 0
                 let choice = sources(asset)
                 // Reverse: play the reversed render forwards from the mirrored in-point (same remap, frame exact).
                 var videoURL = choice.video, audioURL = choice.audio

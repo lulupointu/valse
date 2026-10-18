@@ -77,6 +77,21 @@ import MontageTestSupport
         #expect(slow.isEmpty, "\(slow.joined(separator: "\n"))")
     }
 
+    /// PiP (TR-004): a dissolve between two adjacent clips of an overlay track, over a main-track clip.
+    @Test func overlayTrackTransitionRenders() async throws {
+        var p = TestProject()
+        try await p.addVideo(.solid(.green), seconds: 6)
+        let a = try await p.addVideo(.solid(.red), seconds: 2, target: .newTrack)
+        let tid = p.project.timeline.tracks[p.project.timeline.locate(a)!.track].id
+        try await p.addVideo(.solid(.blue), seconds: 2, at: 2, target: .track(tid))
+        try TimelineOps.setTransition(a, TransitionInstance(typeID: "montage.transition.dissolve", duration: 1), in: &p.project.timeline)
+        #expect(TimelineOps.validate(p.project.timeline).isEmpty)
+        #expect(try await p.render(at: 0.5)[0.5, 0.5].isClose(to: .red, tolerance: 0.1))
+        #expect(try await p.render(at: 1.5)[0.5, 0.5].isClose(to: RGBA(0.5, 0, 0.5), tolerance: 0.12))
+        #expect(try await p.render(at: 2.5)[0.5, 0.5].isClose(to: .blue, tolerance: 0.1))
+        #expect(try await p.render(at: 3.5)[0.5, 0.5].isClose(to: .green, tolerance: 0.1))
+    }
+
     /// Through the real composition/compositor: a sample of categories on two video clips.
     @Test func fullPipelineMidpointsAndEnds() async throws {
         for id in ["wipeLeft", "cubeLeft", "glitch", "heart", "pageCurl"] {

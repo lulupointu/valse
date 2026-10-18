@@ -1,0 +1,6 @@
+/* W5 — Transitions tab, transition validation toasts. */
+"transitions.search" = "Search transitions";
+"transitions.results" = "Results";
+"transitions.noResults" = "No transitions found";
+"transition.issue.noContinuousClips" = "No continuous clips at current position";
+"transition.issue.clipTooShort" = "Video too short for a transition";

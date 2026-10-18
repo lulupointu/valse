@@ -125,7 +125,7 @@ public enum FrameEvaluator {
         for track in project.timeline.tracks where track.kind.isVisual && !track.isHidden {
             let active = track.clips(at: t).filter(\.isEnabled)
             guard !active.isEmpty else { continue }
-            if active.count >= 2, track.isMain,
+            if active.count >= 2,   // main or overlay (PiP) transition
                let a = active.first, let b = active.dropFirst().first, let tr = a.transitionOut {
                 // a ends inside b's head: transition region is [b.start, a.end)
                 guard let la = layer(a, track: track, project: project, at: t),
