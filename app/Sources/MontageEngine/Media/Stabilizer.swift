@@ -115,8 +115,9 @@ public final class StabilizationStore: @unchecked Sendable {
     /// Translation (in pixels of `b`'s grid) that best maps `a` onto `b` (content moved by +shift): coarse search on
     /// a half-resolution pyramid level, refined at full resolution, with sub-pixel parabola fit.
     static func estimateShift(_ a: LumaImage, _ b: LumaImage) -> (Double, Double) {
-        let a2 = a.half(), b2 = b.half()
-        let (cx, cy) = bestShift(a2, b2, around: (0, 0), radius: 8)
+        let a2 = a.half(), b2 = b.half(), a4 = a2.half(), b4 = b2.half()
+        let (qx, qy) = bestShift(a4, b4, around: (0, 0), radius: 8)
+        let (cx, cy) = bestShift(a2, b2, around: (qx * 2, qy * 2), radius: 2)
         let (fx, fy) = bestShift(a, b, around: (cx * 2, cy * 2), radius: 2)
         // sub-pixel refinement
         func sad(_ dx: Int, _ dy: Int) -> Double { a.sad(b, dx, dy) }

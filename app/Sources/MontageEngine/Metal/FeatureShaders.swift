@@ -23,8 +23,9 @@ enum FeatureShaders {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
         float4 c = t.sample(s, in.uv);
         float3 k = rgb2ycc(u.key.rgb), p = rgb2ycc(c.rgb);
-        // chroma distance, normalised by the key's own saturation so dull keys still work
-        float d = length(p.yz - k.yz) / max(length(k.yz), 0.08);
+        // chroma relative to luma (hue + saturation, independent of how lit the screen is), normalised by the key's
+        float2 kc = k.yz / max(k.x, 0.1), pc = p.yz / max(p.x, 0.1);
+        float d = length(pc - kc) / max(length(kc), 0.08);
         float thr = mix(0.05, 0.9, u.intensity);
         float soft = max(u.feather * 0.6, 0.01);
         float a = smoothstep(thr, thr + soft, d);
@@ -33,10 +34,10 @@ enum FeatureShaders {
         a = max(a, (1.0 - a) * u.shadow * darker);
         // edge clean-up: choke the fringe
         a = saturate((a - u.cleanup * 0.5) / max(1.0 - u.cleanup * 0.5, 0.001));
-        // despill: pull the colour away from the key direction in CbCr
+        // despill: remove the component of the pixel's chroma along the key direction
         float2 kd = normalize(k.yz + float2(1e-5));
         float along = dot(p.yz, kd);
-        if (along > 0.0) { p.yz -= kd * along * u.spill * (1.0 - smoothstep(thr, thr + soft + 0.5, d) * 0.5); }
+        if (along > 0.0) { p.yz -= kd * along * u.spill; }
         float3 rgb = float3(p.x + 1.5748 * p.z, p.x - 0.1873 * p.y - 0.4681 * p.z, p.x + 1.8556 * p.y);
         return float4(saturate(rgb), c.a * a);
     }
