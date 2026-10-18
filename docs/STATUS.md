@@ -16,11 +16,11 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W1 | Timeline editing UX | 1 | merged (24 done / 10 partial / 1 blocked) | main 82aaa0d |
 | W2 | Player canvas & playback | 1 | merged (10 done / 7 partial) | main bf3e193 |
 | W3 | Inspector panels | 1 | merged (16 done / 14 partial / 1 blocked) | main 19504fe |
-| W6+W9 | Render engine + media pipeline | 1 | running (+ colour helper a7f0245b, media helper a83b02c9 done, unmerged @5752332) | worktree-agent-a02d613df7e45068d |
+| W6+W9 | Render engine + media pipeline | 1 | merged incl. colour + media helpers | main 9c54c1b |
 | W8 | Audio | 1 | running | worktree-agent-ae7ca6ffd6a3618a5 |
 | W14 | QA: UI test driver, screenshot diff, perf | 1 | running (others wait for `--uitest`) | worktree-agent-aa1de47edb2d5d946 |
-| W4 | Effects & filters content | 2 | queued | |
-| W5 | Transitions & animations content | 2 | queued | |
+| W4 | Effects & filters content | 2 | running | |
+| W5 | Transitions & animations content | 2 | running | |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | queued | |
 | W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | running | |
 | W11 | Export & interchange | 2 | queued | |
@@ -31,7 +31,9 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 ## Cross-team requests / blockers (open)
 | From | Needs from | What | Feature IDs |
 |---|---|---|---|
-| W1 | W6/W9 | Reverse rendering; nested-timeline rendering for compound clips | TL-014, TL-021 |
+| W6 | W1 | Double-click enter/edit inside compound clips (nested render done) | TL-021 |
+| W6 | W10 | Person mattes via `MatteVideoWriter` → flip `CutoutAvailability.matteCompositingAvailable`; optical-flow via `FrameInterpolation.provider` | CK-002/004, SP-005 |
+| W6 | W12 | Proxy settings UI; render cache auto-render + green bar | MI-008, PB-005 |
 | W1 | W8 | Beat detection DSP feeding `beats` model field | TL-026 |
 | W1 | W11 | Export range (in/out) | TL-028 |
 | W3 | W10+W6 | AI matte in compositor → flip `CutoutAvailability.matteCompositingAvailable` | CK-002 |
@@ -45,6 +47,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 
 ## Done cross-team items
 - W3 built transition inspector (requested by W1).
+- W6/W9 delivered reverse render (TL-014) and nested compound rendering (TL-021 render side) for W1.
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Decisions log
