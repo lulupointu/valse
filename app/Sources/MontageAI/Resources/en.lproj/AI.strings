@@ -24,3 +24,4 @@
 "cmd.writerAdd" = "Add script";
 "cmd.clipper" = "AI clipper";
 "cmd.faceCover" = "Face mosaic";
+"cmd.cameraLock" = "Camera tracking";

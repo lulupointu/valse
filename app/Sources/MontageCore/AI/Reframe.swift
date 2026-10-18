@@ -88,6 +88,7 @@ public enum ReframePath {
         let k = fillScale(source: source, canvas: canvas)
         clip.crop = CropRect()
         clip.stabilization = nil
+        clip.cameraLock = nil   // camera tracking and auto reframe exclude each other
         clip.keyframes[ParamKey.position.raw] = nil
         clip.keyframes[ParamKey.scale.raw] = nil
         clip.transform.scale = Vec2(k, k)

@@ -146,3 +146,20 @@
 "faceCover.applying" = "Détection des visages… %d %%";
 "faceCover.done" = "Visages masqués";
 "faceCover.failed" = "Impossible de détecter les visages. Réessaie.";
+
+/* W10 suivi de la caméra (AI-013) */
+"cameraLock.title" = "Suivi de la caméra";
+"cameraLock.target" = "Suivre";
+"cameraLock.target.face" = "Visage";
+"cameraLock.target.body" = "Corps";
+"cameraLock.keepFace" = "Conserver la taille du visage";
+"cameraLock.keepBody" = "Conserver la taille du corps";
+"cameraLock.fill" = "Zone de travail";
+"cameraLock.fill.fit" = "Adaptation à la zone de travail";
+"cameraLock.fill.blur" = "Floutage de zone";
+"cameraLock.hint" = "Garde la personne au centre du cadre. Le recadrage automatique de ce clip est supprimé.";
+"cameraLock.job" = "Application du suivi de la caméra…";
+"cameraLock.applying" = "Application du suivi de la caméra… %d %%";
+"cameraLock.done" = "Suivi de la caméra appliqué";
+"cameraLock.failed" = "Essaie une vidéo avec des personnes.";
+"cameraLock.cancelled" = "Suivi de la caméra annulé";

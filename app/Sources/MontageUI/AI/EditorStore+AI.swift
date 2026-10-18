@@ -41,6 +41,8 @@ public final class AIUIState {
     var clipper: AIClipperState?
     /// Face mosaic: faces matte jobs (clip → job).
     public var faceJobs: [ClipID: JobID] = [:]
+    /// Camera tracking analyses (clip → job).
+    public var cameraJobs: [ClipID: JobID] = [:]
     public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false

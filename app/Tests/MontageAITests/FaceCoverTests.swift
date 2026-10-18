@@ -70,4 +70,21 @@ import MontageTestSupport
             #expect(FaceCover.cover(of: id, in: p.project.timeline) == nil && p.project.timeline.tracks.count == 1)
         }
     }
+
+    @Test func cameraTrackingCentresTheFace() async throws {
+        try await HeavyWorkGate.run {
+            let url = try await Self.faceVideo()
+            var p = TestProject(canvas: Size2(640, 360))
+            let id = try await p.addMedia(url)
+            let cmd = try await CameraLockJob.run(project: p.project, clipID: id, options: CameraLockOptions(target: .face, zoom: 1.25))
+            try cmd.apply(to: &p.project)
+            let k = try #require(p[id].keyframes[ParamKey.position.raw])
+            #expect(p[id].cameraLock != nil)
+            // the face walks right (≈ +8 px/frame) → the clip moves left over time
+            let a = try #require(k.value(at: Time(0.2))?.vec2), b = try #require(k.value(at: Time(0.8))?.vec2)
+            #expect(b.x < a.x - 0.05, "\(a) → \(b)")
+            var clip = p[id]; CameraLock.remove(&clip)
+            #expect(clip.keyframes[ParamKey.position.raw] == nil && clip.cameraLock == nil)
+        }
+    }
 }

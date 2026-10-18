@@ -146,3 +146,20 @@
 "faceCover.applying" = "Detecting faces... %d%%";
 "faceCover.done" = "Faces covered";
 "faceCover.failed" = "Couldn't detect faces. Try again.";
+
+/* W10 camera tracking (AI-013) */
+"cameraLock.title" = "Camera tracking";
+"cameraLock.target" = "Track";
+"cameraLock.target.face" = "Face";
+"cameraLock.target.body" = "Body";
+"cameraLock.keepFace" = "Keep face size";
+"cameraLock.keepBody" = "Keep body size";
+"cameraLock.fill" = "Canvas";
+"cameraLock.fill.fit" = "Fit canvas";
+"cameraLock.fill.blur" = "Blur canvas";
+"cameraLock.hint" = "Keeps the person centred in the frame. Auto reframe on this clip is removed.";
+"cameraLock.job" = "Applying camera tracking effect...";
+"cameraLock.applying" = "Applying camera tracking effect... %d%%";
+"cameraLock.done" = "Camera tracking applied";
+"cameraLock.failed" = "Try a video with people in it.";
+"cameraLock.cancelled" = "Camera tracking canceled";

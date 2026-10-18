@@ -84,6 +84,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     /// Reduce image noise / Remove flickers / Enhance quality (W10, AI/VideoEnhance.swift): the clip plays a processed
     /// copy of its media; `enhance.original` is the media to restore.
     public var enhance: VideoEnhancement?
+    /// Camera tracking / lens lock (W10, AI/CameraLock.swift): position/scale keyframes keep a person centred.
+    public var cameraLock: CameraLockOptions?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

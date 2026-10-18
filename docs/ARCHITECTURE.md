@@ -387,6 +387,9 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   (`llama-completion` sidecar from scripts/build_ai_runtimes.sh + `ModelCatalog.qwen3_4b`, ~3 GB while running, unloaded after).
   Users: `AIWriter` (Text ▸ AI writer → `.script` captions), `AIClipper` (+ Core `Highlights`: sentences, windows, heuristic score,
   `rebuildMainTrack`), `KeywordExtractor`.
+- **Face mosaic / camera tracking**: `CutoutMode.faces` (Vision face boxes, `FaceMatte.Holder` keeps them through drop-outs) →
+  `FaceCover` adds a linked copy of the clip above with Pixelate/Blur + `faces` matte. `CameraTracker` (faces / humans at 10 fps)
+  → Core `CameraLock` (smoothed path → position/scale keyframes, `Clip.cameraLock`, excludes `Clip.reframe`).
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
   `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,
