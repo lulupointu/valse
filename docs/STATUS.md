@@ -21,7 +21,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W14 | QA: UI test driver, screenshot diff, perf | 1 | running (others wait for `--uitest`) | worktree-agent-aa1de47edb2d5d946 |
 | W4 | Effects & filters content | 2 | running | |
 | W5 | Transitions & animations content | 2 | running | |
-| W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | merged (TX: 21 done / 9 partial / 5 blocked / 6 todo) | worktree-agent-a88c18fc0417d0660 |
+| W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | ready to merge (TX: 21 done / 9 partial / 5 blocked / 6 todo) | worktree-agent-a88c18fc0417d0660 |
 | W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | running | |
 | W11 | Export & interchange | 2 | running | |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | queued | |
