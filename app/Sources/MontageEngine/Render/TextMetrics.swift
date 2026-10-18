@@ -34,6 +34,8 @@ public enum TextMetrics {
             return FrameRenderer.shared.text.measure(t, canvasSize: Size2(side * 16 / 9, side))
         case .image, .vector, .lottie:
             return Size2(side, side)
+        case .user(let uid):
+            return UserStickerLibrary.shared.size(uid, side: side)
         }
     }
 }

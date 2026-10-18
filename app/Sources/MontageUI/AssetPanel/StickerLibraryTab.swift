@@ -12,25 +12,36 @@ enum StickerCatalog {
     static let groupOrder = ["emoji", "gestures", "love", "celebration", "animals", "food", "nature", "objects", "symbols",
                              "callouts", "arrows", "decor", "shapes"].map { "sticker.group.\($0)" }
 
+    /// "Yours" (ST-003): imported custom stickers + the Import card; always listed right after Favorites.
+    static let yoursNav = UserStickerLibrary.groupKey
+
     static func groups() -> [String] {
         var seen: [String] = []
-        for s in Registries.stickers.all where !seen.contains(s.groupKey) { seen.append(s.groupKey) }
+        for s in Registries.stickers.all where !seen.contains(s.groupKey) && s.groupKey != yoursNav { seen.append(s.groupKey) }
         return groupOrder.filter(seen.contains) + seen.filter { !groupOrder.contains($0) }
     }
 
     static func nav() -> [(id: String, titleKey: String)] {
-        [(EffectLibraryCatalog.favoritesNav, "fxlib.favorites")] + groups().map { ($0, $0) }
+        [(EffectLibraryCatalog.favoritesNav, "fxlib.favorites"), (yoursNav, yoursNav)] + groups().map { ($0, $0) }
+    }
+
+    /// Registered stickers minus deleted custom ones (the registry can't unregister).
+    static var available: [StickerDescriptor] {
+        Registries.stickers.all.filter { s in
+            if case .user(let id) = s.source { return UserStickerLibrary.shared.entry(id) != nil }
+            return true
+        }
     }
 
     static func entries(nav: String, favorites: Set<String>) -> [StickerDescriptor] {
-        let all = Registries.stickers.all
+        let all = available
         return nav == EffectLibraryCatalog.favoritesNav ? all.filter { favorites.contains($0.id) } : all.filter { $0.groupKey == nav }
     }
 
     static func search(_ query: String) -> [StickerDescriptor] {
         let q = EffectLibraryCatalog.fold(query)
-        guard !q.isEmpty else { return Registries.stickers.all }
-        return Registries.stickers.all.filter { s in
+        guard !q.isEmpty else { return available }
+        return available.filter { s in
             let hay = [tr(s.nameKey), tr(s.groupKey)] + s.tags
             return q.split(separator: " ").allSatisfy { term in hay.contains { EffectLibraryCatalog.fold($0).contains(term) } }
         }
@@ -44,6 +55,7 @@ enum StickerThumbnails {
     static func image(_ s: StickerDescriptor) -> CGImage? {
         // W5: animated (Lottie) stickers show their poster frame (LottieLibrary caches it)
         if case .lottie(let r, let b) = s.source { return b().url(forResource: r, withExtension: nil).flatMap { LottieLibrary.shared.thumbnail($0) } }
+        if case .user(let id) = s.source { return UserStickerLibrary.shared.thumbnail(id) }   // ST-003 (cached by the library)
         guard case .vector(let layers) = s.source else { return nil }
         if let i = cache[s.id] { return i }
         let img = VectorStickerRenderer.image(layers, px: 144)
@@ -57,11 +69,14 @@ struct StickerLibraryTab: View {
     @State private var nav = ""
     @State private var query = ""
     @State private var selected: String?
+    @State private var revision = 0   // bumps after importing / deleting custom stickers
     private var favorites: EffectFavorites { EffectFavorites.shared }
 
     var body: some View {
+        let _ = revision
         let navItems = StickerCatalog.nav()
-        let current = nav.isEmpty ? (navItems.dropFirst().first?.id ?? navItems[0].id) : nav
+        let current = nav.isEmpty ? (navItems.dropFirst(2).first?.id ?? navItems[0].id) : nav
+        let yours = current == StickerCatalog.yoursNav
         let searching = !EffectLibraryCatalog.fold(query).isEmpty
         let items = searching ? StickerCatalog.search(query) : StickerCatalog.entries(nav: current, favorites: favorites.ids)
         HStack(spacing: 0) {
@@ -78,14 +93,20 @@ struct StickerLibraryTab: View {
                 .testID("asset.search")
                 Text(verbatim: searching ? tr("fxlib.results") : tr(navItems.first { $0.id == current }?.titleKey ?? current))
                     .font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
-                if items.isEmpty {
+                if items.isEmpty && !(yours && !searching) {
                     EmptyState(symbol: searching ? "magnifyingglass" : "star", title: tr(searching ? "fxlib.noResults" : "fxlib.favorites.empty"))
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
+                            if yours && !searching {
+                                ImportStickerCard { store.importStickersWithPanel(); revision += 1 }.testID("sticker.import")
+                            }
                             ForEach(items) { s in
                                 StickerCard(sticker: s, selected: selected == s.id, select: { selected = s.id; store.previewSticker(s.id) },
-                                            add: { selected = s.id; store.addGeneratorClip(.sticker(id: s.id)) })
+                                            add: { selected = s.id; store.addGeneratorClip(.sticker(id: s.id)) },
+                                            remove: s.groupKey == StickerCatalog.yoursNav ? {
+                                                UserStickerLibrary.shared.remove(s.id); revision += 1
+                                            } : nil)
                                     .testID("asset.tile.\(s.id)")
                             }
                         }
@@ -104,6 +125,8 @@ struct StickerCard: View {
     let selected: Bool
     let select: () -> Void
     let add: () -> Void
+    /// Custom stickers (Yours): "Delete" in the context menu.
+    var remove: (() -> Void)? = nil
     @State private var hover = false
     private var favorites: EffectFavorites { EffectFavorites.shared }
 
@@ -141,6 +164,7 @@ struct StickerCard: View {
         .contextMenu {
             Button(tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(sticker.id) }
             Button(tr("asset.addToTrack"), action: add)
+            if let remove { Divider(); Button(tr("sticker.delete"), role: .destructive, action: remove) }
         }
         .help(tr(sticker.nameKey))
     }

@@ -1,0 +1,12 @@
+// ST-003: Stickers ▸ Yours (right after Favorites) starts with the "+ Import" card (images, GIF / APNG / WebP, Lottie,
+// frame sequences); the library is sandboxed and empty in UI tests.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.stickers"},
+    {"expect": {"path": "ui.anchors", "contains": "asset.nav.sticker.group.yours"}},
+    {"click": "id:asset.nav.sticker.group.yours"},
+    {"expect": {"path": "ui.anchors", "contains": "sticker.import"}},
+    {"snapshot": "stickers-yours", "element": "id:panel.assets"}
+  ]
+}

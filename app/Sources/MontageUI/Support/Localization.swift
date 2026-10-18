@@ -32,6 +32,7 @@ public enum MontageBootstrap {
         AIResources.register()
         UIResources.register()
         LUTLibrary.shared.loadAll()   // imported LUTs → effect registry
+        UserStickerLibrary.shared.loadAll()   // imported custom stickers → sticker registry (ST-003)
     }
 }
 

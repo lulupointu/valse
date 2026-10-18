@@ -96,6 +96,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var relight: RelightSettings?
     /// Adjust ▸ LUT ▸ Skin tone protection (CL-010): the Adjust-tab grading is held back on skin tones. nil = off.
     public var skinToneProtection: Bool?
+    /// Face cover sticker (ST-006): this sticker clip follows a face of that clip (MontageAI `FaceStickers`).
+    public var faceCoverOf: ClipID?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

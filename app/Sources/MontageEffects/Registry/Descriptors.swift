@@ -245,6 +245,8 @@ public struct StickerDescriptor: Sendable, Identifiable {
         case emoji(String), image(resource: String, bundle: @Sendable () -> Bundle), vector([VectorLayer])
         /// Bundled Bodymovin JSON played in a loop from the clip start (MontageEngine `LottieRenderer`, W5).
         case lottie(resource: String, bundle: @Sendable () -> Bundle)
+        /// Imported custom sticker (ST-003), resolved by MontageEngine `UserStickerLibrary` (still / animated / Lottie / sequence).
+        case user(String)
     }
     public let id: String
     public let nameKey: String

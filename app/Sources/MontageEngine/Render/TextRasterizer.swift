@@ -198,6 +198,12 @@ public final class TextRasterizer: @unchecked Sendable {
             let side = min(1024, max(32, (Int((canvasSide * outputScale).rounded(.up)) + 31) / 32 * 32))
             guard let tex = LottieLibrary.shared.texture(url, seconds: time, side: side) else { return nil }
             return Result(texture: tex, canvasSize: Size2(canvasSide, canvasSide))
+        case .user(let uid):
+            // ST-003: imported sticker frame at clip time, aspect-fitted in the side × side box
+            let lib = UserStickerLibrary.shared
+            let side = min(2048, max(32, (Int((canvasSide * outputScale).rounded(.up)) + 31) / 32 * 32))
+            guard let tex = lib.texture(uid, seconds: time, side: side) else { return nil }
+            return Result(texture: tex, canvasSize: lib.size(uid, side: canvasSide))
         }
     }
 
