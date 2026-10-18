@@ -1,0 +1,50 @@
+@preconcurrency import AVFoundation
+import MediaToolbox
+import Foundation
+
+/// Block-processing callback installed on one audio-mix lane. Called on the audio render thread (real-time in
+/// preview): no locks that can block for long, no allocation in steady state.
+/// `buffers` are non-interleaved Float32 channels, `time` is the composition time of the first frame.
+public protocol AudioTapProcessor: AnyObject, Sendable {
+    func prepare(sampleRate: Double, channels: Int, maxFrames: Int)
+    func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime)
+    func reset()
+}
+
+/// Wraps an `AudioTapProcessor` in an MTAudioProcessingTap (works for AVPlayer playback AND
+/// AVAssetReaderAudioMixOutput, so preview and export run the exact same DSP).
+enum AudioTap {
+    final class Box { let processor: AudioTapProcessor; var nonFloat = false; init(_ p: AudioTapProcessor) { processor = p } }
+
+    static func make(_ processor: AudioTapProcessor) -> MTAudioProcessingTap? {
+        let box = Unmanaged.passRetained(Box(processor)).toOpaque()
+        var callbacks = MTAudioProcessingTapCallbacks(
+            version: kMTAudioProcessingTapCallbacksVersion_0,
+            clientInfo: box,
+            init: { _, clientInfo, storageOut in storageOut.pointee = clientInfo },
+            finalize: { tap in
+                Unmanaged<Box>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release()
+            },
+            prepare: { tap, maxFrames, format in
+                let box = Unmanaged<Box>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+                let asbd = format.pointee
+                box.nonFloat = asbd.mFormatFlags & kAudioFormatFlagIsFloat == 0 || asbd.mBitsPerChannel != 32
+                box.processor.prepare(sampleRate: asbd.mSampleRate, channels: Int(asbd.mChannelsPerFrame), maxFrames: Int(maxFrames))
+            },
+            unprepare: { tap in
+                Unmanaged<Box>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().processor.reset()
+            },
+            process: { tap, numberFrames, _, bufferList, numberFramesOut, flagsOut in
+                var range = CMTimeRange()
+                let st = MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferList, flagsOut, &range, numberFramesOut)
+                guard st == noErr else { return }
+                let box = Unmanaged<Box>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+                guard !box.nonFloat else { return }
+                box.processor.process(UnsafeMutableAudioBufferListPointer(bufferList), frames: Int(numberFramesOut.pointee), time: range.start)
+            })
+        var tap: MTAudioProcessingTap?
+        let err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PreEffects, &tap)
+        if err != noErr { Unmanaged<Box>.fromOpaque(box).release(); return nil }
+        return tap
+    }
+}

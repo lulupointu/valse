@@ -243,7 +243,57 @@ public struct AudioProps: Hashable, Codable, Sendable {
     public var isMuted: Bool
     /// Keep pitch when speed ≠ 1 (CapCut "Pitch" toggle off = chipmunk).
     public var preservePitch: Bool
-    public init() { volume = 1; fadeIn = .zero; fadeOut = .zero; isMuted = false; preservePitch = true }
+
+    // Audio effects (W8, see AudioEffects.swift). All optional / neutral by default.
+    /// "Change pitch" in semitones (−12…12), independent of speed. Formants are preserved.
+    public var pitch: Double
+    /// Voice changer preset, nil = "Original".
+    public var voice: VoiceEffect?
+    /// "Reduce noise" strength 0…1, nil = off.
+    public var noiseReduction: Double?
+    /// "Enhance voice" strength 0…1, nil = off.
+    public var enhanceVoice: Double?
+    /// "Isolate voice" keep/remove vocals, nil = off.
+    public var separation: VocalSeparation?
+    public var loudness: LoudnessNormalization?
+    public var eq: AudioEQ?
+    public var channels: ChannelMode
+    public var ducking: AudioDucking?
+    public var beats: BeatMarkers?
+    /// The clip's audio was extracted to its own audio clip (CapCut "Extract audio"; "Restore audio" undoes it).
+    /// A detached clip is silent; the extracted clip has `linkedTo` = this clip.
+    public var isDetached: Bool
+
+    public init() {
+        volume = 1; fadeIn = .zero; fadeOut = .zero; isMuted = false; preservePitch = true
+        pitch = 0; voice = nil; noiseReduction = nil; enhanceVoice = nil; separation = nil; loudness = nil; eq = nil
+        channels = .stereo; ducking = nil; beats = nil; isDetached = false
+    }
+
+    // Files written before the audio effects existed lack the new keys: every field decodes with a default.
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        volume = try c.decodeIfPresent(Double.self, forKey: .volume) ?? 1
+        fadeIn = try c.decodeIfPresent(Time.self, forKey: .fadeIn) ?? .zero
+        fadeOut = try c.decodeIfPresent(Time.self, forKey: .fadeOut) ?? .zero
+        isMuted = try c.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
+        preservePitch = try c.decodeIfPresent(Bool.self, forKey: .preservePitch) ?? true
+        pitch = try c.decodeIfPresent(Double.self, forKey: .pitch) ?? 0
+        voice = try c.decodeIfPresent(VoiceEffect.self, forKey: .voice)
+        noiseReduction = try c.decodeIfPresent(Double.self, forKey: .noiseReduction)
+        enhanceVoice = try c.decodeIfPresent(Double.self, forKey: .enhanceVoice)
+        separation = try c.decodeIfPresent(VocalSeparation.self, forKey: .separation)
+        loudness = try c.decodeIfPresent(LoudnessNormalization.self, forKey: .loudness)
+        eq = try c.decodeIfPresent(AudioEQ.self, forKey: .eq)
+        channels = try c.decodeIfPresent(ChannelMode.self, forKey: .channels) ?? .stereo
+        ducking = try c.decodeIfPresent(AudioDucking.self, forKey: .ducking)
+        beats = try c.decodeIfPresent(BeatMarkers.self, forKey: .beats)
+        isDetached = try c.decodeIfPresent(Bool.self, forKey: .isDetached) ?? false
+    }
+
+    /// The clip contributes sound to the mix.
+    public var isAudible: Bool { !isMuted && !isDetached }
 
     public static func decibels(_ gain: Double) -> Double { gain <= 0 ? -.infinity : 20 * log10(gain) }
 }
