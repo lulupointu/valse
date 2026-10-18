@@ -806,6 +806,9 @@ final class InlineTextEditor: NSObject, NSTextViewDelegate {
     init(clipID: ClipID, store: EditorStore, onFinish: @escaping () -> Void) {
         self.clipID = clipID; self.store = store; self.onFinish = onFinish
         super.init()
+        // TextKit 1 with a layout manager that always paints the selection as a translucent blue highlight: AppKit's
+        // inactive-window selection colour is an opaque grey that hid the engine-rendered text underneath (W2-2).
+        textView.textContainer?.replaceLayoutManager(TranslucentSelectionLayoutManager())
         textView.isRichText = false
         textView.drawsBackground = false
         textView.backgroundColor = .clear
@@ -861,6 +864,17 @@ final class InlineTextEditor: NSObject, NSTextViewDelegate {
         guard active else { return }
         active = false
         store.endGesture()
+    }
+}
+
+/// Paints every selection highlight (active or inactive window) as CapCut's translucent blue, so the real rendered text
+/// stays visible under the inline editor.
+nonisolated final class TranslucentSelectionLayoutManager: NSLayoutManager {
+    nonisolated(unsafe) static let selection = NSColor(srgbRed: 0.25, green: 0.5, blue: 1, alpha: 0.45)
+    override func fillBackgroundRectArray(_ rectArray: UnsafePointer<NSRect>, count rectCount: Int,
+                                          forCharacterRange charRange: NSRange, color: NSColor) {
+        Self.selection.setFill()
+        super.fillBackgroundRectArray(rectArray, count: rectCount, forCharacterRange: charRange, color: Self.selection)
     }
 }
 

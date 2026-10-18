@@ -1,0 +1,16 @@
+// Player canvas (W2-2): double-click a text layer edits it in place; the selection is a translucent blue highlight over
+// the rendered text (it used to be an opaque grey box hiding the text). Typing replaces it live; Esc commits one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"doubleClick": "player:0.5,0.726"},
+    {"expect": [{"path": "ui.firstResponder", "contains": "TextView"}, {"path": "selectedClips.0.kind", "equals": "text"}]},
+    {"snapshot": "text-edit-selected", "element": "id:panel.player", "baseline": "canvas_text_edit_selected", "threshold": 40, "tolerance": 0.03},
+    {"type": "Hello"},
+    {"expect": {"path": "selectedClips.0.text", "equals": "Hello"}},
+    {"snapshot": "text-edit-typed", "element": "id:panel.player"},
+    {"key": "escape"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.textEdit"}, {"path": "undo.depth", "equals": 1}]}
+  ]
+}
