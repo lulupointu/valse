@@ -22,6 +22,8 @@ struct MediaTab: View {
                            customNav: [("import", tr("media.nav.import"))],
                            customContent: { _ in AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID)) },
                            yoursGroup: tr("asset.nav.yours"))
+            // The library search also drives the AI smart search (AI-028): content / on-screen text / dialogue matches.
+            .onChange(of: AssetPanelState.shared.query[tabID] ?? "") { _, q in store.setMediaQuery(q) }
         } else {
             MediaBinView(store: store, kinds: kinds, tab: tabID)   // inside the Audio browser (its search lists these too)
         }
@@ -30,8 +32,14 @@ struct MediaTab: View {
     /// Bin media (hidden from the rail; searchable, favouritable) + the local stock library.
     var sections: [LibrarySection] {
         let used = store.usedMediaIDs
-        let bin = LibrarySection(id: "bin", title: tr("media.nav.import"),
-                                 items: store.mediaBin.media.map { MediaLibraryItems.item($0, store: store, used: used.contains($0.id)) },
+        // AI-028 smart search hits match the typed query even when the name doesn't (query added as a keyword).
+        let q = store.ai.mediaQuery
+        let smart = Set(store.smartSearchResults(store.mediaBin.media)?.map(\.id) ?? [])
+        let bin = LibrarySection(id: "bin", title: tr("media.nav.import"), items: store.mediaBin.media.map { a in
+                                     var i = MediaLibraryItems.item(a, store: store, used: used.contains(a.id))
+                                     if smart.contains(a.id) { i.keywords.append(q) }
+                                     return i
+                                 },
                                  inRail: false)
         return [bin] + MediaLibraryItems.stockSections(store)
     }
