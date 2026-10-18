@@ -110,6 +110,10 @@ public enum CaptionGenerator {
         phase?(.splitting)
         var settings = o.settings
         if o.lyrics { settings.identifyFillers = false; settings.removeFillers = false; settings.maxPause = 1.2 }
+        // lines that fit the frame at the caption size (≈ 25 characters on 9:16, ≤ 40 on 16:9)
+        let canvas = p.settings.canvasSize
+        settings.maxCharsPerLine = min(settings.maxCharsPerLine,
+                                       CaptionLayout.maxCharsPerLine(canvas: canvas, fontSize: o.style?.fontSize ?? CaptionLayout.fontSize(canvas: canvas)))
         var segments: [CaptionSegment] = []
         for c in clips {
             for t in transcripts[c.mediaID!] ?? [] where !t.words.isEmpty {

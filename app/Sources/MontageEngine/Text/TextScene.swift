@@ -74,9 +74,14 @@ enum TextSceneBuilder {
     ///   - canvasWidthPx: canvas width in pixels (text box width).
     ///   - duration: clip duration in seconds (template timing).
     ///   - dynamic: also build highlight variants and word boxes (karaoke).
-    static func build(_ t: TextContent, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double, dynamic: Bool) -> TextScene {
+    static func build(_ t: TextContent, fontPx fontPx0: CGFloat, canvasWidthPx: CGFloat, duration: Double, dynamic: Bool) -> TextScene {
         var blocks: [TextScene.Block] = []
-        let boxW: CGFloat? = t.boxWidth.map { CGFloat($0) * canvasWidthPx }
+        // Captions stay inside the frame (CapCut): they wrap at the safe width (`CaptionLayout.safeWidth`, or their own
+        // box) and, as a last resort, shrink until they fit in ≤ 2 lines (more only when the text has explicit breaks).
+        let fitCaption = isFittedCaption(t) && canvasWidthPx > 0
+        let boxW: CGFloat? = fitCaption ? CGFloat(t.boxWidth ?? CaptionLayout.safeWidth) * canvasWidthPx
+            : t.boxWidth.map { CGFloat($0) * canvasWidthPx }
+        var fontPx = fontPx0
 
         func textBlock(_ style: TextContent, px: CGFloat, string: String? = nil, layer: TextTemplateLayer? = nil) -> TextScene.Block {
             var st = style
@@ -105,6 +110,18 @@ enum TextSceneBuilder {
                                    karaoke: st.karaoke, wordTimes: words)
         }
 
+        if fitCaption, let w = boxW {
+            let allowed = max(CaptionLayout.maxLines, t.displayString.components(separatedBy: "\n").count)
+            func fits(_ px: CGFloat) -> Bool {
+                let l = textBlock(t, px: px).layout
+                return l.lines.count <= allowed && (l.bounds.isNull || l.bounds.width <= w + 1)
+            }
+            if !fits(fontPx) {
+                var lo = CGFloat(CaptionLayout.minFitScale), hi: CGFloat = 1
+                for _ in 0..<7 { let mid = (lo + hi) / 2; if fits(fontPx * mid) { lo = mid } else { hi = mid } }
+                fontPx *= lo
+            }
+        }
         if let inst = t.template, let d = Registries.textTemplates[inst.templateID] {
             var slotWidth: [Int: CGFloat] = [:]
             var built: [Int: TextScene.Block] = [:]
@@ -173,6 +190,11 @@ enum TextSceneBuilder {
             place(&blocks[i], center: .zero, rotation: 0, scale: 1)
         }
         return assemble(blocks, clip: t, dynamic: dynamic)
+    }
+
+    /// Caption clips laid out by the caption fit (plain horizontal text; templates, curves and paths keep their own layout).
+    static func isFittedCaption(_ t: TextContent) -> Bool {
+        t.caption != nil && t.template == nil && t.orientation == .horizontal && t.path == nil && t.curve == 0
     }
 
     /// Positions a block so that its layout bounds centre lands on `center`.

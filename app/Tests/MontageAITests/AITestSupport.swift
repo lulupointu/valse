@@ -20,6 +20,23 @@ enum AIFixtures {
 
     static var speechFR: URL? { benchMedia("speech_fr.wav") }
 
+    /// Word onsets of speech_fr.wav (bench/speech_fr_words.tsv, from bench/speech_words.swift): (word, seconds).
+    static var speechFRWords: [(text: String, start: Double)]? {
+        var u = TestMedia.repoRoot()
+        while u.path != "/" {
+            let c = u.appendingPathComponent("bench/speech_fr_words.tsv")
+            if let s = try? String(contentsOf: c, encoding: .utf8) {
+                return s.split(separator: "\n").compactMap { l in
+                    let f = l.split(separator: "\t")
+                    guard f.count == 2, let t = Double(f[1]) else { return nil }
+                    return (String(f[0]), t)
+                }
+            }
+            u.deleteLastPathComponent()
+        }
+        return nil
+    }
+
     static var speechFRReference: String? {
         var u = TestMedia.repoRoot()
         while u.path != "/" {

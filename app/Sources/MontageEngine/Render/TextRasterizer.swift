@@ -284,7 +284,7 @@ public final class TextRasterizer: @unchecked Sendable {
     private func key(_ t: TextContent, _ px: CGFloat, _ w: CGFloat, _ d: Double) -> Key {
         // duration only matters for templates / evenly spread karaoke words
         let dk = (t.template != nil || t.karaoke != nil) ? Int((d * 100).rounded()) : 0
-        return Key(content: t, px: Int((px * 4).rounded()), canvasW: t.boxWidth == nil ? 0 : Int(w.rounded()), duration: dk)
+        return Key(content: t, px: Int((px * 4).rounded()), canvasW: t.boxWidth == nil && !TextSceneBuilder.isFittedCaption(t) ? 0 : Int(w.rounded()), duration: dk)
     }
 
     private func scene(_ t: TextContent, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double) -> TextScene {

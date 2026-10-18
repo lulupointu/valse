@@ -4,11 +4,14 @@ import Foundation
 // seconds + word timings), added with `CaptionOps.addCaptionTrack` so captions use W7's model (`TextContent.caption`,
 // karaoke, bilingual, editor). Nothing here owns caption storage.
 
-/// How recognised words become captions (CapCut: one caption ≤ 2 lines, split on pauses and sentence ends).
+/// How recognised words become captions (CapCut: one caption ≤ 2 lines, ~1–3 s, split on sentence ends, pauses and
+/// punctuation).
 public struct CaptionSettings: Hashable, Codable, Sendable {
+    /// Characters per line (the generator lowers it to what fits the canvas, `CaptionLayout.maxCharsPerLine`).
     public var maxCharsPerLine: Int
     public var maxLines: Int
-    /// A pause longer than this starts a new caption (seconds).
+    /// A pause longer than this starts a new caption (seconds). Shorter pauses between captions are bridged (the
+    /// caption stays up until the next one) so captions don't flicker.
     public var maxPause: Double
     /// Longest caption on screen (seconds).
     public var maxDuration: Double
@@ -16,11 +19,15 @@ public struct CaptionSettings: Hashable, Codable, Sendable {
     public var identifyFillers: Bool
     /// Drop filler words from the caption text ("Remove filler words").
     public var removeFillers: Bool
-    public init(maxCharsPerLine: Int = 28, maxLines: Int = 2, maxPause: Double = 0.6, maxDuration: Double = 6,
+    public init(maxCharsPerLine: Int = 28, maxLines: Int = 2, maxPause: Double = 0.5, maxDuration: Double = 3.2,
                 identifyFillers: Bool = false, removeFillers: Bool = false) {
         self.maxCharsPerLine = maxCharsPerLine; self.maxLines = maxLines; self.maxPause = maxPause
         self.maxDuration = maxDuration; self.identifyFillers = identifyFillers; self.removeFillers = removeFillers
     }
+    /// How long a caption stays after its last word when silence follows (seconds).
+    public static let tail = 0.2
+    /// Shortest caption on screen when the next one leaves room (seconds).
+    public static let minDuration = 0.6
 }
 
 /// One caption before placement (media time).
@@ -61,44 +68,93 @@ public enum CaptionText {
 }
 
 public enum SpeechSegmenter {
-    /// New caption after a sentence end, a pause > `maxPause`, when the text exceeds `maxLines × maxCharsPerLine`, or
-    /// when it would last longer than `maxDuration`.
+    /// Words a caption (or a line) should not end on: articles, prepositions, conjunctions, clitics (fr + en).
+    static let weakEnd: Set<String> = Set("""
+    le la les l' un une des du de d' au aux à et ou mais donc car ni que qu' qui ce cet cette ces mon ma mes ton ta tes son sa \
+    ses notre nos votre vos leur leurs je j' tu il elle on nous vous ils elles me m' te t' se s' ne n' en y pour par sur dans \
+    avec sans sous chez vers très plus c' the a an and or but of to in on at for with from by as my your his her our their \
+    is are was i you he she we they it this that
+    """.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init))
+
+    static func isSentenceEnd(_ w: String) -> Bool { w.last.map { ".?!…".contains($0) } ?? false }
+    static func isClauseEnd(_ w: String) -> Bool { w.last.map { ",;:—–)".contains($0) } ?? false }
+    static func isWeak(_ w: String) -> Bool {
+        let n = CaptionText.normalize(w)
+        return weakEnd.contains(n) || n.hasSuffix("'")
+    }
+
+    /// Splits recognised words into captions. Hard breaks: sentence ends and pauses > `maxPause`. A run longer than
+    /// `maxLines × maxCharsPerLine` characters or `maxDuration` seconds is cut at its best break point — punctuation,
+    /// then the longest pause, preferring well-filled captions and never ending on an article / preposition — rather
+    /// than wherever the limit is hit.
     public static func segments(_ words: [TranscriptWord], language: String, settings: CaptionSettings = CaptionSettings()) -> [SpeechSegment] {
-        let kinds = settings.identifyFillers || settings.removeFillers
+        let allKinds = settings.identifyFillers || settings.removeFillers
             ? FillerWords.classify(words.map(\.text), language: language) : Array(repeating: nil, count: words.count)
+        var ws: [TranscriptWord] = [], kinds: [FillerWords.Kind?] = []
+        for (w, k) in zip(words, allKinds) where !w.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            var w = w; w.text = w.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            ws.append(w); kinds.append(k)
+        }
+        let n = ws.count
+        guard n > 0 else { return [] }
+        let capacity = max(settings.maxCharsPerLine, 4) * max(settings.maxLines, 1)
+        func shown(_ r: ClosedRange<Int>) -> [String] {
+            settings.removeFillers ? r.filter { kinds[$0] == nil }.map { ws[$0].text } : r.map { ws[$0].text }
+        }
+        func chars(_ r: ClosedRange<Int>) -> Int { CaptionText.join(shown(r)).count }
+        func gap(after k: Int) -> Double { k + 1 < n ? max(0, ws[k + 1].start - ws[k].end) : .infinity }
+        func hardBreak(after k: Int) -> Bool { isSentenceEnd(ws[k].text) || gap(after: k) > settings.maxPause }
+
         var out: [SpeechSegment] = []
-        var cur: [TranscriptWord] = [], curKinds: [FillerWords.Kind?] = []
-        let capacity = settings.maxCharsPerLine * max(settings.maxLines, 1)
-        func flush() {
-            guard !cur.isEmpty else { return }
-            let shown = settings.removeFillers ? zip(cur, curKinds).filter { $0.1 == nil }.map(\.0.text) : cur.map(\.text)
-            if !shown.isEmpty {
-                out.append(SpeechSegment(words: cur, fillers: curKinds, lines: wrap(shown, maxChars: settings.maxCharsPerLine, maxLines: settings.maxLines)))
+        var start = 0
+        while start < n {
+            var end = start
+            var limited = false
+            while end + 1 < n, !hardBreak(after: end) {
+                let c = end + 1
+                if chars(start...c) > capacity || ws[c].end - ws[start].start > settings.maxDuration { limited = true; break }
+                end = c
             }
-            cur = []; curKinds = []
-        }
-        for (i, w) in words.enumerated() {
-            let t = w.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !t.isEmpty else { continue }
-            if let last = cur.last, let first = cur.first {
-                let len = CaptionText.join(cur.map(\.text) + [t]).count
-                let sentenceEnd = last.text.last.map { ".?!…".contains($0) } ?? false
-                if sentenceEnd || w.start - last.end > settings.maxPause || len > capacity || w.end - first.start > settings.maxDuration { flush() }
+            if limited, end > start {
+                // best break point in start...end (the caption ends after word k)
+                var best = end, bestScore = -Double.infinity
+                for k in start...end {
+                    let fill = Double(chars(start...k)) / Double(capacity)
+                    let dur = ws[k].end - ws[start].start
+                    var score = min(fill, 1) * 2 + min(dur / settings.maxDuration, 1)
+                    if isClauseEnd(ws[k].text) { score += 3 }
+                    score += min(gap(after: k), 0.5) * 8
+                    if isWeak(ws[k].text) { score -= 3 }
+                    if k == start { score -= 1.5 }        // a lone word
+                    if k + 1 == end { score -= 0.5 }      // strands one word before the limit
+                    if score > bestScore { bestScore = score; best = k }
+                }
+                end = best
             }
-            cur.append(w); curKinds.append(kinds[i])
+            let r = start...end
+            let text = shown(r)
+            if !text.isEmpty {
+                out.append(SpeechSegment(words: Array(ws[r]), fillers: Array(kinds[r]),
+                                         lines: wrap(text, maxChars: settings.maxCharsPerLine, maxLines: settings.maxLines)))
+            }
+            start = end + 1
         }
-        flush()
         return out
     }
 
-    /// At most `maxLines` (2) lines, balancing their lengths.
+    /// At most `maxLines` (2) lines, balancing their lengths; prefers breaking after punctuation and not after an
+    /// article / preposition.
     public static func wrap(_ words: [String], maxChars: Int, maxLines: Int = 2) -> [String] {
         let full = CaptionText.join(words)
         guard full.count > maxChars, maxLines > 1, words.count > 1 else { return [full] }
-        var best = 1, bestLen = Int.max
+        var best = 1, bestCost = Double.infinity
         for k in 1..<words.count {
             let a = CaptionText.join(Array(words[..<k])).count, b = CaptionText.join(Array(words[k...])).count
-            if max(a, b) < bestLen { bestLen = max(a, b); best = k }
+            var cost = Double(max(a, b))
+            if max(a, b) > maxChars { cost += 1000 }
+            if isClauseEnd(words[k - 1]) || isSentenceEnd(words[k - 1]) { cost -= 4 }
+            if isWeak(words[k - 1]) { cost += 4 }
+            if cost < bestCost { bestCost = cost; best = k }
         }
         return [CaptionText.join(Array(words[..<best])), CaptionText.join(Array(words[best...]))]
     }
@@ -141,7 +197,22 @@ public enum SpeechCaptions {
                 ws.append((w.text, min(s0, e0), max(s0, e0)))
             }
             // the caption text is what the words spell (two lines), so word timings stay aligned with tokens
-            out.append(CaptionSegment(text: seg.text, start: min(a0, b0), end: max(max(a0, b0), min(a0, b0) + 0.3), words: ws))
+            out.append(CaptionSegment(text: seg.text, start: min(a0, b0), end: max(a0, b0), words: ws))
+        }
+        return settle(out, clipEnd: mediaClip.end.seconds, settings: settings)
+    }
+
+    /// Display timing of consecutive captions (timeline seconds): no overlaps; a pause ≤ `maxPause` between two captions
+    /// is bridged (the first stays until the next starts); after a longer pause the caption lingers `tail` seconds;
+    /// very short captions are held to `minDuration` when there is room. Never past `clipEnd`.
+    public static func settle(_ segs: [CaptionSegment], clipEnd: Double, settings: CaptionSettings) -> [CaptionSegment] {
+        var out = segs.sorted { $0.start < $1.start }
+        for i in out.indices {
+            let next = i + 1 < out.count ? out[i + 1].start : max(clipEnd, out[i].end)
+            var e = out[i].end
+            if next - e <= settings.maxPause { e = next } else { e += CaptionSettings.tail }
+            e = max(e, out[i].start + CaptionSettings.minDuration)
+            out[i].end = max(min(e, next), out[i].start + 0.1)
         }
         return out
     }

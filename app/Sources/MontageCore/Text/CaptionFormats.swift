@@ -52,7 +52,7 @@ public enum CaptionFiles {
         switch format {
         case .srt: return srt(segments)
         case .vtt: return vtt(segments)
-        case .ass: return ass(segments, style: style ?? CaptionOps.defaultStyle(), canvas: canvas)
+        case .ass: return ass(segments, style: style ?? CaptionOps.defaultStyle(canvas: canvas), canvas: canvas)
         case .lrc: return lrc(segments)
         case .txt: return segments.map(\.text).joined(separator: "\n") + "\n"
         }

@@ -18,7 +18,8 @@ public final class TranscriptStore: @unchecked Sendable {
 
     public static func key(hash: String, range: TimeRange?, language: String?, engine: SpeechEngine, fillers: Bool) -> String {
         let r = range.map { "\(Int($0.start.seconds * 1000))-\(Int($0.end.seconds * 1000))" } ?? "all"
-        return "\(hash)-\(r)-\(language ?? "auto")-\(engine.rawValue)\(fillers ? "-f" : "")"
+        // t4: DTW word times + speech-onset snapping (older cached transcripts have early/late words)
+        return "\(hash)-\(r)-\(language ?? "auto")-\(engine.rawValue)\(fillers ? "-f" : "")-t4"
     }
 
     public func get(_ key: String) -> Transcript? {

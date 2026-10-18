@@ -83,6 +83,7 @@ public enum TranscriptEditing {
             let doomed = Set(tl.tracks[mi].clips.filter { $0.start >= r.start - tol && $0.end <= r.end + tol }.map(\.id))
             if !doomed.isEmpty { try TimelineOps.delete(doomed, in: &tl) }
         }
+        CaptionOps.resolveOverlaps(in: &tl)   // back-to-back captions spanning a cut
         project.timeline = tl
     }
 

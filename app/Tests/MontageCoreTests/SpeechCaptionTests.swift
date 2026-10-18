@@ -28,6 +28,52 @@ import Foundation
         #expect(segs.flatMap(\.words).map(\.text) == Self.words().map(\.text))
     }
 
+    @Test func captionLayoutFollowsTheCanvas() {
+        let v = Size2(1080, 1920), h = Size2(1920, 1080)
+        #expect(CaptionLayout.fontSize(canvas: h) == 0.055)
+        // vertical: sized from the width (≈ 65 px on 1080×1920, not 106 px)
+        #expect(abs(CaptionLayout.fontSize(canvas: v) * 1920 - 64.8) < 0.5)
+        #expect(CaptionLayout.position(canvas: v).y < 0.25 && CaptionLayout.position(canvas: h).y == 0.36)
+        let nv = CaptionLayout.maxCharsPerLine(canvas: v), nh = CaptionLayout.maxCharsPerLine(canvas: h)
+        #expect(nv >= 20 && nv <= 28 && nh <= 40 && nh > nv)
+        var p = Project(name: "v", settings: ProjectSettings(canvasSize: v))
+        CaptionOps.addCaptionTrack([CaptionSegment(text: "Salut", start: 0, end: 1)], to: &p)
+        let c = SpeechCaptions.captions(in: p.timeline)[0]
+        #expect(CaptionOps.text(c)?.fontSize == CaptionLayout.fontSize(canvas: v))
+        #expect(c.transform.position == CaptionLayout.position(canvas: v))
+    }
+
+    /// Long runs are cut at punctuation / pauses, never after an article, and captions stay short (≈ 1–3 s).
+    @Test func longSpeechBreaksAtNaturalPoints() {
+        let spec: [(String, Double)] = [
+            ("Elle", 0), ("refuse", 0.2), ("ses", 0.5), ("trente", 0.6), ("ans,", 0.9), ("et", 1.4), ("moi", 1.55),
+            ("je", 1.75), ("comprends", 1.85), ("vraiment", 2.3), ("très", 2.7), ("bien", 2.9), ("la", 3.1),
+            ("situation", 3.2), ("actuelle", 3.7), ("de", 4.2), ("sa", 4.3), ("sœur.", 4.4),
+        ]
+        let words = spec.map { TranscriptWord(text: $0.0, start: $0.1, end: $0.1 + 0.17) }
+        let s = CaptionSettings(maxCharsPerLine: 20)
+        let segs = SpeechSegmenter.segments(words, language: "fr", settings: s)
+        #expect(segs.flatMap(\.words).map(\.text) == words.map(\.text))
+        #expect(segs[0].words.last?.text == "ans,")                        // the comma + pause, not the char limit
+        for seg in segs {
+            #expect(seg.lines.count <= 2)
+            for l in seg.lines { #expect(l.count <= 20, "\(l)") }
+            #expect(seg.end - seg.start <= s.maxDuration + 0.01)
+            #expect(!["de", "la", "sa", "ses", "et", "je"].contains(seg.words.last!.text), "ends on \(seg.words.last!.text)")
+        }
+    }
+
+    /// No overlaps, short pauses bridged, long pauses keep a gap, captions linger a little after the last word.
+    @Test func captionTimingIsSettled() {
+        let segs = [CaptionSegment(text: "a", start: 0, end: 1.0), CaptionSegment(text: "b", start: 1.3, end: 2.0),
+                    CaptionSegment(text: "c", start: 3.5, end: 3.7), CaptionSegment(text: "d", start: 3.65, end: 4.5)]
+        let out = SpeechCaptions.settle(segs, clipEnd: 10, settings: CaptionSettings())
+        #expect(out[0].end == 1.3)                                        // 0.3 s pause bridged
+        #expect(abs(out[1].end - 2.2) < 1e-9)                             // 1.5 s pause: +tail only
+        #expect(out[2].end <= out[3].start)                               // never overlaps
+        #expect(abs(out[3].end - 4.7) < 1e-9)
+    }
+
     @Test func wrapBalancesTwoLines() {
         let lines = SpeechSegmenter.wrap(["Pour", "couper", "un", "plan,", "placez", "la", "tête", "de", "lecture"], maxChars: 28)
         #expect(lines.count == 2)

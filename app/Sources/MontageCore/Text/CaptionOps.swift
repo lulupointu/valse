@@ -26,11 +26,13 @@ public enum CaptionOps {
     public static func captionTracks(_ tl: Timeline) -> [Int] { tl.tracks.indices.filter { isCaptionTrack(tl.tracks[$0]) } }
 
     /// Default caption look (white bold with a black outline, lower third). Used by auto captions and imports.
-    public static func defaultStyle() -> TextContent {
-        var t = TextContent(string: "", fontSize: 0.055)
+    /// `canvas` sizes it for the frame (`CaptionLayout`: smaller on vertical canvases); nil = the 16:9 size.
+    public static func defaultStyle(canvas: Size2? = nil) -> TextContent {
+        var t = TextContent(string: "", fontSize: canvas.map(CaptionLayout.fontSize) ?? 0.055)
         t.bold = true; t.strokeColor = .black; t.strokeWidth = 0.08
         return t
     }
+    /// Default caption centre on a 16:9 canvas (`CaptionLayout.position(canvas:)` for others).
     public static let defaultPosition = Vec2(0, 0.36)
 
     /// Word timings of a caption clip in content time, spreading words evenly over the clip when none are stored
@@ -80,10 +82,14 @@ public enum CaptionOps {
     /// Adds a caption track built from `segments` (the AI team's auto captions / lyrics, imported SRT/VTT/ASS/LRC, scripts).
     /// `replacing` removes existing caption tracks of the same origin first (CapCut "Delete current captions").
     /// Overlapping segments are clipped so captions never overlap. Returns the new track id (nil when nothing was added).
+    /// `style` / `position` default to the canvas-aware caption look (`CaptionLayout`).
     @discardableResult
     public static func addCaptionTrack(_ segments: [CaptionSegment], to project: inout Project, style: TextContent? = nil,
-                                       origin: CaptionOrigin = .auto, position: Vec2 = defaultPosition,
+                                       origin: CaptionOrigin = .auto, position: Vec2? = nil,
                                        replacing: Bool = false) -> TrackID? {
+        let canvas = project.settings.canvasSize
+        let style = style ?? defaultStyle(canvas: canvas)
+        let position = position ?? CaptionLayout.position(canvas: canvas)
         var tl = project.timeline
         if replacing {
             tl.tracks.removeAll { t in
@@ -110,6 +116,23 @@ public enum CaptionOps {
         tl.tracks[ti].clips = clips
         project.timeline = tl
         return id
+    }
+
+    /// Trims caption clips that run into the next caption of their track (after ripple edits moved linked captions
+    /// onto back-to-back neighbours). A caption that would become shorter than the minimum is removed.
+    public static func resolveOverlaps(in tl: inout Timeline) {
+        for ti in tl.tracks.indices where isCaptionTrack(tl.tracks[ti]) {
+            var clips = tl.tracks[ti].clips.sorted { $0.start < $1.start }
+            var i = 0
+            while i + 1 < clips.count {
+                if clips[i].end > clips[i + 1].start {
+                    let d = clips[i + 1].start - clips[i].start
+                    if d >= TimelineOps.minimumClipDuration { clips[i].duration = d } else { clips.remove(at: i); continue }
+                }
+                i += 1
+            }
+            tl.tracks[ti].clips = clips
+        }
     }
 
     /// Captions of a track as segments in timeline seconds (export). `translation` picks what the main text is when the

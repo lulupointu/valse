@@ -234,6 +234,40 @@ import MontageTestSupport
         #expect(wrapped.width <= 640 * 0.3 + 4 && wrapped.height > one.height * 1.8)
     }
 
+    /// Owner bug: on a 9:16 project auto captions were ~1.8× too big and two lines ran off both edges. Old captions
+    /// (16:9 size and position) are wrapped and shrunk into the safe width; new ones get the vertical size, wrap in ≤ 2
+    /// lines and sit in the lower third above the platform UI.
+    @Test func verticalCaptionsStayInsideTheFrame() {
+        let canvas = Size2(360, 640)
+        let long = "refuse de passer mes trente ans sans ma soeur et on va lui faire passer trois jours inoubliables"
+        var p = Project(name: "v", settings: ProjectSettings(canvasSize: canvas, frameRate: .fps30, backgroundColor: .black))
+        // a caption made before the fix: 16:9 font size and position, a 2-line text much wider than the frame
+        CaptionOps.addCaptionTrack([CaptionSegment(text: "refuse de passer mes trente\nans sans ma soeur Il faut", start: 0, end: 2)],
+                                   to: &p, style: CaptionOps.defaultStyle(), position: CaptionOps.defaultPosition)
+        let old = box(render(p, at: 1), Self.lit)!
+        #expect(old.minX >= 360 * 0.05 && old.maxX <= 360 * 0.95, "old caption leaves the frame: \(old)")
+        #expect(old.height < 640 * 0.055 * 2.8, "more than two lines: \(old)")
+        // regenerated: canvas-aware defaults
+        var q = Project(name: "v", settings: ProjectSettings(canvasSize: canvas, frameRate: .fps30, backgroundColor: .black))
+        let segs = SpeechSegmenter.segments(long.split(separator: " ").enumerated().map {
+            TranscriptWord(text: String($0.element), start: Double($0.offset) * 0.2, end: Double($0.offset) * 0.2 + 0.18)
+        }, language: "fr", settings: CaptionSettings(maxCharsPerLine: CaptionLayout.maxCharsPerLine(canvas: canvas)))
+        #expect(segs.count >= 2)
+        let track = segs.map { CaptionSegment(text: $0.text, start: $0.start, end: $0.end) }
+        CaptionOps.addCaptionTrack(track, to: &q)
+        for s in segs {
+            let b = box(render(q, at: (s.start + s.end) / 2), Self.lit)!
+            #expect(b.minX >= 360 * 0.06 && b.maxX <= 360 * 0.94, "\(s.text): \(b)")
+            #expect(b.midY > 640 * 0.6 && b.maxY < 640 * 0.8, "\(s.text): \(b)")       // lower third, above the Reels UI
+            #expect(b.height < 640 * CaptionLayout.fontSize(canvas: canvas) * 2.8)
+        }
+        // the renderer's last-resort shrink: one unbreakable word wider than the frame
+        var r = Project(name: "v", settings: ProjectSettings(canvasSize: canvas, frameRate: .fps30, backgroundColor: .black))
+        CaptionOps.addCaptionTrack([CaptionSegment(text: "Anticonstitutionnellement!", start: 0, end: 2)], to: &r)
+        let w = box(render(r, at: 1), Self.lit)!
+        #expect(w.minX >= 360 * 0.05 && w.maxX <= 360 * 0.95, "\(w)")
+    }
+
     @Test func complexScriptsAndEmoji() {
         for s in ["مرحبا بالعالم", "שלום עולם", "你好，世界", "こんにちは", "안녕하세요", "สวัสดี", "नमस्ते", "Ünïcødé"] {
             #expect(count(render(text(s, size: 0.12)), Self.lit) > 300, "script \(s)")

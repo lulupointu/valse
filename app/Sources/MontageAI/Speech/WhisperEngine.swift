@@ -2,10 +2,14 @@ import Foundation
 import MontageCore
 import MontageEngine
 
-/// whisper.cpp transcription through the `whisper-cli` sidecar (Metal, flash attention, beam 5).
-/// Word timestamps come from the full-JSON token offsets (tokens are merged into words: a token starting with a space
-/// starts a new word, punctuation tokens attach to the previous word). Progress is parsed from `-pp`; cancelling the
-/// Swift task terminates the process.
+/// whisper.cpp transcription through the `whisper-cli` sidecar (Metal, beam 5).
+/// Word timestamps come from DTW token-level timestamps (`-dtw <preset>`, cross-attention alignment; needs flash
+/// attention off): a token's `t_dtw` marks where its sound ends, so a word starts just after the previous token
+/// (`dtwStartBias` of the way towards its own first token) and ends at its last token. Without DTW data (old
+/// whisper-cli builds) the interpolated token offsets are used. Tokens merge into words (a token starting with a space
+/// starts a new word, punctuation attaches to the previous word). Progress is parsed from `-pp`; cancelling the Swift
+/// task terminates the process. Measured on bench/speech_fr.wav (ground truth from the synthesizer's word callbacks):
+/// mean |onset error| 230 ms with offsets → ~40 ms with DTW (+ `SpeechActivity` snapping).
 public enum WhisperEngine {
     public struct Options: Sendable {
         /// nil = auto-detect.
@@ -15,6 +19,8 @@ public enum WhisperEngine {
         /// Keep disfluencies ("euh", "um") in the output: an initial prompt containing fillers makes Whisper keep them.
         public var keepFillers: Bool
         public var threads: Int
+        /// DTW token timestamps (accurate word times; off = whisper's interpolated timestamps, the pre-2026-10 behaviour).
+        public var dtw = true
         public init(language: String?, model: URL, cli: URL, keepFillers: Bool = false,
                     threads: Int = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))) {
             self.language = language; self.model = model; self.cli = cli; self.keepFillers = keepFillers; self.threads = threads
@@ -30,8 +36,20 @@ public enum WhisperEngine {
         if o.keepFillers {
             args += ["--prompt", o.language == "en" ? "Um, so, uh, I mean, like, you know." : "Euh, alors, bah, en fait, du coup, hein."]
         }
+        if o.dtw, let preset = dtwPreset(model: o.model) {
+            do {
+                try await run(o.cli, args + ["-nfa", "-dtw", preset], progress: progress)
+                return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en")
+            } catch is CancellationError { throw CancellationError() }
+            catch { EngineLog.error("whisper DTW run failed (\(error)), retrying without DTW") }
+        }
+        try await run(o.cli, args, progress: progress)
+        return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en")
+    }
+
+    static func run(_ cli: URL, _ args: [String], progress: (@Sendable (Double) -> Void)?) async throws {
         let p = Process()
-        p.executableURL = o.cli
+        p.executableURL = cli
         p.arguments = args
         p.standardOutput = FileHandle.nullDevice
         let err = Pipe()
@@ -56,14 +74,37 @@ public enum WhisperEngine {
         err.fileHandleForReading.readabilityHandler = nil
         try Task.checkCancellation()
         guard status == 0 else { throw AIToolError.unavailable("whisper-cli exit \(status): \(progressBox.tail)") }
-        let data = try Data(contentsOf: jsonURL)
-        return try parse(data, fallbackLanguage: o.language ?? "en")
     }
+
+    /// whisper.cpp DTW alignment-heads preset for a ggml model file (nil = unknown model → no DTW).
+    public static func dtwPreset(model: URL) -> String? {
+        let n = model.lastPathComponent.lowercased()
+        let en = n.contains(".en") ? ".en" : ""
+        if n.contains("large-v3-turbo") || n.contains("large-v3_turbo") { return "large.v3.turbo" }
+        if n.contains("large-v3") { return "large.v3" }
+        if n.contains("large-v2") { return "large.v2" }
+        if n.contains("large") { return "large.v1" }
+        for size in ["medium", "small", "base", "tiny"] where n.contains(size) { return size + en }
+        return nil
+    }
+
+    /// Fraction of the way from the previous token's DTW time to the word's own first token where the word starts
+    /// (DTW marks token ends; measured on synthetic French speech: 0 → −47 ms bias, 0.15 → ≈ 0).
+    static let dtwStartBias = 0.15
 
     /// Parses `-ojf` output into words.
     public static func parse(_ data: Data, fallbackLanguage: String) throws -> Transcript {
         guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIToolError.unavailable("bad json") }
         let lang = (obj["result"] as? [String: Any])?["language"] as? String ?? fallbackLanguage
+        let segments = obj["transcription"] as? [[String: Any]] ?? []
+        func isSpecial(_ t: String) -> Bool { t.hasPrefix("[_") || t.hasPrefix("<|") }
+        func dtw(_ tok: [String: Any]) -> Double? {
+            guard let v = tok["t_dtw"] as? Double, v >= 0 else { return nil }
+            return v / 100
+        }
+        let hasDTW = segments.contains { ($0["tokens"] as? [[String: Any]] ?? []).contains { t in
+            !isSpecial(t["text"] as? String ?? "[_") && dtw(t) != nil } }
+        if hasDTW { return Transcript(engine: "whisper.cpp", language: lang, words: dtwWords(segments)) }
         var words: [TranscriptWord] = []
         var cur: (text: String, start: Double, end: Double, p: [Double])?
         func flush() {
@@ -99,6 +140,47 @@ public enum WhisperEngine {
             flush()
         }
         return Transcript(engine: "whisper.cpp", language: lang, words: words)
+    }
+
+    /// Words from DTW token times (see the type comment).
+    static func dtwWords(_ segments: [[String: Any]]) -> [TranscriptWord] {
+        var words: [TranscriptWord] = []
+        var cur: (text: String, start: Double, end: Double, p: [Double])?
+        func flush() {
+            if let c = cur {
+                let t = c.text.trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty, !t.allSatisfy({ $0.isPunctuation || $0.isSymbol }) {
+                    let s = max(c.start, words.last?.start ?? 0)
+                    words.append(TranscriptWord(text: t, start: s, end: max(c.end, s + 0.02),
+                                                confidence: c.p.isEmpty ? nil : c.p.reduce(0, +) / Double(c.p.count)))
+                } else if !t.isEmpty, let last = words.indices.last {
+                    words[last].text += t
+                }
+            }
+            cur = nil
+        }
+        for seg in segments {
+            let segStart = ((seg["offsets"] as? [String: Any])?["from"] as? Double ?? 0) / 1000
+            var prev: Double? = nil
+            for tok in seg["tokens"] as? [[String: Any]] ?? [] {
+                guard let text = tok["text"] as? String, !(text.hasPrefix("[_") || text.hasPrefix("<|")) else { continue }
+                let off = tok["offsets"] as? [String: Any]
+                let d = (tok["t_dtw"] as? Double).flatMap { $0 >= 0 ? $0 / 100 : nil } ?? ((off?["to"] as? Double ?? 0) / 1000)
+                let p = tok["p"] as? Double
+                let isPunct = text.trimmingCharacters(in: .whitespaces).allSatisfy { $0.isPunctuation || $0.isSymbol }
+                if cur == nil || (text.hasPrefix(" ") && !isPunct) {
+                    flush()
+                    let from = prev ?? segStart
+                    cur = (text, from + dtwStartBias * max(0, d - from), d, p.map { [$0] } ?? [])
+                } else {
+                    cur!.text += text
+                    if !isPunct { cur!.end = max(cur!.end, d); if let p { cur!.p.append(p) } }
+                }
+                prev = d
+            }
+            flush()
+        }
+        return words
     }
 }
 

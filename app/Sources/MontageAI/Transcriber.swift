@@ -32,8 +32,16 @@ public enum Transcriber {
         }
     }
 
-    /// Transcribes a 16 kHz mono WAV (see `AudioExtractor`). `progress` 0…1.
+    /// Transcribes a 16 kHz mono WAV (see `AudioExtractor`). `progress` 0…1. Word boundaries are snapped to the speech
+    /// onsets / offsets found in the WAV (`SpeechActivity`), whatever the engine.
     public static func transcribe(wav: URL, request r: Request, progress: (@Sendable (Double) -> Void)? = nil) async throws -> Transcript {
+        var t = try await recognize(wav: wav, request: r, progress: progress)
+        if !t.words.isEmpty, let vad = SpeechActivity.analyze(wav: wav) { t.words = vad.refine(t.words) }
+        return t
+    }
+
+    /// Raw engine output (no boundary snapping).
+    static func recognize(wav: URL, request r: Request, progress: (@Sendable (Double) -> Void)? = nil) async throws -> Transcript {
         var errors: [String] = []
         if r.engine != .apple, let cli = WhisperRuntime.cliURL, let model = ModelCatalog.installedWhisperModel {
             do {
