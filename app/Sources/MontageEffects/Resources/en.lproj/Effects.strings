@@ -1,0 +1,86 @@
+/* Params */
+"fx.param.intensity" = "Intensity";
+"fx.param.radius" = "Radius";
+"fx.param.amount" = "Amount";
+"fx.param.speed" = "Speed";
+"fx.param.size" = "Size";
+
+/* Filters */
+"filter.group.bw" = "Black & white";
+"filter.group.life" = "Life";
+"filter.group.retro" = "Retro";
+"filter.group.creative" = "Creative";
+"filter.mono" = "Mono";
+"filter.noir" = "Noir";
+"filter.warm" = "Warm";
+"filter.cool" = "Cool";
+"filter.vivid" = "Vivid";
+"filter.fade" = "Faded";
+"filter.sepia" = "Sepia";
+"filter.invert" = "Invert";
+
+/* Adjustments */
+"adjust.group.basic" = "Basic";
+"adjust.basic" = "Adjust";
+"adjust.brightness" = "Brightness";
+"adjust.contrast" = "Contrast";
+"adjust.saturation" = "Saturation";
+"adjust.exposure" = "Exposure";
+"adjust.temperature" = "Temperature";
+"adjust.tint" = "Tint";
+"adjust.highlights" = "Highlights";
+"adjust.shadows" = "Shadows";
+"adjust.vignette" = "Vignette";
+
+/* Effects */
+"effect.group.basic" = "Basic";
+"effect.group.party" = "Party";
+"effect.blur" = "Blur";
+"effect.vignette" = "Vignette";
+"effect.glitch" = "Glitch";
+"effect.pixelate" = "Pixelate";
+
+/* Transitions */
+"transition.group.basic" = "Basic";
+"transition.group.slide" = "Slide";
+"transition.group.camera" = "Camera";
+"transition.group.shape" = "Shape";
+"transition.dissolve" = "Dissolve";
+"transition.blackFade" = "Black fade";
+"transition.slideLeft" = "Slide left";
+"transition.wipeRight" = "Wipe right";
+"transition.zoomIn" = "Zoom in";
+"transition.circle" = "Circle";
+
+/* Animations */
+"anim.fadeIn" = "Fade in";
+"anim.slideUp" = "Slide up";
+"anim.slideRight" = "Slide right";
+"anim.zoomIn" = "Zoom in";
+"anim.spinIn" = "Spin in";
+"anim.fadeOut" = "Fade out";
+"anim.slideDown" = "Slide down";
+"anim.zoomOut" = "Zoom out";
+"anim.pulse" = "Pulse";
+"anim.swing" = "Swing";
+
+/* Stickers */
+"sticker.group.emoji" = "Emoji";
+"sticker.group.shapes" = "Shapes";
+"sticker.heart" = "Heart";
+"sticker.star" = "Star";
+"sticker.fire" = "Fire";
+"sticker.laugh" = "Laugh";
+"sticker.thumbsUp" = "Thumbs up";
+"sticker.party" = "Party";
+"sticker.sparkles" = "Sparkles";
+"sticker.cool" = "Cool";
+"sticker.arrow" = "Arrow";
+"sticker.check" = "Check";
+
+/* Text styles */
+"textStyle.default" = "Default";
+"textStyle.outline" = "Outline";
+"textStyle.yellow" = "Yellow";
+"textStyle.box" = "Box";
+"textStyle.shadow" = "Shadow";

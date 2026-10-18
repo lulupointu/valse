@@ -1,0 +1,86 @@
+/* Paramètres */
+"fx.param.intensity" = "Intensité";
+"fx.param.radius" = "Rayon";
+"fx.param.amount" = "Quantité";
+"fx.param.speed" = "Vitesse";
+"fx.param.size" = "Taille";
+
+/* Filtres */
+"filter.group.bw" = "Noir et blanc";
+"filter.group.life" = "Quotidien";
+"filter.group.retro" = "Rétro";
+"filter.group.creative" = "Créatif";
+"filter.mono" = "Mono";
+"filter.noir" = "Noir";
+"filter.warm" = "Chaud";
+"filter.cool" = "Froid";
+"filter.vivid" = "Éclatant";
+"filter.fade" = "Délavé";
+"filter.sepia" = "Sépia";
+"filter.invert" = "Inverser";
+
+/* Réglages */
+"adjust.group.basic" = "De base";
+"adjust.basic" = "Réglages";
+"adjust.brightness" = "Luminosité";
+"adjust.contrast" = "Contraste";
+"adjust.saturation" = "Saturation";
+"adjust.exposure" = "Exposition";
+"adjust.temperature" = "Température";
+"adjust.tint" = "Teinte";
+"adjust.highlights" = "Hautes lumières";
+"adjust.shadows" = "Ombres";
+"adjust.vignette" = "Vignetage";
+
+/* Effets */
+"effect.group.basic" = "De base";
+"effect.group.party" = "Fête";
+"effect.blur" = "Flou";
+"effect.vignette" = "Vignetage";
+"effect.glitch" = "Glitch";
+"effect.pixelate" = "Pixeliser";
+
+/* Transitions */
+"transition.group.basic" = "De base";
+"transition.group.slide" = "Glissement";
+"transition.group.camera" = "Caméra";
+"transition.group.shape" = "Forme";
+"transition.dissolve" = "Fondu enchaîné";
+"transition.blackFade" = "Fondu au noir";
+"transition.slideLeft" = "Glisser à gauche";
+"transition.wipeRight" = "Balayage à droite";
+"transition.zoomIn" = "Zoom avant";
+"transition.circle" = "Cercle";
+
+/* Animations */
+"anim.fadeIn" = "Fondu entrant";
+"anim.slideUp" = "Glisser vers le haut";
+"anim.slideRight" = "Glisser vers la droite";
+"anim.zoomIn" = "Zoom avant";
+"anim.spinIn" = "Rotation entrante";
+"anim.fadeOut" = "Fondu sortant";
+"anim.slideDown" = "Glisser vers le bas";
+"anim.zoomOut" = "Zoom arrière";
+"anim.pulse" = "Pulsation";
+"anim.swing" = "Balancement";
+
+/* Autocollants */
+"sticker.group.emoji" = "Émoji";
+"sticker.group.shapes" = "Formes";
+"sticker.heart" = "Cœur";
+"sticker.star" = "Étoile";
+"sticker.fire" = "Feu";
+"sticker.laugh" = "Rire";
+"sticker.thumbsUp" = "Pouce levé";
+"sticker.party" = "Fête";
+"sticker.sparkles" = "Étincelles";
+"sticker.cool" = "Cool";
+"sticker.arrow" = "Flèche";
+"sticker.check" = "Coche";
+
+/* Styles de texte */
+"textStyle.default" = "Par défaut";
+"textStyle.outline" = "Contour";
+"textStyle.yellow" = "Jaune";
+"textStyle.box" = "Encadré";
+"textStyle.shadow" = "Ombre";
