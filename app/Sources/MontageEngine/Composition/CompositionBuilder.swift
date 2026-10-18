@@ -241,6 +241,22 @@ public enum CompositionBuilder {
                 out.append((.matte, matte, .zero))
             }
         }
+        // Relight (AI2): depth matte + person matte (People / Background targets), same reverse handling as the matte.
+        if let rl = clip.relight {
+            var lanes: [(AuxRole, String)] = [(.depth, RelightOps.depthKind)]
+            if rl.target.usesPersonMatte { lanes.append((.relightMask, RelightOps.personKind)) }
+            for (role, kind) in lanes {
+                guard let file = MatteStore.shared.readyMatteVideo(media: asset, kind: kind) else { continue }
+                if reversed {
+                    let key = MatteStore.shared.reverseKey(media: asset, kind: kind)
+                    let r = purpose == .export ? try await ReverseManager.shared.ensure(source: file, key: key)
+                                               : ReverseManager.shared.readyURL(key: key)
+                    if let r { out.append((role, r, .zero)) } else { _ = await ReverseManager.shared.request(source: file, key: key) }
+                } else {
+                    out.append((role, file, .zero))
+                }
+            }
+        }
         return out
     }
 
@@ -345,6 +361,11 @@ public enum CompositionBuilder {
                 h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind)
                 if c.reversed { h.combine(ReverseManager.shared.readyURL(for: a) != nil) }
                 if let m = c.matte { h.combine(MatteStore.shared.readyMatteVideo(media: a, kind: m.kind) != nil) }
+                if let rl = c.relight {
+                    h.combine(rl.target.usesPersonMatte)
+                    h.combine(MatteStore.shared.readyMatteVideo(media: a, kind: RelightOps.depthKind) != nil)
+                    if rl.target.usesPersonMatte { h.combine(MatteStore.shared.readyMatteVideo(media: a, kind: RelightOps.personKind) != nil) }
+                }
             }
         }
         return h.finalize()

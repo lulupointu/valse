@@ -14,3 +14,5 @@
 "model.qwen3.desc" = "Writes and rewrites scripts, picks highlights and keywords on this Mac when Apple Intelligence is off.";
 "model.lama" = "LaMa (object removal)";
 "model.lama.desc" = "Removes objects you brush over in images and short videos.";
+"model.depth" = "Depth Anything V2 (relight)";
+"model.depth.desc" = "Estimates the depth of each frame so Relight can light faces and objects in relief.";

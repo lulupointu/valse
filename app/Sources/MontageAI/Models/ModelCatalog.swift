@@ -30,6 +30,17 @@ public struct AIModelSpec: Sendable, Identifiable, Hashable {
         public let bytes: Int64
         public let sha256: String
     }
+    /// Small extra files of a multi-file model (e.g. the other files of an `.mlpackage` directory whose big
+    /// weights file is `fileName`), downloaded and verified before the main file. Paths are relative to the models folder.
+    public var companions: [AIModelCompanion] = []
+}
+
+/// One extra file of a multi-file model (see `AIModelSpec.companions`).
+public struct AIModelCompanion: Sendable, Hashable {
+    public let path: String
+    public let url: URL
+    public let bytes: Int64
+    public let sha256: String
 }
 
 public enum ModelCatalog {
@@ -101,7 +112,32 @@ public enum ModelCatalog {
         return s
     }()
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding]
+    /// Depth Anything V2 Small, F16 Core ML package by Apple (Apache-2.0), 518×392: monocular depth for Relight
+    /// (~50 MB, ~300 MB while running). An `.mlpackage` is a directory: the weights are the main file, the model spec
+    /// and manifest are companions.
+    public static let depthAnything: AIModelSpec = {
+        let base = "https://huggingface.co/apple/coreml-depth-anything-v2-small/resolve/main/"
+        let pkg = "DepthAnythingV2SmallF16.mlpackage"
+        var s = AIModelSpec(
+            id: "coreml.depth-anything-v2-small", kind: .coreML, nameKey: "model.depth", descriptionKey: "model.depth.desc",
+            fileName: "\(pkg)/Data/com.apple.CoreML/weights/weight.bin",
+            url: URL(string: base + "\(pkg)/Data/com.apple.CoreML/weights/weight.bin")!,
+            bytes: 49_419_072, sha256: "fa60d9b6a155734f59029ebb882fd54e549bfaee3539c1a9cbd2cbbab64a0fed", license: "Apache-2.0", runtimeMB: 300)
+        s.companions = [
+            AIModelCompanion(path: "\(pkg)/Manifest.json", url: URL(string: base + "\(pkg)/Manifest.json")!, bytes: 617,
+                             sha256: "2883ae290c48fe916dc5ececac03a7d847fa277165a49ef5652fa1d2b9cb55f7"),
+            AIModelCompanion(path: "\(pkg)/Data/com.apple.CoreML/model.mlmodel", url: URL(string: base + "\(pkg)/Data/com.apple.CoreML/model.mlmodel")!,
+                             bytes: 399_433, sha256: "44ac97a3efcfd52113183fb2862ff59cd0368e9ec2e30a90a54980dd11407042"),
+        ]
+        return s
+    }()
+
+    /// Package directory of the installed depth model.
+    public static var installedDepthPackage: URL? {
+        installedURL(depthAnything) == nil ? nil : modelsDirectory.appendingPathComponent("DepthAnythingV2SmallF16.mlpackage", isDirectory: true)
+    }
+
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding, depthAnything]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
     /// Set by the UI test driver: scripts see an empty sandboxed models folder (deterministic "not installed" UX) unless
@@ -133,6 +169,10 @@ public enum ModelCatalog {
         if spec.kind == .whisper {
             // legacy "AI pack" location of the foundation (AIPacks/whisper/model.bin)
             candidates.append(MontagePaths.supportDirectory.appendingPathComponent("AIPacks/whisper/model.bin"))
+        }
+        for c in spec.companions {
+            let u = modelsDirectory.appendingPathComponent(c.path)
+            guard let size = (try? fm.attributesOfItem(atPath: u.path))?[.size] as? NSNumber, size.int64Value >= c.bytes else { return nil }
         }
         for u in candidates {
             if let size = (try? fm.attributesOfItem(atPath: u.path))?[.size] as? NSNumber, size.int64Value > spec.bytes / 2 { return u }

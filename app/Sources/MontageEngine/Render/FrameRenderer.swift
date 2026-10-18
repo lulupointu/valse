@@ -25,6 +25,9 @@ public enum AuxRole: Hashable, Sendable {
     case previousFrame(Int)
     /// AI matte video (`MatteStore`), aligned with the media.
     case matte
+    /// Relight: depth matte video (`MatteStore` kind "depth", near = white) and the person matte for People/Background.
+    case depth
+    case relightMask
 }
 
 public struct DictionarySourceProvider: FrameSourceProvider {

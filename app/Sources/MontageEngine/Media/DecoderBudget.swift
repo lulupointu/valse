@@ -22,6 +22,7 @@ public enum DecoderBudget {
                 if c.smoothSlowMo != nil { lanes += 1 }
                 if let mb = c.motionBlur, mb.amount > 0 { lanes += mb.clampedSamples - 1 }
                 if c.matte != nil { lanes += 1 }
+                if c.relight != nil { lanes += 1 }   // depth (+ person) mattes: ≤ 518 px, counted as one lane
                 out.append(Stream(media: a, lanes: lanes, range: c.range))
             }
         }

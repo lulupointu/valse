@@ -92,6 +92,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var adjustMask: Mask?
     /// AI movement (AI2, AI/AIMovement.swift): position/scale(/rotation) keyframes of a subject-centred camera move.
     public var aiMovement: AIMovementOptions?
+    /// Relight (AI2, AI/Relight.swift): virtual lights shaded on a depth map of the media.
+    public var relight: RelightSettings?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

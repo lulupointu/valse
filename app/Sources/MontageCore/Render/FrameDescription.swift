@@ -54,6 +54,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var slowMoMethod: SlowMotionMethod? = nil
     public var motionBlur: MotionBlur? = nil
     public var stabilization: Stabilization? = nil
+    /// Relight with animated lights resolved at this instant (AI/Relight.swift); nil = off.
+    public var relight: RelightSettings? = nil
     /// Canvas background fill (blurred copy / image) of a main-track clip, not the clip itself: not hit-testable.
     public var isCanvasBackground = false
     /// Clip duration (text templates time their layers on it).
@@ -256,6 +258,7 @@ public enum FrameEvaluator {
         l.matte = r.matte
         l.adjustMask = r.adjustMask
         l.stabilization = r.stabilization
+        if let rl = c.relight, c.mediaID != nil { l.relight = rl.resolved(at: local.seconds) }
         l.duration = c.duration
         if case .media(let id) = c.content, let a = project.asset(id), a.kind == .video {
             l.motionBlur = r.motionBlur

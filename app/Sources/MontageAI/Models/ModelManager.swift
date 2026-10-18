@@ -61,6 +61,11 @@ public final class ModelManager {
         if spec.parts != nil { downloadParts(spec); return }
         tasks[id] = Task { [weak self] in
             do {
+                // small companion files of multi-file models (.mlpackage directories) first
+                for c in spec.companions {
+                    let ctmp = try await ModelDownloader.download(c.url, progress: { _ in }, onTask: { _ in })
+                    try await Self.verifyAndInstall(ctmp, sha256: c.sha256, relativePath: c.path, move: true)
+                }
                 let tmp = try await ModelDownloader.download(spec.url) { p in
                     Task { @MainActor in if case .downloading = self?.states[id] { self?.states[id] = .downloading(p) } }
                 } onTask: { t in
@@ -166,22 +171,27 @@ public final class ModelManager {
 
     public func remove(_ spec: AIModelSpec) {
         if let u = ModelCatalog.installedURL(spec) { try? FileManager.default.removeItem(at: u) }
+        for c in spec.companions { try? FileManager.default.removeItem(at: ModelCatalog.modelsDirectory.appendingPathComponent(c.path)) }
         states[spec.id] = .notInstalled
     }
 
     /// SHA-256 check (streamed, off-main) then move/clone into place.
     nonisolated static func verifyAndInstall(_ file: URL, spec: AIModelSpec, move: Bool) async throws {
+        try await verifyAndInstall(file, sha256: spec.sha256, relativePath: spec.fileName, move: move)
+    }
+
+    nonisolated static func verifyAndInstall(_ file: URL, sha256 expected: String, relativePath: String, move: Bool) async throws {
         try await Task.detached(priority: .utility) {
             let digest = try sha256(of: file)
-            guard digest == spec.sha256 else {
+            guard digest == expected else {
                 if move { try? FileManager.default.removeItem(at: file) }
                 throw ModelError.checksumMismatch
             }
             let fm = FileManager.default
             let dir = ModelCatalog.modelsDirectory
             do {
-                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-                let dst = dir.appendingPathComponent(spec.fileName)
+                let dst = dir.appendingPathComponent(relativePath)
+                try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
                 if fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
                 if move { try fm.moveItem(at: file, to: dst) } else { try fm.copyItem(at: file, to: dst) }   // APFS clone
             } catch { throw ModelError.io(String(describing: error)) }

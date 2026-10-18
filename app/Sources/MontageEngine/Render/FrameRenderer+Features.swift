@@ -111,6 +111,10 @@ extension FrameRenderer {
                 cur = out
             }
         }
+        // Relight (AI2): depth-normal shading, after the matte (alpha untouched)
+        if let r = l.relight {
+            cur = applyRelight(r, layer: l, to: cur, uv: cu, media: media, sources: sources, cmd: cmd, scratch: scratch, acquire: acquire)
+        }
         return cur
     }
 

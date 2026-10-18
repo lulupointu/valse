@@ -101,6 +101,7 @@ extension EditorStore {
             ai.cutoutJobs[clipID] = nil
             Task { await JobQueue.shared.cancel(job) }
         }
+        relightProjectDidChange()
         if project.timeline.allClips.contains(where: { $0.tts != nil }) {
             ai.ttsRefresh?.cancel()
             ai.ttsRefresh = Task { [weak self] in

@@ -16,6 +16,7 @@ import Foundation
         p.timeline[clip: ids[1]]!.mask = Mask(shape: .circle, feather: 0.2)
         p.timeline[clip: ids[2]]!.aiMovement = AIMovementOptions(preset: .shake, strength: 0.7, syncToBeats: false)
         p.timeline[clip: ids[2]]!.cameraLock = CameraLockOptions(target: .hand, keepSize: true)
+        p.timeline[clip: ids[2]]!.relight = RelightSettings.preset(.creative)
         p.timeline[clip: ids[1]]!.keyframes[ParamKey.position.raw] = KeyframeTrack([
             Keyframe(time: 0, value: .vec2(.zero), easing: .bezier(x1: 0.1, y1: 0.2, x2: 0.3, y2: 1.4)),
             Keyframe(time: 1, value: .vec2(Vec2(0.5, 0.1)), easing: .hold)])

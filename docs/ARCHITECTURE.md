@@ -422,6 +422,13 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Quit**: `AppShutdown.stopBackgroundWork` (applicationShouldTerminate / end of a UI test) cancels exports and every
   `JobQueue` job and waits (`JobQueue.shutdown(timeout:)`, refuses new jobs) for the bodies to return; exiting under live
   Core ML/Metal work crashed in the frameworks' atexit teardown, a timeout leaves through `_exit`.
+- **Relight** (AI-024 / CL-020, AI2): `Clip.relight: RelightSettings` (Core `AI/Relight.swift`: presets, target, ≤ 4 lights,
+  animations resolved per frame into `LayerDescription.relight`). `RelightDepth` (MontageAI) writes the `depth` matte (≤ 518 px,
+  ≤ 12 fps, near = white) with Depth Anything V2 Small (`ModelCatalog.depthAnything`, an `.mlpackage` = main weights file +
+  `companions`, compiled to Caches/Montage/models) or a person-matte + luma pseudo-depth, plus the `person` matte for People /
+  Background. `CompositionBuilder.auxInputs` adds aux lanes `.depth` / `.relightMask`; `FrameRenderer+Relight` (own Metal
+  library) derives normals from smoothed depth differences and shades after the matte pass (flat until the depth lands). UI:
+  `RelightUI.swift` (section, `RelightLightTool` canvas tool, `setRelight` / `ensureRelightPass` jobs).
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
   `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,

@@ -1,0 +1,20 @@
+// AI2: Relight with the Depth Anything V2 model (SKIPPED when it isn't installed; the no-model UX is ai_relight.json).
+// Tick → depth pass in the background (progress line) → "Relight applied"; the player shows the lit clip.
+{
+  "project": "demo",
+  "requires": {"models": ["coreml.depth-anything-v2-small"]},
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.section.video.relight", "at": [0.035, 0.5]},
+    {"expect": [{"path": "undo.name", "equals": "cmd.relight"},
+                {"path": "ui.anchors", "notContains": "relight.needsModel"}]},
+    {"waitFor": {"path": "ui.anchors", "notContains": "relight.progress", "timeout": 90}},
+    {"click": "id:relight.preset.object"},
+    {"wait": 1},
+    {"snapshot": "relight-model-player", "element": "id:panel.player"},
+    {"scroll": "id:inspector.section.video.relight", "dx": 0, "dy": 3000},
+    {"click": "id:relight.top", "at": [0.02, 0.5], "offset": [0, -22]},
+    {"expect": {"path": "ui.anchors", "notContains": "relight.preset.facial"}}
+  ]
+}
