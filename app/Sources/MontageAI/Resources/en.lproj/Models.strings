@@ -12,3 +12,5 @@
 "model.demucs6.desc" = "Music source separation with guitar and piano stems too.";
 "model.qwen3" = "Qwen3 4B (local text AI)";
 "model.qwen3.desc" = "Writes and rewrites scripts, picks highlights and keywords on this Mac when Apple Intelligence is off.";
+"model.lama" = "LaMa (object removal)";
+"model.lama.desc" = "Removes objects you brush over in images and short videos.";

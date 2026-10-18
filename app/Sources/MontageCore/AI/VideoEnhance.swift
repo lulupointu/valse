@@ -74,3 +74,18 @@ extension EnhanceLevel {
     /// VTTemporalNoiseFilter strength.
     public var denoiseStrength: Float { Deflicker.strength(self) }
 }
+
+/// AI remove (AI-041): the clip plays an inpainted copy; brush strokes are in raw source coordinates (normalised,
+/// y down, radius = fraction of the width) — same convention as the cutout brush.
+public struct ObjectRemovalInfo: Hashable, Codable, Sendable {
+    public var original: MediaID
+    public var strokes: [RemovalStroke]
+    public init(original: MediaID, strokes: [RemovalStroke]) { self.original = original; self.strokes = strokes }
+}
+
+public struct RemovalStroke: Hashable, Codable, Sendable {
+    public var points: [Vec2]
+    public var radius: Double
+    public var erase: Bool
+    public init(points: [Vec2], radius: Double, erase: Bool = false) { self.points = points; self.radius = radius; self.erase = erase }
+}

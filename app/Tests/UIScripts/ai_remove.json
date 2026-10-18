@@ -1,0 +1,20 @@
+// W10: Video ▸ Basic ▸ ☐ AI remove → brush on the canvas (red) → Remove → LaMa inpaints the clip in the background
+// (one undo step "AI remove"; the full render is covered by ObjectRemovalTests).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"scroll": "id:inspector.section.video.stabilize", "dx": 0, "dy": -800},
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.5]},
+    {"drag": "player:0.3,0.5", "to": "player:0.4,0.55", "steps": 8},
+    {"snapshot": "remove-brush", "element": "id:panel.player"},
+    {"click": "id:remove.apply"},
+    {"wait": 1},
+    {"snapshot": "remove-running", "element": "id:panel.inspector"},
+    {"expect": {"path": "ui.anchors", "contains": "remove.progress"}},
+    // cancel (untick) so the app doesn't quit mid-inference
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.08]},
+    {"wait": 4}
+  ]
+}

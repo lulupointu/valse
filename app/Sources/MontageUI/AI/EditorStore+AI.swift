@@ -43,6 +43,9 @@ public final class AIUIState {
     public var faceJobs: [ClipID: JobID] = [:]
     /// Camera tracking analyses (clip → job).
     public var cameraJobs: [ClipID: JobID] = [:]
+    /// AI remove: brush session and inpainting jobs.
+    public var removeTool: RemoveBrushTool?
+    public var removeJobs: [ClipID: JobID] = [:]
     public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false

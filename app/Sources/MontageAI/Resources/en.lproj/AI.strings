@@ -25,3 +25,4 @@
 "cmd.clipper" = "AI clipper";
 "cmd.faceCover" = "Face mosaic";
 "cmd.cameraLock" = "Camera tracking";
+"cmd.aiRemove" = "AI remove";

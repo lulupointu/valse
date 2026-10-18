@@ -163,3 +163,16 @@
 "cameraLock.done" = "Camera tracking applied";
 "cameraLock.failed" = "Try a video with people in it.";
 "cameraLock.cancelled" = "Camera tracking canceled";
+
+/* W10 AI remove (AI-041) */
+"remove.title" = "AI remove";
+"remove.hint" = "Brush over what you want to remove (on videos: still objects, logos, watermarks), then Remove.";
+"remove.needsModel" = "AI remove needs the LaMa model (190 MB, runs on this Mac).";
+"remove.clear" = "Clear";
+"remove.apply" = "Remove";
+"remove.edit" = "Edit the selection";
+"remove.job" = "Removing objects...";
+"remove.applying" = "Removing objects... %d%%";
+"remove.done" = "Objects removed";
+"remove.failed" = "Couldn't remove the objects. Try again.";
+"remove.cancelled" = "AI remove canceled";

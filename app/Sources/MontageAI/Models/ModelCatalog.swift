@@ -61,7 +61,14 @@ public enum ModelCatalog {
         url: URL(string: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf")!,
         bytes: 2_497_281_120, sha256: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", license: "Apache-2.0", runtimeMB: 3100)
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b]
+    /// LaMa (big-lama, Apache-2.0, Samsung AI) Core ML, 800×800, ~600 MB peak: AI remove (object inpainting).
+    public static let lama = AIModelSpec(
+        id: "coreml.lama-800", kind: .coreML, nameKey: "model.lama", descriptionKey: "model.lama.desc",
+        fileName: "LaMa.mlpackage.zip",
+        url: URL(string: "https://huggingface.co/mlboydaisuke/coreml-zoo/resolve/main/lama/LaMa.mlpackage.zip")!,
+        bytes: 196_237_256, sha256: "b57b8451a1a86c00aea52d75230fb5f49d3076eec67403192758c9d2b59c0e69", license: "Apache-2.0", runtimeMB: 600)
+
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
     /// ~/Library/Application Support/Montage/Models (override: `MONTAGE_MODELS_DIR`).

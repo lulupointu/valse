@@ -86,6 +86,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var enhance: VideoEnhancement?
     /// Camera tracking / lens lock (W10, AI/CameraLock.swift): position/scale keyframes keep a person centred.
     public var cameraLock: CameraLockOptions?
+    /// AI remove (W10): the clip plays an inpainted copy of `removal.original`.
+    public var removal: ObjectRemovalInfo?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

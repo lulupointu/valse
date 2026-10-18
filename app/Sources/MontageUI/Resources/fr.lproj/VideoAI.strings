@@ -163,3 +163,16 @@
 "cameraLock.done" = "Suivi de la caméra appliqué";
 "cameraLock.failed" = "Essaie une vidéo avec des personnes.";
 "cameraLock.cancelled" = "Suivi de la caméra annulé";
+
+/* W10 suppression IA (AI-041) */
+"remove.title" = "Suppression IA";
+"remove.hint" = "Peins sur ce que tu veux supprimer (sur les vidéos : objets immobiles, logos, filigranes), puis Supprimer.";
+"remove.needsModel" = "La suppression IA a besoin du modèle LaMa (190 Mo, exécuté sur ce Mac).";
+"remove.clear" = "Effacer";
+"remove.apply" = "Supprimer";
+"remove.edit" = "Modifier la sélection";
+"remove.job" = "Suppression des objets…";
+"remove.applying" = "Suppression des objets… %d %%";
+"remove.done" = "Objets supprimés";
+"remove.failed" = "Impossible de supprimer les objets. Réessaie.";
+"remove.cancelled" = "Suppression IA annulée";

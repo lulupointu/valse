@@ -25,3 +25,4 @@
 "cmd.clipper" = "Créateur de clips IA";
 "cmd.faceCover" = "Mosaïque des visages";
 "cmd.cameraLock" = "Suivi de la caméra";
+"cmd.aiRemove" = "Suppression IA";
