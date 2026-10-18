@@ -44,6 +44,9 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W2 | W9 | Decoder downscale + preview render cache for Low/Med quality; real reverse decode (J shuttle is emulated with seeks, no audio) | PB-002/005/008 |
 | W2 | W12 | Settings ▸ Performance: persist preview quality + proxy toggle (`store.previewQuality`, `store.setUsesProxies`) | PB-002, SE-001 |
 | W11 | W12 | Settings toggles: "Speed up hardware encoding" → UserDefaults `montage.export.hardwareEncoding`; "Sound for export" → `ExportQueue.soundDefaultsKey` | EX-016, EX-015 |
+| W4 | W10+W6 | Person matte as an effect input (`EffectInput.matte`) so body effects work on plain video | FX-002 |
+| W4 | W6 | Effect mask (mask texture feeding the effect mix) | FX-005, CL-012 |
+| W4 | W2/W13 | Click on an effect/filter card = 3 s "Previewing — Effects" loop in the player | FX-001 |
 | W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
 
 ## Done cross-team items

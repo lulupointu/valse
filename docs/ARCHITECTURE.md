@@ -391,6 +391,32 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   voice isolation SNR, optical flow, scenes, reframe) + `AIUITests` (flows, snapshots with `MONTAGE_SNAPSHOT_DIR`).
   GPU/ANE-heavy tests and real-time probes (PlaybackTests) run inside `HeavyWorkGate.run` (TestSupport) so they never overlap.
 
+## 17f. Effects, filters, colour & stickers content (W4)
+
+- **Effects library** = `FXBase` (one MSL source in `Builtin/FX+*.swift`, `FXKit.msl` helpers prefixed `kit_`) × presets
+  (`base.preset("name", group:, constants, defaults:, tags:)` → `montage.effect.<name>`). Presets differ only by
+  `EffectDescriptor.constants` (appended to `p[]` after the params, never stored/keyframed), so `EffectPipelines` caches
+  pipelines **by source** and a base compiles once. Multi-pass effects that need the untouched input declare
+  `inputs: [.original]` (shader gets a trailing `texture2d<float> orig`). Pixel-scaled features use `ctx.size.y / 1080`.
+  Body effects (`effect.group.body`) work on the layer alpha (cut-outs, stickers, text).
+- **Filters** = one parametric grade shader (`BuiltinFilters.Grade` → constants: exposure, WB, filmic/contrast,
+  highlights/shadows, sat/vibrance, hue, split tone, cross-process, bleach, channel-mixer B&W, fade/matte, grain,
+  vignette, skin protect). Add a look with `look("name", "group") { $0.… }` + its name in `FilterLibrary.strings`.
+- **Names**: `EffectLibrary.strings` / `FilterLibrary.strings` / `StickerLibrary.strings` (en+fr) are generated tables
+  (one key per preset); `EffectLibraryTests.libraryIsLargeAndNamed` checks both languages.
+- **Colour**: Curves are free points (`<ch>.n`, `x0…7`, `y0…7`; `ColorCurveMath` = CPU mirror), wheels have a `mode`
+  (Primary/Log), Basic gained hue/whites/blacks/sharpen/clarity/grain/fade (append-only p[] order). `AutoColor.descriptor`
+  (parametric auto grade from `AutoAdjustAnalyzer`) stays in the registry, but the Adjust ▸ Basic ▸ ☐ Auto adjust UI is
+  W10's LUT look (§17e). Inspector: `ColorGradingInspector` (Adjust ▸ HSL / Curves / Color wheel sub-tabs).
+- **Previews**: `EffectPreviewRenderer` (engine) renders any effect stack on a procedural sample scene through
+  `FrameRenderer.applyEffects` (same shaders as export) — asset thumbnails/hover loops (`EffectThumbnails`, off-main,
+  LRU), render tests (`EffectLibraryTests`, `EffectBehaviourTests`) and the 1080p GPU budget test (`EffectsPerfTests`,
+  3.5 ms per effect on M1 Pro ≈ 7 ms on a base Air; `MONTAGE_PERF=1` strict). `MONTAGE_FX_SHEET=dir` writes contact sheets.
+- **Stickers**: `StickerDescriptor.Source.vector([VectorLayer])` (shapes, callouts, arrows, decorations) drawn by
+  `VectorStickerRenderer` (Core Graphics at output resolution, cached in `TextRasterizer`); emoji via Core Text.
+- **Asset tabs** (`AssetPanel/EffectLibraryTab.swift`, `StickerLibraryTab.swift`): `EffectLibraryCatalog` /
+  `StickerCatalog` (groups, curated Trending/Featured, search), `EffectFavorites` (UserDefaults).
+
 ## 18. Known gaps (foundation)
 
 Speed-curve editor UI, on-canvas crop handles, home screen and settings window, audio effects chain, editing inside compound clips (UI), pen/text/brush masks, rotation in stabilization, auto beat detection, and the Templates/Library content.
