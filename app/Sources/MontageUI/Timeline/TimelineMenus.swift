@@ -113,7 +113,7 @@ extension TimelineView {
             item("tlmenu.group", "g", .command, enabled: clips.count >= 2) { s.groupSelection() },
             item("tlmenu.ungroup", "g", [.command, .shift], enabled: s.selectionIsGrouped) { s.ungroupSelection() },
             .separator(),
-            item("tlmenu.exportSelected", enabled: false) {},
+            item("tlmenu.exportSelected", enabled: !clips.isEmpty) { s.exportSelectedClips() },
             item(enabledAll ? "tlmenu.deactivate" : "tlmenu.activate", "v", []) { s.toggleEnabledSelection() },
             item("tlmenu.replace", enabled: isMedia) { s.replaceSelectedClip() },
             item("tlmenu.linkMedia", enabled: false) {},
@@ -129,6 +129,7 @@ extension TimelineView {
                 item("tlmenu.range.in", "i", []) { s.setInPoint() },
                 item("tlmenu.range.out", "o", []) { s.setOutPoint() },
                 item("tlmenu.range.clear", enabled: s.project.timeline.inPoint != nil || s.project.timeline.outPoint != nil) { s.clearRange() },
+                item("export.menu.range", enabled: s.project.timeline.inPoint != nil || s.project.timeline.outPoint != nil) { s.exportInOutRange() },
             ]),
             sub("tlmenu.render", [
                 item("tlmenu.render.all") { s.renderPreview(range: nil) },

@@ -105,7 +105,8 @@ struct TitleBar: View {
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                     .help(tr("settings.language"))
                     .testID("titlebar.language")
-                Button { store.isExportSheetPresented = true } label: {
+                ExportQueueButton(queue: store.exports.queue)
+                Button { store.openExport() } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "square.and.arrow.up").font(.system(size: 11, weight: .semibold))
                         Text(loc: "titlebar.export")

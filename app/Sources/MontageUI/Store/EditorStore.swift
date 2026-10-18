@@ -20,13 +20,6 @@ public struct Toast: Equatable, Identifiable {
     public let isError: Bool
 }
 
-public enum ExportState: Equatable {
-    case idle
-    case running(Double)
-    case done(URL)
-    case failed(String)
-}
-
 /// The editor's single source of truth on the main actor.
 ///
 /// - Every model change goes through `perform(_:)` (undoable command) or a gesture (`beginGesture`/`updateGesture`/
@@ -57,8 +50,9 @@ public final class EditorStore {
     public private(set) var lastAutosave: Date?
     public var toast: Toast?
     public private(set) var jobs: [JobInfo] = []
-    public var exportState: ExportState = .idle
     public var isExportSheetPresented = false
+    /// Export queue + dialog requests (W11, MontageUI/Export).
+    public let exports = ExportCenter()
     public var activeAssetTab = "media"
     public var inspectorTab: String?
     public var previewQuality: PreviewQuality = .auto { didSet { engine.previewQuality = previewQuality } }
@@ -71,7 +65,6 @@ public final class EditorStore {
     @ObservationIgnored private var autosaveTask: Task<Void, Never>?
     @ObservationIgnored private var firstUnsavedEdit: Date?
     @ObservationIgnored private var jobsTask: Task<Void, Never>?
-    @ObservationIgnored private var exportTask: Task<Void, Never>?
     @ObservationIgnored public var autosavePolicy = AutosavePolicy()
     @ObservationIgnored public var autosaveEnabled = true
 
@@ -93,6 +86,7 @@ public final class EditorStore {
         if let packageURL { SessionLock.acquire(packageURL) }
         installMediaPipelineHooks()
         installAIHooks()
+        installExportHooks()
     }
 
     // MARK: Editing
@@ -372,27 +366,6 @@ public final class EditorStore {
             if ok && self.session.revision == rev { self.session.markSaved(); self.lastAutosave = Date(); self.firstUnsavedEdit = nil }
         }
     }
-
-    // MARK: Export
-
-    public func startExport(settings: ExportSettings, to url: URL) {
-        exportState = .running(0)
-        let project = self.project
-        exportTask = Task { [weak self] in
-            do {
-                try await Exporter.export(project: project, settings: settings, to: url) { p in
-                    Task { @MainActor in if case .running = self?.exportState { self?.exportState = .running(p) } }
-                }
-                self?.exportState = .done(url)
-            } catch let e as ExportError {
-                if case .cancelled = e { self?.exportState = .idle } else { self?.exportState = .failed(tr(e.messageKey)) }
-            } catch {
-                self?.exportState = .failed(error.localizedDescription)
-            }
-        }
-    }
-
-    public func cancelExport() { exportTask?.cancel() }
 
     // MARK: AI
 

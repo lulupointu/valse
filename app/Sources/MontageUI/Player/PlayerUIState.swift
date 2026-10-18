@@ -179,17 +179,13 @@ extension EditorStore {
 
     public func exportStillFrame() {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png]
+        panel.allowedContentTypes = [.png, .jpeg]   // EX-012: PNG or JPEG (by extension)
         panel.nameFieldStringValue = "\(projectName) \(Timecode.string(transport.playhead, rate: project.settings.frameRate, showFrames: true).replacingOccurrences(of: ":", with: "-")).png"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let project = self.project, t = transport.playhead
         Task {
             do {
-                let size = CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
-                let img = try await OfflineRenderer.renderFrame(project, at: t, size: size)
-                guard let d = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { throw CocoaError(.fileWriteUnknown) }
-                CGImageDestinationAddImage(d, img, nil)
-                guard CGImageDestinationFinalize(d) else { throw CocoaError(.fileWriteUnknown) }
+                try await StillFrameExporter.export(project: project, at: t, to: url)
                 showToast(tr("player.stillSaved"))
             } catch {
                 showToast(tr("player.stillFailed"), error: true)

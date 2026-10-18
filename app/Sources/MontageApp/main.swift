@@ -192,7 +192,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             item("menu.saveAs", "s", [.command, .shift]) { [weak self] in self?.saveProjectAs() },
             .separator(),
             item("menu.import", "i") { [weak self] in self?.importMedia() },
-            item("menu.export", "e") { [weak self] in self?.store.isExportSheetPresented = true },
+            item("menu.export", "e") { [weak self] in self?.store.openExport() },
+            item("export.menu.selected", "") { [weak self] in self?.store.exportSelectedClips() },
+            item("export.menu.range", "") { [weak self] in self?.store.exportInOutRange() },
+            item("player.exportStill", "") { [weak self] in self?.store.exportStillFrame() },
+            {
+                let i = NSMenuItem(title: tr("export.menu.timeline"), action: nil, keyEquivalent: "")
+                let m = NSMenu(title: tr("export.menu.timeline"))
+                for f in TimelineInterchange.Format.allCases {
+                    m.addItem(item("export.timeline.\(f.rawValue)", "") { [weak self] in self?.store.exportTimeline(f) })
+                }
+                i.submenu = m
+                return i
+            }(),
         ])
         menu("menu.edit", [
             item("menu.undo", "z") { [weak self] in self?.store.undo() },

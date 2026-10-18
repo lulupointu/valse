@@ -111,6 +111,16 @@ public struct ExportJobSpec: Sendable {
         return out
     }
 
+    /// "Export selected clips" without the other layers: only `clip` (and the clips linked to it) stay on the timeline.
+    public static func isolating(_ clip: ClipID, in p: Project) -> Project {
+        var p = p
+        for i in p.timeline.tracks.indices {
+            p.timeline.tracks[i].clips.removeAll { $0.id != clip && $0.linkedTo != clip }
+            for j in p.timeline.tracks[i].clips.indices { p.timeline.tracks[i].clips[j].transitionOut = nil }
+        }
+        return p
+    }
+
     static func sanitized(_ s: String) -> String {
         let bad = CharacterSet(charactersIn: "/:\\?%*|\"<>")
         let t = s.components(separatedBy: bad).joined(separator: "-").trimmingCharacters(in: .whitespacesAndNewlines)
