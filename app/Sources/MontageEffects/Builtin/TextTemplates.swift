@@ -161,5 +161,39 @@ public enum BuiltinTextTemplates {
             L(.shape(.roundedRect(radius: 0.02), size: Vec2(3, 0.06), color: accent), offset: Vec2(0, 0.75), start: 0.15,
               inAnim: (anim("in", "blowUp"), 0.6), fitSlot: 0, fitPadding: 0.1),
         ]),
+    ] + counters
+
+    /// Counters (TX-039): slot 0 shows the clip's `TextCounter` value at each frame (Text ▸ Basic ▸ Counter edits it).
+    static let counters: [T] = [
+        tpl("countUp", "counters", slots: 2, duration: 4, base: {
+            $0.fontSize = 0.13; $0.bold = true; $0.fontName = "Futura"
+            $0.counter = TextCounter(from: 0, to: 100, suffix: "%")
+        }, [
+            L(text(0) { $0.color = white; $0.strokeColor = black; $0.strokeWidth = 0.05 }, offset: Vec2(0, -0.2), inAnim: inA("zoomWords", 0.5)),
+            L(.shape(.roundedRect(radius: 0.02), size: Vec2(3, 0.06), color: accent), offset: Vec2(0, 0.45), start: 0.05,
+              inAnim: (anim("in", "blowUp"), 0.5), fitSlot: 0, fitPadding: 0.1),
+            L(text(1) { $0.fontSize *= 0.3; $0.bold = false; $0.letterSpacing = 0.3; $0.textCase = .upper }, offset: Vec2(0, 0.8),
+              start: 0.1, inAnim: inA("fadeChars", 0.6)),
+        ]),
+        tpl("countdown", "counters", slots: 1, duration: 10, base: {
+            $0.fontSize = 0.16; $0.bold = true; $0.fontName = "Menlo"
+            $0.counter = TextCounter.defaults(.timer)
+        }, [
+            L(.shape(.capsule, size: Vec2(3.6, 1.5), color: red), fitSlot: 0, fitPadding: 0.4),
+            L(text(0) { $0.color = white }, loopAnim: loopA("heartbeat", 1.0)),
+        ]),
+        tpl("yearCounter", "counters", slots: 1, duration: 4, base: {
+            $0.fontSize = 0.14; $0.bold = true; $0.fontName = "Didot"
+            $0.counter = TextCounter(from: 1990, to: 2026, thousandsSeparator: false)
+        }, [
+            L(text(0) { $0.fill = .texture(TextTexture(id: "gold")); $0.shadowColor = RGBA(0, 0, 0, 0.6) }, inAnim: inA("fadeChars", 0.6)),
+        ]),
+        tpl("dateRoll", "counters", slots: 1, duration: 4, base: {
+            $0.fontSize = 0.06; $0.bold = true; $0.fontName = "Menlo"
+            $0.counter = TextCounter(kind: .date, from: TextCounter.day(2025, 1, 1), to: TextCounter.day(2026, 10, 19), dateFormat: .long)
+        }, [
+            L(text(0) { $0.color = RGBA(hex: 0xFF9A3C); $0.glow = TextGlowStyle(color: RGBA(hex: 0xFF5A00), intensity: 0.7, radius: 0.15) },
+              inAnim: inA("typewriter", 0.6)),
+        ]),
     ]
 }

@@ -1,0 +1,11 @@
+/* Counter text templates (TX-039) */
+"template.group.counters" = "Compteurs";
+"template.countUp" = "Compteur croissant";
+"template.countUp.slot0" = "100 %";
+"template.countUp.slot1" = "terminé";
+"template.countdown" = "Compte à rebours";
+"template.countdown.slot0" = "0:10";
+"template.yearCounter" = "Compteur d'années";
+"template.yearCounter.slot0" = "2026";
+"template.dateRoll" = "Défilement de dates";
+"template.dateRoll.slot0" = "19 octobre 2026";

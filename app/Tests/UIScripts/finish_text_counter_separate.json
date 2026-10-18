@@ -1,0 +1,24 @@
+// TX-039: the "Count up" text template counts 0 → 100 % (Text ▸ Basic ▸ Counter section, value changes over the clip).
+// TX-033: template Language → French rewrites the default slot texts. TX-032: [Separate] splits the template into
+// one clip per part in one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "template:montage.template.countUp"}, "on": "time:1@2"},
+    {"expect": [{"path": "selectedClips.0.kind", "equals": "text"}, {"path": "ui.anchors", "contains": "inspector.section.text.counter"},
+                {"path": "ui.anchors", "contains": "text.template.separate"}]},
+    {"seek": 2.0},
+    {"snapshot": "counter-mid", "element": "id:panel.player"},
+    {"seek": 4.9},
+    {"snapshot": "counter-end", "element": "id:panel.player"},
+    {"scroll": "id:panel.inspector", "dx": 0, "dy": -400},
+    {"snapshot": "counter-inspector", "element": "id:panel.inspector"},
+    {"click": "id:text.template.separate"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.separateTemplate"}, {"path": "ui.toast", "exists": true}]},
+    {"dump": "separated"},
+    {"snapshot": "separated-timeline", "element": "id:panel.timeline"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 1}}
+  ]
+}

@@ -1,0 +1,11 @@
+/* Counter text templates (TX-039) */
+"template.group.counters" = "Counters";
+"template.countUp" = "Count up";
+"template.countUp.slot0" = "100%";
+"template.countUp.slot1" = "complete";
+"template.countdown" = "Countdown";
+"template.countdown.slot0" = "0:10";
+"template.yearCounter" = "Year counter";
+"template.yearCounter.slot0" = "2026";
+"template.dateRoll" = "Date roll";
+"template.dateRoll.slot0" = "19 October 2026";

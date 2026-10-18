@@ -82,6 +82,7 @@ enum TextSceneBuilder {
         let boxW: CGFloat? = fitCaption ? CGFloat(t.boxWidth ?? CaptionLayout.safeWidth) * canvasWidthPx
             : t.boxWidth.map { CGFloat($0) * canvasWidthPx }
         var fontPx = fontPx0
+        var hiddenBlocks: Set<Int> = []   // separated template parts (TX-032): laid out for placement, not drawn
 
         func textBlock(_ style: TextContent, px: CGFloat, string: String? = nil, layer: TextTemplateLayer? = nil) -> TextScene.Block {
             var st = style
@@ -140,6 +141,7 @@ enum TextSceneBuilder {
                 built[li] = b
             }
             for (li, layer) in d.layers.enumerated() {
+                if !inst.showsLayer(li) { hiddenBlocks.insert(blocks.count) }
                 switch layer.kind {
                 case .text:
                     if let b = built[li] { blocks.append(b) }
@@ -189,7 +191,7 @@ enum TextSceneBuilder {
         for i in blocks.indices where blocks[i].transform == .identity && !blocks[i].isShape {
             place(&blocks[i], center: .zero, rotation: 0, scale: 1)
         }
-        return assemble(blocks, clip: t, dynamic: dynamic)
+        return assemble(blocks, clip: t, dynamic: dynamic, hidden: hiddenBlocks)
     }
 
     /// Caption clips laid out by the caption fit (plain horizontal text; templates, curves and paths keep their own layout).
@@ -217,7 +219,7 @@ enum TextSceneBuilder {
         return even.map { ($0.start.seconds, $0.end.seconds, false) }
     }
 
-    static func assemble(_ blocksIn: [TextScene.Block], clip: TextContent, dynamic: Bool) -> TextScene {
+    static func assemble(_ blocksIn: [TextScene.Block], clip: TextContent, dynamic: Bool, hidden: Set<Int> = []) -> TextScene {
         var blocks = blocksIn
         var items: [TextScene.Item] = []
         var textBounds = CGRect.null
@@ -343,6 +345,14 @@ enum TextSceneBuilder {
             let c = CGPoint(x: textBounds.midX, y: textBounds.midY)
             let hw = max(bounds.maxX - c.x, c.x - bounds.minX), hh = max(bounds.maxY - c.y, c.y - bounds.minY)
             bounds = CGRect(x: c.x - hw, y: c.y - hh, width: hw * 2, height: hh * 2)
+        }
+        // Separated template part: the whole template's layout fixes the bounds (the part stays where it was in the
+        // template), only its own layer is drawn.
+        if !hidden.isEmpty {
+            var remap: [Int: Int] = [:]
+            var kept: [TextScene.Item] = []
+            for (i, it) in items.enumerated() where !hidden.contains(it.block) { remap[i] = kept.count; kept.append(it) }
+            items = kept.map { var it = $0; if let v = it.variantOf, v >= 0 { it.variantOf = remap[v] }; return it }
         }
         return TextScene(blocks: blocks, items: items, bounds: bounds, textBounds: textBounds.isNull ? bounds : textBounds)
     }

@@ -155,7 +155,15 @@ public struct TextRun: Hashable, Codable, Sendable {
 public struct TextTemplateInstance: Hashable, Codable, Sendable {
     public var templateID: String
     public var texts: [String]
-    public init(templateID: String, texts: [String] = []) { self.templateID = templateID; self.texts = texts }
+    /// "Separate text template" (TX-032): indices of the template layers this clip shows (nil = all). Each separated
+    /// part is its own clip showing one layer, with the full slot texts (shapes fitted to a slot keep their width).
+    public var layers: [Int]?
+    /// Language of the default slot texts (TX-033, nil = app language when added).
+    public var language: String?
+    public init(templateID: String, texts: [String] = [], layers: [Int]? = nil, language: String? = nil) {
+        self.templateID = templateID; self.texts = texts; self.layers = layers; self.language = language
+    }
+    public func showsLayer(_ i: Int) -> Bool { layers?.contains(i) ?? true }
 }
 
 /// Text clip content. Sizes are canvas-relative so a project renders identically at any export resolution.
@@ -208,6 +216,8 @@ public struct TextContent: Hashable, Codable, Sendable {
     public var karaoke: KaraokeStyle?
     /// Multi-layer text template this clip instantiates.
     public var template: TextTemplateInstance?
+    /// Animated number / timer / date counter replacing the displayed string (TX-039); nil = plain text.
+    public var counter: TextCounter?
 
     public init(string: String, fontName: String = "", fontSize: Double = 0.06, color: RGBA = .white,
                 alignment: TextAlignment = .center) {
@@ -243,6 +253,7 @@ public struct TextContent: Hashable, Codable, Sendable {
         caption = try c.decodeIfPresent(CaptionData.self, forKey: .caption)
         karaoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .karaoke)
         template = try c.decodeIfPresent(TextTemplateInstance.self, forKey: .template)
+        counter = try c.decodeIfPresent(TextCounter.self, forKey: .counter)
     }
 
     /// The string as displayed (case transform applied). Same UTF-16 length as `string` for every `TextCase` except
@@ -270,9 +281,10 @@ public struct TextContent: Hashable, Codable, Sendable {
 
     /// Copies every visual property of `style` onto self, keeping the string, runs, caption data and template text.
     public mutating func adoptLook(of style: TextContent) {
-        let keep = (string, runs, caption, template)
+        let keep = (string, runs, caption, template, counter)
         self = style
         string = keep.0; runs = keep.1; caption = keep.2
+        if style.counter == nil { counter = keep.4 }
         if let t = keep.3, t.templateID == style.template?.templateID { template = t }
     }
 }
