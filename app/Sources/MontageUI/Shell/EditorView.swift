@@ -101,6 +101,8 @@ struct Splitter: View {
 
 /// Window title bar (36 pt): autosave status, project name, shortcuts & Export (UX.md §1.1).
 struct TitleBar: View {
+    /// Opens the shortcut window (set by the app shell, W12 `AppModel`).
+    @MainActor public static var showShortcuts: (() -> Void)?
     @Bindable var store: EditorStore
     var body: some View {
         ZStack {
@@ -111,14 +113,13 @@ struct TitleBar: View {
                         .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                 }
                 Spacer()
-                Menu {
-                    ForEach(["system", "en", "fr"], id: \.self) { lang in
-                        Button(tr("settings.language.\(lang)")) { L10n.shared.setLanguagePreference(lang) }
-                    }
-                } label: { Image(systemName: "globe").font(.system(size: 13)) }
-                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                    .help(tr("settings.language"))
-                    .testID("titlebar.language")
+                // CapCut: ⌨ opens the shortcut window (language lives in Settings ▸ General)
+                if let show = TitleBar.showShortcuts {
+                    Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)) }
+                        .buttonStyle(.plain).foregroundStyle(Theme.textSecondary)
+                        .help(tr("menu.shortcuts"))
+                        .testID("titlebar.shortcuts")
+                }
                 ExportQueueButton(queue: store.exports.queue)
                 Button { store.openExport() } label: {
                     HStack(spacing: 5) {
@@ -144,12 +145,13 @@ struct ToastView: View {
     let toast: Toast?
     var body: some View {
         if let toast {
+            // CapCut (UX §9): centred white pill, black 12 pt text; errors stay red
             Text(verbatim: toast.message)
-                .font(.system(size: 12))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(toast.isError ? Color(hex: 0x8A2E2E) : Theme.menu, in: RoundedRectangle(cornerRadius: 8))
-                .shadow(color: .black.opacity(0.4), radius: 10)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(toast.isError ? .white : .black)
+                .padding(.horizontal, 14).padding(.vertical, 7)
+                .background(toast.isError ? Color(hex: 0xC24040) : Color.white, in: Capsule())
+                .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.35), radius: TestAnchors.isEnabled ? 0 : 8)
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 .id(toast.id)
         }

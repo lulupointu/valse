@@ -1,0 +1,12 @@
+// W12 / PB-005: Timeline ▸ Render preview pre-renders the timeline; the rendered part shows as a green bar under the ruler.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": {"path": "app.renderedRanges.count", "equals": 0}},
+    {"menu": "menu.timeline/menu.renderPreview"},
+    {"waitFor": {"path": "app.renderedRanges.count", "equals": 1, "timeout": 60}},
+    {"wait": 1.2},
+    {"scroll": "id:timeline", "dx": 0, "dy": 0},
+    {"snapshot": "render-bar", "element": "id:timeline"}
+  ]
+}

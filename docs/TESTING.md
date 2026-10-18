@@ -103,7 +103,7 @@ AppKit: `view.setAccessibilityIdentifier("timeline")`. Never use localized text 
 lists the IDs currently on screen. **Add IDs to the views you build** so tests can reach them. Existing IDs:
 
 - panels: `panel.assets`, `panel.player`, `panel.inspector`, `panel.timeline`; AppKit views: `timeline`, `player`
-- title bar: `titlebar.export`, `titlebar.language`
+- title bar: `titlebar.export`, `titlebar.shortcuts`
 - timeline toolbar: `toolbar.{undo, redo, split, deleteLeft, deleteRight, delete, magnet, snapping, linkage, zoomFit, zoomOut, zoomSlider, zoomIn}`
 - player: `player.play`
 - inspector: `inspector.tab.<tabID>`, `inspector.section.<sectionID>`, `slider.<ParamKey.raw>` (e.g. `slider.opacity`,

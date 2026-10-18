@@ -14,7 +14,6 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
     var store: EditorStore { app.store }
     /// Hooks the app delegate provides (panels it owns).
     public var importMedia: () -> Void = {}
-    public var saveAs: () -> Void = {}
 
     private var bindings: [ObjectIdentifier: KeyBinding] = [:]
 
@@ -133,7 +132,6 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             item("menu.save", id: "menu.save", enabled: { [unowned self] in self.inEditor }) { [unowned self] in
                 self.store.save(); self.store.showToast(tr("toast.saved"))
             },
-            item("menu.saveAs", enabled: { [unowned self] in self.inEditor }) { [unowned self] in self.saveAs() },
             item("menu.packProject", id: "menu.packProject", enabled: { [unowned self] in self.inEditor }) { [unowned self] in self.app.packPanel() },
             item("menu.versions", id: "menu.versions", enabled: { [unowned self] in self.inEditor }) { [unowned self] in self.app.modal = .versions },
             item("menu.relink", id: "menu.relink", enabled: { [unowned self] in self.inEditor }) { [unowned self] in self.app.modal = .relink },

@@ -516,45 +516,45 @@ Each AI feature is listed once here (cross-referenced from areas above). The "On
 
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
-| PM-001 | Home screen / projects list | Home: "Create project" big button, recent projects grid/list with thumbnail, name, duration, size, last modified. Sort, search project names, multi-select delete, rename, duplicate, open folder. | N | P0 | Project index (local DB), thumbnails. | todo |
-| PM-002 | New project settings | "Project settings": name, save path, ratio, resolution, frame rate, color space, proxy, "Arrange layers" mode. Settings can change later. | N | P0 | — | todo |
-| PM-003 | Auto-save | Continuous autosave ("Auto saved: hh:mm"), save on exit. | N | P0 | Crash-safe atomic writes (journal), debounced. | todo |
-| PM-004 | Crash recovery | "CapCut quit unexpectedly" → "Do you want to recover the unsaved project?", "Recover project". | N | P0 | Write-ahead journal, recovery flow. | todo |
-| PM-005 | Project folders | Folders on the home screen, move projects between folders. | N | P1 | — | todo |
-| PM-006 | Trash / recently deleted | "Trash" / "Recents" deleted projects with restore. | N | P1 | Soft-delete. | todo |
-| PM-007 | Duplicate project | "Duplicate", "Copy to project". | N | P0 | Deep copy of the project file (media referenced). | todo |
-| PM-008 | Import/export project package | Move a project with its media to another machine. | ? | P1 | Archive format (project + media + presets). | todo |
-| PM-009 | Project save location | "Project save path" setting (change only with projects closed), external drive warnings. | N | P0 | — | todo |
-| PM-010 | Cache management | "Cache management": media cache, render cache, proxy cache sizes, auto delete cache older than N days, clear cache. | N | P1 | Cache accounting & GC. | todo |
-| PM-011 | Cloud backup / spaces / teams | Cloud drafts, backup, collaboration, comments/review, team spaces. | Y | N/A-local | Cloud only. Excluded (local-only brief). | todo |
-| PM-012 | Project details | "Details": draft parameters, resolution, fps, size. | N | P2 | — | todo |
-| PM-013 | Open project file directly | Double-click a project file in Finder. | N | P1 | Document type registration. | todo |
-| PM-014 | Multiple projects / windows | One project open at a time in CapCut (dialog when opening another). We can allow several windows (P2). | N | P2 | — | todo |
-| PM-015 | Project versioning / schema migration | "Draft Schema Version", "Project needs to be updated". | N | P0 | Versioned project schema + migrations. | todo |
+| PM-001 | Home screen / projects list | Home: "Create project" big button, recent projects grid/list with thumbnail, name, duration, size, last modified. Sort, search project names, multi-select delete, rename, duplicate, open folder. | N | P0 | Project index (local DB), thumbnails. | done (Home: hero, grid/list, search, sort, ⌘/⇧-click multi-select, rename inline/menu, duplicate, Show in Finder, recents; UI tests home_library/home_project_flow) |
+| PM-002 | New project settings | "Project settings": name, save path, ratio, resolution, frame rate, color space, proxy, "Arrange layers" mode. Settings can change later. | N | P0 | — | done (one-click New project with CapCut defaults MMDD/Original; "Custom" dialog: name, ratio, resolution, fps, colour space) |
+| PM-003 | Auto-save | Continuous autosave ("Auto saved: hh:mm"), save on exit. | N | P0 | Crash-safe atomic writes (journal), debounced. | done (debounced atomic autosave into the project package from creation, "Auto saved: hh:mm:ss", save on Back to home / quit, ⌘S flashes "Saved") |
+| PM-004 | Crash recovery | "CapCut quit unexpectedly" → "Do you want to recover the unsaved project?", "Recover project". | N | P0 | Write-ahead journal, recovery flow. | done (stale session lock → "Recover project" prompt on Home; UI test crash_recovery_relink) |
+| PM-005 | Project folders | Folders on the home screen, move projects between folders. | N | P1 | — | done (sidebar folders: create/rename/delete, move via menu or drag) |
+| PM-006 | Trash / recently deleted | "Trash" / "Recents" deleted projects with restore. | N | P1 | Soft-delete. | done (Trash with Undo toast, restore, delete forever, Empty Trash, 30-day purge) |
+| PM-007 | Duplicate project | "Duplicate", "Copy to project". | N | P0 | Deep copy of the project file (media referenced). | done (Duplicate from card menu, selection bar, Edit ▸ Duplicate on Home) |
+| PM-008 | Import/export project package | Move a project with its media to another machine. | ? | P1 | Archive format (project + media + presets). | done (Pack project → .montage or .zip with media inside; Import project from .montage/.zip) |
+| PM-009 | Project save location | "Project save path" setting (change only with projects closed), external drive warnings. | N | P0 | — | partial: Settings ▸ Project ▸ Save to (locked while editing); no external-drive warning |
+| PM-010 | Cache management | "Cache management": media cache, render cache, proxy cache sizes, auto delete cache older than N days, clear cache. | N | P1 | Cache accounting & GC. | done (Settings cache sizes per category, clear, auto-delete after N days, render cache cap; per-project cache in Details) |
+| PM-011 | Cloud backup / spaces / teams | Cloud drafts, backup, collaboration, comments/review, team spaces. | Y | N/A-local | Cloud only. Excluded (local-only brief). | N/A-local (cloud only, excluded) |
+| PM-012 | Project details | "Details": draft parameters, resolution, fps, size. | N | P2 | — | done (Details dialog: resolution, fps, duration, media/clips, size, dates, path, cache) |
+| PM-013 | Open project file directly | Double-click a project file in Finder. | N | P1 | Document type registration. | done (document type in Info.plist, Finder open → editor) |
+| PM-014 | Multiple projects / windows | One project open at a time in CapCut (dialog when opening another). We can allow several windows (P2). | N | P2 | — | partial: one project per window; opening a project held by another Montage process is refused with a toast; no multi-window |
+| PM-015 | Project versioning / schema migration | "Draft Schema Version", "Project needs to be updated". | N | P0 | Versioned project schema + migrations. | done (versioned schema + ProjectMigrator; File ▸ Version history snapshots + restore) |
 | PM-016 | Tutorials & onboarding | Walkthrough tooltips, "What's new", feature tips. | N | P2 | Localized onboarding content. | todo |
 
 ## 20. Settings / shortcuts (SE)
 
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
-| SE-001 | Settings dialog | Tabs: General (language, project path, import options), Performance (HW decode/encode, GPU UI rendering, proxy, playback quality, auto optimization), Projects/Cache, Shortcuts, Notifications, Version. | N | P0 | Settings store (versioned). | todo |
-| SE-002 | App language | Switch app language (restart required in CapCut). We need FR + EN, follow system by default. | N | P0 | Runtime-switchable i18n with plural rules (ICU MessageFormat). | todo |
-| SE-003 | Keyboard shortcuts editor | View/customize shortcuts, conflict detection ("already belongs to X, override?"), presets (CapCut / Premiere / Final Cut layouts), reset to defaults. | N | P0 | Keymap system with chords/modifiers, conflict resolution. | todo |
-| SE-004 | Default shortcuts | Space play/pause, Cmd-B split, Q/W delete left/right, I/O in/out, M marker, Cmd-Z/Shift-Cmd-Z, Cmd-C/V/X/D, ←/→ frame step, Shift+←/→ 10 frames, ↑/↓ prev/next cut, J/K/L shuttle, Cmd +/- zoom timeline, Shift-Z fit, A/B select/split mode, N snapping, Cmd-E export, Cmd-G group/compound, Alt-drag duplicate, Cmd-R record screen, F fullscreen… | N | P0 | — | todo |
+| SE-001 | Settings dialog | Tabs: General (language, project path, import options), Performance (HW decode/encode, GPU UI rendering, proxy, playback quality, auto optimization), Projects/Cache, Shortcuts, Notifications, Version. | N | P0 | Settings store (versioned). | done (Settings dialog: General, Project, Edit, Performance, Export, Shortcuts, About; staged edits, Save/Cancel, unsaved-changes alert) |
+| SE-002 | App language | Switch app language (restart required in CapCut). We need FR + EN, follow system by default. | N | P0 | Runtime-switchable i18n with plural rules (ICU MessageFormat). | done (System/English/Français, live switch on Save without relaunch, menu bar rebuilt) |
+| SE-003 | Keyboard shortcuts editor | View/customize shortcuts, conflict detection ("already belongs to X, override?"), presets (CapCut / Premiere / Final Cut layouts), reset to defaults. | N | P0 | Keymap system with chords/modifiers, conflict resolution. | done (shortcut window + Settings tab: categories, search, click-to-record, inline conflict "Override?", CapCut/Final Cut Pro/Premiere Pro presets, reset one/all; menu bar follows the keymap) |
+| SE-004 | Default shortcuts | Space play/pause, Cmd-B split, Q/W delete left/right, I/O in/out, M marker, Cmd-Z/Shift-Cmd-Z, Cmd-C/V/X/D, ←/→ frame step, Shift+←/→ 10 frames, ↑/↓ prev/next cut, J/K/L shuttle, Cmd +/- zoom timeline, Shift-Z fit, A/B select/split mode, N snapping, Cmd-E export, Cmd-G group/compound, Alt-drag duplicate, Cmd-R record screen, F fullscreen… | N | P0 | — | done (CapCut defaults from ShortcutRegistry, shown in the menu bar and the editor) |
 | SE-005 | Layouts | Layout presets: Default, Media first, Player first, Timeline first, Attributes (inspector) first, Vertical layout (for 9:16), Custom layouts 1–3, reset layout. Resizable splitters. | N | P1 | Dockable/resizable panel framework, layout persistence. | todo |
 | SE-006 | Detachable panels / dual screen | "Detach player / media panel / editing panel / timeline" into separate windows ("Separate window, Dual screen"). | N | P1 | Multi-window with shared state, GPU context sharing. | todo |
-| SE-007 | Default image duration, default transition duration | General editing defaults. | N | P1 | — | todo |
-| SE-008 | Frame rate / timecode style | Time code display, drop-frame option. | N | P1 | — | todo |
-| SE-009 | Performance settings | HW decode, HW encode, "Render interface with GPU", proxy mode, preview quality, "Performance priority vs Quality". | N | P0 | — | todo |
-| SE-010 | Import options | "Import method" (copy to project or link), "Show media from subprojects". | N | P1 | — | todo |
+| SE-007 | Default image duration, default transition duration | General editing defaults. | N | P1 | — | done (image, freeze, transition durations, step frames → EditDefaults) |
+| SE-008 | Frame rate / timecode style | Time code display, drop-frame option. | N | P1 | — | todo (timecodeStyle stored in AppSettings, no UI/display switch yet) |
+| SE-009 | Performance settings | HW decode, HW encode, "Render interface with GPU", proxy mode, preview quality, "Performance priority vs Quality". | N | P0 | — | done (HW encoding → export, preview quality + proxies persisted from Settings and the player menu, proxy creation policy/location/size, render cache size/cap/auto render + green bar) |
+| SE-010 | Import options | "Import method" (copy to project or link), "Show media from subprojects". | N | P1 | — | todo (copyMediaOnImport stored, not wired to import) |
 | SE-011 | Audio settings | Audio output device, input device, scrub audio. | N | P1 | — | todo |
-| SE-012 | Notifications | Export-finished sound and system notification. | N | P2 | OS notifications. | todo |
-| SE-013 | Theme | CapCut desktop is dark-only. We follow dark by default, light optional (P2). | N | P2 | Theme tokens. | todo |
+| SE-012 | Notifications | Export-finished sound and system notification. | N | P2 | OS notifications. | done (Settings ▸ General: export-finished notification + sound, read by the export queue) |
+| SE-013 | Theme | CapCut desktop is dark-only. We follow dark by default, light optional (P2). | N | P2 | Theme tokens. | partial: dark theme only (as CapCut); no light theme |
 | SE-014 | Environment check / GPU diagnostics | "Environment testing", graphics driver checks, "Your computer can run CapCut smoothly". | N | P2 | Hardware capability probe (GPU family, HW codec support, RAM). | todo |
 | SE-015 | Check for updates | Updater (Sparkle on macOS). | N | P2 | Must stay offline by default (manual updates). | todo |
 | SE-016 | Mouse settings | Scroll behavior for the timeline (scroll = horizontal/vertical, zoom modifiers). | N | P1 | Input mapping. | todo |
-| SE-017 | Accessibility | Keyboard navigation, VoiceOver labels (CapCut is weak here; we should do better). | N | P2 | Accessibility tree for custom-drawn widgets. | todo |
-| SE-018 | About / legal / logs | About, legal notices (open-source licenses list), "Package logs & drafts" for support. | N | P1 | License attribution generator (required for MIT/Apache/OFL assets). | todo |
+| SE-017 | Accessibility | Keyboard navigation, VoiceOver labels (CapCut is weak here; we should do better). | N | P2 | Accessibility tree for custom-drawn widgets. | partial: Home/settings controls are Buttons with labels/help and test IDs; no full VoiceOver pass |
+| SE-018 | About / legal / logs | About, legal notices (open-source licenses list), "Package logs & drafts" for support. | N | P1 | License attribution generator (required for MIT/Apache/OFL assets). | partial: About + third-party licenses; no "package logs" export |
 
 ---
 

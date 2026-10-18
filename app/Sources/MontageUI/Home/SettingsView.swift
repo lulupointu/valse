@@ -77,7 +77,10 @@ struct SettingsView: View {
         Keymap.shared.adopt(keymap)
         let lang = language
         app.modal = nil
-        if lang != L10n.shared.languagePreference { L10n.shared.setLanguagePreference(lang) }
+        // also when only the session language differs (`--lang`, UI tests): the choice must take effect now
+        if lang != L10n.shared.languagePreference || L10n.resolveLanguage(lang) != L10n.shared.language {
+            L10n.shared.setLanguagePreference(lang)
+        }
         app.store.showToast(tr("settings.saved"))
         app.refreshSoon()
     }

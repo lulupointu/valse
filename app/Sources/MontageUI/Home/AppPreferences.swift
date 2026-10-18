@@ -47,6 +47,8 @@ public final class AppPreferences {
         guard !HomeSandbox.isActive else { return }  // never touch the user's path overrides from a sandbox
         let d = UserDefaults.standard
         d.set(settings.hardwareEncoding, forKey: ExportDialogModel.hardwareDefaultsKey)
+        d.set(settings.exportSound, forKey: ExportQueue.soundDefaultsKey)
+        d.set(settings.notifyOnExport, forKey: ExportQueue.notifyDefaultsKey)
         if let p = settings.projectsDirectory, !p.isEmpty { d.set(p, forKey: MontagePaths.draftsOverrideKey) } else { d.removeObject(forKey: MontagePaths.draftsOverrideKey) }
         if let p = settings.cacheDirectory, !p.isEmpty { d.set(p, forKey: MontagePaths.cacheOverrideKey) } else { d.removeObject(forKey: MontagePaths.cacheOverrideKey) }
     }

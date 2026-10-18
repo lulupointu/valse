@@ -128,6 +128,24 @@ extension EditorStore {
     }
 }
 
+extension EditorStore {
+    /// Pre-rendered preview ranges for the timeline's green bar. Hashing the project per segment is too costly per frame:
+    /// cached per edit revision and refreshed at most once a second (renders finish in the background).
+    func renderedPreviewRanges() -> [TimeRange] {
+        let rev = session.revision, now = Date()
+        if let c = RenderBarCache.shared.value, c.revision == rev, c.projectID == project.id, now.timeIntervalSince(c.date) < 1 { return c.ranges }
+        let ranges = RenderCache.shared.requestedRanges(project).isEmpty ? []
+            : RenderCache.shared.validSegments(project, size: engine.renderSize).map(\.range)
+        RenderBarCache.shared.value = (rev, project.id, now, ranges)
+        return ranges
+    }
+}
+
+@MainActor final class RenderBarCache {
+    static let shared = RenderBarCache()
+    var value: (revision: Int, projectID: ProjectID, date: Date, ranges: [TimeRange])?
+}
+
 nonisolated final class PackBox: @unchecked Sendable { var url: URL? }
 
 /// Builds a self-contained project copy (W12 "Pack project"). Off-main.

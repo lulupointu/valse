@@ -176,7 +176,7 @@ struct ProjectsColumn: View {
                 } else if list.isEmpty {
                     EmptyProjects(app: app)
                 } else if app.viewMode == .grid {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140, maximum: 170), spacing: 24, alignment: .top)], alignment: .leading, spacing: 22) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 98, maximum: 118), spacing: 24, alignment: .top)], alignment: .leading, spacing: 22) {
                         ForEach(Array(list.enumerated()), id: \.element.id) { i, e in ProjectCard(app: app, entry: e, all: list).testID("home.card.\(i)") }
                     }
                 } else {

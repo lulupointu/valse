@@ -281,6 +281,11 @@ final class TimelineView: NSView {
             if tl.inPoint != nil { c.rect(CGRect(x: x0, y: 0, width: 2, height: TimelineLayout.rulerHeight), accent) }
             if tl.outPoint != nil { c.rect(CGRect(x: x1 - 2, y: 0, width: 2, height: TimelineLayout.rulerHeight), accent) }
         }
+        // Render cache bar (W12, PB-005): green under the ruler where the preview is pre-rendered
+        for r in store.renderedPreviewRanges() {
+            let x0 = l.x(r.start), x1 = l.x(r.end)
+            c.rect(CGRect(x: x0, y: TimelineLayout.rulerHeight - 2, width: max(1, x1 - x0), height: 2), RGBA(0.33, 0.8, 0.45, 1))
+        }
         let (major, minor) = TimelineLayout.tickStep(pixelsPerSecond: l.pixelsPerSecond, fps: fps)
         var t = (scrollTime / minor).rounded(.down) * minor
         let end = scrollTime + Double(W) / l.pixelsPerSecond

@@ -49,6 +49,8 @@ public final class ExportQueue {
     @ObservationIgnored public var onFinish: ((ExportJobItem) -> Void)?
     /// UserDefaults key of "Sound for export" (CapCut Settings ▸ Edit; the settings UI belongs to W12).
     public static let soundDefaultsKey = "montage.export.notificationSound"
+    /// Settings ▸ General ▸ "Notify when an export finishes" (W12). Unset = on.
+    public static let notifyDefaultsKey = "montage.export.notify"
 
     public init() {}
 
@@ -127,7 +129,9 @@ public final class ExportQueue {
         onFinish?(item)
         guard item.state == .done else { return }
         if UserDefaults.standard.bool(forKey: Self.soundDefaultsKey) { NSSound(named: "Glass")?.play() }
-        Self.postNotification(title: tr("export.notify.title"), body: tr("export.notify.body", item.primaryURL?.lastPathComponent ?? item.title))
+        if UserDefaults.standard.object(forKey: Self.notifyDefaultsKey) == nil || UserDefaults.standard.bool(forKey: Self.notifyDefaultsKey) {
+            Self.postNotification(title: tr("export.notify.title"), body: tr("export.notify.body", item.primaryURL?.lastPathComponent ?? item.title))
+        }
     }
 
     /// System notification (only from a bundled app: UNUserNotificationCenter needs a bundle identifier).

@@ -162,6 +162,7 @@ extension AppModel {
             "folders": folders.map(\.name),
             "trashCount": trashCount,
             "projectName": store.projectName,
+            "renderedRanges": store.renderedPreviewRanges().map { [$0.start.seconds, $0.end.seconds] },
             "settings": [
                 "language": L10n.shared.languagePreference, "previewQuality": s.previewQuality, "useProxies": s.useProxies,
                 "proxyPolicy": s.proxyPolicy, "imageDuration": s.imageDuration, "stepFrames": s.stepFrames,

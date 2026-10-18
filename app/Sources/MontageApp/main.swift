@@ -158,7 +158,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         w.title = "Montage"
         w.delegate = self
         w.isReleasedWhenClosed = false
-        w.contentView = NSHostingView(rootView: RootView(app: app))
+        let host = NSHostingView(rootView: RootView(app: app))
+        // No title-bar safe area: content runs under the transparent title bar, so the editor's 36 pt TitleBar holds the
+        // traffic lights like CapCut's single bar (UX_GAPS W12-2), and Home's sidebar starts at the window top.
+        host.safeAreaRegions = []
+        w.contentView = host
         w.center()
         if options.uitest != nil {
             w.orderBack(nil)  // offscreen (UITestWindow), never activated
@@ -199,15 +203,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func buildMenu() {
         let b = menuBuilder ?? AppMenuBuilder(app: app)
         b.importMedia = { [weak self] in self?.importMedia() }
-        b.saveAs = { [weak self] in self?.saveProjectAs() }
         menuBuilder = b
         NSApp.mainMenu = b.build()
-    }
-
-    func saveProjectAs() {
-        let p = NSSavePanel()
-        p.nameFieldStringValue = store.projectName + "." + ProjectPackage.fileExtension
-        if p.runModal() == .OK, let u = p.url { store.saveAs(u) }
     }
 
     func importMedia() {
