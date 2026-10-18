@@ -314,6 +314,10 @@ public struct LayerGeometry: Equatable, Sendable {
     public var halfSize: Vec2
     /// Radians, clockwise.
     public var rotation: Double
+    /// 3D planar rotation in radians (x around the horizontal axis, y around the vertical axis); zero = flat.
+    public var tilt: Vec2 = .zero
+    /// Focal length (canvas px) of the perspective used for `tilt`.
+    public var focal: Double = 1
 
     public init(sourceSize: Size2, canvasSize: Size2, transform: Transform, crop: CropRect = CropRect(), fitsCanvas: Bool = true) {
         // aspect-fit at scale 1 (or native canvas-pixel size for text/stickers)
@@ -325,19 +329,48 @@ public struct LayerGeometry: Equatable, Sendable {
                       canvasSize.height / 2 + transform.position.y * canvasSize.height) + cropShift * transform.scale
         halfSize = Vec2(w / 2 * transform.scale.x, h / 2 * transform.scale.y)
         rotation = transform.rotation * .pi / 180
+        let maxTilt = 85.0
+        tilt = Vec2(min(max(transform.tilt.x, -maxTilt), maxTilt), min(max(transform.tilt.y, -maxTilt), maxTilt)) * (.pi / 180)
+        focal = 1.4 * max(canvasSize.width, canvasSize.height)
     }
 
-    /// Corners (TL, TR, BL, BR) in canvas pixels.
-    public var corners: [Vec2] {
+    public var hasTilt: Bool { tilt.x != 0 || tilt.y != 0 }
+
+    /// Corners (TL, TR, BL, BR) in canvas pixels (perspective-projected when tilted).
+    public var corners: [Vec2] { projectedCorners.map(\.point) }
+
+    /// Corners with their perspective divisor `w` (1 when flat): the renderer emits clip-space `(ndc · w, w)` so
+    /// texture coordinates interpolate perspective-correctly across the quad.
+    public var projectedCorners: [(point: Vec2, w: Double)] {
         let c = cos(rotation), s = sin(rotation)
+        let cx = cos(tilt.x), sx = sin(tilt.x), cy = cos(tilt.y), sy = sin(tilt.y)
         return [Vec2(-1, -1), Vec2(1, -1), Vec2(-1, 1), Vec2(1, 1)].map { k in
-            let x = k.x * halfSize.x, y = k.y * halfSize.y
-            return Vec2(center.x + x * c - y * s, center.y + x * s + y * c)
+            var x = k.x * halfSize.x, y = k.y * halfSize.y, z = 0.0
+            if hasTilt {
+                // around the vertical axis (right edge away for +y), then the horizontal axis (top edge away for +x)
+                let x1 = x * cy, z1 = x * sy
+                let y2 = y * cx + z1 * sx, z2 = z1 * cx - y * sx
+                x = x1; y = y2; z = z2
+            }
+            let w = max(0.05, (focal + z) / focal)
+            x /= w; y /= w
+            return (Vec2(center.x + x * c - y * s, center.y + x * s + y * c), w)
         }
     }
 
     /// Whether a canvas point lies inside the (rotated) layer.
     public func contains(_ p: Vec2) -> Bool {
+        if hasTilt {
+            // convex quad TL → TR → BR → BL: same side of every edge
+            let q = corners, poly = [q[0], q[1], q[3], q[2]]
+            var sign = 0.0
+            for i in 0..<4 {
+                let a = poly[i], b = poly[(i + 1) % 4]
+                let cr = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+                if cr != 0 { if sign == 0 { sign = cr } else if (cr > 0) != (sign > 0) { return false } }
+            }
+            return true
+        }
         let c = cos(-rotation), s = sin(-rotation)
         let d = p - center
         let x = d.x * c - d.y * s, y = d.x * s + d.y * c

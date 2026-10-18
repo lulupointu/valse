@@ -118,11 +118,13 @@ enum CoreShaders {
         float maskFeather;
         float maskRoundness;
         float layerAspect;
+        float4 cornerW;      // perspective divisor per corner (CV-018 3D rotation); 1 = flat
     };
 
     vertex QuadOut place_vs(uint vid [[vertex_id]], constant PlaceU& u [[buffer(0)]]) {
         QuadOut o;
-        o.pos = float4(u.corners[vid], 0, 1);
+        float w = u.cornerW[vid] > 0.0 ? u.cornerW[vid] : 1.0;
+        o.pos = float4(u.corners[vid] * w, 0, w);   // clip-space w → perspective-correct uv
         o.uv = float2((vid & 1) ? 1.0 : 0.0, (vid & 2) ? 1.0 : 0.0);
         return o;
     }

@@ -30,7 +30,7 @@ public enum StateDump {
                 "start": c.start.seconds, "duration": c.duration.seconds, "end": c.end.seconds, "sourceStart": c.sourceStart.seconds,
                 "speed": c.speed.averageRate, "opacity": c.opacity, "enabled": c.isEnabled, "blend": c.blendMode.rawValue,
                 "effects": c.effects.map(\.typeID), "selected": store.selection.contains(c.id),
-                "scale": c.transform.scale.x, "rotation": c.transform.rotation,
+                "scale": c.transform.scale.x, "rotation": c.transform.rotation, "tiltX": c.transform.tilt.x, "tiltY": c.transform.tilt.y,
                 "positionX": c.transform.position.x, "positionY": c.transform.position.y,
                 "volume": c.audio.volume, "keyframes": Array(c.keyframes.keys).sorted(),
             ]

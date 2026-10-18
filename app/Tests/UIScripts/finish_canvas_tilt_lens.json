@@ -1,0 +1,39 @@
+// CV-018: Video ▸ Basic ▸ Position & size ▸ 3D rotation X / Y fields tilt the clip in perspective (one undo step each,
+// keyframeable). CV-015: ☐ Lens correction adds the correction first in the effect stack with Distortion + Zoom to fill.
+// CV-017: a sticker has an Adjust tab (Basic / HSL / Curves / Color wheel).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:slider.Scale.field"},
+    {"type": "70", "replace": true},
+    {"key": "return"},
+    {"click": "id:transform.tilt.y"},
+    {"type": "45", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "selectedClips.0.tiltY", "approx": 45, "tolerance": 0.5}, {"path": "undo.name", "equals": "cmd.transform"}]},
+    {"click": "id:transform.tilt.x"},
+    {"type": "-20", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "selectedClips.0.tiltX", "approx": -20, "tolerance": 0.5}},
+    {"snapshot": "tilted-clip", "element": "id:panel.player"},
+    {"snapshot": "tilt-row", "element": "id:panel.inspector"},
+    {"click": "id:inspector.section.video.lensCorrection", "at": [0, 0.5], "offset": [20, 0]},
+    {"expect": [{"path": "selectedClips.0.effects.0", "equals": "montage.lens.correction"}, {"path": "undo.name", "equals": "cmd.lensCorrection"}]},
+    {"snapshot": "lens-correction", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.effects", "notContains": "montage.lens.correction"}},
+    {"click": "id:asset.tab.stickers"},
+    {"click": "id:asset.nav.sticker.group.shapes"},
+    {"click": "id:asset.tile.montage.sticker.shape.circle.white"},
+    {"click": "id:asset.tile.montage.sticker.shape.circle.white.add"},
+    {"expect": {"path": "ui.inspectorTabs", "contains": "adjust"}},
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:slider.Brightness.field"},
+    {"type": "-60", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.adjust.basic"}},
+    {"snapshot": "sticker-adjusted", "element": "id:panel.player"}
+  ]
+}

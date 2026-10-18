@@ -1,0 +1,20 @@
+// EX-025 / EX-018: the export dialog's Video section has ☐ Motion blur (on = Medium 4×, with a Strength menu) and
+// ☐ AI ultra HD (on-device super resolution of low-resolution clips); both are remembered in the dialog choices.
+{
+  "project": "demo",
+  "steps": [
+    {"key": "cmd+e"},
+    {"waitFor": {"path": "ui.exportSheet", "equals": true, "timeout": 5}},
+    {"expect": [{"path": "ui.export.dialog.motionBlur", "equals": "off"}, {"path": "ui.export.dialog.aiUltraHD", "equals": false}]},
+    {"scroll": "id:export.section.video", "dx": 0, "dy": -400},
+    {"click": "id:export.motionBlur", "at": [0.96, 0.5]},
+    {"expect": {"path": "ui.export.dialog.motionBlur", "equals": "medium"}},
+    {"click": "id:export.aiUltraHD", "at": [0.96, 0.5]},
+    {"expect": {"path": "ui.export.dialog.aiUltraHD", "equals": true}},
+    {"snapshot": "export-motion-blur-ultra-hd", "element": "id:export.dialog"},
+    {"click": "id:export.motionBlur", "at": [0.96, 0.5]},
+    {"expect": {"path": "ui.export.dialog.motionBlur", "equals": "off"}},
+    {"click": "id:export.cancel"},
+    {"expect": {"path": "ui.exportSheet", "equals": false}}
+  ]
+}

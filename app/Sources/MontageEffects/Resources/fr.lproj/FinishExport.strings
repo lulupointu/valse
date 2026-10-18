@@ -1,0 +1,5 @@
+/* Finisher: export + canvas rows */
+"lens.correction" = "Correction de l’objectif";
+"lens.distortion" = "Distorsion";
+"lens.fill" = "Zoomer pour remplir";
+"key.group.lens" = "Objectif";

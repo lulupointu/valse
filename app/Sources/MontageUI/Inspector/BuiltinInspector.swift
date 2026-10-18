@@ -59,9 +59,9 @@ enum BuiltinInspector {
             InspectorSubTab(id: "mask", titleKey: "inspector.sub.mask", order: 4) { [.video, .image, .adjustment].contains($0.kind) },
         ], footer: { ctx, _ in
             // Sticky footer on every Adjust sub-tab (CapCut [32]); adjustment-layer clips have no "Apply to all".
-            guard ctx.kind != .adjustment else { return nil }
+            guard ctx.kind == .video || ctx.kind == .image else { return nil }
             return AnyView(AdjustFooter(ctx: ctx))
-        }, appliesTo: any(.video, .image, .adjustment)),
+        }, appliesTo: any(.video, .image, .adjustment, .sticker)),   // CV-017: shape / sticker colour adjustments
         InspectorTab(id: "effects", titleKey: "inspector.tab.effects", order: 7,
                      appliesTo: { $0.kind.isPlacedVisual && ClipEffectBlocks.hasEffects($0) }),
         InspectorTab(id: "specialEffects", titleKey: "inspector.tab.specialEffects", order: 0, subTabs: [
@@ -172,5 +172,5 @@ enum BuiltinInspector {
             AnyView(MaskSettingsSection(ctx: $0, target: .adjust))
         },
     ] } + RenderFeatureInspector.sections + AudioInspector.sections + TextInspector.sections + AIInspector.sections
-      + ColorGradingInspector.sections
+      + ColorGradingInspector.sections + FinishCanvasInspector.sections
 }

@@ -59,6 +59,15 @@ public struct ExportSettings: Codable, Hashable, Sendable {
 
     public enum BitDepth: Int, Codable, Sendable, CaseIterable { case eight = 8, ten = 10 }
 
+    /// EX-025 "Motion blur" at export: every output frame averages `samples` sub-frames rendered across the frame
+    /// interval (360° shutter), so everything that moves — media, keyframes, animations, text — gets natural blur.
+    public enum MotionBlurLevel: String, Codable, Sendable, CaseIterable {
+        case off, low, medium, high
+        public var nameKey: String { "export.motionBlur.\(rawValue)" }
+        /// Sub-frames per output frame (CapCut "Times" 2× / 4× / 6×).
+        public var samples: Int { switch self { case .off: 1; case .low: 2; case .medium: 4; case .high: 6 } }
+    }
+
     /// Output aspect (platform presets). `.original` keeps the project canvas; others re-frame the canvas (content
     /// stays aspect-fit, like changing the project ratio).
     public enum Aspect: String, Codable, Sendable, CaseIterable {
@@ -95,12 +104,17 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var burnCaptions: Bool = true
     /// EX-019: prepend the cover frame as the first frame (social thumbnails).
     public var prependCover: Bool = false
+    /// EX-025: export-time motion blur (frame accumulation).
+    public var motionBlur: MotionBlurLevel = .off
+    /// EX-018 "AI ultra HD": before rendering, video clips smaller than what the export shows are super-resolved
+    /// (on-device VideoToolbox ML super resolution via `ExportHooks.superResolve`, set by MontageAI).
+    public var aiUltraHD: Bool = false
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case codec, container, resolution, frameRate, bitrateMode, customBitrateMbps, rateControl, bitDepth, alpha, toneMapToSDR,
-             aspect, includeAudio, audioBitrateKbps, preferHardware, burnCaptions, prependCover
+             aspect, includeAudio, audioBitrateKbps, preferHardware, burnCaptions, prependCover, motionBlur, aiUltraHD
     }
 
     public init(from decoder: any Decoder) throws {
@@ -122,6 +136,8 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         preferHardware = (try? c.decodeIfPresent(Bool.self, forKey: .preferHardware)) ?? d.preferHardware
         burnCaptions = (try? c.decodeIfPresent(Bool.self, forKey: .burnCaptions)) ?? d.burnCaptions
         prependCover = (try? c.decodeIfPresent(Bool.self, forKey: .prependCover)) ?? d.prependCover
+        motionBlur = (try? c.decodeIfPresent(MotionBlurLevel.self, forKey: .motionBlur)) ?? d.motionBlur
+        aiUltraHD = (try? c.decodeIfPresent(Bool.self, forKey: .aiUltraHD)) ?? d.aiUltraHD
     }
 
     // MARK: Derived

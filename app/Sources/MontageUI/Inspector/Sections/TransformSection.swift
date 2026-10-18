@@ -13,7 +13,7 @@ struct TransformSection: View {
             ctx.store.perform(UpdateClip(id, nameKey: "cmd.transform") { c in
                 let flip = (c.transform.flipH, c.transform.flipV)
                 c.transform = Transform(flipH: flip.0, flipV: flip.1)
-                c.clearKeyframes(ParamKey.transformGroup)
+                c.clearKeyframes(ParamKey.transformGroup + [.tilt])
             })
         }, keyframeKeys: ParamKey.transformGroup)
     }
@@ -53,6 +53,16 @@ struct TransformSection: View {
                     RotationDialBinding(ctx: ctx, key: .rotation)
                 }
             }
+            // CV-018: 3D rotation (tilt around the horizontal / vertical axis, perspective), keyframeable.
+            InlineRow(label: tr("inspector.rotate3D"), triplet: Bind.triplet(ctx, [.tilt])) {
+                HStack(spacing: 14) {
+                    Bind.field(ctx, key: .tilt, component: 0, prefix: "X", spec: RowSpec(range: -85...85, step: 1, format: { "\(Int($0.rounded()))°" }),
+                               gestureName: "cmd.transform").testID("transform.tilt.x")
+                    Bind.field(ctx, key: .tilt, component: 1, prefix: "Y", spec: RowSpec(range: -85...85, step: 1, format: { "\(Int($0.rounded()))°" }),
+                               gestureName: "cmd.transform").testID("transform.tilt.y")
+                }
+            }
+            .help(tr("inspector.rotate3D.help"))
             AlignmentStrip(ctx: ctx)
         }
     }

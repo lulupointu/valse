@@ -125,6 +125,7 @@ public enum AIEngineHooks {
         if #available(macOS 15.4, *), VTFrameInterpolator.isSupported, FrameInterpolation.provider == nil {
             FrameInterpolation.provider = VTFrameInterpolator()
         }
+        if ExportHooks.superResolve == nil { ExportHooks.superResolve = ExportSuperResolution.run }   // EX-018
     }
 
     /// ML voice isolation in the audio engine's rendered stage (`AudioML`). The app installs it at launch; test

@@ -59,7 +59,7 @@ import MontageTestSupport
         #expect(tabs(s) == ["text", "animation", "tts", "tracking"])   // CapCut: Text · Animation · Text to speech · Tracking (W10)
         #expect(subs(s, "animation") == ["in", "out", "loop"])
         s.selection = [f.sticker]
-        #expect(tabs(s) == ["sticker", "animation", "tracking"])
+        #expect(tabs(s) == ["sticker", "animation", "adjust", "tracking"])   // CV-017: stickers / shapes get Adjust
         s.selection = [f.effect]
         #expect(tabs(s) == ["specialEffects"])
         s.selection = [f.filter]

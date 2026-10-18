@@ -493,6 +493,10 @@ public final class FrameRenderer: @unchecked Sendable {
                               maskShape: -1, maskInvert: 0, maskCenter: .zero, maskSize: .one, maskRotation: 0,
                               maskFeather: 0, maskRoundness: 0,
                               layerAspect: Float(abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)))
+        if geo.hasTilt {
+            let pc = geo.projectedCorners
+            u.cornerW = SIMD4(Float(pc[0].w), Float(pc[1].w), Float(pc[2].w), Float(pc[3].w))
+        }
         if let m = l.mask {
             if m.shape.isRaster {
                 // Text / Pen: multiply the layer alpha by the rasterized coverage; the placement shader sees no mask.
@@ -766,4 +770,6 @@ struct PlaceUniforms {
     var maskFeather: Float
     var maskRoundness: Float
     var layerAspect: Float
+    /// Perspective divisor per corner (TL, TR, BL, BR) for tilted layers (CV-018).
+    var cornerW: SIMD4<Float> = SIMD4(1, 1, 1, 1)
 }

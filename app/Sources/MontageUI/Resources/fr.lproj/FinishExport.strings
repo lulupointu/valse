@@ -1,0 +1,14 @@
+/* Finisher: export + canvas rows */
+"inspector.rotate3D" = "Rotation 3D";
+"inspector.rotate3D.help" = "Incliner le calque en perspective : X autour de l’axe horizontal, Y autour de l’axe vertical";
+"cmd.lensCorrection" = "Correction de l’objectif";
+"lens.hint" = "Redresse les lignes courbées par les objectifs grand angle ou les caméras d’action";
+"export.motionBlur" = "Flou de mouvement";
+"export.motionBlur.hint" = "Fusionne plusieurs images dans chaque image exportée pour un mouvement naturel (export plus lent)";
+"export.motionBlur.strength" = "Intensité";
+"export.motionBlur.off" = "Désactivé";
+"export.motionBlur.low" = "Faible (2×)";
+"export.motionBlur.medium" = "Moyen (4×)";
+"export.motionBlur.high" = "Fort (6×)";
+"export.aiUltraHD" = "UHD par l'IA";
+"export.aiUltraHD.hint" = "Améliore la résolution des clips de faible définition sur l’appareil avant l’export (plus lent)";

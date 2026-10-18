@@ -1,0 +1,5 @@
+/* Finisher: export + canvas rows */
+"lens.correction" = "Lens correction";
+"lens.distortion" = "Distortion";
+"lens.fill" = "Zoom to fill";
+"key.group.lens" = "Lens";

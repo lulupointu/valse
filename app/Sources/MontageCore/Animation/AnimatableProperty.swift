@@ -11,6 +11,8 @@ public struct ParamKey: Hashable, Sendable, Codable, ExpressibleByStringLiteral,
     public static let position: ParamKey = "transform.position"
     public static let scale: ParamKey = "transform.scale"
     public static let rotation: ParamKey = "transform.rotation"
+    /// 3D planar rotation (CV-018), Vec2 degrees.
+    public static let tilt: ParamKey = "transform.tilt"
     public static let opacity: ParamKey = "opacity"
     public static let volume: ParamKey = "audio.volume"
     public static let maskCenter: ParamKey = "mask.center"
@@ -74,6 +76,8 @@ public enum AnimatableProperties {
               set: { c, v in if let v = v.vec2 { c.transform.scale = v } }),
         .init(key: .rotation, nameKey: "prop.rotation", get: { .scalar($0.transform.rotation) },
               set: { c, v in if let v = v.scalar { c.transform.rotation = v } }),
+        .init(key: .tilt, nameKey: "prop.tilt", get: { .vec2($0.transform.tilt) },
+              set: { c, v in if let v = v.vec2 { c.transform.tilt = v } }),
         .init(key: .opacity, nameKey: "prop.opacity", get: { .scalar($0.opacity) },
               set: { c, v in if let v = v.scalar { c.opacity = v } }),
         .init(key: .volume, nameKey: "prop.volume", get: { .scalar($0.audio.volume) },

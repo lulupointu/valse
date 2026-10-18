@@ -247,6 +247,21 @@ struct ExportSheet: View {
                     toggleRow(tr("export.burnCaptions"), detail: nil, isOn: Binding(
                         get: { model.remembered.video.burnCaptions }, set: { b in model.editVideo { $0.burnCaptions = b } }), enabled: on)
                 }
+                // EX-025: motion blur rendered by frame accumulation (Times 2× / 4× / 6×)
+                toggleRow(tr("export.motionBlur"), detail: tr("export.motionBlur.hint"), isOn: Binding(
+                    get: { model.remembered.video.motionBlur != .off },
+                    set: { b in model.editVideo { $0.motionBlur = b ? .medium : .off } }), enabled: on)
+                    .testID("export.motionBlur")
+                if v.motionBlur != .off {
+                    ExportRow(label: tr("export.motionBlur.strength"), enabled: on) {
+                        ExportDropdown(items: [ExportSettings.MotionBlurLevel.low, .medium, .high].map { ExportMenuItem(id: $0, title: tr($0.nameKey)) },
+                                       selection: v.motionBlur, enabled: on) { l in model.editVideo { $0.motionBlur = l } }
+                    }
+                }
+                // EX-018: AI ultra HD (on-device super resolution of low-resolution clips before rendering)
+                toggleRow(tr("export.aiUltraHD"), detail: tr("export.aiUltraHD.hint"), isOn: Binding(
+                    get: { model.remembered.video.aiUltraHD }, set: { b in model.editVideo { $0.aiUltraHD = b } }), enabled: on)
+                    .testID("export.aiUltraHD")
             }
         }
     }

@@ -1,0 +1,14 @@
+/* Finisher: export + canvas rows */
+"inspector.rotate3D" = "3D rotation";
+"inspector.rotate3D.help" = "Tilt the layer in perspective: X around the horizontal axis, Y around the vertical axis";
+"cmd.lensCorrection" = "Lens correction";
+"lens.hint" = "Straightens lines curved by wide-angle or action-camera lenses";
+"export.motionBlur" = "Motion blur";
+"export.motionBlur.hint" = "Blends several frames into each exported frame for natural motion (slower export)";
+"export.motionBlur.strength" = "Strength";
+"export.motionBlur.off" = "Off";
+"export.motionBlur.low" = "Low (2×)";
+"export.motionBlur.medium" = "Medium (4×)";
+"export.motionBlur.high" = "High (6×)";
+"export.aiUltraHD" = "AI ultra HD";
+"export.aiUltraHD.hint" = "Upscales low-resolution clips on device before export (slower)";

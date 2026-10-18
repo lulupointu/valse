@@ -47,7 +47,18 @@ public enum Exporter {
                               progress: (@Sendable (Double) -> Void)? = nil) async throws {
         guard project.duration > .zero else { throw ExportError.emptyProject }
         let sourceSpace = project.settings.colorSpace
-        let project = prepare(project, for: settings)
+        var project = prepare(project, for: settings)
+        // EX-018 AI ultra HD: super-resolve small sources first (first part of the progress bar).
+        var progressVar = progress
+        if settings.aiUltraHD, let sr = ExportHooks.superResolve,
+           !ExportHooks.clipsNeedingUpscale(project, settings: settings, range: range).isEmpty {
+            let outer = progress
+            project = try await sr(project, settings, range) { outer?(0.4 * $0) }
+            progressVar = outer.map { o in { @Sendable p in o(0.4 + 0.6 * p) } }
+        }
+        let progress = progressVar
+        try Task.checkCancellation()
+        let blurSamples = settings.motionBlur.samples
         let space = project.settings.colorSpace
         var settings = settings
         settings.codec = settings.effectiveCodec(for: sourceSpace)
@@ -56,8 +67,11 @@ public enum Exporter {
         let bitDepth = settings.effectiveBitDepth(for: sourceSpace)
         let tenBitHEVC = settings.codec == .hevc && bitDepth == 10
         let (w, h) = settings.outputSize(canvas: project.settings.canvasSize)
+        // EX-025: the composition runs at `blurSamples` × the output rate; the video pump averages each group.
+        let renderRate = blurSamples > 1
+            ? FrameRate(settings.frameRate.numerator * Int32(blurSamples), settings.frameRate.denominator) : settings.frameRate
         let built = try await CompositionBuilder.build(project: project, purpose: .export,
-                                                       renderSize: CGSize(width: w, height: h), frameRate: settings.frameRate,
+                                                       renderSize: CGSize(width: w, height: h), frameRate: renderRate,
                                                        highPrecision: tenBitHEVC)
         let fullRange = TimeRange(start: .zero, duration: project.duration)
         let exportRange = range.flatMap { $0.intersection(fullRange) } ?? fullRange
@@ -148,8 +162,12 @@ public enum Exporter {
                 g.addTask {
                     let (_, _, vOut, vIn, _, _, cover) = io.value
                     let first = cover.flatMap { retimed($0, pts: .zero, duration: frameDur.cmTime) }
-                    await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video") { pts in
-                        progress?(min(0.999, max(0, (pts - start) / max(total, 0.001))))
+                    let report: @Sendable (Double) -> Void = { pts in progress?(min(0.999, max(0, (pts - start) / max(total, 0.001)))) }
+                    if blurSamples > 1 {
+                        await pumpMotionBlur(vOut, vIn, shift: shift, prefix: first, frameDuration: frameDur, rangeStart: exportRange.start, lead: lead,
+                                             onSample: report)
+                    } else {
+                        await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video", onSample: report)
                     }
                 }
                 if aOut != nil {
@@ -346,4 +364,58 @@ public enum Exporter {
     }
 
     private final class PumpState { var done = false; var prefixed = false }
+
+    private final class BlurPumpState {
+        var done = false, prefixed = false, group = -1
+        var head: CMSampleBuffer?
+        let acc = FrameAccumulator()
+    }
+
+    /// EX-025 video pump: the reader delivers several sub-frames per output frame; each group is averaged
+    /// (`FrameAccumulator`, in place in the group's first buffer) and written once at the output frame time.
+    private static func pumpMotionBlur(_ out: AVAssetReaderOutput, _ input: AVAssetWriterInput, shift: CMTime, prefix: CMSampleBuffer?,
+                                       frameDuration fd: Time, rangeStart: Time, lead: Time,
+                                       onSample: (@Sendable (Double) -> Void)?) async {
+        let io = UncheckedSendable((out, input, prefix))
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let q = DispatchQueue(label: "export.video.motionBlur", qos: .userInitiated)
+            let state = UncheckedSendable(BlurPumpState())
+            io.value.1.requestMediaDataWhenReady(on: q) {
+                let (out, input, prefix) = io.value
+                let st = state.value
+                func flush() -> Bool {
+                    guard let head = st.head, st.group >= 0 else { return true }
+                    st.head = nil
+                    if let pb = CMSampleBufferGetImageBuffer(head), st.acc.count > 1 { st.acc.write(into: pb) } else { st.acc.reset() }
+                    let pts = (Time(ticks: fd.ticks * Int64(st.group)) + lead).cmTime
+                    guard let moved = retimed(head, pts: pts, duration: fd.cmTime) else { return true }
+                    return input.append(moved)
+                }
+                if let prefix, !st.prefixed, input.isReadyForMoreMediaData {
+                    st.prefixed = true
+                    if !input.append(prefix) { st.done = true; input.markAsFinished(); cont.resume(); return }
+                }
+                while input.isReadyForMoreMediaData && !st.done {
+                    if let sb = out.copyNextSampleBuffer() {
+                        let pts = CMSampleBufferGetPresentationTimeStamp(sb)
+                        onSample?(pts.seconds)
+                        let rel = pts.seconds - rangeStart.seconds
+                        if rel < -1e-6 { continue }
+                        let g = Int((rel / fd.seconds + 1e-4).rounded(.down))
+                        if g != st.group {
+                            if !flush() { st.done = true }
+                            st.group = g
+                            st.head = sb
+                        }
+                        // unsupported pixel formats aren't accumulated: the group's first sub-frame passes through
+                        if let pb = CMSampleBufferGetImageBuffer(sb) { _ = st.acc.add(pb) }
+                    } else {
+                        if !flush() { st.done = true }
+                        st.done = true
+                    }
+                    if st.done { input.markAsFinished(); cont.resume() }
+                }
+            }
+        }
+    }
 }

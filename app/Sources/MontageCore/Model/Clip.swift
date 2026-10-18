@@ -138,10 +138,32 @@ public struct Transform: Hashable, Codable, Sendable {
     public var rotation: Double
     public var flipH: Bool
     public var flipV: Bool
-    public init(position: Vec2 = .zero, scale: Vec2 = .one, rotation: Double = 0, flipH: Bool = false, flipV: Bool = false) {
+    /// 3D planar rotation (CV-018), degrees: x = tilt around the horizontal axis (top edge away from the viewer for
+    /// positive values), y = around the vertical axis (right edge away). Perspective-projected by `LayerGeometry`.
+    public var tilt: Vec2
+    public init(position: Vec2 = .zero, scale: Vec2 = .one, rotation: Double = 0, flipH: Bool = false, flipV: Bool = false,
+                tilt: Vec2 = .zero) {
         self.position = position; self.scale = scale; self.rotation = rotation; self.flipH = flipH; self.flipV = flipV
+        self.tilt = tilt
     }
     public static let identity = Transform()
+
+    enum CodingKeys: String, CodingKey { case position, scale, rotation, flipH, flipV, tilt }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        position = try c.decode(Vec2.self, forKey: .position)
+        scale = try c.decode(Vec2.self, forKey: .scale)
+        rotation = try c.decode(Double.self, forKey: .rotation)
+        flipH = try c.decode(Bool.self, forKey: .flipH)
+        flipV = try c.decode(Bool.self, forKey: .flipV)
+        tilt = try c.decodeIfPresent(Vec2.self, forKey: .tilt) ?? .zero   // added by CV-018: older files have none
+    }
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(position, forKey: .position); try c.encode(scale, forKey: .scale); try c.encode(rotation, forKey: .rotation)
+        try c.encode(flipH, forKey: .flipH); try c.encode(flipV, forKey: .flipV)
+        if tilt != .zero { try c.encode(tilt, forKey: .tilt) }
+    }
 }
 
 /// Normalized crop insets (0…1 of the source on each side).
