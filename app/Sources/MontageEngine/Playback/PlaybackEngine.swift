@@ -106,7 +106,12 @@ public final class PlaybackEngine {
         }
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] p, _ in
             let playing = p.rate != 0
-            Task { @MainActor in self?.onPlayStateChange?(playing || (self?.reverseShuttleRate ?? 0) != 0) }
+            Task { @MainActor in
+                guard let self else { return }
+                // stopped by itself (end of item): the playhead is where the player stopped
+                if !playing, !self.seekInFlight, self.reverseShuttleRate == 0 { self.requestedTime = Time(cmTime: self.player.currentTime()) }
+                self.onPlayStateChange?(playing || self.reverseShuttleRate != 0)
+            }
         }
         endObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: nil,
                                                              queue: .main) { [weak self] n in
@@ -264,8 +269,10 @@ public final class PlaybackEngine {
 
     public func pause() {
         if reverseShuttleRate != 0 { stopReverseShuttle(); onTimeUpdate?(requestedTime); return }
+        // Only a playing player's clock is news: when already paused, `requestedTime` is authoritative and the player
+        // may still be mid-seek (reading it back raced the seek and moved the playhead — flaky library preview test).
+        if player.rate != 0 { requestedTime = Time(cmTime: player.currentTime()) }
         player.pause()
-        requestedTime = Time(cmTime: player.currentTime())
         onTimeUpdate?(requestedTime)
     }
 
