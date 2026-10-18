@@ -268,6 +268,10 @@ struct PlayerHost: NSViewRepresentable {
         return v
     }
     func updateNSView(_ v: PlayerContainerView, context: Context) { v.player.requestRedraw() }
+    /// Fills the proposal (perf: without this SwiftUI measures the AppKit view with Auto Layout `fittingSize` on every pass).
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: PlayerContainerView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 10, height: 10))
+    }
 }
 
 /// Metal preview with the transparent canvas overlay on top.

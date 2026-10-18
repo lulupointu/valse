@@ -34,20 +34,22 @@ public struct EditorView: View {
                 let topH = max(220, min(inner.height - 160, inner.height * topFraction))
                 let leftW = max(Theme.Metrics.minAssetWidth * 0.7, inner.width * leftFraction)
                 let rightW = max(Theme.Metrics.minInspectorWidth * 0.8, inner.width * rightFraction)
+                // Each panel in its own hosting view (perf, W14 — see IsolatedHost): a slider tick, playhead move or
+                // asset scroll lays out only its panel, not the whole window.
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
-                        AssetPanel(store: store).testID("panel.assets").frame(width: leftW)
+                        IsolatedHost { AssetPanel(store: store) }.testID("panel.assets").frame(width: leftW)
                         Splitter(axis: .vertical) { dx in leftFraction = clamp((leftW + dx) / inner.width, 0.2, 0.45) }
                             .frame(width: g)
-                        PlayerPanel(store: store).testID("panel.player").frame(maxWidth: .infinity)
+                        IsolatedHost { PlayerPanel(store: store) }.testID("panel.player").frame(maxWidth: .infinity)
                         Splitter(axis: .vertical) { dx in rightFraction = clamp((rightW - dx) / inner.width, 0.2, 0.45) }
                             .frame(width: g)
-                        InspectorPanel(store: store).testID("panel.inspector").frame(width: rightW)
+                        IsolatedHost { InspectorPanel(store: store) }.testID("panel.inspector").frame(width: rightW)
                     }
                     .frame(height: topH)
                     Splitter(axis: .horizontal) { dy in topFraction = clamp((topH + dy) / inner.height, 0.3, 0.75) }
                         .frame(height: g)
-                    TimelinePanel(store: store).testID("panel.timeline")
+                    IsolatedHost { TimelinePanel(store: store) }.testID("panel.timeline")
                 }
                 .padding(.horizontal, Theme.Metrics.outerGutter)
                 .padding(.bottom, Theme.Metrics.outerGutter)

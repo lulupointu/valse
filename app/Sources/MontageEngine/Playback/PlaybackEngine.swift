@@ -123,13 +123,14 @@ public final class PlaybackEngine {
 
     public func update(project: Project, force: Bool = false) {
         self.project = project
-        requestDerivedMedia(project)
+        let structure = CompositionBuilder.structureKey(project, sources: sourceChooser)
+        requestDerivedMedia(project, structure: structure)
         EffectPipelines.shared.prewarm(project)
         state.update(project: project)
         audioState.update(project: project)
         let size = Self.previewSize(canvas: project.settings.canvasSize, quality: previewQuality)
         var h = Hasher()
-        h.combine(CompositionBuilder.structureKey(project, sources: sourceChooser))
+        h.combine(structure)
         h.combine(size.width); h.combine(size.height)
         // a newly finished (or invalidated → re-rendered) cache segment changes the lanes
         for s in RenderCache.shared.validSegments(project, size: size) { h.combine(s.key) }
@@ -148,7 +149,11 @@ public final class PlaybackEngine {
     /// Background renders the project needs (reversed media, stabilization analysis, decoder-budget proxies);
     /// each is idempotent and rebuilds/redraws the preview when ready. Clip ids are job subjects so the timeline can
     /// show progress on the clip.
-    private func requestDerivedMedia(_ project: Project) {
+    /// Inputs of the decoder-budget proxy decision when it last ran (perf: it walks every clip and sorts decode events;
+    /// a property drag on a 500-clip timeline changes none of them).
+    private var proxyBudgetKey: Int?
+
+    private func requestDerivedMedia(_ project: Project, structure: Int) {
         var reverse: [(MediaAsset, ClipID)] = [], stabilize: [(MediaAsset, ClipID)] = []
         let lookup = project.mediaLookup
         for t in project.timeline.tracks {
@@ -162,7 +167,15 @@ public final class PlaybackEngine {
                 }
             }
         }
-        let heavy = DecoderBudget.mediaNeedingProxies(project)
+        var bk = Hasher()
+        bk.combine(structure); bk.combine(ProxyManager.shared.policy)
+        for t in project.timeline.tracks { bk.combine(t.isHidden) }
+        let budgetKey = bk.finalize()
+        var heavy: [MediaAsset] = []
+        if budgetKey != proxyBudgetKey {
+            proxyBudgetKey = budgetKey
+            heavy = DecoderBudget.mediaNeedingProxies(project)
+        }
         guard !reverse.isEmpty || !stabilize.isEmpty || !heavy.isEmpty else { return }
         Task {
             for (a, c) in reverse { await ReverseManager.shared.request(a, subject: c.description) }

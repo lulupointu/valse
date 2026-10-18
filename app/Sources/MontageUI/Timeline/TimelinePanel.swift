@@ -162,4 +162,8 @@ struct TimelineHost: NSViewRepresentable {
         return v
     }
     func updateNSView(_ v: TimelineView, context: Context) {}
+    /// Fills the proposal (perf: without this SwiftUI measures the AppKit view with Auto Layout `fittingSize` on every pass).
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: TimelineView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 10, height: 10))
+    }
 }
