@@ -124,7 +124,11 @@ import MontageTestSupport
         let s = try await storeWithMedia()
         let id = s.project.media[1].id
         s.addToTimeline(s.project.media[0].id, at: .zero)
-        s.seek(to: Time(0.5)); s.transport.playhead = Time(0.5)
+        s.seek(to: Time(0.5))
+        // let the engine's seek callback land first (it would otherwise race the preview under load)
+        for _ in 0..<300 where abs(s.transport.playhead.seconds - 0.5) > 0.001 { try await Task.sleep(for: .milliseconds(10)) }
+        try await Task.sleep(for: .milliseconds(100))
+        s.transport.playhead = Time(0.5)
         let before = s.project
         s.previewMedia(id)
         #expect(s.isPreviewing && s.playerUI.preview?.kind == .video)
