@@ -82,7 +82,13 @@ enum EffectLibraryCatalog {
 /// Favourite effects/filters/adjustments (☆ on cards), persisted per user.
 @MainActor @Observable
 final class EffectFavorites {
-    static let shared = EffectFavorites()
+    /// UI tests get a fresh, throw-away store so scripts are deterministic and never touch the user's favourites.
+    static let shared = EffectFavorites(defaults: TestAnchors.isEnabled ? testDefaults() : .standard)
+    static func testDefaults() -> UserDefaults {
+        let name = "montage.uitest.favorites"
+        UserDefaults.standard.removePersistentDomain(forName: name)
+        return UserDefaults(suiteName: name) ?? .standard
+    }
     static let defaultsKey = "montage.assets.favoriteEffects"
     private(set) var ids: Set<String>
     @ObservationIgnored private let defaults: UserDefaults
@@ -205,6 +211,7 @@ struct EffectLibraryTab: View {
                             ForEach(items) { d in
                                 EffectCard(descriptor: d, selected: selected == d.id,
                                            select: { selected = d.id }, add: { selected = d.id; store.applyEffect(d) })
+                                    .testID("asset.tile.\(d.id)")
                             }
                         }
                         .padding(.horizontal, 12).padding(.bottom, 12)
@@ -229,6 +236,7 @@ struct EffectLibraryTab: View {
         .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
         .padding(.horizontal, 12)
+        .testID("asset.search")
     }
 }
 
@@ -247,20 +255,21 @@ struct EffectCard: View {
         let fav = favorites.contains(descriptor.id)
         VStack(spacing: 5) {
             ZStack(alignment: .bottomTrailing) {
-                RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
-                    .overlay { preview }
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
-                                                                       lineWidth: selected ? 2 : 1.5))
-                if hover {
-                    HStack(spacing: 4) {
-                        RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
-                                   help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(descriptor.id) }
-                        RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
-                    }
-                    .padding(4)
+                // The thumbnail is a Button (click = select, double-click = add) so it also takes synthetic UI-test clicks.
+                Button(action: clicked) {
+                    RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                        .overlay { preview }
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                                                                           lineWidth: selected ? 2 : 1.5))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if hover || selected {
+                    CardBadges(id: descriptor.id, fav: fav, add: add)
                 } else if fav {
                     Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                        .allowsHitTesting(false)
                 }
             }
             .aspectRatio(1, contentMode: .fit)
@@ -269,14 +278,16 @@ struct EffectCard: View {
         }
         .contentShape(Rectangle())
         .onHover { h in hover = h; if h { hoverStart = Date() } }
-        .onTapGesture(count: 2, perform: add)
-        .onTapGesture(perform: select)
         .onDrag { NSItemProvider(object: DragPayload.effect(descriptor.id) as NSString) }
         .contextMenu {
             Button(tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(descriptor.id) }
             Button(tr("asset.addToTrack"), action: add)
         }
         .help(tr(descriptor.nameKey))
+    }
+
+    private func clicked() {
+        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { add() } else { select() }
     }
 
     @ViewBuilder var preview: some View {
@@ -293,6 +304,23 @@ struct EffectCard: View {
         } else {
             Image(systemName: descriptor.symbol).font(.system(size: 22)).foregroundStyle(Theme.textTertiary)
         }
+    }
+}
+
+/// ☆ favourite + ⊕ add, bottom-right of a hovered or selected card (UX.md §3.2).
+struct CardBadges: View {
+    let id: String
+    let fav: Bool
+    let add: () -> Void
+    var body: some View {
+        HStack(spacing: 4) {
+            RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
+                       help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(id) }
+                .testID("asset.tile.\(id).favorite")
+            RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
+                .testID("asset.tile.\(id).add")
+        }
+        .padding(4)
     }
 }
 

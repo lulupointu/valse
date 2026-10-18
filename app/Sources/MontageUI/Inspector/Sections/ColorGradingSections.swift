@@ -119,6 +119,7 @@ struct HSLSection: View {
                     }
                     .buttonStyle(.plain)
                     .help(tr("hsl.range.\(BuiltinColor.hslRanges[i].key)"))
+                    .testID("hsl.range.\(BuiltinColor.hslRanges[i].key)")
                 }
             }
             .padding(.vertical, 4)
@@ -139,7 +140,7 @@ struct CurvesSection: View {
                                                          ("green", Color(hex: 0x46C35B)), ("blue", Color(hex: 0x4C8DF6))]
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ForEach(Self.channels, id: \.key) { ch in CurveEditor(ctx: ctx, channel: ch.key, color: ch.color) }
+            ForEach(Self.channels, id: \.key) { ch in CurveEditor(ctx: ctx, channel: ch.key, color: ch.color).testID("curves.\(ch.key)") }
             HintText(text: tr("inspector.curves.hint"))
         }
     }
@@ -291,7 +292,7 @@ struct ColorWheelsSection: View {
             ColorGradingInspector.row(ctx, d, key: "strength", label: tr("fx.param.strength"))
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 14) {
                 ForEach(BuiltinColor.wheelNames, id: \.self) { w in
-                    WheelControl(ctx: ctx, wheel: w, title: tr(mode == 1 ? "wheels.log.\(w)" : "wheels.primary.\(w)"))
+                    WheelControl(ctx: ctx, wheel: w, title: tr(mode == 1 ? "wheels.log.\(w)" : "wheels.primary.\(w)")).testID("wheels.\(w)")
                 }
             }
         }

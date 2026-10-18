@@ -54,6 +54,7 @@ struct StickerLibraryTab: View {
     let store: EditorStore
     @State private var nav = ""
     @State private var query = ""
+    @State private var selected: String?
     private var favorites: EffectFavorites { EffectFavorites.shared }
 
     var body: some View {
@@ -72,14 +73,19 @@ struct StickerLibraryTab: View {
                 .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
                 .padding(.horizontal, 12)
+                .testID("asset.search")
                 Text(verbatim: searching ? tr("fxlib.results") : tr(navItems.first { $0.id == current }?.titleKey ?? current))
                     .font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
                 if items.isEmpty {
                     EmptyState(symbol: searching ? "magnifyingglass" : "star", title: tr(searching ? "fxlib.noResults" : "fxlib.favorites.empty"))
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 70, maximum: 86), spacing: 10)], spacing: 12) {
-                            ForEach(items) { s in StickerCard(sticker: s) { store.addGeneratorClip(.sticker(id: s.id)) } }
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
+                            ForEach(items) { s in
+                                StickerCard(sticker: s, selected: selected == s.id, select: { selected = s.id },
+                                            add: { selected = s.id; store.addGeneratorClip(.sticker(id: s.id)) })
+                                    .testID("asset.tile.\(s.id)")
+                            }
                         }
                         .padding(.horizontal, 12).padding(.bottom, 12)
                     }
@@ -93,6 +99,8 @@ struct StickerLibraryTab: View {
 
 struct StickerCard: View {
     let sticker: StickerDescriptor
+    let selected: Bool
+    let select: () -> Void
     let add: () -> Void
     @State private var hover = false
     private var favorites: EffectFavorites { EffectFavorites.shared }
@@ -100,36 +108,42 @@ struct StickerCard: View {
     var body: some View {
         let fav = favorites.contains(sticker.id)
         ZStack(alignment: .bottomTrailing) {
-            RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
-                .overlay {
-                    Group {
-                        if case .emoji(let e) = sticker.source { Text(verbatim: e).font(.system(size: 34)) }
-                        else if let img = StickerThumbnails.image(sticker) { Image(decorative: img, scale: 2).resizable().scaledToFit().padding(12) }
-                        else { Image(systemName: "face.smiling").font(.system(size: 22)).foregroundStyle(Theme.textTertiary) }
+            Button(action: clicked) {
+                RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                    .overlay {
+                        Group {
+                            if case .emoji(let e) = sticker.source { Text(verbatim: e).font(.system(size: 46)) }
+                            else if let img = StickerThumbnails.image(sticker) { Image(decorative: img, scale: 2).resizable().scaledToFit().padding(12) }
+                            else { Image(systemName: "face.smiling").font(.system(size: 22)).foregroundStyle(Theme.textTertiary) }
+                        }
+                        .scaleEffect(hover ? 1.12 : 1)
+                        .rotationEffect(.degrees(hover ? -6 : 0))
+                        .animation(hover ? .easeInOut(duration: 0.45).repeatForever(autoreverses: true) : .easeOut(duration: 0.15), value: hover)
                     }
-                    .scaleEffect(hover ? 1.12 : 1)
-                    .rotationEffect(.degrees(hover ? -6 : 0))
-                    .animation(hover ? .easeInOut(duration: 0.45).repeatForever(autoreverses: true) : .easeOut(duration: 0.15), value: hover)
-                }
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent.opacity(0.6) : .clear, lineWidth: 1.5))
-            if hover {
-                HStack(spacing: 4) {
-                    RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
-                               help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(sticker.id) }
-                    RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
-                }
-                .padding(4)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                                                                       lineWidth: selected ? 2 : 1.5))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if hover || selected {
+                CardBadges(id: sticker.id, fav: fav, add: add)
+            } else if fav {
+                Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                    .allowsHitTesting(false)
             }
         }
         .aspectRatio(1, contentMode: .fit)
         .contentShape(Rectangle())
         .onHover { hover = $0 }
-        .onTapGesture(count: 2, perform: add)
         .onDrag { NSItemProvider(object: DragPayload.sticker(sticker.id) as NSString) }
         .contextMenu {
             Button(tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(sticker.id) }
             Button(tr("asset.addToTrack"), action: add)
         }
         .help(tr(sticker.nameKey))
+    }
+
+    private func clicked() {
+        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { add() } else { select() }
     }
 }

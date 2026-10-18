@@ -113,14 +113,18 @@ public enum BuiltinColor {
         },
         symbol: "point.topleft.down.to.point.bottomright.curvepath",
         shader: """
-        inline float curveN(constant float* c, float x) {
+        // Perf (1080p budget, EffectsPerfTests): tangents depend only on the params, so they are built once per channel
+        // (not once per evaluation) and identity channels (every point on the diagonal, the default) are skipped.
+        inline bool curveIsIdentity(constant float* c) {
+            int n = clamp(int(c[0] + 0.5), 2, 8);
+            for (int k = 0; k < n; k++) { if (abs(c[1 + k] - c[9 + k]) > 1e-5) return false; }
+            return c[1] <= 1e-5 && c[n] >= 1.0 - 1e-5;
+        }
+        inline void curveTangents(constant float* c, thread float* m) {
             int n = clamp(int(c[0] + 0.5), 2, 8);
             constant float* xs = c + 1;
             constant float* ys = c + 9;
-            float xc = saturate(x);
-            if (xc <= xs[0]) return ys[0];
-            if (xc >= xs[n - 1]) return ys[n - 1];
-            float d[7]; float m[8];
+            float d[7];
             for (int k = 0; k < n - 1; k++) { d[k] = (ys[k + 1] - ys[k]) / max(xs[k + 1] - xs[k], 1e-4); }
             m[0] = d[0]; m[n - 1] = d[n - 2];
             for (int k = 1; k < n - 1; k++) { m[k] = d[k - 1] * d[k] <= 0.0 ? 0.0 : (d[k - 1] + d[k]) * 0.5; }
@@ -130,6 +134,14 @@ public enum BuiltinColor {
                 float r = a * a + b * b;
                 if (r > 9.0) { float tt = 3.0 / sqrt(r); m[k] = tt * a * d[k]; m[k + 1] = tt * b * d[k]; }
             }
+        }
+        inline float curveEval(constant float* c, thread const float* m, float x) {
+            int n = clamp(int(c[0] + 0.5), 2, 8);
+            constant float* xs = c + 1;
+            constant float* ys = c + 9;
+            float xc = saturate(x);
+            if (xc <= xs[0]) return ys[0];
+            if (xc >= xs[n - 1]) return ys[n - 1];
             int i = 0;
             for (int k = 0; k < n - 1; k++) { if (xc >= xs[k]) { i = k; } }
             float h = max(xs[i + 1] - xs[i], 1e-4);
@@ -138,11 +150,19 @@ public enum BuiltinColor {
             return (2.0 * t3 - 3.0 * t2 + 1.0) * ys[i] + (t3 - 2.0 * t2 + t) * h * m[i]
                  + (-2.0 * t3 + 3.0 * t2) * ys[i + 1] + (t3 - t2) * h * m[i + 1];
         }
+        inline float curveN(constant float* c, float x) {
+            float m[8]; curveTangents(c, m); return curveEval(c, m, x);
+        }
         float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx) {
             float4 c = src.sample(s, uv);
             float3 o = saturate(c.rgb);
-            o = float3(curveN(p, o.r), curveN(p, o.g), curveN(p, o.b));
-            o = float3(curveN(p + 17, o.r), curveN(p + 34, o.g), curveN(p + 51, o.b));
+            if (!curveIsIdentity(p)) {
+                float m[8]; curveTangents(p, m);
+                o = float3(curveEval(p, m, o.r), curveEval(p, m, o.g), curveEval(p, m, o.b));
+            }
+            if (!curveIsIdentity(p + 17)) o.r = curveN(p + 17, o.r);
+            if (!curveIsIdentity(p + 34)) o.g = curveN(p + 34, o.g);
+            if (!curveIsIdentity(p + 51)) o.b = curveN(p + 51, o.b);
             return float4(saturate(o), c.a);
         }
         """)

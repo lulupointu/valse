@@ -1,0 +1,34 @@
+// Effects tab: clicking a Trending card selects it and shows ☆/⊕, ⊕ adds an effect clip (one undo step); search "vhs" finds VHS and
+// adds it onto the selected clip; Filters tab: Featured card ⊕ applies a filter to the selection.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "id:asset.tab.effects"},
+    {"expect": {"path": "ui.assetTab", "equals": "effects"}},
+    {"hover": "id:asset.tile.montage.effect.shake"},
+    {"click": "id:asset.tile.montage.effect.shake"},
+    {"click": "id:asset.tile.montage.effect.shake.add"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.effect"}, {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "effects-tab", "element": "id:panel.assets"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 0}},
+    {"click": "clip:main/0"},
+    {"click": "id:asset.search"},
+    {"type": "vhs"},
+    {"expect": {"path": "ui.anchors", "contains": "asset.tile.montage.effect.vhs"}},
+    {"hover": "id:asset.tile.montage.effect.vhs"},
+    {"click": "id:asset.tile.montage.effect.vhs"},
+    {"click": "id:asset.tile.montage.effect.vhs.add"},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.effect.vhs"}},
+    {"snapshot": "effects-search", "element": "id:panel.assets"},
+    {"click": "id:asset.tab.filters"},
+    {"hover": "id:asset.tile.montage.filter.tealOrange"},
+    {"click": "id:asset.tile.montage.filter.tealOrange"},
+    {"click": "id:asset.tile.montage.filter.tealOrange.add"},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.filter.tealOrange"}},
+    {"click": "id:asset.nav.filter.group.bw"},
+    {"expect": {"path": "ui.anchors", "contains": "asset.tile.montage.filter.silver"}},
+    {"snapshot": "filters-bw", "element": "id:panel.assets"}
+  ]
+}

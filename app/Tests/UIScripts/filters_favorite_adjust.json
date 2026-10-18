@@ -1,0 +1,33 @@
+// Filters tab: click a card (selects it, shows ☆/⊕), ☆ adds it to Favorites (shown under the Favorites sub-nav),
+// ⊕ applies it to the selected clip; Adjust tab: the filter Intensity and Brightness fields each make one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:asset.tab.filters"},
+    {"click": "id:asset.tile.montage.filter.tealOrange"},
+    {"click": "id:asset.tile.montage.filter.tealOrange.favorite"},
+    {"click": "id:asset.nav.fxlib.nav.favorites"},
+    {"expect": {"path": "ui.anchors", "contains": "asset.tile.montage.filter.tealOrange"}},
+    {"snapshot": "filters-favorites", "element": "id:panel.assets"},
+    {"click": "id:asset.tile.montage.filter.tealOrange"},
+    {"click": "id:asset.tile.montage.filter.tealOrange.add"},
+    {"expect": [{"path": "selectedClips.0.effects", "contains": "montage.filter.tealOrange"}, {"path": "undo.name", "equals": "cmd.filter"}]},
+    {"click": "id:inspector.tab.adjust"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "adjust"}},
+    {"click": "id:slider.Intensity.field"},
+    {"type": "40", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "undo.depth", "equals": 2}},
+    {"click": "id:slider.Brightness.field"},
+    {"type": "25", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "undo.depth", "equals": 3}},
+    {"expect": [{"path": "project.timeline.tracks.0.clips.0.effects.0.params.intensity.scalar._0", "approx": 0.4},
+                {"path": "project.timeline.tracks.0.clips.0.effects.1.typeID", "equals": "montage.adjust.basic"},
+                {"path": "project.timeline.tracks.0.clips.0.effects.1.params.brightness.scalar._0", "gt": 0}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 2}},
+    {"snapshot": "adjust-tab", "element": "id:panel.inspector"}
+  ]
+}

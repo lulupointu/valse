@@ -20,14 +20,16 @@ public struct AssetPanel: View {
                 HStack(spacing: 2) {
                     ForEach(AssetTabRegistry.sorted) { tab in
                         let active = store.activeAssetTab == tab.id
-                        VStack(spacing: 3) {
-                            Image(systemName: tab.symbol).font(.system(size: 16))
-                            Text(loc: tab.titleKey).font(Theme.Fonts.tabLabel).lineLimit(1)
+                        Button { store.activeAssetTab = tab.id } label: {
+                            VStack(spacing: 3) {
+                                Image(systemName: tab.symbol).font(.system(size: 16))
+                                Text(loc: tab.titleKey).font(Theme.Fonts.tabLabel).lineLimit(1)
+                            }
+                            .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(0.85))
+                            .frame(minWidth: 50).padding(.horizontal, 4)
+                            .contentShape(Rectangle())
                         }
-                        .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(0.85))
-                        .frame(minWidth: 50).padding(.horizontal, 4)
-                        .contentShape(Rectangle())
-                        .onTapGesture { store.activeAssetTab = tab.id }
+                        .buttonStyle(.plain)
                         .testID("asset.tab.\(tab.id)")
                     }
                 }
@@ -73,7 +75,7 @@ enum BuiltinAssetTabs {
             AnyView(StickerLibraryTab(store: store))
         },
         AssetTab(id: "effects", titleKey: "tab.effects", symbol: "sparkles", order: 4) { store in
-            AnyView(EffectLibraryTab(store: store, category: .effect))
+            AnyView(EffectLibraryTab(store: store, category: .effect).id(EffectCategory.effect))
         },
         AssetTab(id: "transitions", titleKey: "tab.transitions", symbol: "square.split.2x1", order: 5) { store in
             AnyView(RegistryGrid(store: store, groups: grouped(Registries.transitions.all, \.groupKey), tile: { d in
@@ -81,10 +83,10 @@ enum BuiltinAssetTabs {
             }))
         },
         AssetTab(id: "filters", titleKey: "tab.filters", symbol: "camera.filters", order: 7) { store in
-            AnyView(EffectLibraryTab(store: store, category: .filter))
+            AnyView(EffectLibraryTab(store: store, category: .filter).id(EffectCategory.filter))
         },
         AssetTab(id: "adjustment", titleKey: "tab.adjustment", symbol: "slider.horizontal.3", order: 8) { store in
-            AnyView(EffectLibraryTab(store: store, category: .adjustment))
+            AnyView(EffectLibraryTab(store: store, category: .adjustment).id(EffectCategory.adjustment))
         },
         AssetTab(id: "templates", titleKey: "tab.templates", symbol: "rectangle.stack", order: 9) { _ in
             AnyView(EmptyState(symbol: "rectangle.stack", title: tr("templates.empty")))
@@ -166,22 +168,30 @@ struct SubNav: View {
     let items: [(id: String, title: String)]
     @Binding var selection: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(items, id: \.id) { item in
-                Text(verbatim: item.title)
-                    .font(.system(size: 12))
-                    .foregroundStyle(selection == item.id ? Theme.accent : Theme.textSecondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10).frame(height: 28)
-                    .background(selection == item.id ? Theme.accentDim.opacity(0.45) : .clear, in: RoundedRectangle(cornerRadius: 4))
-                    .contentShape(Rectangle())
-                    .onTapGesture { selection = item.id }
+        // UX.md §3.1: 120 pt column, 9 pt padding, 28 pt items (13 pt; selected = accent on accent.dim). Scrolls when the
+        // category list is taller than the panel (Effects has ~20 groups).
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(items, id: \.id) { item in
+                    Button { selection = item.id } label: {
+                        Text(verbatim: item.title)
+                            .font(.system(size: 13))
+                            .foregroundStyle(selection == item.id ? Theme.accent : Theme.textPrimary)
+                            .lineLimit(1).minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8).frame(height: 28)
+                            .background(selection == item.id ? Theme.accentDim.opacity(0.45) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(item.title)
+                    .testID("asset.nav.\(item.id)")
+                }
             }
-            Spacer()
+            .padding(9)
         }
-        .padding(8)
-        .frame(width: 112)
+        .scrollIndicators(.never)
+        .frame(width: 120)
         .background(Theme.panel)
         .overlay(alignment: .trailing) { Rectangle().fill(Theme.separator).frame(width: 1) }
     }
