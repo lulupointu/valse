@@ -366,7 +366,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W10: AI features
 
-**W10-1 · P2 · Text to speech tiles show raw locale codes and repeated names.**
+**W10-1 · P2 · Text to speech tiles show raw locale codes and repeated names.** — FIXED (W10: grouped by locale, "Français"/"English" chips, Mamie/Papi)
 - CapCut ([131](ux/131_insp_text_tts.png)): voice tiles by character name, with category pills.
 - Montage ([12](ux_review/12_inspector_text_sticker_filter.png), [15](ux_review/15_inspector_fr_text_audio.png)): tiles say
   "Eddy fr-FR", "Eddy fr-CA", "Eddy en-US". The filter chips read "FR-Français" and "EN-English", and the names (Grandma, Grandpa)
@@ -374,7 +374,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: group by language with a readable caption ("Français (Canada)"), show each name once per language group, and use chips like
   "Français" / "English".
 
-**W10-2 · P2 · The Auto captions panel shows engine internals.**
+**W10-2 · P2 · The Auto captions panel shows engine internals.** — FIXED (W10: engine card under "Advanced")
 - CapCut ([119](ux/119_text_auto_captions.png)): Spoken language, filler words, Generate.
 - Montage ([25_auto_captions](ux_review/25_auto_captions.png)): "Speech recognition: Whisper large-v3-turbo · high accuracy" and an
   "Engine" dropdown in the main flow.
