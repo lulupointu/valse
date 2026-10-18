@@ -399,7 +399,7 @@ public enum TimelineOps {
 
     // MARK: Tracks
 
-    static func compatible(_ trackKind: TrackKind, _ clipKind: TrackKind) -> Bool {
+    public static func compatible(_ trackKind: TrackKind, _ clipKind: TrackKind) -> Bool {
         if trackKind == clipKind { return true }
         let adjustments: Set<TrackKind> = [.effect, .filter, .adjustment]
         return adjustments.contains(trackKind) && adjustments.contains(clipKind)
