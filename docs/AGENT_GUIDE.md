@@ -5,7 +5,7 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
 ## Before coding
 1. Read docs/BRIEF.md, docs/ARCHITECTURE.md (esp. the registries, "How to add X", §17 work map), and the docs/UX.md + docs/UX_AI.md
    sections for your area (look at the referenced screenshots in docs/ux/). UX parity with CapCut is part of "done".
-2. Find your rows in docs/FEATURES.md. You own them: implement as many as possible, P0 first, then P1, then P2.
+2. Find your rows in docs/FEATURES.md. You own them: implement as many as possible, P0 first, then P1, then P2. Skip rows with status `wontdo` (owner decision) — never implement them.
 
 ## Definition of done (per feature)
 - Functionality matches the FEATURES.md row; UX (placement, controls, defaults, flow, feedback) matches UX.md as closely as possible.
