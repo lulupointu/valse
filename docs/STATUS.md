@@ -17,7 +17,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W2 | Player canvas & playback | 1 | merged (10 done / 7 partial) | main bf3e193 |
 | W3 | Inspector panels | 1 | merged (16 done / 14 partial / 1 blocked) | main 19504fe |
 | W6+W9 | Render engine + media pipeline | 1 | merged incl. colour + media helpers | main 9c54c1b |
-| W8 | Audio | 1 | running | worktree-agent-ae7ca6ffd6a3618a5 |
+| W8 | Audio | 1 | merged (19 done / 13 partial / 1 blocked) | main a3bf1f7 |
 | W14 | QA: UI test driver, screenshot diff, perf | 1 | running (others wait for `--uitest`) | worktree-agent-aa1de47edb2d5d946 |
 | W4 | Effects & filters content | 2 | running | |
 | W5 | Transitions & animations content | 2 | running | |
@@ -34,7 +34,9 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W6 | W1 | Double-click enter/edit inside compound clips (nested render done) | TL-021 |
 | W6 | W10 | Person mattes via `MatteVideoWriter` → flip `CutoutAvailability.matteCompositingAvailable`; optical-flow via `FrameInterpolation.provider` | CK-002/004, SP-005 |
 | W6 | W12 | Proxy settings UI; render cache auto-render + green bar | MI-008, PB-005 |
-| W1 | W8 | Beat detection DSP feeding `beats` model field | TL-026 |
+| W8 | W10 | ML audio: Demucs stems (install torch+coremltools in a venv to convert; downloads allowed), ML denoise/voice enhance/isolation upgrade over W8's DSP, TTS | AU-010, AU-007..009, AI-009..011 |
+| W8 | W1 | Menu entry for AU-016; waveform drawing polish; track volume ±0.1 dB shortcuts | AU-016, AU-019, AU-004 |
+| W8 | W11 | Audio-only export dialog (engine done: WAV/AAC/FLAC/ALAC; add MP3) | AU-022, EX-009 |
 | W1 | W11 | Export range (in/out) | TL-028 |
 | W3 | W10+W6 | AI matte in compositor → flip `CutoutAvailability.matteCompositingAvailable` | CK-002 |
 | W3 | W1/W2/W5/W8 | Timeline/canvas/content/audio-render parts of inspector-partial rows | CV-003/004/006/012, KF-001/003/008, SP-002, AU-004/005, CL-002, TR-002, MK-001 |
@@ -47,6 +49,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 
 ## Done cross-team items
 - W3 built transition inspector (requested by W1).
+- W8 delivered auto beats into `Clip.beats` (TL-026) for W1.
 - W6/W9 delivered reverse render (TL-014) and nested compound rendering (TL-021 render side) for W1.
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
@@ -56,6 +59,10 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - FFmpeg only as a separate LGPL sidecar process producing ProRes+PCM mezzanine (ARCHITECTURE §6.1).
 - Integration: each team rebases on main, runs scripts/test.sh, ff-merges; if blocked by permission check, orchestrator merges (AGENT_GUIDE).
 - Agents never send real mouse/keyboard input while teams run in parallel; real-input E2E pass is phase 4.
+
+## Engineering gotchas (read!)
+- Never use AVAudioTimePitchAlgorithm `.varispeed`: hangs the audio reader during export on sped-up clips.
+- Heavy work from main-actor code/tests starves PlaybackTests — run it off-main (`Task.detached`).
 
 ## Known risks
 - Apple on-device French STT WER ~13% without OS model download → whisper.cpp (large-v3-turbo, 547 MB) as quality path.
