@@ -5,3 +5,9 @@
 "cmd.adjustmentLayer" = "Ajouter un calque d'ajustement";
 "color.eyedropper.help" = "Prélever une couleur dans la vidéo";
 "inspector.hsl.pickHelp" = "Prélever une couleur dans la vidéo pour sélectionner sa plage";
+"adjust.skinProtect" = "Protection des tons chair";
+"adjust.skinProtect.detail" = "Activez-la pour des tons chair plus naturels";
+"cmd.skinProtect" = "Protection des tons chair";
+"cutout.edgeBlend" = "Lisser les bords";
+"cmd.cutoutStroke" = "Contour";
+"cutout.stroke.hint" = "Cochez Contour pour détourer le sujet d’un trait (effet sticker).";

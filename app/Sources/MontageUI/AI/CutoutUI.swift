@@ -67,6 +67,10 @@ struct MatteRefineRows: View {
                      get: { c, _ in (c.matte?.feather ?? 0) * 100 }, set: { c, v, _ in c.matte?.feather = v / 100 }, gestureName: "cmd.cutout")
         ClipParamRow(ctx: ctx, label: tr("cutout.expand"), spec: RowSpec(range: -100...100, origin: 0, step: 1, format: Fmt.int),
                      get: { c, _ in (c.matte?.expand ?? 0) * 100 }, set: { c, v, _ in c.matte?.expand = v / 100 }, gestureName: "cmd.cutout")
+        // Matting blend (CK-008): smooths the cut-out edge along image edges and removes background colour spill.
+        ClipParamRow(ctx: ctx, label: tr("cutout.edgeBlend"), spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+                     get: { c, _ in (c.matte?.edgeBlend ?? 0) * 100 }, set: { c, v, _ in c.matte?.edgeBlend = v > 0 ? v / 100 : nil },
+                     gestureName: "cmd.cutout")
         ToggleLine(label: tr("cutout.invert"), isOn: Bind.binding(ctx, "cmd.cutout", get: { $0.matte?.inverted ?? false },
                                                                   set: { $0.matte?.inverted = $1 }, default: false))
     }

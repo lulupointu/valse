@@ -5,3 +5,9 @@
 "cmd.adjustmentLayer" = "Add adjustment layer";
 "color.eyedropper.help" = "Pick a color from the video";
 "inspector.hsl.pickHelp" = "Pick a color on the video to select its range";
+"adjust.skinProtect" = "Skin tone protection";
+"adjust.skinProtect.detail" = "Turn it on to make skin tone more natural";
+"cmd.skinProtect" = "Skin tone protection";
+"cutout.edgeBlend" = "Smooth edges";
+"cmd.cutoutStroke" = "Stroke";
+"cutout.stroke.hint" = "Tick Stroke to outline the cut-out subject (sticker look).";

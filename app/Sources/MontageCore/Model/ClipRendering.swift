@@ -13,8 +13,10 @@ public struct ClipMatte: Hashable, Codable, Sendable {
     /// Expand (> 0) / shrink (< 0) the matte, −1…1.
     public var expand: Double
     public var inverted: Bool
-    public init(kind: String = "person", feather: Double = 0, expand: Double = 0, inverted: Bool = false) {
-        self.kind = kind; self.feather = feather; self.expand = expand; self.inverted = inverted
+    /// Matting blend (CK-008) 0…1: edge-aware smoothing of the matte edge + colour decontamination. nil = off.
+    public var edgeBlend: Double?
+    public init(kind: String = "person", feather: Double = 0, expand: Double = 0, inverted: Bool = false, edgeBlend: Double? = nil) {
+        self.kind = kind; self.feather = feather; self.expand = expand; self.inverted = inverted; self.edgeBlend = edgeBlend
     }
 }
 

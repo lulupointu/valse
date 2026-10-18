@@ -1,0 +1,6 @@
+/* Finisher: cutout stroke (CK-005) */
+"cutout.stroke" = "Contour";
+"cutout.stroke.color" = "Couleur";
+"cutout.stroke.size" = "Taille";
+"cutout.stroke.opacity" = "Opacité";
+"cutout.stroke.glow" = "Lueur";

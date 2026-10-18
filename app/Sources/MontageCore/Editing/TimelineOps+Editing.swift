@@ -272,7 +272,7 @@ extension TimelineOps {
                 c.transform = src.transform; c.opacity = src.opacity; c.blendMode = src.blendMode
                 c.crop = src.crop; c.mask = src.mask
             }
-            if groups.contains(.adjust) { c.adjustMask = src.adjustMask }
+            if groups.contains(.adjust) { c.adjustMask = src.adjustMask; c.skinToneProtection = src.skinToneProtection }
             var effectIDMap: [String: String] = [:]
             // Effects / filters and Adjust grading are separate groups: each replaces only its own part of the stack.
             let isAdjust: (EffectInstance) -> Bool = { AdjustmentLanes.resolver?($0.typeID) == .adjustment }

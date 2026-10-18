@@ -455,14 +455,22 @@ public final class FrameRenderer: @unchecked Sendable {
 
         if !l.effects.isEmpty {
             let isAdjust: (ResolvedEffect) -> Bool = { Registries.effects[$0.typeID]?.category == .adjustment }
-            if let am = l.adjustMask, l.effects.contains(where: isAdjust) {
+            if l.adjustMask != nil || l.skinProtect, l.effects.contains(where: isAdjust) {
                 // Adjust ▸ Mask: the Adjust-tab grading applies inside the mask only; other effects follow on the result.
+                // Skin tone protection (CL-010) holds the grading back on skin tones.
                 let pre = layerTex
-                let post = applyEffects(l.effects.filter(isAdjust), to: pre, time: l.localTime, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
-                layerTex = maskedMix(pre: pre, post: post, mask: am, aspect: abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6),
-                                     cmd: cmd, acquire: acquire)
+                var post = applyEffects(l.effects.filter(isAdjust), to: pre, time: l.localTime, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
+                if l.skinProtect {
+                    let graded = post
+                    post = skinProtect(pre: pre, post: graded, cmd: cmd, acquire: acquire)
+                    if post !== graded && graded !== pre { scratch.recycle(graded) }
+                }
+                if let am = l.adjustMask {
+                    layerTex = maskedMix(pre: pre, post: post, mask: am, aspect: abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6),
+                                         cmd: cmd, acquire: acquire)
+                } else { layerTex = post }
                 if layerTex !== pre { scratch.recycle(pre) }
-                if layerTex !== post { scratch.recycle(post) }
+                if layerTex !== post && post !== pre { scratch.recycle(post) }
                 let rest = l.effects.filter { !isAdjust($0) }
                 if !rest.isEmpty {
                     let before = layerTex
@@ -523,6 +531,17 @@ public final class FrameRenderer: @unchecked Sendable {
             let k = min(r, 1.2)
             out.append(ResolvedEffect(instanceID: id, typeID: CanvasBackground.blurEffectID, params: ["radius": .scalar(k)]))
             r = (r * r - k * k).squareRoot()   // gaussian variances add
+        }
+        return out
+    }
+
+    /// Skin tone protection (CL-010): `post` (graded) pulled back to `pre` on skin-coloured pixels.
+    func skinProtect(pre: MTLTexture, post: MTLTexture, cmd: MTLCommandBuffer, acquire: (Int, Int) -> MTLTexture) -> MTLTexture {
+        let out = acquire(post.width, post.height)
+        var k: Float = 0.9
+        fullscreen(FinishPipelines.shared.skinProtect, target: out, cmd, label: "skin-protect") { enc in
+            enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1)
+            enc.setFragmentBytes(&k, length: 4, index: 0)
         }
         return out
     }

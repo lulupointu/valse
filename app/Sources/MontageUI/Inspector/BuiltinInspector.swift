@@ -105,6 +105,8 @@ enum BuiltinInspector {
         // Video ▸ Cutout
         InspectorSection(id: "cutout.chroma", tab: "video", subTab: "cutout", order: 2, titleKey: "key.chroma",
                          chrome: ChromaKeySection.chrome) { AnyView(ChromaKeySection(ctx: $0)) },
+        InspectorSection(id: "cutout.stroke", tab: "video", subTab: "cutout", order: 3, titleKey: "cutout.stroke",
+                         appliesTo: CutoutStrokeSection.applies, chrome: CutoutStrokeSection.chrome) { AnyView(CutoutStrokeSection(ctx: $0)) },
 
         // Video ▸ Mask
         InspectorSection(id: "mask.shapes", tab: "video", subTab: "mask", order: 0, titleKey: "inspector.mask") { AnyView(MaskShapesSection(ctx: $0)) },

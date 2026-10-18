@@ -109,6 +109,18 @@ extension FrameRenderer {
                     enc.setFragmentBytes(&u, length: MemoryLayout<MatteUniforms>.stride, index: 0)
                 }
                 cur = out
+                // Matting blend (CK-008): edge-aware matte smoothing + colour decontamination of the cut-out edge.
+                if let b = m.edgeBlend, b > 0.001 {
+                    let refined = acquire(cur.width, cur.height)
+                    let matted = cur
+                    var mu = MattingUniforms(texel: SIMD2(1 / Float(cur.width), 1 / Float(cur.height)) * max(1, Float(cur.height) / 720),
+                                             smooth: Float(min(b, 1)), decontaminate: Float(min(b, 1)))
+                    fullscreen(FinishPipelines.shared.mattingBlend, target: refined, cmd, label: "matting-blend") { enc in
+                        enc.setFragmentTexture(matted, index: 0)
+                        enc.setFragmentBytes(&mu, length: MemoryLayout<MattingUniforms>.stride, index: 0)
+                    }
+                    cur = refined
+                }
             }
         }
         // Relight (AI2): depth-normal shading, after the matte (alpha untouched)

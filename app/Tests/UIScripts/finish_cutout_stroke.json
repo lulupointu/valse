@@ -1,0 +1,24 @@
+// CK-005: Video ▸ Cutout ▸ ☐ Stroke appears once the clip is cut out (here a chroma key), adds an outline (colour
+// presets, Size / Opacity / Glow). CL-010: Adjust ▸ Basic ▸ LUT ▸ Skin tone protection toggle (one undo step).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.cutout"},
+    {"expect": {"path": "ui.anchors", "notContains": "inspector.section.cutout.stroke"}},
+    {"click": "id:inspector.section.cutout.chroma", "at": [0, 0.5], "offset": [20, 0]},
+    {"expect": {"path": "ui.anchors", "contains": "inspector.section.cutout.stroke"}},
+    {"click": "id:inspector.section.cutout.stroke", "at": [0, 0.5], "offset": [20, 0]},
+    {"expect": [{"path": "selectedClips.0.effects", "contains": "montage.cutout.stroke"}, {"path": "undo.name", "equals": "cmd.cutoutStroke"}]},
+    {"click": "id:cutout.stroke.preset.3"},
+    {"expect": {"path": "project.timeline.tracks.0.clips.0.effects.1.params.color.color._0.b", "lt": 0.1}},
+    {"snapshot": "cutout-stroke", "element": "id:panel.inspector"},
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:adjust.skinProtect", "at": [0.96, 0.5]},
+    {"expect": [{"path": "project.timeline.tracks.0.clips.0.skinToneProtection", "equals": true},
+                {"path": "undo.name", "equals": "cmd.skinProtect"}]},
+    {"snapshot": "skin-protect", "element": "id:panel.inspector"}
+  ]
+}

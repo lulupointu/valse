@@ -94,6 +94,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var aiMovement: AIMovementOptions?
     /// Relight (AI2, AI/Relight.swift): virtual lights shaded on a depth map of the media.
     public var relight: RelightSettings?
+    /// Adjust ▸ LUT ▸ Skin tone protection (CL-010): the Adjust-tab grading is held back on skin tones. nil = off.
+    public var skinToneProtection: Bool?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

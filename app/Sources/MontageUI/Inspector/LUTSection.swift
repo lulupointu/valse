@@ -32,6 +32,11 @@ struct LUTSection: View {
                          spec: RowSpec(range: 0...100, format: Fmt.percentValue), toUI: { $0 * 100 }, fromUI: { $0 / 100 },
                          gestureName: "cmd.effect")
             }
+            // CapCut [115]: "Skin tone protection (Turn it on to make skin tone more natural)" — CL-010
+            ToggleLine(label: tr("adjust.skinProtect"), detail: tr("adjust.skinProtect.detail"),
+                       isOn: Bind.binding(ctx, "cmd.skinProtect", get: { $0.skinToneProtection ?? false },
+                                          set: { $0.skinToneProtection = $1 ? true : nil }, default: false))
+                .testID("adjust.skinProtect")
         }
     }
 

@@ -49,6 +49,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var matte: ClipMatte? = nil
     /// Adjust ▸ Mask: region (layer space) where the adjustment-category effects apply; nil = whole layer.
     public var adjustMask: Mask? = nil
+    /// Skin tone protection (CL-010) for the adjustment-category effects.
+    public var skinProtect = false
     /// Smooth slow-mo: weight 0…1 of the NEXT source frame (aux lane `.nextFrame`) at this instant; nil = off.
     public var frameBlend: Double? = nil
     public var slowMoMethod: SlowMotionMethod? = nil
@@ -258,6 +260,7 @@ public enum FrameEvaluator {
                                  localTime: local)
         l.matte = r.matte
         l.adjustMask = r.adjustMask
+        l.skinProtect = c.skinToneProtection ?? false
         l.stabilization = r.stabilization
         if let rl = c.relight, c.mediaID != nil { l.relight = rl.resolved(at: local.seconds) }
         l.duration = c.duration
