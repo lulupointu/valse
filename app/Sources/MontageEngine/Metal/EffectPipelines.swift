@@ -77,9 +77,14 @@ public final class EffectPipelines: @unchecked Sendable {
     /// Compiles every registered effect/transition; returns id → error for failures (used by tests).
     public func validateAll() -> [String: String] {
         let effects = Registries.effects.all, transitions = Registries.transitions.all
-        // Runtime MSL compiles are independent and thread-safe: spread them over the cores.
-        DispatchQueue.concurrentPerform(iterations: effects.count + transitions.count) { i in
-            if i < effects.count { _ = effect(effects[i]) } else { _ = transition(transitions[i - effects.count]) }
+        // Runtime MSL compiles are independent and thread-safe: spread them over half the cores (leave room for
+        // playback / other work running meanwhile).
+        let n = effects.count + transitions.count
+        let workers = max(2, ProcessInfo.processInfo.activeProcessorCount / 2)
+        DispatchQueue.concurrentPerform(iterations: workers) { w in
+            for i in stride(from: w, to: n, by: workers) {
+                if i < effects.count { _ = effect(effects[i]) } else { _ = transition(transitions[i - effects.count]) }
+            }
         }
         return lock.withLock { errors }
     }
