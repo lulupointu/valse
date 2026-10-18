@@ -26,7 +26,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W11 | Export & interchange | 2 | merged (EX 22 done / 1 partial / 2 todo P2) | main 8fea692 |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | ready to merge (PM 12 done / 2 partial; SE 6 done / 4 partial) | worktree-agent-ac8ee24bcf15bf705 |
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | running | |
-| PERF | MacBook Air smoothness: timeline fit scroll 154 → 1.7 ms (air); --air audit (drag/scrub/playback/scrub latency/launch/open/memory/export) thresholded; machine-wide test semaphore; load-aware timing tests | 3 | running (milestones merged) | worktree-agent-ab5ab60793bbf0159 |
+| PERF | MacBook Air smoothness — round 1 merged (72f9ee8: timeline LOD 154→1.7 ms air, slots.sh semaphore, load-aware timing, IsolatedHost panels). Round 2: slider drag 45 ms air → ≤16, 50 captions 58 ms → ≤16, memory 1.6–2 GB → <1 GB, auto proxies 4K | 3 | running (round 2) | main 72f9ee8 |
 | UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
 | POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | running | |
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | merged (all 8 gaps fixed) | main 9b94922 |
