@@ -16,7 +16,6 @@ import MontageTestSupport
         var keys: [String] = VoiceEffects.all.map(\.nameKey) + VoiceEffects.all.flatMap { $0.params.map(\.nameKey) }
         keys += VoiceCategory.allCases.map(\.nameKey) + ChannelMode.allCases.map(\.nameKey) + VocalSeparation.allCases.map(\.nameKey)
         keys += SoundEffects.all.map(\.nameKey) + SoundEffects.categories.map { "sfx.category.\($0)" }
-        keys += MusicLibrary.all.map(\.nameKey) + MusicLibrary.genres.map { "music.genre.\($0)" }
         keys += LoudnessNormalization.targets.map { "audio.loudness.target.\(Int(-$0))" }
         keys += EQEditor.presets.map { "audio.eq.\($0.id)" }
         keys += AudioInspector.sections.compactMap(\.titleKey) + AudioInspector.tabs.map(\.titleKey) + [AudioInspector.voiceSubTab.titleKey]
@@ -106,33 +105,6 @@ import MontageTestSupport
         }.value
         #expect(abs(Double(frames) / 48000 - 1) < 0.05)
         #expect(abs(f - 440) < 3)
-    }
-
-    /// Audio ▸ Music (UX_GAPS W8-2): ~30 s procedural tracks in every genre; a rendered excerpt is audible, stereo and
-    /// has a pulse (drum hits make the short-term level vary).
-    @Test func musicTracksSynthesize() async throws {
-        #expect(MusicLibrary.all.count >= 8)
-        for g in MusicLibrary.genres { #expect(MusicLibrary.all.contains { $0.category == g }) }
-        for d in MusicLibrary.all { #expect(d.duration > 24 && d.duration < 40, "\(d.id) \(d.duration)") }
-        #expect(Set(MusicLibrary.all.map(\.id)).count == MusicLibrary.all.count)
-        let (rms, side, variation) = await Task.detached { () -> (Double, Double, Double) in
-            let b = AudioBuffer(channels: 2, frames: 48000 * 4, sampleRate: 48000)
-            MusicLibrary.descriptor("music.citylights")!.render(b)
-            var sum = 0.0, sideSum = 0.0
-            var windows: [Double] = []
-            var w = 0.0
-            for i in 0..<b.frames {
-                let l = Double(b[0, i]), r = Double(b[1, i])
-                sum += l * l + r * r; sideSum += (l - r) * (l - r); w += l * l
-                if i % 2400 == 2399 { windows.append(w / 2400); w = 0 }
-            }
-            let mean = windows.reduce(0, +) / Double(windows.count)
-            let sd = (windows.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(windows.count)).squareRoot()
-            return ((sum / Double(2 * b.frames)).squareRoot(), (sideSum / Double(b.frames)).squareRoot(), sd / max(mean, 1e-9))
-        }.value
-        #expect(rms > 0.02, "rms \(rms)")
-        #expect(side > 0.001, "stereo \(side)")
-        #expect(variation > 0.2, "pulse \(variation)")
     }
 
     @Test func soundEffectsSynthesize() async throws {

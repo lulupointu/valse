@@ -316,6 +316,9 @@ public final class UITestDriver {
             var p = try await DemoProject.make()
             p.timeline = Timeline()
             store.load(project: p)
+        case let s where s.hasPrefix("media:"):   // W13: N bin items (demo media repeated), empty timeline
+            let n = Int(s.split(separator: ":").last ?? "") ?? 1000
+            store.load(project: try await StressProject.makeBin(items: n))
         case let s where s.hasPrefix("stress"):
             // "stress:<clips>[:<media items in the bin>]"
             let parts = s.split(separator: ":")
@@ -668,8 +671,8 @@ public final class UITestDriver {
         }
     }
 
-    /// Simulated drag & drop: `{"media": 0 | "name"}`, `{"effect": id}`, `{"transition": id}`, `{"sticker": id}`,
-    /// `{"text": styleID}` or `{"files": [paths]}` dropped at a point (default the timeline).
+    /// Simulated drag & drop: `{"media": 0 | "name"}`, `{"mediaList": [0, 1]}`, `{"effect": id}`, `{"transition": id}`,
+    /// `{"sticker": id}`, `{"text": styleID}`, `{"string": "<raw payload>"}` or `{"files": [paths]}` dropped at a point.
     private func drop(_ payload: Any, on p: CGPoint) async throws {
         guard let d = payload as? [String: Any] else { throw Failure("drop payload must be an object") }
         let pb = NSPasteboard(name: NSPasteboard.Name("com.montage.uitest.\(UUID().uuidString)"))
@@ -684,6 +687,11 @@ public final class UITestDriver {
         else if let e = d["transition"] as? String { pb.setString(DragPayload.transition(e), forType: .string) }
         else if let e = d["sticker"] as? String { pb.setString(DragPayload.sticker(e), forType: .string) }
         else if let e = d["text"] as? String { pb.setString(DragPayload.textStyle(e), forType: .string) }
+        else if let list = d["mediaList"] as? [Int] {   // W13: several bin items (multi-selection drag)
+            let media = store.project.media
+            pb.setString(DragPayload.mediaList(list.compactMap { media.indices.contains($0) ? media[$0].id : nil }), forType: .string)
+        }
+        else if let raw = d["string"] as? String { pb.setString(raw, forType: .string) }   // any payload, e.g. montage-stock:<id>
         else if let files = d["files"] as? [String] {
             pb.writeObjects(files.map { URL(fileURLWithPath: $0, relativeTo: config.script.deletingLastPathComponent()) as NSURL })
         } else { throw Failure("unknown drop payload \(d)") }
@@ -774,6 +782,7 @@ public final class UITestDriver {
     /// timeline frame (CPU build + GPU encode). Metrics: `<name>_cpu_p50_ms`, `_cpu_p95_ms`, `_cpu_max_ms`, `_gpu_p95_ms`.
     private func perf(_ name: String, _ step: [String: Any]) async throws {
         if step["drag"] != nil || step["scroll"] != nil || step["edit"] != nil { return try await perfInteraction(name, step) }
+        if name.hasPrefix("asset") || step["view"] as? Bool == true { try await viewScrollPerf(name, step); return }
         guard let tl = timelineView else { throw Failure("no timeline view") }
         let p = try resolve(step["on"] ?? "id:timeline", step)
         let frames = (step["frames"] as? Int) ?? 240
@@ -871,6 +880,56 @@ public final class UITestDriver {
                    name, c.p50, c.p95, c.max, d.p95, st.frames, k.p95, frames))
     }
 
+    /// `{"perf": "asset_scroll", "on": "id:media.grid", "frames": 300, "dy": -40, "alternate": true, "period": 60}` —
+    /// scrolls a SwiftUI/AppKit scroll view (asset panel grids) one wheel event per frame and measures the main-thread
+    /// time to deliver the event and bring the window up to date (layout + display, i.e. lazy cell creation and
+    /// thumbnail binding). Metrics: `<name>_p50_ms`, `_p95_ms`, `_max_ms`, `<name>_distance_pt` (scrolled distance).
+    private func viewScrollPerf(_ name: String, _ step: [String: Any]) async throws {
+        let p = try resolve(step["on"] ?? "id:asset.grid", step)
+        guard let host = window.contentView, let hit = host.hitTest(host.superview?.convert(p, from: nil) ?? p) else {
+            throw Failure("no view at \(step["on"] ?? "")")
+        }
+        var v: NSView? = hit
+        while let x = v, !(x is NSScrollView) { v = x.superview }
+        let sv = (v as? NSScrollView) ?? hit.enclosingScrollView
+        guard let sv else { throw Failure("no scroll view under \(step["on"] ?? "")") }
+        let frames = (step["frames"] as? Int) ?? 240
+        let dy = (step["dy"] as? NSNumber)?.doubleValue ?? -40
+        let alternate = (step["alternate"] as? Bool) ?? false
+        let period = max(1, (step["period"] as? Int) ?? 60)
+        var times: [Double] = []
+        var distance = 0.0
+        var last = sv.contentView.bounds.origin.y
+        for i in 0..<frames {
+            let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
+            guard let e = SyntheticEvents.scroll(at: p, in: window, dx: 0, dy: dy * sign) else { continue }
+            let t0 = DispatchTime.now().uptimeNanoseconds
+            let before = sv.contentView.bounds.origin.y
+            sv.scrollWheel(with: e)
+            if sv.contentView.bounds.origin.y == before, let doc = sv.documentView {
+                // SwiftUI's hosting scroll view ignores phase-less synthetic wheel events: move the viewport the same
+                // distance directly (the same clip-view bounds change a real wheel scroll makes).
+                let maxY = max(0, doc.frame.height - sv.contentView.bounds.height)
+                sv.contentView.scroll(to: NSPoint(x: 0, y: min(max(0, before - dy * sign), maxY)))
+                sv.reflectScrolledClipView(sv.contentView)
+            }
+            host.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
+            CATransaction.flush()
+            times.append(Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
+            let y = sv.contentView.bounds.origin.y
+            distance += abs(y - last); last = y
+            if i % 10 == 9 { await Task.yield() }
+        }
+        let c = Percentiles(times)
+        metrics["\(name)_p50_ms"] = c.p50
+        metrics["\(name)_p95_ms"] = c.p95
+        metrics["\(name)_max_ms"] = c.max
+        metrics["\(name)_distance_pt"] = distance
+        log(String(format: "      %@: p50 %.2f ms, p95 %.2f ms, max %.2f ms, scrolled %.0f pt (%d frames)", name, c.p50, c.p95, c.max, distance, frames))
+        try await idle(settle: 0.1)
+    }
+
     /// `{"metric": "memory"}` → `memory_mb`, `memory_peak_mb` (physical footprint).
     private func recordMetric(_ m: String) throws {
         switch m {
@@ -909,6 +968,24 @@ public final class UITestDriver {
 
 /// `"project": "stress:500"` — many short clips on several tracks (perf harness).
 public enum StressProject {
+    /// `"project": "media:1000"` — a bin of `n` items (the demo media repeated with distinct ids, names and cache keys,
+    /// so every card loads its own thumbnail), empty timeline (asset-panel scroll perf).
+    public static func makeBin(items n: Int) async throws -> Project {
+        var p = try await DemoProject.make()
+        let base = p.media
+        guard !base.isEmpty else { return p }
+        p.media = (0..<n).map { i in
+            var a = base[i % base.count]
+            a.id = MediaID()
+            a.name = String(format: "%@ %04d", a.name, i + 1)
+            a.contentHash = "\(a.contentHash)-bin\(i)"
+            return a
+        }
+        p.timeline = Timeline()
+        p.name = "media-\(n)"
+        return p
+    }
+
     /// `media` > 0 pads the bin to that many items (copies of the demo media with their own ids / names / cache keys,
     /// so thumbnails are generated per item like a real big bin).
     public static func make(clips n: Int, media: Int = 0) async throws -> Project {

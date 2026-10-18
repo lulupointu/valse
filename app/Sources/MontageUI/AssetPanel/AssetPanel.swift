@@ -38,6 +38,34 @@ public struct AssetPanel: View {
         } content: {
             (AssetTabRegistry.tabs.first { $0.id == store.activeAssetTab } ?? AssetTabRegistry.sorted[0]).content(store)
         }
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { AssetPanelFocus.panelFrame = $0 }
+        .onAppear { AssetPanelFocus.install() }
+    }
+}
+
+/// Clicking outside the asset panel hands the arrow keys back to the timeline / player (W13 keyboard navigation).
+@MainActor
+enum AssetPanelFocus {
+    /// Panel frame in window content coordinates (top-left origin).
+    static var panelFrame: CGRect = .zero
+    /// Modifiers of the last mouse-down (SwiftUI tap actions run after the event; ⌘ / ⇧ multi-select reads these).
+    static var lastClickModifiers: NSEvent.ModifierFlags = []
+    private static var monitor: Any?
+
+    static func install() {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { e in
+            let box = UncheckedSendable(e)
+            MainActor.assumeIsolated {
+                let e = box.value
+                lastClickModifiers = e.modifierFlags.intersection([.command, .shift, .option, .control])
+                guard let host = e.window?.contentView else { return }
+                let p = e.locationInWindow
+                let pt = CGPoint(x: p.x, y: host.bounds.height - p.y)
+                if !panelFrame.contains(pt) { AssetPanelState.shared.keyboardTab = nil }
+            }
+            return e
+        }
     }
 }
 
@@ -86,9 +114,7 @@ enum BuiltinAssetTabs {
         AssetTab(id: "adjustment", titleKey: "tab.adjustment", symbol: "slider.horizontal.3", order: 8) { store in
             AnyView(EffectLibraryTab(store: store, category: .adjustment).id(EffectCategory.adjustment))
         },
-        AssetTab(id: "templates", titleKey: "tab.templates", symbol: "rectangle.stack", order: 9) { _ in
-            AnyView(EmptyState(symbol: "rectangle.stack", title: tr("templates.empty")))
-        },
+        AssetTab(id: "templates", titleKey: "tab.templates", symbol: "rectangle.stack", order: 9) { AnyView(TemplatesTab(store: $0)) },
     ]
 
     static func grouped<T>(_ items: [T], _ key: KeyPath<T, String>) -> [(String, [T])] {
@@ -120,17 +146,15 @@ struct RegistryGrid<Item>: View {
     let tile: (Item) -> Tile
     @State private var group: String = ""
 
+    /// W13: rendered by the shared `LibraryBrowser` (Favorites · Recent · groups, search, keyboard, ☆ / ⊕).
     var body: some View {
-        HStack(spacing: 0) {
-            SubNav(items: groups.map { ($0.0, tr($0.0)) }, selection: Binding(get: { group.isEmpty ? (groups.first?.0 ?? "") : group }, set: { group = $0 }))
-            ScrollView {
-                let items = (groups.first { $0.0 == (group.isEmpty ? groups.first?.0 : group) }?.1 ?? []).map(tile)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 10)], spacing: 12) {
-                    ForEach(items) { t in AssetTile(tile: t).testID("asset.tile.\(t.id)") }
-                }
-                .padding(12)
-            }
-        }
+        let tab = store.activeAssetTab
+        LibraryBrowser(tab: tab, namespace: tab, sections: groups.map { g in
+            LibrarySection(id: g.0, title: tr(g.0), items: g.1.map(tile).map { t in
+                LibraryItem(id: t.id, title: t.title, keywords: [tr(g.0)],
+                            art: t.emoji.map { .emoji($0) } ?? .symbol(t.symbol ?? "sparkles"), payload: t.payload, add: t.add)
+            })
+        })
     }
 }
 

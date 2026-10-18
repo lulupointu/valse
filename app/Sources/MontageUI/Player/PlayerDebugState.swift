@@ -51,7 +51,7 @@ public enum PlayerDebugState {
             // inspector (screenshots): tab=<id>, sub=<tab>:<subTab>, voice=<voice preset id suffix>
             case "tab": store.inspectorTab = value
             case "assets": store.activeAssetTab = value
-            case "audiolib": AudioLibraryUIState.shared.section = value
+            case "audiolib": AssetPanelState.shared.nav["audio"] = value   // Audio rail entry (W13 browser)
             case "sub":
                 let p = value.split(separator: ":").map(String.init)
                 if p.count == 2 { InspectorUIState.shared.subTab[p[0]] = p[1] }

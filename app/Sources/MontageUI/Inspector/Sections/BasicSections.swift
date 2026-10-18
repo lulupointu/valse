@@ -151,7 +151,7 @@ struct CanvasSection: View {
                 switch k {
                 case "blur": set(.blur(level: 2))
                 case "color": set(.color(.black))
-                case "style": set(.style(id: Registries.effects(in: .canvas).first?.id ?? ""))
+                case "style": set(.style(id: Registries.effects(in: .canvas).first { $0.groupKey != "library.group.generator" }?.id ?? ""))
                 default: set(nil)
                 }
             }
@@ -211,7 +211,7 @@ struct CanvasSection: View {
 
     func styleGrid(_ selected: String) -> some View {
         TileGrid {
-            ForEach(Registries.effects(in: .canvas)) { d in
+            ForEach(Registries.effects(in: .canvas).filter { $0.groupKey != "library.group.generator" }) { d in   // W13 library generators hidden
                 Tile(title: tr(d.nameKey), selected: d.id == selected) { set(.style(id: d.id)) } content: {
                     CanvasStylePreview(id: d.id).frame(width: 62, height: 62)
                 }

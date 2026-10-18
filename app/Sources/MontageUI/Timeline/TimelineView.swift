@@ -61,6 +61,8 @@ final class TimelineView: NSView {
     var snapLine: Time?
     var dropIndicator: (time: Time, row: Int?)?
     var insertionSlot: Int?
+    /// Length of the clip a library drag would create (drop ghost, W13).
+    var dropGhost: Time?
     var hoverPoint: CGPoint?
     var hoverClip: ClipID?
     var hoverTime: Time?
@@ -269,6 +271,11 @@ final class TimelineView: NSView {
             if let ri = d.row, ri < l.rows.count {
                 let r = l.rows[ri]
                 c.rect(CGRect(x: headerW, y: r.y, width: W - headerW, height: r.height), RGBA(0.34, 0.75, 0.8, 0.12))
+                if let g = dropGhost, g > .zero {   // ghost of the dropped clip(s)
+                    let gr = CGRect(x: x, y: r.y + 2, width: max(4, l.x(d.time + g) - x), height: r.height - 4)
+                    c.rect(gr, RGBA(0.34, 0.75, 0.8, 0.28))
+                    c.rect(gr, accent, border: 1)
+                }
             }
         }
         if let s = snapLine {

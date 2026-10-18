@@ -1,0 +1,20 @@
+// Perf harness (scripts/perf.sh, W13): asset panel with 1,000 bin items — lazy grid + list scroll (cards created and
+// thumbnails bound lazily), library grid scroll, memory. Every card loads its own thumbnail (distinct cache keys).
+{
+  "project": "media:1000",
+  "settle": 3,
+  "steps": [
+    {"expect": {"path": "media.count", "equals": 1000}},
+    {"metric": "memory"},
+    {"perf": "asset_grid_scroll", "on": "id:media.grid", "frames": 300, "dy": -60, "alternate": true, "period": 150},
+    {"snapshot": "grid-1000", "element": "id:panel.assets"},
+    {"click": "id:media.layout"},
+    {"perf": "asset_list_scroll", "on": "id:media.grid", "frames": 300, "dy": -60, "alternate": true, "period": 150},
+    {"click": "id:media.layout"},
+    {"click": "id:asset.nav.stock.backgrounds"},
+    {"perf": "asset_library_scroll", "on": "id:asset.grid", "frames": 120, "dy": -40, "alternate": true, "period": 30},
+    {"click": "id:asset.tab.audio"},
+    {"perf": "asset_audio_scroll", "on": "id:asset.grid", "frames": 120, "dy": -40, "alternate": true, "period": 30},
+    {"metric": "memory"}
+  ]
+}

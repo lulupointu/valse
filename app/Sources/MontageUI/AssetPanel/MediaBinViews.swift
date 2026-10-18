@@ -176,35 +176,3 @@ enum LinkMediaPanel {
         if p.runModal() == .OK, let u = p.url { store.relinkMissing(searching: u) }
     }
 }
-
-/// Library ▸ built-in colour clips (MI-026): black video and solid colour canvases.
-struct ColorClipsGrid: View {
-    let store: EditorStore
-    static let colors: [(String, RGBA)] = [
-        ("media.color.black", .black), ("media.color.white", .white), ("media.color.gray", RGBA(0.5, 0.5, 0.5)),
-        ("media.color.red", RGBA(hex: 0xE5484D)), ("media.color.green", RGBA(hex: 0x30A46C)), ("media.color.blue", RGBA(hex: 0x0091FF)),
-        ("media.color.yellow", RGBA(hex: 0xF5D90A)), ("media.color.chroma", RGBA(0, 1, 0)),
-    ]
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(loc: "media.library.colors").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 100), spacing: 10)], spacing: 12) {
-                    ForEach(Self.colors, id: \.0) { key, c in
-                        VStack(alignment: .leading, spacing: 4) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(red: c.r, green: c.g, blue: c.b))
-                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.separator, lineWidth: 1))
-                                .aspectRatio(16 / 10, contentMode: .fit)
-                            Text(verbatim: tr(key)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2) { store.addColorClip(c, nameKey: key) }
-                        .help(tr("asset.addToTrack"))
-                    }
-                }
-            }
-            .padding(12)
-        }
-    }
-}

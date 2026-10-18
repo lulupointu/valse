@@ -117,6 +117,7 @@ public enum ShortcutRegistry {
         if Keymap.isRecording { return false }
         guard let k = key(for: e) else { return false }
         let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
+        if AssetPanelState.shared.handleKey(k, modifiers: mods) { return true }   // asset grid keyboard navigation (W13)
         // effective bindings come from the user keymap (Settings ▸ Shortcuts; defaults = the entries below)
         let b = KeyBinding(k, mods)
         guard let s = all.first(where: { Keymap.shared.matches($0, b) && $0.isEnabled(store) }) else { return false }

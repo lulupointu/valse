@@ -96,6 +96,7 @@ public enum StateDump {
         ui["export"] = ExportStateDump.make(store.exports)
         if let k = store.timelineUI.selectedKeyframe { ui["selectedKeyframe"] = ["key": k.key, "time": k.time.seconds] as [String: Any] }
         ui["keyframePanel"] = store.keyframeUI.showsPanel
+        ui["assets"] = AssetStateDump.make(store)   // W13 asset panel
         var d: [String: Any] = [
             "playhead": store.transport.playhead.seconds,
             "duration": p.duration.seconds,

@@ -1,0 +1,72 @@
+/* Navigateur partagé du panneau des ressources (W13) */
+"asset.search" = "Rechercher";
+"asset.search.clear" = "Effacer la recherche";
+"asset.nav.favorites" = "Favoris";
+"asset.nav.recent" = "Récents";
+"asset.results" = "Résultats (%d)";
+"asset.empty.search" = "Aucun résultat pour « %@ ». Essayez un autre mot.";
+"asset.empty.favorites" = "Aucun favori pour l'instant. Cliquez sur ☆ pour retrouver un élément ici.";
+"asset.empty.recent" = "Les éléments ajoutés à la timeline apparaissent ici.";
+"asset.empty.section" = "Rien ici pour l'instant.";
+"asset.favorite" = "Ajouter aux Favoris";
+"asset.unfavorite" = "Retirer des Favoris";
+"asset.added" = "Ajouté";
+
+/* Onglet Médias */
+"media.search" = "Rechercher une ressource";
+"media.view.list" = "Affichage en liste";
+"media.view.grid" = "Affichage en grille";
+"media.sort" = "Trier";
+"media.sort.order" = "Ordre";
+"media.sort.imported" = "Date d'importation";
+"media.sort.name" = "Nom";
+"media.sort.duration" = "Durée";
+"media.sort.size" = "Taille";
+"media.sort.type" = "Type";
+"media.sort.ascending" = "Croissant";
+"media.sort.descending" = "Décroissant";
+"media.filter" = "Filtrer";
+"media.filter.all" = "Tout";
+"media.filter.video" = "Vidéo";
+"media.filter.image" = "Image";
+"media.filter.audio" = "Audio";
+
+/* Onglet Audio */
+"audio.search" = "Rechercher des musiques et des effets sonores";
+"audio.lib.music" = "Musique";
+"audio.lib.folder" = "Dossier musique";
+"audio.lib.renderFailed" = "Impossible de préparer ce son.";
+"audio.extract.empty" = "Le son extrait de vos vidéos apparaît ici.";
+"audio.folder.choose" = "Choisir un dossier…";
+"audio.folder.rescan" = "Analyser à nouveau le dossier";
+"audio.folder.empty" = "Aucun fichier audio dans ce dossier.";
+
+/* Onglet Modèles */
+"templates.search" = "Rechercher des modèles";
+"templates.empty.filtered" = "Aucun modèle ne correspond à ces filtres.";
+"templates.clips" = "%d clips";
+"templates.filter.orientation" = "Orientation";
+"templates.filter.orientation.all" = "Toutes";
+"templates.filter.orientation.landscape" = "Paysage";
+"templates.filter.orientation.portrait" = "Portrait";
+"templates.filter.orientation.square" = "Carré";
+"templates.filter.clips" = "Clips";
+"templates.filter.clips.any" = "Sans limite";
+"templates.filter.clips.one" = "1";
+"templates.filter.clips.few" = "2–3";
+"templates.filter.clips.several" = "4–5";
+"templates.filter.clips.many" = "6+";
+"templates.filter.duration" = "Durée";
+"templates.filter.duration.any" = "Sans limite";
+"templates.filter.duration.short" = "Moins de 15 s";
+"templates.filter.duration.medium" = "15–30 s";
+"templates.filter.duration.long" = "30–60 s";
+"templates.filter.duration.veryLong" = "Plus de 60 s";
+"template.cat.trending" = "Tendance";
+"template.cat.vlog" = "Vlog";
+"template.cat.travel" = "Voyage";
+"template.cat.birthday" = "Anniversaire";
+"template.cat.business" = "Entreprise";
+"template.cat.lyrics" = "Paroles";
+"template.cat.intro" = "Intro et outro";
+"template.cat.social" = "Réseaux sociaux";

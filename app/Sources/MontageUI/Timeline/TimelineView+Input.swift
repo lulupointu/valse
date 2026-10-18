@@ -490,11 +490,13 @@ extension TimelineView {
             insertionSlot = l.insertionSlot(atY: pt.y)
             dropIndicator = (t, insertionSlot == nil ? l.rowIndex(atY: pt.y) : nil)
         }
+        // W13: ghost of the clip(s) the drop would create (asset-panel payloads with a known length).
+        dropGhost = sender.draggingPasteboard.string(forType: .string).flatMap { store.dropPreviewDuration($0) }
         dirty = true
         return .copy
     }
 
-    override func draggingExited(_ sender: (any NSDraggingInfo)?) { dropIndicator = nil; insertionSlot = nil; dirty = true }
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) { dropIndicator = nil; insertionSlot = nil; dropGhost = nil; dirty = true }
 
     /// Cut a transition dragged at `pt` attaches to: a continuous cut on the hovered overlay video track (PiP, TR-004)
     /// within 40 pt, else the main-track cut nearest the cursor. Returns the left clip and its row.
@@ -514,7 +516,7 @@ extension TimelineView {
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        defer { dropIndicator = nil; insertionSlot = nil; dirty = true }
+        defer { dropIndicator = nil; insertionSlot = nil; dropGhost = nil; dirty = true }
         let pt = convert(sender.draggingLocation, from: nil)
         let l = layoutNow
         let time = dropIndicator?.time ?? l.time(atX: pt.x)
@@ -525,6 +527,7 @@ extension TimelineView {
             store.importFiles(urls, thenInsertAt: time, target: target)
             return true
         }
+        if let s = pb.string(forType: .string), store.handleLibraryDrop(s, at: time, target: target) { return true }   // W13 library payloads
         guard let s = pb.string(forType: .string), let payload = DragPayload.parse(s) else { return false }
         switch payload {
         case .media(let id):
