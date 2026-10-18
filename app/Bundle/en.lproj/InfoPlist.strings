@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "Montage";
+"NSSpeechRecognitionUsageDescription" = "Montage recognizes speech on your Mac to create captions. Nothing leaves your Mac.";
+"NSMicrophoneUsageDescription" = "Montage records voice-overs.";

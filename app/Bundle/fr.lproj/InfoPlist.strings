@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "Montage";
+"NSSpeechRecognitionUsageDescription" = "Montage reconnaît la parole sur votre Mac pour créer des sous-titres. Rien ne quitte votre Mac.";
+"NSMicrophoneUsageDescription" = "Montage enregistre des voix off.";
