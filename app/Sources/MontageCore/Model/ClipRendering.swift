@@ -53,29 +53,43 @@ public struct Stabilization: Hashable, Codable, Sendable {
     public init(level: StabilizationLevel = .recommended) { self.level = level }
 }
 
-/// Per-frame stabilization correction in normalized source units (fraction of width/height), plus the uniform zoom
-/// that hides the moving borders. Produced by the analyzer, consumed by the renderer.
+/// Per-frame stabilization correction in normalized source units (fraction of width/height), an optional roll
+/// correction (radians, image coordinates y-down: positive = clockwise), plus the uniform zoom that hides the moving
+/// borders. Produced by the analyzer, consumed by the renderer.
 public struct StabilizationTrack: Codable, Sendable, Equatable {
     public var frameDuration: Time
     /// Correction per source frame (index = frame number from media time 0).
     public var dx: [Float]
     public var dy: [Float]
+    /// Roll correction per frame (nil = translation-only analysis).
+    public var dr: [Float]?
+    /// Width / height of the analysed frames (rotation is applied in square pixels).
+    public var aspect: Double?
     public var zoom: Double
-    public init(frameDuration: Time, dx: [Float], dy: [Float], zoom: Double) {
-        self.frameDuration = frameDuration; self.dx = dx; self.dy = dy; self.zoom = zoom
+    public init(frameDuration: Time, dx: [Float], dy: [Float], dr: [Float]? = nil, aspect: Double? = nil, zoom: Double) {
+        self.frameDuration = frameDuration; self.dx = dx; self.dy = dy; self.dr = dr; self.aspect = aspect; self.zoom = zoom
     }
+
+    func index(_ t: Time) -> Int { min(max(Int(t.ticks / frameDuration.ticks), 0), dx.count - 1) }
 
     /// Correction at media time `t` (nearest frame).
     public func correction(at t: Time) -> (dx: Double, dy: Double) {
         guard !dx.isEmpty, frameDuration.ticks > 0 else { return (0, 0) }
-        let i = min(max(Int(t.ticks / frameDuration.ticks), 0), dx.count - 1)
+        let i = index(t)
         return (Double(dx[i]), Double(dy[i]))
     }
 
-    /// Builds the track from a raw camera path (cumulative translation per frame): smoothed path − raw path,
-    /// zoom = smallest uniform scale that keeps the corrected frame covering the output.
-    public static func from(path px: [Double], _ py: [Double], frameDuration: Time, level: StabilizationLevel) -> StabilizationTrack {
-        let n = min(px.count, py.count)
+    /// Roll correction at media time `t` (radians).
+    public func rotation(at t: Time) -> Double {
+        guard let dr, !dr.isEmpty, !dx.isEmpty, frameDuration.ticks > 0 else { return 0 }
+        return Double(dr[min(index(t), dr.count - 1)])
+    }
+
+    /// Builds the track from a raw camera path (cumulative translation, and roll when `pr` is given, per frame):
+    /// smoothed path − raw path, zoom = smallest uniform scale that keeps the corrected frame covering the output.
+    public static func from(path px: [Double], _ py: [Double], rotation pr: [Double]? = nil, aspect: Double? = nil,
+                            frameDuration: Time, level: StabilizationLevel) -> StabilizationTrack {
+        let n = min(px.count, py.count, pr?.count ?? .max)
         guard n > 0 else { return StabilizationTrack(frameDuration: frameDuration, dx: [], dy: [], zoom: 1) }
         let fps = 1 / max(frameDuration.seconds, 1e-6)
         let sigma = max(1, level.smoothingSeconds * fps / 2)
@@ -92,16 +106,21 @@ public struct StabilizationTrack: Codable, Sendable, Equatable {
             }
         }
         let sx = smooth(Array(px.prefix(n))), sy = smooth(Array(py.prefix(n)))
+        let sr = pr.map { smooth(Array($0.prefix(n))) }
         var dx = [Float](repeating: 0, count: n), dy = [Float](repeating: 0, count: n)
-        var maxX = 0.0, maxY = 0.0
+        var dr: [Float]? = pr == nil ? nil : [Float](repeating: 0, count: n)
+        let a = max(aspect ?? 16.0 / 9, 1 / (aspect ?? 16.0 / 9))
+        var zoom = 1.0
         for i in 0..<n {
             let cx = sx[i] - px[i], cy = sy[i] - py[i]
             dx[i] = Float(cx); dy[i] = Float(cy)
-            maxX = max(maxX, abs(cx)); maxY = max(maxY, abs(cy))
+            var roll = 0.0
+            if let pr, let sr { roll = sr[i] - pr[i]; dr?[i] = Float(roll) }
+            // rotating by φ needs cos φ + a·sin φ; shifting by c needs 1/(1 − 2|c|)
+            let need = (cos(abs(roll)) + a * sin(abs(roll))) / max(0.34, 1 - 2 * max(abs(cx), abs(cy)))
+            zoom = max(zoom, need)
         }
-        // shifting by c needs a zoom of 1/(1 − 2|c|) to keep the borders out; cap at 1.5×
-        let zoom = min(1.5, 1 / max(0.34, 1 - 2 * max(maxX, maxY)))
-        return StabilizationTrack(frameDuration: frameDuration, dx: dx, dy: dy, zoom: zoom)
+        return StabilizationTrack(frameDuration: frameDuration, dx: dx, dy: dy, dr: dr, aspect: aspect, zoom: min(1.5, zoom))
     }
 }
 

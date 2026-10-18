@@ -461,16 +461,19 @@ public final class FrameRenderer: @unchecked Sendable {
     /// Target-uv → source-uv: flip (display space) → crop → stabilization (shift + zoom, display space) →
     /// display→raw orientation.
     static func uvTransform(crop: CropRect, flipH: Bool, flipV: Bool, rotation: Int,
-                            stabilize: (dx: Double, dy: Double, zoom: Double)? = nil) -> simd_float3x2 {
+                            stabilize: StabilizeCorrection? = nil) -> simd_float3x2 {
         var m = Affine.identity
         if flipH { m = Affine(a: -1, b: 0, c: 0, d: 1, tx: 1, ty: 0).then(m) }
         if flipV { m = Affine(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: 1).then(m) }
         var k = Affine(a: 1 - crop.left - crop.right, b: 0, c: 0, d: 1 - crop.top - crop.bottom, tx: crop.left, ty: crop.top)
         k = m.then(k)
         if let st = stabilize {
-            // u' = (u − ½)/zoom + ½ − d   (d = correction, normalized display units)
-            let z = 1 / max(st.zoom, 1)
-            k = k.then(Affine(a: z, b: 0, c: 0, d: z, tx: 0.5 - 0.5 * z - st.dx, ty: 0.5 - 0.5 * z - st.dy))
+            // u' = R(−roll)·(u − ½)/zoom + ½ − d   (d = correction, normalized display units; the roll is applied in
+            // square pixels: x scaled by the frame aspect)
+            let z = 1 / max(st.zoom, 1), ar = max(st.aspect, 0.01)
+            let ca = cos(-st.roll) * z, sa = sin(-st.roll) * z
+            let (a, b, c, d) = (ca, sa * ar, -sa / ar, ca)
+            k = k.then(Affine(a: a, b: b, c: c, d: d, tx: 0.5 - 0.5 * (a + c) - st.dx, ty: 0.5 - 0.5 * (b + d) - st.dy))
         }
         let r: Affine
         switch ((rotation % 360) + 360) % 360 {
@@ -481,6 +484,11 @@ public final class FrameRenderer: @unchecked Sendable {
         }
         return k.then(r).matrix
     }
+}
+
+/// Per-frame stabilization correction handed to `uvTransform` (normalized shift, roll in radians, crop zoom).
+struct StabilizeCorrection {
+    var dx: Double, dy: Double, zoom: Double, roll: Double = 0, aspect: Double = 16.0 / 9
 }
 
 /// 2D affine map p' = (a·x + c·y + tx, b·x + d·y + ty).

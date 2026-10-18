@@ -149,10 +149,10 @@ extension FrameRenderer {
     }
 
     /// Stabilization correction for this frame (nil when off or not analysed yet).
-    func stabilizationCorrection(_ l: LayerDescription, media: [MediaID: MediaAsset]) -> (dx: Double, dy: Double, zoom: Double)? {
+    func stabilizationCorrection(_ l: LayerDescription, media: [MediaID: MediaAsset]) -> StabilizeCorrection? {
         guard let st = l.stabilization, case .media(let id, let t) = l.source, let a = media[id],
               let track = StabilizationStore.shared.track(media: a, level: st.level) else { return nil }
         let c = track.correction(at: t)
-        return (c.dx, c.dy, track.zoom)
+        return StabilizeCorrection(dx: c.dx, dy: c.dy, zoom: track.zoom, roll: track.rotation(at: t), aspect: track.aspect ?? 16.0 / 9)
     }
 }
