@@ -380,29 +380,33 @@ struct Dropdown<ID: Hashable>: View {
     var enabled = true
     let onSelect: (ID) -> Void
     var body: some View {
-        Menu {
-            ForEach(items, id: \.id) { item in
-                Button {
-                    onSelect(item.id)
-                } label: {
-                    if item.id == selection { Label(item.title, systemImage: "checkmark") } else { Text(verbatim: item.title) }
-                }
-            }
-        } label: {
-            HStack {
-                Text(verbatim: items.first { $0.id == selection }?.title ?? "")
-                    .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
-                Spacer()
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textPrimary)
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .contentShape(Rectangle())
+        // The visible field is drawn by us (borderless menus centre their label and put the chevron first);
+        // a transparent Menu on top provides the native pop-up.
+        HStack {
+            Text(verbatim: items.first { $0.id == selection }?.title ?? "")
+                .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+            Spacer()
+            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textPrimary)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
+        .padding(.horizontal, 10)
         .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
         .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
+        .overlay {
+            Menu {
+                ForEach(items, id: \.id) { item in
+                    Button {
+                        onSelect(item.id)
+                    } label: {
+                        if item.id == selection { Label(item.title, systemImage: "checkmark") } else { Text(verbatim: item.title) }
+                    }
+                }
+            } label: {
+                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .opacity(0.011)
+        }
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.4)
     }

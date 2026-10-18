@@ -130,8 +130,7 @@ struct FilterDetailsBlock: View {
             }
             EffectParamRows(ctx: ctx, instance: instance, descriptor: descriptor)
         }
-        .padding(.vertical, 12)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.separator).frame(height: 1) }
+        .padding(.vertical, 6)
     }
 }
 
@@ -143,7 +142,8 @@ struct OtherAdjustmentBlocks: View {
             $0.typeID != BuiltinAdjustments.basic.id && Registries.effects[$0.typeID]?.category == .adjustment
         }
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(list) { inst in
+            ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in
+                if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
                 if let d = Registries.effects[inst.typeID] { EffectBlock(ctx: ctx, instance: inst, descriptor: d) }
             }
         }
@@ -159,7 +159,8 @@ struct ClipEffectBlocks: View {
     var body: some View {
         let list = (ctx.clip?.effects ?? []).filter { Registries.effects[$0.typeID]?.category == .effect }
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(list) { inst in
+            ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in
+                if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
                 if let d = Registries.effects[inst.typeID] { EffectBlock(ctx: ctx, instance: inst, descriptor: d) }
             }
         }
@@ -176,6 +177,7 @@ struct EffectClipSection: View {
         let effects = ctx.clip?.effects ?? []
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(effects.enumerated()), id: \.element.id) { i, inst in
+                if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
                 if let d = Registries.effects[inst.typeID] {
                     if i == 0 {
                         FilterDetailsBlock(ctx: ctx, instance: inst, descriptor: d, title: tr("inspector.details"))

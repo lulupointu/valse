@@ -131,17 +131,17 @@
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
 | CV-001 | Project aspect ratio | Ratio menu: Original, 16:9, 9:16, 1:1, 4:3, 3:4, 5.8-inch, 2:1, 2.35:1, 1.85:1, custom. "Landscape/portrait". | N | P0 | Canvas size model. Re-layout of existing clips (fit). | todo |
-| CV-002 | Canvas background | "Canvas settings": background None / Color (incl. picker) / Blur (4 levels, "Blur canvas") / Pattern (image), apply to all. | N | P0 | Blurred, scaled copy of the clip behind (GPU Gaussian/Kawase), pattern tiling. | todo |
-| CV-003 | Position & size | Inspector "Basic": scale (uniform), X/Y position, rotation, flip. Direct manipulation on the player with handles. Snapping to center/edges with guide lines. | N | P0 | 2D affine transforms, gizmo overlay, sub-pixel accurate. | todo |
-| CV-004 | Rotate | Free rotation, ±90° buttons, rotation handle. | N | P0 | — | todo |
-| CV-005 | Mirror / flip | Horizontal mirror, flip vertically. | N | P0 | — | todo |
-| CV-006 | Crop | "Crop" dialog with free/ratio presets, rotate within the crop, reset. Also an inspector crop (left/right/top/bottom). | N | P0 | Crop rect in source space, keyframable. | todo |
-| CV-007 | Opacity | Opacity slider (keyframable). | N | P0 | Alpha compositing. | todo |
-| CV-008 | Blend modes | Blend "Mode": Normal, Darken, Screen ("color_filter"), Overlay, Multiply, Lighten, Hard light, Soft light, Linear burn, Color burn, Color dodge (11 modes in MixMode.json). | N | P0 | Per-layer blend shaders in a linear or gamma-correct compositor. | todo |
+| CV-002 | Canvas background | "Canvas settings": background None / Color (incl. picker) / Blur (4 levels, "Blur canvas") / Pattern (image), apply to all. | N | P0 | Blurred, scaled copy of the clip behind (GPU Gaussian/Kawase), pattern tiling. | done (W3: None/Blur 4 levels/Color palette+picker/8 procedural Styles, Apply to all; evaluator-generated render items, render-tested) |
+| CV-003 | Position & size | Inspector "Basic": scale (uniform), X/Y position, rotation, flip. Direct manipulation on the player with handles. Snapping to center/edges with guide lines. | N | P0 | 2D affine transforms, gizmo overlay, sub-pixel accurate. | partial (W3 inspector: scale/uniform/X·Y/position/rotate dial/align strip done; on-canvas handles = W2) |
+| CV-004 | Rotate | Free rotation, ±90° buttons, rotation handle. | N | P0 | — | partial (W3: free rotation field + dial; ±90° buttons and canvas handle = W2) |
+| CV-005 | Mirror / flip | Horizontal mirror, flip vertically. | N | P0 | — | done (W3: mirror/flip buttons in Position & Size) |
+| CV-006 | Crop | "Crop" dialog with free/ratio presets, rotate within the crop, reset. Also an inspector crop (left/right/top/bottom). | N | P0 | Crop rect in source space, keyframable. | partial (W3: inspector crop section with ratio presets + keyframeable L/T/R/B; crop dialog with on-canvas box not done) |
+| CV-007 | Opacity | Opacity slider (keyframable). | N | P0 | Alpha compositing. | done (W3: opacity row, keyframeable) |
+| CV-008 | Blend modes | Blend "Mode": Normal, Darken, Screen ("color_filter"), Overlay, Multiply, Lighten, Hard light, Soft light, Linear burn, Color burn, Color dodge (11 modes in MixMode.json). | N | P0 | Per-layer blend shaders in a linear or gamma-correct compositor. | done (W3: Blend section, 13 modes) |
 | CV-009 | Align & distribute | Align left/center/right/top/middle/bottom, distribute horizontally/vertically for multiple selected layers. | N | P1 | Multi-layer bounding box ops. | todo |
 | CV-010 | Fit / fill canvas | "Fit to canvas" / "Fill" / "Stretch" when adding media or after a ratio change. | N | P0 | — | todo |
 | CV-011 | Position snapping & keyboard nudge | Arrow-key nudges, Shift for larger steps. "Align horizontally or vertically" while dragging with Shift. | N | P1 | — | todo |
-| CV-012 | Video animations (In/Out/Combo) | "Animation" tab: In, Out, Combo (loop) presets on video/image clips with a duration slider (e.g. zoom-in, spin, slide, shake, bounce). | N/Y | P0 | Parametric transform/opacity/blur animation presets, duration-relative easing. | todo |
+| CV-012 | Video animations (In/Out/Combo) | "Animation" tab: In, Out, Combo (loop) presets on video/image clips with a duration slider (e.g. zoom-in, spin, slide, shake, bounce). | N/Y | P0 | Parametric transform/opacity/blur animation presets, duration-relative easing. | partial (W3 UI: In/Out/Combo pickers, hover previews, search, duration; preset content = W5) |
 | CV-013 | Video stabilization | "Stabilize" with level "Minimal cropping / Recommended / Most stable". Background processing. | N | P0 | Feature tracking (or global motion estimation) → camera path smoothing → warp + crop. Offline job + cache. Apple Vision registration or OpenCV (Apache-2.0). Avoid vid.stab (GPL). | todo |
 | CV-014 | Motion blur | "Motion blur" on clips: blur amount and direction, "Times" (2x/4x/6x frame blending). Background processing. | Y | P1 | Flow-based or frame-accumulation motion blur. macOS 26 VTMotionBlur option. Offline job. | todo |
 | CV-015 | Lens distortion / AI expand on canvas | See AI-040 (AI expand / outpainting). | C | P2 | — | todo |
@@ -153,14 +153,14 @@
 
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
-| KF-001 | Property keyframes | Diamond button next to each inspector property (position, scale, rotation, opacity, crop, mask, volume, adjustments, filter intensity, chroma, text style…). Adds a keyframe at the playhead. Changing a value with the playhead elsewhere auto-adds one. | N | P0 | Generic animatable-property system over every typed parameter. Deterministic evaluation for preview = export. | todo |
-| KF-002 | Keyframes on effects | "Try keyframes on effects!": effect parameters are keyframable. | N | P1 | Same system for effect param schemas. | todo |
-| KF-003 | Keyframe navigation | Previous/next keyframe buttons. Keyframe dots on the clip in the timeline. Drag keyframes in the timeline. Delete keyframe. | N | P0 | — | todo |
+| KF-001 | Property keyframes | Diamond button next to each inspector property (position, scale, rotation, opacity, crop, mask, volume, adjustments, filter intensity, chroma, text style…). Adds a keyframe at the playhead. Changing a value with the playhead elsewhere auto-adds one. | N | P0 | Generic animatable-property system over every typed parameter. Deterministic evaluation for preview = export. | partial (W3: ‹◇› on every animatable inspector row + section group diamonds; timeline keyframe dots/drag = W1) |
+| KF-002 | Keyframes on effects | "Try keyframes on effects!": effect parameters are keyframable. | N | P1 | Same system for effect param schemas. | done (W3: generated effect rows have diamonds) |
+| KF-003 | Keyframe navigation | Previous/next keyframe buttons. Keyframe dots on the clip in the timeline. Drag keyframes in the timeline. Delete keyframe. | N | P0 | — | partial (W3: prev/next/add/remove in inspector; timeline dots/drag = W1) |
 | KF-004 | Keyframe easing presets | Right-click keyframe → curve presets: Linear, Ease in, Ease out, Easing, "Show all presets" (~20+ named curves). "Use preset curves to create smooth animations". | N | P1 | Cubic-bezier/elastic/bounce easing library. | todo |
 | KF-005 | Keyframe graph editor | "Show/hide keyframe graphs": bezier speed graph per segment ("Select 2 or more keyframes then add a graph", "Adjust properties"). | N | P1 | Graph editor UI with bezier handles. Value + speed graphs. | todo |
 | KF-006 | Keyframe panel | "Show/Hide keyframe panel", "Add keyframe on keyframe panel" shortcut (configurable). | N | P2 | Dope-sheet style panel. | todo |
 | KF-007 | Motion path | Position keyframes shown as a path in the player. | ? | P2 | Spatial bezier interpolation. | todo |
-| KF-008 | Reset keyframes | "Keyframes of the selected clip will be reset". | N | P1 | — | todo |
+| KF-008 | Reset keyframes | "Keyframes of the selected clip will be reset". | N | P1 | — | partial (W3: section reset clears that section's keyframes) |
 | KF-009 | Text animations | See TX-020. | — | — | — | todo |
 | KF-010 | Sticker animations | "Sticker animation" In/Out/Loop. | N | P1 | Same preset engine as text/video animations. | todo |
 | KF-011 | Copy keyframe timing | Paste attributes "Keyframe timing: Maintain / Stretch to fit". | N | P2 | Time remap of keyframes. | todo |
@@ -170,13 +170,13 @@
 
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
-| SP-001 | Normal (constant) speed | Speed tab "Normal": 0.1x–100x slider. Duration field (type a target duration). Quick values 0.1/0.2/0.5/1/1.5/2/10x. | N | P0 | Time remapping, decode skipping for high speeds, frame-accurate resampling. | todo |
-| SP-002 | Keep pitch | "Change audio pitch" toggle (off = keep original pitch while sped up). Some speeds don't support it. | N | P0 | High-quality time-stretch (WSOLA/phase vocoder). Signalsmith Stretch (MIT) / SoundTouch (LGPL) / Rubber Band (GPL/commercial). | todo |
-| SP-003 | Curve speed presets | "Curve": presets Montage, Hero time, Bullet, Jump cut, Flash in, Flash out, plus Custom. | N | P0 | Speed-curve time remap (integral of speed(t)). Audio follows or is muted. | todo |
-| SP-004 | Custom curve editor | Editable speed curve with draggable control points (add/delete beats, "control points reached the upper limit"), shows the new duration. | N | P0 | Curve editor UI. Monotonic integral, frame-time solver. | todo |
+| SP-001 | Normal (constant) speed | Speed tab "Normal": 0.1x–100x slider. Duration field (type a target duration). Quick values 0.1/0.2/0.5/1/1.5/2/10x. | N | P0 | Time remapping, decode skipping for high speeds, frame-accurate resampling. | done (W3: log slider 0.1–100× with CapCut ticks, typed speed and typed target duration) |
+| SP-002 | Keep pitch | "Change audio pitch" toggle (off = keep original pitch while sped up). Some speeds don't support it. | N | P0 | High-quality time-stretch (WSOLA/phase vocoder). Signalsmith Stretch (MIT) / SoundTouch (LGPL) / Rubber Band (GPL/commercial). | partial (W3: Change pitch toggle wired to model; render side = W8/W9) |
+| SP-003 | Curve speed presets | "Curve": presets Montage, Hero time, Bullet, Jump cut, Flash in, Flash out, plus Custom. | N | P0 | Speed-curve time remap (integral of speed(t)). Audio follows or is muted. | done (W3: 7 CapCut presets, smooth monotone-cubic curves, exact integral; composition uses Speed.segments) |
+| SP-004 | Custom curve editor | Editable speed curve with draggable control points (add/delete beats, "control points reached the upper limit"), shows the new duration. | N | P0 | Curve editor UI. Monotonic integral, frame-time solver. | done (W3: curve editor with draggable beats, add/remove (max 10), reset, live duration, playhead) |
 | SP-005 | Smooth slow-mo (optical flow) | "Smooth slow-mo" on slow clips: method "Frame blending" or "Optical flow" ("Longer time, better quality"). Background processing. | Y | P0 | Frame interpolation: RIFE v4.x (MIT) via ANE/GPU, macOS 26 VTFrameRateConversion, frame-blending fallback. Offline job + cache. | todo |
 | SP-006 | Velocity effects | "Velocity effects": auto beat-synced speed ramps + visual punch (Blur shake, Fade blur, Flash, Retro zoom). Beat frequency, music source. | Y? | P1 | Beat tracking + generated speed curve + effect overlay. | todo |
-| SP-007 | Speed on audio | Speed + keep pitch on audio clips. | N | P0 | As SP-002. | todo |
+| SP-007 | Speed on audio | Speed + keep pitch on audio clips. | N | P0 | As SP-002. | done (W3: Speed tab on audio clips) |
 | SP-008 | Speed panel shortcut | "Show speed panel" shortcut, speed badge on the clip. | N | P2 | — | todo |
 | SP-009 | Change project frame rate / optical flow for fps | "Make video playback smoother": optical flow to raise fps. "Change frame rate for this project?". | Y | P1 | As SP-005. | todo |
 | SP-010 | Time-lapse | Very high speeds (to 100x) and the "Time-lapse" deflicker mode. | N | P1 | Frame skipping decode path. | todo |
@@ -250,8 +250,8 @@
 | AU-001 | Music library | "Audio" tab → Music: categories, search song/artist, TikTok-synced favorites, commercial-use filter, preview on hover, favorites. | N/Y | N/A-local | Licensed cloud catalog. Substitute: user's music folder browser + our own procedural/CC0 music pack (see preset section) + local AI music (AU-031). | todo |
 | AU-002 | Sound effects library | Sound effects tab with categories and search (whoosh, pop, click, laugh, transitions…). | N/Y | P1 | Our own SFX pack: procedurally synthesized (whoosh, riser, impact, pop, click, glitch, beep, typing) + CC0 recordings. | todo |
 | AU-003 | Extract audio from video file | "Extract audio from a video" import in the Audio tab ("Extracted"). | N | P0 | Demux/decode audio track to an audio clip. | todo |
-| AU-004 | Volume | Clip volume in dB (−∞..+20 dB), "Volume ±0.1dB" shortcuts, track volume, project mute. Keyframable volume (rubber band). | N | P0 | Gain automation with sample-accurate ramps. | todo |
-| AU-005 | Fade in / fade out | Fade-in/fade-out duration sliders, visual fade handles on clips. | N | P0 | Gain envelopes (linear/equal-power). | todo |
+| AU-004 | Volume | Clip volume in dB (−∞..+20 dB), "Volume ±0.1dB" shortcuts, track volume, project mute. Keyframable volume (rubber band). | N | P0 | Gain automation with sample-accurate ramps. | partial (W3: dB volume row −∞…+20 dB keyframeable; track volume/shortcuts not done) |
+| AU-005 | Fade in / fade out | Fade-in/fade-out duration sliders, visual fade handles on clips. | N | P0 | Gain envelopes (linear/equal-power). | partial (W3: fade in/out rows; timeline fade handles = W1) |
 | AU-006 | Loudness normalization | "Normalize loudness" to target LUFS: Default (−23 LUFS), YouTube (−14), custom, multi-clip. | N | P1 | EBU R128 / ITU-R BS.1770 integrated loudness analysis (libebur128 MIT) + gain. | todo |
 | AU-007 | Noise reduction | "Reduce noise" (audio) toggle. Strength. | Y | P0 | On-device speech denoise: RNNoise (BSD-3, CapCut bundles `rnnoise_v2.0.model`), DeepFilterNet3 (MIT/Apache) for higher quality. RT-capable. | todo |
 | AU-008 | Enhance voice | "Enhance voice" ("studio quality in one click"), strength. Re-enhance. | Y | P1 | DeepFilterNet + de-reverb + EQ/compressor/de-esser chain. Optional Resemble-Enhance (MIT) offline. | todo |
@@ -316,7 +316,7 @@
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
 | CL-001 | Filter library | "Filters" tab: categories (Featured, Life/Vlog, Scenery/Landscape, Movies/Cinematic, Retro/Film, Food, Night, Style, Black & white, Portrait…). Hover preview. Apply to clip or as a filter track. Intensity slider (0–100), keyframable. | N/Y | P0 | Filters = 3D LUT (33³/64³) or parametric grade graph + intensity mix. RT. | todo |
-| CL-002 | Basic adjustments | "Adjust → Basic": Temp, Tint, Saturation, Brightness, Contrast, Highlights, Shadows, Whites, Blacks, Brilliance, Exposure ("light sensation"), Sharpen, Clarity, Grain ("Particle"), Fade, Vignette. Reset. Keyframable. Auto adjust. | N | P0 | Adjustment shaders in a defined working space (CapCut bundles these as shaders: brightness/contrast/saturation/temperature_tone/shadow_highlight/sharpen/clear/particle/fade/vignetting/light_sensation). Must be fast at 4K. | todo |
+| CL-002 | Basic adjustments | "Adjust → Basic": Temp, Tint, Saturation, Brightness, Contrast, Highlights, Shadows, Whites, Blacks, Brilliance, Exposure ("light sensation"), Sharpen, Clarity, Grain ("Particle"), Fade, Vignette. Reset. Keyframable. Auto adjust. | N | P0 | Adjustment shaders in a defined working space (CapCut bundles these as shaders: brightness/contrast/saturation/temperature_tone/shadow_highlight/sharpen/clear/particle/fade/vignetting/light_sensation). Must be fast at 4K. | partial (W3: Adjust ▸ Basic UI with Color/Lightness/Effects groups, gradient tracks, keyframes, Apply to all; params limited to W4's descriptor) |
 | CL-003 | HSL | "HSL": 8 color ranges (red, orange, yellow, green, cyan, blue, purple, magenta), Hue/Saturation/Lightness per range. | N? | P0 | Hue-band selective adjustments with smooth falloff. | todo |
 | CL-004 | Curves | "Curves": Luma + R + G + B curves, add/drag points, reset. | N? | P0 | Spline curves baked to 1D LUTs per channel. | todo |
 | CL-005 | Color wheels | "Color wheel": Primary wheels (Lift/Gamma/Gain/Offset) and Log wheels (Shadows/Midtones/Highlights/Offset), plus luma per wheel. "Advanced color wheels". | Y | P1 | Lift-gamma-gain math (ASC CDL-like), log-space wheels with range controls. | todo |
@@ -336,7 +336,7 @@
 | CL-019 | Enhance quality / HD | "Enhance quality" (image quality enhancement, HD/UHD), "AI HD" on images. | Y | P1 | Super-resolution: Real-ESRGAN (BSD-3) / realesr-general-x4v3, macOS 26 VTSuperResolutionScaler. Offline job. | todo |
 | CL-020 | Relight | "Relight": add virtual lights (Point / Directional, color, radius, intensity, moving/blinking/color-changing speed), Facial / Object / Ambient presets, save relight presets. | Y | P1 | Depth + normal estimation (Depth Anything V2 Small, Apache-2.0) → 2.5D shading shader. Face-aware lighting with face mesh normals. RT after the depth pass is cached. | todo |
 | CL-021 | Brightness (Luma) vs exposure | Separate "Brightness (Luma)" and "Exposure" controls. | N | P1 | — | todo |
-| CL-022 | Filter + adjust intensity mix | Intensity slider on every filter. | N | P0 | Linear blend between graded and source. | todo |
+| CL-022 | Filter + adjust intensity mix | Intensity slider on every filter. | N | P0 | Linear blend between graded and source. | done (W3: Strength row on clip filters and filter clips) |
 | CL-023 | Black & white presets | B&W adjust ("pc_bw_*" presets: blacks/whites/clarity). | N | P2 | Channel-mixer B&W. | todo |
 | CL-024 | Color picker / eyedropper | Pick colors from the canvas for text/background/chroma. | N | P0 | Readback of the composited frame. | todo |
 | CL-025 | Copy/paste adjustments | Copy attributes → Adjust / Advanced. | N | P1 | — | todo |
@@ -349,8 +349,8 @@
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
 | TR-001 | Transition library | "Transitions" tab: categories (Trending, Basic/Dissolve, Camera/Zoom, Blur, Light, Slide, Wipe, Mask/Shape, Split, Glitch, Distortion, Social media, Overlay, Mirror, MG…). Hover preview. Drag between two adjacent main-track clips (or click "+" to add at a cut). | N/Y | P0 | Two-input GPU transition shaders with progress 0..1 + parameters. Handle media overlap (uses handles or freezes). | todo |
-| TR-002 | Transition duration | Duration slider (0.1–5 s), drag transition edges on the timeline. | N | P0 | Overlap model in the timeline (centered on the cut). | todo |
-| TR-003 | Apply to all | "Apply to all" clips. | N | P0 | Batch op. | todo |
+| TR-002 | Transition duration | Duration slider (0.1–5 s), drag transition edges on the timeline. | N | P0 | Overlap model in the timeline (centered on the cut). | partial (W3: inspector duration slider 0.1–min(clips,5s); timeline edge drag = W1) |
+| TR-003 | Apply to all | "Apply to all" clips. | N | P0 | Batch op. | done (W3: Transition footer Apply to all) |
 | TR-004 | Transitions on overlay tracks | PiP transitions ("Transition of picture-in-picture lost" implies support between adjacent overlay clips on the same track). | N | P1 | Same as main track. | todo |
 | TR-005 | AI transition | "Generate transitions / AI transition": a generated video bridging two clips from a prompt. | C | P2 | Generative video. Not feasible on 8 GB. Substitute: morph transitions (optical-flow morph between last/first frames, RIFE-based "smart morph"), N/A-local for true generation. | todo |
 | TR-006 | Transition parameters | Some transitions expose direction/color/softness. | N | P1 | Param schema. | todo |
@@ -360,21 +360,21 @@
 
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
-| MK-001 | Shape masks | "Mask": None, Linear (split), Mirror (parallel lines), Circle, Rectangle, Heart, Star, Pen (custom). On-canvas handles: position, rotation, size, feather (handle), round corners (rectangle), invert. Keyframable. | N | P0 | Analytic mask SDFs + feather, pen bezier paths rasterized at render res. | todo |
+| MK-001 | Shape masks | "Mask": None, Linear (split), Mirror (parallel lines), Circle, Rectangle, Heart, Star, Pen (custom). On-canvas handles: position, rotation, size, feather (handle), round corners (rectangle), invert. Keyframable. | N | P0 | Analytic mask SDFs + feather, pen bezier paths rasterized at render res. | partial (W3: Mask UI for linear/mirror/circle/rectangle with position/rotation/size+lock/feather/round corners, keyframes; star/heart/text/pen shapes and on-canvas handles missing) |
 | MK-002 | Pen mask | Draw bezier masks with points and handles. | N | P1 | Path editor + rasterizer. | todo |
 | MK-003 | Mask tracking | "Track mask" forward / backward / both ("Mask tracking complete"). | Y? | P1 | Point/planar tracking driving mask transform keyframes. Or segmentation propagation. | todo |
 | MK-004 | Custom (brush) mask tracking | "Tracking custom mask": brush a region → tracked through the clip. | Y | P2 | Video object segmentation (SAM 2 Apache-2.0 small/tiny, Cutie/XMem MIT). Offline job. Heavy on 8 GB (tiny model). | todo |
 | MK-005 | Multiple masks | "Mask %d (%s)": several masks per clip (adjustment masks). | Y | P2 | Mask stack with boolean ops. | todo |
 | MK-006 | Mask on effects/adjustments | See FX-005, CL-012. | Y | P1 | — | todo |
 | MK-007 | Smart brush / smart eraser | "Smart brush" / "Smart eraser" for cutout refinement. | Y | P2 | Interactive segmentation (SAM-class click/brush prompts, or MobileSAM/EfficientSAM Apache-2.0). | todo |
-| MK-008 | Mask invert & feather | Invert toggle, feather slider. | N | P0 | — | todo |
+| MK-008 | Mask invert & feather | Invert toggle, feather slider. | N | P0 | — | done (W3: invert button + feather) |
 
 ## 14. Chroma key & cutout / background removal (CK)
 
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
-| CK-001 | Chroma key | "Remove BG → Chroma key": color picker on the canvas, Intensity, Shadow, edge feather, "Clean up edge", spill suppression. | N | P0 | GPU keyer (YCbCr/HSV distance, soft matte, despill), RT 4K. | todo |
-| CK-002 | Auto background removal | "Auto removal": detect human subjects and remove the background on video (background job) with "Clean up edge", "Feather edge", expand/shrink (dilate/erode). Undo while processing. | Y | P0 | Video person matting: Apple Vision person segmentation (macOS 12+, RT), MODNet (Apache-2.0), RVM (GPL-3, avoid for proprietary), BiRefNet (MIT, slow, images), RMBG-1.4/2.0 (non-commercial, avoid). Temporal smoothing of mattes. Cache matte video. | todo |
+| CK-001 | Chroma key | "Remove BG → Chroma key": color picker on the canvas, Intensity, Shadow, edge feather, "Clean up edge", spill suppression. | N | P0 | GPU keyer (YCbCr/HSV distance, soft matte, despill), RT 4K. | done (W3: chroma key effect descriptor, system eyedropper, strength/shadow/feather/clean-up, keyframeable, render-tested) |
+| CK-002 | Auto background removal | "Auto removal": detect human subjects and remove the background on video (background job) with "Clean up edge", "Feather edge", expand/shrink (dilate/erode). Undo while processing. | Y | P0 | Video person matting: Apple Vision person segmentation (macOS 12+, RT), MODNet (Apache-2.0), RVM (GPL-3, avoid for proprietary), BiRefNet (MIT, slow, images), RMBG-1.4/2.0 (non-commercial, avoid). Temporal smoothing of mattes. Cache matte video. | blocked (inspector section present but disabled: needs AI matte in compositor, W10/W6; set CutoutAvailability.matteCompositingAvailable) |
 | CK-003 | Custom removal (brush) | "Custom removal": Smart brush / eraser to choose the subject (any object, not only humans), then propagate. | Y | P1 | Interactive segmentation + video propagation (SAM 2 tiny, Apple VNGenerateForegroundInstanceMaskRequest for stills). | todo |
 | CK-004 | Image background removal | One-click on photos. | Y | P0 | Apple Vision foreground instance mask (macOS 14+), BiRefNet-lite (MIT), U²-Net (Apache-2.0). | todo |
 | CK-005 | Cutout + stroke/outline | Cutout combined with an outline/glow (sticker look) via effects. | N | P1 | Matte → distance field → stroke shader. | todo |

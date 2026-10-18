@@ -120,7 +120,7 @@ CVPixelBuffers (decoder) ─────────┐ ▼
 | In/out/combo animation (video, text, sticker) | `AnimationDescriptor` in `Builtin/Animations.swift` | Animation inspector tab, renderer |
 | Sticker / text style | `Builtin/Stickers.swift` | Stickers / Text tabs |
 | AI tool | `AIToolDescriptor` in `MontageAI/BuiltinAITools.swift` | job queue, progress, undoable result (`.edit`) |
-| Inspector section / tab | `InspectorSection` / `InspectorTab` in `MontageUI/Inspector/BuiltinInspector.swift` or `InspectorRegistry.register` | inspector panel (tabs appear only when they have applicable sections) |
+| Inspector section / tab / sub-tab | `InspectorSection(id:tab:subTab:order:titleKey:appliesTo:chrome:content:)` / `InspectorTab` in `MontageUI/Inspector/BuiltinInspector.swift`, or `InspectorRegistry.register(_:)` / `register(_:in:)` for sub-tabs | inspector panel (tabs appear only when they have applicable sections; sub-tabs show as a segmented control when ≥ 2 have sections; `chrome` gives the CapCut header: checkbox, ↺, group ‹◇›, accessory, disabled reason) |
 | Asset-panel tab | `AssetTab` in `BuiltinAssetTabs.all` or `AssetTabRegistry.register` | asset panel |
 | Keyboard shortcut | `Shortcut` in `ShortcutRegistry.builtins` | key monitor (menu items for ⌘Z/⌘S/… are in `MontageApp/main.swift`) |
 | Keyframeable clip property | `AnimatableProperties.all` + `ParamKey` constant | keyframes, resolved clips, inspector `Bind.slider` |
@@ -204,6 +204,21 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Model fields** (all optional, old files decode unchanged, no schema bump): `Clip.groupID / freezeFrame / beats / extractedFrom / colorLabel`, `Track.heightPreset / waveformScale`, `Timeline.linkageExcluded / inPoint / outPoint`, `Marker.note`. A freeze clip is a media clip whose speed maps a one-frame source extent to its duration (renders with the existing pipeline; trimming keeps the extent).
 - **UI**: `TimelineUIState` (`store.timelineUI`: tool, scroll, clipboard, selected transition/marker/keyframe, preview axis), `EditorStore+Timeline.swift` (every toolbar/shortcut/menu command), `TimelineLayout` (hit-testing incl. transitions/keyframes/markers, insertion slots, marquee, `SnapIndex`), `TimelineView` (drawing) + `TimelineView+Input.swift` (gestures) + `TimelineMenus.swift`, `TimelineShortcuts.swift` (appended to `ShortcutRegistry.builtins`). Gestures: ⌥ edge = roll, ⌘⌥ body = slip, ⌥ body = duplicate, ⌘ = no snapping.
 
+## 17c. Inspector (W3) — how panels are built
+
+- Tabs per selection come from `InspectorContext.kind` (`InspectorSelectionKind`: none, video, image, audio, text, sticker,
+  effect, filter, adjustment, transition, multiple). `EditorStore.selectedTransition` (clip owning `transitionOut`) is the
+  transition selection; `applyTransition` selects the new transition like CapCut.
+- Rows: `ClipParamRow` / `Bind.row` / `Bind.field` (one undo step per drag via begin/updateGesture/end, one per field commit or
+  stepper click, live preview; CapCut keyframe semantics via `Clip.setValue`/`modifyValue`). `KeyframeTriplet` works on a key
+  *group* (`Clip.toggleKeyframes/previousKeyframe/nextKeyframe`, MontageCore `KeyframeNavigation.swift`). Rows observe the playhead
+  only when keyframed. `EffectParamRows` generates rows from any `EffectDescriptor`.
+- Canvas (`Clip.canvas`) and chroma key (`EffectCategory.key`, `BuiltinKeying`) need no renderer code: the evaluator emits extra
+  layers / the key is a normal effect. Canvas styles are `EffectCategory.canvas` shaders on a full-res `.solid` layer.
+- Speed curves: `SpeedCurve.interpolation = .smooth` (monotone cubic, exact integral) + `SpeedCurvePreset.all`.
+- Visual check: `MONTAGE_SNAPSHOT_DIR=… [MONTAGE_SNAPSHOT_LANG=fr] swift test --filter InspectorTests` writes a PNG per panel.
+- Cutout sections are disabled until `CutoutAvailability.matteCompositingAvailable` is set by the AI/render teams.
+
 ## 18. Known gaps (foundation)
 
-Reverse playback rendering, speed-curve editor UI, on-canvas handles, home screen and settings window, AI matte applied in the compositor, audio effects chain, HDR export, compound clips (nested-timeline rendering), auto beat detection, and the Templates/Library content.
+Reverse playback rendering, on-canvas handles, home screen and settings window, AI matte applied in the compositor, audio effects chain, HDR export, compound clips (nested-timeline rendering), auto beat detection, and the Templates/Library content.

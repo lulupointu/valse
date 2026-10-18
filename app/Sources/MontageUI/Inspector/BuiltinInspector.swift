@@ -75,8 +75,7 @@ enum BuiltinInspector {
         InspectorSection(id: "text.content", tab: "text", subTab: "basic", order: 0, titleKey: nil) { AnyView(TextContentSection(ctx: $0)) },
         InspectorSection(id: "text.transform", tab: "text", subTab: "basic", order: 10, titleKey: "inspector.transform",
                          chrome: TransformSection.chrome) { AnyView(TransformSection(ctx: $0, rotateLabelKey: "inspector.planeRotation")) },
-        InspectorSection(id: "text.opacity", tab: "text", subTab: "basic", order: 20, titleKey: "prop.opacity",
-                         chrome: { _ in InspectorSectionChrome(keyframeKeys: [.opacity]) }) { AnyView(OpacityRow(ctx: $0)) },
+        InspectorSection(id: "text.opacity", tab: "text", subTab: "basic", order: 20, titleKey: nil) { AnyView(OpacityRow(ctx: $0)) },
 
         // Sticker
         InspectorSection(id: "sticker.transform", tab: "sticker", order: 0, titleKey: "inspector.transform",

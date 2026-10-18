@@ -128,8 +128,7 @@ struct EffectBlock: View {
                 EffectParamRows(ctx: ctx, instance: instance, descriptor: descriptor)
             }
         }
-        .padding(.vertical, 12)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.separator).frame(height: 1) }
+        .padding(.vertical, 6)
     }
 }
 
