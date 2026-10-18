@@ -14,7 +14,7 @@
     {"snapshot": "mask-text-inspector", "element": "id:panel.inspector"},
     {"click": "id:mask.shape.pen"},
     {"expect": [{"path": "project.timeline.tracks.0.clips.0.mask.shape", "equals": "pen"},
-                {"path": "project.timeline.tracks.0.clips.0.mask.points", "count": 6}]},
+                {"path": "project.timeline.tracks.0.clips.0.mask.points", "count": 7}]},
     {"snapshot": "mask-pen-player", "element": "id:panel.player", "threshold": 40},
     // Speed ▸ Velocity effects
     {"click": "id:inspector.tab.speed"},
