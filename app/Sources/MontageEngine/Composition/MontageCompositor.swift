@@ -154,6 +154,7 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
     }
 
     private func render(_ request: AVAsynchronousVideoCompositionRequest) {
+        let clock0 = CompositorStats.threadClock()
         guard let instr = request.videoCompositionInstruction as? MontageInstruction,
               let out = request.renderContext.newPixelBuffer(),
               let (outTex, outCV) = MetalContext.shared.texture(
@@ -165,7 +166,7 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
         let (project, media, trackMap) = instr.state.snapshot()
         let t = Time(cmTime: request.compositionTime)
         if let tid = instr.state.cachedTrack(at: t), let pb = request.sourceFrame(byTrackID: tid) {
-            renderCached(pb, request: request, project: project, out: out, outTex: outTex, outCV: outCV, cmd: cmd, state: instr.state)
+            renderCached(pb, request: request, project: project, out: out, outTex: outTex, outCV: outCV, cmd: cmd, state: instr.state, clock0: clock0)
             return
         }
         let frame = FrameEvaluator.evaluate(project, at: t)
@@ -179,10 +180,12 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
             }
         }
         FrameRenderer.shared.encode(frame, media: media, sources: DictionarySourceProvider(buffers, aux: aux), output: outTex, commandBuffer: cmd)
+        let cpuNs = CompositorStats.threadClock() &- clock0
         inflight.wait()
         let state = instr.state
         let box = UncheckedSendable((request, out, outCV, buffers, aux))
         cmd.addCompletedHandler { [inflight] cb in
+            CompositorStats.shared.record(cpuNs: cpuNs, commandBuffer: cb)
             let (request, out, _, buffers, aux) = box.value
             state.remember(time: t, sources: buffers, aux: aux)
             if let err = cb.error { request.finish(with: err) } else { request.finish(withComposedVideoFrame: out) }
@@ -200,7 +203,8 @@ public final class MontageHDRCompositor: MontageCompositor, @unchecked Sendable 
 extension MontageCompositor {
     /// Cached segment frame: drawn as one full-canvas layer through the same renderer (scaling/format conversion only).
     fileprivate func renderCached(_ pb: CVPixelBuffer, request: AVAsynchronousVideoCompositionRequest, project: Project,
-                                  out: CVPixelBuffer, outTex: MTLTexture, outCV: CVMetalTexture, cmd: MTLCommandBuffer, state: RenderState) {
+                                  out: CVPixelBuffer, outTex: MTLTexture, outCV: CVMetalTexture, cmd: MTLCommandBuffer, state: RenderState,
+                                  clock0: UInt64) {
         let canvas = project.settings.canvasSize
         let fake = MediaAsset(name: "render-cache", kind: .video, url: URL(fileURLWithPath: "/dev/null"), duration: .zero,
                               pixelSize: canvas, frameRate: nil, hasVideo: true, hasAudio: false, contentHash: "render-cache")
@@ -212,8 +216,10 @@ extension MontageCompositor {
                                      background: project.settings.backgroundColor, items: [.layer(layer)])
         FrameRenderer.shared.encode(frame, media: [fake.id: fake], sources: DictionarySourceProvider([clip: pb]), output: outTex, commandBuffer: cmd)
         state.noteCacheHit()
+        let cpuNs = CompositorStats.threadClock() &- clock0
         let box = UncheckedSendable((request, out, outCV, pb))
         cmd.addCompletedHandler { cb in
+            CompositorStats.shared.record(cpuNs: cpuNs, commandBuffer: cb)
             let (request, out, _, _) = box.value
             if let err = cb.error { request.finish(with: err) } else { request.finish(withComposedVideoFrame: out) }
         }
