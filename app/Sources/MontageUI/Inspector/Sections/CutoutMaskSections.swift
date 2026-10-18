@@ -188,7 +188,7 @@ struct ChromaKeySection: View {
                     Image(systemName: "eyedropper").font(.system(size: 13)).foregroundStyle(.white)
                         .frame(width: 26, height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
                 }
-                .buttonStyle(.plain).help(tr("inspector.chroma.pickHelp"))
+                .buttonStyle(.plain).help(tr("inspector.chroma.pickHelp")).testID("inspector.chroma.pick")
                 if let color {
                     RoundedRectangle(cornerRadius: 4).fill(Color(color)).frame(width: 26, height: 26)
                         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.2)))
@@ -207,14 +207,11 @@ struct ChromaKeySection: View {
     func pick() {
         guard let id = ctx.clip?.id, let iid = Self.instance(ctx)?.id else { return }
         let store = ctx.store
-        NSColorSampler().show { ns in
-            guard let ns, let c = ns.usingColorSpace(.sRGB) else { return }
-            let rgba = RGBA(Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent), 1)
-            MainActor.assumeIsolated {
-                store.perform(UpdateClip(id, nameKey: "cmd.chromaKey") { clip in
-                    if let i = clip.effects.firstIndex(where: { $0.id == iid }) { clip.effects[i].params["color"] = .color(rgba) }
-                })
-            }
+        // canvas eyedropper (loupe over the video, samples the frame with this key switched off) — W2-8
+        store.pickCanvasColor(disabling: iid, in: id) { rgba in
+            store.perform(UpdateClip(id, nameKey: "cmd.chromaKey") { clip in
+                if let i = clip.effects.firstIndex(where: { $0.id == iid }) { clip.effects[i].params["color"] = .color(rgba) }
+            })
         }
     }
 }

@@ -641,6 +641,7 @@ final class CanvasOverlayView: NSView {
         let vp = viewport
         let p = vp.toCanvas(v)
         let ui = store.playerUI
+        if let eye = store.canvasEyedropper { eye.hover(at: p); NSCursor.crosshair.set(); return }
         if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) {
             (g.axis == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set(); return
         }
@@ -667,7 +668,7 @@ final class CanvasOverlayView: NSView {
         if CanvasLayers.hit(layers, at: p) != nil { NSCursor.openHand.set() } else { NSCursor.arrow.set() }
     }
 
-    override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
+    override func mouseExited(with event: NSEvent) { store.canvasEyedropper?.hover(at: nil); NSCursor.arrow.set() }
 
     // MARK: Scroll / pinch
 

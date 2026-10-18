@@ -80,6 +80,12 @@ public enum PlayerDebugState {
                 })
                 store.timelineUI.selectedKeyframe = KeyframeRef(clip: id, key: ParamKey.position.raw, time: .zero)
             case "kfpanel": if !store.keyframeUI.showsPanel { store.toggleKeyframePanel() }
+            // eyedropper=<fx>:<fy>: canvas eyedropper with the loupe at that fraction of the frame
+            case "eyedropper":
+                let f = value.split(separator: ":").compactMap { Double($0) }
+                store.pickCanvasColor { _ in }
+                let c = store.project.settings.canvasSize
+                if f.count == 2 { store.canvasEyedropper?.hover(at: Vec2(f[0] * c.width, f[1] * c.height)) }
             // mask=<MaskShape raw>: adds a mask to the selected clip and opens Video ▸ Mask (on-canvas mask handles)
             case "mask":
                 guard let id = store.selection.first, let shape = MaskShape(rawValue: value) else { break }

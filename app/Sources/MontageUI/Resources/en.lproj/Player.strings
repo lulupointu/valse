@@ -86,6 +86,7 @@
 "shortcut.rulers" = "Show/hide rulers";
 "shortcut.guides" = "Show/hide guides";
 "shortcut.exitPreview" = "Exit preview";
+"shortcut.cancelEyedropper" = "Cancel colour picking";
 
 /* Library / source preview (W2-3) */
 "player.previewing" = "Previewing — %@";

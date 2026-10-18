@@ -86,6 +86,7 @@
 "shortcut.rulers" = "Afficher/masquer les règles";
 "shortcut.guides" = "Afficher/masquer les repères";
 "shortcut.exitPreview" = "Quitter l'aperçu";
+"shortcut.cancelEyedropper" = "Annuler la pipette";
 
 /* Library / source preview (W2-3) */
 "player.previewing" = "Aperçu — %@";

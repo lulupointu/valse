@@ -1,0 +1,24 @@
+// Player canvas (W2-8): Chroma key ▸ eyedropper starts a canvas eyedropper (loupe over the video, not the system screen
+// sampler); a click on the blue background picks that colour into the key in one undo step, Esc cancels.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.cutout"},
+    {"click": "id:inspector.section.cutout.chroma", "at": [0, 0.5], "offset": [20, 0]},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.key.chroma"}},
+    {"click": "id:inspector.chroma.pick"},
+    {"expect": {"path": "ui.toast", "exists": true}},
+    {"key": "escape"},
+    {"click": "id:inspector.chroma.pick"},
+    {"wait": 1},
+    {"hover": "player:0.8,0.3"},
+    {"snapshot": "eyedropper-loupe", "element": "id:panel.player"},
+    {"dump": "before-pick"},
+    {"click": "player:0.8,0.3"},
+    {"expect": {"path": "undo.name", "equals": "cmd.chromaKey"}},
+    {"dump": "after-pick"}
+  ]
+}
