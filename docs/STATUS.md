@@ -52,12 +52,12 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
 | W5 | W7 | Per-glyph/word text In/Out/Loop presets: register `AnimationDescriptor`s (targets `.text`) in `Registries.animations`; bind ‹◇› on text style rows to the new `ParamKey.text*` | TX-020, KF-009 |
 | W5 | W13 | Sticker/effect tiles: hover-play animated stickers (`LottieLibrary`) like transition tiles do; favourites for the Transitions tab | TR-001, ST-* |
-| W5 | W14 | `PlaybackTests.playbackDeliversFramesInRealTime` (≥ 20 fps) is load-sensitive when the whole suite runs (seen 19.96) | — |
 
 ## Done cross-team items
 - W12 did W6's + W2's requests: Settings ▸ Performance (preview quality + proxies persisted from Settings and the player menu, proxy policy/location/size, render cache size/cap/auto render) and the green render-cache bar under the ruler.
 - W12 did W11's request: Settings toggles write `hardwareDefaultsKey`, `ExportQueue.soundDefaultsKey` and new `notifyDefaultsKey`.
 - W12 → W11: Settings ▸ Export defaults feed the first export via `ExportDialogModel.firstExportDefaults`; HW encoding written to `hardwareDefaultsKey`.
+- W14's `HeavyWorkGate` now also wraps W5's GPU-saturating transition/animation render loops (PlaybackTests fps flake).
 - W10 for W7: auto captions/lyrics through `CaptionOps.addCaptionTrack` with word timings (karaoke), translations in `caption.translation`, LLM keywords + translate menu in W7's Captions tab; Text to speech tab (TX-016).
 - W10 for W8: ML voice stems (AUSoundIsolation) feed Isolate voice / Reduce noise / Enhance voice in the rendered stage; HTDemucs instrument stems (AU-010) via the demucs.cpp sidecar.
 - W11 did W8's audio-only export dialog (+ MP3 via the LGPL FFmpeg sidecar), W1's in/out range export (TL-028), W7's export-dialog captions (CaptionOps.segments + CaptionFiles.serialize).

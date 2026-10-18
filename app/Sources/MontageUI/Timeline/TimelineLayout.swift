@@ -138,7 +138,7 @@ public struct TimelineLayout {
             let r = clipRect(c, row: row)
             guard p.y >= r.maxY - Self.keyframeBand - 2, p.y <= r.maxY, r.contains(CGPoint(x: p.x, y: r.midY)) else { continue }
             var best: (String, Time, CGFloat)?
-            for (k, track) in c.keyframes {
+            for (k, track) in c.keyframes.sorted(by: { $0.key < $1.key }) {   // deterministic pick when keys share a time
                 for f in track.keyframes {
                     let d = abs(x(c.start + f.time) - p.x)
                     if d <= 5, d < (best?.2 ?? .greatestFiniteMagnitude) { best = (k, f.time, d) }

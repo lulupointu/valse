@@ -73,27 +73,29 @@ import MontageTestSupport
         }
     }
 
-    @Test func everyPresetRendersItsMotion() throws {
-        let rest = try #require(Self.render(nil, 0))
-        var problems: [String] = []
-        for d in BuiltinAnimations.all {
-            let probes: [Double] = d.phase == .in ? [0, 0.3, 1] : d.phase == .out ? [0, 0.7, 0.999] : [0, 0.15, 0.4, 0.5, 0.65]
-            let frames = PresetPreviewRenderer.render(probes.map { Self.frame(d, progress: $0) }, width: Int(Self.canvas.width),
-                                                      height: Int(Self.canvas.height)).compactMap { $0.map(Bitmap.init) }
-            guard frames.count == probes.count else { problems.append("\(d.id): no render"); continue }
-            let diffs = frames.map { Self.diff($0, rest) }
-            switch d.phase {
-            case .in:
-                if diffs[2] > 0.002 { problems.append("\(d.id): 100% ≠ rest (\(diffs[2]))") }
-                if diffs[0] < 0.01 { problems.append("\(d.id): 0% looks like rest (\(diffs[0]))") }
-            case .out:
-                if diffs[0] > 0.002 { problems.append("\(d.id): 0% ≠ rest (\(diffs[0]))") }
-                if diffs[2] < 0.01 { problems.append("\(d.id): 100% looks like rest (\(diffs[2]))") }
-            case .combo:
-                if (diffs.max() ?? 0) < 0.005 { problems.append("\(d.id): never moves (\(diffs))") }
+    @Test func everyPresetRendersItsMotion() async throws {
+        try await HeavyWorkGate.run {   // GPU-saturating loop: keep real-time probes (PlaybackTests) from starving
+            let rest = try #require(Self.render(nil, 0))
+            var problems: [String] = []
+            for d in BuiltinAnimations.all {
+                let probes: [Double] = d.phase == .in ? [0, 0.3, 1] : d.phase == .out ? [0, 0.7, 0.999] : [0, 0.15, 0.4, 0.5, 0.65]
+                let frames = PresetPreviewRenderer.render(probes.map { Self.frame(d, progress: $0) }, width: Int(Self.canvas.width),
+                                                          height: Int(Self.canvas.height)).compactMap { $0.map(Bitmap.init) }
+                guard frames.count == probes.count else { problems.append("\(d.id): no render"); continue }
+                let diffs = frames.map { Self.diff($0, rest) }
+                switch d.phase {
+                case .in:
+                    if diffs[2] > 0.002 { problems.append("\(d.id): 100% ≠ rest (\(diffs[2]))") }
+                    if diffs[0] < 0.01 { problems.append("\(d.id): 0% looks like rest (\(diffs[0]))") }
+                case .out:
+                    if diffs[0] > 0.002 { problems.append("\(d.id): 0% ≠ rest (\(diffs[0]))") }
+                    if diffs[2] < 0.01 { problems.append("\(d.id): 100% looks like rest (\(diffs[2]))") }
+                case .combo:
+                    if (diffs.max() ?? 0) < 0.005 { problems.append("\(d.id): never moves (\(diffs))") }
+                }
             }
+            #expect(problems.isEmpty, "\(problems.joined(separator: "\n"))")
         }
-        #expect(problems.isEmpty, "\(problems.joined(separator: "\n"))")
     }
 
     @Test func blurAndRevealReachThePixels() async throws {

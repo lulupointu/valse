@@ -30,30 +30,34 @@ import MontageTestSupport
         #expect(all.contains { !$0.params.isEmpty })
     }
 
-    @Test func everyTransitionCompiles() {
-        _ = EffectPipelines.shared.validateAll()
-        let failures = BuiltinTransitions.all.compactMap { d in EffectPipelines.shared.errors[d.id].map { "\(d.id): \($0.prefix(400))" } }
-        #expect(failures.isEmpty, "\(failures.joined(separator: "\n"))")
+    @Test func everyTransitionCompiles() async throws {
+        try await HeavyWorkGate.run {   // GPU-saturating loop: keep real-time probes (PlaybackTests) from starving
+            _ = EffectPipelines.shared.validateAll()
+            let failures = BuiltinTransitions.all.compactMap { d in EffectPipelines.shared.errors[d.id].map { "\(d.id): \($0.prefix(400))" } }
+            #expect(failures.isEmpty, "\(failures.joined(separator: "\n"))")
+        }
     }
 
-    @Test func endpointsMatchClipsAndMidpointDiffers() throws {
-        let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: Self.w, height: Self.h))
-        let dissolve = try #require(Registries.transitions["montage.transition.dissolve"])
-        let refA = Bitmap(try #require(PresetPreviewRenderer.transitionFrame(dissolve, from: ta, to: tb, progress: 0, width: Self.w, height: Self.h)))
-        let refB = Bitmap(try #require(PresetPreviewRenderer.transitionFrame(dissolve, from: ta, to: tb, progress: 1, width: Self.w, height: Self.h)))
-        #expect(Self.meanDiff(refA, refB) > 0.1)
-        var problems: [String] = []
-        for d in BuiltinTransitions.all {
-            let frames = PresetPreviewRenderer.transitionFrames(d, from: ta, to: tb, progresses: [0, 0.5, 1], width: Self.w, height: Self.h)
-            guard let f0 = frames[0], let f5 = frames[1], let f1 = frames[2] else { problems.append("\(d.id): no render"); continue }
-            let b0 = Bitmap(f0), b5 = Bitmap(f5), b1 = Bitmap(f1)
-            let d0 = Self.meanDiff(b0, refA), d1 = Self.meanDiff(b1, refB)
-            let mA = Self.meanDiff(b5, refA), mB = Self.meanDiff(b5, refB)
-            if d0 > 0.004 { problems.append("\(d.id): 0% differs from A by \(d0)") }
-            if d1 > 0.004 { problems.append("\(d.id): 100% differs from B by \(d1)") }
-            if mA < 0.02 || mB < 0.02 { problems.append("\(d.id): 50% too close to an endpoint (A \(mA), B \(mB))") }
+    @Test func endpointsMatchClipsAndMidpointDiffers() async throws {
+        try await HeavyWorkGate.run {   // GPU-saturating loop: keep real-time probes (PlaybackTests) from starving
+            let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: Self.w, height: Self.h))
+            let dissolve = try #require(Registries.transitions["montage.transition.dissolve"])
+            let refA = Bitmap(try #require(PresetPreviewRenderer.transitionFrame(dissolve, from: ta, to: tb, progress: 0, width: Self.w, height: Self.h)))
+            let refB = Bitmap(try #require(PresetPreviewRenderer.transitionFrame(dissolve, from: ta, to: tb, progress: 1, width: Self.w, height: Self.h)))
+            #expect(Self.meanDiff(refA, refB) > 0.1)
+            var problems: [String] = []
+            for d in BuiltinTransitions.all {
+                let frames = PresetPreviewRenderer.transitionFrames(d, from: ta, to: tb, progresses: [0, 0.5, 1], width: Self.w, height: Self.h)
+                guard let f0 = frames[0], let f5 = frames[1], let f1 = frames[2] else { problems.append("\(d.id): no render"); continue }
+                let b0 = Bitmap(f0), b5 = Bitmap(f5), b1 = Bitmap(f1)
+                let d0 = Self.meanDiff(b0, refA), d1 = Self.meanDiff(b1, refB)
+                let mA = Self.meanDiff(b5, refA), mB = Self.meanDiff(b5, refB)
+                if d0 > 0.004 { problems.append("\(d.id): 0% differs from A by \(d0)") }
+                if d1 > 0.004 { problems.append("\(d.id): 100% differs from B by \(d1)") }
+                if mA < 0.02 || mB < 0.02 { problems.append("\(d.id): 50% too close to an endpoint (A \(mA), B \(mB))") }
+            }
+            #expect(problems.isEmpty, "\(problems.joined(separator: "\n"))")
         }
-        #expect(problems.isEmpty, "\(problems.joined(separator: "\n"))")
     }
 
     @Test func parametersChangeTheResult() throws {
@@ -66,15 +70,17 @@ import MontageTestSupport
     }
 
     /// Real time at 1080p: each transition pass well under a frame (M1 Pro numbers; the Air is ~2× slower).
-    @Test func everyTransitionIsRealTimeAt1080p() throws {
-        let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: 1920, height: 1080))
-        var slow: [String] = []
-        for d in BuiltinTransitions.all {
-            _ = PresetPreviewRenderer.transitionGPUTime(d, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080, repeats: 1)
-            guard let ms = PresetPreviewRenderer.transitionGPUTime(d, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080) else { continue }
-            if ms > 8 { slow.append("\(d.id): \(String(format: "%.2f", ms)) ms") }
+    @Test func everyTransitionIsRealTimeAt1080p() async throws {
+        try await HeavyWorkGate.run {   // GPU-saturating loop: keep real-time probes (PlaybackTests) from starving
+            let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: 1920, height: 1080))
+            var slow: [String] = []
+            for d in BuiltinTransitions.all {
+                _ = PresetPreviewRenderer.transitionGPUTime(d, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080, repeats: 1)
+                guard let ms = PresetPreviewRenderer.transitionGPUTime(d, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080) else { continue }
+                if ms > 8 { slow.append("\(d.id): \(String(format: "%.2f", ms)) ms") }
+            }
+            #expect(slow.isEmpty, "\(slow.joined(separator: "\n"))")
         }
-        #expect(slow.isEmpty, "\(slow.joined(separator: "\n"))")
     }
 
     /// PiP (TR-004): a dissolve between two adjacent clips of an overlay track, over a main-track clip.
