@@ -4,46 +4,50 @@ import AppKit
 import MontageCore
 import MontageEngine
 
-/// Asset panel ▸ Audio (UX.md §3.4, AU-001/002/003): Yours · Extracted · Music folder · Favorites · Recent ·
-/// Music ▾ (locally synthesized royalty-free tracks by genre) · Sound effects ▾. List rows: cover · title /
-/// "artist · genre · 00:45" · ☆ · ⊕; click = preview (▶/❚❚, progress over the waveform), double-click / ⊕ / drag adds.
+/// Asset panel ▸ Audio (UX.md §3.4, AU-001/002/003/025): Yours · Extracted · Music folder · Favorites · Recent ·
+/// (Similar) · Music ▾ (bundled CC0 tracks by category + Generated) · Sound effects ▾. List rows: cover · title ✓ /
+/// "artist · 02:09 · 120 BPM" · Similar · ☆ · ⊕; click = preview (▶/❚❚, progress + beats over the waveform),
+/// double-click / ⊕ / drag adds at the playhead.
 struct AudioLibraryTab: View {
     let store: EditorStore
     private var preview: LibraryAudioPreview { LibraryAudioPreview.shared }
     private var rendering: AudioLibraryRendering { AudioLibraryRendering.shared }
 
-    var body: some View {
+    var body: some View { browser() }
+
+    func browser() -> some View {
         let usedURLs = Set(store.mediaBin.media.filter { m in store.usedMediaIDs.contains(m.id) }.map(\.url.standardizedFileURL))
         let bin = LibrarySection(id: "audio.bin", title: tr("audio.lib.imported"), items: store.mediaBin.media.filter { $0.kind == .audio }.map {
             MediaBinView(store: store, kinds: [.audio], tab: "audio").audioRowItem($0, used: store.usedMediaIDs.contains($0.id))
         }, inRail: false)
-        LibraryBrowser(tab: "audio", namespace: "audio", sections: [bin] + AudioLibrarySections.music(store, usedURLs) + sfxSections(usedURLs),
-                       style: .list, searchPlaceholder: tr("audio.search"),
-                       customNav: [("yours", tr("audio.lib.imported")), ("extracted", tr("audio.lib.extracted")),
-                                   ("folder", tr("audio.lib.folder"))],
-                       customContent: { nav in
-                           switch nav {
-                           case "extracted": return AnyView(ExtractedAudioView(store: store))
-                           case "folder": return AnyView(LocalMusicView(store: store))
-                           default: return AnyView(MediaTab(store: store, kinds: [.audio]))
-                           }
-                       },
-                       defaultNav: AudioLibrarySections.defaultNav, yoursGroup: tr("asset.nav.yours"))
-        .onDisappear { preview.stop() }
-    }
-
-    func sfxSections(_ used: Set<URL>) -> [LibrarySection] {
-        SoundEffects.categories.map { cat in
-            LibrarySection(id: "sfx.\(cat)", title: tr("sfx.category.\(cat)"),
-                           items: SoundEffects.all.filter { $0.category == cat }.map { sfxItem($0, used) }, group: tr("audio.lib.sfx"))
+        let similar = AudioSimilarState.shared
+        let sections = [bin] + AudioLibrarySections.music(store, usedURLs)
+            + AudioLibrarySections.sfx(store, usedURLs, generated: SoundEffects.all.map { sfxItem($0, usedURLs) })
+        var nav: [(id: String, title: String)] = [("yours", tr("audio.lib.imported")), ("extracted", tr("audio.lib.extracted")),
+                                                  ("folder", tr("audio.lib.folder"))]
+        if similar.seed != nil { nav.append((AudioSimilarState.navID, tr("audio.similar.nav"))) }
+        return LibraryBrowser(tab: "audio", namespace: "audio", sections: sections,
+                              style: .list, searchPlaceholder: tr("audio.search"),
+                              customNav: nav,
+                              customContent: { nav in
+                                  switch nav {
+                                  case "extracted": return AnyView(ExtractedAudioView(store: store))
+                                  case "folder": return AnyView(LocalMusicView(store: store))
+                                  case AudioSimilarState.navID: return AnyView(AudioSimilarView(store: store, sections: sections))
+                                  default: return AnyView(MediaTab(store: store, kinds: [.audio]))
+                                  }
+                              },
+                              initialNav: AudioLibrarySections.defaultNav, yoursGroup: tr("asset.nav.yours")) {
+            SimilarToClipBar(store: store)
         }
+        .onDisappear { preview.stop() }
     }
 
     func sfxItem(_ d: SoundEffectDescriptor, _ used: Set<URL>) -> LibraryItem {
         let id = "sfx.\(d.id)"
         return LibraryItem(id: id, title: tr(d.nameKey),
                            subtitle: "\(tr("sfx.category.\(d.category)")) · \(Timecode.shortDuration(Time(d.duration)))",
-                           keywords: [d.id, d.category, tr("audio.lib.sfx")],
+                           keywords: [d.id, d.category, tr("audio.lib.sfx"), tr("music.cat.generated")],
                            art: .cover(AudioCovers.sfx(d.category), symbol: "waveform"),
                            payload: AudioLibraryPayload.sfx(d.id),
                            added: used.contains(SoundEffects.url(for: d).standardizedFileURL),
@@ -57,6 +61,8 @@ struct AudioLibraryTab: View {
 enum AudioLibraryPayload {
     static func music(_ id: String) -> String { "montage-music:\(id)" }
     static func sfx(_ id: String) -> String { "montage-sfx:\(id)" }
+    /// Bundled CC0 library item (`ContentLibrary`).
+    static func library(_ id: String) -> String { "montage-lib:\(id)" }
 
     static func file(_ url: URL) -> String { "montage-file:\(url.path)" }
 
@@ -93,14 +99,19 @@ final class AudioLibraryRendering {
 
     /// Renders (once), puts the file in the bin under `name` (reused if already there) and inserts it at `time`
     /// (default: the playhead when called).
+    /// `beats`: pre-computed beat markers (seconds from the file start) stored on the new clip (CapCut "Beats 1").
     func add(_ id: String, name: String, store: EditorStore, at time: Time? = nil, target: InsertTarget = .automatic,
-             _ make: @escaping @Sendable () throws -> URL) {
+             beats: [Double]? = nil, _ make: @escaping @Sendable () throws -> URL) {
         let at = time ?? store.transport.playhead
         Task {
             guard let url = await file(id, make), let asset = try? await store.libraryAsset(url, name: name) else {
                 store.showToast(tr("audio.lib.renderFailed"), error: true); return
             }
-            store.addToTimeline(asset.id, at: at, target: target)
+            store.addToTimeline(asset.id, at: at, target: target) { clip in
+                guard let b = beats, !b.isEmpty else { return }
+                let marks = b.map { Time($0) - clip.sourceStart }.filter { $0 > .zero && $0 < clip.duration }
+                if !marks.isEmpty { clip.beats = marks }
+            }
             AssetLibraryStore.shared.noteUsed("audio", id)
         }
     }
@@ -112,7 +123,15 @@ final class LibraryAudioPreview {
     static let shared = LibraryAudioPreview()
     private(set) var playingID: String?
     private(set) var peaks: [String: [Float]] = [:]
+    /// Pre-computed beat markers per row id (fraction of the track, 0…1) drawn on the preview strip.
+    private(set) var beatMarks: [String: [Double]] = [:]
     @ObservationIgnored private var player: AVAudioPlayer?
+
+    /// Waveform / beats known in advance (library manifest): the strip draws them before any decoding.
+    func seed(_ id: String, peaks p: [Int]?, beats: [Double]?, duration: Double?) {
+        if peaks[id] == nil, let p, !p.isEmpty { peaks[id] = p.map { Float($0) / 255 } }
+        if beatMarks[id] == nil, let b = beats, let d = duration, d > 0 { beatMarks[id] = b.map { $0 / d } }
+    }
     @ObservationIgnored private var endTask: Task<Void, Never>?
 
     var currentTime: Double { player?.currentTime ?? 0 }
@@ -207,6 +226,11 @@ struct AudioPreviewStrip: View {
                     }
                     if pk.isEmpty {
                         ctx.fill(Path(CGRect(x: 0, y: size.height / 2 - 1, width: size.width * progress, height: 2)), with: .color(Theme.accent))
+                    }
+                    // pre-computed beat markers (library music): small ticks under the waveform
+                    for b in preview.beatMarks[id] ?? [] {
+                        ctx.fill(Path(CGRect(x: CGFloat(b) * size.width, y: size.height - 3, width: 1, height: 3)),
+                                 with: .color(Color(hex: 0xF5C451).opacity(0.8)))
                     }
                 }
                 .contentShape(Rectangle())

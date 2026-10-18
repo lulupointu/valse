@@ -306,9 +306,11 @@ public final class EditorStore {
 
     /// Adds a media item at `time` (default: playhead; main track inserts at the nearest cut).
     @discardableResult
-    public func addToTimeline(_ mediaID: MediaID, at time: Time? = nil, target: InsertTarget = .automatic) -> ClipID? {
+    public func addToTimeline(_ mediaID: MediaID, at time: Time? = nil, target: InsertTarget = .automatic,
+                              configure: ((inout Clip) -> Void)? = nil) -> ClipID? {
         guard let asset = project.asset(mediaID) else { return nil }
-        let clip = TimelineOps.makeClip(for: asset, at: time ?? transport.playhead)
+        var clip = TimelineOps.makeClip(for: asset, at: time ?? transport.playhead)
+        configure?(&clip)   // e.g. pre-computed beat markers of library music (same undo step)
         guard perform(InsertClip(clip, target: target)) else { return nil }
         selection = [clip.id]
         if project.timeline.mainTrack?.clips.count == 1, project.settings.aspectPreset == "original" || project.timeline.allClips.count == 1 {

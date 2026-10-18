@@ -262,6 +262,10 @@ public final class UITestDriver {
     /// inference declares `"requires": {"models": ["coreml.lama-800"]}`: it then uses the user's models folder
     /// (`MONTAGE_MODELS_DIR` or ~/Library/Application Support/Montage/Models) and is SKIPPED (reason returned) when one is missing.
     static func applyModelPolicy(_ script: [String: Any]) -> String? {
+        // `"requires": {"content": true}`: the bundled music/SFX library audio (scripts/fetch_music_pack.sh cache)
+        if (script["requires"] as? [String: Any])?["content"] as? Bool == true, ContentLibrary.availableMusic.isEmpty {
+            return "requires the music/SFX library (run scripts/fetch_music_pack.sh)"
+        }
         let required = ((script["requires"] as? [String: Any])?["models"] as? [String]) ?? []
         defer { ModelManager.shared.refresh() }
         ModelCatalog.isSandboxed = required.isEmpty

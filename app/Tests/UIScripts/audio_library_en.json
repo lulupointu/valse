@@ -1,0 +1,17 @@
+// MUS: the bundled music library in English (categories, "Safe" badge, license card, Similar) — screenshot baselines.
+{
+  "project": "empty",
+  "requires": {"content": true},
+  "steps": [
+    {"click": "id:asset.tab.audio"},
+    {"click": "id:asset.nav.music.cat.cinematic"},
+    {"click": "id:asset.tile.lib.freepd.heroic-adventure.license"},
+    {"expect": {"path": "ui.assets.licenseCard", "equals": "lib.freepd.heroic-adventure"}},
+    {"snapshot": "audio_library_en", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:asset.tile.lib.freepd.heroic-adventure.similar"},
+    {"expect": {"path": "ui.assets.similar.results.count", "gte": 10}},
+    {"snapshot": "audio_library_similar_en", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:asset.nav.sfx.cat.crowd"},
+    {"snapshot": "audio_library_sfx_en", "element": "id:panel.assets", "baseline": true}
+  ]
+}

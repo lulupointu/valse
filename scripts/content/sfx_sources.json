@@ -1,0 +1,3011 @@
+{
+ "version": 1,
+ "packs": {
+  "kenney-interface": {
+   "title": "Interface Sounds",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/interface-sounds",
+   "url": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+   "source": "kenney",
+   "sha256": "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
+   "retrieved": "2026-10-18"
+  },
+  "kenney-impact": {
+   "title": "Impact Sounds",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/impact-sounds",
+   "url": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+   "source": "kenney",
+   "sha256": "029d734af1582474edf3a694d1b0cebc97c1c152f2f39fa34d4c2bafc5de77f8",
+   "retrieved": "2026-10-18"
+  },
+  "kenney-ui": {
+   "title": "UI Audio",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/ui-audio",
+   "url": "https://kenney.nl/media/pages/assets/ui-audio/490d233f68-1677590494/kenney_ui-audio.zip",
+   "source": "kenney",
+   "sha256": "946fc23a63d535d693eb31b2eabb80c8c28d6351e2186b344ceb71b2cb1d5eb6",
+   "retrieved": "2026-10-18"
+  },
+  "kenney-casino": {
+   "title": "Casino Audio",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/casino-audio",
+   "url": "https://kenney.nl/media/pages/assets/casino-audio/2472606a04-1721639069/kenney_casino-audio.zip",
+   "source": "kenney",
+   "sha256": "f36250766ac5bc378c13708ddf12a23a8e54a3251f8d482c7536e51b5dbafa18",
+   "retrieved": "2026-10-18"
+  },
+  "kenney-digital": {
+   "title": "Digital Audio",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/digital-audio",
+   "url": "https://kenney.nl/media/pages/assets/digital-audio/216eac4753-1677590265/kenney_digital-audio.zip",
+   "source": "kenney",
+   "sha256": "24e6ce28b76a6d8c89cff4d331e0965ff5c3de8a73c612028e9d363cc64e4f06",
+   "retrieved": "2026-10-18"
+  },
+  "kenney-rpg": {
+   "title": "RPG Audio",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/rpg-audio",
+   "url": "https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip",
+   "source": "kenney",
+   "sha256": "6dbeaf8544da958d8f2adcb4a4a4b76c1ade34a05f8ab9edccd327da7375f38b",
+   "retrieved": "2026-10-18"
+  },
+  "kenney-scifi": {
+   "title": "Sci-fi Sounds",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/sci-fi-sounds",
+   "url": "https://kenney.nl/media/pages/assets/sci-fi-sounds/6b296f9ecf-1677589334/kenney_sci-fi-sounds.zip",
+   "source": "kenney",
+   "sha256": "119340f351a5098ad814f78719438c0da355a9ce8a4c8a3af6a8d48aa3d49e04",
+   "retrieved": "2026-10-18"
+  },
+  "kenney-jingles": {
+   "title": "Music Jingles",
+   "author": "Kenney",
+   "page": "https://kenney.nl/assets/music-jingles",
+   "url": "https://kenney.nl/media/pages/assets/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip",
+   "source": "kenney",
+   "sha256": "b729ba57959bd58793d2c5cafa348aaf2655d354f3da35ec4729e03ec77197b8",
+   "retrieved": "2026-10-18"
+  },
+  "oga-100sfx": {
+   "title": "100 CC0 SFX",
+   "author": "rubberduck",
+   "page": "https://opengameart.org/content/100-cc0-sfx",
+   "url": "https://opengameart.org/sites/default/files/100-CC0-SFX_0.zip",
+   "source": "opengameart",
+   "sha256": "a5c135878c132f1c59cca54e60061c296cd0ac27ad031ca2c41b8cd5cab3c706",
+   "retrieved": "2026-10-18"
+  },
+  "oga-100sfx2": {
+   "title": "100 CC0 SFX #2",
+   "author": "rubberduck",
+   "page": "https://opengameart.org/content/100-cc0-sfx-2",
+   "url": "https://opengameart.org/sites/default/files/sfx_100_v2.zip",
+   "source": "opengameart",
+   "sha256": "0fc61b4494e2e893c0c015ced4877b3f689c7d84a48cb61daecd7ddb52db797b",
+   "retrieved": "2026-10-18"
+  },
+  "oga-swishes": {
+   "title": "Swishes Sound Pack",
+   "author": "artisticdude",
+   "page": "https://opengameart.org/content/swishes-sound-pack",
+   "url": "https://opengameart.org/sites/default/files/swishes.zip",
+   "source": "opengameart",
+   "sha256": "7980215241b739a787dcf26f660ce510bb237900968789395a86911619795693",
+   "retrieved": "2026-10-18"
+  },
+  "oga-retro50": {
+   "title": "50 CC0 retro / synth SFX",
+   "author": "rubberduck",
+   "page": "https://opengameart.org/content/50-cc0-retro-synth-sfx",
+   "url": "https://opengameart.org/sites/default/files/50-CC0-retro-synth-SFX.zip",
+   "source": "opengameart",
+   "sha256": "db9370bfbe228d1fc3912ec455ad358129eeec593169fc02701ff48d888db9cb",
+   "retrieved": "2026-10-18"
+  },
+  "oga-bfh75": {
+   "title": "75 CC0 breaking / falling / hit sfx",
+   "author": "rubberduck",
+   "page": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+   "url": "https://opengameart.org/sites/default/files/sfx_breaking_and_falling.zip",
+   "source": "opengameart",
+   "sha256": "e6ee04d91c5f4d30cfda1260d2c9d1faf96fda36319287215fbd07bcb1a80451",
+   "retrieved": "2026-10-18"
+  },
+  "oga-giggling": {
+   "title": "Group giggling",
+   "author": "Nocturnal_Vanguard",
+   "page": "https://opengameart.org/content/group-giggling",
+   "url": "https://opengameart.org/sites/default/files/group_giggling.ogg",
+   "single": true,
+   "source": "opengameart",
+   "sha256": "2155db34a3d62290d3dfcb6429cfda2af4e3ff736d3b86bdebb78100598b95fe",
+   "retrieved": "2026-10-18"
+  },
+  "oga-evil-laugh": {
+   "title": "Evil Laugh",
+   "author": "AntumDeluge",
+   "page": "https://opengameart.org/content/evil-laugh",
+   "url": "https://opengameart.org/sites/default/files/laugh-evil-1.ogg",
+   "single": true,
+   "source": "opengameart",
+   "sha256": "2662d484fd3f174145de1ac7527994d153b109ff8f1ee3ac83591beec58d62e4",
+   "retrieved": "2026-10-18"
+  },
+  "commons-applause-1": {
+   "title": "Applause i.ogg",
+   "author": "thore",
+   "page": "https://commons.wikimedia.org/wiki/File:Applause_i.ogg",
+   "commonsTitle": "File:Applause i.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-12-16",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Applause_i.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "1029a5b6f301b063964d8cd1755cbc53238fdb548953de9e64a555cc9b90f7c1",
+   "retrieved": "2026-10-18"
+  },
+  "commons-applause-2": {
+   "title": "Applause ii.ogg",
+   "author": "thore",
+   "page": "https://commons.wikimedia.org/wiki/File:Applause_ii.ogg",
+   "commonsTitle": "File:Applause ii.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-12-16",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/0/09/Applause_ii.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "f7380c91e1ecadc1ef66f08f3ae9f155b59f84970f96050dec070df2d11bde3c",
+   "retrieved": "2026-10-18"
+  },
+  "commons-applause-3": {
+   "title": "277021 sandermotions applause-2.wav",
+   "author": "Sandermotions",
+   "page": "https://commons.wikimedia.org/wiki/File:277021_sandermotions_applause-2.wav",
+   "commonsTitle": "File:277021 sandermotions applause-2.wav",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2015-06-20",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/6/6d/277021_sandermotions_applause-2.wav?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "81d52260cee58e0f284a0236c9d4a0e40463df182ea869ee14da70bfa6258b5e",
+   "retrieved": "2026-10-18"
+  },
+  "commons-applause-concert": {
+   "title": "Sound Effects - Applause after a concert.ogg",
+   "author": "Amada44",
+   "page": "https://commons.wikimedia.org/wiki/File:Sound_Effects_-_Applause_after_a_concert.ogg",
+   "commonsTitle": "File:Sound Effects - Applause after a concert.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2014-04-17 15:07:44",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/3/32/Sound_Effects_-_Applause_after_a_concert.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "a9bed3afd89d66c3ce13edb9f2be2a548ab87a2cc70827624905be90044f8e72",
+   "retrieved": "2026-10-18"
+  },
+  "commons-applause-slow": {
+   "title": "Slow starting applause.ogg",
+   "author": "stephan",
+   "page": "https://commons.wikimedia.org/wiki/File:Slow_starting_applause.ogg",
+   "commonsTitle": "File:Slow starting applause.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-07-26",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Slow_starting_applause.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "6851e0c0e7f4953bcfcbd9f4c9b425ecfd2896e142332bc1607c214aef6cec68",
+   "retrieved": "2026-10-18"
+  },
+  "commons-hurray": {
+   "title": "Hurray.ogg",
+   "author": "starlite",
+   "page": "https://commons.wikimedia.org/wiki/File:Hurray.ogg",
+   "commonsTitle": "File:Hurray.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-04-02",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Hurray.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "1bd052d6109dc80f40486b414a3ed98b19c6c55b6dd24e07affed1972e6db22a",
+   "retrieved": "2026-10-18"
+  },
+  "commons-ohh-ahh": {
+   "title": "Ohhh ahhh.ogg",
+   "author": "starlite",
+   "page": "https://commons.wikimedia.org/wiki/File:Ohhh_ahhh.ogg",
+   "commonsTitle": "File:Ohhh ahhh.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-04-02",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/0/0f/Ohhh_ahhh.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "72ce521d763e0dbf29a485c972e98e3e7277c2a9bb7a3c573606e6c946d193c5",
+   "retrieved": "2026-10-18"
+  },
+  "commons-clapping-hurray": {
+   "title": "Clapping hurray.ogg",
+   "author": "starlite",
+   "page": "https://commons.wikimedia.org/wiki/File:Clapping_hurray.ogg",
+   "commonsTitle": "File:Clapping hurray.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-04-02",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/a/a8/Clapping_hurray.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "9f117453621c3e3921a3ce61d281a51e59a3cf9cd1c2559e8ce489230f1c4e65",
+   "retrieved": "2026-10-18"
+  },
+  "commons-shutter-holga": {
+   "title": "Holga shuttersound.ogg",
+   "author": "Doitashimashite (Dutch Wikipedia)",
+   "page": "https://commons.wikimedia.org/wiki/File:Holga_shuttersound.ogg",
+   "commonsTitle": "File:Holga shuttersound.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "19 September 2006 (original upload date)",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Holga_shuttersound.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "6095acfee7535037f24864cfba87a9369fea04667b0d2dc21f52d0a14d834d08",
+   "retrieved": "2026-10-18",
+   "authorOverride": "Doitashimashite (Dutch Wikipedia)"
+  },
+  "commons-shutter-burst": {
+   "title": "Auslösegeräusch SLR Serienaufnahme bis Puffer voll.oga",
+   "author": "Smial",
+   "page": "https://commons.wikimedia.org/wiki/File:Auslösegeräusch_SLR_Serienaufnahme_bis_Puffer_voll.oga",
+   "commonsTitle": "File:Auslösegeräusch SLR Serienaufnahme bis Puffer voll.oga",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2013-04-14",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/0/00/Ausl%C3%B6seger%C3%A4usch_SLR_Serienaufnahme_bis_Puffer_voll.oga?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "d87123b78a552dd31f77a5fc906abc5b4fe943ee01991e14116edff14e6f0055",
+   "retrieved": "2026-10-18",
+   "authorOverride": "Smial"
+  },
+  "commons-shutter-dslr": {
+   "title": "261007 polecatz camera-canon-5d-iii.wav",
+   "author": "Polecatz",
+   "page": "https://commons.wikimedia.org/wiki/File:261007_polecatz_camera-canon-5d-iii.wav",
+   "commonsTitle": "File:261007 polecatz camera-canon-5d-iii.wav",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2015-01-11",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/4/49/261007_polecatz_camera-canon-5d-iii.wav?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "7a0b01d679aab79d4031f9cca72e4eb1b73f5e6a2c9a68a7856a7f12902c1dc8",
+   "retrieved": "2026-10-18"
+  },
+  "commons-camera-focus": {
+   "title": "Camera focus.oga",
+   "author": "Lycopene579",
+   "page": "https://commons.wikimedia.org/wiki/File:Camera_focus.oga",
+   "commonsTitle": "File:Camera focus.oga",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2020-04-17",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/0/0c/Camera_focus.oga?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "2f63442c58feda821e6e5d1c6f06fa36fdd2bb42be5f457a6b4d2c455e053c0b",
+   "retrieved": "2026-10-18"
+  },
+  "commons-typing-medium": {
+   "title": "Typing medium speed.ogg",
+   "author": "teto_yasha",
+   "page": "https://commons.wikimedia.org/wiki/File:Typing_medium_speed.ogg",
+   "commonsTitle": "File:Typing medium speed.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-04-02",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/3/34/Typing_medium_speed.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "e7936ebcd27221127a6bc0676b5e3201cd0b69ca7ae148acf07acbf901b6a7a1",
+   "retrieved": "2026-10-18"
+  },
+  "commons-typing-modelm": {
+   "title": "Typing - Model M 1986.ogg",
+   "author": "Raymangold22",
+   "page": "https://commons.wikimedia.org/wiki/File:Typing_-_Model_M_1986.ogg",
+   "commonsTitle": "File:Typing - Model M 1986.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2016-11-19",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/0/0a/Typing_-_Model_M_1986.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "8065238fc01388839204c44dff9f9e1272c4e14fb14fe2cf74744cc4668bc0bf",
+   "retrieved": "2026-10-18"
+  },
+  "commons-doorbell-electronic": {
+   "title": "Electronic doorbell.ogg",
+   "author": "drb400atx",
+   "page": "https://commons.wikimedia.org/wiki/File:Electronic_doorbell.ogg",
+   "commonsTitle": "File:Electronic doorbell.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2011-04-14",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/4/4a/Electronic_doorbell.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "122f53e97e8c7d83af4e14416e3191a81d5d4967982a40919f45364c9f99f08b",
+   "retrieved": "2026-10-18"
+  },
+  "commons-alarm-clock": {
+   "title": "Alarm Clock (Directory.Audio).mp3",
+   "author": "Yoo-toob-FX (Directory.Audio)",
+   "page": "https://commons.wikimedia.org/wiki/File:Alarm_Clock_(Directory.Audio).mp3",
+   "commonsTitle": "File:Alarm Clock (Directory.Audio).mp3",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2020-03-24",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Alarm_Clock_%28Directory.Audio%29.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "9cae94571388c76cfbeabefc1c13612791dc7962e1d9387f16b0f330df83ceec",
+   "retrieved": "2026-10-18",
+   "authorOverride": "Yoo-toob-FX (Directory.Audio)"
+  },
+  "commons-clock-ring": {
+   "title": "Mechanical Clock Ring (Directory.Audio).mp3",
+   "author": "Yoo-toob-FX (Directory.Audio)",
+   "page": "https://commons.wikimedia.org/wiki/File:Mechanical_Clock_Ring_(Directory.Audio).mp3",
+   "commonsTitle": "File:Mechanical Clock Ring (Directory.Audio).mp3",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2020-05-04",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/6/69/Mechanical_Clock_Ring_%28Directory.Audio%29.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "2c49f7d4981f298a2253b2bc2e5c5e20e65a0a2bf577a86fdba564bcf754fc9d",
+   "retrieved": "2026-10-18",
+   "authorOverride": "Yoo-toob-FX (Directory.Audio)"
+  },
+  "commons-clock-ticking": {
+   "title": "Clock ticking.ogg",
+   "author": "natalie",
+   "page": "https://commons.wikimedia.org/wiki/File:Clock_ticking.ogg",
+   "commonsTitle": "File:Clock ticking.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2007-04-29",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/5/56/Clock_ticking.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "5385f326ecfd7b5d11f18d3c14ab835f24ae9324b7cd1c12bb0fcaff1e997467",
+   "retrieved": "2026-10-18"
+  },
+  "commons-fireworks": {
+   "title": "Fireworks.ogg",
+   "author": "Stephan",
+   "page": "https://commons.wikimedia.org/wiki/File:Fireworks.ogg",
+   "commonsTitle": "File:Fireworks.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2008-01-05",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/7/71/Fireworks.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "57ef5943e3cd0a119b4feb310353f95cdb8708267441cc4140d8102e30be763b",
+   "retrieved": "2026-10-18"
+  },
+  "commons-telephone": {
+   "title": "Telephone.ogg",
+   "author": "Dsw4",
+   "page": "https://commons.wikimedia.org/wiki/File:Telephone.ogg",
+   "commonsTitle": "File:Telephone.ogg",
+   "single": true,
+   "source": "wikimedia",
+   "published": "2008",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Telephone.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "sha256": "066acebdd1150f6680505cac290e6c2506b525eb69adef86ba2364877ffbee6c",
+   "retrieved": "2026-10-18",
+   "authorOverride": "Dsw4",
+   "publishedOverride": "2008"
+  },
+  "oga-purchase": {
+   "title": "Purchasing Sound Effect",
+   "author": "Spring Spring",
+   "page": "https://opengameart.org/content/purchasing-sound-effect",
+   "url": "https://opengameart.org/sites/default/files/snd_purchase_0.wav",
+   "single": true,
+   "source": "opengameart",
+   "sha256": "091bfc1a3ee7ebd7713636ec631c940b79de715e141856e6c0daf09e8868486e",
+   "retrieved": "2026-10-18"
+  },
+  "oga-coin-drop": {
+   "title": "Coin Drop",
+   "author": "Vinrax",
+   "page": "https://opengameart.org/content/coin-drop",
+   "url": "https://opengameart.org/sites/default/files/coin_drop.wav",
+   "single": true,
+   "source": "opengameart",
+   "sha256": "2965ecdd82bfefca244eab761597d9409b8ec8dcac18345c125e98b4abf5e21f",
+   "retrieved": "2026-10-18"
+  }
+ },
+ "items": [
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-1.wav",
+   "n": 1,
+   "id": "sfx.transition.swish-1"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-2.wav",
+   "n": 2,
+   "id": "sfx.transition.swish-2"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-3.wav",
+   "n": 3,
+   "id": "sfx.transition.swish-3"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-4.wav",
+   "n": 4,
+   "id": "sfx.transition.swish-4"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-5.wav",
+   "n": 5,
+   "id": "sfx.transition.swish-5"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-6.wav",
+   "n": 6,
+   "id": "sfx.transition.swish-6"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-7.wav",
+   "n": 7,
+   "id": "sfx.transition.swish-7"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-8.wav",
+   "n": 8,
+   "id": "sfx.transition.swish-8"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-9.wav",
+   "n": 9,
+   "id": "sfx.transition.swish-9"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-10.wav",
+   "n": 10,
+   "id": "sfx.transition.swish-10"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-11.wav",
+   "n": 11,
+   "id": "sfx.transition.swish-11"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-12.wav",
+   "n": 12,
+   "id": "sfx.transition.swish-12"
+  },
+  {
+   "category": "transition",
+   "name": "swish",
+   "pack": "oga-swishes",
+   "tags": [
+    "whoosh",
+    "swoosh",
+    "swish",
+    "transition"
+   ],
+   "path": "swishes/swish-13.wav",
+   "n": 13,
+   "id": "sfx.transition.swish-13"
+  },
+  {
+   "category": "transition",
+   "name": "slide",
+   "pack": "kenney-interface",
+   "tags": [
+    "slide",
+    "swoosh",
+    "transition"
+   ],
+   "path": "Audio/maximize_001.ogg",
+   "n": 1,
+   "id": "sfx.transition.slide-1"
+  },
+  {
+   "category": "transition",
+   "name": "slide",
+   "pack": "kenney-interface",
+   "tags": [
+    "slide",
+    "swoosh",
+    "transition"
+   ],
+   "path": "Audio/maximize_004.ogg",
+   "n": 2,
+   "id": "sfx.transition.slide-2"
+  },
+  {
+   "category": "transition",
+   "name": "slide",
+   "pack": "kenney-interface",
+   "tags": [
+    "slide",
+    "swoosh",
+    "transition"
+   ],
+   "path": "Audio/minimize_001.ogg",
+   "n": 3,
+   "id": "sfx.transition.slide-3"
+  },
+  {
+   "category": "transition",
+   "name": "slide",
+   "pack": "kenney-interface",
+   "tags": [
+    "slide",
+    "swoosh",
+    "transition"
+   ],
+   "path": "Audio/minimize_004.ogg",
+   "n": 4,
+   "id": "sfx.transition.slide-4"
+  },
+  {
+   "category": "transition",
+   "name": "riser",
+   "pack": "kenney-digital",
+   "tags": [
+    "riser",
+    "rise",
+    "sweep",
+    "up"
+   ],
+   "path": "Audio/phaserUp1.ogg",
+   "n": 1,
+   "id": "sfx.transition.riser-1"
+  },
+  {
+   "category": "transition",
+   "name": "riser",
+   "pack": "kenney-digital",
+   "tags": [
+    "riser",
+    "rise",
+    "sweep",
+    "up"
+   ],
+   "path": "Audio/phaserUp4.ogg",
+   "n": 2,
+   "id": "sfx.transition.riser-2"
+  },
+  {
+   "category": "transition",
+   "name": "riser",
+   "pack": "kenney-digital",
+   "tags": [
+    "riser",
+    "rise",
+    "sweep",
+    "up"
+   ],
+   "path": "Audio/highUp.ogg",
+   "n": 3,
+   "id": "sfx.transition.riser-3"
+  },
+  {
+   "category": "transition",
+   "name": "drop",
+   "pack": "kenney-digital",
+   "tags": [
+    "drop",
+    "down",
+    "sweep",
+    "fall"
+   ],
+   "path": "Audio/phaserDown1.ogg",
+   "n": 1,
+   "id": "sfx.transition.drop-1"
+  },
+  {
+   "category": "transition",
+   "name": "drop",
+   "pack": "kenney-digital",
+   "tags": [
+    "drop",
+    "down",
+    "sweep",
+    "fall"
+   ],
+   "path": "Audio/highDown.ogg",
+   "n": 2,
+   "id": "sfx.transition.drop-2"
+  },
+  {
+   "category": "ui",
+   "name": "click",
+   "pack": "kenney-interface",
+   "tags": [
+    "click",
+    "tap",
+    "button",
+    "mouse"
+   ],
+   "path": "Audio/click_001.ogg",
+   "n": 1,
+   "id": "sfx.ui.click-1"
+  },
+  {
+   "category": "ui",
+   "name": "click",
+   "pack": "kenney-ui",
+   "tags": [
+    "click",
+    "tap",
+    "button",
+    "mouse"
+   ],
+   "path": "Audio/click1.ogg",
+   "n": 2,
+   "id": "sfx.ui.click-2"
+  },
+  {
+   "category": "ui",
+   "name": "click",
+   "pack": "kenney-ui",
+   "tags": [
+    "click",
+    "tap",
+    "button",
+    "mouse"
+   ],
+   "path": "Audio/click3.ogg",
+   "n": 3,
+   "id": "sfx.ui.click-3"
+  },
+  {
+   "category": "ui",
+   "name": "click",
+   "pack": "kenney-ui",
+   "tags": [
+    "click",
+    "tap",
+    "button",
+    "mouse"
+   ],
+   "path": "Audio/mouseclick1.ogg",
+   "n": 4,
+   "id": "sfx.ui.click-4"
+  },
+  {
+   "category": "ui",
+   "name": "pop",
+   "pack": "oga-100sfx",
+   "tags": [
+    "pop",
+    "plop",
+    "bubble"
+   ],
+   "path": "plop_01.ogg",
+   "n": 1,
+   "id": "sfx.ui.pop-1"
+  },
+  {
+   "category": "ui",
+   "name": "pop",
+   "pack": "oga-100sfx",
+   "tags": [
+    "pop",
+    "plop",
+    "bubble"
+   ],
+   "path": "plop_02.ogg",
+   "n": 2,
+   "id": "sfx.ui.pop-2"
+  },
+  {
+   "category": "ui",
+   "name": "pop",
+   "pack": "kenney-interface",
+   "tags": [
+    "pop",
+    "drop",
+    "bubble"
+   ],
+   "path": "Audio/drop_001.ogg",
+   "n": 3,
+   "id": "sfx.ui.pop-3"
+  },
+  {
+   "category": "ui",
+   "name": "pop",
+   "pack": "kenney-interface",
+   "tags": [
+    "pop",
+    "drop",
+    "bubble"
+   ],
+   "path": "Audio/drop_002.ogg",
+   "n": 4,
+   "id": "sfx.ui.pop-4"
+  },
+  {
+   "category": "ui",
+   "name": "pop",
+   "pack": "kenney-interface",
+   "tags": [
+    "pop",
+    "drop",
+    "bubble"
+   ],
+   "path": "Audio/drop_003.ogg",
+   "n": 5,
+   "id": "sfx.ui.pop-5"
+  },
+  {
+   "category": "ui",
+   "name": "select",
+   "pack": "kenney-interface",
+   "tags": [
+    "select",
+    "tap",
+    "blip"
+   ],
+   "path": "Audio/select_001.ogg",
+   "n": 1,
+   "id": "sfx.ui.select-1"
+  },
+  {
+   "category": "ui",
+   "name": "select",
+   "pack": "kenney-interface",
+   "tags": [
+    "select",
+    "tap",
+    "blip"
+   ],
+   "path": "Audio/select_002.ogg",
+   "n": 2,
+   "id": "sfx.ui.select-2"
+  },
+  {
+   "category": "ui",
+   "name": "select",
+   "pack": "kenney-interface",
+   "tags": [
+    "select",
+    "tap",
+    "blip"
+   ],
+   "path": "Audio/select_004.ogg",
+   "n": 3,
+   "id": "sfx.ui.select-3"
+  },
+  {
+   "category": "ui",
+   "name": "toggle",
+   "pack": "kenney-interface",
+   "tags": [
+    "toggle",
+    "switch"
+   ],
+   "path": "Audio/toggle_001.ogg",
+   "n": 1,
+   "id": "sfx.ui.toggle-1"
+  },
+  {
+   "category": "ui",
+   "name": "toggle",
+   "pack": "kenney-interface",
+   "tags": [
+    "toggle",
+    "switch"
+   ],
+   "path": "Audio/toggle_002.ogg",
+   "n": 2,
+   "id": "sfx.ui.toggle-2"
+  },
+  {
+   "category": "ui",
+   "name": "toggle",
+   "pack": "kenney-interface",
+   "tags": [
+    "toggle",
+    "switch"
+   ],
+   "path": "Audio/switch_002.ogg",
+   "n": 3,
+   "id": "sfx.ui.toggle-3"
+  },
+  {
+   "category": "ui",
+   "name": "toggle",
+   "pack": "kenney-interface",
+   "tags": [
+    "toggle",
+    "switch"
+   ],
+   "path": "Audio/switch_005.ogg",
+   "n": 4,
+   "id": "sfx.ui.toggle-4"
+  },
+  {
+   "category": "ui",
+   "name": "scroll",
+   "pack": "kenney-interface",
+   "tags": [
+    "scroll",
+    "tick"
+   ],
+   "path": "Audio/scroll_001.ogg",
+   "n": 1,
+   "id": "sfx.ui.scroll-1"
+  },
+  {
+   "category": "ui",
+   "name": "scroll",
+   "pack": "kenney-interface",
+   "tags": [
+    "scroll",
+    "tick"
+   ],
+   "path": "Audio/scroll_003.ogg",
+   "n": 2,
+   "id": "sfx.ui.scroll-2"
+  },
+  {
+   "category": "ui",
+   "name": "pluck",
+   "pack": "kenney-interface",
+   "tags": [
+    "pluck",
+    "pop"
+   ],
+   "path": "Audio/pluck_001.ogg",
+   "n": 1,
+   "id": "sfx.ui.pluck-1"
+  },
+  {
+   "category": "ui",
+   "name": "pluck",
+   "pack": "kenney-interface",
+   "tags": [
+    "pluck",
+    "pop"
+   ],
+   "path": "Audio/pluck_002.ogg",
+   "n": 2,
+   "id": "sfx.ui.pluck-2"
+  },
+  {
+   "category": "ui",
+   "name": "tick",
+   "pack": "kenney-interface",
+   "tags": [
+    "tick",
+    "clock"
+   ],
+   "path": "Audio/tick_001.ogg",
+   "id": "sfx.ui.tick"
+  },
+  {
+   "category": "notification",
+   "name": "success",
+   "pack": "kenney-interface",
+   "tags": [
+    "success",
+    "confirm",
+    "done",
+    "ding",
+    "correct"
+   ],
+   "path": "Audio/confirmation_001.ogg",
+   "n": 1,
+   "id": "sfx.notification.success-1"
+  },
+  {
+   "category": "notification",
+   "name": "success",
+   "pack": "kenney-interface",
+   "tags": [
+    "success",
+    "confirm",
+    "done",
+    "ding",
+    "correct"
+   ],
+   "path": "Audio/confirmation_002.ogg",
+   "n": 2,
+   "id": "sfx.notification.success-2"
+  },
+  {
+   "category": "notification",
+   "name": "success",
+   "pack": "kenney-interface",
+   "tags": [
+    "success",
+    "confirm",
+    "done",
+    "ding",
+    "correct"
+   ],
+   "path": "Audio/confirmation_003.ogg",
+   "n": 3,
+   "id": "sfx.notification.success-3"
+  },
+  {
+   "category": "notification",
+   "name": "success",
+   "pack": "kenney-interface",
+   "tags": [
+    "success",
+    "confirm",
+    "done",
+    "ding",
+    "correct"
+   ],
+   "path": "Audio/confirmation_004.ogg",
+   "n": 4,
+   "id": "sfx.notification.success-4"
+  },
+  {
+   "category": "notification",
+   "name": "error",
+   "pack": "kenney-interface",
+   "tags": [
+    "error",
+    "wrong",
+    "fail",
+    "buzzer"
+   ],
+   "path": "Audio/error_001.ogg",
+   "n": 1,
+   "id": "sfx.notification.error-1"
+  },
+  {
+   "category": "notification",
+   "name": "error",
+   "pack": "kenney-interface",
+   "tags": [
+    "error",
+    "wrong",
+    "fail",
+    "buzzer"
+   ],
+   "path": "Audio/error_004.ogg",
+   "n": 2,
+   "id": "sfx.notification.error-2"
+  },
+  {
+   "category": "notification",
+   "name": "error",
+   "pack": "kenney-interface",
+   "tags": [
+    "error",
+    "wrong",
+    "fail",
+    "buzzer"
+   ],
+   "path": "Audio/error_006.ogg",
+   "n": 3,
+   "id": "sfx.notification.error-3"
+  },
+  {
+   "category": "notification",
+   "name": "error",
+   "pack": "kenney-interface",
+   "tags": [
+    "error",
+    "wrong",
+    "fail",
+    "buzzer"
+   ],
+   "path": "Audio/error_008.ogg",
+   "n": 4,
+   "id": "sfx.notification.error-4"
+  },
+  {
+   "category": "notification",
+   "name": "ding",
+   "pack": "kenney-interface",
+   "tags": [
+    "ding",
+    "chime",
+    "glass",
+    "notification"
+   ],
+   "path": "Audio/glass_001.ogg",
+   "n": 1,
+   "id": "sfx.notification.ding-1"
+  },
+  {
+   "category": "notification",
+   "name": "ding",
+   "pack": "kenney-interface",
+   "tags": [
+    "ding",
+    "chime",
+    "glass",
+    "notification"
+   ],
+   "path": "Audio/glass_002.ogg",
+   "n": 2,
+   "id": "sfx.notification.ding-2"
+  },
+  {
+   "category": "notification",
+   "name": "ding",
+   "pack": "kenney-interface",
+   "tags": [
+    "ding",
+    "chime",
+    "glass",
+    "notification"
+   ],
+   "path": "Audio/glass_004.ogg",
+   "n": 3,
+   "id": "sfx.notification.ding-3"
+  },
+  {
+   "category": "notification",
+   "name": "ding",
+   "pack": "kenney-interface",
+   "tags": [
+    "ding",
+    "chime",
+    "glass",
+    "notification"
+   ],
+   "path": "Audio/glass_006.ogg",
+   "n": 4,
+   "id": "sfx.notification.ding-4"
+  },
+  {
+   "category": "notification",
+   "name": "question",
+   "pack": "kenney-interface",
+   "tags": [
+    "question",
+    "hmm",
+    "notification"
+   ],
+   "path": "Audio/question_001.ogg",
+   "n": 1,
+   "id": "sfx.notification.question-1"
+  },
+  {
+   "category": "notification",
+   "name": "question",
+   "pack": "kenney-interface",
+   "tags": [
+    "question",
+    "hmm",
+    "notification"
+   ],
+   "path": "Audio/question_003.ogg",
+   "n": 2,
+   "id": "sfx.notification.question-2"
+  },
+  {
+   "category": "notification",
+   "name": "bong",
+   "pack": "kenney-interface",
+   "tags": [
+    "bong",
+    "notification"
+   ],
+   "path": "Audio/bong_001.ogg",
+   "id": "sfx.notification.bong"
+  },
+  {
+   "category": "notification",
+   "name": "bell",
+   "pack": "oga-100sfx",
+   "tags": [
+    "bell",
+    "ding",
+    "ring"
+   ],
+   "path": "bell_01.ogg",
+   "n": 1,
+   "id": "sfx.notification.bell-1"
+  },
+  {
+   "category": "notification",
+   "name": "bell",
+   "pack": "oga-100sfx",
+   "tags": [
+    "bell",
+    "ding",
+    "ring"
+   ],
+   "path": "bell_02.ogg",
+   "n": 2,
+   "id": "sfx.notification.bell-2"
+  },
+  {
+   "category": "notification",
+   "name": "bell",
+   "pack": "oga-100sfx",
+   "tags": [
+    "bell",
+    "ding",
+    "ring"
+   ],
+   "path": "bell_03.ogg",
+   "n": 3,
+   "id": "sfx.notification.bell-3"
+  },
+  {
+   "category": "notification",
+   "name": "chime",
+   "pack": "kenney-digital",
+   "tags": [
+    "chime",
+    "notification",
+    "message",
+    "tone"
+   ],
+   "path": "Audio/twoTone1.ogg",
+   "n": 1,
+   "id": "sfx.notification.chime-1"
+  },
+  {
+   "category": "notification",
+   "name": "chime",
+   "pack": "kenney-digital",
+   "tags": [
+    "chime",
+    "notification",
+    "message",
+    "tone"
+   ],
+   "path": "Audio/threeTone1.ogg",
+   "n": 2,
+   "id": "sfx.notification.chime-2"
+  },
+  {
+   "category": "notification",
+   "name": "chime",
+   "pack": "kenney-digital",
+   "tags": [
+    "chime",
+    "notification",
+    "message",
+    "tone"
+   ],
+   "path": "Audio/threeTone2.ogg",
+   "n": 3,
+   "id": "sfx.notification.chime-3"
+  },
+  {
+   "category": "notification",
+   "name": "doorbell",
+   "pack": "commons-doorbell-electronic",
+   "tags": [
+    "doorbell",
+    "electronic"
+   ],
+   "trim": [
+    0,
+    4
+   ],
+   "id": "sfx.notification.doorbell"
+  },
+  {
+   "category": "notification",
+   "name": "alarm",
+   "pack": "commons-alarm-clock",
+   "tags": [
+    "alarm",
+    "clock",
+    "wake",
+    "up",
+    "ring"
+   ],
+   "n": 1,
+   "id": "sfx.notification.alarm-1"
+  },
+  {
+   "category": "notification",
+   "name": "alarm",
+   "pack": "commons-clock-ring",
+   "tags": [
+    "alarm",
+    "clock",
+    "bell",
+    "ring"
+   ],
+   "n": 2,
+   "trim": [
+    0,
+    6
+   ],
+   "id": "sfx.notification.alarm-2"
+  },
+  {
+   "category": "notification",
+   "name": "phone",
+   "pack": "commons-telephone",
+   "tags": [
+    "phone",
+    "telephone",
+    "ring",
+    "call"
+   ],
+   "trim": [
+    0,
+    8
+   ],
+   "id": "sfx.notification.phone"
+  },
+  {
+   "category": "impact",
+   "name": "punch",
+   "pack": "kenney-impact",
+   "tags": [
+    "punch",
+    "hit",
+    "fight"
+   ],
+   "path": "Audio/impactPunch_heavy_000.ogg",
+   "n": 1,
+   "id": "sfx.impact.punch-1"
+  },
+  {
+   "category": "impact",
+   "name": "punch",
+   "pack": "kenney-impact",
+   "tags": [
+    "punch",
+    "hit",
+    "fight"
+   ],
+   "path": "Audio/impactPunch_heavy_002.ogg",
+   "n": 2,
+   "id": "sfx.impact.punch-2"
+  },
+  {
+   "category": "impact",
+   "name": "punch",
+   "pack": "kenney-impact",
+   "tags": [
+    "punch",
+    "hit",
+    "fight"
+   ],
+   "path": "Audio/impactPunch_medium_001.ogg",
+   "n": 3,
+   "id": "sfx.impact.punch-3"
+  },
+  {
+   "category": "impact",
+   "name": "metal",
+   "pack": "kenney-impact",
+   "tags": [
+    "metal",
+    "hit",
+    "clang"
+   ],
+   "path": "Audio/impactMetal_heavy_000.ogg",
+   "n": 1,
+   "id": "sfx.impact.metal-1"
+  },
+  {
+   "category": "impact",
+   "name": "metal",
+   "pack": "kenney-impact",
+   "tags": [
+    "metal",
+    "hit",
+    "clang"
+   ],
+   "path": "Audio/impactMetal_heavy_003.ogg",
+   "n": 2,
+   "id": "sfx.impact.metal-2"
+  },
+  {
+   "category": "impact",
+   "name": "wood",
+   "pack": "kenney-impact",
+   "tags": [
+    "wood",
+    "knock",
+    "hit"
+   ],
+   "path": "Audio/impactWood_heavy_000.ogg",
+   "n": 1,
+   "id": "sfx.impact.wood-1"
+  },
+  {
+   "category": "impact",
+   "name": "wood",
+   "pack": "kenney-impact",
+   "tags": [
+    "wood",
+    "knock",
+    "hit"
+   ],
+   "path": "Audio/impactWood_heavy_002.ogg",
+   "n": 2,
+   "id": "sfx.impact.wood-2"
+  },
+  {
+   "category": "impact",
+   "name": "bellHit",
+   "pack": "kenney-impact",
+   "tags": [
+    "bell",
+    "hit",
+    "gong"
+   ],
+   "path": "Audio/impactBell_heavy_000.ogg",
+   "n": 1,
+   "id": "sfx.impact.bellHit-1"
+  },
+  {
+   "category": "impact",
+   "name": "bellHit",
+   "pack": "kenney-impact",
+   "tags": [
+    "bell",
+    "hit",
+    "gong"
+   ],
+   "path": "Audio/impactBell_heavy_002.ogg",
+   "n": 2,
+   "id": "sfx.impact.bellHit-2"
+  },
+  {
+   "category": "impact",
+   "name": "thud",
+   "pack": "kenney-impact",
+   "tags": [
+    "thud",
+    "soft",
+    "hit"
+   ],
+   "path": "Audio/impactSoft_heavy_000.ogg",
+   "n": 1,
+   "id": "sfx.impact.thud-1"
+  },
+  {
+   "category": "impact",
+   "name": "thud",
+   "pack": "kenney-impact",
+   "tags": [
+    "thud",
+    "soft",
+    "hit"
+   ],
+   "path": "Audio/impactGeneric_light_000.ogg",
+   "n": 2,
+   "id": "sfx.impact.thud-2"
+  },
+  {
+   "category": "impact",
+   "name": "boom",
+   "pack": "kenney-scifi",
+   "tags": [
+    "boom",
+    "bass",
+    "drop",
+    "impact",
+    "cinematic"
+   ],
+   "path": "Audio/lowFrequency_explosion_000.ogg",
+   "n": 1,
+   "id": "sfx.impact.boom-1"
+  },
+  {
+   "category": "impact",
+   "name": "boom",
+   "pack": "kenney-scifi",
+   "tags": [
+    "boom",
+    "bass",
+    "drop",
+    "impact",
+    "cinematic"
+   ],
+   "path": "Audio/lowFrequency_explosion_001.ogg",
+   "n": 2,
+   "id": "sfx.impact.boom-2"
+  },
+  {
+   "category": "impact",
+   "name": "explosion",
+   "pack": "kenney-scifi",
+   "tags": [
+    "explosion",
+    "blast"
+   ],
+   "path": "Audio/explosionCrunch_000.ogg",
+   "n": 1,
+   "id": "sfx.impact.explosion-1"
+  },
+  {
+   "category": "impact",
+   "name": "explosion",
+   "pack": "kenney-scifi",
+   "tags": [
+    "explosion",
+    "blast"
+   ],
+   "path": "Audio/explosionCrunch_002.ogg",
+   "n": 2,
+   "id": "sfx.impact.explosion-2"
+  },
+  {
+   "category": "impact",
+   "name": "explosion",
+   "pack": "oga-100sfx",
+   "tags": [
+    "explosion",
+    "blast"
+   ],
+   "path": "explosion.ogg",
+   "n": 3,
+   "id": "sfx.impact.explosion-3"
+  },
+  {
+   "category": "impact",
+   "name": "gong",
+   "pack": "oga-100sfx",
+   "tags": [
+    "gong",
+    "hit"
+   ],
+   "path": "gong_01.ogg",
+   "n": 1,
+   "id": "sfx.impact.gong-1"
+  },
+  {
+   "category": "impact",
+   "name": "gong",
+   "pack": "oga-100sfx",
+   "tags": [
+    "gong",
+    "hit"
+   ],
+   "path": "gong_02.ogg",
+   "n": 2,
+   "id": "sfx.impact.gong-2"
+  },
+  {
+   "category": "impact",
+   "name": "slam",
+   "pack": "oga-100sfx",
+   "tags": [
+    "slam",
+    "door",
+    "hit"
+   ],
+   "path": "slam_01.ogg",
+   "n": 1,
+   "id": "sfx.impact.slam-1"
+  },
+  {
+   "category": "impact",
+   "name": "slam",
+   "pack": "oga-100sfx",
+   "tags": [
+    "slam",
+    "door",
+    "hit"
+   ],
+   "path": "slam_03.ogg",
+   "n": 2,
+   "id": "sfx.impact.slam-2"
+  },
+  {
+   "category": "impact",
+   "name": "glassBreak",
+   "pack": "oga-bfh75",
+   "tags": [
+    "glass",
+    "break",
+    "shatter"
+   ],
+   "path": "bfh1_glass_breaking_01.ogg",
+   "n": 1,
+   "id": "sfx.impact.glassBreak-1"
+  },
+  {
+   "category": "impact",
+   "name": "glassBreak",
+   "pack": "oga-bfh75",
+   "tags": [
+    "glass",
+    "break",
+    "shatter"
+   ],
+   "path": "bfh1_glass_breaking_03.ogg",
+   "n": 2,
+   "id": "sfx.impact.glassBreak-2"
+  },
+  {
+   "category": "impact",
+   "name": "woodBreak",
+   "pack": "oga-bfh75",
+   "tags": [
+    "wood",
+    "break",
+    "crash"
+   ],
+   "path": "bfh1_wood_breaking_01.ogg",
+   "id": "sfx.impact.woodBreak"
+  },
+  {
+   "category": "cartoon",
+   "name": "boing",
+   "pack": "oga-100sfx",
+   "tags": [
+    "boing",
+    "spring",
+    "bounce",
+    "cartoon"
+   ],
+   "path": "spring_01.ogg",
+   "n": 1,
+   "id": "sfx.cartoon.boing-1"
+  },
+  {
+   "category": "cartoon",
+   "name": "boing",
+   "pack": "oga-100sfx",
+   "tags": [
+    "boing",
+    "spring",
+    "bounce",
+    "cartoon"
+   ],
+   "path": "spring_03.ogg",
+   "n": 2,
+   "id": "sfx.cartoon.boing-2"
+  },
+  {
+   "category": "cartoon",
+   "name": "boing",
+   "pack": "oga-100sfx",
+   "tags": [
+    "boing",
+    "spring",
+    "bounce",
+    "cartoon"
+   ],
+   "path": "spring_05.ogg",
+   "n": 3,
+   "id": "sfx.cartoon.boing-3"
+  },
+  {
+   "category": "cartoon",
+   "name": "boing",
+   "pack": "oga-100sfx",
+   "tags": [
+    "boing",
+    "spring",
+    "bounce",
+    "cartoon"
+   ],
+   "path": "spring_08.ogg",
+   "n": 4,
+   "id": "sfx.cartoon.boing-4"
+  },
+  {
+   "category": "cartoon",
+   "name": "weird",
+   "pack": "oga-100sfx",
+   "tags": [
+    "weird",
+    "funny",
+    "cartoon"
+   ],
+   "path": "weird_01.ogg",
+   "n": 1,
+   "id": "sfx.cartoon.weird-1"
+  },
+  {
+   "category": "cartoon",
+   "name": "weird",
+   "pack": "oga-100sfx",
+   "tags": [
+    "weird",
+    "funny",
+    "cartoon"
+   ],
+   "path": "weird_03.ogg",
+   "n": 2,
+   "id": "sfx.cartoon.weird-2"
+  },
+  {
+   "category": "cartoon",
+   "name": "weird",
+   "pack": "oga-100sfx",
+   "tags": [
+    "weird",
+    "funny",
+    "cartoon"
+   ],
+   "path": "weird_05.ogg",
+   "n": 3,
+   "id": "sfx.cartoon.weird-3"
+  },
+  {
+   "category": "cartoon",
+   "name": "blip",
+   "pack": "kenney-digital",
+   "tags": [
+    "blip",
+    "cartoon",
+    "jump"
+   ],
+   "path": "Audio/pepSound1.ogg",
+   "n": 1,
+   "id": "sfx.cartoon.blip-1"
+  },
+  {
+   "category": "cartoon",
+   "name": "blip",
+   "pack": "kenney-digital",
+   "tags": [
+    "blip",
+    "cartoon",
+    "jump"
+   ],
+   "path": "Audio/pepSound3.ogg",
+   "n": 2,
+   "id": "sfx.cartoon.blip-2"
+  },
+  {
+   "category": "cartoon",
+   "name": "jump",
+   "pack": "kenney-digital",
+   "tags": [
+    "jump",
+    "hop",
+    "cartoon"
+   ],
+   "path": "Audio/phaseJump1.ogg",
+   "n": 1,
+   "id": "sfx.cartoon.jump-1"
+  },
+  {
+   "category": "cartoon",
+   "name": "jump",
+   "pack": "kenney-digital",
+   "tags": [
+    "jump",
+    "hop",
+    "cartoon"
+   ],
+   "path": "Audio/phaseJump3.ogg",
+   "n": 2,
+   "id": "sfx.cartoon.jump-2"
+  },
+  {
+   "category": "cartoon",
+   "name": "slip",
+   "pack": "kenney-interface",
+   "tags": [
+    "scratch",
+    "slide",
+    "funny"
+   ],
+   "path": "Audio/scratch_001.ogg",
+   "id": "sfx.cartoon.slip"
+  },
+  {
+   "category": "cartoon",
+   "name": "evilLaugh",
+   "pack": "oga-evil-laugh",
+   "tags": [
+    "evil",
+    "laugh",
+    "villain",
+    "halloween"
+   ],
+   "id": "sfx.cartoon.evilLaugh"
+  },
+  {
+   "category": "crowd",
+   "name": "applause",
+   "pack": "commons-applause-1",
+   "tags": [
+    "applause",
+    "clap",
+    "crowd",
+    "bravo"
+   ],
+   "n": 1,
+   "id": "sfx.crowd.applause-1"
+  },
+  {
+   "category": "crowd",
+   "name": "applause",
+   "pack": "commons-applause-2",
+   "tags": [
+    "applause",
+    "clap",
+    "crowd"
+   ],
+   "n": 2,
+   "id": "sfx.crowd.applause-2"
+  },
+  {
+   "category": "crowd",
+   "name": "applause",
+   "pack": "commons-applause-3",
+   "tags": [
+    "applause",
+    "clap",
+    "crowd"
+   ],
+   "n": 3,
+   "id": "sfx.crowd.applause-3"
+  },
+  {
+   "category": "crowd",
+   "name": "applause",
+   "pack": "commons-applause-concert",
+   "tags": [
+    "applause",
+    "concert",
+    "crowd",
+    "cheer"
+   ],
+   "n": 4,
+   "trim": [
+    0,
+    12
+   ],
+   "id": "sfx.crowd.applause-4"
+  },
+  {
+   "category": "crowd",
+   "name": "applause",
+   "pack": "commons-applause-slow",
+   "tags": [
+    "applause",
+    "slow",
+    "clap"
+   ],
+   "n": 5,
+   "trim": [
+    0,
+    15
+   ],
+   "id": "sfx.crowd.applause-5"
+  },
+  {
+   "category": "crowd",
+   "name": "cheer",
+   "pack": "commons-hurray",
+   "tags": [
+    "cheer",
+    "hurray",
+    "yay",
+    "crowd"
+   ],
+   "n": 1,
+   "id": "sfx.crowd.cheer-1"
+  },
+  {
+   "category": "crowd",
+   "name": "cheer",
+   "pack": "commons-clapping-hurray",
+   "tags": [
+    "cheer",
+    "clap",
+    "hurray"
+   ],
+   "n": 2,
+   "id": "sfx.crowd.cheer-2"
+  },
+  {
+   "category": "crowd",
+   "name": "wow",
+   "pack": "commons-ohh-ahh",
+   "tags": [
+    "wow",
+    "ooh",
+    "aah",
+    "crowd",
+    "amazed"
+   ],
+   "id": "sfx.crowd.wow"
+  },
+  {
+   "category": "crowd",
+   "name": "laugh",
+   "pack": "oga-giggling",
+   "tags": [
+    "laugh",
+    "giggle",
+    "funny",
+    "crowd"
+   ],
+   "id": "sfx.crowd.laugh"
+  },
+  {
+   "category": "crowd",
+   "name": "fireworks",
+   "pack": "commons-fireworks",
+   "tags": [
+    "fireworks",
+    "celebration",
+    "party"
+   ],
+   "trim": [
+    0,
+    10
+   ],
+   "id": "sfx.crowd.fireworks"
+  },
+  {
+   "category": "tech",
+   "name": "shutter",
+   "pack": "commons-shutter-holga",
+   "tags": [
+    "camera",
+    "shutter",
+    "photo",
+    "snap"
+   ],
+   "n": 1,
+   "id": "sfx.tech.shutter-1"
+  },
+  {
+   "category": "tech",
+   "name": "shutter",
+   "pack": "commons-shutter-dslr",
+   "tags": [
+    "camera",
+    "shutter",
+    "dslr",
+    "photo"
+   ],
+   "n": 2,
+   "id": "sfx.tech.shutter-2"
+  },
+  {
+   "category": "tech",
+   "name": "shutterBurst",
+   "pack": "commons-shutter-burst",
+   "tags": [
+    "camera",
+    "burst",
+    "shutter",
+    "photo"
+   ],
+   "trim": [
+    0,
+    4
+   ],
+   "id": "sfx.tech.shutterBurst"
+  },
+  {
+   "category": "tech",
+   "name": "cameraFocus",
+   "pack": "commons-camera-focus",
+   "tags": [
+    "camera",
+    "focus",
+    "beep"
+   ],
+   "id": "sfx.tech.cameraFocus"
+  },
+  {
+   "category": "tech",
+   "name": "typing",
+   "pack": "commons-typing-medium",
+   "tags": [
+    "typing",
+    "keyboard",
+    "computer"
+   ],
+   "n": 1,
+   "trim": [
+    2,
+    8
+   ],
+   "id": "sfx.tech.typing-1"
+  },
+  {
+   "category": "tech",
+   "name": "typing",
+   "pack": "commons-typing-modelm",
+   "tags": [
+    "typing",
+    "keyboard",
+    "mechanical"
+   ],
+   "n": 2,
+   "trim": [
+    0,
+    8
+   ],
+   "id": "sfx.tech.typing-2"
+  },
+  {
+   "category": "tech",
+   "name": "computer",
+   "pack": "kenney-scifi",
+   "tags": [
+    "computer",
+    "beep",
+    "data"
+   ],
+   "path": "Audio/computerNoise_000.ogg",
+   "n": 1,
+   "id": "sfx.tech.computer-1"
+  },
+  {
+   "category": "tech",
+   "name": "computer",
+   "pack": "kenney-scifi",
+   "tags": [
+    "computer",
+    "beep",
+    "data"
+   ],
+   "path": "Audio/computerNoise_002.ogg",
+   "n": 2,
+   "id": "sfx.tech.computer-2"
+  },
+  {
+   "category": "tech",
+   "name": "beep",
+   "pack": "oga-retro50",
+   "tags": [
+    "beep",
+    "synth"
+   ],
+   "path": "synth_beep_01.ogg",
+   "n": 1,
+   "id": "sfx.tech.beep-1"
+  },
+  {
+   "category": "tech",
+   "name": "beep",
+   "pack": "oga-retro50",
+   "tags": [
+    "beep",
+    "synth"
+   ],
+   "path": "synth_beep_02.ogg",
+   "n": 2,
+   "id": "sfx.tech.beep-2"
+  },
+  {
+   "category": "tech",
+   "name": "clockTicking",
+   "pack": "commons-clock-ticking",
+   "tags": [
+    "clock",
+    "tick",
+    "timer",
+    "countdown"
+   ],
+   "trim": [
+    0,
+    8
+   ],
+   "id": "sfx.tech.clockTicking"
+  },
+  {
+   "category": "money",
+   "name": "chaChing",
+   "pack": "oga-purchase",
+   "tags": [
+    "cash",
+    "register",
+    "cha-ching",
+    "purchase",
+    "money",
+    "sale",
+    "buy"
+   ],
+   "id": "sfx.money.chaChing"
+  },
+  {
+   "category": "money",
+   "name": "coinDrop",
+   "pack": "oga-coin-drop",
+   "tags": [
+    "coin",
+    "drop",
+    "money",
+    "tip"
+   ],
+   "id": "sfx.money.coinDrop"
+  },
+  {
+   "category": "money",
+   "name": "coins",
+   "pack": "kenney-rpg",
+   "tags": [
+    "coins",
+    "money"
+   ],
+   "path": "Audio/handleCoins.ogg",
+   "n": 1,
+   "id": "sfx.money.coins-1"
+  },
+  {
+   "category": "money",
+   "name": "coins",
+   "pack": "kenney-rpg",
+   "tags": [
+    "coins",
+    "money"
+   ],
+   "path": "Audio/handleCoins2.ogg",
+   "n": 2,
+   "id": "sfx.money.coins-2"
+  },
+  {
+   "category": "money",
+   "name": "chips",
+   "pack": "kenney-casino",
+   "tags": [
+    "casino",
+    "chips",
+    "money"
+   ],
+   "path": "Audio/chips-stack-1.ogg",
+   "n": 1,
+   "id": "sfx.money.chips-1"
+  },
+  {
+   "category": "money",
+   "name": "chips",
+   "pack": "kenney-casino",
+   "tags": [
+    "casino",
+    "chips",
+    "money"
+   ],
+   "path": "Audio/chips-handle-1.ogg",
+   "n": 2,
+   "id": "sfx.money.chips-2"
+  },
+  {
+   "category": "money",
+   "name": "coinGame",
+   "pack": "oga-retro50",
+   "tags": [
+    "coin",
+    "game",
+    "retro",
+    "8-bit"
+   ],
+   "path": "retro_coin_01.ogg",
+   "n": 1,
+   "id": "sfx.money.coinGame-1"
+  },
+  {
+   "category": "money",
+   "name": "coinGame",
+   "pack": "oga-retro50",
+   "tags": [
+    "coin",
+    "game",
+    "retro",
+    "8-bit"
+   ],
+   "path": "retro_coin_02.ogg",
+   "n": 2,
+   "id": "sfx.money.coinGame-2"
+  },
+  {
+   "category": "money",
+   "name": "dice",
+   "pack": "kenney-casino",
+   "tags": [
+    "casino",
+    "game"
+   ],
+   "path": "Audio/dice-throw-1.ogg",
+   "id": "sfx.money.dice"
+  },
+  {
+   "category": "money",
+   "name": "cards",
+   "pack": "kenney-casino",
+   "tags": [
+    "casino",
+    "game"
+   ],
+   "path": "Audio/card-shuffle.ogg",
+   "id": "sfx.money.cards"
+  },
+  {
+   "category": "money",
+   "name": "powerUp",
+   "pack": "kenney-digital",
+   "tags": [
+    "power",
+    "up",
+    "level",
+    "game",
+    "win"
+   ],
+   "path": "Audio/powerUp1.ogg",
+   "n": 1,
+   "id": "sfx.money.powerUp-1"
+  },
+  {
+   "category": "money",
+   "name": "powerUp",
+   "pack": "kenney-digital",
+   "tags": [
+    "power",
+    "up",
+    "level",
+    "game",
+    "win"
+   ],
+   "path": "Audio/powerUp5.ogg",
+   "n": 2,
+   "id": "sfx.money.powerUp-2"
+  },
+  {
+   "category": "money",
+   "name": "powerUp",
+   "pack": "kenney-digital",
+   "tags": [
+    "power",
+    "up",
+    "level",
+    "game",
+    "win"
+   ],
+   "path": "Audio/powerUp9.ogg",
+   "n": 3,
+   "id": "sfx.money.powerUp-3"
+  },
+  {
+   "category": "money",
+   "name": "laser",
+   "pack": "kenney-digital",
+   "tags": [
+    "laser",
+    "game",
+    "shoot"
+   ],
+   "path": "Audio/laser1.ogg",
+   "n": 1,
+   "id": "sfx.money.laser-1"
+  },
+  {
+   "category": "money",
+   "name": "laser",
+   "pack": "kenney-digital",
+   "tags": [
+    "laser",
+    "game",
+    "shoot"
+   ],
+   "path": "Audio/laser4.ogg",
+   "n": 2,
+   "id": "sfx.money.laser-2"
+  },
+  {
+   "category": "money",
+   "name": "gameOver",
+   "pack": "oga-retro50",
+   "tags": [
+    "game",
+    "retro",
+    "8-bit"
+   ],
+   "path": "retro_die_01.ogg",
+   "id": "sfx.money.gameOver"
+  },
+  {
+   "category": "money",
+   "name": "retroBoom",
+   "pack": "oga-retro50",
+   "tags": [
+    "game",
+    "retro",
+    "8-bit"
+   ],
+   "path": "retro_explosion_01.ogg",
+   "id": "sfx.money.retroBoom"
+  },
+  {
+   "category": "stings",
+   "name": "stingHit",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "hit",
+    "intro"
+   ],
+   "path": "Audio/Hit jingles/jingles_HIT00.ogg",
+   "n": 1,
+   "id": "sfx.stings.stingHit-1"
+  },
+  {
+   "category": "stings",
+   "name": "stingHit",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "hit",
+    "intro"
+   ],
+   "path": "Audio/Hit jingles/jingles_HIT02.ogg",
+   "n": 2,
+   "id": "sfx.stings.stingHit-2"
+  },
+  {
+   "category": "stings",
+   "name": "stingHit",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "hit",
+    "intro"
+   ],
+   "path": "Audio/Hit jingles/jingles_HIT05.ogg",
+   "n": 3,
+   "id": "sfx.stings.stingHit-3"
+  },
+  {
+   "category": "stings",
+   "name": "stingHit",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "hit",
+    "intro"
+   ],
+   "path": "Audio/Hit jingles/jingles_HIT09.ogg",
+   "n": 4,
+   "id": "sfx.stings.stingHit-4"
+  },
+  {
+   "category": "stings",
+   "name": "stingSax",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "sax",
+    "funny"
+   ],
+   "path": "Audio/Sax jingles/jingles_SAX00.ogg",
+   "n": 1,
+   "id": "sfx.stings.stingSax-1"
+  },
+  {
+   "category": "stings",
+   "name": "stingSax",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "sax",
+    "funny"
+   ],
+   "path": "Audio/Sax jingles/jingles_SAX03.ogg",
+   "n": 2,
+   "id": "sfx.stings.stingSax-2"
+  },
+  {
+   "category": "stings",
+   "name": "stingSax",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "sax",
+    "funny"
+   ],
+   "path": "Audio/Sax jingles/jingles_SAX07.ogg",
+   "n": 3,
+   "id": "sfx.stings.stingSax-3"
+  },
+  {
+   "category": "stings",
+   "name": "stingSteel",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "steel",
+    "drum",
+    "tropical"
+   ],
+   "path": "Audio/Steel jingles/jingles_STEEL00.ogg",
+   "n": 1,
+   "id": "sfx.stings.stingSteel-1"
+  },
+  {
+   "category": "stings",
+   "name": "stingSteel",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "steel",
+    "drum",
+    "tropical"
+   ],
+   "path": "Audio/Steel jingles/jingles_STEEL04.ogg",
+   "n": 2,
+   "id": "sfx.stings.stingSteel-2"
+  },
+  {
+   "category": "stings",
+   "name": "stingPizz",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "pizzicato",
+    "strings"
+   ],
+   "path": "Audio/Pizzicato jingles/jingles_PIZZI00.ogg",
+   "n": 1,
+   "id": "sfx.stings.stingPizz-1"
+  },
+  {
+   "category": "stings",
+   "name": "stingPizz",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "pizzicato",
+    "strings"
+   ],
+   "path": "Audio/Pizzicato jingles/jingles_PIZZI05.ogg",
+   "n": 2,
+   "id": "sfx.stings.stingPizz-2"
+  },
+  {
+   "category": "stings",
+   "name": "sting8bit",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "8-bit",
+    "game"
+   ],
+   "path": "Audio/8-Bit jingles/jingles_NES00.ogg",
+   "n": 1,
+   "id": "sfx.stings.sting8bit-1"
+  },
+  {
+   "category": "stings",
+   "name": "sting8bit",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "8-bit",
+    "game"
+   ],
+   "path": "Audio/8-Bit jingles/jingles_NES03.ogg",
+   "n": 2,
+   "id": "sfx.stings.sting8bit-2"
+  },
+  {
+   "category": "stings",
+   "name": "sting8bit",
+   "pack": "kenney-jingles",
+   "tags": [
+    "sting",
+    "jingle",
+    "8-bit",
+    "game"
+   ],
+   "path": "Audio/8-Bit jingles/jingles_NES08.ogg",
+   "n": 3,
+   "id": "sfx.stings.sting8bit-3"
+  },
+  {
+   "category": "foley",
+   "name": "doorOpen",
+   "pack": "kenney-rpg",
+   "tags": [
+    "door"
+   ],
+   "path": "Audio/doorOpen_1.ogg",
+   "id": "sfx.foley.doorOpen"
+  },
+  {
+   "category": "foley",
+   "name": "doorClose",
+   "pack": "kenney-rpg",
+   "tags": [
+    "door"
+   ],
+   "path": "Audio/doorClose_1.ogg",
+   "id": "sfx.foley.doorClose"
+  },
+  {
+   "category": "foley",
+   "name": "pageTurn",
+   "pack": "kenney-rpg",
+   "tags": [
+    "page",
+    "turn",
+    "book",
+    "paper",
+    "flip"
+   ],
+   "path": "Audio/bookFlip1.ogg",
+   "n": 1,
+   "id": "sfx.foley.pageTurn-1"
+  },
+  {
+   "category": "foley",
+   "name": "pageTurn",
+   "pack": "kenney-rpg",
+   "tags": [
+    "page",
+    "turn",
+    "book",
+    "paper",
+    "flip"
+   ],
+   "path": "Audio/bookFlip2.ogg",
+   "n": 2,
+   "id": "sfx.foley.pageTurn-2"
+  },
+  {
+   "category": "foley",
+   "name": "paper",
+   "pack": "oga-100sfx",
+   "tags": [
+    "paper",
+    "crumple",
+    "rustle"
+   ],
+   "path": "paper_01.ogg",
+   "n": 1,
+   "id": "sfx.foley.paper-1"
+  },
+  {
+   "category": "foley",
+   "name": "paper",
+   "pack": "oga-100sfx",
+   "tags": [
+    "paper",
+    "crumple",
+    "rustle"
+   ],
+   "path": "paper_03.ogg",
+   "n": 2,
+   "id": "sfx.foley.paper-2"
+  },
+  {
+   "category": "foley",
+   "name": "footstep",
+   "pack": "kenney-impact",
+   "tags": [
+    "footstep",
+    "walk",
+    "step"
+   ],
+   "path": "Audio/footstep_concrete_000.ogg",
+   "n": 1,
+   "id": "sfx.foley.footstep-1"
+  },
+  {
+   "category": "foley",
+   "name": "footstep",
+   "pack": "kenney-impact",
+   "tags": [
+    "footstep",
+    "walk",
+    "step"
+   ],
+   "path": "Audio/footstep_wood_001.ogg",
+   "n": 2,
+   "id": "sfx.foley.footstep-2"
+  },
+  {
+   "category": "foley",
+   "name": "footstep",
+   "pack": "kenney-impact",
+   "tags": [
+    "footstep",
+    "walk",
+    "step"
+   ],
+   "path": "Audio/footstep_grass_002.ogg",
+   "n": 3,
+   "id": "sfx.foley.footstep-3"
+  },
+  {
+   "category": "foley",
+   "name": "knife",
+   "pack": "kenney-rpg",
+   "tags": [
+    "knife",
+    "slice",
+    "cut"
+   ],
+   "path": "Audio/knifeSlice.ogg",
+   "n": 1,
+   "id": "sfx.foley.knife-1"
+  },
+  {
+   "category": "foley",
+   "name": "knife",
+   "pack": "kenney-rpg",
+   "tags": [
+    "knife",
+    "slice",
+    "cut"
+   ],
+   "path": "Audio/drawKnife1.ogg",
+   "n": 2,
+   "id": "sfx.foley.knife-2"
+  },
+  {
+   "category": "foley",
+   "name": "cloth",
+   "pack": "kenney-rpg",
+   "tags": [
+    "cloth",
+    "rustle"
+   ],
+   "path": "Audio/cloth1.ogg",
+   "n": 1,
+   "id": "sfx.foley.cloth-1"
+  },
+  {
+   "category": "foley",
+   "name": "cloth",
+   "pack": "kenney-rpg",
+   "tags": [
+    "cloth",
+    "rustle"
+   ],
+   "path": "Audio/cloth3.ogg",
+   "n": 2,
+   "id": "sfx.foley.cloth-2"
+  },
+  {
+   "category": "foley",
+   "name": "splash",
+   "pack": "oga-100sfx",
+   "tags": [
+    "splash",
+    "water"
+   ],
+   "path": "splash_01.ogg",
+   "id": "sfx.foley.splash"
+  },
+  {
+   "category": "foley",
+   "name": "dishes",
+   "pack": "oga-100sfx",
+   "tags": [
+    "dishes",
+    "kitchen",
+    "plates"
+   ],
+   "path": "dishes_01.ogg",
+   "id": "sfx.foley.dishes"
+  },
+  {
+   "category": "foley",
+   "name": "keys",
+   "pack": "oga-100sfx",
+   "tags": [
+    "keys",
+    "lock",
+    "unlock"
+   ],
+   "path": "key_open_01.ogg",
+   "id": "sfx.foley.keys"
+  },
+  {
+   "category": "foley",
+   "name": "toilet",
+   "pack": "oga-100sfx",
+   "tags": [
+    "toilet",
+    "flush",
+    "funny"
+   ],
+   "path": "toilet_01.ogg",
+   "id": "sfx.foley.toilet"
+  },
+  {
+   "category": "nature",
+   "name": "thunder",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "thunder",
+    "storm",
+    "rain"
+   ],
+   "path": "sfx100v2_thunder_01.ogg",
+   "id": "sfx.nature.thunder"
+  },
+  {
+   "category": "nature",
+   "name": "wind",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "wind",
+    "air",
+    "gust"
+   ],
+   "path": "sfx100v2_air_01.ogg",
+   "n": 1,
+   "id": "sfx.nature.wind-1"
+  },
+  {
+   "category": "nature",
+   "name": "wind",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "wind",
+    "air",
+    "gust"
+   ],
+   "path": "sfx100v2_air_02.ogg",
+   "n": 2,
+   "id": "sfx.nature.wind-2"
+  },
+  {
+   "category": "nature",
+   "name": "water",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "water",
+    "stream",
+    "river",
+    "loop"
+   ],
+   "path": "sfx100v2_loop_water_01.ogg",
+   "n": 1,
+   "id": "sfx.nature.water-1"
+  },
+  {
+   "category": "nature",
+   "name": "water",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "water",
+    "stream",
+    "river",
+    "loop"
+   ],
+   "path": "sfx100v2_loop_water_02.ogg",
+   "n": 2,
+   "id": "sfx.nature.water-2"
+  },
+  {
+   "category": "nature",
+   "name": "ambience",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "ambience",
+    "atmosphere",
+    "room",
+    "tone",
+    "loop"
+   ],
+   "path": "sfx100v2_loop_ambient_01.ogg",
+   "n": 1,
+   "id": "sfx.nature.ambience-1"
+  },
+  {
+   "category": "nature",
+   "name": "ambience",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "ambience",
+    "atmosphere",
+    "room",
+    "tone",
+    "loop"
+   ],
+   "path": "sfx100v2_loop_ambient_03.ogg",
+   "n": 2,
+   "id": "sfx.nature.ambience-2"
+  },
+  {
+   "category": "nature",
+   "name": "traffic",
+   "pack": "oga-100sfx2",
+   "tags": [
+    "traffic",
+    "highway",
+    "city",
+    "cars"
+   ],
+   "path": "sfx100v2_loop_highway.ogg",
+   "id": "sfx.nature.traffic"
+  },
+  {
+   "category": "scifi",
+   "name": "forceField",
+   "pack": "kenney-scifi",
+   "tags": [
+    "force",
+    "field",
+    "energy",
+    "hum"
+   ],
+   "path": "Audio/forceField_000.ogg",
+   "n": 1,
+   "id": "sfx.scifi.forceField-1"
+  },
+  {
+   "category": "scifi",
+   "name": "forceField",
+   "pack": "kenney-scifi",
+   "tags": [
+    "force",
+    "field",
+    "energy",
+    "hum"
+   ],
+   "path": "Audio/forceField_002.ogg",
+   "n": 2,
+   "id": "sfx.scifi.forceField-2"
+  },
+  {
+   "category": "scifi",
+   "name": "laserSciFi",
+   "pack": "kenney-scifi",
+   "tags": [
+    "laser",
+    "blaster",
+    "sci-fi"
+   ],
+   "path": "Audio/laserLarge_000.ogg",
+   "n": 1,
+   "id": "sfx.scifi.laserSciFi-1"
+  },
+  {
+   "category": "scifi",
+   "name": "laserSciFi",
+   "pack": "kenney-scifi",
+   "tags": [
+    "laser",
+    "blaster",
+    "sci-fi"
+   ],
+   "path": "Audio/laserRetro_000.ogg",
+   "n": 2,
+   "id": "sfx.scifi.laserSciFi-2"
+  },
+  {
+   "category": "scifi",
+   "name": "laserSciFi",
+   "pack": "kenney-scifi",
+   "tags": [
+    "laser",
+    "blaster",
+    "sci-fi"
+   ],
+   "path": "Audio/laserSmall_000.ogg",
+   "n": 3,
+   "id": "sfx.scifi.laserSciFi-3"
+  },
+  {
+   "category": "scifi",
+   "name": "zap",
+   "pack": "kenney-digital",
+   "tags": [
+    "zap",
+    "electric"
+   ],
+   "path": "Audio/zap1.ogg",
+   "n": 1,
+   "id": "sfx.scifi.zap-1"
+  },
+  {
+   "category": "scifi",
+   "name": "zap",
+   "pack": "kenney-digital",
+   "tags": [
+    "zap",
+    "electric"
+   ],
+   "path": "Audio/zapThreeToneUp.ogg",
+   "n": 2,
+   "id": "sfx.scifi.zap-2"
+  },
+  {
+   "category": "scifi",
+   "name": "scifiDoor",
+   "pack": "kenney-scifi",
+   "tags": [
+    "sci-fi",
+    "door",
+    "open",
+    "close"
+   ],
+   "path": "Audio/doorOpen_000.ogg",
+   "n": 1,
+   "id": "sfx.scifi.scifiDoor-1"
+  },
+  {
+   "category": "scifi",
+   "name": "scifiDoor",
+   "pack": "kenney-scifi",
+   "tags": [
+    "sci-fi",
+    "door",
+    "open",
+    "close"
+   ],
+   "path": "Audio/doorClose_000.ogg",
+   "n": 2,
+   "id": "sfx.scifi.scifiDoor-2"
+  },
+  {
+   "category": "scifi",
+   "name": "engine",
+   "pack": "kenney-scifi",
+   "tags": [
+    "engine",
+    "thruster",
+    "spaceship"
+   ],
+   "path": "Audio/spaceEngine_000.ogg",
+   "n": 1,
+   "id": "sfx.scifi.engine-1"
+  },
+  {
+   "category": "scifi",
+   "name": "engine",
+   "pack": "kenney-scifi",
+   "tags": [
+    "engine",
+    "thruster",
+    "spaceship"
+   ],
+   "path": "Audio/thrusterFire_000.ogg",
+   "n": 2,
+   "id": "sfx.scifi.engine-2"
+  },
+  {
+   "category": "scifi",
+   "name": "synthFx",
+   "pack": "oga-retro50",
+   "tags": [
+    "synth",
+    "sci-fi",
+    "effect"
+   ],
+   "path": "synth_misc_01.ogg",
+   "n": 1,
+   "id": "sfx.scifi.synthFx-1"
+  },
+  {
+   "category": "scifi",
+   "name": "synthFx",
+   "pack": "oga-retro50",
+   "tags": [
+    "synth",
+    "sci-fi",
+    "effect"
+   ],
+   "path": "synth_misc_05.ogg",
+   "n": 2,
+   "id": "sfx.scifi.synthFx-2"
+  },
+  {
+   "category": "scifi",
+   "name": "synthFx",
+   "pack": "oga-retro50",
+   "tags": [
+    "synth",
+    "sci-fi",
+    "effect"
+   ],
+   "path": "synth_laser_03.ogg",
+   "n": 3,
+   "id": "sfx.scifi.synthFx-3"
+  }
+ ]
+}

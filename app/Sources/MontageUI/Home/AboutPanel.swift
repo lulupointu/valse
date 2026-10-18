@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import MontageCore
+import MontageEngine
 
 /// Third-party components and their licenses (SE-018). Add one entry when a dependency, model or asset pack ships.
 /// License texts are legal texts and stay in their original language.
@@ -62,6 +63,21 @@ struct ThirdPartyLicense: Identifiable {
         ThirdPartyLicense(id: "apple", name: "Apple frameworks (AVFoundation, Metal, Vision, Speech, Core ML)", license: "Apple SDK", usageKey: "about.use.apple",
                           url: "https://developer.apple.com/terms/",
                           text: "System frameworks provided by macOS under the Apple Developer Program License Agreement. They are not redistributed with Montage."),
+        ThirdPartyLicense(id: "content", name: "Music & sound effects library (FreePD.com, Free Music Archive, Kenney, OpenGameArt, Wikimedia Commons)",
+                          license: "CC0-1.0 / Public domain", usageKey: "about.use.content",
+                          url: "https://creativecommons.org/publicdomain/zero/1.0/", text: """
+        Every bundled music track and sound effect was released by its author under the Creative Commons CC0 1.0 \
+        Universal Public Domain Dedication, or is in the public domain (Wikimedia Commons public-domain templates). \
+        You may copy, modify and publish it, including for commercial purposes, without asking permission and without \
+        attribution. Montage verified each item's license statement at its source and records the author, source page, \
+        retrieval date and checksum (see the list below). Authors credited with thanks: Kevin MacLeod, Rafael Krux, \
+        Bryan Teoh, dogsounds (FreePD.com); HoliznaCC0, Loyalty Freak Music (Free Music Archive); \
+        Kenney (kenney.nl); rubberduck, artisticdude, AntumDeluge, Nocturnal_Vanguard, Spring Spring, Vinrax \
+        (OpenGameArt); Wikimedia Commons \
+        contributors.
+
+        CC0 1.0 legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+        """),
     ]
 }
 
@@ -119,6 +135,58 @@ struct AboutPanel: View {
                     .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 6))
                 }
             }
+            ContentLibraryCredits()
+        }
+    }
+}
+
+/// About ▸ Licenses: every bundled music track / sound effect with author, license and source (AU-001).
+struct ContentLibraryCredits: View {
+    @State private var expanded = false
+
+    var body: some View {
+        let items = ContentLibrary.items
+        let music = items.filter { $0.kind == .music }, sfx = items.filter { $0.kind == .sfx }
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsDivider()
+            HStack {
+                Text(loc: "about.content.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Spacer()
+                Text(verbatim: "CC0 / Public domain").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 6).frame(height: 18)
+                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+            }
+            Text(verbatim: tr("about.content.summary", music.count, sfx.count)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button { expanded.toggle() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .bold))
+                    Text(loc: expanded ? "about.content.hide" : "about.content.show").font(.system(size: 12))
+                }
+                .foregroundStyle(Theme.accent)
+            }
+            .buttonStyle(.plain)
+            .testID("about.content.toggle")
+            if expanded {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    group(tr("audio.lib.music"), music)
+                    group(tr("audio.lib.sfx"), sfx)
+                }
+                .padding(10)
+                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                .testID("about.content.list")
+            }
+        }
+    }
+
+    @ViewBuilder func group(_ title: String, _ items: [ContentItem]) -> some View {
+        Text(verbatim: "\(title) (\(items.count))").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            .padding(.top, 4)
+        ForEach(items) { i in
+            // legal credits stay in English: title — author · license · source page
+            Text(verbatim: "\(i.kind == .music ? i.title : AudioLibrarySections.title(i)) — \(i.source.author) · \(i.license.id) · \(i.source.name)\(i.source.pack.map { " (\($0))" } ?? "") · \(i.source.page)")
+                .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textSecondary)
+                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         }
     }
 }

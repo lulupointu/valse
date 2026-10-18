@@ -30,6 +30,22 @@ struct LibraryItem: Identifiable {
     let add: () -> Void
     /// Single click (preview / select). Defaults to nothing.
     var click: (() -> Void)? = nil
+    /// Audio rows: "Safe for social media ✓" badge + license card (bundled CC0 library, AU-001).
+    var license: LibraryLicense? = nil
+    /// Audio rows: "Similar" action (AU-025).
+    var similar: (() -> Void)? = nil
+}
+
+/// License facts shown by the "safe for social media" badge's card.
+struct LibraryLicense {
+    var licenseName: String
+    var licenseURL: String
+    var author: String
+    var sourceName: String
+    var sourcePage: String
+    var retrieved: String
+    /// Extra "label: value" rows (BPM, key, duration…), already localized.
+    var details: [(String, String)] = []
 }
 
 /// Card picture.
@@ -358,6 +374,8 @@ struct TileMenu: View {
         let fav = AssetLibraryStore.shared.isFavorite(namespace, item.id)
         Button(tr("asset.addToTrack")) { item.add(); AssetLibraryStore.shared.noteUsed(namespace, item.id) }
         Button(tr(fav ? "asset.unfavorite" : "asset.favorite")) { AssetLibraryStore.shared.toggleFavorite(namespace, item.id) }
+        if let similar = item.similar { Button(tr("audio.similar.find")) { similar() } }
+        if item.license != nil { Button(tr("audio.license.show")) { LicenseCardState.shared.toggle(item.id) } }
     }
 }
 
@@ -390,6 +408,7 @@ struct LibraryRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         Text(verbatim: item.title).font(.system(size: 13)).foregroundStyle(item.playing ? Theme.accent : Theme.textPrimary).lineLimit(1)
+                        if item.license != nil { SafeForSocialBadge(itemID: item.id) }
                         if item.added { AddedChip(inline: true) }
                     }
                     if let s = item.subtitle {
@@ -397,6 +416,14 @@ struct LibraryRow: View {
                     }
                 }
                 Spacer(minLength: 4)
+                if let similar = item.similar, hover || selected || item.playing {
+                    Button { similar() } label: {
+                        Image(systemName: "waveform.and.magnifyingglass").font(.system(size: 12))
+                            .foregroundStyle(Theme.textSecondary).frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.plain).help(tr("audio.similar.find"))
+                    .testID("asset.tile.\(item.id).similar")
+                }
                 Button { lib.toggleFavorite(namespace, item.id) } label: {
                     Image(systemName: fav ? "star.fill" : "star").font(.system(size: 12))
                         .foregroundStyle(fav ? Color(hex: 0xF5C451) : Theme.textTertiary).frame(width: 22, height: 22)
@@ -412,6 +439,9 @@ struct LibraryRow: View {
             }
             .padding(8)
             if item.playing { AudioPreviewStrip(id: item.id).padding(.horizontal, 8).padding(.bottom, 6) }
+            if let l = item.license, LicenseCardState.shared.shownID == item.id {
+                LicenseCard(itemID: item.id, title: item.title, license: l).padding(.horizontal, 8).padding(.bottom, 8)
+            }
         }
         .background(Color(white: selected ? 0.2 : 0.165), in: RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : .clear, lineWidth: 1.5))

@@ -160,6 +160,12 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   `shorts.duration.<auto|under60|from60to90|from90to180>`, `shorts.captions`, `shorts.get`, `shorts.progress`, `shorts.result.<i>`;
   project specs `"home:0:shorts"` (wizard on a synthetic 4 s video → too short) and `"home:0:shorts-ok"` (valid 70 s video).
 - audio library: `asset.nav.<section>` (yours / music / sfx / extracted), `audio.import`, `audio.row.<index>` (+`.add`), `audio.music.<trackID>` (+`.add`)
+- bundled CC0 music/SFX library (MUS): rail `asset.nav.music.cat.<category>` / `asset.nav.sfx.cat.<category>` / `asset.nav.music.generated` /
+  `asset.nav.sfx.generated` / `asset.nav.similar`; rows `asset.tile.lib.<itemID>` (+`.add`, `.favorite`, `.similar`, `.license`),
+  `audio.license.card` / `audio.license.close`, `audio.similar` / `audio.similar.close`, header `audio.similar.clip` (similar to the
+  selected clip); About `about.content.toggle` / `about.content.list`. State: `ui.assets.library.{music,sfx}` (installed counts),
+  `ui.assets.similar.{seed, title, kind, computing, results}`, `ui.assets.licenseCard`. Scripts needing the library audio declare
+  `"requires": {"content": true}` (SKIPPED when scripts/fetch_music_pack.sh was never run)
 
 ### How it works / limits
 

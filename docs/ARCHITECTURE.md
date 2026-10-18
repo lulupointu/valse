@@ -290,6 +290,15 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   `Ducking` (waveform-envelope trigger). **I/O**: `AudioFileIO` (streaming decode to 48 kHz float, writer for ALAC/WAV/AAC/FLAC),
   `AudioMixdown` (the export mix as samples: audio-only export `AudioExporter`, tests), `AudioExtractor` (video file → .m4a),
   `VoiceRecorder` (AVAudioEngine input, devices, voice processing), `SoundEffects` (procedural SFX pack).
+- **Bundled music + SFX library (MUS, AU-001/002/025)**: `ContentLibrary` (manifest model, install-folder resolution, license
+  validation), `ContentSimilarity` + `AudioFeatures` (47-dim MFCC/chroma/spectral/rhythm descriptor, key estimate, z-scored cosine
+  "similar sounds"), `ContentAnalyzer` (`Montage --analyze-content`: duration, loudness, beats/BPM via `AudioAnalysis`, key, peaks,
+  features). Only CC0 / public-domain items (FreePD, Free Music Archive, Kenney, OpenGameArt, Wikimedia Commons). Pipeline:
+  `scripts/fetch_music_pack.sh` (sources in `scripts/content/*_sources.json`, pinned SHA-256, license page checks, AAC encode,
+  analysis) → committed `Resources/ContentLibrary/content_manifest.json` + audio cache (never committed) → `scripts/build_app.sh`
+  copies it into `Montage.app/Contents/Resources/Content`. Runtime is offline: `ContentLibrary.directory` = bundle, else
+  `MONTAGE_CONTENT_DIR`, else the developer cache. **Add a track**: one entry in `music_sources.json`, run the fetch with `--pin`,
+  commit both JSON files; `ContentLibraryTests` validates licenses, provenance, analysis and the installed files.
 - **Add a voice preset**: one entry in `VoiceEffects.filters`/`characters` (design = pitch/formant/robot + live nodes) + `voice.<id>` in
   MontageUI `Audio.strings` (en + fr). `AudioDSPTests.everyVoicePresetProducesSaneOutput` checks it automatically.
 - **UI**: `MontageUI/Audio/*` — inspector sections registered via `AudioInspector.sections/tabs` (video ▸ Audio [Basic · Voice changer];

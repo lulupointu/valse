@@ -1,0 +1,60 @@
+// MUS (AU-001 / AU-002 / AU-025): the bundled CC0 music + SFX library. Browse a category, search, preview (waveform +
+// pre-computed beats), "safe for social media" license card, add at the playhead (clip gets the beat markers),
+// Similar for a track, Similar for the selected clip's audio, add a sound effect.
+{
+  "project": "empty",
+  "requires": {"content": true},
+  "steps": [
+    {"click": "id:asset.tab.audio"},
+    {"expect": [{"path": "ui.assets.library.music", "gte": 40}, {"path": "ui.assets.library.sfx", "gte": 100}]},
+    // browse: Music ▸ Lo-fi
+    {"click": "id:asset.nav.music.cat.lofi"},
+    {"expect": [{"path": "ui.assets.nav.audio", "equals": "music.cat.lofi"}, {"path": "ui.assets.count.audio", "gte": 5}]},
+    {"snapshot": "library-lofi", "element": "id:panel.assets"},
+    // search across music and sound effects
+    {"click": "id:asset.search"},
+    {"type": "ukulele"},
+    {"wait": 0.5},
+    {"expect": [{"path": "ui.assets.query.audio", "equals": "ukulele"}, {"path": "ui.assets.count.audio", "gte": 3}]},
+    {"click": "id:asset.search.clear"},
+    // preview: click the row → plays with the waveform strip
+    {"click": "id:asset.nav.music.cat.vlog"},
+    {"click": "id:asset.tile.lib.freepd.fresh-focus", "at": [0.3, 0.5]},
+    {"waitFor": {"path": "ui.assets.playing", "equals": "lib.freepd.fresh-focus", "timeout": 10}},
+    {"wait": 0.6},
+    {"snapshot": "library-preview", "element": "id:panel.assets"},
+    // license card ("safe for social media" badge)
+    {"click": "id:asset.tile.lib.freepd.fresh-focus.license"},
+    {"expect": {"path": "ui.assets.licenseCard", "equals": "lib.freepd.fresh-focus"}},
+    {"snapshot": "library-license", "element": "id:panel.assets"},
+    {"click": "id:audio.license.close"},
+    {"expect": {"path": "ui.assets.licenseCard", "equals": ""}},
+    // add at the playhead: an audio track with the pre-computed beat markers
+    {"seek": 2},
+    {"click": "id:asset.tile.lib.freepd.fresh-focus.add"},
+    {"waitFor": {"path": "tracks.count", "gte": 2, "timeout": 20}},
+    {"expect": [{"path": "tracks.1.kind", "equals": "audio"}, {"path": "tracks.1.clips.count", "equals": 1},
+                {"path": "tracks.1.clips.0.start", "approx": 2, "tolerance": 0.05},
+                {"path": "media.0.name", "equals": "Fresh Focus"},
+                {"path": "project.timeline.tracks.1.clips.0.beats.count", "gte": 20}]},
+    // Similar (track)
+    {"click": "id:asset.tile.lib.freepd.fresh-focus.similar"},
+    {"expect": [{"path": "ui.assets.nav.audio", "equals": "similar"}, {"path": "ui.assets.similar.seed", "equals": "freepd.fresh-focus"},
+                {"path": "ui.assets.similar.results.count", "gte": 10}, {"path": "ui.assets.count.audio", "gte": 10}]},
+    {"snapshot": "library-similar", "element": "id:panel.assets"},
+    // Similar (selected clip's audio)
+    {"select": ["clip:1/0"]},
+    {"click": "id:audio.similar.clip"},
+    {"waitFor": {"path": "ui.assets.similar.computing", "equals": false, "timeout": 30}},
+    {"expect": [{"path": "ui.assets.similar.kind", "equals": "music"}, {"path": "ui.assets.similar.results.count", "gte": 10},
+                {"path": "ui.assets.similar.title", "equals": "Fresh Focus"}]},
+    {"click": "id:audio.similar.close"},
+    {"expect": {"path": "ui.assets.similar.seed", "equals": ""}},
+    // a sound effect from the library
+    {"click": "id:asset.nav.sfx.cat.transition"},
+    {"expect": {"path": "ui.assets.count.audio", "gte": 10}},
+    {"click": "id:asset.tile.lib.sfx.transition.swish-1.add"},
+    {"waitFor": {"path": "media.count", "equals": 2, "timeout": 20}},
+    {"snapshot": "library-sfx", "element": "id:panel.assets"}
+  ]
+}

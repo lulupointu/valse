@@ -1,0 +1,13 @@
+// MUS: Settings ▸ About lists the bundled music / SFX library (CC0 entry + every item with author, license, source).
+{
+  "project": "home",
+  "steps": [
+    {"click": "id:home.top.settings"},
+    {"click": "id:settings.tab.about"},
+    {"expect": {"path": "ui.anchors", "contains": "about.content.toggle"}},
+    {"click": "id:about.license.content"},
+    {"click": "id:about.content.toggle"},
+    {"expect": {"path": "ui.anchors", "contains": "about.content.list"}},
+    {"snapshot": "about-content", "element": "id:settings"}
+  ]
+}

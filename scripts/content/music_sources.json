@@ -1,0 +1,1296 @@
+{
+ "version": 1,
+ "license": "CC0-1.0",
+ "items": [
+  {
+   "id": "freepd.fresh-focus",
+   "title": "Fresh Focus",
+   "artist": "Kevin MacLeod",
+   "category": "vlog",
+   "mood": "happy",
+   "tags": [
+    "bright",
+    "airy",
+    "light",
+    "modern",
+    "background"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Fresh%20Focus.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Fresh%20Focus.mp3",
+   "sha256": "87d70572729712abfb6d444b7de4cc7b0104eafca1f0fcfec1798fd824325c3c",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.natural-vibes",
+   "title": "Natural Vibes",
+   "artist": "Kevin MacLeod",
+   "category": "vlog",
+   "mood": "chill",
+   "tags": [
+    "neutral",
+    "nice",
+    "light",
+    "background",
+    "daily"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Natural%20Vibes.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Natural%20Vibes.mp3",
+   "sha256": "12ac1554aa7d48a40a4c906ca1b89e81138093556f8c0f457f53040479226ad8",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.city-sunshine",
+   "title": "City Sunshine",
+   "artist": "Kevin MacLeod",
+   "category": "vlog",
+   "mood": "happy",
+   "tags": [
+    "city",
+    "bass",
+    "funky",
+    "modern",
+    "travel"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/City%20Sunshine.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/City%20Sunshine.mp3",
+   "sha256": "e05c1bd683174cff77d492b7ac77262ff4617f99f69d82564b66831cf48352d6",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.trip-up-north",
+   "title": "Trip Up North",
+   "artist": "Bryan Teoh",
+   "category": "vlog",
+   "mood": "inspiring",
+   "tags": [
+    "guitar",
+    "road",
+    "trip",
+    "travel",
+    "groove"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Trip%20Up%20North.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Trip%20Up%20North.mp3",
+   "sha256": "63236bb0ea47287aca97c98aeeeb8a0364fc83d341a50f375831a5fe31be89b1",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.wisdom-in-the-sun",
+   "title": "Wisdom in the Sun",
+   "artist": "Kevin MacLeod",
+   "category": "vlog",
+   "mood": "chill",
+   "tags": [
+    "guitar",
+    "bells",
+    "relaxed",
+    "serene",
+    "summer"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Wisdom%20in%20the%20Sun.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Wisdom%20in%20the%20Sun.mp3",
+   "sha256": "07ac4ab1f6d54893615d48aeee8bb3f2e5c1f2d16c6385973c97b28ef83c7ee0",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.sweet-sun",
+   "title": "Sweet Sun",
+   "artist": "Loyalty Freak Music",
+   "category": "vlog",
+   "mood": "happy",
+   "tags": [
+    "sun",
+    "positive",
+    "sweet",
+    "summer"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/POSITIVE_ATTITUDE_/Loyalty_Freak_Music_-_POSITIVE_ATTITUDE__-_04_Sweet_Sun/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_POSITIVE_ATTITUDE__-_04_Sweet_Sun/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Loyalty_Freak_Music/POSITIVE_ATTITUDE_/Loyalty_Freak_Music_-_04_-_Sweet_Sun.mp3",
+   "album": "POSITIVE ATTITUDE !",
+   "sha256": "0e78c97159d005e5727fb8c406c1613047f17bfe74450d37e941dafbfe0975fa",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.funshine",
+   "title": "Funshine",
+   "artist": "Kevin MacLeod",
+   "category": "upbeat",
+   "mood": "happy",
+   "tags": [
+    "ukulele",
+    "moog",
+    "fun",
+    "sunny"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Funshine.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Funshine.mp3",
+   "sha256": "b98b226927367a977377fe4f75d1cf59e4366ca2f444c2c7d23d13e7f506f532",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.energizing",
+   "title": "Energizing",
+   "artist": "Kevin MacLeod",
+   "category": "upbeat",
+   "mood": "energetic",
+   "tags": [
+    "morning",
+    "energy",
+    "positive",
+    "workout"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Energizing.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Energizing.mp3",
+   "sha256": "6b6f002c9721debbdb4a870fd7a084ec920761a064ca0333ad603e6348a538a4",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.gotta-keep-on-movin",
+   "title": "Gotta Keep On Movin",
+   "artist": "Bryan Teoh",
+   "category": "upbeat",
+   "mood": "energetic",
+   "tags": [
+    "disco",
+    "dance",
+    "club",
+    "quirky"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Gotta%20Keep%20On%20Movin.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Gotta%20Keep%20On%20Movin.mp3",
+   "sha256": "0844e8cb7f10adcff4258eca87dd1aa7a1069617ff8397f0b3980a9d40e71e25",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.adding-the-sun",
+   "title": "Adding the Sun",
+   "artist": "Kevin MacLeod",
+   "category": "upbeat",
+   "mood": "inspiring",
+   "tags": [
+    "uplifting",
+    "energizing",
+    "bright"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Adding%20the%20Sun.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Adding%20the%20Sun.mp3",
+   "sha256": "00180cd2ffd21eb397449e9a96081502f16e4e7c82cc9a98570e6ea7256594ed",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.roller-fever",
+   "title": "Roller Fever",
+   "artist": "Loyalty Freak Music",
+   "category": "upbeat",
+   "mood": "energetic",
+   "tags": [
+    "disco",
+    "roller",
+    "dance",
+    "retro"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/ROLLER_DISCO_DANCE_DANCE/Loyalty_Freak_Music_-_ROLLER_DISCO_DANCE_DANCE_-_01_Roller_Fever/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_ROLLER_DISCO_DANCE_DANCE_-_01_Roller_Fever/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Loyalty_Freak_Music/ROLLER_DISCO_DANCE_DANCE/Loyalty_Freak_Music_-_01_-_Roller_Fever.mp3",
+   "album": "ROLLER DISCO DANCE DANCE",
+   "sha256": "fa9986971c76189754b6592b83424b453dcb581fb1394f935f678eb4dba3d98f",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.yippee",
+   "title": "Yippee !",
+   "artist": "Loyalty Freak Music",
+   "category": "upbeat",
+   "mood": "happy",
+   "tags": [
+    "joy",
+    "celebration",
+    "positive"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/POSITIVE_ATTITUDE_/Loyalty_Freak_Music_-_POSITIVE_ATTITUDE__-_08_Yippee_/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_POSITIVE_ATTITUDE__-_08_Yippee_/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Loyalty_Freak_Music/POSITIVE_ATTITUDE_/Loyalty_Freak_Music_-_08_-_Yippee_.mp3",
+   "album": "POSITIVE ATTITUDE !",
+   "sha256": "6e227853ce8ef7094aa3847f62e8c032794ff45a46d5e3d510d69eccc8b6d564",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.soundtrack-from-the-starcourt-mall",
+   "title": "Soundtrack From the Starcourt Mall",
+   "artist": "Bryan Teoh",
+   "category": "chill",
+   "mood": "dreamy",
+   "tags": [
+    "retro",
+    "synth",
+    "80s",
+    "retrofuturistic"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Soundtrack%20From%20the%20Starcourt%20Mall.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Soundtrack%20From%20the%20Starcourt%20Mall.mp3",
+   "sha256": "9199da36aefbe7974a75ad22084768ec77c1a98e14ac14ce36f193ece668b867",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.infinite-peace",
+   "title": "Infinite Peace",
+   "artist": "Kevin MacLeod",
+   "category": "chill",
+   "mood": "chill",
+   "tags": [
+    "marimba",
+    "peaceful",
+    "exotic",
+    "calm"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Infinite%20Peace.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Infinite%20Peace.mp3",
+   "sha256": "542c11bcc82828c3e494b40b07319ed75be457f66f2673dcba4e3643979b1f9f",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.pond",
+   "title": "Pond",
+   "artist": "Rafael Krux",
+   "category": "chill",
+   "mood": "dreamy",
+   "tags": [
+    "gentle",
+    "soft",
+    "flowing",
+    "water"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/romantic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Pond.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Pond.mp3",
+   "sha256": "68bf0d67ca7c3304bfecad346547dda5a5d95c7d2f5631d6e4e8bd3d3b87fb8c",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.tokyo-sunset",
+   "title": "Tokyo Sunset",
+   "artist": "HoliznaCC0",
+   "category": "lofi",
+   "mood": "chill",
+   "tags": [
+    "lofi",
+    "peaceful",
+    "soft",
+    "sunset"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/tokyo-sunset-lofi-peaceful-soft/",
+   "licenseCheck": "https://freemusicarchive.org/track/tokyo-sunset-lofi-peaceful-soft/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/Xnd9Hr5AVzB68IlWcImKtXPlwCePD2G2m8ZFSVj4.mp3",
+   "album": "Public Domain Lofi",
+   "sha256": "83b9208ab781af9b2da86e6885c4ec0fc1270457848609a1f96267539518fb9b",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.bubbles",
+   "title": "Bubbles",
+   "artist": "HoliznaCC0",
+   "category": "lofi",
+   "mood": "happy",
+   "tags": [
+    "lofi",
+    "bright",
+    "relaxed"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/bubbles-lofi-bright-relaxed/",
+   "licenseCheck": "https://freemusicarchive.org/track/bubbles-lofi-bright-relaxed/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/zh5usndkyEfVvKOz8dvsrCd1Ga0jfz4xIcLUendD.mp3",
+   "album": "Public Domain Lofi",
+   "sha256": "73efb557d8cfcca0f5cf3b435d3a0157bf9a702115b55266b8a2529f3997b542",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.doodles",
+   "title": "Doodles",
+   "artist": "HoliznaCC0",
+   "category": "lofi",
+   "mood": "happy",
+   "tags": [
+    "lofi",
+    "happy",
+    "study"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/doodles-lofi-happy-mp3/",
+   "licenseCheck": "https://freemusicarchive.org/track/doodles-lofi-happy-mp3/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/rQGj86J7JXRwu3BRKtB6GIfnwCwI5slkTwfTWqvI.mp3",
+   "album": "Public Domain Lofi",
+   "sha256": "84db72387b14fa51294ba76a0bb3f72f39172527e5eb7964da8567596561ae72",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.calm-currents",
+   "title": "Calm Currents",
+   "artist": "HoliznaCC0",
+   "category": "lofi",
+   "mood": "chill",
+   "tags": [
+    "lofi",
+    "relax",
+    "calm"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/calm-currents-lofi-relax-calm/",
+   "licenseCheck": "https://freemusicarchive.org/track/calm-currents-lofi-relax-calm/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/4rKapZUMNnNSPAOvpjlfSH6B5Ib8rgEWdvjnM7C6.mp3",
+   "album": "Public Domain Lofi",
+   "sha256": "2dcb297376cfe0cb8a547ce74e4d10f406649e007ff01d6e2edb573996d23dc4",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.projector-screen",
+   "title": "Projector Screen",
+   "artist": "HoliznaCC0",
+   "category": "lofi",
+   "mood": "happy",
+   "tags": [
+    "lofi",
+    "happy",
+    "nostalgic"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/projector-screen-lofi-happy-mp3/",
+   "licenseCheck": "https://freemusicarchive.org/track/projector-screen-lofi-happy-mp3/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/SrYI6LJrSooBuV1Vz7XocwyKdkoXRFyNpgzn0lI4.mp3",
+   "album": "Public Domain Lofi",
+   "sha256": "b757435f375fc9290483e6ffabf763598664b1bb37fcd4644712529ba3dd5e04",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.ocean-memory",
+   "title": "Ocean Memory",
+   "artist": "HoliznaCC0",
+   "category": "lofi",
+   "mood": "sad",
+   "tags": [
+    "lofi",
+    "ocean",
+    "chill",
+    "melancholy"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/ocean-memory-lo-fi-chill/ocean-memory/",
+   "licenseCheck": "https://freemusicarchive.org/track/ocean-memory/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/jkiKJYaKX3gCpdz1GF8UuNr17z0h0WAf8bIFY409.mp3",
+   "album": "OCEAN MEMORY ( Lo-fi Chill )",
+   "sha256": "6121e8621b6d7894ba413b502092e7a57c74772021a5220f1dee354d7d496276",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.warm-fuzz",
+   "title": "Warm Fuzz",
+   "artist": "HoliznaCC0",
+   "category": "lofi",
+   "mood": "chill",
+   "tags": [
+    "lofi",
+    "retro",
+    "warm",
+    "tape"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/warm-fuzz-lofi-retro/",
+   "licenseCheck": "https://freemusicarchive.org/track/warm-fuzz-lofi-retro/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/Qrd0JkjTC7XXJwtS6LvCHIJ9K1FLXewdrYOQHhc5.mp3",
+   "album": "Public Domain Lofi",
+   "sha256": "974ffd083b09aecbe60412f3376db07fb241adbbb0abf89698a22229a2de02c6",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.heroic-adventure",
+   "title": "Heroic Adventure",
+   "artist": "Rafael Krux",
+   "category": "cinematic",
+   "mood": "epic",
+   "tags": [
+    "orchestra",
+    "trailer",
+    "heroic",
+    "triumph"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Heroic%20Adventure.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Heroic%20Adventure.mp3",
+   "sha256": "41355a9625e8ee15d678c1c8c512636b6610a750f61b79820b53286a0dc3836a",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.kings-trailer",
+   "title": "Kings Trailer",
+   "artist": "Rafael Krux",
+   "category": "cinematic",
+   "mood": "epic",
+   "tags": [
+    "orchestra",
+    "trailer",
+    "uplifting",
+    "drums"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Kings%20Trailer.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Kings%20Trailer.mp3",
+   "sha256": "872747c75bd9dcb12134e7d6b4870238eb72c5557753a77232ee22fa1d2fd21a",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.epic-boss-battle",
+   "title": "Epic Boss Battle",
+   "artist": "Rafael Krux",
+   "category": "cinematic",
+   "mood": "tense",
+   "tags": [
+    "battle",
+    "orchestra",
+    "drums",
+    "dramatic"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Epic%20Boss%20Battle.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Epic%20Boss%20Battle.mp3",
+   "sha256": "9ea1753ae8bdf665e2b7011c9dd115bf764146d75004301a08a5efc7e6d7eaa7",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.go-on-without-me",
+   "title": "Go On Without Me",
+   "artist": "Bryan Teoh",
+   "category": "cinematic",
+   "mood": "epic",
+   "tags": [
+    "mysterious",
+    "powerful",
+    "rising"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Go%20On%20Without%20Me.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Go%20On%20Without%20Me.mp3",
+   "sha256": "5101fa0a410cff668fc036f021b12c2175f3bc695c61dd04088a340b9f62373f",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.strength-of-the-titans",
+   "title": "Strength of the Titans",
+   "artist": "Kevin MacLeod",
+   "category": "cinematic",
+   "mood": "epic",
+   "tags": [
+    "big",
+    "short",
+    "trailer"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Strength%20of%20the%20Titans.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Strength%20of%20the%20Titans.mp3",
+   "sha256": "7b97a9253a244cb1d279c3294269bde3cc4e5971d389df0af0ec969b03fbd52c",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.new-hero-in-town",
+   "title": "New Hero in Town",
+   "artist": "Kevin MacLeod",
+   "category": "cinematic",
+   "mood": "epic",
+   "tags": [
+    "hero",
+    "intro",
+    "short"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/New%20Hero%20in%20Town.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/New%20Hero%20in%20Town.mp3",
+   "sha256": "a9741a04989484ce01c0614dda5215dfd572540eca0089d00e4b2002dba8fb52",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.video-game-blockbuster",
+   "title": "Video Game Blockbuster",
+   "artist": "Rafael Krux",
+   "category": "cinematic",
+   "mood": "epic",
+   "tags": [
+    "choir",
+    "orchestra",
+    "game"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Video%20Game%20Blockbuster.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Video%20Game%20Blockbuster.mp3",
+   "sha256": "c2f2e5010c6b62547c3b7eb9de14b58cb68b40fe036b8e6712a45a6a574c7262",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.inspiration",
+   "title": "Inspiration",
+   "artist": "Rafael Krux",
+   "category": "corporate",
+   "mood": "inspiring",
+   "tags": [
+    "commercial",
+    "advertising",
+    "positive"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Inspiration.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Inspiration.mp3",
+   "sha256": "a254227da398809c79a0c753073a3a92c7341672abc92bb0166b6326e126f0b4",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.advertime",
+   "title": "Advertime",
+   "artist": "Rafael Krux",
+   "category": "corporate",
+   "mood": "happy",
+   "tags": [
+    "acoustic",
+    "guitar",
+    "piano",
+    "advertising"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Advertime.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Advertime.mp3",
+   "sha256": "6f0d4433cf788304d60add551cc460dd877865e6d84a2ab3fa7d15ba3f55d6ce",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.arpent",
+   "title": "Arpent",
+   "artist": "Kevin MacLeod",
+   "category": "corporate",
+   "mood": "inspiring",
+   "tags": [
+    "technology",
+    "innovation",
+    "uplifting"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/electronic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Arpent.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Arpent.mp3",
+   "sha256": "ef06d8b524c196a31954dfb1f3261e7d37459e43f4afd9df31ee2965c6094a56",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.meditating-beat",
+   "title": "Meditating Beat",
+   "artist": "Kevin MacLeod",
+   "category": "corporate",
+   "mood": "chill",
+   "tags": [
+    "casual",
+    "corporate",
+    "beat"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/electronic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Meditating%20Beat.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Meditating%20Beat.mp3",
+   "sha256": "e498c2015a413e6cba5ab8dbef2a60cdebf7c4d4a97f9edd84851752ff49d3b6",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.motions",
+   "title": "Motions",
+   "artist": "Rafael Krux",
+   "category": "emotional",
+   "mood": "inspiring",
+   "tags": [
+    "piano",
+    "orchestra",
+    "uplifting",
+    "emotional"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Motions.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Motions.mp3",
+   "sha256": "af6380fde14f41dc4762a0a69c558bfd03a8a88c10cb5c8f578a6d0bcb4750be",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.shining-stars",
+   "title": "Shining Stars",
+   "artist": "Rafael Krux",
+   "category": "emotional",
+   "mood": "dreamy",
+   "tags": [
+    "voices",
+    "piano",
+    "orchestra",
+    "soft"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/romantic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Shining%20Stars.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Shining%20Stars.mp3",
+   "sha256": "751697ea7b30ae698b9dfcf2540d777e2acd01cf4480a98fa3366f246da24d38",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.romantic-inspiration",
+   "title": "Romantic Inspiration",
+   "artist": "Rafael Krux",
+   "category": "emotional",
+   "mood": "romantic",
+   "tags": [
+    "love",
+    "orchestra",
+    "wedding"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/romantic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Romantic%20Inspiration.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Romantic%20Inspiration.mp3",
+   "sha256": "5d96bd468d1edde0370c2a1d18e9fc5f6b8f208668a772537b7f145ddff8c445",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.lovely-piano-song",
+   "title": "Lovely Piano Song",
+   "artist": "Rafael Krux",
+   "category": "emotional",
+   "mood": "romantic",
+   "tags": [
+    "piano",
+    "love",
+    "couple"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/romantic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Lovely%20Piano%20Song.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Lovely%20Piano%20Song.mp3",
+   "sha256": "4c8e8fbda8f2e6cbfa22db6689faa4eb0fd1bb7f3163ade72aff37fdd0fb9388",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.a-waltz-for-naseem",
+   "title": "A Waltz For Naseem",
+   "artist": "dogsounds",
+   "category": "emotional",
+   "mood": "inspiring",
+   "tags": [
+    "orchestra",
+    "waltz",
+    "beautiful"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/A%20Waltz%20For%20Naseem.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/A%20Waltz%20For%20Naseem.mp3",
+   "sha256": "989363a9d03c6ac5a511cb6c5df6e64ae12e20c8917c6a4d2c02c74b93de23f2",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.think-about-it",
+   "title": "Think About It",
+   "artist": "Bryan Teoh",
+   "category": "emotional",
+   "mood": "sad",
+   "tags": [
+    "slow",
+    "intense",
+    "pensive"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/epic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Think%20About%20It.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Think%20About%20It.mp3",
+   "sha256": "aa39a8b1e51221155332f42a5a915fde237a72fc10229e8aafda64df1855604f",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.sunglasses",
+   "title": "Sunglasses",
+   "artist": "Loyalty Freak Music",
+   "category": "hiphop",
+   "mood": "chill",
+   "tags": [
+    "rnb",
+    "beat",
+    "instrumental",
+    "rap"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_01_Sunglasses/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_01_Sunglasses/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_01_-_Sunglasses.mp3",
+   "album": "INSTRUMENTAL R&B BEATS TO SING OR RAP ON",
+   "sha256": "c31c4c0888b8aba0cb5d4e4b521eeeb85ccb62e7fa7c496b1879d69a9211545c",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.friend-to-friend",
+   "title": "Friend to friend",
+   "artist": "Loyalty Freak Music",
+   "category": "hiphop",
+   "mood": "chill",
+   "tags": [
+    "rnb",
+    "beat",
+    "smooth"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_02_Friend_to_friend/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_02_Friend_to_friend/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_02_-_Friend_to_friend.mp3",
+   "album": "INSTRUMENTAL R&B BEATS TO SING OR RAP ON",
+   "sha256": "61f7d10b12f8c8688eab3bcd8b826e0d4155df4303195183b62c9c741cfc231b",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.dirty-shoes-blues",
+   "title": "Dirty shoes blues",
+   "artist": "Loyalty Freak Music",
+   "category": "hiphop",
+   "mood": "groovy",
+   "tags": [
+    "blues",
+    "beat",
+    "rap"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_04_Dirty_shoes_blues/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_04_Dirty_shoes_blues/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_04_-_Dirty_shoes_blues.mp3",
+   "album": "INSTRUMENTAL R&B BEATS TO SING OR RAP ON",
+   "sha256": "fd3238081ceb5bdf194b03a4db2450ca62d2b83008190b7411c57f21d519ce41",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.walking-shoes",
+   "title": "Walking Shoes",
+   "artist": "Loyalty Freak Music",
+   "category": "hiphop",
+   "mood": "groovy",
+   "tags": [
+    "rnb",
+    "beat",
+    "walk"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_15_Walking_Shoes/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON_-_15_Walking_Shoes/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Loyalty_Freak_Music/INSTRUMENTAL_RB_BEATS_TO_SING_OR_RAP_ON/Loyalty_Freak_Music_-_15_-_Walking_Shoes.mp3",
+   "album": "INSTRUMENTAL R&B BEATS TO SING OR RAP ON",
+   "sha256": "e365e7403c7053214683eb562521022651e3aa8b4e9bff9dc221572d16f71a85",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "holizna.phonk-ish",
+   "title": "Phonk ish",
+   "artist": "HoliznaCC0",
+   "category": "hiphop",
+   "mood": "energetic",
+   "tags": [
+    "phonk",
+    "drift",
+    "808",
+    "cowbell"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/holiznacc0/phonk-aura-farming/phonk-ish/",
+   "licenseCheck": "https://freemusicarchive.org/track/phonk-ish/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/RLX0u2cmWIjC0KerQHMzbWSILeGhWLIkxWorpbeQ.mp3",
+   "album": "PHONK - AURA FARMING",
+   "sha256": "1b9f5f16caf1e3db60a731eb78bc854b049bce5fc89093ee202da6da15966817",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.beat-one",
+   "title": "Beat One",
+   "artist": "Kevin MacLeod",
+   "category": "hiphop",
+   "mood": "tense",
+   "tags": [
+    "drum",
+    "and",
+    "bass",
+    "minimal",
+    "dark"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/electronic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Beat%20One.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Beat%20One.mp3",
+   "sha256": "930dd4c6c88a2abb153f52e56a7c74bd041008f5afa4835602469dba3676aed8",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.backbeat",
+   "title": "Backbeat",
+   "artist": "Kevin MacLeod",
+   "category": "hiphop",
+   "mood": "energetic",
+   "tags": [
+    "beat",
+    "bass",
+    "heavy",
+    "short"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/electronic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Backbeat.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Backbeat.mp3",
+   "sha256": "576aa0268ab27ce486f9238df3845ce104c3e05bad015ea08048ba79e88ac79a",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.ukulele-song",
+   "title": "Ukulele Song",
+   "artist": "Rafael Krux",
+   "category": "acoustic",
+   "mood": "happy",
+   "tags": [
+    "ukulele",
+    "cheerful",
+    "light",
+    "percussion"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Ukulele%20Song.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Ukulele%20Song.mp3",
+   "sha256": "ad54684b7dffd48dcc09c12a0093d375ea1edcaa418bad714d4f54b16a95c81d",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.happy-whistling-ukulele",
+   "title": "Happy Whistling Ukulele",
+   "artist": "Rafael Krux",
+   "category": "acoustic",
+   "mood": "happy",
+   "tags": [
+    "ukulele",
+    "whistling",
+    "cheerful"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Happy%20Whistling%20Ukulele.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Happy%20Whistling%20Ukulele.mp3",
+   "sha256": "ed4059c8fba8673d657e85175ff54eaa32cef9e43f688f164bef585e6e65cf15",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.pickled-pink",
+   "title": "Pickled Pink",
+   "artist": "Kevin MacLeod",
+   "category": "acoustic",
+   "mood": "happy",
+   "tags": [
+    "ukulele",
+    "lovely"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Pickled%20Pink.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Pickled%20Pink.mp3",
+   "sha256": "3eacbde6e5322792cec71bc4942c4f7bff86f6b33e1836a1520db198c475b904",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.connecting-rainbows",
+   "title": "Connecting Rainbows",
+   "artist": "Kevin MacLeod",
+   "category": "acoustic",
+   "mood": "dreamy",
+   "tags": [
+    "celtic",
+    "harp",
+    "relaxing"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/world.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Connecting%20Rainbows.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Connecting%20Rainbows.mp3",
+   "sha256": "85f77462ba2ff846ed5bfa911a267f8a8ea0b2c579b58278a2bcef1e26efb81a",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.painting-room",
+   "title": "Painting Room",
+   "artist": "Kevin MacLeod",
+   "category": "acoustic",
+   "mood": "chill",
+   "tags": [
+    "celtic",
+    "harp",
+    "gentle"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Painting%20Room.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Painting%20Room.mp3",
+   "sha256": "ddfb9a5aa5420f1894902b290b7afc421ae644f6b5f4d4d9e24e5d464d95b1d1",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.i-guess-what-i-m-trying-to-say",
+   "title": "I Guess What I'm Trying to Say",
+   "artist": "Bryan Teoh",
+   "category": "acoustic",
+   "mood": "chill",
+   "tags": [
+    "guitar",
+    "bluesy",
+    "road",
+    "70s"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/I%20Guess%20What%20I%27m%20Trying%20to%20Say.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/I%20Guess%20What%20I%27m%20Trying%20to%20Say.mp3",
+   "sha256": "f836a65f9d0c4a207faf9fb936e1fe5b85b2e58eecb9f55544bcdb473e7efec1",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.screen-saver",
+   "title": "Screen Saver",
+   "artist": "Kevin MacLeod",
+   "category": "electronic",
+   "mood": "happy",
+   "tags": [
+    "blip",
+    "synth",
+    "playful"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/upbeat.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Screen%20Saver.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Screen%20Saver.mp3",
+   "sha256": "b37bded5c858af6220ed513fdd0d6bba476d71c3a2aacc9746433f51354d33f7",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.blippy-trance",
+   "title": "Blippy Trance",
+   "artist": "Kevin MacLeod",
+   "category": "electronic",
+   "mood": "dreamy",
+   "tags": [
+    "trance",
+    "synth"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Blippy%20Trance.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Blippy%20Trance.mp3",
+   "sha256": "68ab5625f1b723d7fcfeaa47b44379fddc7bb5ffcc9d71017fabd07b5c2ca93a",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.hear-what-they-say",
+   "title": "Hear What They Say",
+   "artist": "Kevin MacLeod",
+   "category": "electronic",
+   "mood": "epic",
+   "tags": [
+    "8bit",
+    "triumph",
+    "chiptune"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/electronic.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Hear%20What%20They%20Say.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Hear%20What%20They%20Say.mp3",
+   "sha256": "e950afff85274572226e6a9f8b4a4bf260f9df2ad6509435cacee8afa5f8bb59",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.swing-maching",
+   "title": "Swing Maching",
+   "artist": "Kevin MacLeod",
+   "category": "electronic",
+   "mood": "groovy",
+   "tags": [
+    "electroswing",
+    "swing",
+    "dance"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Swing%20Maching.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Swing%20Maching.mp3",
+   "sha256": "13041167b617856fda12322847df16e49d6d8da92b27775140880903337f65a8",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "loyalty-freak-music.dance-robot-activate",
+   "title": "Dance Robot ACTIVATE",
+   "artist": "Loyalty Freak Music",
+   "category": "electronic",
+   "mood": "energetic",
+   "tags": [
+    "robot",
+    "dance",
+    "disco"
+   ],
+   "source": "fma",
+   "page": "https://freemusicarchive.org/music/Loyalty_Freak_Music/ROLLER_DISCO_DANCE_DANCE/Loyalty_Freak_Music_-_ROLLER_DISCO_DANCE_DANCE_-_02_Dance_Robot_ACTIVATE/",
+   "licenseCheck": "https://freemusicarchive.org/track/Loyalty_Freak_Music_-_ROLLER_DISCO_DANCE_DANCE_-_02_Dance_Robot_ACTIVATE/downloadOverlay/",
+   "url": "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Music_for_Video/Loyalty_Freak_Music/ROLLER_DISCO_DANCE_DANCE/Loyalty_Freak_Music_-_02_-_Dance_Robot_ACTIVATE.mp3",
+   "album": "ROLLER DISCO DANCE DANCE",
+   "sha256": "aed975d670e6af4a1d4687a384c3d2cb101476e3e25f3c3101a30a16fff935f0",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.wakka-wakka",
+   "title": "Wakka Wakka",
+   "artist": "Bryan Teoh",
+   "category": "funny",
+   "mood": "playful",
+   "tags": [
+    "sax",
+    "chase",
+    "comedy"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/comedy.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Wakka%20Wakka.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Wakka%20Wakka.mp3",
+   "sha256": "de261ef809e92732806ebd51534da59b1dda8aee9c9f8bd062c4234aa30eb10c",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.llama-in-pajama",
+   "title": "Llama in Pajama",
+   "artist": "Rafael Krux",
+   "category": "funny",
+   "mood": "playful",
+   "tags": [
+    "bari",
+    "sax",
+    "comedy"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/comedy.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Llama%20in%20Pajama.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Llama%20in%20Pajama.mp3",
+   "sha256": "3016ae15b98ea952cd0ccc1bd42c9596d4e78968fed8dc96c6ee6d375c1ed988",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.spring-chicken",
+   "title": "Spring Chicken",
+   "artist": "Bryan Teoh",
+   "category": "funny",
+   "mood": "happy",
+   "tags": [
+    "sunny",
+    "1950s",
+    "comedy"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/comedy.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Spring%20Chicken.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Spring%20Chicken.mp3",
+   "sha256": "cb6e536674d7cade8631977cd7edc3c56940e3646f542502d3648756b65340e9",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.monsters-in-hotel",
+   "title": "Monsters in Hotel",
+   "artist": "Rafael Krux",
+   "category": "funny",
+   "mood": "playful",
+   "tags": [
+    "spooky",
+    "halloween",
+    "goofy"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/comedy.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Monsters%20in%20Hotel.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Monsters%20in%20Hotel.mp3",
+   "sha256": "c9fdb877d6d3b89dbdf89dbfd9f946690b1991b76204058827ad934ca5c2a21a",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.fenster-s-explanation",
+   "title": "Fenster's Explanation",
+   "artist": "Kevin MacLeod",
+   "category": "funny",
+   "mood": "playful",
+   "tags": [
+    "funky",
+    "brass",
+    "comedy"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/comedy.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Fenster%27s%20Explanation.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Fenster%27s%20Explanation.mp3",
+   "sha256": "c9f773e0a153f63764eac84fb3e3fcff6b67abb494b89925c025abfe5a735edd",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.hopeful",
+   "title": "Hopeful",
+   "artist": "Rafael Krux",
+   "category": "funny",
+   "mood": "happy",
+   "tags": [
+    "casual",
+    "game",
+    "simple",
+    "fun"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/comedy.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Hopeful.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Hopeful.mp3",
+   "sha256": "cbd585a3c26795a994495864d0e297222f9c679457a3baea7d322017973d99d9",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.funkeriffic",
+   "title": "Funkeriffic",
+   "artist": "Kevin MacLeod",
+   "category": "jazz",
+   "mood": "groovy",
+   "tags": [
+    "funk",
+    "groove",
+    "crime"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Funkeriffic.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Funkeriffic.mp3",
+   "sha256": "e30cdab0e7e3c0d9fd7169f51c187356bed5d48b69ddd68a0ce5847e3929b235",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.fake-it-til-you-fake-it",
+   "title": "Fake It Til You Fake It",
+   "artist": "Kevin MacLeod",
+   "category": "jazz",
+   "mood": "chill",
+   "tags": [
+    "jazz",
+    "piano",
+    "drums",
+    "bass",
+    "solo"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Fake%20It%20Til%20You%20Fake%20It.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Fake%20It%20Til%20You%20Fake%20It.mp3",
+   "sha256": "12f4697e38c7fd9ec2f1f3f672eca4d23c5cea3f468caec3bdfbfa18d7f9439c",
+   "retrieved": "2026-10-18"
+  },
+  {
+   "id": "freepd.hold-on-a-sec",
+   "title": "Hold on a Sec",
+   "artist": "Bryan Teoh",
+   "category": "jazz",
+   "mood": "groovy",
+   "tags": [
+    "funk",
+    "old",
+    "school",
+    "clean"
+   ],
+   "source": "freepd",
+   "page": "https://web.archive.org/web/2024/https://freepd.com/misc.php",
+   "licenseCheck": "https://web.archive.org/web/2024id_/https://freepd.com/",
+   "originalUrl": "https://freepd.com/music/Hold%20on%20a%20Sec.mp3",
+   "url": "https://web.archive.org/web/2024id_/https://freepd.com/music/Hold%20on%20a%20Sec.mp3",
+   "sha256": "c87d50579aa12c8c2f44f0129bf8ec9cb4b5cc856a8afdf2620ef57bf96fc53c",
+   "retrieved": "2026-10-18"
+  }
+ ]
+}

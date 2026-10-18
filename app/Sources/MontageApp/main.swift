@@ -18,6 +18,7 @@ import MontageUI
 ///     --baselines <dir>       screenshot baselines (app/Tests/Baselines); --update-baselines rewrites them
 ///   --home-demo <n>           temporary library with n sample projects (settings isolated); --ui-state <spec> opens a dialog
 ///   --imgdiff <a.png> <b.png> [--threshold 16] [--tolerance 0.005] [--diff out.png]   compare two images, JSON result
+///   --analyze-content <manifest.json> <content-dir> <out.json>   analyse the music/SFX library (fetch_music_pack.sh)
 struct Options {
     var open: URL?
     var demo = false
@@ -233,6 +234,8 @@ final class ClosureTarget: NSObject {
 }
 
 if let i = CommandLine.arguments.firstIndex(of: "--imgdiff") { exit(ImageDiffCLI.run(Array(CommandLine.arguments[(i + 1)...]))) }
+// scripts/fetch_music_pack.sh: offline analysis of the content library (beats, key, peaks, similarity features)
+if let i = CommandLine.arguments.firstIndex(of: "--analyze-content") { exit(ContentAnalyzer.runCLI(Array(CommandLine.arguments[(i + 1)...]))) }
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

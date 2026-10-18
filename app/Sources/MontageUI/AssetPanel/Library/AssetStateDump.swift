@@ -1,5 +1,6 @@
 import Foundation
 import MontageCore
+import MontageEngine
 
 /// `ui.assets` in the UI-test state dump (docs/TESTING.md): `{tab, nav: {tab: entry}, query: {tab: q},
 /// count: {tab: n listed}, keyboardTab, cursor: {tab: id}, mediaSelection: [media ids], favorites: {ns: [ids]},
@@ -22,6 +23,10 @@ enum AssetStateDump {
             "recents": lib.recents,
             "rendering": Array(AudioLibraryRendering.shared.busy).sorted() + AssetRenderingRegistry.extraBusy(),
             "playing": LibraryAudioPreview.shared.playingID ?? NSNull(),
+            // bundled CC0 music/SFX library (MUS): similar-sounds panel, open license card
+            "similar": AudioSimilarState.shared.dump,
+            "licenseCard": LicenseCardState.shared.shownID ?? "",
+            "library": ["music": ContentLibrary.availableMusic.count, "sfx": ContentLibrary.availableSFX.count] as [String: Any],
             // library / source preview (W2 `PlayerPreview`): time is relative to the previewed item
             "preview": ["active": store.isPreviewing, "kind": store.playerUI.preview?.kind.rawValue ?? "",
                         "item": store.playerUI.preview?.itemID ?? "",

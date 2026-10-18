@@ -1,0 +1,19 @@
+// MUS: the bundled music library in French (categories, "Libre" badge, license card, Similaires) — screenshot baselines
+// for en (audio_library_en) and fr.
+{
+  "project": "empty",
+  "lang": "fr",
+  "requires": {"content": true},
+  "steps": [
+    {"click": "id:asset.tab.audio"},
+    {"click": "id:asset.nav.music.cat.cinematic"},
+    {"click": "id:asset.tile.lib.freepd.heroic-adventure.license"},
+    {"expect": {"path": "ui.assets.licenseCard", "equals": "lib.freepd.heroic-adventure"}},
+    {"snapshot": "audio_library_fr", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:asset.tile.lib.freepd.heroic-adventure.similar"},
+    {"expect": {"path": "ui.assets.similar.results.count", "gte": 10}},
+    {"snapshot": "audio_library_similar_fr", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:asset.nav.sfx.cat.crowd"},
+    {"snapshot": "audio_library_sfx_fr", "element": "id:panel.assets", "baseline": true}
+  ]
+}
