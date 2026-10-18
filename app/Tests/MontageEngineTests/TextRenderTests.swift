@@ -134,13 +134,13 @@ import MontageTestSupport
 
     @Test func richTextRunsStyleTheirRange() {
         var t = text("AAA BBB")
-        t.applyStyle(TextRunStyle(color: RGBA(1, 0, 0)), to: TextRange(4, 3))
+        t.applyStyle(TextRunStyle(color: RGBA(1, 0, 0)), to: TextSpan(4, 3))
         let img = render(t)
         let red = box(img, Self.isRed)!, all = box(img, Self.lit)!
         #expect(red.minX > all.midX && count(img, Self.isRed) > 300)
         // size override makes the range bigger
         var big = text("ab")
-        big.applyStyle(TextRunStyle(sizeScale: 2), to: TextRange(1, 1))
+        big.applyStyle(TextRunStyle(sizeScale: 2), to: TextSpan(1, 1))
         #expect(box(render(big), Self.lit)!.height > box(render(text("ab")), Self.lit)!.height * 1.4)
     }
 

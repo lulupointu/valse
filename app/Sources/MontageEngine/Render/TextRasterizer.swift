@@ -58,7 +58,7 @@ public final class TextRasterizer: @unchecked Sendable {
     private let statsLock = NSLock()
     private var _rasterizations = 0
 
-    public init() {}
+    public init() { _ = FontCatalog.ensureLoaded }  // registers imported fonts before anything renders
 
     /// Number of CPU rasterizations so far (tests: animated playback must not re-rasterize per frame).
     public var rasterizationCount: Int { statsLock.withLock { _rasterizations } }
@@ -113,7 +113,7 @@ public final class TextRasterizer: @unchecked Sendable {
     /// canvas selection box use. Cheap (layout only, cached).
     public func measure(_ t: TextContent, canvasSize: Size2) -> Size2 {
         let s = scene(t, fontPx: CGFloat(t.fontSize * canvasSize.height), canvasWidthPx: CGFloat(canvasSize.width), duration: 0)
-        let b = s.bounds.integral
+        let b = Self.padded(s.bounds)
         return Size2(Double(b.width), Double(b.height))
     }
 

@@ -77,7 +77,7 @@ nonisolated enum CanvasLayers {
             var size: Size2?
             var isText = false
             switch l.source {
-            case .text(let t): size = TextMetrics.size(of: t, canvasHeight: canvas.height); isText = true
+            case .text(let t): size = TextMetrics.size(of: t, canvasHeight: canvas.height, canvasWidth: canvas.width); isText = true
             case .sticker(let id): size = TextMetrics.stickerSize(id, side: l.sourceSize.height)
             default: break
             }

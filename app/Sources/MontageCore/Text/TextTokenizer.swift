@@ -5,23 +5,23 @@ import Foundation
 /// token per character.
 public enum TextTokenizer {
     /// UTF-16 ranges of the words of `s`.
-    public static func words(in s: String) -> [TextRange] {
-        var out: [TextRange] = []
+    public static func words(in s: String) -> [TextSpan] {
+        var out: [TextSpan] = []
         var offset = 0
         var start: Int?
         for ch in s {
             let len = ch.utf16.count
             if ch.isWhitespace {
-                if let st = start { out.append(TextRange(st, offset - st)); start = nil }
+                if let st = start { out.append(TextSpan(st, offset - st)); start = nil }
             } else if isUnspacedScript(ch) {
-                if let st = start { out.append(TextRange(st, offset - st)); start = nil }
-                out.append(TextRange(offset, len))
+                if let st = start { out.append(TextSpan(st, offset - st)); start = nil }
+                out.append(TextSpan(offset, len))
             } else if start == nil {
                 start = offset
             }
             offset += len
         }
-        if let st = start { out.append(TextRange(st, offset - st)) }
+        if let st = start { out.append(TextSpan(st, offset - st)) }
         return out
     }
 

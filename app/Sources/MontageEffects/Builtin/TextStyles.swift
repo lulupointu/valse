@@ -38,7 +38,7 @@ public enum BuiltinTextStyles {
         D(id: "montage.text.\(name)", nameKey: "textStyle.\(name)", groupKey: "textStyle.group.basic", kind: .preset, apply: body)
     }
 
-    static let basics: [D] = [
+    public static let basics: [D] = [
         preset("default") { _ in },
         preset("outline") { t in t.color = .white; t.strokeColor = .black; t.strokeWidth = 0.12; t.bold = true },
         preset("thickOutline") { t in t.color = .white; t.strokeColor = .black; t.strokeWidth = 0.2; t.bold = true },
@@ -77,7 +77,7 @@ public enum BuiltinTextStyles {
         return fx("outline", i + 1) { t in
             t.color = fill
             switch variant {
-            case 0: t.strokeColor = fill == white ? black : black; t.strokeWidth = 0.08
+            case 0: t.strokeColor = fill == black ? .white : black; t.strokeWidth = 0.08
             case 1: t.strokeColor = fill == white ? black : .white; t.strokeWidth = 0.16
             default: t.strokeColor = fill.mix(.black, 0.6); t.strokeWidth = 0.14; t.shadowColor = RGBA(0, 0, 0, 0.6)
             }

@@ -679,7 +679,7 @@ final class InlineTextEditor: NSObject, NSTextViewDelegate {
         let id = clipID
         store.updateGesture { p in
             guard var c = p.timeline.clip(id), case .text(var t) = c.content else { return }
-            t.string = s
+            t.setString(s)   // keeps per-range styles on their characters (text engine)
             c.content = .text(t)
             p.timeline[clip: id] = c
         }

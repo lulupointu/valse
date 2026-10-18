@@ -112,6 +112,10 @@ struct AnimationTile: View {
 
     var body: some View {
         Tile(title: tr(descriptor.nameKey), selected: selected, action: action) {
+          if descriptor.glyph != nil {
+            // per-glyph text animation (text engine, W7)
+            GlyphAnimationPreview(descriptor: descriptor, playing: hover, start: start)
+          } else {
             SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover)) { tl in
                 let state = state(at: tl.date)
                 ZStack {
@@ -126,6 +130,7 @@ struct AnimationTile: View {
                         .blur(radius: state.blur * 62)
                 }
             }
+          }
         }
         .onHover { h in hover = h; if h { start = Date() } }
     }

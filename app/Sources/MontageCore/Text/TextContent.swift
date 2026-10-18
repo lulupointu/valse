@@ -112,12 +112,12 @@ public struct TextPathShape: Hashable, Codable, Sendable {
 }
 
 /// UTF-16 range inside `TextContent.string` (Core Text / NSTextView units).
-public struct TextRange: Hashable, Codable, Sendable {
+public struct TextSpan: Hashable, Codable, Sendable {
     public var location: Int
     public var length: Int
     public init(_ location: Int, _ length: Int) { self.location = location; self.length = length }
     public var end: Int { location + length }
-    public func intersects(_ o: TextRange) -> Bool { location < o.end && o.location < end }
+    public func intersects(_ o: TextSpan) -> Bool { location < o.end && o.location < end }
 }
 
 /// Per-range style overrides (CapCut "multiple values"). nil = inherit the clip-wide value.
@@ -146,9 +146,9 @@ public struct TextRunStyle: Hashable, Codable, Sendable {
 }
 
 public struct TextRun: Hashable, Codable, Sendable {
-    public var range: TextRange
+    public var range: TextSpan
     public var style: TextRunStyle
-    public init(_ range: TextRange, _ style: TextRunStyle) { self.range = range; self.style = style }
+    public init(_ range: TextSpan, _ style: TextRunStyle) { self.range = range; self.style = style }
 }
 
 /// A multi-layer animated title instance (TX-013/041). Slot 0 is `TextContent.string`; `texts` holds slots 1…

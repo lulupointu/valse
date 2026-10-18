@@ -524,7 +524,7 @@ extension TimelineView {
         case .sticker(let id):
             store.seek(to: time); store.addGeneratorClip(.sticker(id: id))
         case .text(let styleID):
-            store.seek(to: time); store.addText(style: Registries.textStyles[styleID])
+            store.seek(to: time); store.addTextPayload(styleID)
         }
         return true
     }

@@ -26,9 +26,8 @@ enum BuiltinInspector {
                      footer: { ctx, _ in AnyView(PillButton(title: tr("inspector.applyToAll")) { TransitionSection.applyToAll(ctx) }) },
                      appliesTo: any(.transition)),
         InspectorTab(id: "properties", titleKey: "inspector.tab.properties", order: -8, appliesTo: any(.multiple)),
-        InspectorTab(id: "text", titleKey: "inspector.tab.text", order: 0, subTabs: [
-            InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
-        ], appliesTo: any(.text)),
+        // Text + Captions tabs: text engine (W7), MontageUI/Text/TextInspector.swift
+        TextInspector.textTab, TextInspector.captionsTab,
         InspectorTab(id: "sticker", titleKey: "inspector.tab.stickers", order: 0, appliesTo: any(.sticker)),
         InspectorTab(id: "video", titleKey: "inspector.tab.video", order: 1, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
@@ -72,12 +71,6 @@ enum BuiltinInspector {
         InspectorSection(id: "properties.transform", tab: "properties", order: 0, titleKey: "inspector.transform") {
             AnyView(MultiTransformSection(ctx: $0))
         },
-
-        // Text (shell — the text team owns styling)
-        InspectorSection(id: "text.content", tab: "text", subTab: "basic", order: 0, titleKey: nil) { AnyView(TextContentSection(ctx: $0)) },
-        InspectorSection(id: "text.transform", tab: "text", subTab: "basic", order: 10, titleKey: "inspector.transform",
-                         chrome: TransformSection.chrome) { AnyView(TransformSection(ctx: $0, rotateLabelKey: "inspector.planeRotation")) },
-        InspectorSection(id: "text.opacity", tab: "text", subTab: "basic", order: 20, titleKey: nil) { AnyView(OpacityRow(ctx: $0)) },
 
         // Sticker
         InspectorSection(id: "sticker.transform", tab: "sticker", order: 0, titleKey: "inspector.transform",
@@ -143,5 +136,5 @@ enum BuiltinInspector {
         InspectorSection(id: "effects.stack", tab: "effects", order: 0, titleKey: nil) { AnyView(ClipEffectBlocks(ctx: $0)) },
         InspectorSection(id: "specialEffects.details", tab: "specialEffects", subTab: "basic", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
         InspectorSection(id: "filter.details", tab: "filter", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
-    ] + RenderFeatureInspector.sections + AudioInspector.sections
+    ] + RenderFeatureInspector.sections + AudioInspector.sections + TextInspector.sections
 }

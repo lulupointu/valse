@@ -29,7 +29,7 @@ extension TextContent {
             // typing right after a styled run extends it (like a text editor's typing attributes)
             let extendsAtEnd = b == p && removedEnd == p && inserted > 0
             a = map(a, isEnd: false); b = extendsAtEnd ? b + inserted : map(b, isEnd: true)
-            if b > a { out.append(TextRun(TextRange(a, b - a), r.style)) }
+            if b > a { out.append(TextRun(TextSpan(a, b - a), r.style)) }
         }
         string = new
         runs = Self.normalized(out, length: nw.count)
@@ -37,9 +37,9 @@ extension TextContent {
 
     /// Applies `style` (merged over existing overrides) to `range`. A zero-length or full range with no runs edits the
     /// clip-wide style instead when `wholeIfEmpty` (CapCut: no selection = whole text).
-    public mutating func applyStyle(_ style: TextRunStyle, to range: TextRange) {
+    public mutating func applyStyle(_ style: TextRunStyle, to range: TextSpan) {
         let len = utf16Count
-        let r = TextRange(max(0, min(range.location, len)), max(0, min(range.end, len) - max(0, min(range.location, len))))
+        let r = TextSpan(max(0, min(range.location, len)), max(0, min(range.end, len) - max(0, min(range.location, len))))
         guard r.length > 0 else { return }
         if r.location == 0 && r.length == len {
             // whole text: write the base style and drop overridden fields from runs
@@ -73,19 +73,19 @@ extension TextContent {
         for run in runs.sorted(by: { $0.range.location < $1.range.location }) {
             let a = run.range.location, b = run.range.end
             if b <= r.location || a >= r.end { out.append(run); continue }
-            if a < r.location { out.append(TextRun(TextRange(a, r.location - a), run.style)) }
+            if a < r.location { out.append(TextRun(TextSpan(a, r.location - a), run.style)) }
             let ia = max(a, r.location), ib = min(b, r.end)
-            if ia > cursor { out.append(TextRun(TextRange(cursor, ia - cursor), style)) }
-            out.append(TextRun(TextRange(ia, ib - ia), run.style.merged(with: style)))
+            if ia > cursor { out.append(TextRun(TextSpan(cursor, ia - cursor), style)) }
+            out.append(TextRun(TextSpan(ia, ib - ia), run.style.merged(with: style)))
             cursor = ib
-            if b > r.end { out.append(TextRun(TextRange(r.end, b - r.end), run.style)) }
+            if b > r.end { out.append(TextRun(TextSpan(r.end, b - r.end), run.style)) }
         }
-        if cursor < r.end { out.append(TextRun(TextRange(cursor, r.end - cursor), style)) }
+        if cursor < r.end { out.append(TextRun(TextSpan(cursor, r.end - cursor), style)) }
         runs = Self.normalized(out, length: len)
     }
 
     /// Style shared by every character of `range` (nil fields = mixed, CapCut "multiple values").
-    public func commonStyle(in range: TextRange) -> TextRunStyle {
+    public func commonStyle(in range: TextSpan) -> TextRunStyle {
         let len = utf16Count
         guard range.length > 0, len > 0 else { return runStyle(at: max(0, min(range.location, len - 1))) }
         let start = max(0, range.location), end = min(range.end, len)
@@ -112,13 +112,13 @@ extension TextContent {
             let a = max(0, min(r.range.location, length)), b = max(a, min(r.range.end, length))
             guard b > a, !r.style.isEmpty else { continue }
             if let last = out.last, last.range.end >= a {
-                if last.style == r.style { out[out.count - 1].range = TextRange(last.range.location, max(last.range.end, b) - last.range.location); continue }
+                if last.style == r.style { out[out.count - 1].range = TextSpan(last.range.location, max(last.range.end, b) - last.range.location); continue }
                 if last.range.end > a { // overlap: later wins from a
                     out[out.count - 1].range.length = a - last.range.location
                     if out[out.count - 1].range.length <= 0 { out.removeLast() }
                 }
             }
-            out.append(TextRun(TextRange(a, b - a), r.style))
+            out.append(TextRun(TextSpan(a, b - a), r.style))
         }
         return out
     }

@@ -210,8 +210,7 @@ public final class EditorStore {
 
     public func addText(style: TextStyleDescriptor? = nil) {
         var t = TextContent(string: tr("text.default"))
-        style?.apply(&t)
-        t.styleID = style?.id
+        style?.restyle(&t)
         addGeneratorClip(.text(t), nameKey: "cmd.text")
     }
 

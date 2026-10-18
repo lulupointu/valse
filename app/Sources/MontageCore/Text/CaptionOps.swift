@@ -3,7 +3,7 @@ import Foundation
 /// A find result inside a caption track (UTF-16 range in the clip's string).
 public struct CaptionMatch: Hashable, Sendable {
     public let clipID: ClipID
-    public let range: TextRange
+    public let range: TextSpan
 }
 
 /// Pure caption-track operations (TX-019/024/029/037/022). Every function keeps `TimelineOps.validate` green.
@@ -180,7 +180,7 @@ public enum CaptionOps {
         let leadTrim = rightLeadingTrim(u, offset)
         lt.string = leftS; lt.runs = TextContent.normalized(t.runs, length: leftLen)
         rt.string = rightS
-        rt.runs = TextContent.normalized(t.runs.map { TextRun(TextRange($0.range.location - offset - leadTrim, $0.range.length), $0.style) },
+        rt.runs = TextContent.normalized(t.runs.map { TextRun(TextSpan($0.range.location - offset - leadTrim, $0.range.length), $0.style) },
                                          length: rightS.utf16.count)
         if t.caption != nil {
             lt.caption?.words = Array(ws.prefix(k))
@@ -215,7 +215,7 @@ public enum CaptionOps {
         let shift = ta.string.utf16.count + sep.utf16.count
         // b's content time → a's content time
         let k = (b.start - b.sourceStart) - (a.start - a.sourceStart)
-        ta.runs = TextContent.normalized(ta.runs + tb.runs.map { TextRun(TextRange($0.range.location + shift, $0.range.length), $0.style) },
+        ta.runs = TextContent.normalized(ta.runs + tb.runs.map { TextRun(TextSpan($0.range.location + shift, $0.range.length), $0.style) },
                                          length: shift + tb.string.utf16.count)
         ta.string += sep + tb.string
         if ta.caption != nil || tb.caption != nil {
@@ -270,7 +270,7 @@ public enum CaptionOps {
             while r.length > 0 {
                 let f = ns.range(of: query, options: NSString.CompareOptions(rawValue: opts.rawValue), range: r)
                 guard f.location != NSNotFound else { break }
-                out.append(CaptionMatch(clipID: c.id, range: TextRange(f.location, f.length)))
+                out.append(CaptionMatch(clipID: c.id, range: TextSpan(f.location, f.length)))
                 let next = f.location + max(f.length, 1)
                 r = NSRange(location: next, length: ns.length - next)
             }

@@ -22,7 +22,7 @@ struct TextModelTests {
         t.extraStrokes = [TextStrokeLayer(color: .red, width: 0.2)]
         t.glow = TextGlowStyle(color: .blue); t.fill = .gradient(TextGradient([.red, .blue], angle: 30))
         t.path = TextPathShape(.wave, amount: 0.3); t.boxWidth = 0.5; t.bubbleID = "b"
-        t.applyStyle(TextRunStyle(color: .green, bold: true), to: TextRange(0, 5))
+        t.applyStyle(TextRunStyle(color: .green, bold: true), to: TextSpan(0, 5))
         t.caption = CaptionData(words: [CaptionWord("Hello", start: 0, end: 0.5, keyword: true)], translation: "Bonjour", origin: .auto)
         t.karaoke = KaraokeStyle(mode: .reveal)
         t.template = TextTemplateInstance(templateID: "x", texts: ["a"])
@@ -32,26 +32,26 @@ struct TextModelTests {
 
     @Test func typingKeepsRunsOnTheirCharacters() {
         var t = TextContent(string: "Hello world")
-        t.applyStyle(TextRunStyle(color: .red), to: TextRange(6, 5))      // "world" red
+        t.applyStyle(TextRunStyle(color: .red), to: TextSpan(6, 5))      // "world" red
         t.setString("Hey, hello world")                                      // insert before
-        #expect(t.runs.count == 1 && t.runs[0].range == TextRange(11, 5))
+        #expect(t.runs.count == 1 && t.runs[0].range == TextSpan(11, 5))
         t.setString("Hey, hello world!!")                                    // typing at the run end extends it
-        #expect(t.runs[0].range == TextRange(11, 7))
+        #expect(t.runs[0].range == TextSpan(11, 7))
         t.setString("Hey, hello")                                            // delete the styled part
         #expect(t.runs.isEmpty)
     }
 
     @Test func applyStyleSplitsAndMergesRuns() {
         var t = TextContent(string: "abcdefghij")
-        t.applyStyle(TextRunStyle(color: .red), to: TextRange(2, 6))
-        t.applyStyle(TextRunStyle(bold: true), to: TextRange(4, 4))
-        #expect(t.runs.map(\.range) == [TextRange(2, 2), TextRange(4, 4)])
+        t.applyStyle(TextRunStyle(color: .red), to: TextSpan(2, 6))
+        t.applyStyle(TextRunStyle(bold: true), to: TextSpan(4, 4))
+        #expect(t.runs.map(\.range) == [TextSpan(2, 2), TextSpan(4, 4)])
         #expect(t.runStyle(at: 5).color == .red && t.runStyle(at: 5).bold == true)
         #expect(t.runStyle(at: 3).bold == false)                 // inherits the clip-wide value
-        #expect(t.commonStyle(in: TextRange(2, 6)).color == .red)
-        #expect(t.commonStyle(in: TextRange(2, 6)).bold == nil)  // mixed
+        #expect(t.commonStyle(in: TextSpan(2, 6)).color == .red)
+        #expect(t.commonStyle(in: TextSpan(2, 6)).bold == nil)  // mixed
         // whole-text edits go to the base style and clear the override
-        t.applyStyle(TextRunStyle(color: .blue), to: TextRange(0, 10))
+        t.applyStyle(TextRunStyle(color: .blue), to: TextSpan(0, 10))
         #expect(t.color == .blue && t.runs.allSatisfy { $0.style.color == nil })
     }
 

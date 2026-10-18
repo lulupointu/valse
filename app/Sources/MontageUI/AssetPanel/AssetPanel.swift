@@ -63,7 +63,7 @@ enum BuiltinAssetTabs {
     static let all: [AssetTab] = [
         AssetTab(id: "media", titleKey: "tab.media", symbol: "photo.on.rectangle", order: 0) { AnyView(MediaTab(store: $0)) },
         AssetTab(id: "audio", titleKey: "tab.audio", symbol: "music.note", order: 1) { AnyView(AudioTab(store: $0)) },
-        AssetTab(id: "text", titleKey: "tab.text", symbol: "textformat", order: 2) { AnyView(TextTab(store: $0)) },
+        AssetTab(id: "text", titleKey: "tab.text", symbol: "textformat", order: 2) { AnyView(TextAssetTab(store: $0)) },
         AssetTab(id: "stickers", titleKey: "tab.stickers", symbol: "face.smiling", order: 3) { store in
             AnyView(RegistryGrid(store: store, groups: grouped(Registries.stickers.all, \.groupKey), tile: { s in
                 .init(id: s.id, title: tr(s.nameKey), symbol: nil, emoji: { if case .emoji(let e) = s.source { return e }; return nil }(),
@@ -204,29 +204,7 @@ struct EmptyState: View {
     }
 }
 
-/// Text tab: style presets + Auto captions (CapCut has no separate Captions tab, UX.md §3.1).
-struct TextTab: View {
-    let store: EditorStore
-    @State private var nav = "presets"
-    var body: some View {
-        HStack(spacing: 0) {
-            SubNav(items: [("presets", tr("text.group.presets")), ("captions", tr("ai.captions"))], selection: $nav)
-            if nav == "captions" {
-                CaptionsTab(store: store)
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 10)], spacing: 12) {
-                        ForEach(Registries.textStyles.all) { s in
-                            AssetTile<TextStyleDescriptor>(tile: .init(id: s.id, title: tr(s.nameKey), symbol: "textformat",
-                                                                        payload: DragPayload.textStyle(s.id)) { store.addText(style: s) })
-                        }
-                    }
-                    .padding(12)
-                }
-            }
-        }
-    }
-}
+// Text tab content: MontageUI/Text/TextAssetTab.swift (text engine, W7).
 
 /// Captions tab: Auto captions (on-device speech recognition).
 struct CaptionsTab: View {
