@@ -32,3 +32,19 @@
 "stem.other" = "Other instruments";
 "stem.guitar" = "Guitar";
 "stem.piano" = "Piano";
+
+/* W10 motion tracking (AI-014 / ST-005) */
+"inspector.tab.tracking" = "Tracking";
+"tracking.none" = "None";
+"tracking.motion" = "Motion tracking";
+"tracking.scale" = "Scale with the object";
+"tracking.hint" = "Drag the yellow box onto the object to follow (corners resize it), then start tracking.";
+"tracking.noVideo" = "Place the box over a video below this clip.";
+"tracking.start" = "Start tracking";
+"tracking.again" = "Track again";
+"tracking.applied" = "This clip follows the tracked object.";
+"tracking.job" = "Tracking...";
+"tracking.applying" = "Tracking... %d%%";
+"tracking.done" = "Tracking completed";
+"tracking.failed" = "Couldn't track the object. Try a bigger box.";
+"tracking.cancelled" = "Tracking canceled";

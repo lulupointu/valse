@@ -1,0 +1,20 @@
+// W10: select the demo title, Tracking tab, Motion tracking → yellow box on the canvas, Start tracking → the title
+// gets position keyframes from Vision object tracking; ⊘ None removes them (each one undo step).
+{
+  "project": "demo",
+  "steps": [
+    {"seek": 1.0},
+    {"select": ["clip:2/0"]},
+    {"click": "id:inspector.tab.tracking"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "tracking"}},
+    {"click": "id:tracking.motion"},
+    {"snapshot": "tracking-box", "element": "id:panel.player"},
+    {"snapshot": "tracking-tab", "element": "id:panel.inspector"},
+    {"click": "id:tracking.start"},
+    {"waitFor": {"path": "selectedClips.0.keyframes", "contains": "transform.position", "timeout": 30}},
+    {"expect": {"path": "undo.name", "equals": "cmd.tracking"}},
+    {"snapshot": "tracking-done", "element": "id:panel.inspector"},
+    {"click": "id:tracking.none"},
+    {"expect": [{"path": "selectedClips.0.keyframes", "count": 0}, {"path": "undo.name", "equals": "cmd.tracking"}]}
+  ]
+}

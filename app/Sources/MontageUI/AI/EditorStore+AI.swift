@@ -31,6 +31,9 @@ public final class AIUIState {
     public var reframeJobs: [ClipID: JobID] = [:]
     /// Customized cutout brush session (canvas tool) for a clip.
     public var brush: CutoutBrushTool?
+    /// Motion tracking: box tool session and running jobs (follower clip → job).
+    public var trackTool: MotionTrackBoxTool?
+    public var trackingJobs: [ClipID: JobID] = [:]
     // Models sheet
     public var isModelSheetPresented = false
     @ObservationIgnored var ttsRefresh: Task<Void, Never>?

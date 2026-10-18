@@ -16,3 +16,4 @@
 "captions.phase.splitting" = "Division en cours des légendes…";
 "captions.phase.adding" = "Ajout des clips de sous-titres…";
 "cmd.reframe" = "Recadrage automatique";
+"cmd.tracking" = "Suivi de mouvement";

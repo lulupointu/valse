@@ -32,3 +32,19 @@
 "stem.other" = "Autres";
 "stem.guitar" = "Guitare";
 "stem.piano" = "Piano";
+
+/* W10 suivi de mouvement (AI-014 / ST-005) */
+"inspector.tab.tracking" = "Suivi";
+"tracking.none" = "Aucun";
+"tracking.motion" = "Suivi de mouvement";
+"tracking.scale" = "Mettre à l'échelle avec l'objet";
+"tracking.hint" = "Fais glisser le cadre jaune sur l'objet à suivre (les coins le redimensionnent), puis lance le suivi.";
+"tracking.noVideo" = "Place le cadre sur une vidéo sous ce clip.";
+"tracking.start" = "Démarrer le suivi";
+"tracking.again" = "Suivre à nouveau";
+"tracking.applied" = "Ce clip suit l'objet suivi.";
+"tracking.job" = "Suivi en cours…";
+"tracking.applying" = "Suivi en cours… %d %%";
+"tracking.done" = "Suivi terminé";
+"tracking.failed" = "Impossible de suivre l'objet. Essaie un cadre plus grand.";
+"tracking.cancelled" = "Suivi annulé";

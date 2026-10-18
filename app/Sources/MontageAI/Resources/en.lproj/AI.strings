@@ -16,3 +16,4 @@
 "captions.phase.splitting" = "Splitting captions…";
 "captions.phase.adding" = "Adding caption clips…";
 "cmd.reframe" = "Auto reframe";
+"cmd.tracking" = "Motion tracking";

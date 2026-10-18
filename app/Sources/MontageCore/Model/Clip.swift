@@ -79,6 +79,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var tts: TTSInfo?
     /// Auto reframe applied to this clip (W10, AI/Reframe.swift): its position keyframes come from subject tracking.
     public var reframe: ReframeOptions?
+    /// Motion tracking (W10, AI/MotionTracking.swift): this clip's position/scale keyframes follow a tracked object.
+    public var tracking: MotionTrackInfo?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 
