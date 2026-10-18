@@ -9,7 +9,8 @@
 #   --no-build            don't rebuild
 #   --timeout <s>         per-script timeout (default 120)
 #   --out <dir>           output root (default build/uitest); each script writes <out>/<name>/{report.json,final.json,*.png}
-# Exit code: 0 if every script passed.
+# Exit code: 0 if every script passed or was SKIPPED (unmet precondition, e.g. a missing AI model: app exit code 3);
+#            1 if any script failed or timed out.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -22,18 +23,18 @@ while [[ $# -gt 0 ]]; do
     --no-build) BUILD=0; shift;;
     --timeout) TIMEOUT="$2"; shift 2;;
     --out) OUT="$2"; shift 2;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0;;
+    -h|--help) sed -n '2,14p' "$0"; exit 0;;
     *) SCRIPTS+=("$1"); shift;;
   esac
 done
-[[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,13p' "$0"; exit 2; }
+[[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,14p' "$0"; exit 2; }
 # machine-wide: at most 2 heavy runs at once across all checkouts (scripts/slots.sh)
 source scripts/slots.sh; slots_acquire
 if [[ $BUILD == 1 ]]; then swift build -c "$CONFIG" --product Montage >&2; fi
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/Montage"
 [[ -x "$BIN" ]] || { echo "no binary at $BIN (drop --no-build)"; exit 2; }
 
-PASS=0; FAIL=0; FAILED=()
+PASS=0; FAIL=0; SKIP=0; FAILED=(); SKIPPED=()
 for s in "${SCRIPTS[@]}"; do
   [[ -f "$s" ]] || { echo "no such script: $s"; FAIL=$((FAIL + 1)); FAILED+=("$s"); continue; }
   ABS="$(cd "$(dirname "$s")" && pwd)/$(basename "$s")"
@@ -44,8 +45,12 @@ for s in "${SCRIPTS[@]}"; do
   WATCH=$!
   set +e; wait $PID; CODE=$?; set -e
   kill $WATCH 2>/dev/null || true; wait $WATCH 2>/dev/null || true
-  if [[ $CODE == 0 ]]; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); FAILED+=("$NAME → $OUT/$NAME"); fi
+  if [[ $CODE == 0 ]]; then PASS=$((PASS + 1))
+  elif [[ $CODE == 3 ]]; then SKIP=$((SKIP + 1)); SKIPPED+=("$NAME")
+  else FAIL=$((FAIL + 1)); FAILED+=("$NAME (exit $CODE) → $OUT/$NAME"); fi
 done
-echo "UI tests: $PASS passed, $FAIL failed"
+echo "UI tests: $PASS passed, $FAIL failed, $SKIP skipped"
+for f in ${SKIPPED[@]+"${SKIPPED[@]}"}; do echo "  skipped: $f"; done
 for f in ${FAILED[@]+"${FAILED[@]}"}; do echo "  failed: $f"; done
-[[ $FAIL == 0 ]]
+if [[ $FAIL != 0 ]]; then exit 1; fi
+exit 0

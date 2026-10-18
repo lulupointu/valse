@@ -85,13 +85,26 @@ struct SettingsView: View {
         app.refreshSoon()
     }
 
+    /// UI tests: fixed cache sizes (the real cache folder isn't sandboxed and its size varies between runs/machines,
+    /// which broke the Settings screenshot baselines); "clear" then zeroes them instead of deleting the user's caches.
+    static let uitestCacheSizes: [CacheManager.Category: Int64] = [.proxies: 1_250_000_000, .thumbs: 48_000_000,
+                                                                   .waveforms: 3_200_000, .render: 420_000_000]
+
     func reloadSizes() {
+        if TestAnchors.isEnabled {
+            if cacheSizes.isEmpty { cacheSizes = Self.uitestCacheSizes }
+            return
+        }
         Task {
             cacheSizes = await Task.detached(priority: .utility) { CacheManager().sizes() }.value
         }
     }
 
     func clear(_ c: CacheManager.Category?) {
+        if TestAnchors.isEnabled {
+            for k in cacheSizes.keys where c == nil || k == c { cacheSizes[k] = 0 }
+            return
+        }
         if let c { CacheCleaner.clear(c) } else {
             for c in CacheManager.Category.allCases where app.screen == .home || CacheCleaner.safeWhileEditing.contains(c) { CacheCleaner.clear(c) }
         }

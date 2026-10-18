@@ -180,6 +180,7 @@ struct ModelStateControls: View {
             HStack(spacing: 8) {
                 PillButton(title: tr("models.download", ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)),
                            symbol: "arrow.down.circle", accent: true) { mm.download(spec) }
+                    .testID("model.download.\(spec.id)")
                 Button(tr("models.locate")) { locate() }.buttonStyle(.link).font(Theme.Fonts.hint)
             }
         case .downloading(let p):

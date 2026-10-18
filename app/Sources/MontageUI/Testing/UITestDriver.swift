@@ -3,6 +3,7 @@ import SwiftUI
 import MontageCore
 import MontageEffects
 import MontageEngine
+import MontageAI
 
 /// The UI test window: never activated, placed far off every screen, so tests can't cover or steal input from the
 /// user's apps. It reports itself as key so first clicks are not swallowed and controls render in their active state.
@@ -208,6 +209,12 @@ public final class UITestDriver {
         window.contentView?.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
         launchMs = ProcessLaunch.millisecondsSinceStart()
+        if let reason = Self.applyModelPolicy(script) {
+            StateDump.write(["name": name, "script": config.script.path, "passed": true, "skipped": reason, "steps": [Any]()],
+                            to: out.appendingPathComponent("report.json"))
+            log("⏭ \(name) SKIPPED: \(reason)")
+            return Self.skipExitCode
+        }
         var failed: String?
         do {
             try await setUp(script)
@@ -245,6 +252,33 @@ public final class UITestDriver {
         log(failed == nil ? "✔ \(name) passed (\(report.count) steps, \(String(format: "%.1f", Date().timeIntervalSince(t0))) s)"
                           : "✘ \(name) FAILED: \(failed!)")
         return failed == nil ? 0 : 1
+    }
+
+    /// Exit code of a script whose preconditions are not met (scripts/uitest.sh reports it as SKIPPED, not failed).
+    public static let skipExitCode: Int32 = 3
+
+    /// AI models are environment-dependent, so by default a script sees an EMPTY models folder: every model is
+    /// "not installed" on every machine and AI scripts assert the "Download model" UX. A script that needs real
+    /// inference declares `"requires": {"models": ["coreml.lama-800"]}`: it then uses the user's models folder
+    /// (`MONTAGE_MODELS_DIR` or ~/Library/Application Support/Montage/Models) and is SKIPPED (reason returned) when one is missing.
+    static func applyModelPolicy(_ script: [String: Any]) -> String? {
+        let required = ((script["requires"] as? [String: Any])?["models"] as? [String]) ?? []
+        defer { ModelManager.shared.refresh() }
+        if required.isEmpty {
+            ModelCatalog.directoryOverride = FileManager.default.temporaryDirectory
+                .appendingPathComponent("montage-uitest-models-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+            return nil
+        }
+        if let d = ProcessInfo.processInfo.environment["MONTAGE_MODELS_DIR"], !d.isEmpty {
+            ModelCatalog.directoryOverride = URL(fileURLWithPath: d, isDirectory: true)
+        } else {
+            ModelCatalog.directoryOverride = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Montage/Models", isDirectory: true)
+        }
+        let missing = required.filter { id in ModelCatalog.spec(id).flatMap(ModelCatalog.installedURL) == nil }
+        guard !missing.isEmpty else { return nil }
+        return "requires model(s) \(missing.joined(separator: ", ")) not installed in \(ModelCatalog.modelsDirectory.path) "
+            + "(download in Settings ▸ AI models, or set MONTAGE_MODELS_DIR)"
     }
 
     static func loadScript(_ url: URL) throws -> [String: Any] {
@@ -651,6 +685,7 @@ public final class UITestDriver {
     private func snapshot(_ name: String, _ step: [String: Any]) throws {
         guard var img = SnapshotRegistry.shared.snapshot(window: window), let host = window.contentView else { throw Failure("snapshot failed") }
         let k = CGFloat(img.width) / host.bounds.width
+        var cropOrigin = CGPoint.zero
         if let el = step["element"] as? String {
             let rect: CGRect
             let id = el.hasPrefix("id:") ? String(el.dropFirst(3)) : el
@@ -662,6 +697,23 @@ public final class UITestDriver {
             let px = CGRect(x: rect.minX * k, y: rect.minY * k, width: rect.width * k, height: rect.height * k).integral
             guard let c = img.cropping(to: px) else { throw Failure("crop failed") }
             img = c
+            cropOrigin = CGPoint(x: px.minX, y: px.minY)
+        }
+        if let masks = step["mask"] as? [String], !masks.isEmpty {
+            // Volatile regions (disk sizes, dates, clocks…): painted flat grey in the snapshot AND in the baseline.
+            guard let ctx = CGContext(data: nil, width: img.width, height: img.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { throw Failure("mask failed") }
+            ctx.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
+            ctx.setFillColor(CGColor(srgbRed: 0.5, green: 0.5, blue: 0.5, alpha: 1))
+            for m in masks {
+                let id = m.hasPrefix("id:") ? String(m.dropFirst(3)) : m
+                guard let r = TestAnchors.shared.frame(id) else { throw Failure("no element \(m) to mask") }
+                // window points, top-left → pixels of the (cropped) image, bottom-left origin
+                let x = r.minX * k - cropOrigin.x, yTop = r.minY * k - cropOrigin.y
+                ctx.fill(CGRect(x: x, y: CGFloat(img.height) - yTop - r.height * k, width: r.width * k, height: r.height * k).integral)
+            }
+            if let m = ctx.makeImage() { img = m }
         }
         let baseline = step["baseline"].map { ($0 as? String) ?? name }
         let scale = (step["scale"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? (baseline != nil ? 1 / k : 1)

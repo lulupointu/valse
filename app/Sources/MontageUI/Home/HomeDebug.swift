@@ -50,6 +50,8 @@ extension AppModel {
     /// Fills the library with sample projects (names, durations, ratios, covers, two folders, one trashed).
     public func populateDemoLibrary(count: Int) async {
         let lib = library
+        // UI tests: a fixed clock (2026-01-15 12:00 UTC) so dates in the list / details are the same on every run.
+        let now = TestAnchors.isEnabled ? Date(timeIntervalSince1970: 1_768_478_400) : Date()
         await Task.detached(priority: .userInitiated) {
             let names = ["Vacances à Biarritz", "Product launch", "Wedding teaser", "Tutorial — part 1", "Morning routine",
                          "Drone footage", "Interview Léa", "Birthday 2026", "Podcast clip", "Recipe: crêpes", "Gym vlog", "Trailer v3"]
@@ -62,7 +64,7 @@ extension AppModel {
                 p.settings.aspectPreset = r.0
                 let secs = Double([12, 48, 95, 7, 183, 30, 61, 240, 15, 75, 22, 130][i % 12])
                 try? TimelineOps.insert(Clip(content: .text(TextContent(string: p.name)), start: 0, duration: Time(secs)), into: &p)
-                p.modifiedAt = Date().addingTimeInterval(-Double(i) * 5_400 - 600)
+                p.modifiedAt = now.addingTimeInterval(-Double(i) * 5_400 - 600)
                 p.createdAt = p.modifiedAt.addingTimeInterval(-86_400)
                 guard let url = try? lib.create(p) else { continue }
                 Self.writeDemoCover(to: url, hue: Double(i) * 0.137, aspect: r.1.width / r.1.height)

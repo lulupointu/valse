@@ -32,7 +32,7 @@ struct AIRemoveSection: View {
         let store = ctx.store
         VStack(alignment: .leading, spacing: 8) {
             if !LaMaInpainter.isAvailable {
-                HintText(text: tr("remove.needsModel"))
+                HintText(text: tr("remove.needsModel")).testID("remove.needsModel")
                 ModelStateControls(spec: ModelCatalog.lama)
             }
             if let id = ctx.clip?.id, let job = store.ai.removeJobs[id] {

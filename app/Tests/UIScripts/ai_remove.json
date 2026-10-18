@@ -1,5 +1,6 @@
-// W10: Video ▸ Basic ▸ ☐ AI remove → brush on the canvas (red) → Remove → LaMa inpaints the clip in the background
-// (one undo step "AI remove"; the full render is covered by ObjectRemovalTests).
+// W10: Video ▸ Basic ▸ ☐ AI remove without the LaMa model (the default in UI tests: the models folder is an empty sandbox
+// on every machine) → "needs model" hint + Download button; brushing works but Remove starts no job.
+// The inference path is ai_remove_inference.json (requires the model, SKIPPED when it isn't installed).
 {
   "project": "demo",
   "steps": [
@@ -7,14 +8,15 @@
     {"click": "id:inspector.tab.video"},
     {"scroll": "id:inspector.section.video.stabilize", "dx": 0, "dy": -800},
     {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.5]},
+    {"expect": [{"path": "ui.anchors", "contains": "remove.needsModel"},
+                {"path": "ui.anchors", "contains": "model.download.coreml.lama-800"},
+                {"path": "ui.anchors", "contains": "remove.apply"}]},
     {"drag": "player:0.3,0.5", "to": "player:0.4,0.55", "steps": 8},
-    {"snapshot": "remove-brush", "element": "id:panel.player"},
+    {"snapshot": "remove-needs-model", "element": "id:panel.inspector"},
+    // Remove is disabled without the model: no background job
     {"click": "id:remove.apply"},
-    {"wait": 1},
-    {"snapshot": "remove-running", "element": "id:panel.inspector"},
-    {"expect": {"path": "ui.anchors", "contains": "remove.progress"}},
-    // cancel (untick) so the app doesn't quit mid-inference
-    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.08]},
-    {"wait": 4}
+    {"wait": 0.5},
+    {"expect": {"path": "ui.anchors", "notContains": "remove.progress"}},
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.08]}
   ]
 }

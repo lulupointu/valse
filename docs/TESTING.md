@@ -48,7 +48,7 @@ Create `app/Tests/UIScripts/<name>.json` (`//` line comments allowed):
 
 Run `scripts/uitest.sh app/Tests/UIScripts/<name>.json`. Output goes to `build/uitest/<name>/`: `report.json` (steps,
 errors, metrics), `final.json` (state dump), every `snapshot` PNG, and on failure `failure.json` + `failure.png`.
-**Open the PNGs and look at them.** Exit code 0 = pass. `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
+**Open the PNGs and look at them.** Exit code 0 = pass (3 = skipped; `uitest.sh` exits 1 if any script failed or timed out). `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
 
 Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`; per area: `timeline_edit` (move, ⌫, W, magnet), `canvas_drag` (select + drag on the preview), `inspector_tabs` (Scale + Speed fields), `audio_volume`, `text_add`, `ai_tts`, `ai_transcript_panel`.
 
@@ -58,6 +58,15 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
   media in the bin, empty timeline) · `"stress:500"` (500 clips on 3 tracks) · a path to a `.montage` (relative to the script).
 - `lang`: `"en"` (default) or `"fr"`. `size`: `[w, h]` window points (default 1687×983). `settle`: seconds to wait after
   loading (default 1.5).
+- `requires`: `{"models": ["coreml.lama-800"]}` — the script needs real AI models (ids from `ModelCatalog`). Without it
+  every script sees an **empty, sandboxed models folder**, so AI features are "not installed" on every machine and AI
+  scripts assert the Download UX (`model.download.<modelID>`, e.g. `ai_remove`). With it the user's models folder
+  (`MONTAGE_MODELS_DIR` or ~/Library/Application Support/Montage/Models) is used and the script is **SKIPPED** (exit
+  code 3, reported separately by `uitest.sh`) when a model is missing (e.g. `ai_remove_inference`).
+
+**Environment-independent results.** Settings/library are sandboxed; in UI tests the cache-size readouts are fixed
+(`SettingsView.uitestCacheSizes`, "clear" only zeroes them) and the `home` sample projects use a fixed clock. For other
+volatile pixels add `"mask": ["id:x", …]` to a `snapshot` step (those elements are painted grey in the snapshot and its baseline).
 
 ### Targets (where a mouse step happens)
 
@@ -87,7 +96,7 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 | drag & drop from a panel | `{"drop": {"media": 0}, "on": "time:0@main"}` — also `{"effect": id}`, `{"transition": id}`, `{"sticker": id}`, `{"text": styleID}`, `{"files": ["a.mp4"]}` |
 | assert on the state dump | `{"expect": {"path": "selectedClips.0.opacity", "lt": 0.6}}` or a list of them |
 | wait for async work | `{"waitFor": {"path": "media.count", "equals": 2, "timeout": 10}}` · `{"wait": 0.5}` · `{"idle": 1}` |
-| snapshot / screenshot test | `{"snapshot": "name", "element": "id:panel.inspector", "baseline": true, "tolerance": 0.01}` |
+| snapshot / screenshot test | `{"snapshot": "name", "element": "id:panel.inspector", "baseline": true, "tolerance": 0.01, "mask": ["id:clock"]}` |
 | dump state | `{"dump": "before-drop"}` → `build/uitest/<name>/before-drop.json` |
 | setup shortcuts (not UI) | `{"seek": 2.5}` · `{"select": ["clip:main/0", "clip:1/0"]}` |
 | perf / metric | see §3 |

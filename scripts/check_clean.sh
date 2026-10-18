@@ -73,7 +73,9 @@ if [[ $TEST == 1 ]]; then
   fi
 fi
 if [[ $UI == 1 ]]; then
-  if scripts/uitest.sh --all --out "$TMP/uitest" >"$TMP/ui.log" 2>&1; then echo "✔ clean UI tests"
-  else echo "✘ clean UI tests failed:"; grep -E "^✘|failed:" "$TMP/ui.log" | head -20; FAIL=1; fi
+  if scripts/uitest.sh --all --out "$TMP/uitest" >"$TMP/ui.log" 2>&1; then echo "✔ clean UI tests ($(grep -E '^UI tests:' "$TMP/ui.log" | tail -1))"
+  else echo "✘ clean UI tests failed:"; grep -E "^✘|failed:|^UI tests:" "$TMP/ui.log" | head -30; FAIL=1
+    mkdir -p "$ROOT/build"; cp "$TMP/ui.log" "$ROOT/build/check_clean-ui.log" 2>/dev/null || true; fi
+  grep -E "^⏭|skipped:" "$TMP/ui.log" | sed 's/^/    /' || true
 fi
 [[ $FAIL == 0 ]] && echo "CLEAN CHECKOUT OK" || { echo "CLEAN CHECKOUT FAILED"; exit 1; }

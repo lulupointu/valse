@@ -71,8 +71,14 @@ public enum ModelCatalog {
     public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
+    /// Set by the UI test driver: scripts see an empty sandboxed models folder (deterministic "not installed" UX) unless
+    /// they declare `"requires": {"models": [...]}`, which points this back at `userModelsDirectory`.
+    public nonisolated(unsafe) static var directoryOverride: URL?
+
     /// ~/Library/Application Support/Montage/Models (override: `MONTAGE_MODELS_DIR`).
-    public static var modelsDirectory: URL {
+    public static var modelsDirectory: URL { directoryOverride ?? userModelsDirectory }
+
+    public static var userModelsDirectory: URL {
         if let d = ProcessInfo.processInfo.environment["MONTAGE_MODELS_DIR"], !d.isEmpty { return URL(fileURLWithPath: d, isDirectory: true) }
         return MontagePaths.supportDirectory.appendingPathComponent("Models", isDirectory: true)
     }
