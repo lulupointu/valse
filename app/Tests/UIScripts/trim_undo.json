@@ -1,0 +1,12 @@
+// Drag the trailing edge of the last main-track clip 60 pt to the left (one undo step), then undo it with the toolbar.
+{
+  "project": "demo",
+  "steps": [
+    {"drag": "clip:main/2:trailing", "by": [-60, 0]},
+    {"expect": [{"path": "main.clips.2.duration", "lt": 5.0}, {"path": "undo.name", "equals": "cmd.trim"},
+                {"path": "undo.depth", "equals": 1}, {"path": "undo.inGesture", "equals": false}]},
+    {"snapshot": "trimmed", "element": "id:timeline"},
+    {"click": "id:toolbar.undo"},
+    {"expect": [{"path": "main.clips.2.duration", "approx": 6.0}, {"path": "undo.depth", "equals": 0}]}
+  ]
+}

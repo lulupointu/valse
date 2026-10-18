@@ -49,6 +49,7 @@ public struct InspectorPanel: View {
                         .fixedSize()
                         .contentShape(Rectangle())
                         .onTapGesture { store.inspectorTab = tab.id }
+                        .testID("inspector.tab.\(tab.id)")
                         .accessibilityAddTraits(.isButton)
                 }
                 Spacer(minLength: 0)
@@ -66,7 +67,7 @@ public struct InspectorPanel: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(InspectorRegistry.sections(tab: active, subTab: subs.count >= 2 ? sub?.id : nil, ctx: ctx)) { section in
-                                InspectorSectionView(section: section, ctx: ctx, ui: ui)
+                                InspectorSectionView(section: section, ctx: ctx, ui: ui).testID("inspector.section.\(section.id)")
                             }
                         }
                         .padding(.bottom, 16)
@@ -213,6 +214,7 @@ struct ClipParamRow: View {
     var gestureName = "cmd.editClip"
     var enabled = true
     var labelAccessory: AnyView? = nil
+    var testID: String? = nil
 
     var body: some View {
         let store = ctx.store
@@ -235,7 +237,7 @@ struct ClipParamRow: View {
             onEnd: { store.endGesture() },
             commit: { v in write(spec.clampField(v)) },
             step: { d in write(spec.clampField(value + Double(d) * spec.step)) },
-            triplet: keyframeKeys.map { AnyView(KeyframeTriplet(ctx: ctx, keys: $0, enabled: !$0.isEmpty)) })
+            triplet: keyframeKeys.map { AnyView(KeyframeTriplet(ctx: ctx, keys: $0, enabled: !$0.isEmpty)) }, testID: testID)
     }
 }
 
@@ -280,7 +282,8 @@ enum Bind {
                      get: { c, t in toUI(c.value(key, at: t)?.component(component) ?? 0) },
                      set: { c, v, t in c.modifyValue(key, at: t) { $0 = $0.with(component: component, fromUI(v)) } },
                      dependsOnTime: { $0.hasKeyframes(key) },
-                     keyframeKeys: keyframes ? [key] : nil, gestureName: gestureName, enabled: enabled)
+                     keyframeKeys: keyframes ? [key] : nil, gestureName: gestureName, enabled: enabled,
+                     testID: "slider.\(key.raw)" + (component == 0 ? "" : ".\(component)"))
     }
 
     /// Inline field on one component of an animatable property.

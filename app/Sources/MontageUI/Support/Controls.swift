@@ -58,15 +58,18 @@ public struct SliderRow: View {
     let onBegin: () -> Void
     let onEnd: () -> Void
     var keyframe: KeyframeButton.State?
+    /// UI test identifier (`slider.<param>`; the numeric field gets `<id>.field`). Defaults to `slider.<label>`.
+    var testID: String?
     @State private var text = ""
     @FocusState private var focused: Bool
 
     public init(_ label: String, range: ClosedRange<Double>, display: @escaping (Double) -> String,
                 parse: @escaping (String) -> Double? = { Double($0.filter { "0123456789.-".contains($0) }) },
-                keyframe: KeyframeButton.State? = nil,
+                keyframe: KeyframeButton.State? = nil, testID: String? = nil,
                 get: @escaping () -> Double, set: @escaping (Double) -> Void,
                 onBegin: @escaping () -> Void, onEnd: @escaping () -> Void) {
         self.label = label; self.range = range; self.display = display; self.parse = parse; self.keyframe = keyframe
+        self.testID = testID
         self.get = get; self.set = set; self.onBegin = onBegin; self.onEnd = onEnd
     }
 
@@ -79,6 +82,7 @@ public struct SliderRow: View {
                 }
                 .controlSize(.small)
                 .tint(.white)
+                .testID(testID ?? "slider.\(label)")
                 TextField("", text: $text)
                     .textFieldStyle(.plain)
                     .font(Theme.Fonts.numeric)
@@ -86,6 +90,7 @@ public struct SliderRow: View {
                     .frame(width: 58, height: 24)
                     .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
                     .focused($focused)
+                    .testID((testID ?? "slider.\(label)") + ".field")
                     .onSubmit {
                         if let v = parse(text) { onBegin(); set(min(max(v, range.lowerBound), range.upperBound)); onEnd() }
                         text = display(get())

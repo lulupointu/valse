@@ -1,0 +1,15 @@
+// Select a main-track clip, split it with ⌘B at the playhead, then undo with ⌘Z.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/1"},
+    {"expect": {"path": "selectedClips.0.index", "equals": 1}},
+    {"click": "time:7.5@ruler"},
+    {"expect": {"path": "playhead", "approx": 7.5, "tolerance": 0.05}},
+    {"key": "cmd+b"},
+    {"expect": [{"path": "main.clips.count", "equals": 4}, {"path": "undo.name", "equals": "cmd.split"}]},
+    {"snapshot": "after-split", "element": "id:timeline"},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "main.clips.count", "equals": 3}, {"path": "undo.redoDepth", "equals": 1}]}
+  ]
+}

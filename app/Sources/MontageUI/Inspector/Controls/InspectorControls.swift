@@ -253,6 +253,8 @@ struct SliderRowView: View {
     let commit: (Double) -> Void
     let step: (Int) -> Void
     var triplet: AnyView? = nil
+    /// UI test ID of the slider (`slider.<ParamKey>`); the numeric field gets `<id>.field`. Default `slider.<label>`.
+    var testID: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -264,8 +266,10 @@ struct SliderRowView: View {
             HStack(spacing: 10) {
                 InspectorSlider(unit: unit, originUnit: originUnit, gradient: gradient, ticks: ticks, enabled: enabled,
                                 onBegin: onBegin, onChange: onChange, onEnd: onEnd)
+                    .testID(testID ?? "slider.\(label)")
                 HStack(spacing: 2) {
                     NumericField(display: display, enabled: enabled, parse: parse, commit: commit, step: step)
+                        .testID((testID ?? "slider.\(label)") + ".field")
                     if let triplet { triplet } else { Color.clear.frame(width: IStyle.tripletWidth, height: 1) }
                 }
             }

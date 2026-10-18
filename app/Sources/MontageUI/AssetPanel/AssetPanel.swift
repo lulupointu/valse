@@ -24,6 +24,7 @@ public struct AssetPanel: View {
                         .frame(minWidth: 50).padding(.horizontal, 4)
                         .contentShape(Rectangle())
                         .onTapGesture { store.activeAssetTab = tab.id }
+                        .testID("asset.tab.\(tab.id)")
                     }
                 }
                 .padding(.horizontal, 6)
@@ -128,7 +129,7 @@ struct RegistryGrid<Item>: View {
             ScrollView {
                 let items = (groups.first { $0.0 == (group.isEmpty ? groups.first?.0 : group) }?.1 ?? []).map(tile)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 10)], spacing: 12) {
-                    ForEach(items) { t in AssetTile(tile: t) }
+                    ForEach(items) { t in AssetTile(tile: t).testID("asset.tile.\(t.id)") }
                 }
                 .padding(12)
             }

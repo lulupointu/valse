@@ -13,6 +13,10 @@ import MontageUI
 ///   --snapshot <png>          render the window offscreen to a PNG (no Screen Recording permission needed)
 ///   --quit-after <seconds>    quit automatically
 ///   --size <w>x<h>            initial window size in points (default 1687x983, CapCut's default)
+///   --uitest <script.json>    run a UI test script in an offscreen, never-activated window, then exit (docs/TESTING.md)
+///     --uitest-out <dir>      where snapshots / dumps / report.json go (default build/uitest/<name>)
+///     --baselines <dir>       screenshot baselines (app/Tests/Baselines); --update-baselines rewrites them
+///   --imgdiff <a.png> <b.png> [--threshold 16] [--tolerance 0.005] [--diff out.png]   compare two images, JSON result
 struct Options {
     var open: URL?
     var demo = false
@@ -24,6 +28,10 @@ struct Options {
     /// --player-state "seek=7,select=text,rulers,guide=h:0.33,safe=tiktok,zoom=1.5" (screenshots, see PlayerDebugState)
     var playerState: String?
     var size = CGSize(width: 1687, height: 983)
+    var uitest: URL?
+    var uitestOut: URL?
+    var baselines: URL?
+    var updateBaselines = false
 
     init(_ args: [String]) {
         var i = 1
@@ -38,6 +46,10 @@ struct Options {
             case "--snapshot": snapshot = next().map { URL(fileURLWithPath: $0) }
             case "--quit-after": quitAfter = next().flatMap(Double.init)
             case "--player-state": playerState = next()
+            case "--uitest": uitest = next().map { URL(fileURLWithPath: $0) }
+            case "--uitest-out": uitestOut = next().map { URL(fileURLWithPath: $0, isDirectory: true) }
+            case "--baselines": baselines = next().map { URL(fileURLWithPath: $0, isDirectory: true) }
+            case "--update-baselines": updateBaselines = true
             case "--size":
                 if let s = next() {
                     let p = s.split(separator: "x").compactMap { Double($0) }
@@ -77,6 +89,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func loadInitialProject() async {
+        if let script = options.uitest {
+            let config = UITestDriver.Config(script: script, outDir: options.uitestOut, baselines: options.baselines,
+                                             updateBaselines: options.updateBaselines)
+            let code = await UITestDriver(store: store, window: window, config: config).run()
+            exit(code)
+        }
         do {
             if let url = options.open {
                 try store.open(url)
@@ -100,9 +118,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func makeWindow() {
-        let w = NSWindow(contentRect: NSRect(origin: .zero, size: options.size),
-                         styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-                         backing: .buffered, defer: false)
+        let w = options.uitest != nil ? UITestDriver.makeWindow(size: options.size)
+            : NSWindow(contentRect: NSRect(origin: .zero, size: options.size),
+                       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                       backing: .buffered, defer: false)
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
         w.backgroundColor = NSColor(srgbRed: 0x14 / 255.0, green: 0x14 / 255.0, blue: 0x14 / 255.0, alpha: 1)
@@ -112,7 +131,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         w.isReleasedWhenClosed = false
         w.contentView = NSHostingView(rootView: EditorView(store: store))
         w.center()
-        if options.background {
+        if options.uitest != nil {
+            w.orderBack(nil)  // offscreen (UITestWindow), never activated
+        } else if options.background {
             // Never cover or activate over other apps (another agent may be driving the screen): behind everything.
             w.orderBack(nil)
         } else {
@@ -244,9 +265,11 @@ final class ClosureTarget: NSObject {
     @objc func fire() { handler() }
 }
 
+if let i = CommandLine.arguments.firstIndex(of: "--imgdiff") { exit(ImageDiffCLI.run(Array(CommandLine.arguments[(i + 1)...]))) }
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
 // --background: accessory policy = no Dock icon and no activation on launch.
-app.setActivationPolicy(CommandLine.arguments.contains("--background") ? .accessory : .regular)
+let headless = CommandLine.arguments.contains("--background") || CommandLine.arguments.contains("--uitest")
+app.setActivationPolicy(headless ? .accessory : .regular)
 app.run()

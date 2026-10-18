@@ -41,13 +41,13 @@ struct TimelineToolbar: View {
             .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
             .help(tr("toolbar.mode"))
             divider
-            IconButton("arrow.uturn.backward", help: tr("toolbar.undo"), enabled: store.session.canUndo) { store.undo() }
-            IconButton("arrow.uturn.forward", help: tr("toolbar.redo"), enabled: store.session.canRedo) { store.redo() }
+            IconButton("arrow.uturn.backward", help: tr("toolbar.undo"), enabled: store.session.canUndo) { store.undo() }.testID("toolbar.undo")
+            IconButton("arrow.uturn.forward", help: tr("toolbar.redo"), enabled: store.session.canRedo) { store.redo() }.testID("toolbar.redo")
             divider
-            IconButton("square.split.2x1", help: tr("toolbar.split")) { store.split() }
-            IconButton("arrow.left.to.line", help: tr("toolbar.deleteLeft"), enabled: hasSel || store.targetClip != nil) { store.deleteLeftRight(.head) }
-            IconButton("arrow.right.to.line", help: tr("toolbar.deleteRight"), enabled: hasSel || store.targetClip != nil) { store.deleteLeftRight(.tail) }
-            IconButton("trash", help: tr("toolbar.delete"), enabled: hasSel || ui.selectedTransition != nil || ui.selectedMarker != nil) { store.deleteSmart() }
+            IconButton("square.split.2x1", help: tr("toolbar.split")) { store.split() }.testID("toolbar.split")
+            IconButton("arrow.left.to.line", help: tr("toolbar.deleteLeft"), enabled: hasSel || store.targetClip != nil) { store.deleteLeftRight(.head) }.testID("toolbar.deleteLeft")
+            IconButton("arrow.right.to.line", help: tr("toolbar.deleteRight"), enabled: hasSel || store.targetClip != nil) { store.deleteLeftRight(.tail) }.testID("toolbar.deleteRight")
+            IconButton("trash", help: tr("toolbar.delete"), enabled: hasSel || ui.selectedTransition != nil || ui.selectedMarker != nil) { store.deleteSmart() }.testID("toolbar.delete")
             IconButton("bookmark", help: tr("toolbar.marker")) { store.addMarker() }
             if kind == .audio {
                 BeatsMenu(store: store)
@@ -63,13 +63,13 @@ struct TimelineToolbar: View {
             divider
             IconButton("magnet", help: tr(tl.mainTrackMagnet ? "toolbar.magnet.off" : "toolbar.magnet.on"), active: tl.mainTrackMagnet) {
                 store.setOption(.magnet(!tl.mainTrackMagnet))
-            }
+            }.testID("toolbar.magnet")
             IconButton("arrow.right.and.line.vertical.and.arrow.left", help: tr(tl.snapping ? "toolbar.snapping.off" : "toolbar.snapping.on"), active: tl.snapping) {
                 store.setOption(.snapping(!tl.snapping))
-            }
+            }.testID("toolbar.snapping")
             IconButton("link", help: tr(tl.linkage ? "toolbar.linkage.off" : "toolbar.linkage.on"), active: tl.linkage) {
                 store.setOption(.linkage(!tl.linkage))
-            }
+            }.testID("toolbar.linkage")
             Button { showLinkage.toggle() } label: {
                 Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.textSecondary).frame(width: 12, height: 26)
             }
@@ -79,12 +79,12 @@ struct TimelineToolbar: View {
                 ui.previewAxis.toggle()
             }
             divider
-            IconButton("arrow.left.and.right.square", help: tr("toolbar.zoomFit")) { store.zoomTimelineToFit() }
-            IconButton("minus.magnifyingglass", help: tr("toolbar.zoomOut")) { store.zoomTimeline(by: 1 / 1.25) }
+            IconButton("arrow.left.and.right.square", help: tr("toolbar.zoomFit")) { store.zoomTimelineToFit() }.testID("toolbar.zoomFit")
+            IconButton("minus.magnifyingglass", help: tr("toolbar.zoomOut")) { store.zoomTimeline(by: 1 / 1.25) }.testID("toolbar.zoomOut")
             Slider(value: Binding(get: { log(store.pixelsPerSecond) }, set: { v in store.zoomTimeline(by: exp(v) / store.pixelsPerSecond) }),
                    in: log(2)...log(1200))
-                .controlSize(.mini).frame(width: 90).tint(.white)
-            IconButton("plus.magnifyingglass", help: tr("toolbar.zoomIn")) { store.zoomTimeline(by: 1.25) }
+                .controlSize(.mini).frame(width: 90).tint(.white).testID("toolbar.zoomSlider")
+            IconButton("plus.magnifyingglass", help: tr("toolbar.zoomIn")) { store.zoomTimeline(by: 1.25) }.testID("toolbar.zoomIn")
         }
         .padding(.horizontal, 8)
         .frame(height: 32)
@@ -118,6 +118,7 @@ struct TimelineHost: NSViewRepresentable {
     let store: EditorStore
     func makeNSView(context: Context) -> TimelineView {
         let v = TimelineView(store: store)
+        v.setAccessibilityIdentifier("timeline")
         SnapshotRegistry.shared.timeline = v
         return v
     }

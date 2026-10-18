@@ -1,0 +1,10 @@
+// Drag the timeline zoom slider (an AppKit NSSlider inside SwiftUI) to the right: the timeline zooms in.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": {"path": "ui.pixelsPerSecond", "approx": 40, "tolerance": 1}},
+    {"drag": "id:toolbar.zoomSlider", "at": [0.6, 0.5], "to": "id:toolbar.zoomSlider", "toAt": [0.95, 0.5]},
+    {"expect": {"path": "ui.pixelsPerSecond", "gt": 300}},
+    {"snapshot": "zoomed", "element": "id:panel.timeline"}
+  ]
+}

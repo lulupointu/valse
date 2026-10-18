@@ -37,6 +37,7 @@ struct MediaTab: View {
                                 Label(tr("media.import"), systemImage: "plus").font(.system(size: 12))
                             }
                             .buttonStyle(SecondaryButtonStyle())
+                            .testID("media.import")
                             if showsFolders {
                                 IconButton("folder.badge.plus", help: tr("media.folder.new")) { _ = store.createFolder(in: currentFolder) }
                             }
@@ -53,7 +54,7 @@ struct MediaTab: View {
                         ScrollView {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96, maximum: 130), spacing: 10)], spacing: 12) {
                                 ForEach(folders) { f in FolderCard(store: store, folder: f, current: $folder) }
-                                ForEach(items) { a in MediaCard(store: store, asset: a) }
+                                ForEach(Array(items.enumerated()), id: \.element.id) { i, a in MediaCard(store: store, asset: a).testID("media.card.\(i)") }
                             }
                             .padding(.horizontal, 12).padding(.bottom, 12)
                         }

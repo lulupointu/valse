@@ -90,7 +90,7 @@ struct TransportBar: View {
             }
             .font(.system(size: 11).monospacedDigit())
             HStack(spacing: 2) {
-                IconButton(transport.isPlaying ? "pause.fill" : "play.fill", help: tr("player.playPause")) { store.togglePlay() }
+                IconButton(transport.isPlaying ? "pause.fill" : "play.fill", help: tr("player.playPause")) { store.togglePlay() }.testID("player.play")
                 if ui.loopEnabled {
                     IconButton("repeat", help: tr("player.loop"), active: true) { store.toggleLoop() }
                 }
@@ -262,6 +262,7 @@ struct PlayerHost: NSViewRepresentable {
     let store: EditorStore
     func makeNSView(context: Context) -> PlayerContainerView {
         let v = PlayerContainerView(store: store)
+        v.player.setAccessibilityIdentifier("player")
         SnapshotRegistry.shared.player = v.player
         SnapshotRegistry.shared.playerOverlay = v.overlay
         return v

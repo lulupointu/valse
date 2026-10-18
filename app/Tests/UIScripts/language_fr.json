@@ -1,0 +1,11 @@
+// Switch the UI language to French from the View menu: the whole UI (and the menu bar) rebuilds without relaunch.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": [{"path": "ui.language", "equals": "en"}, {"path": "ui.menu", "contains": "File"}]},
+    {"menu": "menu.view/menu.language.fr"},
+    {"expect": [{"path": "ui.language", "equals": "fr"}, {"path": "ui.menu", "contains": "Fichier"},
+                {"path": "ui.anchors", "contains": "panel.timeline"}]},
+    {"snapshot": "editor-fr", "baseline": "editor-fr", "tolerance": 0.03, "threshold": 40}
+  ]
+}

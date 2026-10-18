@@ -1,0 +1,14 @@
+// Select the overlay clip, type 30 into the Opacity field of the Video inspector, press Return: one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:1/0"},
+    {"click": "id:slider.opacity.field"},
+    {"type": "30", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "selectedClips.0.opacity", "approx": 0.3, "tolerance": 0.01}, {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "opacity-30", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.opacity", "approx": 1.0}}
+  ]
+}

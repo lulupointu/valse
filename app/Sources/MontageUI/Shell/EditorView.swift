@@ -36,18 +36,18 @@ public struct EditorView: View {
                 let rightW = max(Theme.Metrics.minInspectorWidth * 0.8, inner.width * rightFraction)
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
-                        AssetPanel(store: store).frame(width: leftW)
+                        AssetPanel(store: store).testID("panel.assets").frame(width: leftW)
                         Splitter(axis: .vertical) { dx in leftFraction = clamp((leftW + dx) / inner.width, 0.2, 0.45) }
                             .frame(width: g)
-                        PlayerPanel(store: store).frame(maxWidth: .infinity)
+                        PlayerPanel(store: store).testID("panel.player").frame(maxWidth: .infinity)
                         Splitter(axis: .vertical) { dx in rightFraction = clamp((rightW - dx) / inner.width, 0.2, 0.45) }
                             .frame(width: g)
-                        InspectorPanel(store: store).frame(width: rightW)
+                        InspectorPanel(store: store).testID("panel.inspector").frame(width: rightW)
                     }
                     .frame(height: topH)
                     Splitter(axis: .horizontal) { dy in topFraction = clamp((topH + dy) / inner.height, 0.3, 0.75) }
                         .frame(height: g)
-                    TimelinePanel(store: store)
+                    TimelinePanel(store: store).testID("panel.timeline")
                 }
                 .padding(.horizontal, Theme.Metrics.outerGutter)
                 .padding(.bottom, Theme.Metrics.outerGutter)
@@ -101,6 +101,7 @@ struct TitleBar: View {
                 } label: { Image(systemName: "globe").font(.system(size: 13)) }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                     .help(tr("settings.language"))
+                    .testID("titlebar.language")
                 Button { store.isExportSheetPresented = true } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "square.and.arrow.up").font(.system(size: 11, weight: .semibold))
@@ -110,6 +111,7 @@ struct TitleBar: View {
                 .buttonStyle(AccentButtonStyle())
                 .disabled(store.project.duration == .zero)
                 .keyboardShortcut("e", modifiers: .command)
+                .testID("titlebar.export")
             }
             Text(verbatim: store.projectName)
                 .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)

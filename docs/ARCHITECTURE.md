@@ -210,6 +210,11 @@ Effect shader contract (see `EffectDescriptor` docs): `float4 effect(float2 uv, 
   `.frameIndex` media encodes the frame number as a grey level, for frame-exact speed/trim checks. Export checks: `try await p.export(seconds: 1, settings:)` returns `MediaInfo` (ffprobe if installed: codec, size, fps, frame count, audio). Playback: `PlaybackProbe.measure(engine, seconds:)`.
 - **UI** (`MontageUITests`): store flows (split/undo/gesture/apply effect/save-open), timeline layout hit-testing and snapping, localization coverage of dynamic keys.
 - **Visual**: `scripts/screenshot.sh [--demo] [--open p.montage] [--lang fr] [-o out.png]` launches the app in the background without activating it (accessory policy, window ordered behind everything), captures it with `screencapture -l` and falls back to the app's offscreen `--snapshot` (SwiftUI chrome via `cacheDisplay` plus Metal views rendered offscreen; no Screen Recording permission needed), then quits.
+- **Interaction tests** (UI test driver): `scripts/uitest.sh app/Tests/UIScripts/<name>.json` runs a ~10-line JSON
+  script (clicks/drags/keys/menu/drop by test ID or timeline coordinates, `expect` on a JSON state dump, snapshots)
+  inside the app in an offscreen, never-activated window (`Montage --uitest`, `MontageUI/Testing/`). Screenshot
+  baselines with tolerance in `app/Tests/Baselines`; perf harness `scripts/perf.sh`. **How-to: docs/TESTING.md.**
+  Give new views a `.testID("area.thing")`.
 - Every feature PR adds unit tests, plus render/export asserts when pixels change.
 
 ## 16. How to add X (recipes)

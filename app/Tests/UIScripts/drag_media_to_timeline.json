@@ -1,0 +1,13 @@
+// Drop media cards of the bin onto the empty main track (simulated drag & drop through the real drop handler).
+{
+  "project": "demo-bin",
+  "steps": [
+    {"expect": [{"path": "media.count", "equals": 5}, {"path": "main.clips.count", "equals": 0}]},
+    {"drop": {"media": 0}, "on": "time:0@main"},
+    {"expect": [{"path": "main.clips.count", "equals": 1}, {"path": "main.clips.0.kind", "equals": "media"},
+                {"path": "selectedClips.count", "equals": 1}, {"path": "undo.depth", "gte": 1}]},
+    {"drop": {"media": 1}, "on": "time:20@main"},
+    {"expect": [{"path": "main.clips.count", "equals": 2}, {"path": "main.clips.1.start", "approx": 6.0}]},
+    {"snapshot": "dropped", "element": "id:panel.timeline"}
+  ]
+}
