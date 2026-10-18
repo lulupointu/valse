@@ -93,7 +93,7 @@ name, redoName, inGesture, revision, dirty}` · `tracks` (model order, bottom→
 muted, clips}`) · `main` (the main track) · clip summary: `{id, track, index, kind, name, text, start, duration, end,
 sourceStart, speed, opacity, enabled, blend, effects, transition, scale, rotation, positionX, positionY, volume,
 keyframes, selected}` · `media` · `canvas.{width,height,aspect}` · `ui.{inspectorTab, inspectorTabs, assetTab,
-exportSheet, language, toast, pixelsPerSecond, scrollTime, scrollY, menu, anchors}` · `project` (full project JSON).
+exportSheet, export, language, toast, pixelsPerSecond, scrollTime, scrollY, menu, anchors}` (`ui.export.dialog.{scope, duration, video, audio, gif, captions, codec, container, outputs, canExport, …}`, `ui.export.jobs` / `ui.export.shown` = `{title, state, progress, written, outputs}`) · `project` (full project JSON).
 Path segments: keys, indices (negative from the end), `count`, `first`, `last`. Source: `MontageUI/Testing/StateDump.swift`.
 
 ### Test IDs (stable element lookup)
@@ -108,6 +108,7 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
 - player: `player.play`
 - inspector: `inspector.tab.<tabID>`, `inspector.section.<sectionID>`, `slider.<ParamKey.raw>` (e.g. `slider.opacity`,
   `slider.rotation`) and `slider.<key>.field` (numeric field); `Bind.value` sliders: `slider.<label>` (pass `testID:` to `SliderRow` for a stable one)
+- export dialog: `export.dialog`, `export.section.{video,audio,gif,captions}` (+`.expand`), `export.title`, `export.folder`, `export.editCover`, `export.estimate`, `export.cancel`, `export.confirm`; progress view: `export.progress`, `export.stop`, `export.close`, `export.openFolder`, `export.share`; `titlebar.exportQueue` (UI-test exports go to a temp folder emptied per run)
 - asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>`, `media.import`
 
 ### How it works / limits
