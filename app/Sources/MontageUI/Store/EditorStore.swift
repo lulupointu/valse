@@ -38,6 +38,9 @@ public final class EditorStore {
     public private(set) var session: EditSession
     public var project: Project { session.project }
     public var selection: Set<ClipID> = [] { didSet { if selection != oldValue { selectionDidChange() } } }
+    /// Selected transition, identified by the clip that owns it (`transitionOut`). Exclusive with `selection`
+    /// (CapCut selects a transition after dropping it and shows its inspector).
+    public var selectedTransition: ClipID? { didSet { if selectedTransition != oldValue { selectionDidChange() } } }
     public let transport = TransportState()
     /// Timeline view state: tool mode, scroll, clipboard, selected transition/marker (W1, MontageUI/Timeline).
     public let timelineUI = TimelineUIState()
@@ -130,10 +133,12 @@ public final class EditorStore {
     private func didChangeProject() {
         engine.update(project: session.project)
         selection = selection.filter { session.project.timeline.clip($0) != nil }
+        if let t = selectedTransition, session.project.timeline.clip(t)?.transitionOut == nil { selectedTransition = nil }
         scheduleAutosave()
     }
 
     private func selectionDidChange() {
+        if !selection.isEmpty, selectedTransition != nil { selectedTransition = nil }
         if let t = inspectorTab, !InspectorRegistry.tabs(for: InspectorContext(store: self)).contains(where: { $0.id == t }) {
             inspectorTab = nil
         }
@@ -241,7 +246,10 @@ public final class EditorStore {
         let sel = selectedClips.first { c in main.clips.contains { $0.id == c.id } }
         let target = sel ?? main.clips.dropLast().min { abs(($0.end - transport.playhead).ticks) < abs(($1.end - transport.playhead).ticks) }
         guard let target, target.id != main.clips.last?.id else { return }
-        perform(SetTransition(target.id, d.makeInstance()))
+        if perform(SetTransition(target.id, d.makeInstance())) {
+            selection = []
+            selectedTransition = target.id
+        }
     }
 
     // MARK: Timeline commands
