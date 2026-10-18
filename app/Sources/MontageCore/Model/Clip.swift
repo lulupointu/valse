@@ -53,6 +53,20 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     /// Linkage: this clip follows that main-track clip (CapCut "linkage").
     public var linkedTo: ClipID?
 
+    // Timeline editing (W1). Optional so older project files decode unchanged.
+    /// Clips sharing a group id move / select together (CapCut "Group", ⌘G).
+    public var groupID: ClipGroupID?
+    /// Freeze-frame clip (CapCut "Freeze"): holds one source frame; trimming keeps the one-frame source extent.
+    public var freezeFrame: Bool?
+    /// Beat markers in clip-local time (CapCut "Mark beats" on audio clips). Clips snap to them.
+    public var beats: [Time]?
+    /// Audio clip extracted from this video clip ("Extract audio"): id of the source clip.
+    public var extractedFrom: ClipID?
+    /// Clip colour label index (TL-040), nil = default kind colour.
+    public var colorLabel: Int?
+
+    public var isFreezeFrame: Bool { freezeFrame ?? false }
+
     public init(content: ClipContent, start: Time, duration: Time, sourceStart: Time = .zero) {
         id = ClipID(); self.content = content; self.start = start; self.duration = duration
         self.sourceStart = sourceStart; speed = .normal; reversed = false; isEnabled = true

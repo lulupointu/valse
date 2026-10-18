@@ -100,6 +100,8 @@ public struct Marker: Codable, Sendable, Equatable, Identifiable {
     public var time: Time
     public var label: String
     public var color: RGBA
+    /// Free-form note ("Edit marker"). Optional for backward-compatible decoding.
+    public var note: String?
     public init(time: Time, label: String = "", color: RGBA = RGBA(hex: 0x00C1CD)) {
         id = MarkerID(); self.time = time; self.label = label; self.color = color
     }

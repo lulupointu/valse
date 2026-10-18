@@ -19,6 +19,9 @@ public typealias ClipID = Identifier<Clip>
 public typealias MediaID = Identifier<MediaAsset>
 public typealias EffectInstanceID = Identifier<EffectInstance>
 public typealias MarkerID = Identifier<Marker>
+/// Tag type for clip group ids.
+public enum ClipGroupTag {}
+public typealias ClipGroupID = Identifier<ClipGroupTag>
 
 /// 2D vector in model space (Double for exact persistence).
 public struct Vec2: Hashable, Codable, Sendable, CustomStringConvertible {

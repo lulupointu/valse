@@ -162,6 +162,7 @@ public enum TimelineOps {
         guard let loc = tl.locate(id) else { throw EditError.clipNotFound }
         guard !tl.tracks[loc.track].isLocked else { throw EditError.trackLocked }
         var c = tl.tracks[loc.track].clips[loc.clip]
+        if c.isFreezeFrame { return try trimFreeze(id, edge: edge, to: time, in: &project) }
         let mediaDuration = c.mediaID.flatMap { project.asset($0) }.map { $0.kind == .image ? Time.indefinite : $0.duration }
         let rate = c.speed.averageRate
         let oldMainStarts = mainStarts(tl)
@@ -266,6 +267,16 @@ public enum TimelineOps {
     public static func delete(_ ids: Set<ClipID>, in tl: inout Timeline) throws {
         guard !ids.isEmpty else { throw EditError.nothingToDo }
         let oldMainStarts = mainStarts(tl)
+        var ids = ids
+        // Linkage: clips attached to a deleted main-track clip are deleted with it (CapCut, UX.md §7 "Delete").
+        if tl.linkage, let main = tl.mainTrack {
+            let mainIDs = Set(main.clips.map(\.id)).intersection(ids)
+            if !mainIDs.isEmpty {
+                for t in tl.tracks where !t.isMain && !t.isLocked {
+                    for c in t.clips where c.linkedTo.map(mainIDs.contains) == true && followsMain(c, on: t.kind, in: tl) { ids.insert(c.id) }
+                }
+            }
+        }
         var removed = 0
         for ti in tl.tracks.indices where !tl.tracks[ti].isLocked {
             let before = tl.tracks[ti].clips.count
@@ -324,7 +335,7 @@ public enum TimelineOps {
     // MARK: Main track magnet & linkage
 
     /// Packs main-track clips from 0 (transitions overlap neighbours) and moves linked clips by the same delta.
-    public static func compactMain(_ tl: inout Timeline, previousStarts: [ClipID: Time]? = nil) {
+    public static func compactMain(_ tl: inout Timeline, previousStarts: [ClipID: Time]? = nil, except: Set<ClipID> = []) {
         guard tl.mainTrackMagnet, let mi = tl.mainTrackIndex else { return }
         let before = previousStarts ?? mainStarts(tl)
         var t = Time.zero
@@ -339,7 +350,7 @@ public enum TimelineOps {
         guard tl.linkage else { return }
         for c in tl.tracks[mi].clips {
             guard let old = before[c.id], old != c.start else { continue }
-            shiftLinked(to: c.id, by: c.start - old, in: &tl)
+            shiftLinked(to: c.id, by: c.start - old, in: &tl, except: except)
         }
     }
 
@@ -348,11 +359,13 @@ public enum TimelineOps {
         return Dictionary(uniqueKeysWithValues: m.clips.map { ($0.id, $0.start) })
     }
 
-    static func shiftLinked(to mainID: ClipID, by delta: Time, in tl: inout Timeline) {
+    static func shiftLinked(to mainID: ClipID, by delta: Time, in tl: inout Timeline, except: Set<ClipID> = []) {
         guard delta.ticks != 0 else { return }
         for ti in tl.tracks.indices where !tl.tracks[ti].isMain {
             var changed = false
-            for ci in tl.tracks[ti].clips.indices where tl.tracks[ti].clips[ci].linkedTo == mainID {
+            let kind = tl.tracks[ti].kind
+            for ci in tl.tracks[ti].clips.indices where tl.tracks[ti].clips[ci].linkedTo == mainID
+                && !except.contains(tl.tracks[ti].clips[ci].id) && followsMain(tl.tracks[ti].clips[ci], on: kind, in: tl) {
                 tl.tracks[ti].clips[ci].start = max(.zero, tl.tracks[ti].clips[ci].start + delta)
                 changed = true
             }
