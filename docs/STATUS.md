@@ -56,6 +56,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 
 
 ## Done cross-team items
+- W13 × W2: one library preview mode — W2 `Player/PlayerPreview.swift` (`store.isPreviewing`, `exitPreview()`, `PlayerUIState.preview`) now also has W13's `previewStock`, `previewTransition` (Transitions tab click), sample gradient under effects on an empty timeline, and exit on a click outside the asset panel + player; W13's duplicate LibraryPreview.swift removed. W13's 36-track MusicLibrary + AudioLibraryTab replace POL-B's 8-track pack / AudioLibraryView.
 - W2 (UX polish) for W7: canvas text edge pills set `TextContent.boxWidth` (TX-011). For W4/W13: player preview mode (`store.previewMedia/previewEffect/previewSticker/exitPreview`, "Previewing — …"); effect/filter/sticker/media card clicks call it (FX-001, W13-1/W13-3).
 - W12 did W6's + W2's requests: Settings ▸ Performance (preview quality + proxies persisted from Settings and the player menu, proxy policy/location/size, render cache size/cap/auto render) and the green render-cache bar under the ruler.
 - W12 did W11's request: Settings toggles write `hardwareDefaultsKey`, `ExportQueue.soundDefaultsKey` and new `notifyDefaultsKey`.
