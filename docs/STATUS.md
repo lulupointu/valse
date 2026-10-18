@@ -27,7 +27,9 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | running | |
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | running | |
 | PERF | MacBook Air smoothness: 500-clip fit-zoom timeline 154 ms/frame on E-cores → <16 ms; full --air audit; flaky PlaybackTests | 3 | running | |
-| UXR | UX parity review vs CapCut (docs/UX_GAPS.md) | 3 | running | |
+| UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
+| POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | running | |
+| POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | running | |
 | — | Templates (TP), Retouch/body (RT) | 3 | queued (depend on W7, W10) | |
 
 ## Cross-team requests / blockers (open)
