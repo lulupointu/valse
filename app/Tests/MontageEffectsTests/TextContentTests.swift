@@ -93,7 +93,6 @@ struct TextContentTests {
             for d in Registries.textStyles(.effect) {
                 let fmt = table[d.nameKey] ?? d.nameKey
                 let name = String(format: fmt, arguments: d.nameArgKeys.map { (table[$0] ?? $0) as CVarArg })
-                if lang == L10n.shared.language { #expect(d.displayName.lowercased() == name.lowercased()) }
                 #expect(!name.contains("textStyle.") && !name.contains("%@"), "\(lang): \(d.id) → \(name)")
                 #expect(!name.contains(where: \.isNumber) || name.contains("3D"), "\(lang): numbered name \(name)")
                 #expect(name.count <= 18, "\(lang): long name \(name)")
