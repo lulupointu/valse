@@ -1,0 +1,18 @@
+// Export (POL-B, UX_GAPS W11-1/2/3) in French: the size estimate uses the UI language ("Mo", decimal comma), the
+// labels fit on one line, and "Burn captions" is hidden on a project without caption tracks (the demo has only a title).
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"key": "cmd+e"},
+    {"waitFor": {"path": "ui.export.dialog.canExport", "equals": true, "timeout": 5}},
+    {"expect": [{"path": "ui.export.dialog.footer", "contains": " Mo (estimation)"},
+                {"path": "ui.export.dialog.burnCaptionsRow", "equals": false}]},
+    {"snapshot": "dialog-fr", "element": "id:export.dialog", "baseline": "export_dialog_fr", "threshold": 40, "tolerance": 0.03},
+    {"click": "id:export.section.audio"},
+    {"wait": 0.3},
+    {"snapshot": "dialog-fr-audio", "element": "id:export.dialog"},
+    {"click": "id:export.cancel"},
+    {"expect": {"path": "ui.exportSheet", "equals": false}}
+  ]
+}

@@ -17,9 +17,14 @@ public enum CaptionExport {
     }
 
     public static func captionTrackIDs(_ p: Project) -> [TrackID] {
-        let flagged = p.timeline.tracks.filter { $0.isCaptions == true || CaptionOps.isCaptionTrack($0) }
-        let tracks = flagged.isEmpty ? p.timeline.tracks.filter { $0.kind == .text } : flagged
-        return tracks.map(\.id)
+        let flagged = burnableTrackIDs(p)
+        return flagged.isEmpty ? p.timeline.tracks.filter { $0.kind == .text }.map(\.id) : flagged
+    }
+
+    /// Real caption tracks only (W7 caption tracks / imported subtitles), without the text-track fallback: what
+    /// "Burn captions into the video" switches, so turning it off never hides ordinary titles.
+    public static func burnableTrackIDs(_ p: Project) -> [TrackID] {
+        p.timeline.tracks.filter { ($0.isCaptions == true || CaptionOps.isCaptionTrack($0)) && !$0.clips.isEmpty }.map(\.id)
     }
 
     /// Segments sorted by start, clipped to `range` and shifted so the range starts at 0 (seconds).

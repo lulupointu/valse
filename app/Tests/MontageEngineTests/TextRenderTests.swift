@@ -480,4 +480,27 @@ import MontageTestSupport
         let lit = count(img) { $0.luma > 0.8 }, grey = count(img) { $0.luma > 0.15 && $0.luma < 0.6 }
         #expect(lit > 0 && Double(grey) / Double(lit) < 0.35)
     }
+
+    /// Inspector tiles (UX_GAPS W7-1): CPU frames of a glyph animation follow the engine — typewriter at 0 shows
+    /// nothing, half-way shows part of the text, at 1 the whole rest pose; all frames share one size.
+    @Test func animationTileFramesFollowTheGlyphSpec() {
+        var t = TextContent(string: "ABC123", fontSize: 0.1); t.bold = true
+        let frames = TextRasterizer.animationFrames(t, fontPx: 40, animationID: "montage.anim.text.in.typewriter", progresses: [0, 0.5, 1])
+        #expect(frames.count == 3)
+        #expect(Set(frames.map { "\($0.width)x\($0.height)" }).count == 1)
+        func coverage(_ img: CGImage) -> Double {
+            let w = img.width, h = img.height
+            var px = [UInt8](repeating: 0, count: w * h * 4)
+            let ctx = CGContext(data: &px, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+            var n = 0
+            for i in stride(from: 3, to: px.count, by: 4) where px[i] > 128 { n += 1 }
+            return Double(n) / Double(w * h)
+        }
+        let c = frames.map(coverage)
+        #expect(c[0] < 0.002, "\(c)")
+        #expect(c[1] > c[0] + 0.01 && c[2] > c[1] + 0.01, "\(c)")
+        #expect(TextRasterizer.animationFrames(t, fontPx: 40, animationID: "montage.anim.video.in.fade", progresses: [0.5]).isEmpty)
+    }
 }

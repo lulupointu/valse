@@ -243,7 +243,7 @@ struct ExportSheet: View {
                     toggleRow(tr("export.alpha"), detail: tr("export.alpha.hint"), isOn: Binding(
                         get: { model.remembered.video.alpha }, set: { b in model.editVideo { $0.alpha = b } }), enabled: on)
                 }
-                if model.hasCaptions {
+                if model.hasBurnableCaptions {
                     toggleRow(tr("export.burnCaptions"), detail: nil, isOn: Binding(
                         get: { model.remembered.video.burnCaptions }, set: { b in model.editVideo { $0.burnCaptions = b } }), enabled: on)
                 }

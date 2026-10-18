@@ -158,18 +158,20 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W8: Audio (audio library UI, `MontageUI/Audio`)
 
-**W8-1 · P1 · The Audio tab shows two sub-nav columns side by side, and imported audio uses grid cards.**
+**W8-1 · P1 · The Audio tab shows two sub-nav columns side by side, and imported audio uses grid cards. — FIXED (POL-B)**
 - CapCut ([60](ux/60_assets_audio.png)): one 120 pt sub-nav, and **56 pt list rows** with a 40 pt cover, the title, "artist ·
   02:09", ☆ and ⊕.
 - Montage ([04_assets_tabs_en](ux_review/04_assets_tabs_en.png)): the outer nav (Yours / Sound FX / Extracted) and the media-bin
   nav (Import / Library) sit side by side, using 240 pt. Imported music shows as a video-style card with a generic waveform glyph.
   Sound FX already uses proper rows ([26](ux_review/26_text_audio_library_panels.png)).
 - Fix: use a single nav, and render Yours with the same rows as Sound FX (a waveform image as the cover, ▶ on hover).
+- **Fixed (POL-B):** Yours is now its own list (no nested media-bin nav): Import button, 56 pt rows with the file's real waveform as cover, "artist · duration", ▶ on hover / click to preview, ⊕ adds at the playhead, drag to the timeline, Finder drop. UI script `audio_library` (baseline `audio_library_yours`).
 
-**W8-2 · P2 · There's no Music library.**
+**W8-2 · P2 · There's no Music library. — FIXED (POL-B)**
 - CapCut: Music ▴ with genres.
 - Montage: Yours · Sound FX · Extracted only.
 - Fix: ship a small local royalty-free music pack in the same row UI, or hide the concept.
+- **Fixed (POL-B):** Audio ▸ Music: 8 procedural royalty-free tracks in 4 genres (Chill, Upbeat, Cinematic, Lo-fi), ~30 s each, synthesized locally on first ▶/⊕ (`MusicLibrary`), same row UI; added media are named after the track. `audio_library` script + `AudioUITests.musicTracksSynthesize`.
 
 ## W1: Timeline editing UX
 
@@ -352,20 +354,23 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W7: Text engine and text UI
 
-**W7-1 · P1 · Text animation tiles are "ABC" placeholders.**
+**W7-1 · P1 · Text animation tiles are "ABC" placeholders. — FIXED (POL-B)**
 - CapCut ([129](ux/129_insp_text_animation.png)): the tiles play the per-glyph animation on hover (Typewriter, Cyan Flight…).
 - Montage ([12_inspector_text_sticker_filter](ux_review/12_inspector_text_sticker_filter.png)): every glyph animation tile is a
   grey "ABC".
 - Fix: render a short loop or a mid-animation still per tile with the text engine.
+- **Fixed (POL-B):** Glyph-animation tiles now show "ABC123" rendered by the text engine (`TextRasterizer.animationFrames`: same scene, atlas and per-unit transforms as the GPU pass, painted with Core Graphics): a mid-animation still at rest, the rendered 24-frame loop on hover. UI script `text_animation_tiles` (In / Out / Loop, baseline). Video animation tiles (W5) unchanged.
 
-**W7-2 · P2 · Text effects have generic names.**
+**W7-2 · P2 · Text effects have generic names. — FIXED (POL-B)**
 - CapCut ([121](ux/121_text_effects_grid.png)): named word-art styles.
 - Montage ([26](ux_review/26_text_audio_library_panels.png)): "ART" tiles named "Outline 1" … "Outline 12".
 - Fix: descriptive names ("Neon outline", "Gold stroke"…).
+- **Fixed (POL-B):** Word-art effects get descriptive en/fr names from their recipe ("Yellow stroke", "Pink neon", "Peach outline", "Trait jaune", "Néon rose"…), unique per group; duplicate neon/shadow variants fixed. `TextContentTests.textEffectsHaveDescriptiveUniqueNames`, UI scripts `text_effects_names`, `text_names_fr`.
 
-**W7-3 · P2 · French text animation names are truncated.**
+**W7-3 · P2 · French text animation names are truncated. — FIXED (POL-B)**
 - Montage ([15](ux_review/15_inspector_fr_text_audio.png)): "Machi…écrire", "Lettre…fondu", "Lettr…nantes", "Reto…ement".
 - Fix: shorter French names.
+- **Fixed (POL-B):** Shorter en/fr text animation names ("Dactylo", "Fondu lettres", "Toupie", "Bascule", "Letter fade"…); no truncation in the In / Out / Loop grids. UI script `text_names_fr` (baseline `text_animation_tiles_fr`).
 
 ## W10: AI features
 
@@ -385,19 +390,22 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W11: Export
 
-**W11-1 · P2 · Export size estimate uses the system locale instead of the UI language.**
+**W11-1 · P2 · Export size estimate uses the system locale instead of the UI language. — FIXED (POL-B)**
 - Montage ([22](ux_review/22_export_dialog.png), [23](ux_review/23_export_dialog_fr.png)): the English UI shows "44,3 MB" on a
   French system, and the French UI says "MB" instead of "Mo".
 - Fix: format with the UI locale, and use the localized unit.
+- **Fixed (POL-B):** Sizes are formatted in the UI language with localized units ("25.4 MB" / "25,4 Mo") in the dialog footer and the progress view (`ExportFormat.bytes`). UI scripts `export_dialog`, `export_dialog_fr` (`ui.export.dialog.footer`).
 
-**W11-2 · P2 · French labels wrap to two lines in the export dialog.**
+**W11-2 · P2 · French labels wrap to two lines in the export dialog. — FIXED (POL-B)**
 - Montage ([23_export_dialog_fr](ux_review/23_export_dialog_fr.png)): "Fréquence d'images", "Espace colorimétrique" and
   "Échantillonnage audio" wrap and break the row grid.
 - Fix: widen the label column to about 150 pt, or use "Images/s" and "Échantillonnage".
+- **Fixed (POL-B):** Label column widened to 142 pt, single line: "Fréquence d'images", "Espace colorimétrique", "Échantillonnage audio" fit. `export_dialog_fr` baseline.
 
-**W11-3 · P2 · "Burn captions into the video" is shown and on without captions.**
+**W11-3 · P2 · "Burn captions into the video" is shown and on without captions. — FIXED (POL-B)**
 - Montage ([22](ux_review/22_export_dialog.png)): the toggle is on even though the demo project has no caption track.
 - Fix: hide the row (or disable it) when there are no captions.
+- **Fixed (POL-B):** The toggle shows only when the project has real caption tracks (`CaptionExport.burnableTrackIDs`); turning it off no longer hides plain titles. `ExportFormatTests.burnInOnlyConcernsRealCaptionTracks`, `ui.export.dialog.burnCaptionsRow`.
 
 ---
 

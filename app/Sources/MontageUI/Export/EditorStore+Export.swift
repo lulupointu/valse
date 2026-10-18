@@ -99,6 +99,7 @@ enum ExportStateDump {
                 "codec": r.video.codec.rawValue, "resolution": r.video.resolution.rawValue, "fps": r.video.frameRate.fps,
                 "container": r.video.effectiveContainer.rawValue, "audioFormat": r.audio.format.rawValue,
                 "gifResolution": r.gif.resolution.rawValue, "estimatedBytes": m.estimatedBytes, "canExport": m.canExport,
+                "footer": m.footerText, "burnCaptionsRow": m.hasBurnableCaptions,
                 "outputs": m.specs().flatMap { $0.plannedOutputs().map(\.url.lastPathComponent) },
             ] as [String: Any]
         }

@@ -64,14 +64,24 @@ public enum MusicLibrary {
         let sr = b.sampleRate
         let step = 60 / s.bpm / 4
         var rng = XorShift(s: 0x51F15EED)
+        let L = b.pointer(0), R = b.pointer(1)
+        let dt = 1 / sr
         func add(_ t0: Double, _ dur: Double, pan: Double = 0, _ sample: (Double) -> Double) {
             let i0 = max(0, Int(t0 * sr)), n = min(b.frames - i0, Int(dur * sr))
             guard n > 0 else { return }
             let gl = Float(min(1, 1 - pan)), gr = Float(min(1, 1 + pan))
+            var t = 0.0
             for k in 0..<n {
-                let v = Float(sample(Double(k) / sr))
-                b[0, i0 + k] += v * gl; b[1, i0 + k] += v * gr
+                let v = Float(sample(t)); t += dt
+                L[i0 + k] += v * gl; R[i0 + k] += v * gr
             }
+        }
+        // pad wavetable: one cycle of the harmonic mix (cheap per-sample lookup instead of N sines)
+        let tableSize = 2048
+        let harmonics = max(1, Int(2 + s.bright * 3))
+        let table: [Double] = (0..<tableSize).map { i in
+            let th = 2 * Double.pi * Double(i) / Double(tableSize)
+            return (1...harmonics).reduce(0.0) { $0 + sin(th * Double($1)) / Double($1 * $1) }
         }
         func stepTime(_ bar: Int, _ st: Int) -> Double {
             Double(bar * 16 + st) * step + (st % 2 == 1 ? s.swing * step : 0)
@@ -87,12 +97,16 @@ public enum MusicLibrary {
                 for (v, iv) in tones.enumerated() {
                     let f = hz(chordRoot + 24 + iv)
                     let pan = (Double(v) - 1.5) * 0.3
-                    let harmonics = max(1, Int(2 + s.bright * 3))
-                    add(t0, barDur + 0.6, pan: pan) { t in
-                        let envv = min(1, t / 0.35) * (t > barDur ? max(0, 1 - (t - barDur) / 0.6) : 1)
-                        var x = 0.0
-                        for h in 1...harmonics { x += sin(2 * .pi * f * Double(h) * t * (1 + 0.002 * Double(v))) / Double(h * h) }
-                        return x * envv * 0.06 * s.pad
+                    let inc = f * (1 + 0.002 * Double(v)) * Double(tableSize) / sr
+                    var phase = 0.0
+                    let gain = 0.06 * s.pad
+                    table.withUnsafeBufferPointer { tb in
+                        add(t0, barDur + 0.6, pan: pan) { t in
+                            let envv = min(1, t / 0.35) * (t > barDur ? max(0, 1 - (t - barDur) / 0.6) : 1)
+                            let x = tb[Int(phase)]
+                            phase += inc; if phase >= Double(tableSize) { phase -= Double(tableSize) }
+                            return x * envv * gain
+                        }
                     }
                 }
             }

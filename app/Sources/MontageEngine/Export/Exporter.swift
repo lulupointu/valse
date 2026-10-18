@@ -188,7 +188,7 @@ public enum Exporter {
         p.settings.canvasSize = settings.exportCanvas(project.settings.canvasSize)
         if settings.effectiveAlpha { p.settings.backgroundColor = .clear }
         if !settings.burnCaptions {
-            for id in CaptionExport.captionTrackIDs(project) {
+            for id in CaptionExport.burnableTrackIDs(project) {
                 if let i = p.timeline.tracks.firstIndex(where: { $0.id == id }) { p.timeline.tracks[i].isHidden = true }
             }
         }

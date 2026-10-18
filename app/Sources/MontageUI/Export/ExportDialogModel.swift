@@ -141,6 +141,8 @@ public final class ExportDialogModel {
     }
 
     public var hasCaptions: Bool { CaptionExport.hasCaptions(project) }
+    /// "Burn captions into the video" only makes sense with real caption tracks (UX_GAPS W11-3).
+    public var hasBurnableCaptions: Bool { !CaptionExport.burnableTrackIDs(project).isEmpty }
     public var colorSpace: ProjectColorSpace { project.settings.colorSpace }
 
     /// Duration of the export (one clip's duration ×N for selected clips: the sum).
@@ -167,7 +169,7 @@ public final class ExportDialogModel {
 
     /// "Duration: 48s | Size: 72 MB (estimated)"
     public var footerText: String {
-        tr("export.footer", Self.durationString(duration), ByteCountFormatter.string(fromByteCount: estimatedBytes, countStyle: .file))
+        tr("export.footer", Self.durationString(duration), ExportFormat.bytes(estimatedBytes))
     }
 
     static func durationString(_ t: Time) -> String {

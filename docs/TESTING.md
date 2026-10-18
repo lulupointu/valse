@@ -147,6 +147,8 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
 - keyframe panel (⌥K): `panel.keyframes` — during UI tests it is hosted inside the test window (normally a floating NSPanel),
   `keyframes.preset.<presetID>`, `keyframes.applyAll`, `keyframes.reset`. Select a timeline keyframe by clicking the
   bottom band of the selected clip (`"clip:main/2:0.08", "offset": [0, 32]`, see `w5_keyframe_ease.json`)
+- audio library: `asset.nav.<section>` (yours / music / sfx / extracted), `audio.import`, `audio.row.<index>` (+`.add`), `audio.music.<trackID>` (+`.add`)
+- inspector animation tiles: `anim.tile.<animationID>`
 
 ### How it works / limits
 

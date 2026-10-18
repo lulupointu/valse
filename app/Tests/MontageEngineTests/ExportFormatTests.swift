@@ -375,6 +375,25 @@ import MontageTestSupport
         #expect(burnt.average(x: area.x, y: area.y, w: area.w, h: area.h).luma > clean.average(x: area.x, y: area.y, w: area.w, h: area.h).luma + 0.01)
     }
 
+    /// UX_GAPS W11-3: plain titles are not "captions" for burn-in: no burnable track, and burn-in off never hides them
+    /// (they still export as a caption file through the text-track fallback).
+    @Test func burnInOnlyConcernsRealCaptionTracks() async throws {
+        var p = TestProject(canvas: Size2(320, 180))
+        try await p.addVideo(.solid(.black), seconds: 2)
+        _ = try p.addText("Title", duration: Time(2))
+        #expect(CaptionExport.burnableTrackIDs(p.project).isEmpty)
+        #expect(CaptionExport.hasCaptions(p.project))
+        var s = ExportSettings(); s.burnCaptions = false
+        let hiddenWithoutCaptions = Exporter.prepare(p.project, for: s).timeline.tracks.filter { $0.isHidden }.count
+        #expect(hiddenWithoutCaptions == 0)
+        #expect(CaptionOps.addCaptionTrack([CaptionSegment(text: "hi", start: 0, end: 1)], to: &p.project, origin: .auto) != nil)
+        let burnable = CaptionExport.burnableTrackIDs(p.project)
+        #expect(burnable.count == 1)
+        let prepared = Exporter.prepare(p.project, for: s)
+        let hidden = prepared.timeline.tracks.filter { $0.isHidden }.map { $0.id }
+        #expect(hidden == burnable)
+    }
+
     @Test func autoCaptionTrackExportsWithWordTimingsAndOtherTextIgnored() async throws {
         var p = TestProject(canvas: Size2(320, 180))
         try await p.addVideo(.solid(.black), seconds: 4)

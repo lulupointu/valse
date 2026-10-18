@@ -9,8 +9,26 @@ enum ExportStyle {
     static let label = Color(hex: 0xD9D9D9)
     static let disabledLabel = Color(hex: 0x5F5F5F)
     static let separator = Color(hex: 0x2E2E2E)
-    static let labelWidth: CGFloat = 104
+    /// Wide enough for the longest French labels on one line ("Échantillonnage audio", UX_GAPS W11-2).
+    static let labelWidth: CGFloat = 142
     static let rowHeight: CGFloat = 30
+}
+
+/// File sizes in the UI language (not the system locale): "44.3 MB" / "44,3 Mo" (decimal units, like Finder).
+enum ExportFormat {
+    static func bytes(_ n: Int64) -> String {
+        let units = ["export.unit.kb", "export.unit.mb", "export.unit.gb", "export.unit.tb"]
+        var v = Double(max(n, 0)) / 1000
+        var u = 0
+        while v >= 1000 && u < units.count - 1 { v /= 1000; u += 1 }
+        if n < 1000 { return tr("export.unit.bytes", Int(n)) }
+        let f = NumberFormatter()
+        f.locale = L10n.shared.locale
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 0
+        f.maximumFractionDigits = v < 100 ? 1 : 0
+        return tr(units[u], f.string(from: NSNumber(value: v)) ?? String(format: "%.1f", v))
+    }
 }
 
 /// One menu entry: title, optional grey subtitle (codec menu), enabled flag.
@@ -77,7 +95,7 @@ struct ExportRow<Content: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(verbatim: label).font(.system(size: 12.5)).foregroundStyle(enabled ? ExportStyle.label : ExportStyle.disabledLabel)
-                .frame(width: ExportStyle.labelWidth, alignment: .leading).lineLimit(2)
+                .frame(width: ExportStyle.labelWidth, alignment: .leading).lineLimit(1).minimumScaleFactor(0.85)
             content().frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(minHeight: ExportStyle.rowHeight)

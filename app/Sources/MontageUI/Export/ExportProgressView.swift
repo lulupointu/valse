@@ -142,7 +142,7 @@ struct JobRow: View {
 
     static func size(_ u: URL) -> String? {
         guard let n = (try? FileManager.default.attributesOfItem(atPath: u.path))?[.size] as? Int64 else { return nil }
-        return ByteCountFormatter.string(fromByteCount: n, countStyle: .file)
+        return ExportFormat.bytes(n)
     }
 
     static func icon(_ k: ExportJobSpec.OutputKind) -> String {

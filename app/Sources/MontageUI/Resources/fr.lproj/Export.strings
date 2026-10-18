@@ -69,3 +69,9 @@
 "export.timeline.fcpxml" = "Final Cut Pro XML (.fcpxml)…";
 "export.timeline.edl" = "EDL (CMX 3600)…";
 "export.timeline.otio" = "OpenTimelineIO (.otio)…";
+/* File sizes in the UI language (POL-B, UX_GAPS W11-1). */
+"export.unit.bytes" = "%d octets";
+"export.unit.kb" = "%@ Ko";
+"export.unit.mb" = "%@ Mo";
+"export.unit.gb" = "%@ Go";
+"export.unit.tb" = "%@ To";
