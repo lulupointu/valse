@@ -39,8 +39,11 @@ public final class EditorStore {
     public var project: Project { session.project }
     public var selection: Set<ClipID> = [] { didSet { if selection != oldValue { selectionDidChange() } } }
     /// Selected transition, identified by the clip that owns it (`transitionOut`). Exclusive with `selection`
-    /// (CapCut selects a transition after dropping it and shows its inspector).
-    public var selectedTransition: ClipID? { didSet { if selectedTransition != oldValue { selectionDidChange() } } }
+    /// (CapCut selects a transition after dropping it and shows its inspector). Stored in `timelineUI`.
+    public var selectedTransition: ClipID? {
+        get { timelineUI.selectedTransition }
+        set { timelineUI.selectedTransition = newValue }
+    }
     public let transport = TransportState()
     /// Timeline view state: tool mode, scroll, clipboard, selected transition/marker (W1, MontageUI/Timeline).
     public let timelineUI = TimelineUIState()
