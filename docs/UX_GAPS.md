@@ -232,47 +232,47 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W2: Player canvas and playback
 
-**W2-1 · P1 · Masks can't be edited on the canvas.**
+**W2-1 · P1 · Masks can't be edited on the canvas.** — **Fixed** (dashed outline, corner dots, edge pills, centre cross; drag inside moves; floating rotate / feather / round-corner buttons; shown while Video ▸ Mask is open; `canvas_mask` UI script)
 - CapCut ([28](ux/28_player_mask_canvas.png)): a dashed white mask outline with corner and edge handles and a centre cross, plus
   floating round buttons for feather ↕, rotate and round corners. Dragging inside moves the mask.
 - Montage ([19_mask_added](ux_review/19_mask_added.png)): after "Add mask", the canvas shows only the clip's bounding box, so the
   mask can be adjusted only with the inspector fields. `CanvasOverlayView` has no mask handles.
 - Fix: add a mask handle set to the overlay, using the same geometry as `MaskSettings`.
 
-**W2-2 · P1 (verify) · During inline text editing the text seems to disappear.**
+**W2-2 · P1 (verify) · During inline text editing the text seems to disappear.** — **Fixed** (real: confirmed with `screencapture -l` on an on-screen window — AppKit's inactive-window selection is opaque grey. The editor's layout manager now always paints a translucent blue highlight over the rendered text; `canvas_text_edit` UI script + baseline)
 - CapCut ([78](ux/78_text_inline_edit.png)): a double-click selects the text in place with a blue highlight and a caret.
 - Montage ([21_player_states](ux_review/21_player_states.png), second tile, `--player-state select=text,edit`): a grey box with no
   visible glyphs. This is an offscreen render of the `NSTextView`, so it needs confirmation in the phase-4 real-input pass. If it's
   real, it's P0 (it breaks "Add text").
 - Fix: make the editor transparent, with text in the clip's font, colour and size, and the selection drawn over the rendered text.
 
-**W2-3 · P1 · The player has no source or library preview mode.**
+**W2-3 · P1 · The player has no source or library preview mode.** — **Fixed** (`PlayerUIState.preview`: "Previewing — Video/Effects/Filters/Stickers" header with ✕, item timecode, Space plays, Esc / canvas click / seek / edit exit; `store.previewMedia/previewEffect/previewSticker/exitPreview`; media, effect, filter and sticker card clicks call it; `player_preview` UI script)
 - CapCut (UX §4.1, [70b](ux/70b_effect_after_click.png)): the header changes to "Previewing — video" or "Previewing — Effects",
   the timecode shows the item's own duration, and Space plays it.
 - Montage: there's no such state, and no localized string exists for it. W13-1 and W13-3 depend on it.
 - Fix: add `PlayerUIState.preview(item)` with its own header title, transport and an exit on Esc or a click elsewhere.
 
-**W2-4 · P2 · The default preview quality shows "High".**
+**W2-4 · P2 · The default preview quality shows "High".** — **Fixed** (the automatic default reads "Auto" / "Automatic (recommended)" with its real behaviour in the detail line)
 - CapCut ([103](ux/103_player_quality_menu.png)): "Full" by default.
 - Montage ([01_editor_overview](ux_review/01_editor_overview.png)): "High" (the automatic default), which reads as a reduced quality.
 - Fix: label the automatic default "Auto" or "Full", or default to Full on machines with more than 8 GB.
 
-**W2-5 · P2 · The empty-project player shows a black frame.**
+**W2-5 · P2 · The empty-project player shows a black frame.** — **Fixed** (no frame and a dimmed, disabled transport bar until the first clip; `player_empty` UI script + baseline)
 - CapCut ([10](ux/10_editor_empty.png)): no frame, dimmed controls and dimmed counters.
 - Montage ([02_empty_editor](ux_review/02_empty_editor.png)): a black 16:9 frame and full-brightness controls.
 - Fix: hide the frame and dim the controls while the project is empty.
 
-**W2-6 · P2 · The player ☰ menu has no Color oscilloscope.**
+**W2-6 · P2 · The player ☰ menu has no Color oscilloscope.** — **Fixed** (☰ ▸ Color oscilloscope ▸ Turn off / Luma waveform / RGB parade, drawn bottom-right of the canvas; vectorscope and histogram not done)
 - CapCut ([107](ux/107_player_menu.png)): Color oscilloscope ▸ Turn on / Turn off.
 - Montage: there's no scope entry (no "scope" string under Player).
 - Fix: add a luma waveform or RGB parade overlay, or leave it out deliberately and note that in FEATURES.
 
-**W2-7 · P2 · Text boxes have no edge pills.**
+**W2-7 · P2 · Text boxes have no edge pills.** — **Fixed** (left/right pills set `TextContent.boxWidth`, the text wraps; `canvas_text_box` UI script)
 - CapCut ([75](ux/75_text_on_canvas.png)): pill handles on the edge midpoints change the text box width.
 - Montage ([21_player_states](ux_review/21_player_states.png), first tile): corner handles only. TX-011 is in the cross-team list.
 - Fix: add the edge pills that set `boxWidth`.
 
-**W2-8 · P2 · The chroma picker uses the system screen sampler.**
+**W2-8 · P2 · The chroma picker uses the system screen sampler.** — **Fixed** (canvas eyedropper `CanvasTool` with a loupe ring; samples the frame with the edited key switched off; Esc cancels; `canvas_eyedropper` UI script)
 - CapCut ([125](ux/125_chroma_picker_hover.png)): a loupe ring on the canvas, and the click samples the frame.
 - Montage: `NSColorSampler`, a screen-wide magnifier that can also pick colours outside the video.
 - Fix: add a canvas eyedropper tool through `PlayerUIState` modal tools, like the cutout brush.
