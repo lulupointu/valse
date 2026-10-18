@@ -97,34 +97,72 @@ public final class MetalContext: @unchecked Sendable {
 }
 
 /// Recycles intermediate textures by (width, height, format). Textures are handed back when the command buffer
-/// that used them completes, so steady-state rendering allocates nothing.
+/// that used them completes, so steady-state rendering allocates nothing. Idle textures are capped by bytes
+/// (`idleBudget`, from `MemoryBudget.texturePoolIdleBytes`), not by count per size: a frame with 50 same-sized text
+/// layers reuses 50 textures, while rarely used sizes age out (least recently released first).
 public final class TexturePool: @unchecked Sendable {
     private struct Key: Hashable { let w: Int; let h: Int; let f: UInt }
+    private struct Idle { let texture: MTLTexture; let bytes: Int; let tick: UInt64 }
     private let device: MTLDevice
     private let lock = NSLock()
-    private var free: [Key: [MTLTexture]] = [:]
-    /// Max idle textures kept per key.
-    private let maxPerKey = 6
+    /// Per key, in release order (oldest first).
+    private var free: [Key: [Idle]] = [:]
+    private var tick: UInt64 = 0
+    private var _idleBytes = 0
+    private var _allocations = 0
+    private var _idleBudget: Int
 
-    init(device: MTLDevice) { self.device = device }
+    init(device: MTLDevice, idleBudget: Int = MemoryBudget.texturePoolIdleBytes) {
+        self.device = device; _idleBudget = idleBudget
+    }
+
+    /// Max bytes of idle (pooled, unused) textures; lowering it trims immediately.
+    public var idleBudget: Int {
+        get { lock.withLock { _idleBudget } }
+        set { lock.withLock { _idleBudget = max(0, newValue); trimLocked(to: _idleBudget) } }
+    }
+    public var idleBytes: Int { lock.withLock { _idleBytes } }
+    /// Textures created so far (tests: steady-state rendering must not allocate).
+    public var allocations: Int { lock.withLock { _allocations } }
 
     public func acquire(_ w: Int, _ h: Int, _ format: MTLPixelFormat = MetalContext.workingFormat) -> MTLTexture {
         let key = Key(w: max(w, 1), h: max(h, 1), f: format.rawValue)
-        if let t = lock.withLock({ free[key]?.popLast() }) { return t }
+        let reused: MTLTexture? = lock.withLock {
+            guard let i = free[key]?.popLast() else { return nil }
+            _idleBytes -= i.bytes
+            return i.texture
+        }
+        if let t = reused { return t }
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: key.w, height: key.h, mipmapped: false)
         d.usage = [.renderTarget, .shaderRead]
         d.storageMode = .private
+        lock.withLock { _allocations += 1 }
         return device.makeTexture(descriptor: d)!
     }
 
     public func release(_ t: MTLTexture) {
         let key = Key(w: t.width, h: t.height, f: t.pixelFormat.rawValue)
+        let bytes = max(t.allocatedSize, t.width * t.height * 4)
         lock.withLock {
-            var list = free[key] ?? []
-            if list.count < maxPerKey { list.append(t) }
-            free[key] = list
+            guard bytes <= _idleBudget else { return }
+            tick &+= 1
+            free[key, default: []].append(Idle(texture: t, bytes: bytes, tick: tick))
+            _idleBytes += bytes
+            trimLocked(to: _idleBudget)
         }
     }
 
-    public func purge() { lock.withLock { free.removeAll() } }
+    /// Drops idle textures (oldest first) until at most `bytes` stay pooled.
+    public func trim(to bytes: Int) { lock.withLock { trimLocked(to: bytes) } }
+
+    private func trimLocked(to budget: Int) {
+        while _idleBytes > budget {
+            guard let (k, _) = free.min(by: { ($0.value.first?.tick ?? .max) < ($1.value.first?.tick ?? .max) }),
+                  var list = free[k], !list.isEmpty else { _idleBytes = 0; free.removeAll(); return }
+            _idleBytes -= list.removeFirst().bytes
+            free[k] = list.isEmpty ? nil : list
+        }
+    }
+
+    public func purge() { lock.withLock { free.removeAll(); _idleBytes = 0 } }
 }

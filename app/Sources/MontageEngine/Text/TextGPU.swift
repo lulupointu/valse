@@ -153,17 +153,33 @@ enum TextAnimator {
         return (s, box)
     }
 
+    /// The parts of a `TextScene.Block` the per-item loop of `instances` reads.
+    final class BlockInfo {
+        let em: CGFloat, center: CGPoint
+        let karaoke: KaraokeStyle?
+        let wordTimes: [(start: Double, end: Double, keyword: Bool)]
+        let charPivots: [CGPoint], wordPivots: [CGPoint], linePivots: [CGPoint]
+        let visibleCharCount: Int, wordCount: Int, lineCount: Int
+        init(_ b: TextScene.Block) {
+            em = b.em; center = b.center; karaoke = b.karaoke; wordTimes = b.wordTimes
+            charPivots = b.charPivots; wordPivots = b.wordPivots; linePivots = b.linePivots
+            visibleCharCount = b.layout.visibleCharCount; wordCount = b.layout.words.count; lineCount = b.layout.lines.count
+        }
+    }
+
     /// GPU instances of a scene at a frame, relative to `origin` (top-left of the target, scene space).
     static func instances(_ scene: TextScene, _ atlas: TextAtlas, _ input: TextFrameInput, origin: CGPoint) -> [GlyphInstance] {
         var out: [GlyphInstance] = []
         out.reserveCapacity(scene.items.count)
         let perBlock = scene.blocks.map { Self.blockAnims($0, input) }
+        // per-block data read for every item, behind one reference (copying a `Block` per item retains ~10 buffers)
+        let infos = scene.blocks.map(BlockInfo.init)
         // highlight variant of each base item
         var variant = [Int?](repeating: nil, count: scene.items.count)
         for (i, it) in scene.items.enumerated() { if let b = it.variantOf, b >= 0 { variant[b] = i } }
         for (i, it) in scene.items.enumerated() {
             guard it.variantOf == nil, let uvA = atlas.uv[i] else { continue }
-            let b = scene.blocks[it.block]
+            let b = infos[it.block]
             guard let anims = perBlock[it.block] else { continue }
             var m = CGAffineTransform.identity
             var opacity = 1.0, highlight = 0.0
@@ -186,14 +202,14 @@ enum TextAnimator {
                 let pivot: CGPoint
                 switch a.spec.unit {
                 case .character where it.char >= 0:
-                    unit = GlyphUnitInfo(index: it.char, count: b.layout.visibleCharCount, random: glyphRandom(it.char, seed: 11))
+                    unit = GlyphUnitInfo(index: it.char, count: b.visibleCharCount, random: glyphRandom(it.char, seed: 11))
                     pivot = it.char < b.charPivots.count ? b.charPivots[it.char] : b.center
                 case .word where it.word >= 0:
-                    unit = GlyphUnitInfo(index: it.word, count: b.layout.words.count, random: glyphRandom(it.word, seed: 17))
+                    unit = GlyphUnitInfo(index: it.word, count: b.wordCount, random: glyphRandom(it.word, seed: 17))
                     pivot = it.word < b.wordPivots.count ? b.wordPivots[it.word] : b.center
                 case .line where it.line >= 0 || it.char >= 0:
-                    let li = it.line >= 0 ? it.line : lineOf(it, b)
-                    unit = GlyphUnitInfo(index: li, count: max(b.layout.lines.count, 1), random: glyphRandom(li, seed: 23))
+                    let li = it.line >= 0 ? it.line : lineOf(it, scene.blocks[it.block])
+                    unit = GlyphUnitInfo(index: li, count: max(b.lineCount, 1), random: glyphRandom(li, seed: 23))
                     pivot = li < b.linePivots.count ? b.linePivots[li] : b.center
                 default:
                     unit = GlyphUnitInfo(index: 0, count: 1, random: 0.5)
@@ -256,6 +272,21 @@ enum TextGPU {
         o.mixB = g.mixB; o.opacity = g.opacity;
         return o;
     }
+    // Direct placement onto the compositor's accumulation target: target pixel → layer uv → NDC through the layer's
+    // four corners (bilinear, exact for affine placements), layer opacity folded in.
+    struct PlaceGlyphU { float2 c0; float2 ex; float2 ey; float2 exy; float2 invSize; float opacity; float pad; };
+    vertex VOut glyph_place_vs(uint vid [[vertex_id]], uint iid [[instance_id]], constant GlyphInst* inst [[buffer(0)]],
+                               constant PlaceGlyphU& u [[buffer(1)]]) {
+        GlyphInst g = inst[iid];
+        float2 q = g.p[vid] * u.invSize;
+        float2 c = float2(float(vid & 1), float(vid >> 1));
+        VOut o;
+        o.pos = float4(u.c0 + u.ex * q.x + u.ey * q.y + u.exy * (q.x * q.y), 0, 1);
+        o.uvA = g.uvA.xy + c * g.uvA.zw;
+        o.uvB = g.uvB.xy + c * g.uvB.zw;
+        o.mixB = g.mixB; o.opacity = g.opacity * u.opacity;
+        return o;
+    }
     fragment float4 glyph_fs(VOut in [[stage_in]], texture2d<float> atlas [[texture(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_zero);
         float4 a = atlas.sample(s, in.uvA);
@@ -264,29 +295,60 @@ enum TextGPU {
     }
     """
 
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var pipelineCache: MTLRenderPipelineState?
+    /// Uniforms of `glyph_place_vs` (layer corners in NDC: TL, TR − TL, BL − TL, BR − TR − BL + TL).
+    struct PlaceUniforms {
+        var c0: SIMD2<Float>, ex: SIMD2<Float>, ey: SIMD2<Float>, exy: SIMD2<Float>
+        var invSize: SIMD2<Float>
+        var opacity: Float
+        var pad: Float = 0
+    }
 
-    static var pipeline: MTLRenderPipelineState? {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var pipelines: [String: MTLRenderPipelineState] = [:]
+
+    private static func pipeline(vertex: String) -> MTLRenderPipelineState? {
         lock.withLock {
-            if let p = pipelineCache { return p }
+            if let p = pipelines[vertex] { return p }
             let dev = MetalContext.shared.device
             do {
                 let lib = try dev.makeLibrary(source: shader, options: nil)
                 let d = MTLRenderPipelineDescriptor()
-                d.vertexFunction = lib.makeFunction(name: "glyph_vs")
+                d.vertexFunction = lib.makeFunction(name: vertex)
                 d.fragmentFunction = lib.makeFunction(name: "glyph_fs")
                 let ca = d.colorAttachments[0]!
                 ca.pixelFormat = MetalContext.workingFormat
                 ca.isBlendingEnabled = true
                 ca.sourceRGBBlendFactor = .one; ca.destinationRGBBlendFactor = .oneMinusSourceAlpha
                 ca.sourceAlphaBlendFactor = .one; ca.destinationAlphaBlendFactor = .oneMinusSourceAlpha
-                pipelineCache = try dev.makeRenderPipelineState(descriptor: d)
+                let p = try dev.makeRenderPipelineState(descriptor: d)
+                pipelines[vertex] = p
+                return p
             } catch {
                 EngineLog.error("text pipeline: \(error)")
+                return nil
             }
-            return pipelineCache
         }
+    }
+
+    static var pipeline: MTLRenderPipelineState? { pipeline(vertex: "glyph_vs") }
+    /// Glyphs straight onto the compositor's accumulation target (premultiplied "over").
+    static var placePipeline: MTLRenderPipelineState? { pipeline(vertex: "glyph_place_vs") }
+
+    /// Encodes one text layer's glyphs into an open encoder on the accumulation target. `buffer`/`offset` hold the
+    /// instances when they were batched into a per-pass buffer; otherwise they go inline (≤ 4 KB).
+    static func place(_ instances: [GlyphInstance], atlas: MTLTexture, uniforms: PlaceUniforms,
+                      buffer: MTLBuffer?, offset: Int, _ enc: MTLRenderCommandEncoder) {
+        guard !instances.isEmpty, let pipe = placePipeline else { return }
+        enc.setRenderPipelineState(pipe)
+        if let buffer {
+            enc.setVertexBuffer(buffer, offset: offset, index: 0)
+        } else {
+            instances.withUnsafeBytes { enc.setVertexBytes($0.baseAddress!, length: $0.count, index: 0) }
+        }
+        var u = uniforms
+        enc.setVertexBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 1)
+        enc.setFragmentTexture(atlas, index: 0)
+        enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4, instanceCount: instances.count)
     }
 
     static func upload(_ ctx: CGContext, _ w: Int, _ h: Int) -> MTLTexture? {

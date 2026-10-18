@@ -16,34 +16,46 @@ public final class TextRasterizer: @unchecked Sendable {
     public struct Result { public let texture: MTLTexture; public let canvasSize: Size2 }
 
     private struct Key: Hashable { let content: TextContent; let px: Int; let canvasW: Int; let duration: Int }
-    private final class Entry<V> { let value: V; let bytes: Int; init(_ v: V, _ b: Int) { value = v; bytes = b } }
+    private final class Entry<V> {
+        let value: V; let bytes: Int; var used: UInt64
+        init(_ v: V, _ b: Int, _ u: UInt64) { value = v; bytes = b; used = u }
+    }
 
-    /// Small thread-safe LRU with an entry and a byte budget.
+    /// Small thread-safe LRU with an entry and a byte budget. A hit only bumps a counter (O(1): 50 captions look up
+    /// their atlas every frame); eviction scans for the oldest entry, which only happens on inserts over budget.
     private final class LRU<V>: @unchecked Sendable {
         private let lock = NSLock()
         private var map: [Key: Entry<V>] = [:]
-        private var order: [Key] = []
+        private var tick: UInt64 = 0
         private var bytes = 0
-        let capacity: Int, budget: Int
+        let capacity: Int
+        private(set) var budget: Int
         init(capacity: Int, budget: Int) { self.capacity = capacity; self.budget = budget }
         func get(_ k: Key) -> V? {
             lock.withLock {
                 guard let e = map[k] else { return nil }
-                if let i = order.lastIndex(of: k), i != order.count - 1 { order.remove(at: i); order.append(k) }
+                tick &+= 1; e.used = tick
                 return e.value
             }
         }
         func put(_ k: Key, _ v: V, bytes b: Int) {
             lock.withLock {
-                if let old = map[k] { bytes -= old.bytes; order.removeAll { $0 == k } }
-                map[k] = Entry(v, b); order.append(k); bytes += b
-                while order.count > capacity || (bytes > budget && order.count > 1) {
-                    let victim = order.removeFirst()
-                    if let e = map.removeValue(forKey: victim) { bytes -= e.bytes }
-                }
+                if let old = map[k] { bytes -= old.bytes }
+                tick &+= 1
+                map[k] = Entry(v, b, tick); bytes += b
+                evictLocked()
             }
         }
-        func removeAll() { lock.withLock { map.removeAll(); order.removeAll(); bytes = 0 } }
+        /// Changes the byte budget (memory pressure / 8 GB policy) and evicts down to it.
+        func setBudget(_ b: Int) { lock.withLock { budget = b; evictLocked() } }
+        private func evictLocked() {
+            while map.count > capacity || (bytes > budget && map.count > 1) {
+                guard let victim = map.min(by: { $0.value.used < $1.value.used })?.key else { break }
+                if let e = map.removeValue(forKey: victim) { bytes -= e.bytes }
+            }
+        }
+        var totalBytes: Int { lock.withLock { bytes } }
+        func removeAll() { lock.withLock { map.removeAll(); bytes = 0 } }
     }
 
     private struct StaticImage { let texture: MTLTexture; let size: CGSize }
@@ -52,8 +64,8 @@ public final class TextRasterizer: @unchecked Sendable {
         init(scene: TextScene, atlas: TextAtlas) { self.scene = scene; self.atlas = atlas }
     }
 
-    private let statics = LRU<StaticImage>(capacity: 128, budget: 256 << 20)
-    private let dynamics = LRU<Dynamic>(capacity: 64, budget: 256 << 20)
+    private let statics = LRU<StaticImage>(capacity: 128, budget: MemoryBudget.textCacheBytes)
+    private let dynamics = LRU<Dynamic>(capacity: 64, budget: MemoryBudget.textCacheBytes)
     private let scenes = LRU<TextScene>(capacity: 128, budget: .max)
     private let statsLock = NSLock()
     private var _rasterizations = 0
@@ -63,6 +75,13 @@ public final class TextRasterizer: @unchecked Sendable {
     /// Number of CPU rasterizations so far (tests: animated playback must not re-rasterize per frame).
     public var rasterizationCount: Int { statsLock.withLock { _rasterizations } }
     public func purge() { statics.removeAll(); dynamics.removeAll(); scenes.removeAll() }
+    /// Bytes held by rasterized text (static images + glyph atlases).
+    public var cacheBytes: Int { statics.totalBytes + dynamics.totalBytes }
+    /// Shrinks both texture caches to `fraction` of their normal budget (memory pressure; 1 restores).
+    public func setBudgetFraction(_ fraction: Double) {
+        let b = Int(Double(MemoryBudget.textCacheBytes) * min(max(fraction, 0), 1))
+        statics.setBudget(b); dynamics.setBudget(b)
+    }
 
     // MARK: Public API
 
@@ -72,28 +91,58 @@ public final class TextRasterizer: @unchecked Sendable {
                      duration: 0, pxPerCanvas: outputScale)
     }
 
+    /// Glyph quads of a text layer at one frame, ready to draw: `instances` (target pixel space, `width`×`height`)
+    /// sample `atlas` (premultiplied). A static text is one quad over its cached image.
+    struct GlyphDraw {
+        let instances: [GlyphInstance]
+        let atlas: MTLTexture
+        let width: Int, height: Int
+        let canvasSize: Size2
+    }
+
     /// Texture of a text layer at one frame: static when nothing moves, else the GPU-composed glyphs (pool texture from
     /// `acquire`, valid for this command buffer only). Both are premultiplied.
     public func layerTexture(_ t: TextContent, canvas: Size2, outputScale: Double, layerScale: Vec2 = .one,
                              animations: [ActiveAnimation] = [], localTime: Time = .zero, duration: Time = .zero,
                              commandBuffer cmd: MTLCommandBuffer?, acquire: (Int, Int) -> MTLTexture) -> Result? {
+        guard let cmd else {
+            let k = outputScale * Self.scaleBucket(layerScale, fontPx: t.fontSize * canvas.height * outputScale)
+            return staticResult(t, fontPx: CGFloat(t.fontSize * canvas.height * k), canvasWidthPx: CGFloat(canvas.width * k),
+                                duration: duration.seconds, pxPerCanvas: k)
+        }
+        switch layerContent(t, canvas: canvas, outputScale: outputScale, layerScale: layerScale, animations: animations,
+                            localTime: localTime, duration: duration) {
+        case .none: return nil
+        case .texture(let r): return r
+        case .glyphs(let g):
+            let target = acquire(g.width, g.height)
+            TextGPU.compose(g.instances, atlas: g.atlas, into: target, cmd)
+            return Result(texture: target, canvasSize: g.canvasSize)
+        }
+    }
+
+    enum LayerContent { case none, texture(Result), glyphs(GlyphDraw) }
+
+    /// What a text layer draws at one frame, without encoding anything: the static image, or the animated glyph quads
+    /// (cached atlas; only the per-glyph transforms are computed per frame — layout and rasterization are cached).
+    func layerContent(_ t: TextContent, canvas: Size2, outputScale: Double, layerScale: Vec2,
+                      animations: [ActiveAnimation], localTime: Time, duration: Time) -> LayerContent {
         let bucket = Self.scaleBucket(layerScale, fontPx: t.fontSize * canvas.height * outputScale)
         let k = outputScale * bucket
         let fontPx = CGFloat(t.fontSize * canvas.height * k)
         let canvasW = CGFloat(canvas.width * k)
+        func still() -> LayerContent {
+            staticResult(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds, pxPerCanvas: k).map { .texture($0) } ?? .none
+        }
         let glyphAnims: [(spec: GlyphAnimationSpec, phase: AnimationPhaseKind, progress: Double)] = animations.compactMap { a in
             guard let spec = Registries.animations[a.typeID]?.glyph else { return nil }
             let phase: AnimationPhaseKind = a.phase == .in ? .in : (a.phase == .out ? .out : .combo)
             return (spec, phase, a.progress)
         }
         let isDynamic = t.template != nil || !glyphAnims.isEmpty || (t.karaoke != nil && !t.string.isEmpty)
-        guard isDynamic, let cmd else {
-            return staticResult(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds, pxPerCanvas: k)
-        }
+        guard isDynamic else { return still() }
         let input = TextFrameInput(anims: glyphAnims, localTime: localTime.seconds, duration: duration.seconds)
-        guard let dyn = dynamic(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds) else {
-            return staticResult(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds, pxPerCanvas: k)
-        }
+        guard let dyn = dynamic(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds) else { return still() }
         let scene = dyn.scene
         // symmetric margin around the rest bounds so the layer centre (and thus placement) never moves
         // Integer margin in multiples of 8 around the same 16-px-padded box as the static image: cells stay pixel
@@ -101,12 +150,10 @@ public final class TextRasterizer: @unchecked Sendable {
         let m = (TextAnimator.margin(scene, input) / 8).rounded(.up) * 8
         let rb = Self.padded(scene.bounds).insetBy(dx: -m, dy: -m)
         let w = Int(rb.width), h = Int(rb.height)
-        guard w > 0, h > 0, w <= 8192, h <= 8192 else { return nil }
-        let origin = rb.origin
-        let inst = TextAnimator.instances(scene, dyn.atlas, input, origin: origin)
-        let target = acquire(w, h)
-        TextGPU.compose(inst, atlas: dyn.atlas.texture, into: target, cmd)
-        return Result(texture: target, canvasSize: Size2(Double(w) / k, Double(h) / k))
+        guard w > 0, h > 0, w <= 8192, h <= 8192 else { return .none }
+        let inst = TextAnimator.instances(scene, dyn.atlas, input, origin: rb.origin)
+        return .glyphs(GlyphDraw(instances: inst, atlas: dyn.atlas.texture, width: w, height: h,
+                                 canvasSize: Size2(Double(w) / k, Double(h) / k)))
     }
 
     /// Size of the text layer in canvas pixels at rest (incl. outlines / shadows / glows) — what placement and the

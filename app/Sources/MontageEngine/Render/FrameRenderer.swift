@@ -56,6 +56,9 @@ public final class FrameRenderer: @unchecked Sendable {
     let overPremul: MTLRenderPipelineState
     public let text = TextRasterizer()
     public let images = ImageTextureCache()
+    /// Plain text layers draw their glyphs straight onto the accumulation target (`directText`); tests turn it off to
+    /// compare with the layer-texture path.
+    var allowsDirectText = true
 
     init() {
         let d = MTLRenderPipelineDescriptor()
@@ -78,6 +81,8 @@ public final class FrameRenderer: @unchecked Sendable {
     private enum Placement {
         case layer(MTLTexture, PlaceUniforms)
         case premultipliedFullscreen(MTLTexture)
+        /// Text glyphs drawn straight onto the accumulation target (no layer texture, no convert pass).
+        case glyphs(TextRasterizer.GlyphDraw, TextGPU.PlaceUniforms)
     }
 
     /// Encodes the frame into `cmd`, writing `output` (bgra8Unorm, any size; canvas is scaled to fit exactly).
@@ -108,8 +113,24 @@ public final class FrameRenderer: @unchecked Sendable {
                 rp.colorAttachments[0].storeAction = .store
                 guard let enc = cmd.makeRenderCommandEncoder(descriptor: rp) else { return }
                 enc.label = "place"
+                // every text layer's glyph instances above the inline limit share one buffer per pass
+                let stride = MemoryLayout<GlyphInstance>.stride
+                var glyphBytes = 0
+                for case .glyphs(let g, _) in placements where g.instances.count * stride > 4096 { glyphBytes += g.instances.count * stride }
+                let glyphBuffer = glyphBytes > 0 ? ctx.device.makeBuffer(length: glyphBytes, options: .storageModeShared) : nil
+                var glyphOffset = 0
                 for p in placements {
                     switch p {
+                    case .glyphs(let g, let u):
+                        let bytes = g.instances.count * stride
+                        if bytes > 4096, let buf = glyphBuffer {
+                            g.instances.withUnsafeBytes { (buf.contents() + glyphOffset).copyMemory(from: $0.baseAddress!, byteCount: bytes) }
+                            TextGPU.place(g.instances, atlas: g.atlas, uniforms: u, buffer: buf, offset: glyphOffset, enc)
+                            glyphOffset += bytes
+                        } else if bytes <= 4096 {
+                            TextGPU.place(g.instances, atlas: g.atlas, uniforms: u, buffer: nil, offset: 0, enc)
+                        }
+                        continue
                     case .layer(let tex, var u):
                         enc.setRenderPipelineState(ctx.place)
                         enc.setVertexBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
@@ -130,7 +151,9 @@ public final class FrameRenderer: @unchecked Sendable {
             for item in items {
                 switch item {
                 case .layer(let l):
-                    if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
+                    if let direct = directText(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, space: frame.colorSpace) {
+                        placements += direct
+                    } else if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
                                             sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
                         placements.append(.layer(p.0, p.1))
                     }
@@ -223,13 +246,9 @@ public final class FrameRenderer: @unchecked Sendable {
 
     // MARK: Layers
 
-    /// Builds the layer's straight-RGBA texture (with effects) and its placement uniforms.
-    private func prepareLayer(_ l0: LayerDescription, canvas: Size2, outW: Int, outH: Int, outScale: Double,
-                              media: [MediaID: MediaAsset], sources: any FrameSourceProvider, cmd: MTLCommandBuffer,
-                              scratch: FrameScratch, acquire: (Int, Int) -> MTLTexture,
-                              space: ProjectColorSpace = .sdr709, nested: MTLTexture? = nil) -> (MTLTexture, PlaceUniforms)? {
+    /// Layer-level animations (registry) applied: transform, opacity, reveal crop, blur passes.
+    private func animated(_ l0: LayerDescription, canvas: Size2) -> LayerDescription {
         var l = l0
-        // animations (registry) → transform/opacity
         if !l.animations.isEmpty {
             var st = AnimatedLayerState(transform: l.transform, opacity: l.opacity)
             for a in l.animations { Registries.animations[a.typeID]?.apply(a.progress, &st) }
@@ -237,6 +256,49 @@ public final class FrameRenderer: @unchecked Sendable {
             if !st.reveal.isIdentity { l.crop = l.crop.revealing(st.reveal) }
             if st.blur > 1e-4 { l.effects += Self.animationBlur(st.blur, layer: l, canvas: canvas) }
         }
+        return l
+    }
+
+    /// Fast path for plain text layers (captions): their glyph quads go straight onto the accumulation target with the
+    /// layer's placement folded into the vertex shader — no per-layer texture, compose pass or convert pass, so N
+    /// captions cost N instanced draws in the shared placement pass. nil = not eligible (effects, mask, blend mode,
+    /// crop/flip, HDR working space…): use `prepareLayer`. Empty = eligible but nothing to draw.
+    private func directText(_ l0: LayerDescription, canvas: Size2, outW: Int, outH: Int, outScale: Double,
+                            space: ProjectColorSpace) -> [Placement]? {
+        guard allowsDirectText, case .text(let content) = l0.source, space == .sdr709, l0.effects.isEmpty, l0.mask == nil, l0.matte == nil,
+              l0.blendMode == .normal else { return nil }
+        let l = animated(l0, canvas: canvas)
+        guard l.effects.isEmpty, l.crop.isIdentity, !l.transform.flipH, !l.transform.flipV else { return nil }
+        guard l.opacity > 0.001 else { return [] }
+        let draw: TextRasterizer.GlyphDraw
+        switch text.layerContent(content, canvas: canvas, outputScale: outScale, layerScale: l.transform.scale,
+                                 animations: l.animations, localTime: l.localTime, duration: l.duration) {
+        case .none: return []
+        case .glyphs(let g): draw = g
+        case .texture(let r):
+            let full = SIMD4<Float>(0, 0, 1, 1)
+            let w = Float(r.texture.width), h = Float(r.texture.height)
+            draw = .init(instances: [GlyphInstance(p0: SIMD2(0, 0), p1: SIMD2(w, 0), p2: SIMD2(0, h), p3: SIMD2(w, h),
+                                                   uvA: full, uvB: full, mixB: 0, opacity: 1)],
+                         atlas: r.texture, width: r.texture.width, height: r.texture.height, canvasSize: r.canvasSize)
+        }
+        let geo = l.geometry(canvasSize: canvas, sourceSizeOverride: draw.canvasSize)
+        guard abs(geo.halfSize.x) * 2 * outScale >= 0.5, abs(geo.halfSize.y) * 2 * outScale >= 0.5 else { return [] }
+        let c = geo.corners.map { c -> SIMD2<Float> in
+            SIMD2(Float(c.x * outScale / Double(outW) * 2 - 1), Float(1 - c.y * outScale / Double(outH) * 2))
+        }
+        let u = TextGPU.PlaceUniforms(c0: c[0], ex: c[1] - c[0], ey: c[2] - c[0], exy: c[3] - c[1] - c[2] + c[0],
+                                      invSize: SIMD2(1 / Float(draw.width), 1 / Float(draw.height)),
+                                      opacity: Float(min(max(l.opacity, 0), 1)))
+        return [.glyphs(draw, u)]
+    }
+
+    /// Builds the layer's straight-RGBA texture (with effects) and its placement uniforms.
+    private func prepareLayer(_ l0: LayerDescription, canvas: Size2, outW: Int, outH: Int, outScale: Double,
+                              media: [MediaID: MediaAsset], sources: any FrameSourceProvider, cmd: MTLCommandBuffer,
+                              scratch: FrameScratch, acquire: (Int, Int) -> MTLTexture,
+                              space: ProjectColorSpace = .sdr709, nested: MTLTexture? = nil) -> (MTLTexture, PlaceUniforms)? {
+        let l = animated(l0, canvas: canvas)
         guard l.opacity > 0.001 else { return nil }
 
         // Source size in canvas pixels for text/stickers comes from rasterization.

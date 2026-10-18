@@ -1,5 +1,5 @@
 {
-  "_doc": "Regression thresholds for scripts/perf.sh (docs/TESTING.md §3). 'default' = this machine at full speed (release build), 'air' = --air mode (efficiency cores under background QoS, 8 GB policies: pessimistic vs a real Air). Each metric: max and/or min; missing metrics are skipped. Tighten when you make something faster; never loosen to hide a regression without saying why in the commit. '_cpu_' = main-thread CPU per frame/event (robust to load); '_wall_'/'dispatch' = elapsed (includes preemption). unit_* come from unit-suite tests (TimingBudget.metric) run by perf.sh. History (M1 Pro default / air): timeline fit scroll cpu p95 154 ms air before LOD -> 0.44 / 1.7. 2026-10-18 panels in isolated hosting views + engine O(1) lookups: inspector drag main cpu p50 17.7 -> 10.7 / 58 -> 45, ruler scrub 5.2 -> 3.9 / 26 -> 21 (500 clips, 300 media).",
+  "_doc": "Regression thresholds for scripts/perf.sh (docs/TESTING.md §3). 'default' = this machine at full speed (release build), 'air' = --air mode (efficiency cores under background QoS, 8 GB policies: pessimistic vs a real Air). Each metric: max and/or min; missing metrics are skipped. Tighten when you make something faster; never loosen to hide a regression without saying why in the commit. '_cpu_' = main-thread CPU per frame/event (robust to load); '_wall_'/'dispatch' = elapsed (includes preemption). unit_* come from unit-suite tests (TimingBudget.metric) run by perf.sh. History (M1 Pro default / air): timeline fit scroll cpu p95 154 ms air before LOD -> 0.44 / 1.7. 2026-10-18 panels in isolated hosting views + engine O(1) lookups: inspector drag main cpu p50 17.7 -> 10.7 / 58 -> 45, ruler scrub 5.2 -> 3.9 / 26 -> 21 (500 clips, 300 media). Round 2: 50 animated captions 8.2 -> 1.4 / 40-58 -> 5-9 ms/frame (glyphs drawn straight onto the frame, byte-budgeted texture pool, O(1) text cache hits).",
   "default": {
     "timeline_scroll_cpu_p95_ms": {"max": 2},
     "timeline_zoom_cpu_p95_ms": {"max": 3},
@@ -28,7 +28,7 @@
     "proxy_60s_4k_seconds": {"max": 12},
     "unit_timeline_canvas_600_ms": {"max": 5},
     "unit_timeline_hittest_1000_ms": {"max": 15},
-    "unit_text_50captions_frame_ms": {"max": 16}
+    "unit_text_50captions_frame_ms": {"max": 4}
   },
   "air": {
     "timeline_scroll_cpu_p95_ms": {"max": 6},
@@ -58,6 +58,6 @@
     "proxy_60s_4k_seconds": {"max": 25},
     "unit_timeline_canvas_600_ms": {"max": 10},
     "unit_timeline_hittest_1000_ms": {"max": 60},
-    "unit_text_50captions_frame_ms": {"max": 90}
+    "unit_text_50captions_frame_ms": {"max": 16}
   }
 }

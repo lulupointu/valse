@@ -28,6 +28,12 @@ public enum MemoryBudget {
         activeStreams.reduce(UInt64(0)) { $0 + decoderCost($1) } > decoderBudget
     }
 
+    /// Idle intermediate textures the compositor's `TexturePool` keeps for reuse (≈ 10 / 24 1080p half-float frames).
+    public static var texturePoolIdleBytes: Int { isLowMemoryMachine ? 160 << 20 : 384 << 20 }
+
+    /// Per text texture cache (static images, glyph atlases) of `TextRasterizer`.
+    public static var textCacheBytes: Int { isLowMemoryMachine ? 96 << 20 : 192 << 20 }
+
     /// Thumbnail memory cache size.
     public static var thumbnailCacheBytes: Int { isLowMemoryMachine ? 64 << 20 : 160 << 20 }
 

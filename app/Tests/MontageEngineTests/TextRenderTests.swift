@@ -449,7 +449,7 @@ import MontageTestSupport
         for c in clips { let id = TimelineOps.addTrack(.text, to: &p.timeline); p.timeline.tracks[p.timeline.trackIndex(id)!].clips = [c] }
         let r = FrameRenderer()
         _ = render(p, at: 0, renderer: r)   // warm caches (rasterize atlases once)
-        let n = 30
+        let n = Int(ProcessInfo.processInfo.environment["MONTAGE_BENCH_FRAMES"] ?? "") ?? 30
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 1920, height: 1080, mipmapped: false)
         d.usage = [.renderTarget, .shaderRead]; d.storageMode = .private
         let out = MetalContext.shared.device.makeTexture(descriptor: d)!
@@ -457,7 +457,7 @@ import MontageTestSupport
         var cpu: [Double] = [], gpu: [Double] = []
         for i in 0..<n {
             let c0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
-            let cmd = encode(p, at: Double(i) / 30, renderer: r, into: out)
+            let cmd = encode(p, at: Double(i % 300) / 30, renderer: r, into: out)
             cpu.append(Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - c0) / 1e6)
             cmd.waitUntilCompleted()
             gpu.append(max(0, cmd.gpuEndTime - cmd.gpuStartTime) * 1000)
@@ -467,8 +467,69 @@ import MontageTestSupport
         // split: frame evaluation + encode on the calling thread vs GPU execution (median)
         TimingBudget.metric("unit_text_50captions_cpu_ms", cpu.sorted()[n / 2], "ms")
         TimingBudget.metric("unit_text_50captions_gpu_ms", gpu.sorted()[n / 2], "ms")
-        if let lim = TimingBudget.limit(33, "50 animated captions") { #expect(ms < lim, "50 animated captions took \(ms) ms/frame") }
+        if let lim = TimingBudget.limit(16, "50 animated captions") { #expect(ms < lim, "50 animated captions took \(ms) ms/frame") }
         #expect(r.text.rasterizationCount == 50)
+    }
+
+    /// Captions draw their glyphs straight onto the frame (no layer texture): same pixels as the layer-texture path
+    /// for static, karaoke, per-glyph animated and transformed / translucent text.
+    @Test func directTextMatchesLayerTexturePath() {
+        let direct = FrameRenderer(), layered = FrameRenderer()
+        layered.allowsDirectText = false
+        let k = caption("ONE TWO THREE", words: [("ONE", 0, 0.6), ("TWO", 0.6, 1.2), ("THREE", 1.2, 2)],
+                        KaraokeStyle(mode: .highlightWord, highlightColor: RGBA(1, 1, 0), highlightScale: 1.2))
+        let cases: [(String, TextContent, Double, (inout Clip) -> Void)] = [
+            ("static", text("Static", { $0.strokeWidth = 0.08; $0.strokeColor = RGBA(0, 0, 1) }), 1, { _ in }),
+            ("karaoke", k, 0.9, { _ in }),
+            ("glyph-anim", text("Wave"), 0.4, { $0.animations.combo = AnimationInstance(typeID: "montage.anim.text.combo.wave", duration: Time(1.2)) }),
+            ("transformed", k, 1.5, { $0.transform.rotation = 17; $0.transform.scale = Vec2(1.3, 0.8); $0.transform.position = Vec2(0.1, -0.1); $0.opacity = 0.6 }),
+        ]
+        for (name, t, at, edit) in cases {
+            let (p, _) = project(t, duration: 2, edit: edit)
+            let a = renderRaw(p, at: at, renderer: direct), b = renderRaw(p, at: at, renderer: layered)
+            if let dir = ProcessInfo.processInfo.environment["MONTAGE_TEXT_DEBUG_DIR"] {
+                a.writePNG(URL(fileURLWithPath: dir).appendingPathComponent("direct-\(name).png"))
+                b.writePNG(URL(fileURLWithPath: dir).appendingPathComponent("layered-\(name).png"))
+            }
+            var worst = 0, differing = 0, lit = 0
+            for i in stride(from: 0, to: a.pixels.count, by: 4) {
+                var d = 0
+                for c in 0..<3 { d = max(d, abs(Int(a.pixels[i + c]) - Int(b.pixels[i + c]))) }
+                worst = max(worst, d)
+                if d > 24 { differing += 1 }
+                if b.pixels[i] > 60 || b.pixels[i + 1] > 60 || b.pixels[i + 2] > 60 { lit += 1 }
+            }
+            #expect(lit > 200, "\(name): nothing rendered")
+            // Only antialiased edges may differ: the layer-texture path resamples a layer taller than 64 px to the
+            // 16-px texture quantum (a sub-pixel stretch), the direct path samples the atlas once.
+            #expect(Double(differing) < Double(max(lit, 1)) * 0.15, "\(name): \(differing) of \(lit) lit pixels differ (max \(worst))")
+            if let ba = box(a, Self.lit), let bb = box(b, Self.lit) {
+                #expect(abs(ba.minX - bb.minX) <= 1 && abs(ba.maxX - bb.maxX) <= 1 && abs(ba.minY - bb.minY) <= 1 && abs(ba.maxY - bb.maxY) <= 1,
+                        "\(name): \(ba) vs \(bb)")
+            } else { Issue.record("\(name): empty frame") }
+        }
+    }
+
+    @Test func steadyTextPlaybackAllocatesNoTextures() {
+        let r = FrameRenderer()
+        var p = Project(name: "a", settings: ProjectSettings(canvasSize: Size2(1280, 720), frameRate: .fps30, backgroundColor: .black))
+        for i in 0..<20 {
+            var t = CaptionOps.defaultStyle(); t.string = "Line \(i)"; t.karaoke = KaraokeStyle(mode: .highlightWord)
+            var c = Clip(content: .text(t), start: 0, duration: Time(4))
+            c.transform.position = Vec2(0, Double(i) * 0.04 - 0.4)
+            c.animations.combo = AnimationInstance(typeID: "montage.anim.text.combo.wave", duration: Time(1.2))
+            let id = TimelineOps.addTrack(.text, to: &p.timeline)
+            p.timeline.tracks[p.timeline.trackIndex(id)!].clips = [c]
+        }
+        let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 1280, height: 720, mipmapped: false)
+        d.usage = [.renderTarget, .shaderRead]; d.storageMode = .private
+        let out = MetalContext.shared.device.makeTexture(descriptor: d)!
+        for i in 0..<3 { encode(p, at: Double(i) / 30, renderer: r, into: out).waitUntilCompleted() }
+        let pool = MetalContext.shared.pool
+        let before = pool.allocations
+        for i in 3..<30 { encode(p, at: Double(i) / 30, renderer: r, into: out).waitUntilCompleted() }
+        // other suites may render concurrently on the shared pool: allow a little, never one per layer per frame
+        #expect(pool.allocations - before < 20)
     }
 
     @Test func measureMatchesRenderedSize() {
