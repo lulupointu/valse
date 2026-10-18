@@ -26,6 +26,8 @@ done
 WRAP=(); ENVS=()
 if [[ $MODE == air ]]; then WRAP=(taskpolicy -c background); ENVS=(MONTAGE_SIMULATE_RAM_GB=8); fi
 DIR="$ROOT/build/perf/$MODE"; rm -rf "$DIR"; mkdir -p "$DIR"
+# exclusive: takes every test slot so other teams' builds/tests don't disturb the timings (scripts/slots.sh)
+source scripts/slots.sh; slots_acquire_all
 
 [[ $BUILD == 1 ]] && swift build -c release --product Montage >&2
 BIN="$(swift build -c release --show-bin-path)/Montage"

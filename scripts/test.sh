@@ -9,6 +9,8 @@ for a in "$@"; do
   if [[ "$a" == "--perf" ]]; then export MONTAGE_PERF=1; else ARGS+=("$a"); fi
 done
 mkdir -p build  # gitignored: absent in a fresh checkout
+# machine-wide: at most 2 heavy runs at once across all checkouts (scripts/slots.sh)
+source scripts/slots.sh; slots_acquire
 python3 scripts/l10n_check.py
 swift build --build-tests >&2
 swift test ${ARGS[@]+"${ARGS[@]}"} 2>&1 | tee build/test.log | grep -E "✘|✔ Test run|✘ Test run|error:|metric" || true

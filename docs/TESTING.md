@@ -15,6 +15,11 @@ inside its own process. Safe to run while other agents (or the user) use the mac
 | check a clean checkout builds + tests (before "ready to merge") | `scripts/check_clean.sh [--ui]` |
 | just look at the UI | `scripts/screenshot.sh --demo --offscreen` |
 
+**Machine-wide test slots.** `test.sh`, `uitest.sh` and `check_clean.sh` take one of 2 slots shared by every checkout
+(mkdir locks in `/tmp/montage-locks`, stale ones reclaimed by PID); `perf.sh` takes all of them (exclusive, and new
+runs queue behind it). A blocked run prints "waiting for test slot…". Nested scripts reuse their parent's slot.
+`MONTAGE_SLOTS=<n>` changes the count, `MONTAGE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
+
 ## 1. A UI test in 5 minutes
 
 Create `app/Tests/UIScripts/<name>.json` (`//` line comments allowed):

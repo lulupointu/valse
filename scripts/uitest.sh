@@ -27,6 +27,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,13p' "$0"; exit 2; }
+# machine-wide: at most 2 heavy runs at once across all checkouts (scripts/slots.sh)
+source scripts/slots.sh; slots_acquire
 if [[ $BUILD == 1 ]]; then swift build -c "$CONFIG" --product Montage >&2; fi
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/Montage"
 [[ -x "$BIN" ]] || { echo "no binary at $BIN (drop --no-build)"; exit 2; }

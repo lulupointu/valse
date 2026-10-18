@@ -23,6 +23,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# machine-wide: at most 2 heavy runs at once across all checkouts (scripts/slots.sh); nested test.sh/uitest.sh reuse it
+source scripts/slots.sh; slots_acquire
+
 FAIL=0
 IGNORED="$(git ls-files -o -i --exclude-standard -- app scripts)"
 if [[ -n "$IGNORED" ]]; then
@@ -42,6 +45,7 @@ fi
 TMP="$(mktemp -d -t montage-clean)"
 WT="$TMP/wt"
 cleanup() {
+  slots_release
   if [[ $KEEP == 1 ]]; then echo "kept clean worktree: $WT"; return; fi
   git worktree remove --force "$WT" >/dev/null 2>&1 || true
   rm -rf "$TMP"
