@@ -19,6 +19,17 @@ public struct AIModelSpec: Sendable, Identifiable, Hashable {
     public let license: String
     /// Approximate resident memory while running (MB), shown in the manager and used by `MemoryBudget` checks.
     public let runtimeMB: Int
+    /// Multi-file models (e.g. a compiled `.mlmodelc` directory): every file is downloaded and SHA-256 checked into
+    /// `fileName` (a directory); `url` / `sha256` are then those of the largest part (the weights).
+    public var parts: [Part]? = nil
+
+    public struct Part: Sendable, Hashable {
+        /// Path inside the model directory.
+        public let path: String
+        public let url: URL
+        public let bytes: Int64
+        public let sha256: String
+    }
 }
 
 public enum ModelCatalog {
@@ -68,7 +79,29 @@ public enum ModelCatalog {
         url: URL(string: "https://huggingface.co/mlboydaisuke/coreml-zoo/resolve/main/lama/LaMa.mlpackage.zip")!,
         bytes: 196_237_256, sha256: "b57b8451a1a86c00aea52d75230fb5f49d3076eec67403192758c9d2b59c0e69", license: "Apache-2.0", runtimeMB: 600)
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama]
+    /// WeSpeaker ResNet34-LM speaker embeddings (VoxCeleb, CC-BY-4.0: WeSpeaker + pyannote; Core ML conversion with
+    /// fused fbank + 8-bit palettized weights by Fluid Inference), ~8 MB: speaker ID in captions (AI-005). Without it
+    /// diarization falls back to MFCC / pitch statistics.
+    public static let speakerEmbedding: AIModelSpec = {
+        let rev = "https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/7eab74f3463c736418d0eb10296261ae581146c9/wespeaker_v2.mlmodelc/"
+        func part(_ p: String, _ bytes: Int64, _ sha: String) -> AIModelSpec.Part {
+            AIModelSpec.Part(path: p, url: URL(string: rev + p)!, bytes: bytes, sha256: sha)
+        }
+        let parts = [
+            part("weights/weight.bin", 7_243_904, "34004f6798d35cad7071e2fdc67e63faaa782f53697e1cb49bcb452cf81ae151"),
+            part("model.mil", 706_900, "2850f775d6ba659f01f616fed77ce6a45a25de3eb7e4bf3a4b07b658be4e13dd"),
+            part("metadata.json", 2738, "ddc4858b4051254098015cd0b97080149839d697faf7b036f933190e70b26758"),
+            part("coremldata.bin", 359, "6feb2472a71fa9d8a84020c85206138a4f6261c565c9884bf518d59dd5838da7"),
+            part("analytics/coremldata.bin", 243, "d2b1fcde6121aea3ff0e14c1dc50d09dacb0314a2e89156353c31804230a422f"),
+        ]
+        var s = AIModelSpec(id: "coreml.wespeaker-resnet34", kind: .coreML, nameKey: "model.speakers", descriptionKey: "model.speakers.desc",
+                            fileName: "wespeaker_v2.mlmodelc", url: parts[0].url, bytes: parts.reduce(0) { $0 + $1.bytes },
+                            sha256: parts[0].sha256, license: "CC-BY-4.0", runtimeMB: 150)
+        s.parts = parts
+        return s
+    }()
+
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
     /// Set by the UI test driver: scripts see an empty sandboxed models folder (deterministic "not installed" UX) unless
@@ -89,6 +122,13 @@ public enum ModelCatalog {
     /// Installed file of a model, if any (sync, cheap: a few `stat`s).
     public static func installedURL(_ spec: AIModelSpec) -> URL? {
         let fm = FileManager.default
+        if let parts = spec.parts {
+            let dir = modelsDirectory.appendingPathComponent(spec.fileName, isDirectory: true)
+            let ok = parts.allSatisfy { p in
+                ((try? fm.attributesOfItem(atPath: dir.appendingPathComponent(p.path).path))?[.size] as? NSNumber)?.int64Value == p.bytes
+            }
+            return ok ? dir : nil
+        }
         var candidates = [modelsDirectory.appendingPathComponent(spec.fileName)]
         if spec.kind == .whisper {
             // legacy "AI pack" location of the foundation (AIPacks/whisper/model.bin)

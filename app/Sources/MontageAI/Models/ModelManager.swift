@@ -58,6 +58,7 @@ public final class ModelManager {
         guard !state(spec).isBusy, !state(spec).isInstalled else { return }
         states[spec.id] = .downloading(0)
         let id = spec.id
+        if spec.parts != nil { downloadParts(spec); return }
         tasks[id] = Task { [weak self] in
             do {
                 let tmp = try await ModelDownloader.download(spec.url) { p in
@@ -82,6 +83,63 @@ public final class ModelManager {
         }
     }
 
+    /// Multi-file model: every part is downloaded and verified into a staging directory, then moved into place.
+    private func downloadParts(_ spec: AIModelSpec) {
+        let id = spec.id
+        let parts = spec.parts ?? []
+        let total = Double(max(spec.bytes, 1))
+        tasks[id] = Task { [weak self] in
+            let stage = FileManager.default.temporaryDirectory.appendingPathComponent("montage-model-\(UUID().uuidString)", isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: stage) }
+            do {
+                var done = 0.0
+                for part in parts {
+                    try Task.checkCancellation()
+                    let base = done
+                    let tmp = try await ModelDownloader.download(part.url) { p in
+                        let f = (base + p * Double(part.bytes)) / total
+                        Task { @MainActor in if case .downloading = self?.states[id] { self?.states[id] = .downloading(f) } }
+                    } onTask: { t in
+                        Task { @MainActor in self?.downloads[id] = t }
+                    }
+                    let dst = stage.appendingPathComponent(part.path)
+                    try FileManager.default.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try FileManager.default.moveItem(at: tmp, to: dst)
+                    done += Double(part.bytes)
+                }
+                self?.states[id] = .verifying
+                try await Self.verifyAndInstallDirectory(stage, spec: spec, move: true)
+                self?.states[id] = ModelCatalog.installedURL(spec).map(AIModelState.installed) ?? .failed("missing")
+            } catch is CancellationError {
+                self?.states[id] = .notInstalled
+            } catch let e as ModelError where e == .cancelled {
+                self?.states[id] = .notInstalled
+            } catch let e as ModelError {
+                self?.states[id] = .failed(tr(e.messageKey))
+            } catch {
+                self?.states[id] = .failed(tr("model.error.network"))
+            }
+            self?.tasks[id] = nil
+            self?.downloads[id] = nil
+        }
+    }
+
+    /// Verifies every part of a multi-file model in `dir`, then moves / copies the directory into the models folder.
+    nonisolated static func verifyAndInstallDirectory(_ dir: URL, spec: AIModelSpec, move: Bool) async throws {
+        try await Task.detached(priority: .utility) {
+            for p in spec.parts ?? [] {
+                guard try sha256(of: dir.appendingPathComponent(p.path)) == p.sha256 else { throw ModelError.checksumMismatch }
+            }
+            let fm = FileManager.default
+            do {
+                try fm.createDirectory(at: ModelCatalog.modelsDirectory, withIntermediateDirectories: true)
+                let dst = ModelCatalog.modelsDirectory.appendingPathComponent(spec.fileName, isDirectory: true)
+                if fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
+                if move { try fm.moveItem(at: dir, to: dst) } else { try fm.copyItem(at: dir, to: dst) }
+            } catch { throw ModelError.io(String(describing: error)) }
+        }.value
+    }
+
     public func cancel(_ spec: AIModelSpec) {
         downloads[spec.id]?.cancel()
         tasks[spec.id]?.cancel()
@@ -94,7 +152,8 @@ public final class ModelManager {
         let id = spec.id
         tasks[id] = Task { [weak self] in
             do {
-                try await Self.verifyAndInstall(url, spec: spec, move: false)
+                if spec.parts != nil { try await Self.verifyAndInstallDirectory(url, spec: spec, move: false) }
+                else { try await Self.verifyAndInstall(url, spec: spec, move: false) }
                 self?.states[id] = ModelCatalog.installedURL(spec).map(AIModelState.installed) ?? .failed("missing")
             } catch let e as ModelError {
                 self?.states[id] = .failed(tr(e.messageKey))

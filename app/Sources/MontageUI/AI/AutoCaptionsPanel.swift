@@ -43,6 +43,16 @@ struct AutoCaptionsPanel: View {
                         CapCheckbox(isOn: Binding(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
                         Text(loc: "captions.identifyFillers").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                     }
+                    // AI-005: speaker ID (diarization) → captions split and coloured per speaker
+                    HStack(spacing: 8) {
+                        CapCheckbox(isOn: Binding(get: { ai.identifySpeakers }, set: { ai.identifySpeakers = $0 })).testID("captions.identifySpeakers")
+                        Text(loc: "speakers.identifyOption").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                        Spacer()
+                        if ai.identifySpeakers {
+                            Dropdown(items: SpeakersInspector.countItems, selection: ai.speakerCount) { ai.speakerCount = $0 }
+                                .frame(width: 96).testID("captions.speakerCount")
+                        }
+                    }
                     AdvancedSpeechSection(store: store)
                     if let err = ai.captionError { HintText(text: err, color: IStyle.warning) }
                     HStack {
@@ -200,7 +210,8 @@ struct ModelStateControls: View {
     func locate() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = spec.parts != nil   // multi-file models (.mlmodelc folders)
+        panel.canChooseFiles = spec.parts == nil
         panel.message = tr("models.locateMessage", spec.fileName)
         if panel.runModal() == .OK, let u = panel.url { ModelManager.shared.importFile(u, as: spec) }
     }

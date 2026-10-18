@@ -328,7 +328,13 @@ public final class UITestDriver {
             store.load(project: try await StressProject.make(clips: n, media: m))
         default:
             let url = URL(fileURLWithPath: project, relativeTo: config.script.deletingLastPathComponent())
-            try store.open(url)
+            // open a temp copy: the session lock / saves never touch the checked-in fixture
+            let copy = FileManager.default.temporaryDirectory.appendingPathComponent("montage-uitest-\(UUID().uuidString)")
+                .appendingPathComponent(url.lastPathComponent)
+            try FileManager.default.createDirectory(at: copy.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: url, to: copy)
+            try? FileManager.default.removeItem(at: copy.appendingPathComponent(".session.lock"))
+            try store.open(copy)
         }
         store.autosaveEnabled = false
         try await idle(settle: (script["settle"] as? NSNumber)?.doubleValue ?? 1.5)

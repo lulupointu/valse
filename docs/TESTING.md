@@ -55,7 +55,7 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
 ### Script keys
 
 - `project`: `"empty"` (default) · `"demo"` (synthetic demo project, playhead 0, nothing selected) · `"demo-bin"` (demo
-  media in the bin, empty timeline) · `"stress:500"` (500 clips on 3 tracks) · a path to a `.montage` (relative to the script).
+  media in the bin, empty timeline) · `"stress:500"` (500 clips on 3 tracks) · a path to a `.montage` (relative to the script, opened as a temp copy so the fixture is never modified; e.g. `fixtures/speakers.montage`).
 - `lang`: `"en"` (default) or `"fr"`. `size`: `[w, h]` window points (default 1687×983). `settle`: seconds to wait after
   loading (default 1.5).
 - `requires`: `{"models": ["coreml.lama-800"]}` — the script needs real AI models (ids from `ModelCatalog`). Without it

@@ -1,0 +1,23 @@
+/* Identification des intervenants dans les légendes (AI-005 / TX-038) */
+"speakers.title" = "Intervenants";
+"speakers.identifyOption" = "Identifier les intervenants";
+"speakers.count.auto" = "Auto";
+"speakers.default" = "Intervenant %d";
+"speakers.hint" = "Repère qui parle et quand, et indique l'intervenant de chaque légende. Chaque intervenant a sa propre couleur de légende.";
+"speakers.identify" = "Identifier les intervenants";
+"speakers.reidentify" = "Identifier à nouveau les intervenants";
+"speakers.remove" = "Supprimer les noms des intervenants";
+"speakers.progress" = "Identification des intervenants… %d %%";
+"speakers.captions" = "%d légendes";
+"speakers.applyStyle" = "Appliquer le style à %@";
+"speakers.applyStyle.help" = "Appliquer le style de la légende sélectionnée à toutes les légendes de cet intervenant";
+"speakers.styleApplied" = "Style appliqué aux légendes de l'intervenant";
+"speakers.done" = "%d intervenants identifiés";
+"speakers.failed" = "Impossible d'identifier les intervenants. Réessaie.";
+"speakers.cancelled" = "Identification des intervenants annulée";
+"speakers.job" = "Identification des intervenants";
+"cmd.identifySpeakers" = "Identifier les intervenants";
+"cmd.speakerRename" = "Renommer l'intervenant";
+"cmd.speakerColor" = "Couleur de l'intervenant";
+"cmd.speakerStyle" = "Appliquer le style à l'intervenant";
+"cmd.speakerRemove" = "Supprimer les noms des intervenants";

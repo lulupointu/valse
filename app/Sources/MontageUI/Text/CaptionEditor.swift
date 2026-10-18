@@ -119,6 +119,7 @@ struct CaptionRow: View {
                 Text(verbatim: "–").foregroundStyle(IStyle.caption)
                 timeField(clip.end, rate: rate) { store.nudgeCaption(clip.id, end: frame * Double($0)) }
                 Spacer()
+                if let sp = t?.caption?.speaker, !sp.isEmpty { SpeakerChip(store: store, speaker: sp) }   // AI-005
                 if let tr2 = t?.caption?.translation, !tr2.isEmpty {
                     Image(systemName: "character.bubble").font(.system(size: 10)).foregroundStyle(IStyle.caption).help(tr2)
                 }

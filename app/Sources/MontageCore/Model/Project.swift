@@ -20,6 +20,8 @@ public struct Project: Codable, Sendable, Equatable {
     /// Project cover (TL-045, main-track "Cover" button): nil = the first frame. Optional so older files decode.
     public var cover: ProjectCover?
 
+    /// Diarized caption speakers (names + colours, AI-005 / TX-038). Optional so older files decode.
+    public var speakers: [CaptionSpeaker]?
     public var createdAt: Date
     public var modifiedAt: Date
 
