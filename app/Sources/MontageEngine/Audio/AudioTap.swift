@@ -43,7 +43,7 @@ enum AudioTap {
                 box.processor.process(UnsafeMutableAudioBufferListPointer(bufferList), frames: Int(numberFramesOut.pointee), time: range.start)
             })
         var tap: MTAudioProcessingTap?
-        let err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PreEffects, &tap)
+        let err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap)
         if err != noErr { Unmanaged<Box>.fromOpaque(box).release(); return nil }
         return tap
     }

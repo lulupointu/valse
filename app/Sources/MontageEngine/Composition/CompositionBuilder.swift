@@ -10,6 +10,8 @@ public struct BuiltComposition: @unchecked Sendable {
     public let trackMap: [ClipID: CMPersistentTrackID]
     public let duration: Time
     public let state: RenderState
+    /// Live audio parameters read by the lane taps (W8, `MontageEngine/Audio`).
+    public let audioState: AudioMixState
 }
 
 /// Which files back a media item in this build (preview uses proxies when ready; export uses originals).
@@ -71,6 +73,7 @@ public enum CompositionBuilder {
 
     public static func build(project: Project, purpose: RenderPurpose, renderSize: CGSize? = nil,
                              frameRate: FrameRate? = nil, state existingState: RenderState? = nil,
+                             audioState existingAudioState: AudioMixState? = nil,
                              sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
@@ -81,6 +84,9 @@ public enum CompositionBuilder {
         var trackMap: [ClipID: CMPersistentTrackID] = [:]
         var videoTrackIDs: [CMPersistentTrackID] = []
         var audioParams: [AVMutableAudioMixInputParameters] = []
+        let audioState = existingAudioState ?? AudioMixState()
+        audioState.update(project: project)
+        let waveforms = await Ducking.waveforms(for: project)
 
         // Base track
         let blank = try await BlankVideo.url()
@@ -102,6 +108,7 @@ public enum CompositionBuilder {
             var aLanes: [(AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?] = Array(repeating: nil, count: lanes)
             var auxLanes: [String: AVMutableCompositionTrack] = [:]
             var auxOrder: [CMPersistentTrackID] = []
+            var laneClips: [[Clip]] = Array(repeating: [], count: lanes)
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = track.isMain ? i % 2 : 0
@@ -145,8 +152,11 @@ public enum CompositionBuilder {
                         auxMap[clip.id, default: [:]][role] = at.trackID
                     }
                 }
-                let audible = asset.hasAudio && !clip.audio.isMuted && !track.isMuted && clip.audio.volume > 0
-                let audioEntry = audible ? try await AssetCache.shared.entry(audioURL) : nil
+                let audible = asset.hasAudio && clip.audio.isAudible && !track.isMuted
+                    && (clip.audio.volume > 0 || clip.keyframes[ParamKey.volume.raw] != nil)
+                let processedURL = audible ? try await AudioPipeline.audioSource(clip: clip, asset: asset, original: audioURL, purpose: purpose) : nil
+                var audioEntry: AssetCache.Entry?
+                if let processedURL { audioEntry = try await AssetCache.shared.entry(processedURL) }
                 if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(clip.reversed && reversedURL != nil ? 0 : clip.audioStreamIndex) {
                     if aLanes[lane] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                         let p = AVMutableAudioMixInputParameters(track: at)
@@ -157,14 +167,19 @@ public enum CompositionBuilder {
                     }
                     if let (at, p) = aLanes[lane] {
                         try insert(clip: mapped, segments: segments, from: src, sourceRange: srcAudioRange, into: at)
-                        applyVolume(clip, to: p)
-                        if !clip.audio.preservePitch && !clip.speed.isNormal { p.audioTimePitchAlgorithm = .varispeed }
+                        applyVolume(clip, to: p, gain: ClipAudioPlan.make(clip).staticGain,
+                                    duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms))
+                        laneClips[lane].append(clip)
                     }
                 }
             }
             for v in vLanes.compactMap({ $0 }) { videoTrackIDs.append(v.trackID) }
             videoTrackIDs += auxOrder
-            for a in aLanes.compactMap({ $0 }) { audioParams.append(a.1) }
+            for (l, a) in aLanes.enumerated() {
+                guard let a else { continue }
+                a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[l], state: audioState))
+                audioParams.append(a.1)
+            }
         }
 
         // Preview render cache: valid pre-rendered segments as passthrough lanes (see RenderCache).
@@ -201,7 +216,7 @@ public enum CompositionBuilder {
         var mix: AVMutableAudioMix?
         if !audioParams.isEmpty { mix = AVMutableAudioMix(); mix!.inputParameters = audioParams }
         return BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
-                                duration: duration, state: state)
+                                duration: duration, state: state, audioState: audioState)
     }
 
     /// Aux lanes a clip needs: (role, file, source shift).
@@ -272,10 +287,11 @@ public enum CompositionBuilder {
     }
 
     /// Clip gain, fades and volume keyframes as linear ramps on the lane.
-    static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters) {
+    static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters, gain: Double = 1, duck: Ducking.Envelope? = nil) {
         let start = clip.start, end = clip.end
         func v(_ local: Time) -> Float {
-            var g = clip.value(.volume, at: local)?.scalar ?? clip.audio.volume
+            var g = (clip.value(.volume, at: local)?.scalar ?? clip.audio.volume) * gain
+            if let duck { g *= Double(duck.gain(at: start + local)) }
             if clip.audio.fadeIn > .zero, local < clip.audio.fadeIn { g *= local / clip.audio.fadeIn }
             if clip.audio.fadeOut > .zero, local > clip.duration - clip.audio.fadeOut {
                 g *= max(0, (clip.duration - local) / clip.audio.fadeOut)
@@ -288,6 +304,15 @@ public enum CompositionBuilder {
         if clip.audio.fadeOut > .zero { points.insert(max(.zero, clip.duration - clip.audio.fadeOut).ticks) }
         for k in clip.keyframes[ParamKey.volume.raw]?.keyframes ?? [] where k.time > .zero && k.time < clip.duration {
             points.insert(k.time.ticks)
+        }
+        if let duck {
+            // ducking breakpoints only where the envelope moves
+            var prev: Float = -1
+            for (i, g) in duck.gains.enumerated() where abs(g - prev) > 0.002 || i == duck.gains.count - 1 {
+                let t = Time(Double(i) * duck.step)
+                if t > .zero && t < clip.duration { points.insert(t.ticks) }
+                prev = g
+            }
         }
         let sorted = points.sorted().map { Time(ticks: $0) }
         for i in 0..<(sorted.count - 1) {
@@ -309,7 +334,8 @@ public enum CompositionBuilder {
             for c in t.clips {
                 guard let id = c.mediaID, let a = project.asset(id) else { continue }
                 h.combine(c.id); h.combine(id); h.combine(c.start); h.combine(c.duration); h.combine(c.sourceStart)
-                h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audio); h.combine(c.audioStreamIndex)
+                h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audioStreamIndex)
+                AudioPipeline.combineStructure(c, asset: a, into: &h)
                 h.combine(c.keyframes[ParamKey.volume.raw])
                 h.combine(sources(a))
                 h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind)

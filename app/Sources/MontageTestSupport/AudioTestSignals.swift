@@ -76,8 +76,36 @@ public enum AudioTestSignals {
         return (a + c) / 2
     }
 
+    /// Time (s) of the first sample whose |value| exceeds `threshold`.
+    public static func onset(_ b: AudioBuffer, threshold: Float = 0.05, channel: Int = 0) -> Double? {
+        for i in 0..<b.frames where abs(b[channel, i]) > threshold { return Double(i) / b.sampleRate }
+        return nil
+    }
+
     public static func hasNaN(_ b: AudioBuffer) -> Bool {
         for c in 0..<b.channels { for i in 0..<b.frames where !b[c, i].isFinite { return true } }
         return false
+    }
+}
+
+extension TestProject {
+    /// Imports a synthetic sine audio file (stereo, 0.3 amplitude) and inserts it on an audio track.
+    @discardableResult
+    public mutating func addAudio(seconds: Double = 2, hz: Double = 440, at start: Time = .zero,
+                                  target: InsertTarget = .automatic) async throws -> ClipID {
+        try await addMedia(try await TestMedia.audio(seconds: seconds, hz: hz), at: start, target: target)
+    }
+
+    /// Writes `buffer` to a temporary WAV, imports and inserts it.
+    @discardableResult
+    public mutating func addAudio(_ buffer: AudioBuffer, at start: Time = .zero, target: InsertTarget = .automatic) async throws -> ClipID {
+        let url = TestMedia.directory.appendingPathComponent("buf-\(UUID().uuidString).wav")
+        try AudioFileIO.write(buffer, to: url, format: .wav24)
+        return try await addMedia(url, at: start, target: target)
+    }
+
+    /// The project audio mix through the export path.
+    public func mixdown(seconds: Double? = nil) async throws -> AudioBuffer {
+        try await AudioMixdown.render(project, range: seconds.map { TimeRange(start: .zero, duration: Time($0)) })
     }
 }

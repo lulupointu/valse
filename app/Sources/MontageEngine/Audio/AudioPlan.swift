@@ -68,4 +68,18 @@ public struct ClipAudioPlan: Hashable, Sendable {
     }
 
     public var hasLive: Bool { !live.isEmpty }
+
+    /// Plan for a clip, including "Change pitch" with speed (pitch follows speed when `preservePitch` is off).
+    /// That is rendered as a pitch shift by the (average) rate before the spectral time stretch, so the result
+    /// equals varispeed without AVFoundation's varispeed path (which stalls AVAssetReaderAudioMixOutput on sped-up
+    /// segments).
+    public static func make(_ clip: Clip) -> ClipAudioPlan {
+        var p = make(clip.audio)
+        if !clip.audio.preservePitch && !clip.speed.isNormal {
+            let r = min(max(clip.speed.averageRate, 0.25), 4)
+            p.render.pitch *= r
+            p.render.formant *= r
+        }
+        return p
+    }
 }

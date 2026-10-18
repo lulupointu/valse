@@ -25,6 +25,8 @@ public enum PreviewQuality: String, Codable, Sendable, CaseIterable {
 public final class PlaybackEngine {
     public let player = AVPlayer()
     public let state: RenderState
+    /// Live audio parameters (EQ, voice filter colour…) read by the audio taps without rebuilding.
+    public let audioState = AudioMixState()
     public private(set) var videoOutput: AVPlayerItemVideoOutput?
     public private(set) var duration: Time = .zero
     public private(set) var project: Project
@@ -109,6 +111,7 @@ public final class PlaybackEngine {
         StabilizationStore.shared.onReady = { [weak self] _ in self?.onRedrawNeeded?() }
         MatteStore.shared.onMatteReady = { [weak self] _, _ in self?.forceRebuild() }
         RenderCache.shared.onReady = { [weak self] _ in self?.forceRebuild() }
+        AudioRenderCache.shared.onReady = { [weak self] _ in self?.forceRebuild() }
         update(project: project, force: true)
     }
 
@@ -118,6 +121,7 @@ public final class PlaybackEngine {
         self.project = project
         requestDerivedMedia(project)
         state.update(project: project)
+        audioState.update(project: project)
         let size = Self.previewSize(canvas: project.settings.canvasSize, quality: previewQuality)
         var h = Hasher()
         h.combine(CompositionBuilder.structureKey(project, sources: sourceChooser))
@@ -164,12 +168,12 @@ public final class PlaybackEngine {
     /// Rebuilds are debounced (40 ms) so continuous drags (trim/move) coalesce into few builds.
     private func rebuild(_ project: Project, debounce: Bool) {
         buildTask?.cancel()
-        let size = renderSize, chooser = sourceChooser, state = self.state
+        let size = renderSize, chooser = sourceChooser, state = self.state, audioState = self.audioState
         buildTask = Task { [weak self] in
             do {
                 if debounce { try await Task.sleep(for: .milliseconds(40)) }
                 let built = try await CompositionBuilder.build(project: project, purpose: .preview, renderSize: size,
-                                                               state: state, sources: chooser)
+                                                               state: state, audioState: audioState, sources: chooser)
                 guard !Task.isCancelled else { return }
                 self?.install(built)
             } catch is CancellationError {

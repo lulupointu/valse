@@ -17,7 +17,7 @@ public final class AudioMixState: @unchecked Sendable {
         var m: [ClipID: [LiveNode]] = [:]
         for t in project.timeline.tracks {
             for c in t.clips where c.mediaID != nil {
-                let plan = ClipAudioPlan.make(c.audio)
+                let plan = ClipAudioPlan.make(c)
                 if plan.hasLive { m[c.id] = plan.live }
             }
         }
