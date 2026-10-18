@@ -30,11 +30,11 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
 | POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | merged (lanes, cover editor, mask handles incl. pen/text, previewing mode, scopes, Adjust footer/Mask) | main 1efcb9a |
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | merged (all 8 gaps fixed) | main 9b94922 |
-| BUG1 | Owner bugs: crash on voice-changer clip in project 1018; HDR(HLG) footage colours wrong in SDR / washed in HDR | 4 | running | |
+| BUG1 | Owner bugs: audio-inspector crash on deselect/delete (any audio clip) FIXED; HLG/DV colour pipeline (luminance OOTF, gamut desaturation, Apple-matched HDR→SDR, EDR preview) FIXED | 4 | merged | main ba1d11a |
 | BUG2 | Owner bugs: auto captions too big (out of 9:16 frame); caption timing early/late/badly cut | 4 | running | |
 | F1 | Finisher: remaining timeline/playback/speed/audio/settings/media rows (TL-037/043 P0, AU-029 P0 …) | 4 | running | |
 | F2 | Finisher: remaining colour/stickers/masks/effects/cutout/canvas/text/export rows (CL-011/024, ST-009 P0 …) | 4 | running | |
-| FIN | Final polish backlog (collect here): text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
+| FIN | Final polish backlog (collect here): prompt/auto-select HDR project colour space when HDR media imported (CapCut-like); verify EDR preview on a real HDR display; text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
 | AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | merged (AI-048, AI-005, TX-038, TX-030, TX-034, AI-024/CL-020, AI-025, AI-013 (hand + custom box), CL-019 done; AI-041 track object; AI-031 Home wizard; quit-mid-job + LaMa segfault fixed) | worktree-agent-ace3ab6274c22fd67 |
 | MUS | Music & sound library usable on Instagram (AU-001, AU-025): bundled royalty-free/CC0 music + SFX with license metadata, mood/genre browse, "similar sounds" via local audio embeddings | 3 | running | |
 
