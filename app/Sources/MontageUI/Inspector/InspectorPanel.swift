@@ -42,15 +42,17 @@ public struct InspectorPanel: View {
         Panel {
             HStack(spacing: 22) {
                 ForEach(tabs) { tab in
-                    Text(loc: tab.titleKey)
-                        .font(Theme.Fonts.panelTitle)
-                        .foregroundStyle(tab.id == active?.id ? Theme.accent : Theme.textPrimary)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .contentShape(Rectangle())
-                        .onTapGesture { store.inspectorTab = tab.id }
-                        .testID("inspector.tab.\(tab.id)")
-                        .accessibilityAddTraits(.isButton)
+                    // a Button (not onTapGesture) so the UI test driver's synthetic clicks reach it
+                    Button { store.inspectorTab = tab.id } label: {
+                        Text(loc: tab.titleKey)
+                            .font(Theme.Fonts.panelTitle)
+                            .foregroundStyle(tab.id == active?.id ? Theme.accent : Theme.textPrimary)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .testID("inspector.tab.\(tab.id)")
                 }
                 Spacer(minLength: 0)
             }

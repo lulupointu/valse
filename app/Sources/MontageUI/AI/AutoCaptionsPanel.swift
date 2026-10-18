@@ -58,6 +58,7 @@ struct AutoCaptionsPanel: View {
         }
         .background(Theme.panel)
         .background(TranslationHost(store: store))
+        .testID("captions.panel")
     }
 
     var hasAudio: Bool { !CaptionGenerator.sourceClips(store.project, .allTracks).isEmpty }
@@ -77,6 +78,7 @@ struct AutoCaptionsPanel: View {
                 Spacer()
                 Button(tr("captions.generate")) { store.generateCaptions() }
                     .buttonStyle(AccentButtonStyle())
+                    .testID("captions.generate")
                     .disabled(ai.captionJob != nil || !hasAudio)
                     .help(hasAudio ? "" : tr("captions.error.noAudio"))
             }
@@ -216,6 +218,7 @@ struct ModelManagerSheet: View {
         }
         .padding(20)
         .frame(width: 460)
+        .testID("models.sheet")
         .background(Theme.panel)
         .onAppear { mm.refresh() }
     }

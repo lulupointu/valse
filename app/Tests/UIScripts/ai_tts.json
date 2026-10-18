@@ -1,0 +1,17 @@
+// W10: select the demo title, Text to speech tab, pick a French voice, Generate speech → a linked audio clip appears
+// on a new audio track at the text's start; one undo step removes it.
+{
+  "project": "demo",
+  "steps": [
+    {"select": ["clip:2/0"]},
+    {"expect": {"path": "selectedClips.0.kind", "equals": "text"}},
+    {"click": "id:inspector.tab.tts"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "tts"}},
+    {"snapshot": "tts-tab", "element": "id:panel.inspector"},
+    {"click": "id:tts.generate"},
+    {"waitFor": {"path": "tracks.count", "equals": 7, "timeout": 20}},
+    {"expect": [{"path": "undo.name", "equals": "cmd.tts"}, {"path": "tracks.last.kind", "equals": "audio"}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "tracks.count", "equals": 6}}
+  ]
+}

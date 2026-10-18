@@ -58,7 +58,7 @@ struct TimelineToolbar: View {
                 IconButton("rotate.right", help: tr("toolbar.rotate"), enabled: visualSel) { store.rotateSelection() }
                 IconButton("crop", help: tr("toolbar.crop"), enabled: visualSel && single != nil) { store.inspectorTab = "video" }
                 // W10: Transcript-based editing (opens the transcript panel in place of the asset panel)
-                IconButton("text.word.spacing", help: tr("toolbar.transcript"), active: store.ai.transcriptOpen) { store.ai.transcriptOpen.toggle() }
+                IconButton("text.word.spacing", help: tr("toolbar.transcript"), active: store.ai.transcriptOpen) { store.ai.transcriptOpen.toggle() }.testID("toolbar.transcript")
             }
             Spacer()
             VoiceoverButton(store: store)

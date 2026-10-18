@@ -34,7 +34,6 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W10 | W11 | Export: wait for running AI jobs (cutout / reframe / stems) before export; call `AIEngineHooks.prepareOpticalFlow(width:height:wait: true)` when clips use optical flow | EX, SP-005 |
 | W6 | W1 | Double-click enter/edit inside compound clips (nested render done) | TL-021 |
 | W6 | W12 | Proxy settings UI; render cache auto-render + green bar | MI-008, PB-005 |
-| W8 | W10 | Demucs instrument stems (AU-010) still open; ML voice isolation/denoise plugged into W8's rendered stage (`AudioML`, `RenderStageSpec.mlVoice`) | AU-010 |
 | W8 | W1 | Menu entry for AU-016; waveform drawing polish; track volume ±0.1 dB shortcuts | AU-016, AU-019, AU-004 |
 | W8 | W11 | Audio-only export dialog (engine done: WAV/AAC/FLAC/ALAC; add MP3) | AU-022, EX-009 |
 | W1 | W11 | Export range (in/out) | TL-028 |
@@ -50,7 +49,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 
 ## Done cross-team items
 - W10 for W7: auto captions/lyrics through `CaptionOps.addCaptionTrack` with word timings (karaoke), translations in `caption.translation`, LLM keywords + translate menu in W7's Captions tab; Text to speech tab (TX-016).
-- W10 for W8: ML voice stems (AUSoundIsolation) feed Isolate voice / Reduce noise / Enhance voice in the rendered stage.
+- W10 for W8: ML voice stems (AUSoundIsolation) feed Isolate voice / Reduce noise / Enhance voice in the rendered stage; HTDemucs instrument stems (AU-010) via the demucs.cpp sidecar.
 - W7 did W2's request: `TextContent.boxWidth` in the model; `TextMetrics` now backed by the text engine layout (handles hug rendered text).
 
 - W10 wrote person/subject/custom mattes through W6's `MatteVideoWriter`, flipped `CutoutAvailability.matteCompositingAvailable` (W3 cutout sections now live) and installed the optical-flow `FrameInterpolation.provider`.

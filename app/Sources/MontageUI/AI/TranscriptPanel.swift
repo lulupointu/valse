@@ -22,13 +22,14 @@ struct TranscriptPanel: View {
             HStack {
                 Text(loc: "transcript.title").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                SmallIconButton(symbol: "xmark", help: tr("transcript.close")) { ai.transcriptOpen = false }
+                SmallIconButton(symbol: "xmark", help: tr("transcript.close")) { ai.transcriptOpen = false }.testID("transcript.close")
             }
             .padding(.horizontal, 12)
         } content: {
             if ai.transcripts.isEmpty || ai.transcriptJob != nil { empty } else { editor }
         }
         .onAppear { store.loadCachedTranscripts() }
+        .testID("transcript.panel")
     }
 
     var hasMain: Bool { !(store.project.timeline.mainTrack?.clips.isEmpty ?? true) }
@@ -47,6 +48,7 @@ struct TranscriptPanel: View {
                     .frame(width: 260)
             } else {
                 Button(tr("transcript.transcribe")) { store.transcribeMainTrack() }.buttonStyle(AccentButtonStyle()).disabled(!hasMain)
+                    .testID("transcript.transcribe")
             }
         }
         .padding(24)

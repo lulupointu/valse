@@ -52,17 +52,20 @@ struct TTSVoicesSection: View {
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 96), spacing: 10)], spacing: 10) {
                 ForEach(voices) { v in
-                    VStack(spacing: 4) {
-                        Text(verbatim: v.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).multilineTextAlignment(.center)
-                            .lineLimit(2)
-                        Text(verbatim: v.language + (v.quality >= 1 ? " ✦" : "")).font(.system(size: 10)).foregroundStyle(IStyle.caption)
+                    Button { st.voice = v.id; sample(v) } label: {
+                        VStack(spacing: 4) {
+                            Text(verbatim: v.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).multilineTextAlignment(.center)
+                                .lineLimit(2)
+                            Text(verbatim: v.language + (v.quality >= 1 ? " ✦" : "")).font(.system(size: 10)).foregroundStyle(IStyle.caption)
+                        }
+                        .frame(width: 84, height: 64)
+                        .background(IStyle.tile, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(current == v.id ? Theme.accent : .clear, lineWidth: 2))
+                        .contentShape(Rectangle())
                     }
-                    .frame(width: 84, height: 64)
-                    .background(IStyle.tile, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(current == v.id ? Theme.accent : .clear, lineWidth: 2))
-                    .contentShape(Rectangle())
-                    .onTapGesture { st.voice = v.id; sample(v) }
+                    .buttonStyle(.plain)
                     .help(tr(v.quality >= 1 ? "tts.voice.hq" : "tts.voice.compact"))
+                    .testID("tts.voice.\(v.name.replacingOccurrences(of: " ", with: "_")).\(v.language)")
                 }
             }
             GroupCaption(title: tr("tts.adjust"))
@@ -102,6 +105,7 @@ struct TTSFooter: View {
             PillButton(title: tr("tts.generate"), accent: true, enabled: ctx.clip.map { !st.generating.contains($0.id) } ?? false) {
                 if let id = ctx.clip?.id { ctx.store.generateSpeech(for: id) }
             }
+            .testID("tts.generate")
         }
     }
 }

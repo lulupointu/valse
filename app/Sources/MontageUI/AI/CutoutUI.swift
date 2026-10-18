@@ -114,6 +114,7 @@ struct CustomCutoutSection: View {
                     Spacer()
                     PillButton(title: tr("ai.cancel")) { store.endCutoutBrush() }
                     PillButton(title: tr("cutout.apply"), accent: true, enabled: !brush.strokes.isEmpty) { store.applyCutoutBrush() }
+                        .testID("cutout.apply")
                 }
             } else if CutoutInspector.isCustom(ctx.clip) {
                 MatteRefineRows(ctx: ctx)
