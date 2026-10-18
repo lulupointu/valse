@@ -27,6 +27,7 @@ final class CanvasOverlayView: NSView {
     private var textEditor: InlineTextEditor?
     private var tracking: NSTrackingArea?
     private var observing = false
+    private var toolDragging = false
 
     static let rulerWidth: CGFloat = 18
     static let accent = NSColor(srgbRed: 0x57 / 255.0, green: 0xBE / 255.0, blue: 0xCB / 255.0, alpha: 1)
@@ -75,6 +76,7 @@ final class CanvasOverlayView: NSView {
     private func observeState() {
         let ui = store.playerUI
         _ = (ui.zoom, ui.pan, ui.showRulers, ui.showGuides, ui.guides, ui.safeZone, ui.editingTextClip)
+        _ = ui.canvasTool?.revision
         _ = store.project.settings.canvasSize
         if !store.selection.isEmpty {
             _ = store.project.timeline
@@ -163,6 +165,13 @@ final class CanvasOverlayView: NSView {
                 let vy = vp.toView(Vec2(0, y)).y.rounded() + 0.5
                 ctx.strokeLineSegments(between: [CGPoint(x: r.minX, y: vy), CGPoint(x: r.maxX, y: vy)])
             }
+        }
+
+        if let tool = ui.canvasTool {
+            ctx.saveGState(); ctx.clip(to: r)
+            tool.draw(in: ctx, toView: vp.toView, scale: vp.scale)
+            ctx.restoreGState()
+            return
         }
 
         let sel = selectedLayers
@@ -306,6 +315,7 @@ final class CanvasOverlayView: NSView {
         let vp = viewport
         let p = vp.toCanvas(v)
         let ui = store.playerUI
+        if let tool = ui.canvasTool { toolDragging = true; tool.mouseDown(at: p); return }
 
         // rulers → drag out a new guide
         if ui.showRulers, v.y < Self.rulerWidth || v.x < Self.rulerWidth {
@@ -344,6 +354,7 @@ final class CanvasOverlayView: NSView {
         let vp = viewport
         let p = vp.toCanvas(v)
         let canvas = store.project.settings.canvasSize
+        if toolDragging, let tool = store.playerUI.canvasTool { tool.mouseDragged(at: p); return }
         switch drag {
         case .none:
             return
@@ -411,6 +422,11 @@ final class CanvasOverlayView: NSView {
     }
 
     override func mouseUp(with e: NSEvent) {
+        if toolDragging {
+            toolDragging = false
+            store.playerUI.canvasTool?.mouseUp(at: viewport.toCanvas(convert(e.locationInWindow, from: nil)))
+            return
+        }
         switch drag {
         case .transform(_, _, _, _, _, _, _, let started):
             if started { store.endGesture() }

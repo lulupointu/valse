@@ -1,0 +1,249 @@
+import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
+@preconcurrency import Translation
+import MontageCore
+import MontageEngine
+import MontageAI
+
+/// Spoken / translation languages offered in the captions UI (English name · own name, like CapCut).
+enum CaptionLanguages {
+    static let codes = ["fr", "en", "es", "de", "it", "pt", "nl", "ja", "zh", "ko"]
+    static func title(_ code: String) -> String {
+        let en = Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code
+        let own = Locale(identifier: code).localizedString(forLanguageCode: code) ?? code
+        let ui = Locale(identifier: L10n.shared.language).localizedString(forLanguageCode: code) ?? en
+        return ui.lowercased() == own.lowercased() ? ui.capitalized : "\(ui.capitalized) · \(own.capitalized)"
+    }
+}
+
+/// Text ▸ Auto captions (UX_AI §1.2, [119]): Spoken language (Auto detect), Bilingual captions, track selector,
+/// Identify filler words, speech model card; footer: ☐ Delete current captions · [Generate]. Non-blocking progress.
+struct AutoCaptionsPanel: View {
+    let store: EditorStore
+
+    var body: some View {
+        let ai = store.ai
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    HintText(text: tr("captions.hint"))
+                    label("captions.spokenLanguage")
+                    Dropdown(items: [(Optional<String>.none, tr("captions.autoDetect"))] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
+                             selection: ai.captionLanguage) { ai.captionLanguage = $0 }
+                    label("captions.bilingual")
+                    Dropdown(items: [(Optional<String>.none, tr("captions.none"))] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
+                             selection: ai.bilingualTarget) { ai.bilingualTarget = $0 }
+                    let sources = sourceItems
+                    if sources.count > 2 {
+                        label("captions.selectTrack")
+                        Dropdown(items: sources, selection: sourceKey(ai.captionSource)) { k in ai.captionSource = source(for: k) }
+                    }
+                    HStack(spacing: 8) {
+                        CapCheckbox(isOn: Binding(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
+                        Text(loc: "captions.identifyFillers").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                    }
+                    SpeechModelCard(store: store)
+                    if let err = ai.captionError { HintText(text: err, color: IStyle.warning) }
+                    HStack {
+                        Spacer()
+                        Button(tr("captions.autoLyrics")) { store.generateCaptions(lyrics: true) }
+                            .buttonStyle(SecondaryButtonStyle()).disabled(ai.captionJob != nil || !hasAudio)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            footer
+        }
+        .background(Theme.panel)
+        .background(TranslationHost(store: store))
+    }
+
+    var hasAudio: Bool { !CaptionGenerator.sourceClips(store.project, .allTracks).isEmpty }
+
+    @ViewBuilder var footer: some View {
+        let ai = store.ai
+        VStack(spacing: 8) {
+            if ai.captionJob != nil {
+                JobProgressLine(text: "\(tr(ai.captionPhase?.titleKey ?? "captions.phase.transcribing")) \(Int(ai.captionProgress * 100))%",
+                                progress: ai.captionProgress) { store.cancelCaptions() }
+            }
+            HStack {
+                if store.hasAutoCaptions {
+                    CapCheckbox(isOn: Binding(get: { ai.replaceCaptions }, set: { ai.replaceCaptions = $0 }))
+                    Text(loc: "captions.deleteCurrent").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                }
+                Spacer()
+                Button(tr("captions.generate")) { store.generateCaptions() }
+                    .buttonStyle(AccentButtonStyle())
+                    .disabled(ai.captionJob != nil || !hasAudio)
+                    .help(hasAudio ? "" : tr("captions.error.noAudio"))
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(Theme.panelHeader.opacity(0.6))
+    }
+
+    func label(_ key: String) -> some View {
+        Text(loc: key).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+    }
+
+    // track selector: All tracks / Main track / each audio track with clips
+    var sourceItems: [(id: String, title: String)] {
+        var out: [(String, String)] = [("all", tr("captions.track.all")), ("main", tr("captions.track.main"))]
+        var n = 0
+        for t in store.project.timeline.tracks where t.kind == .audio && !t.clips.isEmpty {
+            n += 1
+            out.append(("t:\(t.id)", t.name ?? tr("captions.track.audio", n)))
+        }
+        return out
+    }
+    func sourceKey(_ s: CaptionOptions.Source) -> String {
+        switch s { case .allTracks: return "all"; case .mainTrack: return "main"; case .track(let id): return "t:\(id)"; case .clip: return "all" }
+    }
+    func source(for k: String) -> CaptionOptions.Source {
+        if k == "main" { return .mainTrack }
+        if k.hasPrefix("t:"), let id = TrackID(string: String(k.dropFirst(2))) { return .track(id) }
+        return .allTracks
+    }
+}
+
+/// Speech engine status: whisper model installed / downloadable (with progress + cancel), Apple speech fallback.
+struct SpeechModelCard: View {
+    let store: EditorStore
+    var body: some View {
+        let mm = ModelManager.shared
+        let spec = ModelCatalog.whisperTurbo
+        let state = mm.state(spec)
+        let runtime = WhisperRuntime.cliURL != nil
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: state.isInstalled && runtime ? "checkmark.seal.fill" : "waveform.badge.mic")
+                    .foregroundStyle(state.isInstalled && runtime ? Theme.accent : Theme.textSecondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(loc: "captions.engine").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                    Text(verbatim: engineLine(state, runtime)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+            }
+            ModelStateControls(spec: spec)
+            if state.isInstalled && runtime {
+                InlineRow(label: tr("captions.engineChoice")) {
+                    Dropdown(items: SpeechEngine.allCases.map { ($0, tr($0.nameKey)) }, selection: store.ai.captionEngine) { store.ai.captionEngine = $0 }
+                }
+            }
+            Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(.link).font(Theme.Fonts.hint)
+        }
+        .padding(10)
+        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+        .sheet(isPresented: Binding(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
+            ModelManagerSheet { store.ai.isModelSheetPresented = false }
+        }
+    }
+
+    func engineLine(_ s: AIModelState, _ runtime: Bool) -> String {
+        if s.isInstalled && runtime { return tr("captions.engine.whisper") }
+        if s.isInstalled && !runtime { return tr("captions.engine.noRuntime") }
+        return tr("captions.engine.apple")
+    }
+}
+
+/// Download / progress / cancel / retry / import controls of one model (shared by panels and the manager sheet).
+struct ModelStateControls: View {
+    let spec: AIModelSpec
+    var body: some View {
+        let mm = ModelManager.shared
+        switch mm.state(spec) {
+        case .notInstalled:
+            HStack(spacing: 8) {
+                PillButton(title: tr("models.download", ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)),
+                           symbol: "arrow.down.circle", accent: true) { mm.download(spec) }
+                Button(tr("models.locate")) { locate() }.buttonStyle(.link).font(Theme.Fonts.hint)
+            }
+        case .downloading(let p):
+            JobProgressLine(text: tr("models.downloading", Int(p * 100)), progress: p) { mm.cancel(spec) }
+        case .verifying:
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text(loc: "models.verifying").font(Theme.Fonts.hint).foregroundStyle(IStyle.caption) }
+        case .installed:
+            EmptyView()
+        case .failed(let msg):
+            VStack(alignment: .leading, spacing: 6) {
+                HintText(text: msg, color: IStyle.warning)
+                PillButton(title: tr("models.retry"), symbol: "arrow.clockwise") { mm.download(spec) }
+            }
+        }
+    }
+
+    func locate() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = tr("models.locateMessage", spec.fileName)
+        if panel.runModal() == .OK, let u = panel.url { ModelManager.shared.importFile(u, as: spec) }
+    }
+}
+
+/// Settings-like list of every on-device model with its state (UX: clear download / installed / error states).
+struct ModelManagerSheet: View {
+    let close: () -> Void
+    var body: some View {
+        let mm = ModelManager.shared
+        VStack(alignment: .leading, spacing: 14) {
+            Text(loc: "models.title").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            HintText(text: tr("models.privacy"))
+            ForEach(ModelCatalog.all) { spec in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(loc: spec.nameKey).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                        Spacer()
+                        Text(verbatim: ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
+                        if mm.state(spec).isInstalled {
+                            Label(tr("models.installed"), systemImage: "checkmark.circle.fill").font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
+                            SmallIconButton(symbol: "trash", help: tr("models.remove")) { mm.remove(spec) }
+                        }
+                    }
+                    HintText(text: tr(spec.descriptionKey) + " · " + tr("models.license", spec.license))
+                    ModelStateControls(spec: spec)
+                }
+                .padding(10)
+                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+            }
+            HStack(spacing: 6) {
+                Image(systemName: WhisperRuntime.cliURL != nil ? "checkmark.circle" : "exclamationmark.triangle").foregroundStyle(WhisperRuntime.cliURL != nil ? Theme.accent : IStyle.warning)
+                HintText(text: WhisperRuntime.cliURL != nil ? tr("models.runtimeOK") : tr("models.runtimeMissing"))
+            }
+            HStack { Spacer(); Button(tr("models.done"), action: close).buttonStyle(AccentButtonStyle()) }
+        }
+        .padding(20)
+        .frame(width: 460)
+        .background(Theme.panel)
+        .onAppear { mm.refresh() }
+    }
+}
+
+/// Hosts SwiftUI's `.translationTask` so the system can download a missing language pair (with its own consent
+/// sheet), then translates every caption and applies the result as one undo step.
+struct TranslationHost: View {
+    let store: EditorStore
+    var body: some View {
+        if #available(macOS 15.0, *), let req = store.ai.translationRequest {
+            Color.clear.frame(width: 0, height: 0)
+                .translationTask(TranslationSession.Configuration(source: Locale.Language(identifier: req.source),
+                                                                  target: Locale.Language(identifier: req.target))) { session in
+                    let caps = CaptionOps.captions(in: store.project.timeline).map { ($0.id, CaptionOps.mainText($0)) }
+                    do {
+                        let map = try await CaptionTranslator.translate(caps, with: session)
+                        store.applyTranslations(map, language: req.target, display: req.display)
+                    } catch {
+                        store.ai.translating = false
+                        store.ai.translationRequest = nil
+                        store.showToast(tr("captions.translateFailed"), error: true)
+                    }
+                }
+        } else {
+            Color.clear.frame(width: 0, height: 0)
+        }
+    }
+}

@@ -184,6 +184,7 @@ public enum TimelineOps {
             c.start = newStart
             c.duration -= delta
             for k in c.keyframes.keys { c.keyframes[k]?.shift(by: -delta) }
+            c.caption?.shift(by: -delta)   // caption words are clip-local (W10)
         case .tail:
             var newEnd = max(time, c.start + minimumClipDuration)
             if let md = mediaDuration, md != .indefinite {
@@ -250,6 +251,13 @@ public enum TimelineOps {
         left.audio.fadeOut = .zero
         right.audio.fadeIn = .zero
         if let combo = c.animations.combo { left.animations.combo = combo; right.animations.combo = combo }
+        // captions (W10): each half keeps its own words and text
+        if let cap = c.splitCaption(at: local), case .text(var lt) = c.content, case .text(var rt) = c.content {
+            left.caption = cap.left; right.caption = cap.right
+            lt.string = cap.leftText; rt.string = cap.rightText
+            left.content = .text(lt); right.content = .text(rt)
+            left.name = cap.leftText; right.name = cap.rightText
+        }
         tl.tracks[loc.track].clips[loc.clip] = left
         tl.tracks[loc.track].clips.insert(right, at: loc.clip + 1)
         // linked clips that start after the cut now follow the right half

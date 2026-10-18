@@ -40,8 +40,22 @@ public final class PlayerUIState {
     public var editingTextClip: ClipID?
     /// The canvas was the last thing clicked: arrow keys nudge the selected layer instead of stepping frames.
     public var canvasHasFocus = false
+    /// Modal canvas tool (AI cutout brush, W10): when set it receives all left-mouse input on the canvas and draws its
+    /// own overlay. nil = normal selection/transform behaviour.
+    public var canvasTool: (any CanvasTool)?
 
     public var isZoomed: Bool { abs(zoom - 1) > 0.001 || pan != .zero }
+}
+
+/// A modal tool that takes over the canvas (points are in canvas pixels, origin top-left). Implementations are
+/// @Observable and bump `revision` when their overlay changes.
+@MainActor public protocol CanvasTool: AnyObject {
+    var revision: Int { get }
+    func mouseDown(at p: Vec2)
+    func mouseDragged(at p: Vec2)
+    func mouseUp(at p: Vec2)
+    /// Draws in view coordinates; `toView` maps canvas pixels to view points, `scale` = view points per canvas pixel.
+    func draw(in ctx: CGContext, toView: (Vec2) -> CGPoint, scale: Double)
 }
 
 // MARK: Player commands (used by the player panel, canvas overlay, shortcuts and menus)

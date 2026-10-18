@@ -5,3 +5,14 @@
 "ai.error.unavailable" = "This AI feature is not available on this Mac.";
 "ai.error.noInput" = "Select a clip with the right content first.";
 "cmd.captions" = "Auto captions";
+"ai.error.noSpeech" = "Couldn't add captions. No speech in your video.";
+"ai.error.modelMissing" = "Download the AI model first.";
+"cmd.lyrics" = "Auto lyrics";
+"speech.engine.automatic" = "Automatic";
+"speech.engine.whisper" = "Whisper (high accuracy)";
+"speech.engine.apple" = "Apple speech (fast)";
+"captions.phase.extracting" = "Preparing audio…";
+"captions.phase.transcribing" = "Generating captions…";
+"captions.phase.splitting" = "Splitting captions…";
+"captions.phase.adding" = "Adding caption clips…";
+"cmd.reframe" = "Auto reframe";

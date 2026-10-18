@@ -35,10 +35,16 @@ public enum AIToolOutput: Sendable {
 public enum AIToolError: Error, Sendable {
     case unavailable(String)
     case noInput
+    /// "Couldn't add captions. No speech in your video."
+    case noSpeech
+    /// A required model isn't downloaded yet (model id).
+    case modelMissing(String)
     public var messageKey: String {
         switch self {
         case .unavailable: return "ai.error.unavailable"
         case .noInput: return "ai.error.noInput"
+        case .noSpeech: return "ai.error.noSpeech"
+        case .modelMissing: return "ai.error.modelMissing"
         }
     }
 }

@@ -1,0 +1,8 @@
+"model.whisperTurbo" = "Whisper large-v3-turbo";
+"model.whisperTurbo.desc" = "Reconnaissance vocale haute précision pour les légendes et les transcriptions (français, anglais et plus de 90 langues).";
+"model.whisperSmall" = "Whisper small";
+"model.whisperSmall.desc" = "Modèle vocal plus léger pour les Mac disposant de peu de mémoire libre.";
+"model.error.checksum" = "Le fichier téléchargé est endommagé. Réessayez.";
+"model.error.network" = "Impossible de télécharger le modèle. Vérifiez votre connexion et réessayez.";
+"model.error.cancelled" = "Téléchargement annulé";
+"model.error.io" = "Impossible d'enregistrer le fichier du modèle.";

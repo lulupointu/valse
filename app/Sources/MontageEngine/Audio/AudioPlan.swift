@@ -17,6 +17,9 @@ public struct RenderStageSpec: Hashable, Codable, Sendable {
     public var harmony: [Double] = []
     public var robotHz: Double?
     public var whisper = false
+    /// W10: separation / denoise / enhance start from the ML voice stem (`AudioML`, AUSoundIsolation) instead of the
+    /// DSP separation + denoiser. nil (absent from the cache key) = DSP only.
+    public var mlVoice: Bool?
 
     public init() {}
 
@@ -63,6 +66,7 @@ public struct ClipAudioPlan: Hashable, Sendable {
             live += design.live
         }
         r.pitch = pow(2, semis / 12)
+        if AudioML.isAvailable, r.separation != nil || a.noiseReduction != nil || a.enhanceVoice != nil { r.mlVoice = true }
         if let eq = a.eq, !eq.isFlat { live.insert(.eq(eq.gains), at: a.channels != .stereo ? 1 : 0) }
         return ClipAudioPlan(render: r, live: live, staticGain: a.loudness?.gain ?? 1)
     }

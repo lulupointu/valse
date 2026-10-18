@@ -28,7 +28,7 @@ public final class RenderStageProcessor {
         if let sep = spec.separation, channels >= 2 {
             add(StreamingSTFT(n: 4096, hop: 1024, channels: channels, transform: VocalSeparationTransform(mode: sep, n: 4096, sampleRate: sampleRate)))
         }
-        let denoise = max(spec.denoise ?? 0, spec.enhance.map { 0.25 + 0.5 * $0 } ?? 0)
+        let denoise = spec.mlVoice == true ? 0 : max(spec.denoise ?? 0, spec.enhance.map { 0.25 + 0.5 * $0 } ?? 0)
         if denoise > 0 {
             let t = DenoiseTransform(strength: denoise, n: n, hop: 512, sampleRate: sampleRate, channels: channels)
             if let noiseProfile, noiseProfile.count == n / 2 + 1 { t.seed(noiseProfile) }
@@ -180,8 +180,25 @@ public final class AudioRenderCache: @unchecked Sendable {
             if let t = inflight[k] { return t }
             let t = Task.detached(priority: .userInitiated) { [weak self] () throws -> URL in
                 let owner = self
-                try await Self.renderFile(source: a.url, spec: spec, to: dst, duration: a.duration) { p in
-                    owner?.setProgress(k, p)
+                if spec.mlVoice == true, let stems = AudioML.voiceStems {
+                    // W10 ML pre-pass: voice / remaining stems, mixed per setting, then the rest of the DSP chain
+                    try await stems(a) { p in owner?.setProgress(k, 0.6 * p) }
+                    let sep = spec.separation
+                    let strength = Float(spec.denoise ?? (spec.enhance != nil ? 0.9 : 1))
+                    let vg: Float = sep == .removeVocals ? 0 : 1
+                    let rg: Float = sep == .keepVocals ? 0 : (sep == .removeVocals ? 1 : 1 - strength)
+                    let mixed = dst.deletingLastPathComponent().appendingPathComponent("ml-\(UUID().uuidString).caf")
+                    defer { try? FileManager.default.removeItem(at: mixed) }
+                    try AudioML.mix(a, voiceGain: vg, restGain: rg, to: mixed)
+                    var rest = spec
+                    rest.separation = nil; rest.denoise = nil
+                    try await Self.renderFile(source: mixed, spec: rest, to: dst, duration: a.duration) { p in
+                        owner?.setProgress(k, 0.6 + 0.4 * p)
+                    }
+                } else {
+                    try await Self.renderFile(source: a.url, spec: spec, to: dst, duration: a.duration) { p in
+                        owner?.setProgress(k, p)
+                    }
                 }
                 return dst
             }

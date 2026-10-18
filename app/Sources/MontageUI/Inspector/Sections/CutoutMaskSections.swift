@@ -138,7 +138,7 @@ struct EffectBlock: View {
 /// the reason until that backend exists.
 enum CutoutAvailability {
     /// Set to true by the AI/render teams once a matte can be composited (see ARCHITECTURE §18).
-    nonisolated(unsafe) static var matteCompositingAvailable = false
+    nonisolated(unsafe) static var matteCompositingAvailable = true   // W10 mattes + W6 compositor (MontageUI/AI/CutoutUI.swift)
 }
 
 /// Video ▸ Cutout ▸ ☑ Chroma key: colour picker (system eyedropper samples anywhere on screen, e.g. the player),

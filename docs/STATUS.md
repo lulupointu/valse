@@ -31,14 +31,15 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 ## Cross-team requests / blockers (open)
 | From | Needs from | What | Feature IDs |
 |---|---|---|---|
+| W10 | W7 | Caption model agreed (ARCH §17d): render `Clip.caption` — karaoke/word-by-word from `words` (clip-local), keyword emphasis (`isKeyword`), main/sub styles for `translation` (`display`); caption template choice in Auto captions panel | TX-017/021/022/023 |
+| W10 | W8 | Use `AudioStemStore.readyStem(media:kind:)` (`voice` / `novoice`, ML AUSoundIsolation) as the clip's audio for Isolate voice / Reduce noise / Enhance voice; `EditorStore.requestVoiceStems(_:)` makes them (job + progress on the clip) | AU-007/008/009 |
+| W10 | W11 | Export: "Caption exporting" checkbox → `CaptionExport.export(_:format:)`; wait for running AI jobs (cutout) before export; call `AIEngineHooks.prepareOpticalFlow(width:height:wait:)` when clips use optical flow | TX-025, EX |
 | W6 | W1 | Double-click enter/edit inside compound clips (nested render done) | TL-021 |
-| W6 | W10 | Person mattes via `MatteVideoWriter` → flip `CutoutAvailability.matteCompositingAvailable`; optical-flow via `FrameInterpolation.provider` | CK-002/004, SP-005 |
 | W6 | W12 | Proxy settings UI; render cache auto-render + green bar | MI-008, PB-005 |
 | W8 | W10 | ML audio: Demucs stems (install torch+coremltools in a venv to convert; downloads allowed), ML denoise/voice enhance/isolation upgrade over W8's DSP, TTS | AU-010, AU-007..009, AI-009..011 |
 | W8 | W1 | Menu entry for AU-016; waveform drawing polish; track volume ±0.1 dB shortcuts | AU-016, AU-019, AU-004 |
 | W8 | W11 | Audio-only export dialog (engine done: WAV/AAC/FLAC/ALAC; add MP3) | AU-022, EX-009 |
 | W1 | W11 | Export range (in/out) | TL-028 |
-| W3 | W10+W6 | AI matte in compositor → flip `CutoutAvailability.matteCompositingAvailable` | CK-002 |
 | W3 | W1/W2/W5/W8 | Timeline/canvas/content/audio-render parts of inspector-partial rows | CV-003/004/006/012, KF-001/003/008, SP-002, AU-004/005, CL-002, TR-002, MK-001 |
 | W14 | W1/W2/W3/W6/W7/W8 | Driver landed (73ea621, docs/TESTING.md): merged teams still lack interaction tests → hardening pass | — |
 | W14 | W14 | SwiftUI onTapGesture/DragGesture views don't receive synthetic events yet (custom inspector sliders) | — |
@@ -53,6 +54,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 
 ## Done cross-team items
 - W7 did W2's request: `TextContent.boxWidth` in the model; `TextMetrics` now backed by the text engine layout (handles hug rendered text).
+
+- W10 wrote person/subject/custom mattes through W6's `MatteVideoWriter`, flipped `CutoutAvailability.matteCompositingAvailable` (W3 cutout sections now live) and installed the optical-flow `FrameInterpolation.provider`.
 - W3 built transition inspector (requested by W1).
 - W8 delivered auto beats into `Clip.beats` (TL-026) for W1.
 - W6/W9 delivered reverse render (TL-014) and nested compound rendering (TL-021 render side) for W1.

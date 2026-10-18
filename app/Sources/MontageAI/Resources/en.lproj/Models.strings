@@ -1,0 +1,8 @@
+"model.whisperTurbo" = "Whisper large-v3-turbo";
+"model.whisperTurbo.desc" = "High-accuracy speech recognition for captions and transcripts (French, English and 90+ languages).";
+"model.whisperSmall" = "Whisper small";
+"model.whisperSmall.desc" = "Lighter speech model for Macs with little free memory.";
+"model.error.checksum" = "The downloaded file is damaged. Try again.";
+"model.error.network" = "Couldn't download the model. Check your connection and try again.";
+"model.error.cancelled" = "Download canceled";
+"model.error.io" = "Couldn't save the model file.";

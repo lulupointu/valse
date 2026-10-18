@@ -11,6 +11,10 @@ public struct AssetPanel: View {
     public init(store: EditorStore) { self.store = store }
 
     public var body: some View {
+        if store.ai.transcriptOpen { TranscriptPanel(store: store) } else { tabs }   // W10 transcript replaces the asset panel
+    }
+
+    var tabs: some View {
         Panel {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
@@ -207,21 +211,8 @@ struct EmptyState: View {
 
 // Text tab content: MontageUI/Text/TextAssetTab.swift (text engine, W7).
 
-/// Captions tab: Auto captions (on-device speech recognition).
+/// Captions tab: Auto captions (on-device speech recognition) — W10, MontageUI/AI/AutoCaptionsPanel.swift.
 struct CaptionsTab: View {
     let store: EditorStore
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(loc: "ai.captions").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-            Text(loc: "ai.captions.desc").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-            Button(tr("captions.generate")) {
-                if let tool = AIRegistry.tools["montage.ai.captions"] { store.runAITool(tool) }
-            }
-            .buttonStyle(AccentButtonStyle())
-            .disabled(store.project.timeline.mainTrack?.clips.isEmpty ?? true)
-            Spacer()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    var body: some View { AutoCaptionsPanel(store: store) }
 }

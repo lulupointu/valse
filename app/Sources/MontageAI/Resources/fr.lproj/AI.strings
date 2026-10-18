@@ -5,3 +5,14 @@
 "ai.error.unavailable" = "Cette fonction d'IA n'est pas disponible sur ce Mac.";
 "ai.error.noInput" = "Sélectionnez d'abord un clip au contenu adapté.";
 "cmd.captions" = "Sous-titres automatiques";
+"ai.error.noSpeech" = "Impossible d'ajouter des légendes. Aucun discours dans votre vidéo.";
+"ai.error.modelMissing" = "Téléchargez d'abord le modèle d'IA.";
+"cmd.lyrics" = "Paroles automatiques";
+"speech.engine.automatic" = "Automatique";
+"speech.engine.whisper" = "Whisper (haute précision)";
+"speech.engine.apple" = "Reconnaissance Apple (rapide)";
+"captions.phase.extracting" = "Préparation de l'audio…";
+"captions.phase.transcribing" = "Génération en cours des légendes…";
+"captions.phase.splitting" = "Division en cours des légendes…";
+"captions.phase.adding" = "Ajout des clips de sous-titres…";
+"cmd.reframe" = "Recadrage automatique";

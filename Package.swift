@@ -45,6 +45,7 @@ let package = Package(
                     path: "app/Tests/MontageEngineTests"),
         .testTarget(name: "MontageUITests", dependencies: ["MontageUI", "MontageTestSupport"],
                     path: "app/Tests/MontageUITests"),
+        .testTarget(name: "MontageAITests", dependencies: ["MontageAI", "MontageTestSupport"], path: "app/Tests/MontageAITests"),
         .testTarget(name: "MontagePerfTests", dependencies: ["MontageEngine", "MontageTestSupport"],
                     path: "app/Tests/MontagePerfTests"),
     ]

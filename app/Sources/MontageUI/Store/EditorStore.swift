@@ -49,6 +49,8 @@ public final class EditorStore {
     public let timelineUI = TimelineUIState()
     /// Player viewport / overlays / modes (MontageUI/Player).
     public let playerUI = PlayerUIState()
+    /// AI jobs / panels state (W10, MontageUI/AI).
+    public let ai = AIUIState()
     /// Timeline zoom (points per second).
     public var pixelsPerSecond: Double = 40
     public private(set) var packageURL: URL?
@@ -90,6 +92,7 @@ public final class EditorStore {
         }
         if let packageURL { SessionLock.acquire(packageURL) }
         installMediaPipelineHooks()
+        installAIHooks()
     }
 
     // MARK: Editing
@@ -145,6 +148,7 @@ public final class EditorStore {
         selection = selection.filter { session.project.timeline.clip($0) != nil }
         if let t = selectedTransition, session.project.timeline.clip(t)?.transitionOut == nil { selectedTransition = nil }
         if playerUI.loopEnabled { updateLoopRange() }
+        aiProjectDidChange()
         scheduleAutosave()
     }
 

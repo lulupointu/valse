@@ -61,7 +61,7 @@ enum BuiltinInspector {
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
         ], appliesTo: any(.effect)),
         InspectorTab(id: "filter", titleKey: "inspector.tab.filter", order: 0, appliesTo: any(.filter)),
-    ] + AudioInspector.tabs
+    ] + AudioInspector.tabs + AIInspector.tabs
 
     static let sections: [InspectorSection] = [
         InspectorSection(id: "details.project", tab: "details", order: 0, titleKey: nil) { AnyView(DetailsSection(store: $0.store)) },
@@ -87,12 +87,6 @@ enum BuiltinInspector {
                          appliesTo: { $0.isMainTrack }, chrome: CanvasSection.chrome) { AnyView(CanvasSection(ctx: $0)) },
 
         // Video ▸ Cutout
-        InspectorSection(id: "cutout.auto", tab: "video", subTab: "cutout", order: 0, titleKey: "inspector.cutout.auto",
-                         chrome: { _ in InspectorSectionChrome(isEnabled: .constant(false),
-                                                               disabledReason: CutoutAvailability.matteCompositingAvailable ? nil : tr("inspector.cutout.unavailable")) }) { _ in AnyView(EmptyView()) },
-        InspectorSection(id: "cutout.custom", tab: "video", subTab: "cutout", order: 1, titleKey: "inspector.cutout.custom",
-                         chrome: { _ in InspectorSectionChrome(isEnabled: .constant(false),
-                                                               disabledReason: CutoutAvailability.matteCompositingAvailable ? nil : tr("inspector.cutout.unavailable")) }) { _ in AnyView(EmptyView()) },
         InspectorSection(id: "cutout.chroma", tab: "video", subTab: "cutout", order: 2, titleKey: "key.chroma",
                          chrome: ChromaKeySection.chrome) { AnyView(ChromaKeySection(ctx: $0)) },
 
@@ -136,5 +130,5 @@ enum BuiltinInspector {
         InspectorSection(id: "effects.stack", tab: "effects", order: 0, titleKey: nil) { AnyView(ClipEffectBlocks(ctx: $0)) },
         InspectorSection(id: "specialEffects.details", tab: "specialEffects", subTab: "basic", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
         InspectorSection(id: "filter.details", tab: "filter", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
-    ] + RenderFeatureInspector.sections + AudioInspector.sections + TextInspector.sections
+    ] + RenderFeatureInspector.sections + AudioInspector.sections + TextInspector.sections + AIInspector.sections
 }

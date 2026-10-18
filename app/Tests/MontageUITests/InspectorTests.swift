@@ -56,7 +56,7 @@ import MontageTestSupport
         #expect(tabs(s) == ["audioBasic", "audioVoice", "speed"])
         #expect(subs(s, "speed") == ["normal"])
         s.selection = [f.text]
-        #expect(tabs(s) == ["text", "animation"])
+        #expect(tabs(s) == ["text", "animation", "tts"])   // CapCut: Text · Animation · Text to speech (W10)
         #expect(subs(s, "animation") == ["in", "out", "loop"])
         s.selection = [f.sticker]
         #expect(tabs(s) == ["sticker", "animation"])
