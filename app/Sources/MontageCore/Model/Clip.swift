@@ -75,8 +75,6 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var extractedFrom: ClipID?
     /// Clip colour label index (TL-040), nil = default kind colour.
     public var colorLabel: Int?
-    /// Caption metadata (W10 AI: auto captions / imported / script). nil = ordinary clip. See Captions/CaptionModel.swift.
-    public var caption: CaptionInfo?
     /// Text-to-speech provenance (W10): this audio clip speaks a text clip. See Captions/TTSModel.swift.
     public var tts: TTSInfo?
 

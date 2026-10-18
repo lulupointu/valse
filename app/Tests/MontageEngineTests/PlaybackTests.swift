@@ -6,11 +6,14 @@ import MontageTestSupport
 
 @MainActor @Suite(.serialized) struct PlaybackTests {
     @Test func playbackDeliversFramesInRealTime() async throws {
-        var p = TestProject()
-        try await p.addVideo(.movingBox(.red, .white), seconds: 3, audioHz: 440)
-        let engine = PlaybackEngine(project: p.project)
-        let r = try await PlaybackProbe.measure(engine, seconds: 1.0)
-        #expect(r.fps > 20, "got \(r.fps) fps")
+        try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
+            var p = TestProject()
+            try await p.addVideo(.movingBox(.red, .white), seconds: 3, audioHz: 440)
+            let engine = PlaybackEngine(project: p.project)
+            let r = try await PlaybackProbe.measure(engine, seconds: 1.0)
+            #expect(r.fps > 20, "got \(r.fps) fps")
+    
+        }
     }
 
     @Test func propertyEditsDoNotRebuildTheComposition() async throws {

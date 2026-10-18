@@ -232,10 +232,10 @@ struct TranslationHost: View {
             Color.clear.frame(width: 0, height: 0)
                 .translationTask(TranslationSession.Configuration(source: Locale.Language(identifier: req.source),
                                                                   target: Locale.Language(identifier: req.target))) { session in
-                    let caps = CaptionOps.captions(in: store.project.timeline).map { ($0.id, CaptionOps.mainText($0)) }
+                    let caps = SpeechCaptions.captions(in: store.project.timeline).map { ($0.id, CaptionOps.text($0)?.string ?? "") }
                     do {
                         let map = try await CaptionTranslator.translate(caps, with: session)
-                        store.applyTranslations(map, language: req.target, display: req.display)
+                        store.applyTranslations(map, display: req.display)
                     } catch {
                         store.ai.translating = false
                         store.ai.translationRequest = nil

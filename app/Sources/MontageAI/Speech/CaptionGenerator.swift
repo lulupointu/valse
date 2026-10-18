@@ -15,10 +15,11 @@ public struct CaptionOptions: Sendable, Equatable {
     public var replaceExisting: Bool
     /// Auto lyrics: recognised from music (no filler handling, longer lines).
     public var lyrics: Bool
-    public var style: TextContent
+    /// Caption look (nil = the text team's default caption style).
+    public var style: TextContent?
     public init(language: String? = nil, engine: SpeechEngine = .automatic, source: Source = .allTracks,
                 settings: CaptionSettings = CaptionSettings(), replaceExisting: Bool = true, lyrics: Bool = false,
-                style: TextContent = CaptionOps.defaultStyle()) {
+                style: TextContent? = nil) {
         self.language = language; self.engine = engine; self.source = source; self.settings = settings
         self.replaceExisting = replaceExisting; self.lyrics = lyrics; self.style = style
     }
@@ -104,24 +105,28 @@ public enum CaptionGenerator {
         phase?(.splitting)
         var settings = o.settings
         if o.lyrics { settings.identifyFillers = false; settings.removeFillers = false; settings.maxPause = 1.2 }
-        var captions: [Clip] = []
-        let mainIDs = Set(p.timeline.mainTrack?.clips.map(\.id) ?? [])
+        var segments: [CaptionSegment] = []
         for c in clips {
             for t in transcripts[c.mediaID!] ?? [] where !t.words.isEmpty {
-                var caps = CaptionOps.makeCaptions(t, for: c, linked: mainIDs.contains(c.id) && p.timeline.linkage,
-                                                   style: o.style, settings: settings)
-                if o.lyrics { for i in caps.indices { caps[i].caption?.source = .lyrics } }
-                captions += caps
+                segments += SpeechCaptions.segments(t, for: c, settings: settings)
             }
         }
-        guard !captions.isEmpty else { throw AIToolError.noSpeech }
+        guard !segments.isEmpty else { throw AIToolError.noSpeech }
         phase?(.adding)
         progress?(0.97)
         let lang = detected.max { $0.value < $1.value }?.key ?? o.language ?? "en"
         let replace = o.replaceExisting
-        let final = captions
-        let cmd = Edit(o.lyrics ? "cmd.lyrics" : "cmd.captions") { p in try CaptionOps.insert(final, into: &p, replaceExisting: replace) }
-        return CaptionResult(command: cmd, count: captions.count, language: lang, engine: engineUsed)
+        let origin: CaptionOrigin = o.lyrics ? .lyrics : .auto
+        let style = o.style
+        let fillers = settings.identifyFillers
+        let final = segments
+        let cmd = Edit(o.lyrics ? "cmd.lyrics" : "cmd.captions") { p in
+            guard let id = CaptionOps.addCaptionTrack(final, to: &p, style: style, origin: origin, replacing: replace) else {
+                throw EditError.nothingToDo
+            }
+            SpeechCaptions.finish(trackID: id, language: lang, in: &p, identifyFillers: fillers)
+        }
+        return CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
     }
 
     static func merge(_ rs: [TimeRange], pad: Time, limit: Time) -> [TimeRange] {

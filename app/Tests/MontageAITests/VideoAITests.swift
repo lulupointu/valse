@@ -18,21 +18,24 @@ import MontageTestSupport
     }
 
     @Test func sceneCutsAreFoundWithoutFalsePositivesOnMotion() async throws {
-        let url = try await Self.threeShots()
-        let cuts = try await SceneDetector.cuts(url)
-        #expect(cuts.count == 2, "\(cuts)")
-        if cuts.count == 2 {
-            #expect(abs(cuts[0] - 1) < 0.05 && abs(cuts[1] - 2) < 0.05, "\(cuts)")
+        try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
+            let url = try await Self.threeShots()
+            let cuts = try await SceneDetector.cuts(url)
+            #expect(cuts.count == 2, "\(cuts)")
+            if cuts.count == 2 {
+                #expect(abs(cuts[0] - 1) < 0.05 && abs(cuts[1] - 2) < 0.05, "\(cuts)")
+            }
+            // split scene on a trimmed clip of that file
+            var p = TestProject()
+            let id = try await p.addMedia(url)
+            try TimelineOps.trim(id, edge: .head, to: Time(0.5), in: &p.project)
+            let clip = p[id]
+            let times = SceneSplit.splitTimes(cuts, clip: clip)
+            try SceneSplit.apply(times, to: id, in: &p.project.timeline)
+            #expect(p.project.timeline.mainTrack!.clips.count == 3)
+            #expect(TimelineOps.validate(p.project.timeline).isEmpty)
+    
         }
-        // split scene on a trimmed clip of that file
-        var p = TestProject()
-        let id = try await p.addMedia(url)
-        try TimelineOps.trim(id, edge: .head, to: Time(0.5), in: &p.project)
-        let clip = p[id]
-        let times = SceneSplit.splitTimes(cuts, clip: clip)
-        try SceneSplit.apply(times, to: id, in: &p.project.timeline)
-        #expect(p.project.timeline.mainTrack!.clips.count == 3)
-        #expect(TimelineOps.validate(p.project.timeline).isEmpty)
     }
 
     @Test func reframePathMaths() {
@@ -52,16 +55,19 @@ import MontageTestSupport
     }
 
     @Test func autoReframeFollowsTheSubject() async throws {
-        var p = TestProject(canvas: Size2(640, 360))
-        let id = try await p.addVideo(.movingBox(RGBA(0.1, 0.15, 0.5), .white), seconds: 2, size: CGSize(width: 640, height: 360))
-        let cmd = try await AutoReframe.run(project: p.project, clipID: id, options: ReframeOptions(ratio: "9:16", speed: .fast, stability: .flexible))
-        try cmd.apply(to: &p.project)
-        #expect(p.project.settings.canvasSize == Size2(360, 640))
-        #expect(p[id].keyframes[ParamKey.position.raw] != nil)
-        for t in [0.5, 1.0, 1.5] {
-            let img = try await p.render(at: t)
-            let c = img.average(x: 0.45, y: 0.45, w: 0.1, h: 0.1)
-            #expect(c.r > 0.7 && c.g > 0.7, "subject centred at \(t): \(c)")
+        try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
+            var p = TestProject(canvas: Size2(640, 360))
+            let id = try await p.addVideo(.movingBox(RGBA(0.1, 0.15, 0.5), .white), seconds: 2, size: CGSize(width: 640, height: 360))
+            let cmd = try await AutoReframe.run(project: p.project, clipID: id, options: ReframeOptions(ratio: "9:16", speed: .fast, stability: .flexible))
+            try cmd.apply(to: &p.project)
+            #expect(p.project.settings.canvasSize == Size2(360, 640))
+            #expect(p[id].keyframes[ParamKey.position.raw] != nil)
+            for t in [0.5, 1.0, 1.5] {
+                let img = try await p.render(at: t)
+                let c = img.average(x: 0.45, y: 0.45, w: 0.1, h: 0.1)
+                #expect(c.r > 0.7 && c.g > 0.7, "subject centred at \(t): \(c)")
+            }
+    
         }
     }
 }

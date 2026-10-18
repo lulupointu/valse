@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import NaturalLanguage
 import MontageCore
 import MontageEngine
 import MontageAI
@@ -21,6 +22,8 @@ public final class AIUIState {
     public var captionError: String?
     // Translation in progress (bilingual / translate)
     public var translating = false
+    /// Language detected by the last auto-caption run.
+    public var captionSpokenLanguage: String?
     /// Pending translation request handled by a `.translationTask` host view (needs the OS download prompt).
     public var translationRequest: TranslationRequest?
     // Cutout: clip → running matte job
@@ -48,7 +51,7 @@ public struct TranslationRequest: Equatable, Identifiable {
     public let id = UUID()
     public let source: String
     public let target: String
-    public let display: CaptionDisplay
+    public let display: BilingualDisplay
 }
 
 extension EditorStore {
@@ -85,10 +88,12 @@ extension EditorStore {
                               replaceExisting: ai.replaceCaptions && hasAutoCaptions)
     }
 
-    public var hasAutoCaptions: Bool { !CaptionOps.autoCaptionIDs(project.timeline).isEmpty }
+    public var hasAutoCaptions: Bool {
+        SpeechCaptions.captions(in: project.timeline).contains { CaptionOps.text($0)?.caption?.origin == .auto }
+    }
 
-    /// Text ▸ Auto captions ▸ Generate (or Auto lyrics). Non-blocking: the caption track is inserted atomically at the
-    /// end as one undo step; the panel shows the phase + % and a Cancel button.
+    /// Text ▸ Auto captions ▸ Generate (or Auto lyrics). Non-blocking: the caption track (W7 model, word timings for
+    /// karaoke) is inserted atomically at the end as one undo step; the panel shows the phase + % and Cancel.
     public func generateCaptions(lyrics: Bool = false) {
         guard ai.captionJob == nil else { return }
         var options = captionOptions
@@ -114,12 +119,13 @@ extension EditorStore {
             switch state {
             case .done:
                 guard let r = box.result, perform(r.command) else { return }
+                ai.captionSpokenLanguage = r.language
                 showToast(tr("captions.added", r.count))
-                if let caps = CaptionOps.captions(in: self.project.timeline).first {
-                    selection = [caps.id]
+                if let first = SpeechCaptions.captions(in: self.project.timeline).first {
+                    selection = [first.id]
                     inspectorTab = "captions"
                 }
-                if let target, target != r.language { translateCaptions(to: target, display: .bilingual) }
+                if let target, target != r.language { translateCaptions(to: target, display: .both) }
             case .failed(let msg):
                 let key = msg.contains("noSpeech") ? "ai.error.noSpeech" : (msg.contains("noInput") ? "captions.error.noAudio" : "captions.error.failed")
                 ai.captionError = tr(key)
@@ -135,66 +141,29 @@ extension EditorStore {
         if let id = ai.captionJob { Task { await JobQueue.shared.cancel(id) } }
     }
 
-    // MARK: Caption editing (caption list)
-
-    public func setCaptionText(_ id: ClipID, _ text: String) {
-        guard let c = project.timeline.clip(id), CaptionOps.mainText(c) != text else { return }
-        perform(Edit("cmd.captionEdit") { p in try CaptionOps.setText(id, text, in: &p.timeline) })
-    }
-
-    public func splitCaption(_ id: ClipID, at offset: Int) {
-        if !perform(Edit("cmd.captionSplit") { p in try CaptionOps.split(id, atCharacter: offset, in: &p.timeline) }) {
-            showToast(tr("captions.cantSplit"), error: true)
-        }
-    }
-
-    /// Merge with the previous caption (Delete at the start) or the next one (Fn-Delete at the end).
-    public func mergeCaption(_ id: ClipID, withPrevious: Bool) {
-        let caps = CaptionOps.captions(in: project.timeline)
-        guard let i = caps.firstIndex(where: { $0.id == id }) else { return }
-        let first: ClipID
-        if withPrevious { guard i > 0 else { showToast(tr("captions.cantMerge"), error: true); return }; first = caps[i - 1].id }
-        else { first = id }
-        if !perform(Edit("cmd.captionMerge") { p in try CaptionOps.mergeWithNext(first, in: &p.timeline) }) {
-            showToast(tr("captions.cantMerge"), error: true)
-        } else if withPrevious { selection = [first] }
-    }
-
-    @discardableResult
-    public func replaceInCaptions(_ find: String, with rep: String) -> Int {
-        var n = 0
-        let ok = perform(Edit("cmd.captionReplace") { p in
-            let k = CaptionOps.replaceAll(find, with: rep, in: &p.timeline)
-            if k == 0 { throw EditError.nothingToDo }
-        })
-        if ok { n = CaptionOps.search(rep, in: project.timeline).count; showToast(tr("captions.updated")) }
-        return n
-    }
-
-    public func applyCaptionStyleToAll(from id: ClipID) {
-        if perform(Edit("cmd.captionStyleAll") { p in try CaptionOps.applyStyleToAll(from: id, in: &p.timeline) }) {
-            showToast(tr("captions.styleApplied"))
-        }
-    }
-
-    public func setCaptionDisplay(_ d: CaptionDisplay) {
-        perform(Edit("cmd.captionDisplay") { p in CaptionOps.setDisplay(d, in: &p.timeline) })
+    /// Spoken language of the captions (last auto-caption run, else detected from the caption text).
+    var captionLanguage: String {
+        if let l = ai.captionSpokenLanguage { return l }
+        let text = SpeechCaptions.captions(in: project.timeline).prefix(30).compactMap { CaptionOps.text($0)?.string }.joined(separator: " ")
+        let r = NLLanguageRecognizer(); r.processString(text)
+        return r.dominantLanguage?.rawValue ?? L10n.shared.language
     }
 
     /// Bilingual captions: translates every caption on device (Apple Translation). Installed language pairs run
     /// directly in the background; otherwise a translation host view asks the system to download the pair first.
-    public func translateCaptions(to target: String, display: CaptionDisplay) {
-        let caps = CaptionOps.captions(in: project.timeline)
+    public func translateCaptions(to target: String, display: BilingualDisplay) {
+        let caps = SpeechCaptions.captions(in: project.timeline)
         guard !caps.isEmpty else { return }
-        let source = caps.first?.caption?.language ?? "en"
+        let source = captionLanguage
         guard source != target else { showToast(tr("captions.sameLanguage"), error: true); return }
         ai.translating = true
+        let items = caps.map { ($0.id, CaptionOps.text($0)?.string ?? "") }
         Task {
             switch await CaptionTranslator.status(from: source, to: target) {
             case .installed:
                 do {
-                    let map = try await CaptionTranslator.translate(caps.map { ($0.id, CaptionOps.mainText($0)) }, from: source, to: target)
-                    applyTranslations(map, language: target, display: display)
+                    let map = try await CaptionTranslator.translate(items, from: source, to: target)
+                    applyTranslations(map, display: display)
                 } catch {
                     ai.translationRequest = TranslationRequest(source: source, target: target, display: display)
                 }
@@ -207,16 +176,42 @@ extension EditorStore {
         }
     }
 
-    func applyTranslations(_ map: [ClipID: String], language: String, display: CaptionDisplay) {
+    func applyTranslations(_ map: [ClipID: String], display: BilingualDisplay) {
         ai.translating = false
         ai.translationRequest = nil
         guard !map.isEmpty else { return }
-        perform(Edit("cmd.captionTranslate") { p in CaptionOps.setTranslations(map, language: language, display: display, in: &p.timeline) })
+        perform(Edit("cmd.captionTranslate") { p in SpeechCaptions.setTranslations(map, display: display, in: &p.timeline) })
         showToast(tr("captions.translated"))
     }
 
     public func clearCaptionTranslations() {
-        perform(Edit("cmd.captionTranslate") { p in CaptionOps.clearTranslations(in: &p.timeline) })
+        perform(Edit("cmd.captionTranslate") { p in SpeechCaptions.clearTranslations(in: &p.timeline) })
+    }
+
+    /// Highlight keywords (TX-022 / AI-004) with the on-device LLM when Apple Intelligence is available, else the
+    /// statistical picker; flags `CaptionWord.keyword` (rendered by the text team's karaoke keyword style).
+    public func highlightKeywordsAI() {
+        guard OnDeviceLLM.isAvailable else { highlightCaptionKeywords(); return }   // W7 statistical picker
+        let caps = SpeechCaptions.captions(in: project.timeline)
+        guard !caps.isEmpty else { return }
+        let texts = caps.compactMap { CaptionOps.text($0)?.string }
+        let lang = captionLanguage
+        Task {
+            let keys = await KeywordExtractor.keywords(texts, language: lang)
+            if perform(Edit("cmd.captionKeywords") { p in
+                _ = SpeechCaptions.markKeywords(keys, in: &p.timeline)
+                // keyword emphasis renders through a karaoke style (same default as the text team's picker)
+                for ti in p.timeline.tracks.indices where CaptionOps.isCaptionTrack(p.timeline.tracks[ti]) {
+                    for i in p.timeline.tracks[ti].clips.indices {
+                        guard case .text(var t) = p.timeline.tracks[ti].clips[i].content, t.karaoke == nil else { continue }
+                        t.karaoke = KaraokeStyle(mode: .highlightWord, highlightColor: t.color, highlightScale: 1)
+                        p.timeline.tracks[ti].clips[i].content = .text(t)
+                    }
+                }
+            }) {
+                showToast(tr("captions.keywordsDone", keys.count))
+            }
+        }
     }
 
     // MARK: Cutout

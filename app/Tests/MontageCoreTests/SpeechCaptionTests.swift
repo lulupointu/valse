@@ -2,11 +2,11 @@ import Testing
 import Foundation
 @testable import MontageCore
 
-/// W10 caption model + pure caption/transcript edits (MontageCore/Captions).
-@Suite struct CaptionTests {
+/// W10 speech → captions (on the W7 caption model), fillers, WER, transcript-based editing.
+@Suite struct SpeechCaptionTests {
     func ok(_ p: Project) { #expect(TimelineOps.validate(p.timeline).isEmpty, "\(TimelineOps.validate(p.timeline))") }
 
-    /// "Bonjour et bienvenue. Aujourd'hui nous allons … " with a long pause after "bienvenue."
+    /// "Bonjour et bienvenue. Aujourd'hui, euh, nous allons …" with a pause after "bienvenue."
     static func words() -> [TranscriptWord] {
         let spec: [(String, Double, Double)] = [
             ("Bonjour", 0.0, 0.4), ("et", 0.45, 0.55), ("bienvenue.", 0.6, 1.1),
@@ -18,19 +18,18 @@ import Foundation
     }
 
     @Test func segmentationSplitsOnSentencesPausesAndLength() {
-        let segs = CaptionSegmenter.segments(Self.words(), language: "fr")
+        let segs = SpeechSegmenter.segments(Self.words(), language: "fr")
         #expect(segs.first?.text == "Bonjour et bienvenue.")
         #expect(segs.count >= 3)
         for s in segs {
             #expect(s.lines.count <= 2)
             for l in s.lines { #expect(l.count <= 28, "line too long: \(l)") }
         }
-        // every word appears once, in order
         #expect(segs.flatMap(\.words).map(\.text) == Self.words().map(\.text))
     }
 
     @Test func wrapBalancesTwoLines() {
-        let lines = CaptionSegmenter.wrap(["Pour", "couper", "un", "plan,", "placez", "la", "tête", "de", "lecture"], maxChars: 28)
+        let lines = SpeechSegmenter.wrap(["Pour", "couper", "un", "plan,", "placez", "la", "tête", "de", "lecture"], maxChars: 28)
         #expect(lines.count == 2)
         #expect(abs(lines[0].count - lines[1].count) < 10)
     }
@@ -40,9 +39,9 @@ import Foundation
         #expect(k[1] == .hesitation)
         #expect(k[2] == .repetition && k[3] == nil)
         #expect(k[5] == .filler && k[6] == .filler)
-        #expect(k[7] == nil && k[8] == nil)      // "nous nous" is legitimate
+        #expect(k[7] == nil && k[8] == nil)
         var s = CaptionSettings(); s.removeFillers = true
-        let segs = CaptionSegmenter.segments(Self.words(), language: "fr", settings: s)
+        let segs = SpeechSegmenter.segments(Self.words(), language: "fr", settings: s)
         #expect(!segs.map(\.text).joined(separator: " ").contains("euh"))
     }
 
@@ -52,146 +51,54 @@ import Foundation
         #expect(WordErrorRate.compute(reference: "aujourd'hui", hypothesis: "Aujourd’hui") == 0)
     }
 
-    @Test func captionsMapThroughTrimAndSpeed() throws {
+    @Test func segmentsMapThroughTrimAndSpeed() throws {
         var (p, ids) = Fx.project(mainClips: 1, seconds: 8)
-        // trim the head by 1 s of media and play at 2×
         try TimelineOps.trim(ids[0], edge: .head, to: Time(1), in: &p)
         try TimelineOps.setSpeed(ids[0], .constant(2), in: &p.timeline)
         let clip = p.timeline.clip(ids[0])!
-        #expect(clip.sourceStart == Time(1))
-        let t = Transcript(engine: "test", language: "fr", words: Self.words())
-        let caps = CaptionOps.makeCaptions(t, for: clip, linked: true)
-        #expect(!caps.isEmpty)
-        // "Bonjour et bienvenue." (media 0–1.1 s) is before the in-point → dropped
-        #expect(!caps.contains { if case .text(let x) = $0.content { return x.string.contains("Bonjour") }; return false })
-        let first = caps[0]
+        let segs = SpeechCaptions.segments(Transcript(engine: "t", language: "fr", words: Self.words()), for: clip)
+        #expect(!segs.contains { $0.text.contains("Bonjour") })            // before the in-point
         // "Aujourd'hui," at media 2.0 s → timeline (2.0 − 1.0) / 2 = 0.5 s
-        #expect(abs(first.start.seconds - 0.5) < 0.01)
-        #expect(first.caption?.words.first.map { abs($0.start.seconds) < 0.01 } == true)
-        #expect(first.linkedTo == ids[0])
-        try CaptionOps.insert(caps, into: &p, replaceExisting: true)
-        ok(p)
-        #expect(p.timeline.tracks.contains { $0.isCaptionTrack })
+        #expect(abs(segs[0].start - 0.5) < 0.01)
+        #expect(abs(segs[0].words[0].start - 0.5) < 0.01)
+        #expect(segs[0].words.count == CaptionText.tokens(segs[0].text).count)
     }
 
-    func captionProject() throws -> (Project, [ClipID]) {
+    func captionProject(fillers: Bool = false) throws -> (Project, TrackID) {
         var (p, ids) = Fx.project(mainClips: 1, seconds: 8)
-        let caps = CaptionOps.makeCaptions(Transcript(engine: "t", language: "fr", words: Self.words()), for: p.timeline.clip(ids[0])!, linked: true)
-        try CaptionOps.insert(caps, into: &p, replaceExisting: true)
-        return (p, CaptionOps.captions(in: p.timeline).map(\.id))
+        let segs = SpeechCaptions.segments(Transcript(engine: "t", language: "fr", words: Self.words()), for: p.timeline.clip(ids[0])!)
+        let id = try #require(CaptionOps.addCaptionTrack(segs, to: &p, origin: .auto, replacing: true))
+        SpeechCaptions.finish(trackID: id, language: "fr", in: &p, identifyFillers: fillers)
+        return (p, id)
     }
 
-    @Test func regenerateReplacesExistingCaptions() throws {
-        var (p, caps) = try captionProject()
-        let again = CaptionOps.makeCaptions(Transcript(engine: "t", language: "fr", words: Self.words()), for: p.timeline.mainTrack!.clips[0], linked: true)
-        try CaptionOps.insert(again, into: &p, replaceExisting: true)
-        #expect(CaptionOps.captions(in: p.timeline).count == caps.count)
-        #expect(p.timeline.tracks.filter(\.isCaptionTrack).count == 1)
-        try CaptionOps.insert(again, into: &p, replaceExisting: false)   // keep: a second track
-        #expect(p.timeline.tracks.filter(\.isCaptionTrack).count == 2)
-        caps = []
+    @Test func captionTrackUsesTextModelWithWordTimings() throws {
+        let (p, id) = try captionProject(fillers: true)
         ok(p)
+        let caps = SpeechCaptions.captions(in: p.timeline)
+        #expect(caps.count >= 3)
+        let first = try #require(CaptionOps.text(caps[0]))
+        #expect(first.string == "Bonjour et bienvenue.")
+        #expect(first.caption?.origin == .auto)
+        let w = CaptionOps.words(of: caps[0])
+        #expect(w.map(\.text) == ["Bonjour", "et", "bienvenue."])
+        #expect(abs(w[1].start.seconds - 0.45) < 0.01)
+        #expect(caps.allSatisfy { $0.linkedTo == p.timeline.mainTrack!.clips[0].id })
+        let all = caps.flatMap { CaptionOps.text($0)?.caption?.words ?? [] }
+        #expect(all.first { $0.text == "euh" }?.filler == true)
+        #expect(p.timeline.tracks.contains { $0.id == id })
     }
 
-    @Test func setTextResyncsWords() throws {
-        var (p, caps) = try captionProject()
-        let id = caps[0]
-        try CaptionOps.setText(id, "Bonjour à tous et bienvenue.", in: &p.timeline)
-        let c = p.timeline.clip(id)!
-        #expect(CaptionOps.mainText(c) == "Bonjour à tous et bienvenue.")
-        #expect(c.caption!.words.map(\.text) == ["Bonjour", "à", "tous", "et", "bienvenue."])
-        let w = c.caption!.words
-        for i in w.indices.dropLast() { #expect(w[i].end <= w[i + 1].start + Time(ticks: 2)) }
-    }
-
-    @Test func splitAndMergeCaptions() throws {
-        var (p, caps) = try captionProject()
-        let id = caps[0]
-        let main = CaptionOps.mainText(p.timeline.clip(id)!)          // "Bonjour et bienvenue."
-        let off = main.distance(from: main.startIndex, to: main.range(of: "et")!.lowerBound)
-        let right = try CaptionOps.split(id, atCharacter: off, in: &p.timeline)
-        #expect(CaptionOps.mainText(p.timeline.clip(id)!) == "Bonjour")
-        #expect(CaptionOps.mainText(p.timeline.clip(right)!) == "et bienvenue.")
-        // the right half starts at "et" (0.45 s)
-        #expect(abs(p.timeline.clip(right)!.start.seconds - 0.45) < 0.01)
-        #expect(p.timeline.clip(right)!.caption!.words.first!.start == .zero)
-        ok(p)
-        try CaptionOps.mergeWithNext(id, in: &p.timeline)
-        #expect(CaptionOps.mainText(p.timeline.clip(id)!) == "Bonjour et bienvenue.")
-        #expect(p.timeline.clip(right) == nil)
-        #expect(p.timeline.clip(id)!.caption!.words.count == 3)
-        ok(p)
-    }
-
-    @Test func timelineSplitPartitionsCaptionWords() throws {
-        var (p, caps) = try captionProject()
-        let id = caps[0]
-        let r = try TimelineOps.split(id, at: Time(0.42), in: &p.timeline)
-        guard case .text(let lt) = p.timeline.clip(id)!.content, case .text(let rt) = p.timeline.clip(r)!.content else { Issue.record("not text"); return }
-        #expect(lt.string == "Bonjour")
-        #expect(rt.string == "et bienvenue.")
-        #expect(p.timeline.clip(r)!.caption!.words[0].start < Time(0.1))
-    }
-
-    @Test func findReplaceAndSearch() throws {
+    @Test func translationsAndKeywords() throws {
         var (p, _) = try captionProject()
-        #expect(CaptionOps.search("SÉQUENCE", in: p.timeline).count == 1)
-        let n = CaptionOps.replaceAll("vidéo", with: "film", in: &p.timeline)
-        #expect(n == 1)
-        #expect(CaptionOps.captions(in: p.timeline).contains { CaptionOps.mainText($0).contains("film") })
-    }
-
-    @Test func translationsAndDisplayModes() throws {
-        var (p, caps) = try captionProject()
-        CaptionOps.setTranslations([caps[0]: "Hello and welcome."], language: "en", display: .bilingual, in: &p.timeline)
-        var c = p.timeline.clip(caps[0])!
-        guard case .text(let t) = c.content else { return }
-        #expect(t.string == "Bonjour et bienvenue.\nHello and welcome.")
-        #expect(CaptionOps.mainText(c) == "Bonjour et bienvenue.")
-        CaptionOps.setDisplay(.translationOnly, in: &p.timeline)
-        c = p.timeline.clip(caps[0])!
-        if case .text(let t2) = c.content { #expect(t2.string == "Hello and welcome.") }
-        #expect(CaptionOps.mainText(c) == "Bonjour et bienvenue.")
-        // editing the main text keeps the translation display
-        try CaptionOps.setText(caps[0], "Salut.", in: &p.timeline)
-        c = p.timeline.clip(caps[0])!
-        #expect(CaptionOps.mainText(c) == "Salut.")
-        CaptionOps.clearTranslations(in: &p.timeline)
-        if case .text(let t3) = p.timeline.clip(caps[0])!.content { #expect(t3.string == "Salut.") }
-    }
-
-    @Test func applyStyleToAllCaptions() throws {
-        var (p, caps) = try captionProject()
-        try p.timeline[clip: caps[0]].map { c in
-            var c = c
-            if case .text(var t) = c.content { t.color = .red; t.fontSize = 0.08; c.content = .text(t) }
-            c.transform.position = Vec2(0, -0.3)
-            p.timeline[clip: caps[0]] = c
-        }
-        try CaptionOps.applyStyleToAll(from: caps[0], in: &p.timeline)
-        for id in caps {
-            let c = p.timeline.clip(id)!
-            guard case .text(let t) = c.content else { continue }
-            #expect(t.color == .red && t.fontSize == 0.08)
-            #expect(c.transform.position == Vec2(0, -0.3))
-        }
-        #expect(Set(CaptionOps.captions(in: p.timeline).map(CaptionOps.mainText)).count == caps.count)  // texts kept
-    }
-
-    @Test func srtVttTxtExport() throws {
-        let (p, _) = try captionProject()
-        let srt = CaptionExport.export(p.timeline, format: .srt)
-        #expect(srt.hasPrefix("1\n00:00:00,000 --> 00:00:01,100\nBonjour et bienvenue.\n"))
-        let vtt = CaptionExport.export(p.timeline, format: .vtt)
-        #expect(vtt.hasPrefix("WEBVTT\n\n00:00:00.000 --> "))
-        #expect(CaptionExport.export(p.timeline, format: .txt).split(separator: "\n").count == CaptionOps.captions(in: p.timeline).count)
-    }
-
-    @Test func captionsPersistRoundTrip() throws {
-        let (p, caps) = try captionProject()
-        let data = try JSONEncoder().encode(p)
-        let back = try JSONDecoder().decode(Project.self, from: data)
-        #expect(back.timeline.clip(caps[0])?.caption == p.timeline.clip(caps[0])?.caption)
+        let caps = SpeechCaptions.captions(in: p.timeline)
+        SpeechCaptions.setTranslations([caps[0].id: "Hello and welcome."], display: .both, in: &p.timeline)
+        let t = try #require(CaptionOps.text(p.timeline.clip(caps[0].id)!))
+        #expect(t.caption?.translation == "Hello and welcome." && t.caption?.display == .both)
+        let n = SpeechCaptions.markKeywords(["séquence", "Bonjour"], in: &p.timeline)
+        #expect(n == 2)
+        SpeechCaptions.clearTranslations(in: &p.timeline)
+        #expect(CaptionOps.text(p.timeline.clip(caps[0].id)!)?.caption?.translation == nil)
     }
 
     // MARK: Transcript-based editing
@@ -202,32 +109,26 @@ import Foundation
         let tr = [mid: Transcript(engine: "t", language: "fr", words: Self.words())]
         var placed = TranscriptEditing.placedWords(transcripts: tr, timeline: p.timeline)
         #expect(placed.count == Self.words().count)
-        // delete "euh" (2.6–2.8)
-        let euh = placed.filter { $0.word.text == "euh" }
-        try TranscriptEditing.deleteWords(euh, in: &p)
+        try TranscriptEditing.deleteWords(placed.filter { $0.word.text == "euh" }, in: &p)
         ok(p)
-        let main = p.timeline.mainTrack!.clips
-        #expect(main.count == 2)
+        #expect(p.timeline.mainTrack!.clips.count == 2)
         #expect(abs(p.timeline.duration.seconds - (8 - 0.2)) < 0.02)
         placed = TranscriptEditing.placedWords(transcripts: tr, timeline: p.timeline)
         #expect(placed.first { $0.word.text == "euh" }?.isDeleted == true)
         #expect(placed.first { $0.word.text == "nous" }?.isDeleted == false)
-        // restore puts the media back
         try TranscriptEditing.restore(placed.filter(\.isDeleted), in: &p)
         ok(p)
         #expect(abs(p.timeline.duration.seconds - 8) < 0.02)
-        placed = TranscriptEditing.placedWords(transcripts: tr, timeline: p.timeline)
-        #expect(placed.allSatisfy { !$0.isDeleted })
+        #expect(TranscriptEditing.placedWords(transcripts: tr, timeline: p.timeline).allSatisfy { !$0.isDeleted })
     }
 
     @Test func pausesAreReported() {
-        var (p, ids) = Fx.project(mainClips: 1, seconds: 8)
+        let (p, ids) = Fx.project(mainClips: 1, seconds: 8)
         let mid = p.timeline.clip(ids[0])!.mediaID!
         let placed = TranscriptEditing.placedWords(transcripts: [mid: Transcript(engine: "t", language: "fr", words: Self.words())], timeline: p.timeline)
         let pauses = TranscriptEditing.pauses(placed, minimum: 0.5)
         #expect(pauses.count == 1)
         #expect(abs(pauses[0].seconds - 0.9) < 1e-6)
-        p = Project()
     }
 
     @Test func inverseTimeRemapOnCurves() throws {

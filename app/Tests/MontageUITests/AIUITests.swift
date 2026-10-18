@@ -18,35 +18,30 @@ import MontageTestSupport
     func captionStore() async throws -> (EditorStore, ClipID) {
         var p = TestProject(canvas: Size2(640, 360))
         let v = try await p.addVideo(.movingBox(RGBA(0.5, 0.5, 0.5), RGBA(0.9, 0.1, 0.1)), seconds: 4, size: CGSize(width: 640, height: 360))
-        let caps = CaptionOps.makeCaptions(Transcript(engine: "test", language: "fr", words: Self.words), for: p[v], linked: true)
-        try CaptionOps.insert(caps, into: &p.project, replaceExisting: true)
+        let segs = SpeechCaptions.segments(Transcript(engine: "test", language: "fr", words: Self.words), for: p[v])
+        let tid = try #require(CaptionOps.addCaptionTrack(segs, to: &p.project, origin: .auto, replacing: true))
+        SpeechCaptions.finish(trackID: tid, language: "fr", in: &p.project, identifyFillers: true)
         let s = EditorStore(project: p.project); s.autosaveEnabled = false
         return (s, v)
     }
 
     @Test func captionsTabAppearsForCaptionClips() async throws {
         let (s, _) = try await captionStore()
-        let first = CaptionOps.captions(in: s.project.timeline)[0]
+        let first = SpeechCaptions.captions(in: s.project.timeline)[0]
         s.selection = [first.id]
         let tabs = InspectorRegistry.tabs(for: InspectorContext(store: s)).map(\.id)
         #expect(tabs.contains("captions") && tabs.contains("text"))
     }
 
-    @Test func captionListEditsAreUndoable() async throws {
+    @Test func translationsApplyAsOneUndoStep() async throws {
         let (s, _) = try await captionStore()
-        let caps = CaptionOps.captions(in: s.project.timeline)
-        let n = caps.count
-        s.setCaptionText(caps[0].id, "Salut et bienvenue.")
-        #expect(CaptionOps.mainText(s.project.timeline.clip(caps[0].id)!) == "Salut et bienvenue.")
-        s.splitCaption(caps[0].id, at: 5)
-        #expect(CaptionOps.captions(in: s.project.timeline).count == n + 1)
+        let caps = SpeechCaptions.captions(in: s.project.timeline)
+        #expect(s.hasAutoCaptions)
+        s.applyTranslations([caps[0].id: "Hello and welcome."], display: .both)
+        #expect(CaptionOps.text(s.project.timeline.clip(caps[0].id)!)?.caption?.translation == "Hello and welcome.")
         s.undo()
-        #expect(CaptionOps.captions(in: s.project.timeline).count == n)
-        s.mergeCaption(caps[0].id, withPrevious: false)
-        #expect(CaptionOps.captions(in: s.project.timeline).count == n - 1)
-        s.undo(); s.undo()
-        #expect(CaptionOps.mainText(s.project.timeline.clip(caps[0].id)!) == "Bonjour et bienvenue.")
-        #expect(s.replaceInCaptions("séquence", with: "scène") >= 1)
+        #expect(CaptionOps.text(s.project.timeline.clip(caps[0].id)!)?.caption?.translation == nil)
+        #expect(s.captionLanguage == "fr")
     }
 
     @Test func cutoutToggleRunsJobAndComposites() async throws {
@@ -119,8 +114,8 @@ import MontageTestSupport
         let d = URL(fileURLWithPath: dir)
         try ProjectPackage.save(s.project, to: d.appendingPathComponent("ai-demo.montage"))   // for scripts/screenshot.sh --open
         try snapshot(AutoCaptionsPanel(store: s), to: d.appendingPathComponent("ai-autocaptions-\(lang).png"), size: CGSize(width: 520, height: 560))
-        let caps = CaptionOps.captions(in: s.project.timeline)
-        s.perform(Edit("t") { p in CaptionOps.setTranslations([caps[0].id: "Hello and welcome."], language: "en", display: .bilingual, in: &p.timeline) })
+        let caps = SpeechCaptions.captions(in: s.project.timeline)
+        s.applyTranslations([caps[0].id: "Hello and welcome."], display: .both)
         s.selection = [caps[0].id]; s.inspectorTab = "captions"
         try snapshot(InspectorPanel(store: s), to: d.appendingPathComponent("ai-captions-inspector-\(lang).png"))
         s.inspectorTab = "tts"

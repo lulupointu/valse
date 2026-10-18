@@ -39,7 +39,7 @@ struct CaptionEditorSection: View {
         return HStack(spacing: 6) {
             SmallIconButton(symbol: "magnifyingglass", help: tr("captions.find"), active: ui.showReplace, size: 13) { ui.showReplace.toggle() }
             Menu {
-                Button(tr("captions.keywords.highlight")) { store.highlightCaptionKeywords() }
+                Button(tr("captions.keywords.highlight")) { store.highlightKeywordsAI() }   // W10: on-device LLM, statistical fallback
                 Button(tr("captions.keywords.clear")) { store.clearCaptionKeywords() }
             } label: { Image(systemName: "highlighter").font(.system(size: 13)) }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.keywords"))
@@ -49,6 +49,14 @@ struct CaptionEditorSection: View {
                 }
             } label: { Image(systemName: "text.word.spacing").font(.system(size: 13)) }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.wrap"))
+            // W10: on-device translation (Apple Translation) → bilingual captions
+            Menu {
+                ForEach(CaptionLanguages.codes, id: \.self) { code in
+                    Button(CaptionLanguages.title(code)) { store.translateCaptions(to: code, display: .both) }
+                }
+                if hasTranslation { Divider(); Button(tr("captions.removeTranslation")) { store.clearCaptionTranslations() } }
+            } label: { Image(systemName: store.ai.translating ? "hourglass" : "globe").font(.system(size: 13)) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.translateTo"))
             if hasTranslation {
                 Menu {
                     Button(tr("captions.bilingual.both")) { store.setBilingualDisplay(.both) }

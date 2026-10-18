@@ -25,16 +25,19 @@ import MontageTestSupport
     }
 
     @Test func subjectMatteFollowsMovingObject() async throws {
-        let url = try await TestMedia.video(.movingBox(Self.gray, Self.red), seconds: 1)
-        let asset = try await MediaProbe.probe(url)
-        try? FileManager.default.removeItem(at: MatteStore.shared.matteVideoURL(media: asset, kind: "subject"))
-        try await MatteGenerator.generate(asset, mode: .subject)
-        let m = try #require(MatteStore.shared.readyMatteVideo(media: asset, kind: "subject"))
-        for s in [0.2, 0.5, 0.8] {
-            let f = try await matteFrame(m, at: s)
-            let (cx, cy) = Self.boxCenter(s)
-            #expect(f[cx, cy].r > 0.6, "inside box at \(s): \(f[cx, cy])")
-            #expect(f[0.05, 0.1].r < 0.3, "background at \(s): \(f[0.05, 0.1])")
+        try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
+            let url = try await TestMedia.video(.movingBox(Self.gray, Self.red), seconds: 1)
+            let asset = try await MediaProbe.probe(url)
+            try? FileManager.default.removeItem(at: MatteStore.shared.matteVideoURL(media: asset, kind: "subject"))
+            try await MatteGenerator.generate(asset, mode: .subject)
+            let m = try #require(MatteStore.shared.readyMatteVideo(media: asset, kind: "subject"))
+            for s in [0.2, 0.5, 0.8] {
+                let f = try await matteFrame(m, at: s)
+                let (cx, cy) = Self.boxCenter(s)
+                #expect(f[cx, cy].r > 0.6, "inside box at \(s): \(f[cx, cy])")
+                #expect(f[0.05, 0.1].r < 0.3, "background at \(s): \(f[0.05, 0.1])")
+            }
+    
         }
     }
 
@@ -62,17 +65,20 @@ import MontageTestSupport
     }
 
     @Test func personMatteVideoCoversEveryFrame() async throws {
-        let url = try await TestMedia.video(.movingBox(Self.gray, Self.red), seconds: 1)
-        let asset = try await MediaProbe.probe(url)
-        try? FileManager.default.removeItem(at: MatteStore.shared.matteVideoURL(media: asset, kind: "person"))
-        let log = ProgressLog()
-        try await MatteGenerator.generate(asset, mode: .person) { log.add($0) }
-        let m = try #require(MatteStore.shared.readyMatteVideo(media: asset, kind: "person"))
-        let info = try await MediaInfo.probe(m)
-        #expect(abs(info.duration - 1) < 0.1)
-        #expect(log.last == 1)
-        // no person in a moving box: the matte is (almost) empty
-        #expect(try await matteFrame(m, at: 0.5)[0.5, 0.5].r < 0.3)
+        try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
+            let url = try await TestMedia.video(.movingBox(Self.gray, Self.red), seconds: 1)
+            let asset = try await MediaProbe.probe(url)
+            try? FileManager.default.removeItem(at: MatteStore.shared.matteVideoURL(media: asset, kind: "person"))
+            let log = ProgressLog()
+            try await MatteGenerator.generate(asset, mode: .person) { log.add($0) }
+            let m = try #require(MatteStore.shared.readyMatteVideo(media: asset, kind: "person"))
+            let info = try await MediaInfo.probe(m)
+            #expect(abs(info.duration - 1) < 0.1)
+            #expect(log.last == 1)
+            // no person in a moving box: the matte is (almost) empty
+            #expect(try await matteFrame(m, at: 0.5)[0.5, 0.5].r < 0.3)
+    
+        }
     }
 
     /// The subject matte composited by the renderer: the object stays, the clip's background disappears and the

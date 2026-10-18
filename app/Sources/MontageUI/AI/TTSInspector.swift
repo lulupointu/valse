@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import NaturalLanguage
 import MontageCore
 import MontageEngine
 import MontageAI
@@ -112,7 +113,7 @@ extension EditorStore {
         let text = t.string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let st = TTSUIState.shared
-        let lang = c.caption?.language ?? L10n.shared.language
+        let lang = { let r = NLLanguageRecognizer(); r.processString(text); return r.dominantLanguage?.rawValue ?? L10n.shared.language }()
         guard let voice = reuse?.voice ?? st.voice ?? TTSOps.speechClip(for: textID, in: project.timeline)?.tts?.voice ?? SpeechSynthesis.defaultVoice(lang)?.id else { return }
         let rate = reuse?.rate ?? st.rate, pitch = reuse?.pitch ?? st.pitch, auto = reuse?.autoUpdate ?? st.autoUpdate
         st.generating.insert(textID)

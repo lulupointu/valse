@@ -46,31 +46,37 @@ import MontageTestSupport
 
     /// whisper.cpp large-v3-turbo on the French benchmark clip: WER ≤ 6 %, language auto-detected, word timing sane.
     @Test func whisperFrenchWER() async throws {
-        guard WhisperRuntime.isAvailable, let wav = AIFixtures.speechFR, let ref = AIFixtures.speechFRReference else {
-            print("skip: whisper model/runtime or bench media missing"); return
+        try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
+            guard WhisperRuntime.isAvailable, let wav = AIFixtures.speechFR, let ref = AIFixtures.speechFRReference else {
+                print("skip: whisper model/runtime or bench media missing"); return
+            }
+            let clock = ContinuousClock()
+            let t0 = clock.now
+            let t = try await Transcriber.transcribe(wav: wav, request: .init(language: nil, engine: .whisper))
+            let elapsed = clock.now - t0
+            let wer = WordErrorRate.compute(reference: ref, hypothesis: t.text)
+            print("metric stt_wer_whisper=\(wer) rtf=\(elapsed / .seconds(45.3)) words=\(t.words.count)")
+            #expect(t.engine == "whisper.cpp")
+            #expect(t.language == "fr")
+            #expect(wer <= 0.06, "WER \(wer): \(t.text)")
+            for i in t.words.indices.dropFirst() { #expect(t.words[i].start >= t.words[i - 1].start - 0.05) }
+            #expect((t.words.last?.end ?? 0) > 40 && (t.words.last?.end ?? 0) < 46.5)
+    
         }
-        let clock = ContinuousClock()
-        let t0 = clock.now
-        let t = try await Transcriber.transcribe(wav: wav, request: .init(language: nil, engine: .whisper))
-        let elapsed = clock.now - t0
-        let wer = WordErrorRate.compute(reference: ref, hypothesis: t.text)
-        print("metric stt_wer_whisper=\(wer) rtf=\(elapsed / .seconds(45.3)) words=\(t.words.count)")
-        #expect(t.engine == "whisper.cpp")
-        #expect(t.language == "fr")
-        #expect(wer <= 0.06, "WER \(wer): \(t.text)")
-        for i in t.words.indices.dropFirst() { #expect(t.words[i].start >= t.words[i - 1].start - 0.05) }
-        #expect((t.words.last?.end ?? 0) > 40 && (t.words.last?.end ?? 0) < 46.5)
     }
 
     /// Apple on-device speech (fast fallback): WER ≤ 20 % and French picked by auto-detection.
     @Test func appleSpeechFrenchWithAutoDetect() async throws {
-        guard let wav = AIFixtures.speechFR, let ref = AIFixtures.speechFRReference else { print("skip: bench media missing"); return }
-        let t: Transcript
-        do { t = try await Transcriber.transcribe(wav: wav, request: .init(language: nil, engine: .apple)) }
-        catch AIToolError.unavailable(let why) { print("skip: Apple speech unavailable (\(why))"); return }
-        let wer = WordErrorRate.compute(reference: ref, hypothesis: t.text)
-        print("metric stt_wer_apple=\(wer) engine=\(t.engine)")
-        #expect(t.language == "fr")
-        #expect(wer <= 0.2, "WER \(wer): \(t.text)")
+        try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
+            guard let wav = AIFixtures.speechFR, let ref = AIFixtures.speechFRReference else { print("skip: bench media missing"); return }
+            let t: Transcript
+            do { t = try await Transcriber.transcribe(wav: wav, request: .init(language: nil, engine: .apple)) }
+            catch AIToolError.unavailable(let why) { print("skip: Apple speech unavailable (\(why))"); return }
+            let wer = WordErrorRate.compute(reference: ref, hypothesis: t.text)
+            print("metric stt_wer_apple=\(wer) engine=\(t.engine)")
+            #expect(t.language == "fr")
+            #expect(wer <= 0.2, "WER \(wer): \(t.text)")
+    
+        }
     }
 }
