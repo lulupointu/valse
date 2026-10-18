@@ -454,9 +454,19 @@ import MontageTestSupport
         d.usage = [.renderTarget, .shaderRead]; d.storageMode = .private
         let out = MetalContext.shared.device.makeTexture(descriptor: d)!
         let start = Date()
-        for i in 0..<n { encode(p, at: Double(i) / 30, renderer: r, into: out).waitUntilCompleted() }
+        var cpu: [Double] = [], gpu: [Double] = []
+        for i in 0..<n {
+            let c0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
+            let cmd = encode(p, at: Double(i) / 30, renderer: r, into: out)
+            cpu.append(Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - c0) / 1e6)
+            cmd.waitUntilCompleted()
+            gpu.append(max(0, cmd.gpuEndTime - cmd.gpuStartTime) * 1000)
+        }
         let ms = Date().timeIntervalSince(start) / Double(n) * 1000
         TimingBudget.metric("unit_text_50captions_frame_ms", ms, "ms")
+        // split: frame evaluation + encode on the calling thread vs GPU execution (median)
+        TimingBudget.metric("unit_text_50captions_cpu_ms", cpu.sorted()[n / 2], "ms")
+        TimingBudget.metric("unit_text_50captions_gpu_ms", gpu.sorted()[n / 2], "ms")
         if let lim = TimingBudget.limit(33, "50 animated captions") { #expect(ms < lim, "50 animated captions took \(ms) ms/frame") }
         #expect(r.text.rasterizationCount == 50)
     }
