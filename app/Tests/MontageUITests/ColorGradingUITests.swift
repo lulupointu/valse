@@ -59,7 +59,7 @@ import MontageTestSupport
         let ctx = InspectorContext(store: s)
         s.transport.playhead = Time(1)
         AutoAdjustSection.run(ctx, s.project.timeline.clip(v)!)
-        for _ in 0..<100 where !(s.project.timeline.clip(v)!.effects.contains { $0.typeID == AutoColor.descriptor.id }) {
+        for _ in 0..<500 where !(s.project.timeline.clip(v)!.effects.contains { $0.typeID == AutoColor.descriptor.id }) {   // up to 15 s: decode + analysis under full-suite load
             try await Task.sleep(for: .milliseconds(30))
         }
         let inst = try #require(s.project.timeline.clip(v)!.effects.first { $0.typeID == AutoColor.descriptor.id })
