@@ -92,7 +92,10 @@ extension TimelineView {
                  enabled: hasExtract || (isVideo && asset?.hasAudio == true && single?.audio.isMuted == false)) { s.extractOrRestoreAudio() },
             item("tlmenu.syncAudio", enabled: false) {},
             .separator(),
-            item("tlmenu.compound", "g", .option, enabled: false) {},
+            item("tlmenu.compound", "g", .option, enabled: !clips.isEmpty) { s.createCompound() },
+            item("tlmenu.uncompound", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                s.explodeCompound()
+            },
             item("tlmenu.multicam", enabled: false) {},
             item("tlmenu.savePreset", enabled: false) {},
             item("tlmenu.group", "g", .command, enabled: clips.count >= 2) { s.groupSelection() },

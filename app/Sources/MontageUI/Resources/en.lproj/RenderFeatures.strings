@@ -28,3 +28,8 @@
 "tlmenu.render.clear" = "Delete render cache";
 "toast.renderStarted" = "Rendering preview in the background…";
 "toast.renderDone" = "This part is rendered for a smooth preview";
+"tlmenu.uncompound" = "Undo compound clip";
+"clip.compound" = "Compound clip";
+"clip.compoundN" = "Compound clip %d";
+"cmd.compound" = "Create compound clip";
+"cmd.uncompound" = "Undo compound clip";

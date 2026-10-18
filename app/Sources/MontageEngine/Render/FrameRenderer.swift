@@ -91,94 +91,110 @@ public final class FrameRenderer: @unchecked Sendable {
             let t = ctx.pool.acquire(w, h); scratch.textures.append(t); return t
         }
 
-        var acc = acquire(outW, outH)
-        clear(acc, to: frame.background, cmd)
-        var placements: [Placement] = []
+        /// Composites `items` (bottom → top) onto a fresh premultiplied target cleared to `clearColor`.
+        func compose(_ items: [RenderItem], clearTo clearColor: RGBA) -> MTLTexture {
+            var acc = acquire(outW, outH)
+            clear(acc, to: clearColor, cmd)
+            var placements: [Placement] = []
 
-        func flush() {
-            guard !placements.isEmpty else { return }
-            let rp = MTLRenderPassDescriptor()
-            rp.colorAttachments[0].texture = acc
-            rp.colorAttachments[0].loadAction = .load
-            rp.colorAttachments[0].storeAction = .store
-            guard let enc = cmd.makeRenderCommandEncoder(descriptor: rp) else { return }
-            enc.label = "place"
-            for p in placements {
-                switch p {
-                case .layer(let tex, var u):
-                    enc.setRenderPipelineState(ctx.place)
-                    enc.setVertexBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
-                    enc.setFragmentBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
-                    enc.setFragmentTexture(tex, index: 0)
-                case .premultipliedFullscreen(let tex):
-                    var cu = ConvertUniforms.identity
-                    enc.setRenderPipelineState(overPremul)
-                    enc.setFragmentBytes(&cu, length: MemoryLayout<ConvertUniforms>.stride, index: 0)
-                    enc.setFragmentTexture(tex, index: 0)
+            func flush() {
+                guard !placements.isEmpty else { return }
+                let rp = MTLRenderPassDescriptor()
+                rp.colorAttachments[0].texture = acc
+                rp.colorAttachments[0].loadAction = .load
+                rp.colorAttachments[0].storeAction = .store
+                guard let enc = cmd.makeRenderCommandEncoder(descriptor: rp) else { return }
+                enc.label = "place"
+                for p in placements {
+                    switch p {
+                    case .layer(let tex, var u):
+                        enc.setRenderPipelineState(ctx.place)
+                        enc.setVertexBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
+                        enc.setFragmentBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
+                        enc.setFragmentTexture(tex, index: 0)
+                    case .premultipliedFullscreen(let tex):
+                        var cu = ConvertUniforms.identity
+                        enc.setRenderPipelineState(overPremul)
+                        enc.setFragmentBytes(&cu, length: MemoryLayout<ConvertUniforms>.stride, index: 0)
+                        enc.setFragmentTexture(tex, index: 0)
+                    }
+                    enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
                 }
-                enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                enc.endEncoding()
+                placements.removeAll()
             }
-            enc.endEncoding()
-            placements.removeAll()
-        }
 
-        for item in frame.items {
-            switch item {
-            case .layer(let l):
-                if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
-                                        sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
-                    placements.append(.layer(p.0, p.1))
-                }
-            case .transition(let a, let b, let typeID, let progress, let params):
-                guard let desc = Registries.transitions[typeID], let pipe = EffectPipelines.shared.transition(desc) else {
-                    // Unknown transition: hard cut at the midpoint.
-                    let l = progress < 0.5 ? a : b
+            for item in items {
+                switch item {
+                case .layer(let l):
                     if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
                                             sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
                         placements.append(.layer(p.0, p.1))
                     }
-                    continue
-                }
-                let ta = acquire(outW, outH), tb = acquire(outW, outH)
-                for (l, t) in [(a, ta), (b, tb)] {
-                    clear(t, to: .clear, cmd)
-                    if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
-                                            sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
-                        placeSingle(p.0, p.1, onto: t, cmd)
+                case .transition(let a, let b, let typeID, let progress, let params):
+                    guard let desc = Registries.transitions[typeID], let pipe = EffectPipelines.shared.transition(desc) else {
+                        // Unknown transition: hard cut at the midpoint.
+                        let l = progress < 0.5 ? a : b
+                        if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
+                                                sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
+                            placements.append(.layer(p.0, p.1))
+                        }
+                        continue
+                    }
+                    let ta = acquire(outW, outH), tb = acquire(outW, outH)
+                    for (l, t) in [(a, ta), (b, tb)] {
+                        clear(t, to: .clear, cmd)
+                        if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
+                                                sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
+                            placeSingle(p.0, p.1, onto: t, cmd)
+                        }
+                    }
+                    let out = acquire(outW, outH)
+                    var fx = FXContextU(time: Float(b.localTime.seconds), size: SIMD2(Float(outW), Float(outH)), pass: 0,
+                                        aspect: Float(outW) / Float(max(outH, 1)))
+                    var params = desc.packParams(params)
+                    var pr = Float(progress)
+                    fullscreen(pipe, target: out, cmd, label: typeID) { enc in
+                        enc.setFragmentTexture(ta, index: 0)
+                        enc.setFragmentTexture(tb, index: 1)
+                        enc.setFragmentBytes(&params, length: params.count * 4, index: 0)
+                        enc.setFragmentBytes(&fx, length: MemoryLayout<FXContextU>.stride, index: 1)
+                        enc.setFragmentBytes(&pr, length: 4, index: 2)
+                    }
+                    placements.append(.premultipliedFullscreen(out))
+                case .adjustment(_, let effects, let opacity, let local):
+                    guard !effects.isEmpty, opacity > 0 else { continue }
+                    flush()
+                    let straight = acquire(outW, outH)
+                    fullscreen(ctx.unpremultiply, target: straight, cmd, label: "unpremultiply") { $0.setFragmentTexture(acc, index: 0) }
+                    let processed = applyEffects(effects, to: straight, time: local, cmd: cmd, acquire: acquire)
+                    let premul = acquire(outW, outH)
+                    fullscreen(ctx.premultiply, target: premul, cmd, label: "premultiply") { $0.setFragmentTexture(processed, index: 0) }
+                    let mixed = acquire(outW, outH)
+                    var k = Float(min(max(opacity, 0), 1))
+                    fullscreen(ctx.mix, target: mixed, cmd, label: "adjust-mix") { enc in
+                        enc.setFragmentTexture(acc, index: 0)
+                        enc.setFragmentTexture(premul, index: 1)
+                        enc.setFragmentBytes(&k, length: 4, index: 0)
+                    }
+                    acc = mixed
+                case .nested(let container, let inner):
+                    // compound clip: composite the nested items on transparent, then place the result as one layer
+                    let composite = compose(inner, clearTo: .clear)
+                    let straight = acquire(outW, outH)
+                    fullscreen(ctx.unpremultiply, target: straight, cmd, label: "nested-unpremultiply") { $0.setFragmentTexture(composite, index: 0) }
+                    if let p = prepareLayer(container, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
+                                            sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace,
+                                            nested: straight) {
+                        placements.append(.layer(p.0, p.1))
                     }
                 }
-                let out = acquire(outW, outH)
-                var fx = FXContextU(time: Float(b.localTime.seconds), size: SIMD2(Float(outW), Float(outH)), pass: 0,
-                                    aspect: Float(outW) / Float(max(outH, 1)))
-                var params = desc.packParams(params)
-                var pr = Float(progress)
-                fullscreen(pipe, target: out, cmd, label: typeID) { enc in
-                    enc.setFragmentTexture(ta, index: 0)
-                    enc.setFragmentTexture(tb, index: 1)
-                    enc.setFragmentBytes(&params, length: params.count * 4, index: 0)
-                    enc.setFragmentBytes(&fx, length: MemoryLayout<FXContextU>.stride, index: 1)
-                    enc.setFragmentBytes(&pr, length: 4, index: 2)
-                }
-                placements.append(.premultipliedFullscreen(out))
-            case .adjustment(_, let effects, let opacity, let local):
-                guard !effects.isEmpty, opacity > 0 else { continue }
-                flush()
-                let straight = acquire(outW, outH)
-                fullscreen(ctx.unpremultiply, target: straight, cmd, label: "unpremultiply") { $0.setFragmentTexture(acc, index: 0) }
-                let processed = applyEffects(effects, to: straight, time: local, cmd: cmd, acquire: acquire)
-                let premul = acquire(outW, outH)
-                fullscreen(ctx.premultiply, target: premul, cmd, label: "premultiply") { $0.setFragmentTexture(processed, index: 0) }
-                let mixed = acquire(outW, outH)
-                var k = Float(min(max(opacity, 0), 1))
-                fullscreen(ctx.mix, target: mixed, cmd, label: "adjust-mix") { enc in
-                    enc.setFragmentTexture(acc, index: 0)
-                    enc.setFragmentTexture(premul, index: 1)
-                    enc.setFragmentBytes(&k, length: 4, index: 0)
-                }
-                acc = mixed
             }
+            flush()
+            return acc
         }
-        flush()
+
+        let acc = compose(frame.items, clearTo: frame.background)
 
         var bg = SIMD4<Float>(Float(frame.background.r), Float(frame.background.g), Float(frame.background.b), 1)
         let finalAcc = acc
@@ -207,7 +223,7 @@ public final class FrameRenderer: @unchecked Sendable {
     private func prepareLayer(_ l0: LayerDescription, canvas: Size2, outW: Int, outH: Int, outScale: Double,
                               media: [MediaID: MediaAsset], sources: any FrameSourceProvider, cmd: MTLCommandBuffer,
                               scratch: FrameScratch, acquire: (Int, Int) -> MTLTexture,
-                              space: ProjectColorSpace = .sdr709) -> (MTLTexture, PlaceUniforms)? {
+                              space: ProjectColorSpace = .sdr709, nested: MTLTexture? = nil) -> (MTLTexture, PlaceUniforms)? {
         var l = l0
         // animations (registry) → transform/opacity
         if !l.animations.isEmpty {
@@ -263,7 +279,8 @@ public final class FrameRenderer: @unchecked Sendable {
             rgbaSource = r.texture; unpremultiply = true
             sourceSizeOverride = r.canvasSize
         case .solid:
-            break
+            // compound clip container: the nested composite is the source, already in the working colour space
+            if let n = nested { rgbaSource = n; srcTF = space.transfer; srcWide = space.isWideGamut }
         }
 
         let geo = l.geometry(canvasSize: canvas, sourceSizeOverride: sourceSizeOverride)

@@ -71,6 +71,10 @@ public enum RenderItem: Hashable, Sendable {
     case transition(from: LayerDescription, to: LayerDescription, typeID: String, progress: Double, params: [String: ParamValue])
     /// Adjustment layer: apply `effects` to everything composited so far, blended by `opacity`.
     case adjustment(clipID: ClipID, effects: [ResolvedEffect], opacity: Double, localTime: Time)
+    /// Compound clip: `items` (the nested timeline at this instant, clip ids made unique with `nestedClipID`) are
+    /// composited into one canvas-size layer, which is then placed like `container` (transform, opacity, blend, mask,
+    /// effects of the compound clip; its source is a placeholder).
+    case nested(container: LayerDescription, items: [RenderItem])
 }
 
 /// Everything the compositor needs for one output frame, bottom to top. Produced by `FrameEvaluator` (pure Swift),
@@ -84,12 +88,15 @@ public struct FrameDescription: Hashable, Sendable {
     public var colorSpace: ProjectColorSpace = .sdr709
 
     /// All media-backed layers (incl. both sides of transitions).
-    public var mediaLayers: [LayerDescription] {
+    public var mediaLayers: [LayerDescription] { Self.mediaLayers(items) }
+
+    static func mediaLayers(_ items: [RenderItem]) -> [LayerDescription] {
         items.flatMap { item -> [LayerDescription] in
             switch item {
             case .layer(let l): return [l]
             case .transition(let a, let b, _, _, _): return [a, b]
             case .adjustment: return []
+            case .nested(_, let inner): return mediaLayers(inner)
             }
         }.filter { if case .media = $0.source { return true }; return false }
     }
@@ -98,8 +105,13 @@ public struct FrameDescription: Hashable, Sendable {
 /// Evaluates a project at a time. Cost: O(tracks · log clips). Safe to call from any thread.
 public enum FrameEvaluator {
     public static func evaluate(_ project: Project, at t: Time) -> FrameDescription {
-        var items: [RenderItem] = []
         let canvas = project.settings.canvasSize
+        return FrameDescription(time: t, canvasSize: canvas, background: project.settings.backgroundColor,
+                                items: items(project, at: t, depth: 0), colorSpace: project.settings.colorSpace)
+    }
+
+    static func items(_ project: Project, at t: Time, depth: Int) -> [RenderItem] {
+        var items: [RenderItem] = []
         for track in project.timeline.tracks where track.kind.isVisual && !track.isHidden {
             let active = track.clips(at: t).filter(\.isEnabled)
             guard !active.isEmpty else { continue }
@@ -118,13 +130,39 @@ public enum FrameEvaluator {
                     let local = c.localTime(t)
                     let r = c.resolved(at: local)
                     items.append(.adjustment(clipID: c.id, effects: resolveEffects(r), opacity: r.opacity, localTime: local))
+                } else if case .compound(let cid) = c.content {
+                    if let n = nestedItem(c, cid, track: track, project: project, at: t, depth: depth) { items.append(n) }
                 } else if let l = layer(c, track: track, project: project, at: t) {
                     items.append(.layer(l))
                 }
             }
         }
-        return FrameDescription(time: t, canvasSize: canvas, background: project.settings.backgroundColor, items: items,
-                                colorSpace: project.settings.colorSpace)
+        return items
+    }
+
+    /// The nested timeline of a compound clip at parent time `t` (nested time = the clip's remapped source time).
+    static func nestedItem(_ c: Clip, _ cid: CompoundID, track: Track, project: Project, at t: Time, depth: Int) -> RenderItem? {
+        guard depth < Project.maxCompoundDepth, let comp = project.compound(cid) else { return nil }
+        let tau = c.sourceTime(at: t)
+        let inner = items(project.nested(comp), at: tau, depth: depth + 1).map { rewriteIDs($0, container: c.id) }
+        guard !inner.isEmpty else { return nil }
+        let local = c.localTime(t)
+        let r = c.resolved(at: local)
+        let container = LayerDescription(clipID: c.id, trackID: track.id, source: .solid(.clear), sourceSize: project.settings.canvasSize,
+                                         transform: r.transform, opacity: r.opacity, blendMode: r.blendMode, crop: r.crop,
+                                         mask: r.mask, effects: resolveEffects(r), animations: animations(c, local: local),
+                                         localTime: local)
+        return .nested(container: container, items: inner)
+    }
+
+    static func rewriteIDs(_ item: RenderItem, container: ClipID) -> RenderItem {
+        func fix(_ l: LayerDescription) -> LayerDescription { var x = l; x.clipID = nestedClipID(container, l.clipID); return x }
+        switch item {
+        case .layer(let l): return .layer(fix(l))
+        case .transition(let a, let b, let id, let p, let params): return .transition(from: fix(a), to: fix(b), typeID: id, progress: p, params: params)
+        case .adjustment(let id, let e, let o, let lt): return .adjustment(clipID: nestedClipID(container, id), effects: e, opacity: o, localTime: lt)
+        case .nested(let cont, let inner): return .nested(container: fix(cont), items: inner.map { rewriteIDs($0, container: container) })
+        }
     }
 
     public static func layer(_ c: Clip, track: Track, project: Project, at t: Time) -> LayerDescription? {
@@ -145,7 +183,7 @@ public enum FrameEvaluator {
         case .sticker(let id):
             let side = project.settings.canvasSize.height * 0.35
             source = .sticker(id: id); size = Size2(side, side)
-        case .adjustment:
+        case .adjustment, .compound:
             return nil
         }
         var l = LayerDescription(clipID: c.id, trackID: track.id, source: source, sourceSize: size,

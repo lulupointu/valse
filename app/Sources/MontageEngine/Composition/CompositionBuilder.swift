@@ -94,7 +94,7 @@ public enum CompositionBuilder {
 
         let fr = frameRate ?? project.settings.frameRate
         var auxMap: [ClipID: [AuxRole: CMPersistentTrackID]] = [:]
-        for track in project.timeline.tracks {
+        for track in CompoundFlattening.decodeTracks(project) {
             let mediaClips = track.clips.filter { $0.isEnabled && $0.mediaID.flatMap(project.asset) != nil }
             guard !mediaClips.isEmpty else { continue }
             let lanes = track.isMain ? 2 : 1
@@ -304,7 +304,7 @@ public enum CompositionBuilder {
         h.combine(project.settings.canvasSize)
         h.combine(project.settings.frameRate)
         h.combine(project.settings.colorSpace)
-        for t in project.timeline.tracks {
+        for t in CompoundFlattening.decodeTracks(project) {
             h.combine(t.id); h.combine(t.kind); h.combine(t.isMain); h.combine(t.isMuted)
             for c in t.clips {
                 guard let id = c.mediaID, let a = project.asset(id) else { continue }

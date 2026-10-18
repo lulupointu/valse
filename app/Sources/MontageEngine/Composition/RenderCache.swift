@@ -36,6 +36,7 @@ public final class RenderCache: @unchecked Sendable {
         let tracks: [[Clip]]
         let trackFlags: [String]
         let media: [String]
+        let compounds: [CompoundClip]?
     }
 
     /// Content key of the frames of `range`.
@@ -48,7 +49,8 @@ public final class RenderCache: @unchecked Sendable {
             for c in clips { if let id = c.mediaID, let a = project.asset(id) { media.insert(a.contentHash) } }
         }
         let input = KeyInput(settings: project.settings, start: range.start, end: range.end, tracks: tracks, trackFlags: flags,
-                             media: media.sorted() + ["\(Int(size.width))x\(Int(size.height))"])
+                             media: media.sorted() + ["\(Int(size.width))x\(Int(size.height))"],
+                             compounds: tracks.joined().contains { if case .compound = $0.content { return true }; return false } ? project.compounds : nil)
         let enc = JSONEncoder(); enc.outputFormatting = .sortedKeys
         let data = (try? enc.encode(input)) ?? Data()
         return SHA256.hash(data: data).prefix(16).map { String(format: "%02x", $0) }.joined()

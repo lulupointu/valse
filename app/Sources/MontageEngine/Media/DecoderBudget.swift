@@ -14,7 +14,7 @@ public enum DecoderBudget {
 
     static func streams(_ project: Project) -> [Stream] {
         var out: [Stream] = []
-        for t in project.timeline.tracks where t.kind.isVisual && !t.isHidden {
+        for t in CompoundFlattening.decodeTracks(project) where t.kind.isVisual && !t.isHidden {
             for c in t.clips where c.isEnabled {
                 guard let id = c.mediaID, let a = project.asset(id), a.kind == .video, a.hasVideo else { continue }
                 var lanes = 1

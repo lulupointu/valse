@@ -588,6 +588,7 @@ final class TimelineView: NSView {
         case .adjustment: return clip.effects.first.flatMap { Registries.effects[$0.typeID] }.map { tr($0.nameKey) } ?? tr("tab.adjustment")
         case .solid: return tr("clip.solid")
         case .media: return clip.name ?? asset?.name ?? ""
+        case .compound(let id): return clip.name ?? store.project.compound(id)?.name ?? tr("clip.compound")
         }
     }
 

@@ -12,6 +12,8 @@ public enum ClipContent: Hashable, Codable, Sendable {
     /// Adjustment layer: no own pixels, `Clip.effects` apply to everything composited below it
     /// (CapCut effect / filter / adjustment clips on their own tracks).
     case adjustment
+    /// Compound clip: plays a nested timeline (`Project.compounds`), see Compound.swift.
+    case compound(CompoundID)
 
     public var mediaID: MediaID? { if case .media(let id) = self { return id }; return nil }
     public var isGenerator: Bool { mediaID == nil }

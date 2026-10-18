@@ -61,6 +61,7 @@ public enum TimelineOps {
         case .sticker: return .sticker
         case .solid: return .video
         case .adjustment: return .adjustment
+        case .compound: return .video
         }
     }
 

@@ -28,3 +28,8 @@
 "tlmenu.render.clear" = "Supprimer le cache de rendu";
 "toast.renderStarted" = "Rendu de l’aperçu en arrière-plan…";
 "toast.renderDone" = "Cette partie est rendue pour un aperçu fluide";
+"tlmenu.uncompound" = "Annuler le clip composé";
+"clip.compound" = "Clip composé";
+"clip.compoundN" = "Clip composé %d";
+"cmd.compound" = "Créer un clip composé";
+"cmd.uncompound" = "Annuler le clip composé";

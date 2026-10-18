@@ -15,6 +15,8 @@ public struct Project: Codable, Sendable, Equatable {
     public var timeline: Timeline
     /// Media bin folders (nil = none; use `folders`). Optional so older files decode.
     public var mediaFolders: [MediaFolder]?
+    /// Nested timelines of compound clips (TL-021). Optional so older files decode.
+    public var compounds: [CompoundClip]?
     public var createdAt: Date
     public var modifiedAt: Date
 
