@@ -20,7 +20,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W8 | Audio | 1 | merged (19 done / 13 partial / 1 blocked) | main a3bf1f7 |
 | W14 | QA: UI test driver, screenshot diff, perf | 1 | merged (driver, gestures, perf.sh --air, check_clean, 14 UI scripts) | worktree-agent-aa1de47edb2d5d946 |
 | W4 | Effects & filters content | 2 | merged (243 effects, 108 filters, 170 stickers, asset tabs) | main 7b6e923 |
-| W5 | Transitions & animations content | 2 | running | |
+| W5 | Transitions & animations content | 2 | ready to merge (KF 11 done / 1 partial; TR 6 done / 1 blocked; CV-012, ST-004 done) | worktree-agent-a5c1da405c0ba0b29 |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | merged (TX 21 done / 9 partial / 5 blocked) | main 8602b57 |
 | W10 | AI features (wave 1: captions, cutout, stems, TTS, stabilize, tracking, looks, enhance, writer, clipper, LaMa, search) | 2 | merged (AI 18 done / 10 partial / 32 todo, mostly P2/generative) | main 25a02e3 |
 | W11 | Export & interchange | 2 | merged (EX 22 done / 1 partial / 2 todo P2) | main 8fea692 |
@@ -50,6 +50,9 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W4 | W14 | Driver `hover` doesn't trigger SwiftUI `.onHover` (posted mouseMoved never reaches the inactive window); card hover-loop previews untested | FX-001 |
 | W4 | W2/W13 | Click on an effect/filter card = 3 s "Previewing — Effects" loop in the player | FX-001 |
 | W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
+| W5 | W7 | Per-glyph/word text In/Out/Loop presets: register `AnimationDescriptor`s (targets `.text`) in `Registries.animations`; bind ‹◇› on text style rows to the new `ParamKey.text*` | TX-020, KF-009 |
+| W5 | W13 | Sticker/effect tiles: hover-play animated stickers (`LottieLibrary`) like transition tiles do; favourites for the Transitions tab | TR-001, ST-* |
+| W5 | W14 | `PlaybackTests.playbackDeliversFramesInRealTime` (≥ 20 fps) is load-sensitive when the whole suite runs (seen 19.96) | — |
 
 ## Done cross-team items
 - W12 did W6's + W2's requests: Settings ▸ Performance (preview quality + proxies persisted from Settings and the player menu, proxy policy/location/size, render cache size/cap/auto render) and the green render-cache bar under the ruler.

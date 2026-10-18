@@ -162,9 +162,9 @@ CVPixelBuffers (decoder) ─────────┐ ▼
 | Add a… | Where | Picked up by |
 |---|---|---|
 | Filter / video effect / adjustment | `EffectDescriptor` in `MontageEffects/Builtin/*.swift` (+ one line in that file's `all`) or `Registries.effects.register` | asset tab grid, drag & drop, inspector sliders (generated from `ParamSpec`), keyframes, renderer, export |
-| Transition | `TransitionDescriptor` in `Builtin/Transitions.swift` | Transitions tab, timeline drop on a cut, renderer |
+| Transition | `TransitionDescriptor` in `Builtin/Transitions.swift` (body only; see §17g) + name in `Transitions.strings` | Transitions tab (thumbnail rendered from the shader), timeline drop on a cut (main or overlay), renderer, inspector param rows |
 | In/out/combo animation (video, text, sticker) | `AnimationDescriptor` in `Builtin/Animations.swift` | Animation inspector tab, renderer |
-| Sticker / text style | `Builtin/Stickers.swift` | Stickers / Text tabs |
+| Sticker / text style | `Builtin/Stickers.swift` (animated: a Bodymovin JSON in `Resources/Lottie` + `lottie("name")`) | Stickers / Text tabs |
 | AI tool | `AIToolDescriptor` in `MontageAI/BuiltinAITools.swift` | job queue, progress, undoable result (`.edit`) |
 | Inspector section / tab / sub-tab | `InspectorSection(id:tab:subTab:order:titleKey:appliesTo:chrome:content:)` / `InspectorTab` in `MontageUI/Inspector/BuiltinInspector.swift`, or `InspectorRegistry.register(_:)` / `register(_:in:)` for sub-tabs | inspector panel (tabs appear only when they have applicable sections; sub-tabs show as a segmented control when ≥ 2 have sections; `chrome` gives the CapCut header: checkbox, ↺, group ‹◇›, accessory, disabled reason) |
 | Asset-panel tab | `AssetTab` in `BuiltinAssetTabs.all` or `AssetTabRegistry.register` | asset panel |
@@ -426,6 +426,38 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   `VectorStickerRenderer` (Core Graphics at output resolution, cached in `TextRasterizer`); emoji via Core Text.
 - **Asset tabs** (`AssetPanel/EffectLibraryTab.swift`, `StickerLibraryTab.swift`): `EffectLibraryCatalog` /
   `StickerCatalog` (groups, curated Trending/Featured, search), `EffectFavorites` (UserDefaults).
+
+## 17g. Transitions, animations, keyframes, Lottie (W5)
+
+- **Transitions** (`Builtin/Transitions.swift`): 121 descriptors in 12 groups. Bodies are wrapped by `TransitionShaderLib.wrap`
+  (helpers: `FA/FB` sample, `GA/GB` transparent outside, `MA/MB` mirrored, `tr_sweep` reveal mask exact at 0/1, `tr_bump`,
+  blurs, noise, shape gauges, `tr_quad` ray–quad hits for 3D). `from`/`to` are premultiplied canvas textures. Contract,
+  tested for every entry (`TransitionRenderTests`): progress 0 = A exactly, 1 = B exactly, 0.5 differs, < 8 ms at 1080p.
+  Params (`ParamSpec`) show as rows under Duration (`TransitionParamRows`); no keyframes. Ids are persisted: append only.
+- **Overlay (PiP) transitions**: `TimelineOps+Transitions.swift`. On any track clip i may overlap clip i+1 by exactly its
+  `transitionOut.duration` (`validate`). Overlay tracks: setting slides the right clip left, removing slides it back (pushing
+  contiguous followers); `clampTransitions` → `normalizeOverlayTransitions` keeps overlaps in sync and drops transitions whose
+  clips no longer touch. `CompositionBuilder` gives A/B lanes to any track with a transition; the evaluator renders
+  transitions on every visual track. `transitionIssue(after:)` (TR-007 toasts), `transitionCut(near:track:)` (drops).
+- **Previews**: `PresetPreviewRenderer` (Engine) renders transition frames between two procedural sample pictures and frame
+  descriptions synchronously (off-main only); `TransitionThumbnails` (UI) caches stills + hover loops. `EffectPipelines.prewarm`
+  compiles a project's transitions/effects in the background (called from `PlaybackEngine.update`), so the first frame of a
+  transition never stalls on a runtime compile (~0.15 s each).
+- **Animations** (`Builtin/Animations.swift`): presets are generated from motions `m(k, &state)` (k = 0 rest … 1 away) with
+  `AnimEase` curves: In = `m(1 − ease(p))`, Out = `m(easeIn(p))`, video Combos play in/out motions over the whole clip
+  (`AnimationPickerSection` sets duration = clip), sticker/text Loops are periodic. `AnimatedLayerState.blur` (gaussian sigma in
+  canvas heights) becomes stacked `montage.effect.blur` passes and `reveal` (wipe insets) composes with the crop
+  (`CropRect.revealing`) in `FrameRenderer.prepareLayer`. Text: W7 registers per-glyph descriptors in the same registry.
+- **Keyframes**: `KeyframeTools.swift` (Core): `EasingPreset.all` (CapCut 14 + extras; `Easing` gained `.bounceOut/.elasticOut`),
+  `Easing.controlPoints/speedSamples`, `Clip.copyKeyframes/pasteKeyframes/resetKeyframes/setEasing`, `MotionPath.path`.
+  UI `MontageUI/Keyframes`: `store.keyframeUI` (clipboard, panel), ⌘C on a selected keyframe / ⌘V at the playhead, ⌥K keyframe
+  panel (NSPanel: dope sheet + bezier/speed curve editor), ⇧⌥K add keyframe, `MotionPathDrawing` (called from
+  `CanvasOverlayView.draw`). Text-style `ParamKey`s (`text.fontSize`, stroke, background, shadow, spacing) are animatable.
+- **Lottie** (`MontageEngine/Lottie`): `LottieAnimation` parses a Bodymovin subset; `LottieRenderer` draws frames with Core
+  Graphics; `LottieLibrary` caches animations and per-frame textures. `StickerDescriptor.Source.lottie` stickers loop from the
+  clip start (`TextRasterizer.sticker(time:)`). Bundled JSON: `MontageEffects/Resources/Lottie`, generated by
+  `scripts/make_lottie_stickers.py`.
+- `--player-state` (screenshots) also takes `transition=<name>`, `anim=in|out|combo:<name>`, `kfdemo`, `kfpanel`.
 
 ## 18. Known gaps (foundation)
 

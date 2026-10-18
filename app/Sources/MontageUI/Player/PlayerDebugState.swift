@@ -1,6 +1,7 @@
 import Foundation
 import MontageCore
 import MontageEngine
+import MontageEffects
 
 /// `--player-state <spec>`: puts the player in a given state for screenshots / visual checks, without input events.
 /// Comma-separated: `seek=<s>`, `select=text|sticker|overlay|main`, `rulers`, `guide=h:<0…1>` / `guide=v:<0…1>`,
@@ -55,6 +56,30 @@ public enum PlayerDebugState {
                 if p.count == 2 { InspectorUIState.shared.subTab[p[0]] = p[1] }
             case "voice": if let d = VoiceEffects.descriptor("montage.voice.\(value)") { store.applyVoice(d.makeEffect(), toAll: false) }
             case "expand": InspectorUIState.shared.expanded[value] = true
+            // W5: transition=<name> (at the playhead's cut, selected), anim=in|out|combo:<name> on the selection,
+            // kfdemo (position keyframes + curve on the selected clip → motion path), kfpanel (keyframe panel)
+            case "transition": if let d = Registries.transitions["montage.transition.\(value)"] { store.applyTransition(d) }
+            case "anim":
+                let p = value.split(separator: ":").map(String.init)
+                guard p.count == 2, let c = store.singleSelectedClip, let d = Registries.animations["montage.anim.\(p[0]).\(p[1])"] else { break }
+                let id = c.id, phase = p[0]
+                store.perform(UpdateClip(id, nameKey: "cmd.animation") { c in
+                    let inst = AnimationInstance(typeID: d.id, duration: min(d.defaultDuration, c.duration * 0.5))
+                    if phase == "in" { c.animations.inAnim = inst } else if phase == "out" { c.animations.outAnim = inst } else { c.animations.combo = inst }
+                })
+            case "kfdemo":
+                guard let c = store.singleSelectedClip else { break }
+                let id = c.id, d = c.duration
+                store.perform(UpdateClip(id, nameKey: "cmd.keyframe") { c in
+                    c.toggleKeyframes(ParamKey.transformGroup, at: .zero, tolerance: Time(ticks: 1))
+                    c.setValue(.scale, .vec2(Vec2(0.6, 0.6)), at: .zero)
+                    c.setValue(.position, .vec2(Vec2(-0.25, 0.2)), at: .zero)
+                    c.setValue(.position, .vec2(Vec2(0.0, -0.18)), at: d * 0.5)
+                    c.setValue(.position, .vec2(Vec2(0.25, 0.2)), at: d * 0.95)
+                    c.setEasing(.easeInOut, key: ParamKey.position.raw, at: .zero, tolerance: Time(ticks: 1), allSegments: true)
+                })
+                store.timelineUI.selectedKeyframe = KeyframeRef(clip: id, key: ParamKey.position.raw, time: .zero)
+            case "kfpanel": if !store.keyframeUI.showsPanel { store.toggleKeyframePanel() }
             default: break
             }
         }
