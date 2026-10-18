@@ -1,0 +1,16 @@
+// W10: select a main-track clip, Adjust tab, tick ☐ Auto adjust → a generated colour look (LUT effect) lands on the
+// clip as one undo step; ⌘Z removes it.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.adjust"},
+    {"expect": {"path": "ui.anchors", "contains": "inspector.section.adjust.auto"}},
+    {"click": "id:inspector.section.adjust.auto", "at": [0.035, 0.5]},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.autoAdjust", "timeout": 20}},
+    {"expect": {"path": "selectedClips.0.effects", "count": 1}},
+    {"snapshot": "auto-adjust", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.effects", "count": 0}}
+  ]
+}

@@ -34,6 +34,8 @@ public final class AIUIState {
     /// Motion tracking: box tool session and running jobs (follower clip → job).
     public var trackTool: MotionTrackBoxTool?
     public var trackingJobs: [ClipID: JobID] = [:]
+    /// Colour looks being computed (clip → job), per kind.
+    public var lookJobs: [String: JobID] = [:]
     // Models sheet
     public var isModelSheetPresented = false
     @ObservationIgnored var ttsRefresh: Task<Void, Never>?
@@ -295,5 +297,6 @@ enum AIModelsInstall {
         done = true
         AIEngineHooks.install()
         AIEngineHooks.installAudioML()
+        ColorLooks.loadAll()
     }
 }

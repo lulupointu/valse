@@ -377,6 +377,9 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   `TrackSample`s in raw source coords → `MotionTracking.apply` (Core) maps them through the reference layer
   (`FrameEvaluator` layer geometry, crop/flip/rotation) into position (+ scale) keyframes on the follower; `Clip.tracking`
   remembers the request. UI: `TrackingUI.swift` (Tracking tab, `MotionTrackBoxTool` canvas tool).
+- **Colour looks** (CL-007/008/009): `ColorTransfer` (Core: Lab stats, Reinhard match, auto adjust) → `ColorLooks` (MontageAI)
+  bakes a 33³ LUT into `App Support/Montage/Generated/looks/<kind>.<hash>.cube`, registered unlisted in W6's `LUTLibrary` as
+  effect `ai.look.<kind>.<hash>` (Strength param; `ColorLooks.loadAll()` at startup). UI: `ColorLookUI.swift` (Adjust ▸ Basic).
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
   `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,

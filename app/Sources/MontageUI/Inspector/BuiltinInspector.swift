@@ -122,7 +122,7 @@ enum BuiltinInspector {
         InspectorSection(id: "adjust.basic", tab: "adjust", subTab: "basic", order: 10, titleKey: "inspector.adjust.section",
                          chrome: AdjustBasicSection.chrome) { AnyView(AdjustBasicSection(ctx: $0)) },
         InspectorSection(id: "adjust.others", tab: "adjust", subTab: "basic", order: 20, titleKey: nil,
-                         appliesTo: { ctx in (ctx.clip?.effects ?? []).contains { $0.typeID != BuiltinAdjustments.basic.id && Registries.effects[$0.typeID]?.category == .adjustment } }) {
+                         appliesTo: { ctx in (ctx.clip?.effects ?? []).contains { $0.typeID != BuiltinAdjustments.basic.id && !$0.typeID.hasPrefix("ai.look.") && Registries.effects[$0.typeID]?.category == .adjustment } }) {
             AnyView(OtherAdjustmentBlocks(ctx: $0))
         },
 

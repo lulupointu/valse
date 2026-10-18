@@ -83,10 +83,11 @@ public final class LUTLibrary: @unchecked Sendable {
         return id
     }
 
-    /// Registers an in-memory LUT (generated looks, tests). Returns the descriptor id.
+    /// Registers an in-memory LUT (generated looks, tests). Returns the descriptor id. `listed: false` keeps it out of
+    /// the LUT dropdown (AI looks such as Auto adjust / Color match have their own sections).
     @discardableResult
-    public func add(_ lut: LUT, id: String, name: String, fileName: String = "") -> String {
-        lock.withLock { entries[id] = Entry(id: id, name: name, fileName: fileName) }
+    public func add(_ lut: LUT, id: String, name: String, fileName: String = "", listed: Bool = true) -> String {
+        if listed { lock.withLock { entries[id] = Entry(id: id, name: name, fileName: fileName) } }
         Self.storeLock.withLock { Self.luts[id] = lut.baked3D(); Self.textures[id] = nil }
         Registries.effects.register(Self.descriptor(id: id, name: name))
         return id

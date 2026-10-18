@@ -139,7 +139,7 @@ struct OtherAdjustmentBlocks: View {
     let ctx: InspectorContext
     var body: some View {
         let list = (ctx.clip?.effects ?? []).filter {
-            $0.typeID != BuiltinAdjustments.basic.id && Registries.effects[$0.typeID]?.category == .adjustment
+            $0.typeID != BuiltinAdjustments.basic.id && !$0.typeID.hasPrefix("ai.look.") && Registries.effects[$0.typeID]?.category == .adjustment
         }
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in

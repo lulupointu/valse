@@ -17,3 +17,6 @@
 "captions.phase.adding" = "Adding caption clips…";
 "cmd.reframe" = "Auto reframe";
 "cmd.tracking" = "Motion tracking";
+"cmd.autoAdjust" = "Auto adjust";
+"cmd.colorMatch" = "Color match";
+"cmd.colorCorrect" = "Color correction";

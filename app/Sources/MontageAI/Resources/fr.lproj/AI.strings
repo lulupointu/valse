@@ -17,3 +17,6 @@
 "captions.phase.adding" = "Ajout des clips de sous-titres…";
 "cmd.reframe" = "Recadrage automatique";
 "cmd.tracking" = "Suivi de mouvement";
+"cmd.autoAdjust" = "Ajustement automatique";
+"cmd.colorMatch" = "Ajustement des couleurs";
+"cmd.colorCorrect" = "Correction des couleurs";

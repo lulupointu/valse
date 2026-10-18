@@ -48,3 +48,16 @@
 "tracking.done" = "Tracking completed";
 "tracking.failed" = "Couldn't track the object. Try a bigger box.";
 "tracking.cancelled" = "Tracking canceled";
+
+/* W10 colour looks (CL-007/008/009, AI-055) */
+"look.auto" = "Auto adjust";
+"look.match" = "Color match";
+"look.correct" = "Color correction";
+"look.applying" = "Adjusting colors...";
+"look.matching" = "Matching colors...";
+"look.failed" = "Couldn't adjust the colors. Try again.";
+"look.match.hint" = "Select a frame or import an image to apply its colors to this clip.";
+"look.match.source" = "Source";
+"look.match.select" = "Select source frame";
+"look.match.import" = "Import image";
+"look.match.apply" = "Apply";
