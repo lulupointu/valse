@@ -9,12 +9,30 @@ import MontageEffects
 /// live re-render (paused edits) backs it with the last decoded frames.
 public protocol FrameSourceProvider {
     func pixelBuffer(for clipID: ClipID) -> CVPixelBuffer?
+    /// Secondary decoded frames of a layer (matte, next frame for smooth slow-mo, previous frames for motion blur).
+    func auxPixelBuffer(for clipID: ClipID, role: AuxRole) -> CVPixelBuffer?
+}
+
+extension FrameSourceProvider {
+    public func auxPixelBuffer(for clipID: ClipID, role: AuxRole) -> CVPixelBuffer? { nil }
+}
+
+/// Extra composition lanes decoded in sync with a clip's main lane (same time remap, shifted source).
+public enum AuxRole: Hashable, Sendable {
+    /// The source frame after the one shown (smooth slow-mo frame blending / interpolation).
+    case nextFrame
+    /// The k-th source frame before the one shown (motion blur accumulation), k ≥ 1.
+    case previousFrame(Int)
+    /// AI matte video (`MatteStore`), aligned with the media.
+    case matte
 }
 
 public struct DictionarySourceProvider: FrameSourceProvider {
     public var buffers: [ClipID: CVPixelBuffer]
-    public init(_ buffers: [ClipID: CVPixelBuffer]) { self.buffers = buffers }
+    public var aux: [ClipID: [AuxRole: CVPixelBuffer]]
+    public init(_ buffers: [ClipID: CVPixelBuffer], aux: [ClipID: [AuxRole: CVPixelBuffer]] = [:]) { self.buffers = buffers; self.aux = aux }
     public func pixelBuffer(for clipID: ClipID) -> CVPixelBuffer? { buffers[clipID] }
+    public func auxPixelBuffer(for clipID: ClipID, role: AuxRole) -> CVPixelBuffer? { aux[clipID]?[role] }
 }
 
 /// Renders a `FrameDescription` with Metal. THE compositor: preview (AVPlayer + MontageCompositor), live re-render,
@@ -49,7 +67,7 @@ public final class FrameRenderer: @unchecked Sendable {
     }
 
     /// Per-frame scratch state.
-    private final class FrameScratch: @unchecked Sendable {
+    final class FrameScratch: @unchecked Sendable {
         var textures: [MTLTexture] = []
         var retained: [Any] = []
     }
@@ -261,7 +279,7 @@ public final class FrameRenderer: @unchecked Sendable {
 
         var layerTex = acquire(tw, th)
         var cu = ConvertUniforms(uvXform: Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV,
-                                                            rotation: rotation),
+                                                            rotation: rotation, stabilize: stabilizationCorrection(l, media: media)),
                                  fullRange: 0, matrix709: 1, unpremultiply: unpremultiply ? 1 : 0, pad: 0)
         if let (y, c, full, bt709) = yuv {
             cu.fullRange = full ? 1 : 0; cu.matrix709 = bt709 ? 1 : 0
@@ -278,6 +296,10 @@ public final class FrameRenderer: @unchecked Sendable {
             var c4 = SIMD4<Float>(Float(color.r), Float(color.g), Float(color.b), Float(color.a))
             fullscreen(ctx.solid, target: layerTex, cmd, label: "solid") { $0.setFragmentBytes(&c4, length: 16, index: 0) }
         }
+
+        // W6 per-layer features on the straight source (before the effect stack, like CapCut's cutout/speed tools).
+        layerTex = applyLayerFeatures(l, to: layerTex, uv: cu, media: media, sources: sources, cmd: cmd,
+                                      scratch: scratch, acquire: acquire)
 
         if !l.effects.isEmpty {
             layerTex = applyEffects(l.effects, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire)
@@ -304,7 +326,7 @@ public final class FrameRenderer: @unchecked Sendable {
         return (layerTex, u)
     }
 
-    private func applyEffects(_ effects: [ResolvedEffect], to input: MTLTexture, time: Time, cmd: MTLCommandBuffer,
+    func applyEffects(_ effects: [ResolvedEffect], to input: MTLTexture, time: Time, cmd: MTLCommandBuffer,
                               acquire: (Int, Int) -> MTLTexture) -> MTLTexture {
         var cur = input
         for e in effects {
@@ -353,7 +375,7 @@ public final class FrameRenderer: @unchecked Sendable {
         enc.endEncoding()
     }
 
-    private func fullscreen(_ pipe: MTLRenderPipelineState, target: MTLTexture, _ cmd: MTLCommandBuffer, label: String,
+    func fullscreen(_ pipe: MTLRenderPipelineState, target: MTLTexture, _ cmd: MTLCommandBuffer, label: String,
                             _ setup: (MTLRenderCommandEncoder) -> Void) {
         let rp = MTLRenderPassDescriptor()
         rp.colorAttachments[0].texture = target
@@ -379,13 +401,20 @@ public final class FrameRenderer: @unchecked Sendable {
         return CVPixelBufferGetHeight(pb) >= 720
     }
 
-    /// Target-uv → source-uv: flip (display space) → crop → display→raw orientation.
-    static func uvTransform(crop: CropRect, flipH: Bool, flipV: Bool, rotation: Int) -> simd_float3x2 {
+    /// Target-uv → source-uv: flip (display space) → crop → stabilization (shift + zoom, display space) →
+    /// display→raw orientation.
+    static func uvTransform(crop: CropRect, flipH: Bool, flipV: Bool, rotation: Int,
+                            stabilize: (dx: Double, dy: Double, zoom: Double)? = nil) -> simd_float3x2 {
         var m = Affine.identity
         if flipH { m = Affine(a: -1, b: 0, c: 0, d: 1, tx: 1, ty: 0).then(m) }
         if flipV { m = Affine(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: 1).then(m) }
         var k = Affine(a: 1 - crop.left - crop.right, b: 0, c: 0, d: 1 - crop.top - crop.bottom, tx: crop.left, ty: crop.top)
         k = m.then(k)
+        if let st = stabilize {
+            // u' = (u − ½)/zoom + ½ − d   (d = correction, normalized display units)
+            let z = 1 / max(st.zoom, 1)
+            k = k.then(Affine(a: z, b: 0, c: 0, d: z, tx: 0.5 - 0.5 * z - st.dx, ty: 0.5 - 0.5 * z - st.dy))
+        }
         let r: Affine
         switch ((rotation % 360) + 360) % 360 {
         case 90: r = Affine(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: 1)     // raw = (y, 1-x)

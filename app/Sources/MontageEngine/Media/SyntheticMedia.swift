@@ -26,6 +26,8 @@ public enum SyntheticMedia {
         case split(RGBA, RGBA)
         /// Background with a box moving left → right.
         case movingBox(RGBA, RGBA)
+        /// Even frames `a`, odd frames `b` (frame blending / motion blur tests).
+        case alternate(RGBA, RGBA)
 
         func paint(_ frame: Int, _ total: Int) -> Paint {
             func c(_ x: RGBA) -> (UInt8, UInt8, UInt8) { (UInt8(x.r * 255), UInt8(x.g * 255), UInt8(x.b * 255)) }
@@ -37,6 +39,7 @@ public enum SyntheticMedia {
             case .movingBox(let bg, let fg):
                 let x = Double(frame) / Double(max(total - 1, 1)) * 0.75
                 return Paint(background: c(bg), box: (CGRect(x: x, y: 0.375, width: 0.25, height: 0.25), c(fg)))
+            case .alternate(let a, let b): return Paint(background: c(frame % 2 == 0 ? a : b))
             }
         }
     }

@@ -207,10 +207,10 @@ public final class PlaybackEngine {
     public func renderCurrentFrame(into output: MTLTexture, commandBuffer: MTLCommandBuffer) -> Bool {
         let t = requestedTime
         let frame = FrameEvaluator.evaluate(project, at: t)
-        let sources = state.sources(near: t) ?? [:]
-        if sources.isEmpty && !frame.mediaLayers.isEmpty { return false }
+        let sources = state.sourceProvider(near: t) ?? DictionarySourceProvider([:])
+        if sources.buffers.isEmpty && !frame.mediaLayers.isEmpty { return false }
         let media = Dictionary(uniqueKeysWithValues: project.media.map { ($0.id, $0) })
-        FrameRenderer.shared.encode(frame, media: media, sources: DictionarySourceProvider(sources), output: output,
+        FrameRenderer.shared.encode(frame, media: media, sources: sources, output: output,
                                     commandBuffer: commandBuffer)
         return true
     }

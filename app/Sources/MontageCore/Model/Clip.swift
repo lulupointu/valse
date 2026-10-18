@@ -53,6 +53,15 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     /// Linkage: this clip follows that main-track clip (CapCut "linkage").
     public var linkedTo: ClipID?
 
+    // Render-engine features (W6/W9, see ClipRendering.swift). nil = off.
+    public var chromaKey: ChromaKey?
+    public var matte: ClipMatte?
+    public var smoothSlowMo: SlowMotionMethod?
+    public var motionBlur: MotionBlur?
+    public var stabilization: Stabilization?
+    /// Set on freeze-frame clips: the video clip and media time the still was taken from ("Link freeze frame").
+    public var freezeOf: FreezeOrigin?
+
     public init(content: ClipContent, start: Time, duration: Time, sourceStart: Time = .zero) {
         id = ClipID(); self.content = content; self.start = start; self.duration = duration
         self.sourceStart = sourceStart; speed = .normal; reversed = false; isEnabled = true

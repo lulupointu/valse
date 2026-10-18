@@ -84,31 +84,61 @@ public enum CompositionBuilder {
             videoTrackIDs.append(base.trackID)
         }
 
+        let fr = frameRate ?? project.settings.frameRate
+        var auxMap: [ClipID: [AuxRole: CMPersistentTrackID]] = [:]
         for track in project.timeline.tracks {
             let mediaClips = track.clips.filter { $0.isEnabled && $0.mediaID.flatMap(project.asset) != nil }
             guard !mediaClips.isEmpty else { continue }
             let lanes = track.isMain ? 2 : 1
             var vLanes: [AVMutableCompositionTrack?] = Array(repeating: nil, count: lanes)
             var aLanes: [(AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?] = Array(repeating: nil, count: lanes)
+            var auxLanes: [String: AVMutableCompositionTrack] = [:]
+            var auxOrder: [CMPersistentTrackID] = []
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = track.isMain ? i % 2 : 0
                 let choice = sources(asset)
-                let segments = remapSegments(clip, asset: asset, frameRate: frameRate ?? project.settings.frameRate)
-                if clip.reversed { EngineLog.info("reverse playback not yet rendered (clip \(clip.id.short))") }
+                // Reverse: play the reversed render forwards from the mirrored in-point (same remap, frame exact).
+                var videoURL = choice.video, audioURL = choice.audio
+                var mapped = clip
+                var reversedURL: URL?
+                if clip.reversed {
+                    reversedURL = purpose == .export ? try await ReverseManager.shared.ensure(asset) : ReverseManager.shared.readyURL(for: asset)
+                    if let r = reversedURL {
+                        videoURL = r; audioURL = r
+                        mapped.sourceStart = max(.zero, asset.duration - clip.sourceStart - clip.sourceDuration)
+                    } else {
+                        EngineLog.info("reversed render not ready (clip \(clip.id.short)): showing forwards")
+                    }
+                }
+                let segments = remapSegments(mapped, asset: asset, frameRate: fr)
 
                 if asset.kind == .video, asset.hasVideo, track.kind.isVisual {
-                    let entry = try await AssetCache.shared.entry(choice.video)
+                    let entry = try await AssetCache.shared.entry(videoURL)
                     if let src = entry.video {
-                    if vLanes[lane] == nil { vLanes[lane] = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) }
-                    if let vt = vLanes[lane] {
-                        try insert(clip: clip, segments: segments, from: src, sourceRange: entry.videoRange, into: vt)
-                        trackMap[clip.id] = vt.trackID
+                        if vLanes[lane] == nil { vLanes[lane] = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) }
+                        if let vt = vLanes[lane] {
+                            try insert(clip: mapped, segments: segments, from: src, sourceRange: entry.videoRange, into: vt)
+                            trackMap[clip.id] = vt.trackID
+                        }
                     }
+                    // Aux lanes: same output layout, shifted source (blend/motion-blur frames) or another file (matte).
+                    for (role, url, shift) in try await auxInputs(clip, asset: asset, videoURL: videoURL, reversed: reversedURL != nil, purpose: purpose) {
+                        let entry = try await AssetCache.shared.entry(url)
+                        guard let src = entry.video else { continue }
+                        let key = "\(lane)-\(role)"
+                        if auxLanes[key] == nil, let t = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) {
+                            auxLanes[key] = t; auxOrder.append(t.trackID)
+                        }
+                        guard let at = auxLanes[key] else { continue }
+                        var shifted = mapped
+                        shifted.sourceStart = mapped.sourceStart + shift
+                        try insert(clip: shifted, segments: segments, from: src, sourceRange: entry.videoRange, into: at, stretch: false)
+                        auxMap[clip.id, default: [:]][role] = at.trackID
                     }
                 }
                 let audible = asset.hasAudio && !clip.audio.isMuted && !track.isMuted && clip.audio.volume > 0
-                let audioEntry = audible ? try await AssetCache.shared.entry(choice.audio) : nil
+                let audioEntry = audible ? try await AssetCache.shared.entry(audioURL) : nil
                 if let audioEntry, let src = audioEntry.audio {
                     if aLanes[lane] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                         let p = AVMutableAudioMixInputParameters(track: at)
@@ -118,23 +148,24 @@ public enum CompositionBuilder {
                         aLanes[lane] = (at, p)
                     }
                     if let (at, p) = aLanes[lane] {
-                        try insert(clip: clip, segments: segments, from: src, sourceRange: audioEntry.audioRange, into: at)
+                        try insert(clip: mapped, segments: segments, from: src, sourceRange: audioEntry.audioRange, into: at)
                         applyVolume(clip, to: p)
                         if !clip.audio.preservePitch && !clip.speed.isNormal { p.audioTimePitchAlgorithm = .varispeed }
                     }
                 }
             }
             for v in vLanes.compactMap({ $0 }) { videoTrackIDs.append(v.trackID) }
+            videoTrackIDs += auxOrder
             for a in aLanes.compactMap({ $0 }) { audioParams.append(a.1) }
         }
 
         let state = existingState ?? RenderState(project: project, keepsRecentSources: purpose == .preview)
         state.update(project: project)
         state.update(trackMap: trackMap)
+        state.update(auxMap: auxMap)
 
         let vc = AVMutableVideoComposition()
         vc.customVideoCompositorClass = MontageCompositor.self
-        let fr = frameRate ?? project.settings.frameRate
         vc.frameDuration = CMTime(value: CMTimeValue(fr.denominator), timescale: fr.numerator)
         vc.renderSize = renderSize ?? CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
         vc.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
@@ -148,6 +179,35 @@ public enum CompositionBuilder {
                                 duration: duration, state: state)
     }
 
+    /// Aux lanes a clip needs: (role, file, source shift).
+    static func auxInputs(_ clip: Clip, asset: MediaAsset, videoURL: URL, reversed: Bool, purpose: RenderPurpose)
+    async throws -> [(AuxRole, URL, Time)] {
+        var out: [(AuxRole, URL, Time)] = []
+        let sfd = (asset.frameRate ?? .fps30).frameDuration
+        if clip.smoothSlowMo != nil, Self.hasSlowSection(clip.speed) { out.append((.nextFrame, videoURL, sfd)) }
+        if let mb = clip.motionBlur, mb.amount > 0 {
+            for k in 1..<mb.clampedSamples { out.append((.previousFrame(k), videoURL, Time(ticks: -sfd.ticks * Int64(k)))) }
+        }
+        if let m = clip.matte, let matte = MatteStore.shared.readyMatteVideo(media: asset, kind: m.kind) {
+            if reversed {
+                let key = MatteStore.shared.reverseKey(media: asset, kind: m.kind)
+                let r = purpose == .export ? try await ReverseManager.shared.ensure(source: matte, key: key)
+                                           : ReverseManager.shared.readyURL(key: key)
+                if let r { out.append((.matte, r, .zero)) } else { _ = await ReverseManager.shared.request(source: matte, key: key) }
+            } else {
+                out.append((.matte, matte, .zero))
+            }
+        }
+        return out
+    }
+
+    static func hasSlowSection(_ s: Speed) -> Bool {
+        switch s {
+        case .constant(let v): return v < 0.999
+        case .curve(let c): return c.points.contains { $0.v < 0.999 }
+        }
+    }
+
     /// Frame-accurate speed segments for a clip (see `Speed.frameAccurateSegments`): boundaries on the output frame
     /// grid of this build; every composed frame lands in the same source frame as the exact remap.
     static func remapSegments(_ clip: Clip, asset: MediaAsset, frameRate: FrameRate) -> [(output: TimeRange, source: TimeRange)] {
@@ -159,20 +219,27 @@ public enum CompositionBuilder {
     }
 
     /// Inserts a clip's speed segments into a composition track at the clip's timeline position.
+    /// `stretch`: when the media is shorter than the segment asks for, stretch what exists over the whole output
+    /// range (main lanes: no black frame) or keep the exact rate and leave the rest empty (aux lanes: timing matters).
     static func insert(clip: Clip, segments: [(output: TimeRange, source: TimeRange)], from src: AVAssetTrack,
-                       sourceRange srcRange: CMTimeRange, into dst: AVMutableCompositionTrack) throws {
+                       sourceRange srcRange: CMTimeRange, into dst: AVMutableCompositionTrack, stretch: Bool = true) throws {
         for seg in segments {
-            let at = (clip.start + seg.output.start).cmTime
-            var s = CMTimeRange(start: (clip.sourceStart + seg.source.start).cmTime, duration: seg.source.duration.cmTime)
-            s = CMTimeRangeGetIntersection(s, otherRange: srcRange)
+            var at = (clip.start + seg.output.start).cmTime
+            let wanted = CMTimeRange(start: (clip.sourceStart + seg.source.start).cmTime, duration: seg.source.duration.cmTime)
+            let s = CMTimeRangeGetIntersection(wanted, otherRange: srcRange)
             guard s.duration > .zero else { continue }
+            var outDur = seg.output.duration.cmTime
+            if !stretch, s != wanted {
+                let rate = seg.source.duration / seg.output.duration
+                at = CMTimeAdd(at, Time(Time(cmTime: CMTimeSubtract(s.start, wanted.start)).seconds / rate).cmTime)
+                outDur = Time(Time(cmTime: s.duration).seconds / rate).cmTime
+            }
             let end = dst.timeRange.end
             if dst.timeRange.duration > .zero, CMTimeCompare(end, at) < 0 {
                 dst.insertEmptyTimeRange(CMTimeRange(start: end, end: at))
             }
             // Keep the timeline layout exact even if the source is shorter than expected.
             try dst.insertTimeRange(s, of: src, at: at)
-            let outDur = seg.output.duration.cmTime
             if CMTimeCompare(s.duration, outDur) != 0 {
                 dst.scaleTimeRange(CMTimeRange(start: at, duration: s.duration), toDuration: outDur)
             }
@@ -219,6 +286,9 @@ public enum CompositionBuilder {
                 h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audio)
                 h.combine(c.keyframes[ParamKey.volume.raw])
                 h.combine(sources(a))
+                h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind)
+                if c.reversed { h.combine(ReverseManager.shared.readyURL(for: a) != nil) }
+                if let m = c.matte { h.combine(MatteStore.shared.readyMatteVideo(media: a, kind: m.kind) != nil) }
             }
         }
         return h.finalize()

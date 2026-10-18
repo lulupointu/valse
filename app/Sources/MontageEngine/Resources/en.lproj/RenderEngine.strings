@@ -1,0 +1,10 @@
+/* W6/W9 render engine + media pipeline */
+"job.reverse" = "Reversing clip";
+"job.stabilize" = "Analyzing stabilization";
+"job.renderCache" = "Rendering preview";
+"slowmo.frameBlending" = "Frame blending";
+"slowmo.opticalFlow" = "Optical flow";
+"stabilize.minimalCrop" = "Least cut";
+"stabilize.recommended" = "Recommended";
+"stabilize.mostStable" = "Most stable";
+"clip.freeze" = "Freeze";

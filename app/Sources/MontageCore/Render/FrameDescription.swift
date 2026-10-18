@@ -41,6 +41,14 @@ public struct LayerDescription: Hashable, Sendable {
     public var animations: [ActiveAnimation]
     /// Clip-local time (for time-based effects such as glitch/shake).
     public var localTime: Time
+    // W6/W9 per-layer features (defaults = off).
+    public var chromaKey: ChromaKey? = nil
+    public var matte: ClipMatte? = nil
+    /// Smooth slow-mo: weight 0…1 of the NEXT source frame (aux lane `.nextFrame`) at this instant; nil = off.
+    public var frameBlend: Double? = nil
+    public var slowMoMethod: SlowMotionMethod? = nil
+    public var motionBlur: MotionBlur? = nil
+    public var stabilization: Stabilization? = nil
 
     /// Media/images/solids are aspect-fitted to the canvas at scale 1; text and stickers use their own
     /// size in canvas pixels (`sourceSize`).
@@ -137,10 +145,31 @@ public enum FrameEvaluator {
         case .adjustment:
             return nil
         }
-        return LayerDescription(clipID: c.id, trackID: track.id, source: source, sourceSize: size,
-                                transform: r.transform, opacity: r.opacity, blendMode: r.blendMode, crop: r.crop,
-                                mask: r.mask, effects: resolveEffects(r), animations: animations(c, local: local),
-                                localTime: local)
+        var l = LayerDescription(clipID: c.id, trackID: track.id, source: source, sourceSize: size,
+                                 transform: r.transform, opacity: r.opacity, blendMode: r.blendMode, crop: r.crop,
+                                 mask: r.mask, effects: resolveEffects(r), animations: animations(c, local: local),
+                                 localTime: local)
+        l.chromaKey = r.chromaKey
+        l.matte = r.matte
+        l.stabilization = r.stabilization
+        if case .media(let id) = c.content, let a = project.asset(id), a.kind == .video {
+            l.motionBlur = r.motionBlur
+            if let m = r.smoothSlowMo, c.speed.rate(at: local, outputDuration: c.duration) < 0.999 {
+                l.slowMoMethod = m
+                l.frameBlend = frameBlendWeight(c, asset: a, at: t)
+            }
+        }
+        return l
+    }
+
+    /// Fractional position between the decoded source frame and the next one (in the file actually decoded: the
+    /// reversed render plays forwards in reversed time).
+    public static func frameBlendWeight(_ c: Clip, asset: MediaAsset, at t: Time) -> Double {
+        let sfd = (asset.frameRate ?? .fps30).frameDuration
+        let s = c.sourceTime(at: t)
+        let fileTime = c.reversed ? asset.duration - s : s
+        let x = Double(fileTime.ticks) / Double(max(sfd.ticks, 1))
+        return min(max(x - x.rounded(.down), 0), 1)
     }
 
     static func resolveEffects(_ c: Clip) -> [ResolvedEffect] {

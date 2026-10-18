@@ -1,0 +1,10 @@
+/* W6/W9 moteur de rendu + pipeline média */
+"job.reverse" = "Inversion du clip";
+"job.stabilize" = "Analyse de la stabilisation";
+"job.renderCache" = "Rendu de l’aperçu";
+"slowmo.frameBlending" = "Fusion d’images";
+"slowmo.opticalFlow" = "Flux optique";
+"stabilize.minimalCrop" = "Recadrage minimal";
+"stabilize.recommended" = "Recommandé";
+"stabilize.mostStable" = "Le plus stable";
+"clip.freeze" = "Geler";

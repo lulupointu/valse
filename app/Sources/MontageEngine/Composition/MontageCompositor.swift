@@ -14,7 +14,8 @@ public final class RenderState: @unchecked Sendable {
     private var _project: Project
     private var _media: [MediaID: MediaAsset]
     private var _trackMap: [ClipID: CMPersistentTrackID]
-    private var recent: [(time: Time, sources: [ClipID: CVPixelBuffer])] = []
+    private var _auxMap: [ClipID: [AuxRole: CMPersistentTrackID]] = [:]
+    private var recent: [(time: Time, sources: [ClipID: CVPixelBuffer], aux: [ClipID: [AuxRole: CVPixelBuffer]])] = []
     /// Output frames composed (stats).
     public private(set) var framesComposed = 0
     /// When false the compositor does not keep decoded frames (export).
@@ -35,16 +36,19 @@ public final class RenderState: @unchecked Sendable {
     }
 
     public func update(trackMap: [ClipID: CMPersistentTrackID]) { lock.withLock { _trackMap = trackMap } }
+    public func update(auxMap: [ClipID: [AuxRole: CMPersistentTrackID]]) { lock.withLock { _auxMap = auxMap } }
 
     func snapshot() -> (Project, [MediaID: MediaAsset], [ClipID: CMPersistentTrackID]) {
         lock.withLock { (_project, _media, _trackMap) }
     }
 
-    func remember(time: Time, sources: [ClipID: CVPixelBuffer]) {
+    var auxMap: [ClipID: [AuxRole: CMPersistentTrackID]] { lock.withLock { _auxMap } }
+
+    func remember(time: Time, sources: [ClipID: CVPixelBuffer], aux: [ClipID: [AuxRole: CVPixelBuffer]] = [:]) {
         lock.withLock {
             framesComposed += 1
             guard keepsRecentSources else { return }
-            recent.append((time, sources))
+            recent.append((time, sources, aux))
             if recent.count > 12 { recent.removeFirst(recent.count - 12) }
         }
     }
@@ -52,6 +56,13 @@ public final class RenderState: @unchecked Sendable {
     /// Decoded sources of the composed frame closest to `time`.
     public func sources(near time: Time) -> [ClipID: CVPixelBuffer]? {
         lock.withLock { recent.min { abs(($0.time - time).ticks) < abs(($1.time - time).ticks) }?.sources }
+    }
+
+    /// Decoded sources incl. aux lanes (matte / blend frames) of the composed frame closest to `time`.
+    public func sourceProvider(near time: Time) -> DictionarySourceProvider? {
+        lock.withLock {
+            recent.min { abs(($0.time - time).ticks) < abs(($1.time - time).ticks) }.map { DictionarySourceProvider($0.sources, aux: $0.aux) }
+        }
     }
 
     public func clearRecent() { lock.withLock { recent.removeAll() } }
@@ -119,16 +130,21 @@ public final class MontageCompositor: NSObject, AVVideoCompositing, @unchecked S
         let t = Time(cmTime: request.compositionTime)
         let frame = FrameEvaluator.evaluate(project, at: t)
         var buffers: [ClipID: CVPixelBuffer] = [:]
+        var aux: [ClipID: [AuxRole: CVPixelBuffer]] = [:]
+        let auxMap = instr.state.auxMap
         for l in frame.mediaLayers {
             if let tid = trackMap[l.clipID], let pb = request.sourceFrame(byTrackID: tid) { buffers[l.clipID] = pb }
+            for (role, tid) in auxMap[l.clipID] ?? [:] {
+                if let pb = request.sourceFrame(byTrackID: tid) { aux[l.clipID, default: [:]][role] = pb }
+            }
         }
-        FrameRenderer.shared.encode(frame, media: media, sources: DictionarySourceProvider(buffers), output: outTex, commandBuffer: cmd)
+        FrameRenderer.shared.encode(frame, media: media, sources: DictionarySourceProvider(buffers, aux: aux), output: outTex, commandBuffer: cmd)
         inflight.wait()
         let state = instr.state
-        let box = UncheckedSendable((request, out, outCV, buffers))
+        let box = UncheckedSendable((request, out, outCV, buffers, aux))
         cmd.addCompletedHandler { [inflight] cb in
-            let (request, out, _, buffers) = box.value
-            state.remember(time: t, sources: buffers)
+            let (request, out, _, buffers, aux) = box.value
+            state.remember(time: t, sources: buffers, aux: aux)
             if let err = cb.error { request.finish(with: err) } else { request.finish(withComposedVideoFrame: out) }
             inflight.signal()
         }
