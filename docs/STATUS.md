@@ -28,7 +28,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | running | |
 | PERF | MacBook Air smoothness — round 1 merged (72f9ee8: timeline LOD 154→1.7 ms air, slots.sh semaphore, load-aware timing, IsolatedHost panels). Round 2: slider drag 45 ms air → ≤16, 50 captions 58 ms → ≤16, memory 1.6–2 GB → <1 GB, auto proxies 4K | 3 | running (round 2) | main 72f9ee8 |
 | UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
-| POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | running | |
+| POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | merged (lanes, cover editor, mask handles incl. pen/text, previewing mode, scopes, Adjust footer/Mask) | main 1efcb9a |
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | merged (all 8 gaps fixed) | main 9b94922 |
 | FIN | Final polish backlog (collect here): text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
 | AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | running | |
