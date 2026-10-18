@@ -258,19 +258,28 @@ public struct StickerDescriptor: Sendable, Identifiable {
 }
 
 /// Text style preset ("Text ▸ Basic" preset row) or word-art text effect ("Text effects" library).
-/// Procedural families share a `nameKey` and differ by `number` ("Neon 3").
+/// Procedural families have a descriptive name built from a format key + localized arguments ("Yellow stroke",
+/// `nameArgKeys` = l10n keys of the `%@` arguments); without arguments, `number` tells family members apart ("Neon 3").
 public struct TextStyleDescriptor: Sendable, Identifiable {
     public let id: String
     public let nameKey: String
     public let groupKey: String
     public let kind: TextStyleKind
     public let number: Int?
+    public let nameArgKeys: [String]
     public let apply: @Sendable (inout TextContent) -> Void
     public init(id: String, nameKey: String, groupKey: String = "textStyle.group.basic", kind: TextStyleKind = .preset,
-                number: Int? = nil, apply: @escaping @Sendable (inout TextContent) -> Void) {
-        self.id = id; self.nameKey = nameKey; self.groupKey = groupKey; self.kind = kind; self.number = number; self.apply = apply
+                number: Int? = nil, nameArgKeys: [String] = [], apply: @escaping @Sendable (inout TextContent) -> Void) {
+        self.id = id; self.nameKey = nameKey; self.groupKey = groupKey; self.kind = kind; self.number = number
+        self.nameArgKeys = nameArgKeys; self.apply = apply
     }
-    public var displayName: String { number.map { "\(tr(nameKey)) \($0)" } ?? tr(nameKey) }
+    public var displayName: String {
+        if !nameArgKeys.isEmpty {
+            let s = String(format: tr(nameKey), arguments: nameArgKeys.map { tr($0) as CVarArg })
+            return s.prefix(1).uppercased() + s.dropFirst()  // "jaune + violet" → "Jaune + violet"
+        }
+        return number.map { "\(tr(nameKey)) \($0)" } ?? tr(nameKey)
+    }
 
     /// Applies the style to `t`, keeping its text, size, alignment, box, caption data and runs' text (CapCut presets
     /// replace the look, not the content).

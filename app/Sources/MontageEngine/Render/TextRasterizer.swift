@@ -165,6 +165,59 @@ public final class TextRasterizer: @unchecked Sendable {
         return render(s)?.image
     }
 
+    /// Frames of a per-glyph text animation painted with Core Graphics (inspector tiles, tests): the same scene, atlas
+    /// and per-unit transforms as the GPU compose pass, so a tile shows exactly what the clip will do. One image per
+    /// value of `progresses` (In/Out: 0…1 progress; Loop: cycle phase), all with the same size (rest bounds + margin).
+    public static func animationFrames(_ t: TextContent, fontPx: Double, animationID: String, progresses: [Double],
+                                       canvasWidthPx: Double = 1920, maxMarginEm: Double = 1) -> [CGImage] {
+        guard let d = Registries.animations[animationID], let spec = d.glyph, fontPx >= 1 else { return [] }
+        let scene = TextSceneBuilder.build(t, fontPx: CGFloat(fontPx), canvasWidthPx: CGFloat(canvasWidthPx), duration: 3, dynamic: true)
+        guard let atlas = TextAtlas.build(scene, keepImage: true), let atlasImage = atlas.image else { return [] }
+        let probe = TextFrameInput(anims: [(spec, d.phase, 0)], localTime: 0, duration: 3)
+        let em = scene.blocks.map(\.em).max() ?? CGFloat(fontPx)
+        let m = min(TextAnimator.margin(scene, probe), CGFloat(maxMarginEm) * em).rounded(.up)
+        let rb = padded(scene.bounds).insetBy(dx: -m, dy: -m)
+        let w = Int(rb.width), h = Int(rb.height)
+        guard w > 0, h > 0, w <= 4096, h <= 4096 else { return [] }
+        let AW = CGFloat(atlasImage.width), AH = CGFloat(atlasImage.height)
+        var crops: [SIMD4<Float>: CGImage] = [:]
+        func crop(_ uv: SIMD4<Float>) -> CGImage? {
+            if let c = crops[uv] { return c }
+            let r = CGRect(x: CGFloat(uv.x) * AW, y: CGFloat(uv.y) * AH, width: CGFloat(uv.z) * AW, height: CGFloat(uv.w) * AH).integral
+            let c = atlasImage.cropping(to: r)
+            crops[uv] = c
+            return c
+        }
+        var out: [CGImage] = []
+        for p in progresses {
+            let input = TextFrameInput(anims: [(spec, d.phase, p)], localTime: 0, duration: 3)
+            let inst = TextAnimator.instances(scene, atlas, input, origin: rb.origin)
+            guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
+            else { continue }
+            ctx.interpolationQuality = .high
+            ctx.translateBy(x: 0, y: CGFloat(h)); ctx.scaleBy(x: 1, y: -1)  // y down, like the scene
+            for g in inst {
+                let p0 = CGPoint(x: CGFloat(g.p0.x), y: CGFloat(g.p0.y))
+                let T = CGAffineTransform(a: CGFloat(g.p1.x - g.p0.x), b: CGFloat(g.p1.y - g.p0.y),
+                                          c: CGFloat(g.p2.x - g.p0.x), d: CGFloat(g.p2.y - g.p0.y), tx: p0.x, ty: p0.y)
+                let layers: [(SIMD4<Float>, Float)] = g.mixB > 0 ? [(g.uvA, 1 - g.mixB), (g.uvB, g.mixB)] : [(g.uvA, Float(1))]
+                for (uv, a) in layers where a > 0.002 {
+                    guard let img = crop(uv) else { continue }
+                    ctx.saveGState()
+                    ctx.concatenate(T)
+                    ctx.translateBy(x: 0, y: 1); ctx.scaleBy(x: 1, y: -1)  // CGImage draws bottom-up
+                    ctx.setAlpha(CGFloat(g.opacity * a))
+                    ctx.draw(img, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+                    ctx.restoreGState()
+                }
+            }
+            if let img = ctx.makeImage() { out.append(img) }
+        }
+        return out
+    }
+
     // MARK: Internals
 
     static func scaleBucket(_ s: Vec2, fontPx: Double) -> Double {

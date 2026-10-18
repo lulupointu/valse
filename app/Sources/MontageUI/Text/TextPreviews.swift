@@ -64,48 +64,86 @@ struct TextPreviewImage: View {
     }
 }
 
-/// Tile preview of a per-glyph text animation: "ABC" whose letters move with the descriptor's own glyph spec.
-struct GlyphAnimationPreview: View {
-    let descriptor: AnimationDescriptor
-    let playing: Bool
-    let start: Date
-    static let letters = Array("ABC")
+/// Rendered frames of per-glyph text animation tiles ("ABC123" through the real text engine, CapCut-style), made off
+/// the main thread once per animation and kept for the session (24 frames × ~150×40 px each).
+@MainActor
+final class GlyphAnimationFrames: ObservableObject {
+    static let shared = GlyphAnimationFrames()
+    nonisolated static let sample = "ABC123"
+    nonisolated static let frameCount = 24
+    @Published private(set) var frames: [String: [NSImage]] = [:]
+    private var pending: Set<String> = []
 
-    var body: some View {
-        SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !playing)) { tl in
-            let p = progress(at: tl.date)
-            HStack(spacing: 1) {
-                ForEach(Array(Self.letters.enumerated()), id: \.offset) { i, ch in
-                    let s = state(i, p)
-                    Text(verbatim: String(ch))
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.9 + 0.1 * s.highlight))
-                        .scaleEffect(x: s.scale.x, y: s.scale.y)
-                        .rotationEffect(.degrees(s.rotation))
-                        .offset(x: s.offset.x * 17, y: s.offset.y * 17)
-                        .opacity(s.opacity)
+    /// Progress values of the rendered loop: In 0→1, Out 0→1, Loop one cycle.
+    nonisolated static func progresses(_ phase: AnimationPhaseKind) -> [Double] {
+        (0..<frameCount).map { Double($0) / Double(frameCount - (phase == .combo ? 0 : 1)) }
+    }
+
+    /// Frame shown while idle: a mid-animation pose (letters caught in motion), like CapCut's tile stills.
+    static func stillIndex(_ phase: AnimationPhaseKind) -> Int {
+        switch phase {
+        case .in: return Int(Double(frameCount - 1) * 0.7)
+        case .out: return Int(Double(frameCount - 1) * 0.3)
+        case .combo: return frameCount / 4
+        }
+    }
+
+    nonisolated static func content() -> TextContent {
+        var t = TextContent(string: sample, fontSize: 0.1); t.bold = true
+        return t
+    }
+
+    func frames(for d: AnimationDescriptor) -> [NSImage]? {
+        if let f = frames[d.id] { return f }
+        request([d])
+        return nil
+    }
+
+    func request(_ ds: [AnimationDescriptor]) {
+        let todo = ds.filter { $0.glyph != nil && frames[$0.id] == nil && !pending.contains($0.id) }
+        guard !todo.isEmpty else { return }
+        for d in todo { pending.insert(d.id) }
+        let jobs = todo.map { ($0.id, $0.phase) }
+        Task.detached(priority: .utility) {
+            for (id, phase) in jobs {
+                let cgs = TextRasterizer.animationFrames(Self.content(), fontPx: 40, animationID: id, progresses: Self.progresses(phase),
+                                                         maxMarginEm: 0.6)
+                let imgs = cgs.map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) }
+                await MainActor.run {
+                    GlyphAnimationFrames.shared.frames[id] = imgs
+                    GlyphAnimationFrames.shared.pending.remove(id)
                 }
             }
         }
     }
+}
 
-    func progress(at date: Date) -> Double {
-        // idle: a mid-animation still (letters caught part-way) so tiles differ at rest, like CapCut's stills
-        guard playing else { return descriptor.phase == .out ? 0.6 : (descriptor.phase == .combo ? 0.25 : 0.45) }
-        let d = max(descriptor.defaultDuration.seconds, 0.3)
-        let t = date.timeIntervalSince(start)
-        if descriptor.phase == .combo { return (t / d).truncatingRemainder(dividingBy: 1) }
-        return min(t.truncatingRemainder(dividingBy: d + 0.5) / d, 1)
+/// Tile preview of a per-glyph text animation: "ABC123" rendered by the text engine with the descriptor's own glyph
+/// spec. Idle = a mid-animation still; hovered (or `playing`) = the rendered loop.
+struct GlyphAnimationPreview: View {
+    let descriptor: AnimationDescriptor
+    let playing: Bool
+    let start: Date
+    @ObservedObject private var cache = GlyphAnimationFrames.shared
+
+    var body: some View {
+        if let frames = cache.frames(for: descriptor), !frames.isEmpty {
+            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !playing)) { tl in
+                Image(nsImage: frames[min(index(at: tl.date, count: frames.count), frames.count - 1)])
+                    .resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                    .padding(.horizontal, 4)
+            }
+        } else {
+            ProgressView().controlSize(.small).opacity(0.5)
+        }
     }
 
-    func state(_ i: Int, _ p: Double) -> GlyphState {
-        guard let g = descriptor.glyph else { return GlyphState() }
-        let n = Self.letters.count
-        let unit: GlyphUnitInfo
-        switch g.unit {
-        case .character: unit = GlyphUnitInfo(index: i, count: n, random: glyphRandom(i, seed: 11))
-        case .word, .line, .all: unit = GlyphUnitInfo(index: 0, count: 1, random: 0.5)
-        }
-        return g.state(progress: p, phase: descriptor.phase, unit: unit)
+    func index(at date: Date, count: Int) -> Int {
+        guard playing else { return GlyphAnimationFrames.stillIndex(descriptor.phase) }
+        let d = max(descriptor.defaultDuration.seconds, 0.3)
+        let t = date.timeIntervalSince(start)
+        if descriptor.phase == .combo { return Int((t / d).truncatingRemainder(dividingBy: 1) * Double(count)) }
+        // play once, hold the end pose 0.5 s, repeat
+        return Int(min(t.truncatingRemainder(dividingBy: d + 0.5) / d, 1) * Double(count - 1))
     }
 }

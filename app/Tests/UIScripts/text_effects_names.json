@@ -1,0 +1,10 @@
+// Text (POL-B, UX_GAPS W7-2): Text ▸ Text effects tiles have descriptive names ("Yellow stroke", "Pink neon"), not "Outline 3".
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.nav.effects"},
+    {"wait": 1.5},
+    {"snapshot": "text-effects", "element": "id:panel.assets", "baseline": "text_effects_names", "threshold": 40, "tolerance": 0.03}
+  ]
+}

@@ -1,0 +1,21 @@
+// Text (POL-B, UX_GAPS W7-1): Text ▸ Animation tiles show "ABC123" rendered by the text engine mid-animation (not "ABC"
+// placeholders) in In / Out / Loop; clicking a tile applies the animation.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "montage.text.default"}, "on": "time:12@2"},
+    {"click": "id:inspector.tab.animation"},
+    {"wait": 2},
+    {"snapshot": "anim-in", "element": "id:panel.inspector"},
+    {"click": "id:anim.tile.montage.anim.text.in.typewriter"},
+    {"expect": [{"path": "selectedClips.0.kind", "equals": "text"}, {"path": "undo.name", "equals": "cmd.animation"},
+                {"path": "project", "exists": true}]},
+    {"click": "id:panel.inspector", "at": [0.5, 0.14]},
+    {"wait": 2},
+    {"snapshot": "anim-out", "element": "id:panel.inspector"},
+    {"click": "id:panel.inspector", "at": [0.82, 0.14]},
+    {"wait": 2},
+    {"snapshot": "anim-loop", "element": "id:panel.inspector", "baseline": "text_animation_tiles_loop", "threshold": 40, "tolerance": 0.03}
+  ]
+}

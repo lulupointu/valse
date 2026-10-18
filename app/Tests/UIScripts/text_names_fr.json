@@ -1,0 +1,21 @@
+// Text (POL-B, UX_GAPS W7-2/W7-3): French text effect names and text animation names fit their tiles (no "Machi…écrire").
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.nav.effects"},
+    {"wait": 1.5},
+    {"snapshot": "text-effects-fr", "element": "id:panel.assets"},
+    {"drop": {"text": "montage.text.default"}, "on": "time:12@2"},
+    {"click": "id:inspector.tab.animation"},
+    {"wait": 2},
+    {"snapshot": "anim-in-fr", "element": "id:panel.inspector", "baseline": "text_animation_tiles_fr", "threshold": 40, "tolerance": 0.03},
+    {"click": "id:panel.inspector", "at": [0.5, 0.14]},
+    {"wait": 2},
+    {"snapshot": "anim-out-fr", "element": "id:panel.inspector"},
+    {"click": "id:panel.inspector", "at": [0.82, 0.14]},
+    {"wait": 2},
+    {"snapshot": "anim-loop-fr", "element": "id:panel.inspector"}
+  ]
+}

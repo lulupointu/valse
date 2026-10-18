@@ -171,3 +171,18 @@
 "voice.voiceCrisper" = "Voice Crisper";
 "voice.voiceFocus" = "Voice Focus";
 "voice.youngMan" = "Young Man";
+"audio.lib.yours.empty" = "Import music or sound files, or drop them here.";
+/* Audio ▸ Music: built-in procedural music pack (POL-B, UX_GAPS W8-2). */
+"audio.lib.music" = "Music";
+"music.genre.chill" = "Chill";
+"music.genre.upbeat" = "Upbeat";
+"music.genre.cinematic" = "Cinematic";
+"music.genre.lofi" = "Lo-fi";
+"music.sunrise" = "Sunrise";
+"music.afterglow" = "Afterglow";
+"music.citylights" = "City lights";
+"music.summerdrive" = "Summer drive";
+"music.horizon" = "Horizon";
+"music.frontier" = "Frontier";
+"music.notebook" = "Notebook";
+"music.rainyday" = "Rainy day";

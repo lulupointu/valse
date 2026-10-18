@@ -171,3 +171,18 @@
 "voice.voiceCrisper" = "Voix nette";
 "voice.voiceFocus" = "Voix focalisée";
 "voice.youngMan" = "Jeune homme";
+"audio.lib.yours.empty" = "Importez de la musique ou des sons, ou déposez-les ici.";
+/* Audio ▸ Music: built-in procedural music pack (POL-B, UX_GAPS W8-2). */
+"audio.lib.music" = "Musique";
+"music.genre.chill" = "Détente";
+"music.genre.upbeat" = "Entraînant";
+"music.genre.cinematic" = "Cinématique";
+"music.genre.lofi" = "Lo-fi";
+"music.sunrise" = "Lever du jour";
+"music.afterglow" = "Crépuscule";
+"music.citylights" = "Lumières de la ville";
+"music.summerdrive" = "Route d'été";
+"music.horizon" = "Horizon";
+"music.frontier" = "Frontière";
+"music.notebook" = "Carnet";
+"music.rainyday" = "Jour de pluie";

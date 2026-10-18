@@ -83,4 +83,22 @@ struct TextContentTests {
         #expect(TextTemplateDescriptor.text(slot: 1, of: t, descriptor: d) == tr(d.slotKeys[1]))
         #expect(!t.string.hasPrefix("template."))
     }
+
+    /// UX_GAPS W7-2: word-art effects have descriptive names ("Yellow stroke", "Néon rose"), unique per group, in en and fr.
+    @Test func textEffectsHaveDescriptiveUniqueNames() {
+        EffectsResources.register()
+        for lang in ["en", "fr"] {
+            let table = L10n.load(lang, from: [EffectsResources.bundle])
+            var seen: [String: Set<String>] = [:]
+            for d in Registries.textStyles(.effect) {
+                let fmt = table[d.nameKey] ?? d.nameKey
+                let name = String(format: fmt, arguments: d.nameArgKeys.map { (table[$0] ?? $0) as CVarArg })
+                if lang == "en" { #expect(d.displayName.lowercased() == name.lowercased()) }
+                #expect(!name.contains("textStyle.") && !name.contains("%@"), "\(lang): \(d.id) → \(name)")
+                #expect(!name.contains(where: \.isNumber) || name.contains("3D"), "\(lang): numbered name \(name)")
+                #expect(name.count <= 18, "\(lang): long name \(name)")
+                #expect(seen[d.groupKey, default: []].insert(name).inserted, "\(lang): duplicate \(name) in \(d.groupKey)")
+            }
+        }
+    }
 }

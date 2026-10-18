@@ -151,6 +151,7 @@ struct AnimationTile: View {
           }
         }
         .onHover { h in hover = h; if h { start = Date() } }
+        .testID("anim.tile.\(descriptor.id)")
     }
 
     /// Hover loops the animation (with a short hold at the end); idle shows the clip's resting state.

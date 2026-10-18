@@ -14,12 +14,14 @@ final class TextAtlas: @unchecked Sendable {
     /// Integer-aligned scene rect of each item's cell.
     let cells: [CGRect]
     let bytes: Int
+    /// CPU copy of the atlas (only when built with `keepImage`, for Core Graphics composition of tile previews).
+    var image: CGImage?
 
     init(texture: MTLTexture, uv: [SIMD4<Float>?], cells: [CGRect]) {
         self.texture = texture; self.uv = uv; self.cells = cells; bytes = texture.width * texture.height * 4
     }
 
-    static func build(_ scene: TextScene) -> TextAtlas? {
+    static func build(_ scene: TextScene, keepImage: Bool = false) -> TextAtlas? {
         let n = scene.items.count
         guard n > 0 else { return nil }
         var cells = scene.items.map { $0.rect.integral }
@@ -59,7 +61,9 @@ final class TextAtlas: @unchecked Sendable {
             uv[i] = SIMD4(Float(o.x) / Float(W), Float(o.y) / Float(H), Float(c.width) / Float(W), Float(c.height) / Float(H))
         }
         guard let tex = TextGPU.upload(ctx, W, H) else { return nil }
-        return TextAtlas(texture: tex, uv: uv, cells: cells)
+        let atlas = TextAtlas(texture: tex, uv: uv, cells: cells)
+        if keepImage { atlas.image = ctx.makeImage() }
+        return atlas
     }
 }
 
