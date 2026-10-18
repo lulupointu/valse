@@ -317,7 +317,7 @@ extension TimelineOps {
     /// CapCut "Freeze": splits the clip at `t` and inserts a held-frame clip of `duration` there, rippling the rest of
     /// the track. Returns the freeze clip id.
     @discardableResult
-    public static func freezeFrame(_ id: ClipID, at t: Time, duration: Time = Time(3), in project: inout Project) throws -> ClipID {
+    public static func freezeFrame(_ id: ClipID, at t: Time, duration: Time = EditDefaults.current.freezeDuration, in project: inout Project) throws -> ClipID {
         var tl = project.timeline
         guard let loc = tl.locate(id) else { throw EditError.clipNotFound }
         guard !tl.tracks[loc.track].isLocked else { throw EditError.trackLocked }

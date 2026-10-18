@@ -5,6 +5,8 @@ public enum PersistenceError: Error, Equatable, Sendable {
     case unreadable(String)
     case newerSchema(Int)
     case migrationFailed(Int)
+    /// The project is open in another Montage process.
+    case openElsewhere
 
     public var messageKey: String {
         switch self {
@@ -12,6 +14,7 @@ public enum PersistenceError: Error, Equatable, Sendable {
         case .unreadable: return "error.unreadable"
         case .newerSchema: return "error.newerSchema"
         case .migrationFailed: return "error.migrationFailed"
+        case .openElsewhere: return "error.openElsewhere"
         }
     }
 }
@@ -22,12 +25,16 @@ public enum PersistenceError: Error, Equatable, Sendable {
 ///   project.json      versioned Codable `Project` (schemaVersion at top level)
 ///   media/            optional copies of media ("Copy media into project")
 ///   cover.jpg         optional cover thumbnail for the Home screen
+///   summary.json      small `ProjectSummary` (name, duration, canvas…) so the Home screen never decodes project.json
+///   versions/         version snapshots (`ProjectVersions`)
 /// ```
 /// Caches (proxies, thumbnails, waveforms) are NOT stored here; they live in ~/Library/Caches/Montage keyed by
 /// content hash and can be rebuilt.
 public enum ProjectPackage {
     public static let fileExtension = "montage"
     public static let projectFileName = "project.json"
+    public static let summaryFileName = "summary.json"
+    public static let coverFileName = "cover.jpg"
 
     public static func encoder() -> JSONEncoder {
         let e = JSONEncoder()
@@ -51,6 +58,14 @@ public enum ProjectPackage {
         for i in p.media.indices { p.media[i].relativePath = relativePath(from: base, to: p.media[i].url) }
         let data = try encoder().encode(p)
         try data.write(to: packageURL.appendingPathComponent(projectFileName), options: .atomic)
+        try? encoder().encode(ProjectSummary(p)).write(to: packageURL.appendingPathComponent(summaryFileName), options: .atomic)
+    }
+
+    /// The package's summary (falls back to decoding project.json for packages written before summaries existed).
+    public static func summary(of packageURL: URL) -> ProjectSummary? {
+        if let d = try? Data(contentsOf: packageURL.appendingPathComponent(summaryFileName)),
+           let s = try? decoder().decode(ProjectSummary.self, from: d) { return s }
+        return (try? load(from: packageURL)).map(ProjectSummary.init)
     }
 
     public static func load(from packageURL: URL) throws -> Project {
@@ -72,8 +87,11 @@ public enum ProjectPackage {
         for i in p.media.indices where !fm.fileExists(atPath: p.media[i].url.path) {
             if let rel = p.media[i].relativePath {
                 let candidate = base.appendingPathComponent(rel).standardizedFileURL
-                if fm.fileExists(atPath: candidate.path) { p.media[i].url = candidate }
+                if fm.fileExists(atPath: candidate.path) { p.media[i].url = candidate; continue }
             }
+            // media copied into the package ("Copy to project", "Pack project") whose package was renamed or moved
+            let own = packageURL.appendingPathComponent("media").appendingPathComponent(p.media[i].url.lastPathComponent)
+            if fm.fileExists(atPath: own.path) { p.media[i].url = own.standardizedFileURL }
         }
     }
 
@@ -108,5 +126,23 @@ public enum ProjectMigrator {
             obj["schemaVersion"] = v
         }
         return try JSONSerialization.data(withJSONObject: obj)
+    }
+}
+
+/// What the Home screen needs to show a project card without decoding the whole project (`summary.json`).
+public struct ProjectSummary: Codable, Sendable, Equatable {
+    public var id: ProjectID
+    public var name: String
+    public var duration: Time
+    public var canvasSize: Size2
+    public var frameRate: FrameRate
+    public var mediaCount: Int
+    public var clipCount: Int
+    public var createdAt: Date
+    public var modifiedAt: Date
+
+    public init(_ p: Project) {
+        id = p.id; name = p.name; duration = p.duration; canvasSize = p.settings.canvasSize; frameRate = p.settings.frameRate
+        mediaCount = p.media.count; clipCount = p.timeline.allClips.count; createdAt = p.createdAt; modifiedAt = p.modifiedAt
     }
 }

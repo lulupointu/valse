@@ -145,8 +145,9 @@ public struct TransitionDescriptor: Sendable, Identifiable {
         self.defaultDuration = defaultDuration; self.symbol = symbol; self.shader = shader
     }
 
+    /// New instance; its duration is Settings ▸ Edit ▸ Transition duration when set (`EditDefaults`), else `defaultDuration`.
     public func makeInstance() -> TransitionInstance {
-        TransitionInstance(typeID: id, duration: defaultDuration,
+        TransitionInstance(typeID: id, duration: EditDefaults.current.transitionDuration ?? defaultDuration,
                            params: Dictionary(uniqueKeysWithValues: params.map { ($0.key, $0.defaultValue) }))
     }
 

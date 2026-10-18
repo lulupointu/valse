@@ -43,15 +43,35 @@ public struct AutosavePolicy: Sendable {
 
 /// Default locations.
 public enum MontagePaths {
-    /// ~/Movies/Montage — drafts folder for new projects (CapCut "Drafts").
+    /// UserDefaults keys of the Settings overrides (absolute paths).
+    public static let draftsOverrideKey = "MontageProjectsDirectory"
+    public static let cacheOverrideKey = "MontageCacheDirectory"
+
+    static func override(_ key: String) -> URL? {
+        guard let p = UserDefaults.standard.string(forKey: key), !p.isEmpty else { return nil }
+        return URL(fileURLWithPath: p, isDirectory: true)
+    }
+
+    /// ~/Movies/Montage — drafts folder for new projects (CapCut "Drafts"); Settings ▸ Project ▸ Save to overrides it.
     public static var draftsDirectory: URL {
+        if let o = override(draftsOverrideKey) { return o }
+        return defaultDraftsDirectory
+    }
+
+    public static var defaultDraftsDirectory: URL {
         let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Movies")
         return movies.appendingPathComponent("Montage", isDirectory: true)
     }
 
     /// ~/Library/Caches/Montage — proxies, thumbnails, waveforms (rebuildable, keyed by content hash).
+    /// Settings ▸ Performance ▸ Cache location overrides it (engine caches pick it up at the next launch).
     public static var cacheDirectory: URL {
+        if let o = override(cacheOverrideKey) { return o }
+        return defaultCacheDirectory
+    }
+
+    public static var defaultCacheDirectory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         return base.appendingPathComponent("Montage", isDirectory: true)
     }

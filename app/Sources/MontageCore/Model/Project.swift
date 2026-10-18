@@ -142,8 +142,8 @@ public struct MediaAsset: Codable, Sendable, Equatable, Identifiable {
         self.contentHash = contentHash; self.fileSize = fileSize; self.codec = codec; self.sourceRotation = sourceRotation
     }
 
-    /// Default timeline duration when inserted (images: 5 s like CapCut).
-    public var defaultClipDuration: Time { kind == .image ? Time(5) : duration }
+    /// Default timeline duration when inserted (images: Settings ▸ Edit ▸ Image duration, 5 s like CapCut).
+    public var defaultClipDuration: Time { kind == .image ? EditDefaults.current.imageDuration : duration }
 }
 
 public struct Marker: Codable, Sendable, Equatable, Identifiable {

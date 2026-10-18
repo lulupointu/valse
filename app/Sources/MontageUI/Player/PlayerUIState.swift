@@ -166,7 +166,7 @@ extension EditorStore {
             let k = big ? 10.0 : 1.0
             nudgeSelection(dx: Double(dx) * k, dy: Double(dy) * k)
         } else if dx != 0 {
-            step(frames: dx * (big ? 10 : 1))
+            step(frames: dx * (big ? EditDefaults.current.stepFrames : 1))
         }
     }
 
