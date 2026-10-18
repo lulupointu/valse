@@ -66,3 +66,21 @@
 "mask.mirror" = "Mirror";
 "mask.circle" = "Circle";
 "mask.rectangle" = "Rectangle";
+
+/* Blend modes & mask shapes added by W6 */
+"blend.linearBurn" = "Linear burn";
+"blend.linearDodge" = "Linear dodge";
+"blend.vividLight" = "Vivid light";
+"blend.linearLight" = "Linear light";
+"blend.pinLight" = "Pin light";
+"blend.hardMix" = "Hard mix";
+"blend.subtract" = "Subtract";
+"blend.divide" = "Divide";
+"blend.hue" = "Hue";
+"blend.saturation" = "Saturation";
+"blend.color" = "Color";
+"blend.luminosity" = "Luminosity";
+"blend.darkerColor" = "Darker color";
+"blend.lighterColor" = "Lighter color";
+"mask.heart" = "Heart";
+"mask.star" = "Stars";

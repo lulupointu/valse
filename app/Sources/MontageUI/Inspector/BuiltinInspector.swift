@@ -111,7 +111,8 @@ struct MaskSection: View {
             HStack(spacing: 8) {
                 maskTile(nil, "nosign", tr("inspector.mask.none"))
                 ForEach(MaskShape.allCases, id: \.self) { s in
-                    maskTile(s, ["linear": "line.diagonal", "mirror": "rectangle.split.1x2", "circle": "circle", "rectangle": "rectangle"][s.rawValue]!, tr(s.nameKey))
+                    maskTile(s, ["linear": "line.diagonal", "mirror": "rectangle.split.1x2", "circle": "circle", "rectangle": "rectangle",
+                                  "heart": "heart", "star": "star"][s.rawValue] ?? "questionmark", tr(s.nameKey))
                 }
             }
             if ctx.clip?.mask != nil {

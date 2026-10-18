@@ -95,7 +95,7 @@ enum CoreShaders {
         float2 corners[4];   // NDC: TL, TR, BL, BR
         float opacity;
         int blend;
-        int maskShape;       // -1 none, 0 linear, 1 mirror, 2 circle, 3 rectangle
+        int maskShape;       // -1 none, 0 linear, 1 mirror, 2 circle, 3 rectangle, 4 heart, 5 star
         float maskInvert;
         float2 maskCenter;
         float2 maskSize;
@@ -129,8 +129,65 @@ enum CoreShaders {
             case 10: return s <= 0.5 ? 2.0 * b * s : 1.0 - 2.0 * (1.0 - b) * (1.0 - s);     // hard light
             case 11: return abs(b - s);                                       // difference
             case 12: return b + s - 2.0 * b * s;                              // exclusion
+            case 13: return max(0.0, b + s - 1.0);                            // linear burn
+            case 14: return min(1.0, b + s);                                  // linear dodge
+            case 15: return s <= 0.5                                          // vivid light
+                ? (s <= 0.0 ? 0.0 : max(0.0, 1.0 - (1.0 - b) / (2.0 * s)))
+                : (s >= 1.0 ? 1.0 : min(1.0, b / (2.0 * (1.0 - s))));
+            case 16: return clamp(b + 2.0 * s - 1.0, 0.0, 1.0);               // linear light
+            case 17: return s <= 0.5 ? min(b, 2.0 * s) : max(b, 2.0 * s - 1.0); // pin light
+            case 18: return b + s >= 1.0 ? 1.0 : 0.0;                         // hard mix
+            case 19: return max(0.0, b - s);                                  // subtract
+            case 20: return s <= 0.0 ? 1.0 : min(1.0, b / s);                 // divide
             default: return s;                                                // normal
         }
+    }
+
+    // Non-separable modes (W3C compositing spec): hue, saturation, color, luminosity, darker/lighter colour.
+    inline float lumW(float3 c) { return dot(c, float3(0.3, 0.59, 0.11)); }
+    inline float3 clipColor(float3 c) {
+        float l = lumW(c), n = min(c.r, min(c.g, c.b)), x = max(c.r, max(c.g, c.b));
+        if (n < 0.0) { c = l + (c - l) * l / max(l - n, 1e-5); }
+        if (x > 1.0) { c = l + (c - l) * (1.0 - l) / max(x - l, 1e-5); }
+        return c;
+    }
+    inline float3 setLum(float3 c, float l) { return clipColor(c + (l - lumW(c))); }
+    inline float satW(float3 c) { return max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b)); }
+    inline float3 setSat(float3 c, float s) {
+        float mn = min(c.r, min(c.g, c.b)), mx = max(c.r, max(c.g, c.b));
+        return mx > mn ? (c - mn) * s / (mx - mn) : float3(0.0);
+    }
+    inline float3 blendRGB(int m, float3 b, float3 s) {
+        switch (m) {
+            case 21: return setLum(setSat(s, satW(b)), lumW(b));              // hue
+            case 22: return setLum(setSat(b, satW(s)), lumW(b));              // saturation
+            case 23: return setLum(s, lumW(b));                               // color
+            case 24: return setLum(b, lumW(s));                               // luminosity
+            case 25: return lumW(s) < lumW(b) ? s : b;                        // darker color
+            case 26: return lumW(s) > lumW(b) ? s : b;                        // lighter color
+            default: return float3(blendChannel(m, b.r, s.r), blendChannel(m, b.g, s.g), blendChannel(m, b.b, s.b));
+        }
+    }
+
+    // Heart / star signed distances (Inigo Quilez), q in units where the shape spans [-1, 1].
+    inline float sdHeart(float2 p) {
+        p.x = abs(p.x);
+        if (p.y + p.x > 1.0) { return sqrt(dot(p - float2(0.25, 0.75), p - float2(0.25, 0.75))) - sqrt(2.0) / 4.0; }
+        float2 a = p - float2(0.0, 1.0);
+        float2 b = p - 0.5 * max(p.x + p.y, 0.0);
+        return sqrt(min(dot(a, a), dot(b, b))) * sign(p.x - p.y);
+    }
+    inline float sdStar5(float2 p, float r, float rf) {
+        const float2 k1 = float2(0.809016994375, -0.587785252292);
+        const float2 k2 = float2(-k1.x, k1.y);
+        p.x = abs(p.x);
+        p -= 2.0 * max(dot(k1, p), 0.0) * k1;
+        p -= 2.0 * max(dot(k2, p), 0.0) * k2;
+        p.x = abs(p.x);
+        p.y -= r;
+        float2 ba = rf * float2(-k1.y, k1.x) - float2(0, 1);
+        float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
+        return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
     }
 
     inline float maskAlpha(constant PlaceU& u, float2 uv) {
@@ -150,6 +207,13 @@ enum CoreShaders {
             float d = length(q / r);
             float ff = f / max(min(r.x, r.y), 0.0001);
             a = 1.0 - smoothstep(1.0 - ff, 1.0 + ff, d);
+        } else if (u.maskShape == 4 || u.maskShape == 5) {
+            // heart / star: fit the unit shape into the mask box, distance back in layer units
+            float2 h = max(u.maskSize * float2(u.layerAspect, 1.0) * 0.5, float2(0.0001));
+            float sc = min(h.x, h.y);
+            float2 p = q / h * float2(1.0, -1.0);           // y up for the SDFs
+            float d = u.maskShape == 4 ? sdHeart(p * 0.62 + float2(0.0, 0.5)) / 0.62 : sdStar5(p, 1.0, 0.45);
+            a = 1.0 - smoothstep(-f, f, d * sc);
         } else {
             float2 h = u.maskSize * float2(u.layerAspect, 1.0) * 0.5;
             float rr = u.maskRoundness * min(h.x, h.y);
@@ -170,7 +234,7 @@ enum CoreShaders {
         float3 cb = ab > 0.0 ? dst.rgb / ab : float3(0.0);
         float3 mixed = src.rgb;
         if (u.blend != 0) {
-            float3 bl = float3(blendChannel(u.blend, cb.r, src.r), blendChannel(u.blend, cb.g, src.g), blendChannel(u.blend, cb.b, src.b));
+            float3 bl = saturate(blendRGB(u.blend, cb, src.rgb));
             mixed = (1.0 - ab) * src.rgb + ab * bl;
         }
         return float4(as * mixed + (1.0 - as) * dst.rgb, as + ab * (1.0 - as));

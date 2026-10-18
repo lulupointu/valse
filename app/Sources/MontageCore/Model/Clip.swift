@@ -119,13 +119,16 @@ public struct CropRect: Hashable, Codable, Sendable {
 /// CapCut blend modes ("Mix mode"). Raw values are persisted and also index the shader switch.
 public enum BlendMode: String, Codable, Sendable, CaseIterable {
     case normal, darken, multiply, colorBurn, lighten, screen, colorDodge, add, overlay, softLight, hardLight,
-         difference, exclusion
+         difference, exclusion,
+         // appended (shader indices are positions, never reorder): CapCut "Linear burn" + the usual pro set
+         linearBurn, linearDodge, vividLight, linearLight, pinLight, hardMix, subtract, divide,
+         hue, saturation, color, luminosity, darkerColor, lighterColor
     public var shaderIndex: Int { BlendMode.allCases.firstIndex(of: self)! }
     public var nameKey: String { "blend.\(rawValue)" }
 }
 
 public enum MaskShape: String, Codable, Sendable, CaseIterable {
-    case linear, mirror, circle, rectangle
+    case linear, mirror, circle, rectangle, heart, star
     public var nameKey: String { "mask.\(rawValue)" }
 }
 

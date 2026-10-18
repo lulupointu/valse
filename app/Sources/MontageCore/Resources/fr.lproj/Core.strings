@@ -66,3 +66,21 @@
 "mask.mirror" = "Miroir";
 "mask.circle" = "Cercle";
 "mask.rectangle" = "Rectangle";
+
+/* Modes de fusion et formes de masque (W6) */
+"blend.linearBurn" = "Densité linéaire +";
+"blend.linearDodge" = "Densité linéaire -";
+"blend.vividLight" = "Lumière vive";
+"blend.linearLight" = "Lumière linéaire";
+"blend.pinLight" = "Lumière ponctuelle";
+"blend.hardMix" = "Mélange maximal";
+"blend.subtract" = "Soustraction";
+"blend.divide" = "Division";
+"blend.hue" = "Teinte";
+"blend.saturation" = "Saturation";
+"blend.color" = "Couleur";
+"blend.luminosity" = "Luminosité";
+"blend.darkerColor" = "Couleur plus foncée";
+"blend.lighterColor" = "Couleur plus claire";
+"mask.heart" = "Cœur";
+"mask.star" = "Étoiles";
