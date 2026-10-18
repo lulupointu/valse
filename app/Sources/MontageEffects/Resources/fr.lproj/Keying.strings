@@ -1,0 +1,17 @@
+/* Keying (inspector W3: chroma key, canvas styles) */
+"key.chroma" = "Incrustation (fond vert)";
+"key.group.cutout" = "Découpage";
+"key.chroma.color" = "Pipette";
+"key.chroma.intensity" = "Intensité";
+"key.chroma.shadow" = "Ombre";
+"key.chroma.feather" = "Adoucir les bords";
+"key.chroma.cleanup" = "Nettoyer les bords";
+"canvas.group.style" = "Style";
+"canvas.style.sunset" = "Coucher de soleil";
+"canvas.style.ocean" = "Océan";
+"canvas.style.mint" = "Menthe";
+"canvas.style.stripes" = "Rayures";
+"canvas.style.dots" = "Pois";
+"canvas.style.grid" = "Grille";
+"canvas.style.checker" = "Damier";
+"canvas.style.waves" = "Vagues";

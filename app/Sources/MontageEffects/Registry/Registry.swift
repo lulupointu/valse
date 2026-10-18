@@ -24,7 +24,8 @@ public final class Registry<Item: Identifiable & Sendable>: @unchecked Sendable 
 
 /// Entry point for every content registry. Adding a built-in = one file in Builtin/ + one line in its catalog list.
 public enum Registries {
-    public static let effects = Registry<EffectDescriptor>(BuiltinFilters.all + BuiltinEffects.all + BuiltinAdjustments.all)
+    public static let effects = Registry<EffectDescriptor>(BuiltinFilters.all + BuiltinEffects.all + BuiltinAdjustments.all
+                                                                + BuiltinKeying.all + BuiltinCanvasStyles.all)
     public static let transitions = Registry<TransitionDescriptor>(BuiltinTransitions.all)
     public static let animations = Registry<AnimationDescriptor>(BuiltinAnimations.all)
     public static let stickers = Registry<StickerDescriptor>(BuiltinStickers.all)

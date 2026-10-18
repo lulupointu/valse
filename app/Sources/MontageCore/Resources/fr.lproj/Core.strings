@@ -66,3 +66,10 @@
 "mask.mirror" = "Miroir";
 "mask.circle" = "Cercle";
 "mask.rectangle" = "Rectangle";
+
+/* Inspector properties (W3) */
+"prop.maskRoundness" = "Bords arrondis";
+"prop.cropLeft" = "Gauche";
+"prop.cropTop" = "Haut";
+"prop.cropRight" = "Droite";
+"prop.cropBottom" = "Bas";

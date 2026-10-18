@@ -39,6 +39,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var blendMode: BlendMode
     public var crop: CropRect
     public var mask: Mask?
+    /// Canvas fill behind a main-track clip (CapCut Video ▸ Basic ▸ Canvas). nil = None (project background shows).
+    public var canvas: CanvasBackground?
     /// Filters / effects / adjustments applied in order (registry ids, see MontageEffects).
     public var effects: [EffectInstance]
     /// Transition into the *next* clip on the same track (main track).
@@ -70,7 +72,7 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public init(content: ClipContent, start: Time, duration: Time, sourceStart: Time = .zero) {
         id = ClipID(); self.content = content; self.start = start; self.duration = duration
         self.sourceStart = sourceStart; speed = .normal; reversed = false; isEnabled = true
-        transform = Transform(); opacity = 1; blendMode = .normal; crop = CropRect(); mask = nil
+        transform = Transform(); opacity = 1; blendMode = .normal; crop = CropRect(); mask = nil; canvas = nil
         effects = []; transitionOut = nil; animations = ClipAnimations(); audio = AudioProps()
         keyframes = [:]; linkedTo = nil
     }

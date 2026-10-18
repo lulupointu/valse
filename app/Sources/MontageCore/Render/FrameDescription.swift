@@ -90,6 +90,7 @@ public enum FrameEvaluator {
     public static func evaluate(_ project: Project, at t: Time) -> FrameDescription {
         var items: [RenderItem] = []
         let canvas = project.settings.canvasSize
+        var background = project.settings.backgroundColor
         for track in project.timeline.tracks where track.kind.isVisual && !track.isHidden {
             let active = track.clips(at: t).filter(\.isEnabled)
             guard !active.isEmpty else { continue }
@@ -100,6 +101,10 @@ public enum FrameEvaluator {
                       let lb = layer(b, track: track, project: project, at: t) else { continue }
                 let d = max(tr.duration.ticks, 1)
                 let p = min(max(Double((t - b.start).ticks) / Double(d), 0), 1)
+                let dominant = p < 0.5 ? (a, la) : (b, lb)
+                if let cv = dominant.0.canvas {
+                    items += canvasItems(cv, for: dominant.1, canvasSize: canvas, background: &background)
+                }
                 items.append(.transition(from: la, to: lb, typeID: tr.typeID, progress: p, params: tr.params))
                 continue
             }
@@ -109,11 +114,50 @@ public enum FrameEvaluator {
                     let r = c.resolved(at: local)
                     items.append(.adjustment(clipID: c.id, effects: resolveEffects(r), opacity: r.opacity, localTime: local))
                 } else if let l = layer(c, track: track, project: project, at: t) {
+                    if track.isMain, let cv = c.canvas {
+                        items += canvasItems(cv, for: l, canvasSize: canvas, background: &background)
+                    }
                     items.append(.layer(l))
                 }
             }
         }
-        return FrameDescription(time: t, canvasSize: canvas, background: project.settings.backgroundColor, items: items)
+        return FrameDescription(time: t, canvasSize: canvas, background: background, items: items)
+    }
+
+    /// Fixed instance ids for the synthetic canvas effects (stable `FrameDescription` hashes across frames).
+    static let canvasEffectIDs: [EffectInstanceID] = (1...4).map {
+        EffectInstanceID(UUID(uuidString: String(format: "00000000-0000-0000-0000-0000000CA%03d", $0))!)
+    }
+
+    /// Render items drawn *below* main-track layer `l` for its canvas setting (see `CanvasBackground`).
+    public static func canvasItems(_ canvas: CanvasBackground, for l: LayerDescription, canvasSize: Size2,
+                                   background: inout RGBA) -> [RenderItem] {
+        switch canvas {
+        case .color(let c):
+            background = RGBA(c.r, c.g, c.b, 1)
+            return []
+        case .blur(let level):
+            let s = l.sourceSize
+            guard l.fitsCanvas, s.width > 0, s.height > 0 else { return [] }
+            let fit = min(canvasSize.width / s.width, canvasSize.height / s.height)
+            let fill = max(canvasSize.width / s.width, canvasSize.height / s.height)
+            let k = fill / max(fit, 1e-9)
+            var b = l
+            b.transform = Transform(position: .zero, scale: Vec2(k, k), rotation: 0,
+                                    flipH: l.transform.flipH, flipV: l.transform.flipV)
+            b.opacity = 1; b.blendMode = .normal; b.crop = CropRect(); b.mask = nil; b.animations = []
+            b.effects = l.effects + CanvasBackground.blurStack(level: level).enumerated().map { i, r in
+                ResolvedEffect(instanceID: canvasEffectIDs[i], typeID: CanvasBackground.blurEffectID, params: ["radius": .scalar(r)])
+            }
+            return [.layer(b)]
+        case .style(let id):
+            let fillLayer = LayerDescription(
+                clipID: l.clipID, trackID: l.trackID, source: .solid(.black), sourceSize: canvasSize, transform: .identity,
+                opacity: 1, blendMode: .normal, crop: CropRect(), mask: nil,
+                effects: [ResolvedEffect(instanceID: canvasEffectIDs[3], typeID: id, params: [:])], animations: [],
+                localTime: l.localTime)
+            return [.layer(fillLayer)]
+        }
     }
 
     public static func layer(_ c: Clip, track: Track, project: Project, at t: Time) -> LayerDescription? {
