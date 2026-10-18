@@ -240,6 +240,9 @@ enum PlayerMenus {
             .separator(),
             item(tr("player.rulers"), checked: ui.showRulers, key: "r", mods: [.command, .option]) { ui.showRulers.toggle() },
         ]))
+        m.addItem(submenu(tr("player.scope"), ScopeMode.allCases.map { s in
+            item(tr(s.titleKey), checked: ui.scope == s) { ui.scope = s }
+        }))
         m.addItem(submenu(tr("player.safe"), SafeZone.allCases.map { z in
             item(tr(z.titleKey), checked: ui.safeZone == z) { ui.safeZone = z }
         }))
@@ -303,6 +306,7 @@ final class PlayerContainerView: NSView {
         addSubview(player)
         addSubview(overlay)
         overlay.onContentRectChange = { [weak player] r in player?.contentRect = r }
+        overlay.frameSampler = { [weak player] in player?.sampleFrame() }
     }
     required init?(coder: NSCoder) { fatalError() }
 

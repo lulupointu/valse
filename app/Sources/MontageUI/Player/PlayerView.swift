@@ -77,6 +77,12 @@ final class PlayerView: NSView {
 
     func requestRedraw() { needsRerender = true }
 
+    /// The last presented frame (renders one if nothing was presented yet), e.g. for the colour oscilloscope.
+    var presentedTexture: MTLTexture? {
+        if lastFrame == nil { rerender() }
+        return lastFrame
+    }
+
     /// Where the frame is drawn (view points, origin top-left), set by the canvas overlay (zoom / pan / padding).
     /// nil = aspect-fit to the whole view.
     var contentRect: CGRect? {

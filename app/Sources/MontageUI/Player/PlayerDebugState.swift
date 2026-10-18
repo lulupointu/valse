@@ -37,6 +37,7 @@ public enum PlayerDebugState {
             case "safe": ui.safeZone = SafeZone(rawValue: value) ?? .none
             case "zoom": ui.zoom = Double(value) ?? 1
             case "zoombar": ui.isZoomBarVisible = true
+            case "scope": ui.scope = ScopeMode(rawValue: value) ?? .waveform
             case "loop": store.toggleLoop()
             case "ratio": store.setRatio(value)
             case "quality": store.previewQuality = PreviewQuality(rawValue: value) ?? store.previewQuality

@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import CoreGraphics
 import MontageCore
 @testable import MontageUI
 
@@ -56,6 +57,26 @@ struct MaskHandlesTests {
         let r = f.rotated(0, start: Vec2(960, 900), current: Vec2(600, 540), snapping: true)
         #expect(r == 90)
         #expect(MaskFrame.dragged(0.2, dy: -30) > 0.2 && MaskFrame.dragged(0.2, dy: 300) == 0)
+    }
+
+    /// W2-6: the oscilloscope puts a flat colour's luma / channels at the right level (top row = white).
+    @Test func scopeLevels() throws {
+        // 4×2 image: pure white on the left half, pure red on the right
+        var px: [UInt8] = []
+        for _ in 0..<2 { for x in 0..<4 { px += x < 2 ? [255, 255, 255, 255] : [255, 0, 0, 255] } }
+        let wf = try #require(ScopeAnalyzer.image(rgba: px, width: 4, height: 2, mode: .waveform))
+        #expect(wf.width == 4 && wf.height == ScopeAnalyzer.levels)
+        let parade = try #require(ScopeAnalyzer.image(rgba: px, width: 4, height: 2, mode: .parade))
+        #expect(parade.width == 12)
+        func alpha(_ img: CGImage, _ x: Int, _ y: Int) -> UInt8 {
+            let d = img.dataProvider!.data! as Data
+            return d[(y * img.width + x) * 4 + 3]
+        }
+        #expect(alpha(wf, 0, 0) > 0)                                       // white → top row
+        let redLuma = Int((0.2126 * Double(ScopeAnalyzer.levels - 1)).rounded())
+        #expect(alpha(wf, 3, ScopeAnalyzer.levels - 1 - redLuma) > 0 && alpha(wf, 3, 0) == 0)
+        #expect(alpha(parade, 3, 0) > 0 && alpha(parade, 4 + 3, ScopeAnalyzer.levels - 1) > 0)   // R full, G zero for red
+        #expect(ScopeAnalyzer.image(rgba: px, width: 4, height: 2, mode: .off) == nil)
     }
 
     /// W2-7: text edge pills sit on the left/right midpoints and set the wrap width (fraction of the canvas width).

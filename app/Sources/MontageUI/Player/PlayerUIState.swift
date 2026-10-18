@@ -46,6 +46,8 @@ public final class PlayerUIState {
     /// Library / source preview ("Previewing — Effects", W2-3) and its own playhead (the timeline playhead stays put).
     public var preview: PlayerPreview?
     public var previewTime: Time = .zero
+    /// ☰ ▸ Color oscilloscope (W2-6).
+    public var scope: ScopeMode = .off
 
     public var isZoomed: Bool { abs(zoom - 1) > 0.001 || pan != .zero }
 }

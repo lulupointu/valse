@@ -31,6 +31,10 @@ final class CanvasOverlayView: NSView {
     private var tracking: NSTrackingArea?
     private var observing = false
     private var toolDragging = false
+    /// Downscaled RGBA sample of the presented frame (set by the container: the Metal player view).
+    var frameSampler: (() -> (pixels: [UInt8], width: Int, height: Int)?)?
+    private var scopeImage: CGImage?
+    private var scopeTimer: Timer?
 
     static let rulerWidth: CGFloat = 18
     static let accent = NSColor(srgbRed: 0x57 / 255.0, green: 0xBE / 255.0, blue: 0xCB / 255.0, alpha: 1)
@@ -81,7 +85,8 @@ final class CanvasOverlayView: NSView {
         _ = (ui.zoom, ui.pan, ui.showRulers, ui.showGuides, ui.guides, ui.safeZone, ui.editingTextClip)
         _ = ui.canvasTool?.revision
         _ = store.project.settings.canvasSize
-        _ = (store.inspectorTab, InspectorUIState.shared.subTab, ui.preview, store.project.duration)
+        _ = (store.inspectorTab, InspectorUIState.shared.subTab, ui.preview, store.project.duration, ui.scope)
+        updateScopeTimer()
         if !store.selection.isEmpty {
             _ = store.project.timeline
             _ = store.transport.playhead
@@ -159,6 +164,7 @@ final class CanvasOverlayView: NSView {
         }
 
         drawSafeZone(ui.safeZone, in: r, ctx)
+        if ui.scope != .off { drawScope(ctx) }
 
         if ui.showGuides {
             ctx.setLineWidth(1)
@@ -324,6 +330,50 @@ final class CanvasOverlayView: NSView {
             let fb = vp.toView(f.featherButton(viewScale: vp.scale))
             drawPill(v, at: CGPoint(x: fb.x, y: fb.y - 24), ctx)
         }
+    }
+
+    // MARK: Color oscilloscope (W2-6)
+
+    /// Bottom-right panel: dark rounded box, 0/50/100 % grid, the scope image.
+    private func drawScope(_ ctx: CGContext) {
+        let w = min(240, bounds.width * 0.4), h = w / 2
+        let box = CGRect(x: bounds.width - w - 10, y: bounds.height - h - 10, width: w, height: h)
+        ctx.saveGState()
+        ctx.setFillColor(NSColor.black.withAlphaComponent(0.88).cgColor)
+        ctx.addPath(CGPath(roundedRect: box, cornerWidth: 6, cornerHeight: 6, transform: nil)); ctx.fillPath()
+        let plot = box.insetBy(dx: 6, dy: 6)
+        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.18).cgColor)
+        ctx.setLineWidth(0.5)
+        for f in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let y = plot.minY + plot.height * f
+            ctx.strokeLineSegments(between: [CGPoint(x: plot.minX, y: y), CGPoint(x: plot.maxX, y: y)])
+        }
+        if let img = scopeImage {
+            // the CG image is drawn bottom-up in this flipped view: flip it back so high values stay at the top
+            ctx.translateBy(x: 0, y: plot.maxY + plot.minY); ctx.scaleBy(x: 1, y: -1)
+            ctx.setBlendMode(.screen)
+            ctx.draw(img, in: plot)
+        }
+        ctx.restoreGState()
+    }
+
+    private func updateScopeTimer() {
+        let on = store.playerUI.scope != .off
+        if on, scopeTimer == nil {
+            refreshScope()
+            scopeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshScope() }
+            }
+        } else if !on, let t = scopeTimer {
+            t.invalidate(); scopeTimer = nil; scopeImage = nil
+        }
+    }
+
+    private func refreshScope() {
+        let mode = store.playerUI.scope
+        guard mode != .off, let s = frameSampler?() else { return }
+        scopeImage = ScopeAnalyzer.image(rgba: s.pixels, width: s.width, height: s.height, mode: mode)
+        needsDisplay = true
     }
 
     private func drawSymbol(_ name: String, at p: CGPoint, size: CGFloat) {
