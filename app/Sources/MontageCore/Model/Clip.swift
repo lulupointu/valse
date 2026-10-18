@@ -259,15 +259,11 @@ public struct AudioProps: Hashable, Codable, Sendable {
     public var eq: AudioEQ?
     public var channels: ChannelMode
     public var ducking: AudioDucking?
-    public var beats: BeatMarkers?
-    /// The clip's audio was extracted to its own audio clip (CapCut "Extract audio"; "Restore audio" undoes it).
-    /// A detached clip is silent; the extracted clip has `linkedTo` = this clip.
-    public var isDetached: Bool
 
     public init() {
         volume = 1; fadeIn = .zero; fadeOut = .zero; isMuted = false; preservePitch = true
         pitch = 0; voice = nil; noiseReduction = nil; enhanceVoice = nil; separation = nil; loudness = nil; eq = nil
-        channels = .stereo; ducking = nil; beats = nil; isDetached = false
+        channels = .stereo; ducking = nil
     }
 
     // Files written before the audio effects existed lack the new keys: every field decodes with a default.
@@ -288,12 +284,10 @@ public struct AudioProps: Hashable, Codable, Sendable {
         eq = try c.decodeIfPresent(AudioEQ.self, forKey: .eq)
         channels = try c.decodeIfPresent(ChannelMode.self, forKey: .channels) ?? .stereo
         ducking = try c.decodeIfPresent(AudioDucking.self, forKey: .ducking)
-        beats = try c.decodeIfPresent(BeatMarkers.self, forKey: .beats)
-        isDetached = try c.decodeIfPresent(Bool.self, forKey: .isDetached) ?? false
     }
 
     /// The clip contributes sound to the mix.
-    public var isAudible: Bool { !isMuted && !isDetached }
+    public var isAudible: Bool { !isMuted }
 
     public static func decibels(_ gain: Double) -> Double { gain <= 0 ? -.infinity : 20 * log10(gain) }
 }
