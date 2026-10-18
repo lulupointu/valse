@@ -64,46 +64,50 @@ import MontageTestSupport
     }
 
     @Test func similarityFitRecoversRollAndIgnoresTheMovingSubject() async throws {
-        let url = try await Self.shakyVideo()
-        let path = try await StabilizationStore.analyze(url)
-        let r = try #require(path.r)
-        var errs: [Double] = []
-        for i in 1..<16 {
-            errs.append(abs((r[i] - r[i - 1]) - (Self.roll[i] - Self.roll[i - 1])))
-            #expect(abs((path.x[i] - path.x[i - 1]) - (Self.shift[i] - Self.shift[i - 1])) < 0.006, "x i=\(i)")
+        try await HeavyWorkGate.run {   // CPU-heavy: keep real-time probes from starving
+            let url = try await Self.shakyVideo()
+            let path = try await StabilizationStore.analyze(url)
+            let r = try #require(path.r)
+            var errs: [Double] = []
+            for i in 1..<16 {
+                errs.append(abs((r[i] - r[i - 1]) - (Self.roll[i] - Self.roll[i - 1])))
+                #expect(abs((path.x[i] - path.x[i - 1]) - (Self.shift[i] - Self.shift[i - 1])) < 0.006, "x i=\(i)")
+            }
+            print("metric stabilize_roll_err_deg_max=\((errs.max() ?? 0) * 180 / .pi)")
+            #expect((errs.max() ?? 1) < 0.004, "roll error \(errs)")   // < 0.23° per frame
         }
-        print("metric stabilize_roll_err_deg_max=\((errs.max() ?? 0) * 180 / .pi)")
-        #expect((errs.max() ?? 1) < 0.004, "roll error \(errs)")   // < 0.23° per frame
     }
 
     @Test func rollCorrectionSteadiesTheRender() async throws {
-        let url = try await Self.shakyVideo()
-        var p = TestProject(canvas: Size2(640, 360))
-        let id = try await p.addMedia(url)
-        let asset = p.project.media[0]
-        try StabilizationStore.shared.store(try await StabilizationStore.analyze(url), for: asset)
-        /// Mean abs luma difference between consecutive frames over the left quarter (away from the subject's path).
-        func shake(_ imgs: [Bitmap]) -> Double {
-            var acc = 0.0, n = 0.0
-            for k in 1..<imgs.count {
-                let a = imgs[k - 1], b = imgs[k]
-                for y in stride(from: b.height / 4, to: b.height * 3 / 4, by: 2) {
-                    for x in stride(from: b.width * 3 / 4, to: b.width * 15 / 16, by: 2) {
-                        acc += abs(a.pixel(x, y).luma - b.pixel(x, y).luma); n += 1
+        try await HeavyWorkGate.run {   // CPU-heavy: keep real-time probes from starving
+            let url = try await Self.shakyVideo()
+            var p = TestProject(canvas: Size2(640, 360))
+            let id = try await p.addMedia(url)
+            let asset = p.project.media[0]
+            try StabilizationStore.shared.store(try await StabilizationStore.analyze(url), for: asset)
+            /// Mean abs luma difference between consecutive frames over the left quarter (away from the subject's path).
+            func shake(_ imgs: [Bitmap]) -> Double {
+                var acc = 0.0, n = 0.0
+                for k in 1..<imgs.count {
+                    let a = imgs[k - 1], b = imgs[k]
+                    for y in stride(from: b.height / 4, to: b.height * 3 / 4, by: 2) {
+                        for x in stride(from: b.width * 3 / 4, to: b.width * 15 / 16, by: 2) {
+                            acc += abs(a.pixel(x, y).luma - b.pixel(x, y).luma); n += 1
+                        }
                     }
                 }
+                return acc / max(n, 1)
             }
-            return acc / max(n, 1)
+            var raw: [Bitmap] = [], steady: [Bitmap] = []
+            for f in 12..<20 { raw.append(try await p.render(at: Double(f) / 30 + 0.001)) }
+            p[id].stabilization = Stabilization(level: .mostStable)
+            for f in 12..<20 { steady.append(try await p.render(at: Double(f) / 30 + 0.001)) }
+            let (s0, s1) = (shake(raw), shake(steady))
+            print("metric stabilize_shake_raw=\(s0) steady=\(s1)")
+            #expect(s1 < s0 * 0.5, "raw \(s0) steady \(s1)")
+            let track = try #require(StabilizationStore.shared.track(media: asset, level: .mostStable))
+            #expect(track.dr != nil && track.zoom > 1 && track.zoom < 1.5)
         }
-        var raw: [Bitmap] = [], steady: [Bitmap] = []
-        for f in 12..<20 { raw.append(try await p.render(at: Double(f) / 30 + 0.001)) }
-        p[id].stabilization = Stabilization(level: .mostStable)
-        for f in 12..<20 { steady.append(try await p.render(at: Double(f) / 30 + 0.001)) }
-        let (s0, s1) = (shake(raw), shake(steady))
-        print("metric stabilize_shake_raw=\(s0) steady=\(s1)")
-        #expect(s1 < s0 * 0.5, "raw \(s0) steady \(s1)")
-        let track = try #require(StabilizationStore.shared.track(media: asset, level: .mostStable))
-        #expect(track.dr != nil && track.zoom > 1 && track.zoom < 1.5)
     }
 }
 

@@ -83,3 +83,55 @@
 "enhance.done" = "Vidéo améliorée";
 "enhance.failed" = "Impossible d'améliorer la vidéo. Réessaie.";
 "enhance.cancelled" = "Amélioration de la vidéo annulée";
+
+/* W10 rédacteur IA (AI-029) */
+"writer.nav" = "Rédacteur IA";
+"writer.topic" = "Sujet";
+"writer.topic.placeholder" = "Exemple : une introduction à la première révolution industrielle";
+"writer.requirements" = "Exigences";
+"writer.requirements.placeholder" = "Saisis la description du style, le nombre de caractères et d'autres détails";
+"writer.kind.talking" = "Script oral";
+"writer.kind.ad" = "Publicité";
+"writer.kind.inspirational" = "Inspirant";
+"writer.kind.meme" = "Mème";
+"writer.kind.romantic" = "Romantique";
+"writer.kind.tutorial" = "Tutoriel";
+"writer.generate" = "Générer";
+"writer.generating" = "Génération…";
+"writer.script" = "Script";
+"writer.longer" = "Rallonger";
+"writer.shorter" = "Raccourcir";
+"writer.rewrite" = "Réécrire";
+"writer.addSplit" = "Diviser et ajouter";
+"writer.addNoSplit" = "Ajouter sans diviser";
+"writer.added" = "Légendes ajoutées";
+"writer.failed" = "Impossible de générer le script. Réessaie.";
+"writer.disclaimer" = "Les scripts sont générés automatiquement par l'IA sur ce Mac. Vérifie-les avant de publier.";
+"writer.needsModel" = "Le rédacteur IA a besoin d'Apple Intelligence ou du modèle de texte local (Qwen3 4B) de la liste des modèles IA.";
+
+/* W10 créateur de clips IA (AI-031) */
+"tlmenu.clipper" = "Créateur de clips IA…";
+"clipper.title" = "Créateur de clips IA";
+"clipper.duration" = "Durée";
+"clipper.duration.auto" = "Auto";
+"clipper.duration.upTo15" = "0–15 s";
+"clipper.duration.upTo30" = "15–30 s";
+"clipper.duration.upTo60" = "30 s–1 min";
+"clipper.duration.over60" = "1 min+";
+"clipper.style" = "Style d'édition";
+"clipper.style.chronological" = "Chronologique";
+"clipper.style.speech" = "Basé sur le discours";
+"clipper.requirements" = "Autres exigences";
+"clipper.requirements.placeholder" = "Décris le style, l'ambiance ou les moments à mettre en avant";
+"clipper.captions" = "Ajouter des sous-titres";
+"clipper.hint.llm" = "Trouve des temps forts autonomes dans le discours avec le modèle de langage sur l'appareil.";
+"clipper.hint.local" = "Trouve les temps forts du discours (mots-clés, rythme, phrases complètes). Installe le modèle de texte local pour de meilleurs choix.";
+"clipper.get" = "Obtenir les clips";
+"clipper.job" = "Découpage IA…";
+"clipper.progress" = "Découpage IA… %d %%";
+"clipper.results" = "Clips avec mise en évidence (%d)";
+"clipper.warning" = "L'enregistrement reconstruit la piste principale : les images clés et les changements de vitesse seront supprimés.";
+"clipper.back" = "Retour";
+"clipper.save" = "Enregistrer";
+"clipper.done" = "Clips mis en évidence ajoutés";
+"clipper.failed" = "Impossible de créer les clips. Réessaie.";

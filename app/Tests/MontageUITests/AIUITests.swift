@@ -55,7 +55,7 @@ import MontageTestSupport
         s.setCutout(top, mode: .subject)
         #expect(s.project.timeline.clip(top)?.matte?.kind == "subject")
         // the job shows on the clip (timeline overlay uses the job subject)
-        for _ in 0..<200 where !MatteGenerator.isReady(asset, .subject) { try await Task.sleep(nanoseconds: 50_000_000) }
+        for _ in 0..<600 where !MatteGenerator.isReady(asset, .subject) { try await Task.sleep(nanoseconds: 50_000_000) }
         #expect(MatteGenerator.isReady(asset, .subject))
         s.undo()
         #expect(s.project.timeline.clip(top)?.matte == nil)

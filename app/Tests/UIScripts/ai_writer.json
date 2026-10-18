@@ -1,0 +1,11 @@
+// W10: Text ▸ AI writer panel opens (topic / requirements / type / Generate). Generation itself needs a local model,
+// so the script only checks the panel and its controls.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.nav.writer"},
+    {"expect": [{"path": "ui.anchors", "contains": "writer.topic"}, {"path": "ui.anchors", "contains": "writer.generate"}]},
+    {"snapshot": "writer", "element": "id:panel.assets"}
+  ]
+}

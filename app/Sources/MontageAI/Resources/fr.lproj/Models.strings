@@ -10,3 +10,5 @@
 "model.demucs4.desc" = "Séparation de sources musicales : voix, batterie, basses et autres instruments.";
 "model.demucs6" = "HTDemucs (6 pistes)";
 "model.demucs6.desc" = "Séparation de sources musicales, avec aussi la guitare et le piano.";
+"model.qwen3" = "Qwen3 4B (IA de texte locale)";
+"model.qwen3.desc" = "Écrit et réécrit des scripts, choisit les temps forts et les mots-clés sur ce Mac quand Apple Intelligence est désactivé.";

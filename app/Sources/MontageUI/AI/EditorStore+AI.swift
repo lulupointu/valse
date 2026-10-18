@@ -37,6 +37,8 @@ public final class AIUIState {
     /// Colour looks being computed (clip → job), per kind.
     public var lookJobs: [String: JobID] = [:]
     /// Enhance quality / denoise / deflicker renders (clip → job + the enhancement being rendered).
+    /// AI clipper dialog (nil = closed).
+    var clipper: AIClipperState?
     public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false

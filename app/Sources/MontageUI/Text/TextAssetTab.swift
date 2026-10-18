@@ -20,12 +20,14 @@ struct TextAssetTab: View {
     var body: some View {
         HStack(spacing: 0) {
             SubNav(items: [("add", tr("text.nav.add")), ("yours", tr("text.nav.yours")), ("effects", tr("text.nav.effects")),
-                           ("templates", tr("text.nav.templates")), ("auto", tr("ai.captions")), ("local", tr("text.nav.local"))],
+                           ("templates", tr("text.nav.templates")), ("auto", tr("ai.captions")), ("local", tr("text.nav.local")),
+                           ("writer", tr("writer.nav"))],
                    selection: $nav)
             Group {
                 switch nav {
                 case "auto": CaptionsTab(store: store)
                 case "local": LocalCaptionsPanel(store: store)
+                case "writer": AIWriterPanel(store: store)   // W10
                 default:
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {

@@ -383,6 +383,10 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Video enhance** (CL-017/018/019): `VideoEnhancer` renders a processed copy (deflicker gains, temporal denoise, VT low-latency
   super resolution ×2; streaming reader → HEVC writer + audio passthrough) into `Caches/Montage/enhanced/<hash>-<key>.mov`;
   `VideoEnhanceJob` swaps the clip's media to it and records `Clip.enhance` (original media id) so unticking restores it.
+- **Local LLM**: `OnDeviceLLM.respond` = Apple Foundation Models when Apple Intelligence is on, else `LlamaRuntime`
+  (`llama-completion` sidecar from scripts/build_ai_runtimes.sh + `ModelCatalog.qwen3_4b`, ~3 GB while running, unloaded after).
+  Users: `AIWriter` (Text ▸ AI writer → `.script` captions), `AIClipper` (+ Core `Highlights`: sentences, windows, heuristic score,
+  `rebuildMainTrack`), `KeywordExtractor`.
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
   `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,

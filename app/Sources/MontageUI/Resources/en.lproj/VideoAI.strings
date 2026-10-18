@@ -83,3 +83,55 @@
 "enhance.done" = "Video enhanced";
 "enhance.failed" = "Couldn't enhance the video. Try again.";
 "enhance.cancelled" = "Video enhancement canceled";
+
+/* W10 AI writer (AI-029) */
+"writer.nav" = "AI writer";
+"writer.topic" = "Topic";
+"writer.topic.placeholder" = "Example: an introduction to the First Industrial Revolution";
+"writer.requirements" = "Requirements";
+"writer.requirements.placeholder" = "Enter style description, character count, and additional details";
+"writer.kind.talking" = "Talking script";
+"writer.kind.ad" = "Ad";
+"writer.kind.inspirational" = "Inspirational";
+"writer.kind.meme" = "Meme";
+"writer.kind.romantic" = "Romantic";
+"writer.kind.tutorial" = "Tutorial";
+"writer.generate" = "Generate";
+"writer.generating" = "Generating...";
+"writer.script" = "Script";
+"writer.longer" = "Make longer";
+"writer.shorter" = "Make shorter";
+"writer.rewrite" = "Rewrite";
+"writer.addSplit" = "Split and add";
+"writer.addNoSplit" = "Add without split";
+"writer.added" = "Captions added";
+"writer.failed" = "Couldn't generate the script. Try again.";
+"writer.disclaimer" = "Scripts are generated automatically by AI on this Mac. Check them before publishing.";
+"writer.needsModel" = "The AI writer needs Apple Intelligence or the local text model (Qwen3 4B) from the AI models list.";
+
+/* W10 AI clipper (AI-031) */
+"tlmenu.clipper" = "AI clipper…";
+"clipper.title" = "AI clipper";
+"clipper.duration" = "Duration";
+"clipper.duration.auto" = "Auto";
+"clipper.duration.upTo15" = "0–15s";
+"clipper.duration.upTo30" = "15–30s";
+"clipper.duration.upTo60" = "30s–1min";
+"clipper.duration.over60" = "1min+";
+"clipper.style" = "Editing style";
+"clipper.style.chronological" = "Chronological";
+"clipper.style.speech" = "Speech-based";
+"clipper.requirements" = "More requirements";
+"clipper.requirements.placeholder" = "Describe the style, mood, or moments to highlight";
+"clipper.captions" = "Add captions";
+"clipper.hint.llm" = "Finds self-contained highlights in the speech with the on-device language model.";
+"clipper.hint.local" = "Finds highlights in the speech (keywords, pace, complete sentences). Install the local text model for smarter picks.";
+"clipper.get" = "Get clips";
+"clipper.job" = "AI clipping...";
+"clipper.progress" = "AI clipping... %d%%";
+"clipper.results" = "Highlight clips (%d)";
+"clipper.warning" = "Saving rebuilds the main track: keyframes and speed changes will be removed.";
+"clipper.back" = "Back";
+"clipper.save" = "Save";
+"clipper.done" = "Highlight clips added";
+"clipper.failed" = "Couldn't create clips. Try again.";

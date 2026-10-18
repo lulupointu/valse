@@ -59,6 +59,17 @@ public struct EditorView: View {
             // Export window: an in-window modal (dimmed editor, centred 720×663 dialog), like CapCut's modal window.
             if store.isExportSheetPresented { ExportModal(store: store) }
         }
+        .overlay {
+            // W10 AI clipper: in-window modal like Export
+            if let st = store.ai.clipper {
+                ZStack {
+                    Color.black.opacity(0.45).ignoresSafeArea()
+                    AIClipperSheet(store: store, st: st) { store.ai.clipper = nil }
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(radius: 20)
+                }
+            }
+        }
         .sheet(isPresented: Binding(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
             ModelManagerSheet { store.ai.isModelSheetPresented = false }   // W10 AI models
         }

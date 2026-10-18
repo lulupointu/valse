@@ -5,7 +5,7 @@ import MontageCore
 /// downloads them once from the Model manager (Settings / the feature panel), or points Montage at an existing file.
 /// Everything runs locally afterwards — the download is the only network access, always user-initiated.
 public struct AIModelSpec: Sendable, Identifiable, Hashable {
-    public enum Kind: String, Sendable { case whisper, demucs, coreML }
+    public enum Kind: String, Sendable { case whisper, demucs, coreML, llm }
     public let id: String
     public let kind: Kind
     public let nameKey: String
@@ -52,7 +52,16 @@ public enum ModelCatalog {
         url: URL(string: "https://huggingface.co/datasets/Retrobear/demucs.cpp/resolve/main/ggml-model-htdemucs-6s-f16.bin")!,
         bytes: 54_855_129, sha256: "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856", license: "MIT", runtimeMB: 900)
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6]
+    /// Qwen3-4B-Instruct-2507, Q4_K_M GGUF (Apache-2.0, Alibaba; quantized by Unsloth) for llama.cpp: local text
+    /// generation FR/EN (AI writer, AI clipper highlights, keywords) when Apple Intelligence is off. ~45 tok/s on M-series
+    /// Metal, ~3 GB resident while a job runs (sidecar, unloaded afterwards).
+    public static let qwen3_4b = AIModelSpec(
+        id: "llm.qwen3-4b-instruct-q4km", kind: .llm, nameKey: "model.qwen3", descriptionKey: "model.qwen3.desc",
+        fileName: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+        url: URL(string: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf")!,
+        bytes: 2_497_281_120, sha256: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597", license: "Apache-2.0", runtimeMB: 3100)
+
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
     /// ~/Library/Application Support/Montage/Models (override: `MONTAGE_MODELS_DIR`).
@@ -97,4 +106,53 @@ public enum WhisperRuntime {
     }
 
     public static var isAvailable: Bool { cliURL != nil && ModelCatalog.installedWhisperModel != nil }
+}
+
+/// The llama.cpp one-shot runtime (`llama-completion`, Metal) for the local LLM. Sidecar like whisper: lookup
+/// `MONTAGE_LLAMA_CLI`, `Contents/Helpers/llama-completion`, Application Support/Montage/bin (scripts/build_ai_runtimes.sh).
+public enum LlamaRuntime {
+    public static var cliURL: URL? {
+        let fm = FileManager.default
+        var c: [String] = []
+        if let e = ProcessInfo.processInfo.environment["MONTAGE_LLAMA_CLI"], !e.isEmpty { c.append(e) }
+        c.append(Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/llama-completion").path)
+        c.append(MontagePaths.supportDirectory.appendingPathComponent("bin/llama-completion").path)
+        return c.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
+    }
+    public static var model: URL? { ModelCatalog.installedURL(ModelCatalog.qwen3_4b) }
+    public static var isAvailable: Bool { cliURL != nil && model != nil }
+
+    /// One chat turn (system + user) → the reply text. Runs off the caller's actor; cancel = terminate.
+    public static func respond(_ prompt: String, instructions: String, temperature: Double, maxTokens: Int = 700) async throws -> String {
+        guard let cli = cliURL, let model else { throw AIToolError.modelMissing(ModelCatalog.qwen3_4b.id) }
+        let p = Process()
+        p.executableURL = cli
+        p.arguments = ["-m", model.path, "-sys", instructions, "-p", prompt, "-cnv", "-st", "--jinja", "-n", "\(maxTokens)",
+                       "--temp", String(format: "%.2f", temperature), "-c", "8192", "--no-display-prompt"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        p.standardInput = FileHandle.nullDevice
+        let box = OutputBox()
+        out.fileHandleForReading.readabilityHandler = { h in box.append(h.availableData) }
+        try p.run()
+        try await withTaskCancellationHandler {
+            while p.isRunning { try await Task.sleep(nanoseconds: 50_000_000) }
+        } onCancel: { p.terminate() }
+        try Task.checkCancellation()
+        out.fileHandleForReading.readabilityHandler = nil
+        box.append(out.fileHandleForReading.readDataToEndOfFile())
+        guard p.terminationStatus == 0 else { throw AIToolError.unavailable("llama exit \(p.terminationStatus)") }
+        var text = String(decoding: box.data, as: UTF8.self)
+        if let r = text.range(of: "[end of text]") { text = String(text[..<r.lowerBound]) }
+        // Qwen3 hybrid models may emit an empty think block
+        text = text.replacingOccurrences(of: "<think>\n\n</think>", with: "")
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    final class OutputBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private(set) var data = Data()
+        func append(_ d: Data) { lock.withLock { data.append(d) } }
+    }
 }

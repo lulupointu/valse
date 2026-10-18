@@ -21,3 +21,5 @@
 "cmd.colorMatch" = "Ajustement des couleurs";
 "cmd.colorCorrect" = "Correction des couleurs";
 "cmd.enhance" = "Amélioration vidéo";
+"cmd.writerAdd" = "Ajouter le script";
+"cmd.clipper" = "Créateur de clips IA";
