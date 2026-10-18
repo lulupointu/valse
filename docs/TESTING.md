@@ -109,6 +109,14 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
 - inspector: `inspector.tab.<tabID>`, `inspector.section.<sectionID>`, `slider.<ParamKey.raw>` (e.g. `slider.opacity`,
   `slider.rotation`) and `slider.<key>.field` (numeric field); `Bind.value` sliders: `slider.<label>` (pass `testID:` to `SliderRow` for a stable one)
 - export dialog: `export.dialog`, `export.section.{video,audio,gif,captions}` (+`.expand`), `export.title`, `export.folder`, `export.editCover`, `export.estimate`, `export.cancel`, `export.confirm`; progress view: `export.progress`, `export.stop`, `export.close`, `export.openFolder`, `export.share`; `titlebar.exportQueue` (UI-test exports go to a temp folder emptied per run)
+- Home (W12, `"project": "home"` / `"home:12"` = sandboxed library with N sample projects, `"home:3:crash:missing"` adds a
+  crashed session + a missing media file): `home.nav.{home,recents,templates,trash,settings,folder.<i>}`, `home.newProject`,
+  `home.newProject.custom`, `home.top.{import,shortcuts,settings}`, `home.search(.field|.clear)`, `home.view.{grid,list}`,
+  `home.col.<sort>`, `home.card.<i>` / `home.row.<i>`, `home.selection.{duplicate,delete,restore,deleteForever}`, `home.trash.empty`,
+  `home.empty`; dialogs `dialog.{ok,cancel,close,field}`, `newProject.name`, `version.{row.<i>,saveNow,restore}`, `relink.close`;
+  Settings `settings.tab.<tab>`, `settings.{check,switch,field,radio,button,language}.<id>`; shortcuts `keymap.binding.<cmd>`,
+  `keymap.preset.<preset>`, `keymap.conflict(.override|.cancel)`, `keymap.reset`. State: `app.{screen, modal, scope, projects,
+  selected, settings, keymap.bindings, renderedRanges…}` (StateDump.appHook).
 - asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>`, `media.import`
 
 ### How it works / limits
