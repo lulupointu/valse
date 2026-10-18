@@ -421,6 +421,10 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   (before/after + per-step results) and `PilotDiff`. UI: `EditPilotPanel` (replaces the asset panel), `EditorStore+EditPilot`
   (`store.ai.pilot`): plan/prepare run in `JobQueue`; Preview = a store gesture showing `after` (any other `perform` /
   `beginGesture` cancels it first, so an unapplied preview is never committed); Apply = ONE undo step `cmd.editPilot`.
+- **Long video to shorts** (AI-031, Home): Core `ShortsPlanner` (validation, `ShortsDuration` buckets, one 9:16 project per
+  `Highlight`) + `Highlights.pick(range:)`; MontageAI `LongToShorts.run` (AIClipper transcript + LLM boost → picks →
+  `AutoReframe` + captions from the same transcript); UI `Home/ShortsWizard.swift` (`ShortsWizardState`, overlay on HomeView,
+  feature card), projects saved with `ProjectLibrary.create`.
 - **Dictate** (TX-034): `Dictation` (AVAudioEngine tap → `SFSpeechAudioBufferRecognitionRequest`, on-device only, partial
   results) + `DictateButton` (text inspector, AI writer, EditPilot); text clips wrap a dictation in one gesture.
 - **Quit**: `AppShutdown.stopBackgroundWork` (applicationShouldTerminate / end of a UI test) cancels exports and every

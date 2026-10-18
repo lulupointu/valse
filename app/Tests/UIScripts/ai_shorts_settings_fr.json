@@ -1,0 +1,16 @@
+// AI2 (AI-031): Vidéo longue en vidéos courtes, in French, with a valid synthetic 70 s video: the settings step
+// (part to convert, duration buckets, ☐ Add captions, Get shorts). Running the job needs speech + whisper and is
+// covered by LongToShortsTests (gated on the model).
+{
+  "project": "home:0:shorts-ok",
+  "lang": "fr",
+  "steps": [
+    {"waitFor": {"path": "ui.anchors", "contains": "shorts.get", "timeout": 30}},
+    {"click": "id:shorts.duration.from60to90"},
+    {"click": "id:shorts.captions"},
+    {"snapshot": "shorts-settings-fr", "element": "id:shorts.dialog", "baseline": true},
+    {"click": "id:shorts.change"},
+    {"expect": {"path": "ui.anchors", "contains": "shorts.import"}},
+    {"click": "id:dialog.close"}
+  ]
+}

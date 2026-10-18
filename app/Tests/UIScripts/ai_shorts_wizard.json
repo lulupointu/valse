@@ -1,0 +1,15 @@
+// AI2 (AI-031): Home ▸ Long video to shorts. The "shorts" home spec opens the wizard with a synthetic 4 s video →
+// "at least 1 minute" validation; closing, then the Home feature card opens the empty Upload step.
+{
+  "project": "home:0:shorts",
+  "steps": [
+    {"waitFor": {"path": "ui.anchors", "contains": "shorts.problem", "timeout": 20}},
+    {"expect": [{"path": "ui.anchors", "contains": "shorts.import"}, {"path": "ui.anchors", "notContains": "shorts.get"}]},
+    {"snapshot": "shorts-too-short", "element": "id:shorts.dialog", "baseline": true},
+    {"click": "id:dialog.close"},
+    {"expect": {"path": "ui.anchors", "notContains": "shorts.dialog"}},
+    {"click": "id:home.feature.shorts"},
+    {"expect": [{"path": "ui.anchors", "contains": "shorts.import"}, {"path": "ui.anchors", "notContains": "shorts.problem"}]},
+    {"click": "id:dialog.close"}
+  ]
+}

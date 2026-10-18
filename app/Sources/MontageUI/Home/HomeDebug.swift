@@ -44,6 +44,9 @@ extension AppModel {
         }
         await refresh()
         if parts.contains("crash") { checkCrashRecovery() }
+        // AI2 (AI-031): the Long video to shorts wizard with a synthetic too-short / valid video
+        if parts.contains("shorts") { await ShortsWizardState.shared.loadSynthetic(seconds: 4) }
+        if parts.contains("shorts-ok") { await ShortsWizardState.shared.loadSynthetic(seconds: 70) }
         return true
     }
 

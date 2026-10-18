@@ -114,7 +114,12 @@ public enum Highlights {
 
     /// Greedy non-overlapping selection by score (`boost` = indices of windows a language model preferred).
     public static func pick(_ s: [Sentence], duration: ClipDuration, count: Int? = nil, boost: Set<ClosedRange<Int>> = []) -> [Highlight] {
-        let cands = candidates(s, range: duration.range)
+        pick(s, range: duration.range, count: count, boost: boost)
+    }
+
+    /// Same with any allowed length range (Home "Long video to shorts" buckets).
+    public static func pick(_ s: [Sentence], range: ClosedRange<Double>, count: Int? = nil, boost: Set<ClosedRange<Int>> = []) -> [Highlight] {
+        let cands = candidates(s, range: range)
         guard !cands.isEmpty else {
             // short video: one highlight of everything
             guard let f = s.first, let l = s.last else { return [] }

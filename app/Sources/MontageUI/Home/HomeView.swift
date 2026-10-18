@@ -20,6 +20,7 @@ struct HomeView: View {
             }
         }
         .background(Theme.home)
+        .overlay { ShortsWizardHost(app: app) }   // AI2 (AI-031)
         .overlay(alignment: .top) { ToastView(toast: app.store.toast).padding(.top, 54) }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             HomeDrop.load(providers) { urls in
@@ -276,6 +277,9 @@ struct HomeFeatureRow: View {
                 .testID("home.feature.templates")
             FeatureCard(symbol: "square.and.arrow.down.on.square", title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
                 .testID("home.feature.import")
+            // AI2 (AI-031): Long video to shorts wizard (ShortsWizard.swift)
+            FeatureCard(symbol: "scissors.badge.ellipsis", title: tr("shorts.title"), subtitle: tr("shorts.subtitle")) { ShortsWizardState.shared.present() }
+                .testID("home.feature.shorts")
             Spacer(minLength: 0)
         }
     }

@@ -156,6 +156,9 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   engine, state (planning/preparing/ready/applied/discarded/failed/empty), steps, results, diff}`. Without `requires.models` the
   rule-based planner is used (deterministic); `ai_editpilot_llm.json` requires the Qwen model. Dictate buttons: `text.dictate`,
   `writer.dictate`. The app cancels and waits for every background job before exiting (`ai_quit_mid_job.json`).
+- Long video to shorts (Home): `home.feature.shorts`, `shorts.dialog`, `shorts.import`, `shorts.problem`, `shorts.change`,
+  `shorts.duration.<auto|under60|from60to90|from90to180>`, `shorts.captions`, `shorts.get`, `shorts.progress`, `shorts.result.<i>`;
+  project specs `"home:0:shorts"` (wizard on a synthetic 4 s video → too short) and `"home:0:shorts-ok"` (valid 70 s video).
 - audio library: `asset.nav.<section>` (yours / music / sfx / extracted), `audio.import`, `audio.row.<index>` (+`.add`), `audio.music.<trackID>` (+`.add`)
 
 ### How it works / limits
