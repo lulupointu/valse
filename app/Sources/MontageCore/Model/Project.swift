@@ -41,11 +41,24 @@ public struct ProjectSettings: Codable, Sendable, Equatable {
     /// Canvas ratio preset id ("original", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9", …). "original" follows the
     /// first main-track clip.
     public var aspectPreset: String
+    /// Working/output colour space (SDR Rec.709 by default; HDR = Rec.2020 HLG/PQ, 10-bit export).
+    public var colorSpace: ProjectColorSpace
 
     public init(canvasSize: Size2 = .hd1080, frameRate: FrameRate = .fps30,
-                backgroundColor: RGBA = .black, aspectPreset: String = "16:9") {
+                backgroundColor: RGBA = .black, aspectPreset: String = "16:9", colorSpace: ProjectColorSpace = .sdr709) {
         self.canvasSize = canvasSize; self.frameRate = frameRate
-        self.backgroundColor = backgroundColor; self.aspectPreset = aspectPreset
+        self.backgroundColor = backgroundColor; self.aspectPreset = aspectPreset; self.colorSpace = colorSpace
+    }
+
+    private enum CodingKeys: String, CodingKey { case canvasSize, frameRate, backgroundColor, aspectPreset, colorSpace }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        canvasSize = try c.decode(Size2.self, forKey: .canvasSize)
+        frameRate = try c.decode(FrameRate.self, forKey: .frameRate)
+        backgroundColor = try c.decode(RGBA.self, forKey: .backgroundColor)
+        aspectPreset = try c.decode(String.self, forKey: .aspectPreset)
+        colorSpace = try c.decodeIfPresent(ProjectColorSpace.self, forKey: .colorSpace) ?? .sdr709
     }
 
     /// Ratio presets offered by the player "Ratio" menu: (id, width, height) at 1080p-class sizes.
@@ -82,6 +95,23 @@ public struct MediaAsset: Codable, Sendable, Equatable, Identifiable {
     public var codec: String?
     /// Clockwise rotation (0/90/180/270) to apply to decoded frames (from the track's preferredTransform).
     public var sourceRotation: Int
+    /// Colour tags of the video track (AVFoundation strings, e.g. "ITU_R_2020", "ITU_R_2100_HLG"); nil = untagged.
+    public var colorPrimaries: String?
+    public var transferFunction: String?
+    public var yCbCrMatrix: String?
+    /// Bits per component of the decoded video (8, 10…), if known.
+    public var bitDepth: Int?
+
+    /// Transfer characteristic from the tags (untagged = SDR).
+    public var transfer: TransferFunction {
+        switch transferFunction {
+        case "ITU_R_2100_HLG": return .hlg
+        case "SMPTE_ST_2084_PQ": return .pq
+        default: return .sdr
+        }
+    }
+    public var isHDR: Bool { transfer != .sdr }
+    public var isWideGamut: Bool { colorPrimaries == "ITU_R_2020" }
 
     public init(id: MediaID = MediaID(), name: String, kind: MediaKind, url: URL, duration: Time, pixelSize: Size2,
                 frameRate: FrameRate?, hasVideo: Bool, hasAudio: Bool, contentHash: String, fileSize: Int64 = 0,

@@ -41,16 +41,22 @@ public enum MediaProbe {
         } catch { throw MediaProbeError.unreadable(url, error.localizedDescription) }
         guard !vTracks.isEmpty || !aTracks.isEmpty else { throw MediaProbeError.unsupported(url) }
         var pixel = Size2.zero, fps: FrameRate?, rotation = 0, codec: String?
+        var primaries: String?, transfer: String?, matrix: String?, depth: Int?
         if let v = vTracks.first {
             let (natural, transform, rate, formats) = try await v.load(.naturalSize, .preferredTransform, .nominalFrameRate, .formatDescriptions)
             rotation = rotationDegrees(transform)
             pixel = rotation % 180 == 0 ? Size2(natural.width, natural.height) : Size2(natural.height, natural.width)
             fps = rate > 0 ? FrameRate.nearest(to: Double(rate)) : nil
-            if let f = formats.first { codec = fourCC(CMFormatDescriptionGetMediaSubType(f)) }
+            if let f = formats.first {
+                codec = fourCC(CMFormatDescriptionGetMediaSubType(f))
+                (primaries, transfer, matrix, depth) = colorTags(f)
+            }
         }
-        return MediaAsset(name: name, kind: vTracks.isEmpty ? .audio : .video, url: url, duration: Time(cmTime: duration),
-                          pixelSize: pixel, frameRate: fps, hasVideo: !vTracks.isEmpty, hasAudio: !aTracks.isEmpty,
-                          contentHash: hash, fileSize: size, codec: codec, sourceRotation: rotation)
+        var probed = MediaAsset(name: name, kind: vTracks.isEmpty ? .audio : .video, url: url, duration: Time(cmTime: duration),
+                               pixelSize: pixel, frameRate: fps, hasVideo: !vTracks.isEmpty, hasAudio: !aTracks.isEmpty,
+                               contentHash: hash, fileSize: size, codec: codec, sourceRotation: rotation)
+        probed.colorPrimaries = primaries; probed.transferFunction = transfer; probed.yCbCrMatrix = matrix; probed.bitDepth = depth
+        return probed
     }
 
     /// Probes many files concurrently, preserving order; failures are returned separately.
@@ -100,6 +106,17 @@ public enum MediaProbe {
             h.update(data: Data(url.path.utf8))
         }
         return h.finalize().prefix(16).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Colour primaries / transfer / matrix tags (AVFoundation string constants) and bit depth of a video format.
+    static func colorTags(_ f: CMFormatDescription) -> (String?, String?, String?, Int?) {
+        func ext(_ k: CFString) -> String? { CMFormatDescriptionGetExtension(f, extensionKey: k) as? String }
+        var depth = (CMFormatDescriptionGetExtension(f, extensionKey: kCMFormatDescriptionExtension_BitsPerComponent) as? NSNumber)?.intValue
+        if depth == nil, ext(kCMFormatDescriptionExtension_TransferFunction).map({ $0.contains("2100") || $0.contains("2084") }) == true {
+            depth = 10
+        }
+        return (ext(kCMFormatDescriptionExtension_ColorPrimaries), ext(kCMFormatDescriptionExtension_TransferFunction),
+                ext(kCMFormatDescriptionExtension_YCbCrMatrix), depth)
     }
 
     static func rotationDegrees(_ t: CGAffineTransform) -> Int {

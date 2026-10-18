@@ -19,6 +19,7 @@ enum BuiltinInspector {
 
     static let sections: [InspectorSection] = [
         InspectorSection(id: "details.project", tab: "details", order: 0, titleKey: nil) { AnyView(DetailsSection(store: $0.store)) },
+        InspectorSection(id: "details.colorSpace", tab: "details", order: 1, titleKey: nil) { AnyView(ColorSpaceSection(store: $0.store)) },
 
         InspectorSection(id: "text.content", tab: "text", order: 0, titleKey: "inspector.text.basic") { AnyView(TextSection(ctx: $0)) },
         InspectorSection(id: "text.transform", tab: "text", order: 1, titleKey: "inspector.transform") { AnyView(TransformSection(ctx: $0)) },

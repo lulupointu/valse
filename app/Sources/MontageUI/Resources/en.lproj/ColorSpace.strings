@@ -1,0 +1,6 @@
+/* Project colour space (Details) */
+"details.colorSpace" = "Color space";
+"details.colorSpace.hdrHint" = "HDR projects export 10-bit HEVC or ProRes (Rec.2020).";
+"colorspace.sdr709" = "SDR - Rec.709";
+"colorspace.hdrHLG" = "HDR - Rec.2020 HLG";
+"colorspace.hdrPQ" = "HDR - Rec.2020 PQ";

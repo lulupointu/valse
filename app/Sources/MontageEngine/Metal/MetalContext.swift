@@ -23,6 +23,8 @@ public final class MetalContext: @unchecked Sendable {
     let unpremultiply: MTLRenderPipelineState
     let premultiply: MTLRenderPipelineState
     let outputBGRA: MTLRenderPipelineState
+    /// HDR compositor output (rgba16Float pixel buffers).
+    let outputHalf: MTLRenderPipelineState
     public let present: MTLRenderPipelineState
     let fullscreenVS: MTLFunction
 
@@ -64,6 +66,7 @@ public final class MetalContext: @unchecked Sendable {
         unpremultiply = pipe("fullscreen_vs", "unpremultiply_fs", w)
         premultiply = pipe("fullscreen_vs", "premultiply_fs", w)
         outputBGRA = pipe("fullscreen_vs", "output_fs", .bgra8Unorm)
+        outputHalf = pipe("fullscreen_vs", "output_half_fs", .rgba16Float)
         present = pipe("present_vs", "present_fs", .bgra8Unorm)
         var c: CVMetalTextureCache?
         CVMetalTextureCacheCreate(nil, nil, device, nil, &c)

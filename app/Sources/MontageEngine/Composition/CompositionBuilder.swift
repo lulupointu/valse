@@ -133,13 +133,15 @@ public enum CompositionBuilder {
         state.update(trackMap: trackMap)
 
         let vc = AVMutableVideoComposition()
-        vc.customVideoCompositorClass = MontageCompositor.self
+        let space = project.settings.colorSpace
+        vc.customVideoCompositorClass = space.isHDR ? MontageHDRCompositor.self : MontageCompositor.self
         let fr = frameRate ?? project.settings.frameRate
         vc.frameDuration = CMTime(value: CMTimeValue(fr.denominator), timescale: fr.numerator)
         vc.renderSize = renderSize ?? CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
-        vc.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
-        vc.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
-        vc.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+        let tags = ColorTags(space)
+        vc.colorPrimaries = tags.primaries
+        vc.colorTransferFunction = tags.transfer
+        vc.colorYCbCrMatrix = tags.matrix
         vc.instructions = [MontageInstruction(timeRange: CMTimeRange(start: .zero, duration: duration.cmTime),
                                               trackIDs: videoTrackIDs, state: state)]
         var mix: AVMutableAudioMix?
@@ -201,6 +203,7 @@ public enum CompositionBuilder {
         var h = Hasher()
         h.combine(project.settings.canvasSize)
         h.combine(project.settings.frameRate)
+        h.combine(project.settings.colorSpace)
         for t in project.timeline.tracks {
             h.combine(t.id); h.combine(t.kind); h.combine(t.isMain); h.combine(t.isMuted)
             for c in t.clips {

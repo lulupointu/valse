@@ -32,6 +32,12 @@ public struct ExportSettings: Codable, Hashable, Sendable {
 
     public init() {}
 
+    /// Codec actually used for a project colour space: HDR needs 10 bits, so H.264 becomes HEVC Main10
+    /// (CapCut also exports HDR only as HEVC/ProRes).
+    public func effectiveCodec(for space: ProjectColorSpace) -> Codec {
+        space.isHDR && codec == .h264 ? .hevc : codec
+    }
+
     /// Output pixel size for a canvas aspect (short side = resolution; even dimensions).
     public func outputSize(canvas: Size2) -> (width: Int, height: Int) {
         let short = Double(resolution.rawValue)

@@ -1,0 +1,6 @@
+/* Espace colorimétrique du projet (Détails) */
+"details.colorSpace" = "Espace colorimétrique";
+"details.colorSpace.hdrHint" = "Les projets HDR s'exportent en HEVC 10 bits ou ProRes (Rec.2020).";
+"colorspace.sdr709" = "SDR - Rec.709";
+"colorspace.hdrHLG" = "HDR - Rec.2020 HLG";
+"colorspace.hdrPQ" = "HDR - Rec.2020 PQ";
