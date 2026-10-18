@@ -80,6 +80,16 @@ public enum PlayerDebugState {
                 })
                 store.timelineUI.selectedKeyframe = KeyframeRef(clip: id, key: ParamKey.position.raw, time: .zero)
             case "kfpanel": if !store.keyframeUI.showsPanel { store.toggleKeyframePanel() }
+            // mask=<MaskShape raw>: adds a mask to the selected clip and opens Video ▸ Mask (on-canvas mask handles)
+            case "mask":
+                guard let id = store.selection.first, let shape = MaskShape(rawValue: value) else { break }
+                store.perform(UpdateClip(id, nameKey: "cmd.mask") { c in
+                    var m = MaskShapesSection.defaultMask(shape)
+                    if shape == .rectangle { m.roundness = 0.2; m.feather = 0.1 }
+                    c.mask = m
+                })
+                store.inspectorTab = "video"
+                InspectorUIState.shared.subTab["video"] = "mask"
             default: break
             }
         }

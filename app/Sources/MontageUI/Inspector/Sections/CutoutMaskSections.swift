@@ -269,6 +269,7 @@ struct MaskShapesSection: View {
                     .background(Theme.buttonSecondary, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .testID("inspector.mask.add")
             }
             TileGrid {
                 ForEach(MaskShape.allCases, id: \.self) { s in

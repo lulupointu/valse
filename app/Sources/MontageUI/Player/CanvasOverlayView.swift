@@ -17,10 +17,13 @@ final class CanvasOverlayView: NSView {
         case pan(startPan: CGPoint, startView: CGPoint)
         case guide(id: UUID)
         case newGuide(CanvasGuide.Axis)
+        case mask(handle: MaskHandle, clipID: ClipID, base: Mask, frame: MaskFrame, start: Vec2, startView: CGPoint, started: Bool)
     }
     private var drag: Drag = .none
     private var snapLines: [SnapLine] = []
     private var angleLabel: Double?
+    /// "Feather 40" / "Round corners 20" pill while dragging a mask button.
+    private var maskValueLabel: String?
     private var magnifyBase: (clipID: ClipID, scale: Vec2)?
     private var lastContentRect: CGRect = .zero
     private var mouseMonitor: Any?
@@ -78,6 +81,7 @@ final class CanvasOverlayView: NSView {
         _ = (ui.zoom, ui.pan, ui.showRulers, ui.showGuides, ui.guides, ui.safeZone, ui.editingTextClip)
         _ = ui.canvasTool?.revision
         _ = store.project.settings.canvasSize
+        _ = (store.inspectorTab, InspectorUIState.shared.subTab)
         if !store.selection.isEmpty {
             _ = store.project.timeline
             _ = store.transport.playhead
@@ -121,6 +125,16 @@ final class CanvasOverlayView: NSView {
     }
 
     private func localTime(_ c: Clip) -> Time { (store.transport.playhead - c.start).clamped(.zero, c.duration) }
+
+    /// Mask editing on the canvas (UX.md §5.1): one selected layer with a mask while the inspector shows a Mask sub-tab.
+    private var maskTarget: (layer: CanvasLayer, clip: Clip, mask: Mask)? {
+        guard store.selection.count == 1, let l = selectedLayers.first, !l.isLocked,
+              let clip = store.project.timeline.clip(l.clipID), clip.mask != nil else { return nil }
+        let tab = store.inspectorTab ?? InspectorRegistry.tabs(for: InspectorContext(store: store)).first?.id
+        guard let tab, InspectorUIState.shared.subTab[tab] == "mask" else { return nil }
+        guard let m = clip.resolved(at: localTime(clip)).mask else { return nil }
+        return (l, clip, m)
+    }
 
     private var guideTargets: (x: [Double], y: [Double]) {
         let ui = store.playerUI, canvas = store.project.settings.canvasSize
@@ -175,6 +189,12 @@ final class CanvasOverlayView: NSView {
         }
         MotionPathDrawing.draw(ctx, viewport: vp, store: store)   // W5: position keyframes path (MontageUI/Keyframes)
 
+        if let mt = maskTarget {
+            drawMask(MaskFrame(layer: mt.layer.geometry, mask: mt.mask), layer: mt.layer, mask: mt.mask, vp, ctx)
+            if ui.showRulers { drawRulers(vp, ctx) }
+            return
+        }
+
         let sel = selectedLayers
         let single = sel.count == 1 && store.selection.count == 1
         for l in sel {
@@ -207,6 +227,82 @@ final class CanvasOverlayView: NSView {
         }
 
         if ui.showRulers { drawRulers(vp, ctx) }
+    }
+
+    /// Dashed white mask outline + centre cross, white corner dots, edge pills, floating round buttons (screenshot 28).
+    private func drawMask(_ f: MaskFrame, layer: CanvasLayer, mask: Mask, _ vp: PlayerViewport, _ ctx: CGContext) {
+        let shadow = NSColor.black.withAlphaComponent(0.5).cgColor
+        // the layer itself: faint outline
+        let lp = layer.geometry.corners.map(vp.toView)
+        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.35).cgColor)
+        ctx.setLineWidth(1)
+        ctx.addLines(between: [lp[0], lp[1], lp[3], lp[2], lp[0]]); ctx.strokePath()
+
+        ctx.saveGState()
+        ctx.setShadow(offset: .zero, blur: 2, color: shadow)
+        ctx.setStrokeColor(NSColor.white.cgColor)
+        ctx.setLineWidth(1.5)
+        ctx.setLineDash(phase: 0, lengths: [5, 4])
+        let c = vp.toView(f.center)
+        let hx = f.half.x * vp.scale, hy = f.half.y * vp.scale
+        ctx.saveGState()
+        ctx.translateBy(x: c.x, y: c.y)
+        ctx.rotate(by: f.rotation)
+        let box = CGRect(x: -hx, y: -hy, width: 2 * hx, height: 2 * hy)
+        switch f.shape {
+        case .linear:
+            ctx.strokeLineSegments(between: [CGPoint(x: -hx, y: 0), CGPoint(x: hx, y: 0)])
+        case .mirror:
+            ctx.strokeLineSegments(between: [CGPoint(x: -hx, y: -hy), CGPoint(x: hx, y: -hy), CGPoint(x: -hx, y: hy), CGPoint(x: hx, y: hy)])
+        case .circle:
+            ctx.strokeEllipse(in: box)
+        case .rectangle:
+            let r = min(mask.roundness * min(hx, hy), min(hx, hy))
+            ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil)); ctx.strokePath()
+        case .heart, .star:
+            ctx.stroke(box)
+        }
+        // centre cross
+        ctx.setLineDash(phase: 0, lengths: [3, 3])
+        ctx.setLineWidth(1)
+        ctx.strokeLineSegments(between: [CGPoint(x: -7, y: 0), CGPoint(x: 7, y: 0), CGPoint(x: 0, y: -7), CGPoint(x: 0, y: 7)])
+        // edge pills (drawn in the mask frame so they turn with it)
+        ctx.setLineDash(phase: 0, lengths: [])
+        ctx.setFillColor(NSColor.white.cgColor)
+        for (i, _) in f.edges() {
+            let horizontal = i == 0 || i == 2
+            let pc = [CGPoint(x: 0, y: -hy), CGPoint(x: hx, y: 0), CGPoint(x: 0, y: hy), CGPoint(x: -hx, y: 0)][i]
+            let pill = horizontal ? CGRect(x: pc.x - 9, y: pc.y - 3, width: 18, height: 6) : CGRect(x: pc.x - 3, y: pc.y - 9, width: 6, height: 18)
+            ctx.addPath(CGPath(roundedRect: pill, cornerWidth: 3, cornerHeight: 3, transform: nil)); ctx.fillPath()
+        }
+        ctx.restoreGState()
+        // corner dots
+        if f.hasBox {
+            ctx.setFillColor(NSColor.white.cgColor)
+            for p in f.corners.map(vp.toView) { ctx.fillEllipse(in: CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)) }
+        }
+        // floating buttons
+        var buttons: [(Vec2, String)] = [(f.rotateButton(viewScale: vp.scale), "arrow.triangle.2.circlepath"),
+                                         (f.featherButton(viewScale: vp.scale), "arrow.up.and.down")]
+        if f.hasRoundness { buttons.append((f.roundnessButton(viewScale: vp.scale), "square.dashed")) }
+        for (p, sym) in buttons {
+            let v = vp.toView(p)
+            let r = MaskFrame.buttonRadius
+            ctx.setFillColor(NSColor.white.cgColor)
+            ctx.fillEllipse(in: CGRect(x: v.x - r, y: v.y - r, width: 2 * r, height: 2 * r))
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+            drawSymbol(sym, at: v, size: 10)
+            ctx.setShadow(offset: .zero, blur: 2, color: shadow)
+        }
+        ctx.restoreGState()
+        if let a = angleLabel {
+            let rb = vp.toView(f.rotateButton(viewScale: vp.scale))
+            drawPill(String(format: "%.0f°", a), at: CGPoint(x: rb.x, y: rb.y + 24), ctx)
+        }
+        if let v = maskValueLabel {
+            let fb = vp.toView(f.featherButton(viewScale: vp.scale))
+            drawPill(v, at: CGPoint(x: fb.x, y: fb.y - 24), ctx)
+        }
     }
 
     private func drawSymbol(_ name: String, at p: CGPoint, size: CGFloat) {
@@ -326,6 +422,15 @@ final class CanvasOverlayView: NSView {
         // existing guide
         if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) { drag = .guide(id: g.id); return }
 
+        if let mt = maskTarget {
+            let f = MaskFrame(layer: mt.layer.geometry, mask: mt.mask)
+            if let h = f.hit(p, viewScale: vp.scale) {
+                drag = .mask(handle: h, clipID: mt.clip.id, base: mt.mask, frame: f, start: p, startView: v, started: false)
+                return
+            }
+            // inside the masked layer but off the mask: keep the selection (no layer transform while editing the mask)
+            if mt.layer.geometry.contains(p) { return }
+        }
         let all = layers
         if let sel = selectedLayers.first, store.selection.count == 1, !sel.isLocked,
            let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale) {
@@ -373,6 +478,40 @@ final class CanvasOverlayView: NSView {
             let g = store.playerUI.guides[i]
             let pos = g.axis == .horizontal ? Double((v.y - r.minY) / r.height) : Double((v.x - r.minX) / r.width)
             store.playerUI.guides[i].position = min(max(pos, 0), 1)
+        case .mask(let h, let id, let base, let f, let start, let startView, var started):
+            if !started {
+                guard hypot(v.x - startView.x, v.y - startView.y) >= 2 else { return }
+                store.beginGesture("cmd.mask")
+                started = true
+                drag = .mask(handle: h, clipID: id, base: base, frame: f, start: start, startView: startView, started: true)
+            }
+            guard let clip = store.project.timeline.clip(id) else { return }
+            let local = localTime(clip)
+            let dy = Double(v.y - startView.y)
+            switch h {
+            case .body:
+                var d = p - start
+                if e.modifierFlags.contains(.shift) { d = CanvasDrag.constrained(d) }
+                let c = f.movedCenter(base.center, by: d)
+                apply(id) { $0.setValue(.maskCenter, .vec2(c), at: local) }
+            case .corner, .edge:
+                let keep = InspectorUIState.shared.maskLock || e.modifierFlags.contains(.shift)
+                let s = f.resized(base.size, handle: h, to: p, keepAspect: keep)
+                apply(id) { $0.setValue(.maskSize, .vec2(s), at: local) }
+            case .rotate:
+                let r = f.rotated(base.rotation, start: start, current: p, snapping: !e.modifierFlags.contains(.command))
+                angleLabel = r
+                apply(id) { $0.setValue(.maskRotation, .scalar(r), at: local) }
+            case .feather:
+                let fv = MaskFrame.dragged(base.feather, dy: dy)
+                maskValueLabel = "\(tr("prop.maskFeather")) \(Int((fv * 100).rounded()))"
+                apply(id) { $0.setValue(.maskFeather, .scalar(fv), at: local) }
+            case .roundness:
+                let rv = MaskFrame.dragged(base.roundness, dy: dy)
+                maskValueLabel = "\(tr("prop.maskRoundness")) \(Int((rv * 100).rounded()))"
+                apply(id) { $0.setValue(.maskRoundness, .scalar(rv), at: local) }
+            }
+            needsDisplay = true
         case .transform(let h, let id, let base, let layer, let others, let start, let startView, var started):
             if !started {
                 guard hypot(v.x - startView.x, v.y - startView.y) >= 2 else { return }
@@ -429,7 +568,7 @@ final class CanvasOverlayView: NSView {
             return
         }
         switch drag {
-        case .transform(_, _, _, _, _, _, _, let started):
+        case .transform(_, _, _, _, _, _, _, let started), .mask(_, _, _, _, _, _, let started):
             if started { store.endGesture() }
         case .pan:
             NSCursor.pop()
@@ -448,6 +587,7 @@ final class CanvasOverlayView: NSView {
         drag = .none
         snapLines = []
         angleLabel = nil
+        maskValueLabel = nil
         needsDisplay = true
     }
 
@@ -473,6 +613,16 @@ final class CanvasOverlayView: NSView {
         let ui = store.playerUI
         if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) {
             (g.axis == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set(); return
+        }
+        if let mt = maskTarget, let h = MaskFrame(layer: mt.layer.geometry, mask: mt.mask).hit(p, viewScale: vp.scale) {
+            switch h {
+            case .body: NSCursor.openHand.set()
+            case .corner: NSCursor.crosshair.set()
+            case .edge(let i): (i == 0 || i == 2 ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set()
+            case .feather, .roundness: NSCursor.resizeUpDown.set()
+            case .rotate: NSCursor.pointingHand.set()
+            }
+            return
         }
         if let sel = selectedLayers.first, store.selection.count == 1,
            let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale) {

@@ -1,0 +1,27 @@
+// Player canvas (W2-1): Video ▸ Mask ▸ Add mask shows the on-canvas mask handles; drag the feather button, a corner
+// and the inside of the mask: each drag is one undo step and edits the mask (not the layer transform).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:inspector.mask.add"},
+    {"expect": [{"path": "selectedClips.0.mask.shape", "equals": "rectangle"}, {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "mask-added", "element": "id:panel.player"},
+    // feather button: 26 pt above the top edge midpoint (player fractions are of the player view, not the frame)
+    {"drag": "player:0.5,0.252", "by": [0, -60]},
+    {"expect": [{"path": "selectedClips.0.mask.feather", "gt": 0.3}, {"path": "undo.depth", "equals": 2}]},
+    // bottom-right corner: grow
+    {"drag": "player:0.736,0.687", "by": [40, 30]},
+    {"expect": [{"path": "selectedClips.0.mask.sizeX", "gt": 0.55}, {"path": "selectedClips.0.mask.sizeY", "gt": 0.55}]},
+    // inside: move right, the layer itself stays put
+    {"drag": "player:0.45,0.45", "by": [60, 0]},
+    {"expect": [{"path": "selectedClips.0.mask.centerX", "gt": 0.05}, {"path": "selectedClips.0.mask.centerY", "approx": 0, "tolerance": 0.01},
+                {"path": "selectedClips.0.positionX", "approx": 0}, {"path": "undo.depth", "equals": 4}]},
+    {"snapshot": "mask-edited", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.mask.centerX", "approx": 0}}
+  ]
+}

@@ -44,6 +44,10 @@ public enum StateDump {
             d["animCombo"] = c.animations.combo?.typeID ?? ""
             d["keyframeCounts"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.count) })   // "transform_position"
             d["keyframeEasings"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.map { Self.easingName($0.easing) }) })
+            if let m = c.mask {
+                d["mask"] = ["shape": m.shape.rawValue, "centerX": m.center.x, "centerY": m.center.y, "sizeX": m.size.x,
+                             "sizeY": m.size.y, "rotation": m.rotation, "feather": m.feather, "roundness": m.roundness] as [String: Any]
+            }
             return d
         }
         func trackSummary(_ t: Track, _ i: Int) -> [String: Any] {
