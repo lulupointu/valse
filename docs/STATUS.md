@@ -52,6 +52,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | UXR-W1 | W12 | Home thumbnail / package cover.jpg: render `Project.cover` with `CoverRenderer.jpeg` (nil cover = first frame) | TL-045 |
 | W5 | W7 | Per-glyph/word text In/Out/Loop presets: register `AnimationDescriptor`s (targets `.text`) in `Registries.animations`; bind ‹◇› on text style rows to the new `ParamKey.text*` | TX-020, KF-009 |
 | W5 | W13 | Sticker/effect tiles: hover-play animated stickers (`LottieLibrary`) like transition tiles do; favourites for the Transitions tab | TR-001, ST-* |
+| W3 | W13 | Adjustment asset tab ▸ My presets: list `AdjustPresets.shared` (saved from the Adjust footer), apply = `AdjustTools.apply` | CL-013 |
+
 
 ## Done cross-team items
 - W2 (UX polish) for W7: canvas text edge pills set `TextContent.boxWidth` (TX-011). For W4/W13: player preview mode (`store.previewMedia/previewEffect/previewSticker/exitPreview`, "Previewing — …"); effect/filter/sticker/media card clicks call it (FX-001, W13-1/W13-3).

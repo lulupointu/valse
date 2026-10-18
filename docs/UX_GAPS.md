@@ -279,52 +279,52 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W3: Inspector panels
 
-**W3-1 · P1 · The Adjust tab has no footer and no Mask sub-tab.**
+**W3-1 · P1 · The Adjust tab has no footer and no Mask sub-tab.** — **Fixed** (footer on every Adjust sub-tab: Apply to all = whole grade + mask on every video/image clip, Save as preset → My presets chips; Adjust ▸ Mask sub-tab with render-tested grading mask; `adjust_footer_mask` UI script)
 - CapCut ([32](ux/32_insp_adjust.png), [38](ux/38_insp_adjust_curves.png), [40](ux/40_insp_adjust_mask.png)): a sticky footer with
   `[Apply to all]` `[Save as preset]`, and sub-tabs Basic · HSL · Curves · Color wheel · **Mask**.
 - Montage ([10_inspector_adjust](ux_review/10_inspector_adjust.png), [11_inspector_full_height](ux_review/11_inspector_full_height.png),
   full-height capture): no footer at any height, and only four sub-tabs. Applying a grade to every clip takes N times the work.
 - Fix: add the footer (reuse `toast.appliedToAll`) and the Mask sub-tab (the same component as Video ▸ Mask).
 
-**W3-2 · P2 · The curves editor differs from CapCut.**
+**W3-2 · P2 · The curves editor differs from CapCut.** — **Fixed** (full-width graphs, endpoints only until edited, eyedropper per channel; `inspector_masks_speed`)
 - CapCut ([38](ux/38_insp_adjust_curves.png)): a full-width graph, a diagonal with only its two endpoints, and an eyedropper and
   ↺ per channel.
 - Montage ([10](ux_review/10_inspector_adjust.png)): a 220 pt graph that starts with five points (three interior ones) and has no
   eyedropper.
 - Fix: make the graph full width, start with endpoints only, and add the eyedropper.
 
-**W3-3 · P2 · Number formats aren't localized, and the speed sign is an "x".**
+**W3-3 · P2 · Number formats aren't localized, and the speed sign is an "x".** — **Fixed** (`Fmt` formats in the UI language: "0,00°", "1,00×", "5,0 s", "−6,0 dB"; × in English; `inspector_fr_formats` + unit test)
 - Montage ([14_inspector_fr_video](ux_review/14_inspector_fr_video.png)): in French, fields show "0.00°", "1.00x", "5.0s",
   "-6.0dB".
 - Fix: format through the locale: "0,00°", "1,00×", "5,0 s", "−6,0 dB" (and "×" in English too).
 
-**W3-4 · P2 · The filter and effect slider is called "Intensity".**
+**W3-4 · P2 · The filter and effect slider is called "Intensity".** — **Fixed** ("Strength" in English, "Intensité" in French)
 - CapCut (UX §5.5): **Strength** 0–100.
 - Montage ([12](ux_review/12_inspector_text_sticker_filter.png), [27](ux_review/27_fx_adjust_inspectors.png)): "Intensity".
 - Fix: rename it to "Strength" in English; French can stay "Intensité".
 
-**W3-5 · P2 · An audio clip's Speed tab shows "Smooth slow-mo".**
+**W3-5 · P2 · An audio clip's Speed tab shows "Smooth slow-mo".** — **Fixed** (video clips only)
 - Montage ([13_inspector_audio_multi](ux_review/13_inspector_audio_multi.png)): "Smooth slow-mo (Only applied to slow-mo videos)",
   which doesn't apply to audio.
 - Fix: hide it for audio clips.
 
-**W3-6 · P2 · The remembered inspector tab carries over between clip types.**
+**W3-6 · P2 · The remembered inspector tab carries over between clip types.** — **Fixed** (last tab remembered per `InspectorSelectionKind`; `inspector_tab_memory`)
 - CapCut (UX §9): the inspector remembers the last tab *per clip type*.
 - Montage ([12](ux_review/12_inspector_text_sticker_filter.png)): after Text ▸ Tracking, selecting a sticker opens Sticker ▸
   Tracking instead of Stickers.
 - Fix: key the remembered tab by `InspectorSelectionKind`.
 
-**W3-7 · P2 · Video ▸ Mask has only 6 shapes.**
+**W3-7 · P2 · Video ▸ Mask has only 6 shapes.** — **Fixed** (Text and Pen shapes, CPU-rasterized coverage with feather/invert, also in Adjust ▸ Mask; Pen points can't be drawn on the canvas yet, Brush later)
 - CapCut ([24](ux/24_insp_video_mask.png)): 9 shapes, including Text, Brush and Pen.
 - Montage ([08](ux_review/08_inspector_video_audio.png)): Linear, Mirror, Circle, Rectangle, Heart, Stars.
 - Fix: add Text (a glyph outline) and Pen (Bézier); Brush can come later.
 
-**W3-8 · P2 · Some French wording departs from the glossary or is ambiguous.**
+**W3-8 · P2 · Some French wording departs from the glossary or is ambiguous.** — **Fixed** ("Modulateur vocal", "Correspondance des couleurs")
 - "Changeur de voix" (glossary: "Modulateur vocal").
 - Color match is "Ajustement des couleurs", which is easy to confuse with "Ajuster". Prefer "Correspondance des couleurs".
 - Evidence: [14](ux_review/14_inspector_fr_video.png), [15](ux_review/15_inspector_fr_text_audio.png).
 
-**W3-9 · P2 · The Speed tab has no Velocity effects sub-tab.**
+**W3-9 · P2 · The Speed tab has no Velocity effects sub-tab.** — **Fixed** (8 speed-ramp presets as editable speed curves)
 - CapCut ([30](ux/30_insp_speed.png)): Normal · Curve · Velocity effects.
 - Montage ([09](ux_review/09_inspector_speed_anim.png)): Normal · Curve.
 - Fix: add a preset grid (it can reuse the speed-curve presets plus ramps).
