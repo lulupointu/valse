@@ -42,6 +42,26 @@ import MontageTestSupport
         #expect(InspectorRegistry.subTabs(of: tab, ctx: ctx).map(\.id) == ["basic", "voice"])
     }
 
+    /// Owner crash (project 1018, TTS clip): selecting an audio clip then deleting / deselecting it re-evaluated the
+    /// Basic tab's checkbox chrome with `ctx.clip == nil` before the panel dropped the section → force unwrap trap.
+    @Test func audioSectionChromeSurvivesClipRemoval() async throws {
+        var p = TestProject()
+        let a = try await p.addAudio(seconds: 1)
+        let s = EditorStore(project: p.project)
+        s.autosaveEnabled = false
+        s.selection = [a]
+        let ctx = InspectorContext(store: s)
+        let bindings = AudioInspector.sections.filter { $0.tabID == "audioBasic" }.compactMap { $0.chrome?(ctx).isEnabled }
+        #expect(!bindings.isEmpty)
+        s.perform(DeleteClips([a]))
+        #expect(s.project.timeline.clip(a) == nil)
+        for b in bindings { _ = b.wrappedValue; b.wrappedValue = true }  // stale bindings: no crash, no edit
+        s.selection = []
+        #expect(ctx.clip == nil)
+        let late = AudioInspector.sections.filter { $0.tabID == "audioBasic" }.compactMap { $0.chrome?(ctx).isEnabled }
+        for b in late { #expect(b.wrappedValue == false) }
+    }
+
     @Test func voiceChangerAppliesAndUndoes() async throws {
         var p = TestProject()
         let a = try await p.addAudio(seconds: 1)

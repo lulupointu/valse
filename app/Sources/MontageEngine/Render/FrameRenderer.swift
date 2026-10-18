@@ -420,11 +420,12 @@ public final class FrameRenderer: @unchecked Sendable {
         var layerTex = acquire(tw, th)
         var cu = ConvertUniforms(uvXform: Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV,
                                                             rotation: rotation, stabilize: stabilizationCorrection(l, media: media)),
-                                 fullRange: 0, matrix709: 1, unpremultiply: unpremultiply ? 1 : 0, pad: 0)
+                                 fullRange: 0, matrix709: 1, unpremultiply: unpremultiply ? 1 : 0)
         cu.inTF = Float(srcTF.code); cu.outTF = Float(space.transfer.code)
         cu.gamut = srcWide == space.isWideGamut ? 0 : (space.isWideGamut ? 1 : 2)
+        cu.inWide = srcWide ? 1 : 0; cu.outWide = space.isWideGamut ? 1 : 0
         if let (y, c, full, bt709) = yuv {
-            cu.fullRange = full ? 1 : 0; cu.matrix709 = matrix2020 ? 2 : (bt709 ? 1 : 0)
+            cu.fullRange = full ? 1 : (y.pixelFormat == .r16Unorm ? 2 : 0); cu.matrix709 = matrix2020 ? 2 : (bt709 ? 1 : 0)
             fullscreen(ctx.convertYUV, target: layerTex, cmd, label: "convert-yuv") { enc in
                 enc.setFragmentTexture(y, index: 0); enc.setFragmentTexture(c, index: 1)
                 enc.setFragmentBytes(&cu, length: MemoryLayout<ConvertUniforms>.stride, index: 0)
@@ -711,12 +712,13 @@ struct ConvertUniforms {
     var fullRange: Float
     var matrix709: Float
     var unpremultiply: Float
-    var pad: Float
+    /// Source / output use BT.2020 primaries (luminance weights of the HLG OOTF).
+    var inWide: Float = 0
     var inTF: Float = 0
     var outTF: Float = 0
     var gamut: Float = 0
-    var pad2: Float = 0
-    static let identity = ConvertUniforms(uvXform: Affine.identity.matrix, fullRange: 0, matrix709: 1, unpremultiply: 0, pad: 0)
+    var outWide: Float = 0
+    static let identity = ConvertUniforms(uvXform: Affine.identity.matrix, fullRange: 0, matrix709: 1, unpremultiply: 0)
 }
 
 /// Matches `PlaceU` in CoreShaders.

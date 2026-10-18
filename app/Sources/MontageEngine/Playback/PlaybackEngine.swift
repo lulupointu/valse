@@ -239,8 +239,9 @@ public final class PlaybackEngine {
         item.videoComposition = built.videoComposition
         item.audioMix = built.audioMix
         item.audioTimePitchAlgorithm = .spectral
+        // HDR projects: keep the compositor's half-float HLG / PQ code values (8-bit would band, EDR preview needs them).
         let out = AVPlayerItemVideoOutput(pixelBufferAttributes: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferPixelFormatTypeKey as String: project.settings.colorSpace.isHDR ? kCVPixelFormatType_64RGBAHalf : kCVPixelFormatType_32BGRA,
             kCVPixelBufferMetalCompatibilityKey as String: true])
         item.add(out)
         videoOutput = out

@@ -131,8 +131,9 @@ extension FrameRenderer {
             guard let (y, yc) = ctx.texture(pb, plane: 0, format: ten ? .r16Unorm : .r8Unorm),
                   let (c, cc) = ctx.texture(pb, plane: 1, format: ten ? .rg16Unorm : .rg8Unorm) else { return nil }
             scratch.retained += [yc, cc, pb]
-            cu.fullRange = (fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange) ? 1 : 0
-            cu.matrix709 = Self.isBT709(pb) ? 1 : 0
+            cu.fullRange = (fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange) ? 1 : (ten ? 2 : 0)
+            // same source as the layer: keep its BT.2020 matrix (HDR footage), else read the buffer's
+            cu.matrix709 = cu0.matrix709 > 1.5 ? 2 : (Self.isBT709(pb) ? 1 : 0)
             cu.unpremultiply = 0
             fullscreen(ctx.convertYUV, target: out, cmd, label: "convert-aux") { enc in
                 enc.setFragmentTexture(y, index: 0); enc.setFragmentTexture(c, index: 1)

@@ -76,12 +76,16 @@ enum AudioInspector {
         return AudioPipeline.pendingRender(c, asset: a)
     }
 
+    /// Stand-in read when the selected clip is gone (deleted / deselected): SwiftUI may re-evaluate a section's chrome
+    /// with `ctx.clip == nil` before the panel drops the section, which used to crash on a force unwrap.
+    static let placeholderClip = Clip(content: .adjustment, start: .zero, duration: Time(1))
+
     static func clipBinding<T>(_ ctx: Ctx, _ name: String, get: @escaping (Clip) -> T, set: @escaping (inout Clip, T) -> Void) -> Binding<T>
     where T: Equatable {
         let store = ctx.store, id = ctx.clip?.id
-        let fallback = ctx.clip.map(get)
-        return Binding(get: { id.flatMap { store.project.timeline.clip($0) }.map(get) ?? fallback! },
-                       set: { v in if let id { Bind.apply(store, id, name) { set(&$0, v) } } })
+        let fallback = get(ctx.clip ?? placeholderClip)
+        return Binding(get: { id.flatMap { store.project.timeline.clip($0) }.map(get) ?? fallback },
+                       set: { v in if let id, store.project.timeline.clip(id) != nil { Bind.apply(store, id, name) { set(&$0, v) } } })
     }
 
     static func strengthChrome(_ ctx: Ctx, _ path: WritableKeyPath<AudioProps, Double?>, _ d: Double, _ name: String) -> InspectorSectionChrome {

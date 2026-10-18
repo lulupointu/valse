@@ -1,0 +1,18 @@
+// Owner crash (project 1018, a TTS audio clip): with an audio clip selected on the Basic tab, deselecting, moving or
+// deleting it trapped in AudioInspector.clipBinding (section chrome re-evaluated with no selected clip).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:5/0"},
+    {"click": "id:inspector.tab.audioBasic"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "audioBasic"}},
+    {"click": "time:1@ruler"},
+    {"click": "clip:5/0"},
+    {"drag": "clip:5/0", "by": [40, 0]},
+    {"expect": {"path": "selection.count", "equals": 1}},
+    {"key": "delete"},
+    {"expect": [{"path": "selection.count", "equals": 0}, {"path": "undo.name", "equals": "cmd.delete"}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "tracks.5.clips.count", "equals": 1}}
+  ]
+}

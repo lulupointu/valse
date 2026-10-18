@@ -77,8 +77,21 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - W6/W9 delivered reverse render (TL-014) and nested compound rendering (TL-021 render side) for W1.
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
+## Owner bug reports (fixed)
+- 2026-10-19 Crash selecting / moving / deleting a TTS audio clip (project 1018): not a model problem — any audio clip
+  on the Basic tab trapped in `AudioInspector.clipBinding` (force unwrap) when the selection went away before the panel
+  dropped the section. Fixed (placeholder fallback, no-op set on a missing clip); `AudioUITests.audioSectionChromeSurvivesClipRemoval`,
+  UI script `audio_delete_selected`. Existing projects need no repair.
+- 2026-10-19 iPhone HLG/Dolby Vision footage: SDR projects blown + orange skin, HDR preview grey. Colour pipeline now:
+  exact 10-bit video range, HLG OOTF on luminance, BT.2020→709 with gamut desaturation, HDR→SDR curve `1−exp(−k·maxRGB)`
+  fitted to Apple's own rendering (3.6/255 mean error on the owner's clips); HDR projects preview through an EDR
+  CAMetalLayer (Rec.2100 HLG/PQ colour space, half-float frames) and tone-map on non-EDR screens / snapshots.
+  Tests: `HDRTests` (ffmpeg HLG/PQ patch clips vs ColorMath + Apple, preview tone map), `ColorMathTests`.
+
 ## Decisions log
 - 2026-10-19 Owner: NO AI-generated/procedural music. Music & SFX library must offer real ONLINE search (Instagram-like) — explicit exception to local-only, limited to the music/SFX browser (user-supplied API keys e.g. Pixabay/Freesound, download-on-add so projects work offline). Rest of app stays offline.
+- 2026-10-19 HDR media import keeps the project SDR by default (CapCut default; HDR footage now tone-maps like Photos/
+  QuickTime). Timeline thumbnails stay on AVAssetImageGenerator: Apple's conversion is the reference the SDR curve is fitted to.
 - 2026-10-18 Owner dropped 69 features (FEATURES.md status `wontdo`): cloud-only, generative AI, advanced voice AI (clone/s2s/overdub/translator), templates (TP-*), retouch/body (RT-*, AI-017, AI-052). EXCEPTION kept: music library + similar sounds (AU-001, AU-025) — must be a local library of tracks/sounds safe to use on Instagram (royalty-free/CC0, license recorded per item).
 - 2026-10-18 Stack: native Swift/Metal/AVFoundation (STACK.md, owner-approved). macOS-only; cross-platform is a bonus.
 - Proxies mandatory (4K HEVC decode ≈1.1–1.3 GB for 4 streams; no stack scrubs <50 ms p95 on originals).

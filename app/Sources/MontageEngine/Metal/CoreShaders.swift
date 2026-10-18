@@ -14,19 +14,24 @@ enum CoreShaders {
     }
 
     // ---- Source conversion → straight RGBA (half float). uvXform maps target uv → source uv (crop/flip/rotate).
-    // matrix709: 0 = BT.601, 1 = BT.709, 2 = BT.2020. inTF/outTF: 0 SDR, 1 HLG, 2 PQ. gamut: 0 none, 1 709→2020,
-    // 2 2020→709. Colour math mirrors MontageCore.ColorMath (linear 1.0 = 203-nit reference white).
-    struct ConvertU { float3x2 uvXform; float fullRange; float matrix709; float unpremultiply; float pad;
-                      float inTF; float outTF; float gamut; float pad2; };
+    // matrix709: 0 = BT.601, 1 = BT.709, 2 = BT.2020. fullRange: 0 = 8-bit video range, 1 = full range, 2 = 10-bit video
+    // range (in a 16-bit texture: code << 6). inTF/outTF: 0 SDR, 1 HLG, 2 PQ. gamut: 0 none, 1 709→2020, 2 2020→709.
+    // inWide/outWide: BT.2020 primaries (HLG OOTF luminance weights). Colour math mirrors MontageCore.ColorMath
+    // (linear 1.0 = 203-nit reference white; HLG OOTF on luminance; HDR→SDR: gamut desaturation + 1 − exp(−k·maxRGB), k = 0.4 HLG / 1 PQ).
+    struct ConvertU { float3x2 uvXform; float fullRange; float matrix709; float unpremultiply; float inWide;
+                      float inTF; float outTF; float gamut; float outWide; };
 
     inline float2 xf(constant ConvertU& u, float2 uv) { return u.uvXform * float3(uv, 1.0); }
 
-    inline float3 tf_to_linear(float3 v, int tf) {
+    inline float3 luma_k(float wide) { return wide > 0.5 ? float3(0.2627, 0.6780, 0.0593) : float3(0.2126, 0.7152, 0.0722); }
+
+    inline float3 tf_to_linear(float3 v, int tf, float3 ky) {
         v = max(v, 0.0);
         if (tf == 1) {
             const float a = 0.17883277, b = 0.28466892, c = 0.55991073;
             float3 e = select((exp((v - c) / a) + b) / 12.0, v * v / 3.0, v <= 0.5);
-            return 1000.0 * pow(max(e, 0.0), 1.2) / 203.0;
+            float ys = max(dot(ky, e), 1e-9);
+            return e * (1000.0 * pow(ys, 0.2) / 203.0);
         }
         if (tf == 2) {
             const float m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625, c3 = 18.6875;
@@ -35,11 +40,14 @@ enum CoreShaders {
         }
         return pow(v, 2.4);
     }
-    inline float3 tf_from_linear(float3 l, int tf) {
+    inline float3 tf_from_linear(float3 l, int tf, float3 ky) {
         l = max(l, 0.0);
         if (tf == 1) {
             const float a = 0.17883277, b = 0.28466892, c = 0.55991073;
-            float3 e = pow(l * (203.0 / 1000.0), 1.0 / 1.2);
+            float3 d = l * (203.0 / 1000.0);
+            float yd = dot(ky, d);
+            if (yd <= 1e-12) { return float3(0.0); }
+            float3 e = d * pow(yd, 1.0 / 1.2 - 1.0);
             return min(select(a * log(max(12.0 * e - b, 1e-6)) + c, sqrt(3.0 * e), e <= 1.0 / 12.0), 1.0);
         }
         if (tf == 2) {
@@ -49,18 +57,24 @@ enum CoreShaders {
         }
         return pow(min(l, 1.0), 1.0 / 2.4);
     }
-    inline float3 color_convert(float3 rgb, constant ConvertU& u) {
-        int inTF = int(u.inTF + 0.5), outTF = int(u.outTF + 0.5), gamut = int(u.gamut + 0.5);
+    inline float3 color_convert_v(float3 rgb, int inTF, int outTF, int gamut, float inWide, float outWide) {
         if (inTF == outTF && gamut == 0) { return rgb; }
-        float3 l = tf_to_linear(rgb, inTF);
+        float3 l = tf_to_linear(rgb, inTF, luma_k(inWide));
         if (gamut == 1) { l = float3x3(float3(0.6274, 0.0691, 0.0164), float3(0.3293, 0.9195, 0.0880), float3(0.0433, 0.0114, 0.8956)) * l; }
         if (gamut == 2) { l = float3x3(float3(1.6605, -0.1246, -0.0182), float3(-0.5876, 1.1329, -0.1006), float3(-0.0728, -0.0083, 1.1187)) * l; }
-        l = max(l, 0.0);
+        float3 ko = luma_k(outWide);
+        float y = max(dot(ko, l), 0.0);
+        float mn = min(l.r, min(l.g, l.b));
+        if (mn < 0.0) { l = y > 0.0 ? max(y + (l - y) * (y / (y - mn)), 0.0) : float3(0.0); }
         if (outTF == 0 && inTF != 0) {
             float m = max(l.r, max(l.g, l.b));
-            if (m > 0.8) { float t = 0.8 + 0.2 * (1.0 - exp(-(m - 0.8) / 0.2)); l *= t / m; }
+            float k = inTF == 1 ? 0.4 : 1.0;   // ColorMath.sdrToneExposure(_:)
+            if (m > 0.0) { l *= (1.0 - exp(-k * m)) / m; }
         }
-        return tf_from_linear(l, outTF);
+        return tf_from_linear(l, outTF, ko);
+    }
+    inline float3 color_convert(float3 rgb, constant ConvertU& u) {
+        return color_convert_v(rgb, int(u.inTF + 0.5), int(u.outTF + 0.5), int(u.gamut + 0.5), u.inWide, u.outWide);
     }
 
     fragment float4 convert_yuv_fs(QuadOut in [[stage_in]], texture2d<float> yT [[texture(0)]],
@@ -69,7 +83,8 @@ enum CoreShaders {
         float2 suv = xf(u, in.uv);
         float y = yT.sample(s, suv).r;
         float2 c = cT.sample(s, suv).rg;
-        if (u.fullRange > 0.5) { c -= 0.5; }
+        if (u.fullRange > 1.5) { y = (y * (65535.0 / 64.0) - 64.0) / 876.0; c = (c * (65535.0 / 64.0) - 512.0) / 896.0; }
+        else if (u.fullRange > 0.5) { c -= 0.5; }
         else { y = (y - 16.0/255.0) * (255.0/219.0); c = (c - 128.0/255.0) * (255.0/224.0); }
         float3 rgb = u.matrix709 > 1.5
             ? float3(y + 1.4746 * c.y, y - 0.16455 * c.x - 0.57135 * c.y, y + 1.8814 * c.x)
@@ -293,6 +308,12 @@ enum CoreShaders {
     fragment float4 present_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
         return float4(t.sample(s, in.uv).rgb, 1.0);
+    }
+    // HDR project on a non-EDR screen (or an SDR snapshot of it): Rec.2020 HLG/PQ code values → tone-mapped SDR Rec.709.
+    fragment float4 present_tonemap_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]], constant float& tf [[buffer(0)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        float3 c = saturate(t.sample(s, in.uv).rgb);
+        return float4(saturate(color_convert_v(c, int(tf + 0.5), 0, 2, 1.0, 0.0)), 1.0);
     }
     """
 }

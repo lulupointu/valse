@@ -28,6 +28,10 @@ public final class MetalContext: @unchecked Sendable {
     /// HDR compositor output (rgba16Float pixel buffers).
     let outputHalf: MTLRenderPipelineState
     public let present: MTLRenderPipelineState
+    /// Same pass into an rgba16Float drawable (EDR preview of HDR projects: HLG / PQ code values, colour-managed by the layer).
+    public let presentHalf: MTLRenderPipelineState
+    /// HDR project code values → tone-mapped SDR Rec.709 (non-EDR screens, snapshots).
+    public let presentToneMap: MTLRenderPipelineState
     let fullscreenVS: MTLFunction
 
     private init() {
@@ -71,6 +75,8 @@ public final class MetalContext: @unchecked Sendable {
         outputBGRA = pipe("fullscreen_vs", "output_fs", .bgra8Unorm)
         outputHalf = pipe("fullscreen_vs", "output_half_fs", .rgba16Float)
         present = pipe("present_vs", "present_fs", .bgra8Unorm)
+        presentHalf = pipe("present_vs", "present_fs", .rgba16Float)
+        presentToneMap = pipe("present_vs", "present_tonemap_fs", .bgra8Unorm)
         var c: CVMetalTextureCache?
         CVMetalTextureCacheCreate(nil, nil, device, nil, &c)
         textureCache = c!

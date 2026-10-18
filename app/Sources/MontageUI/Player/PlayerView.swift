@@ -22,6 +22,10 @@ final class PlayerView: NSView {
     private var metalLayer: CAMetalLayer { layer as! CAMetalLayer }
     /// Presented frames (stats / tests).
     private(set) var presentedFrames = 0
+    /// Drawable colour setup for the current project colour space / screen (`configureColor`).
+    private var configuredSpace: ProjectColorSpace?
+    private var configuredEDR = false
+    private(set) var presentMode: Presenter.Mode = .passthrough
 
     init(engine: PlaybackEngine) {
         self.engine = engine
@@ -57,7 +61,7 @@ final class PlayerView: NSView {
 
     /// Occluded-window path: present new frames / re-render without a display link.
     private func fallbackTick() {
-        if let (pb, _) = engine.pixelBuffer(forHostTime: CACurrentMediaTime()), let (tex, cv) = ctx.texture(pb, plane: 0, format: .bgra8Unorm) {
+        if let (pb, _) = engine.pixelBuffer(forHostTime: CACurrentMediaTime()), let (tex, cv) = frameTexture(pb) {
             lastPixelBuffer = pb
             present(tex, retain: [cv, pb])
             needsRerender = false
@@ -98,7 +102,7 @@ final class PlayerView: NSView {
     @objc private func tick(_ l: CADisplayLink) {
         if let (pb, _) = engine.pixelBuffer(forHostTime: l.targetTimestamp) {
             lastPixelBuffer = pb
-            if let (tex, cv) = ctx.texture(pb, plane: 0, format: .bgra8Unorm) {
+            if let (tex, cv) = frameTexture(pb) {
                 present(tex, retain: [cv, pb])
                 needsRerender = false
             }
@@ -113,8 +117,10 @@ final class PlayerView: NSView {
     /// Re-renders the playhead frame with the latest project (no decode).
     private func rerender() {
         let size = engine.renderSize
-        if rerenderTarget?.width != Int(size.width) || rerenderTarget?.height != Int(size.height) {
-            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: Int(size.width), height: Int(size.height), mipmapped: false)
+        // HDR projects: half-float HLG / PQ code values (like the compositor's output)
+        let fmt: MTLPixelFormat = engine.project.settings.colorSpace.isHDR ? .rgba16Float : .bgra8Unorm
+        if rerenderTarget?.width != Int(size.width) || rerenderTarget?.height != Int(size.height) || rerenderTarget?.pixelFormat != fmt {
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: fmt, width: Int(size.width), height: Int(size.height), mipmapped: false)
             d.usage = [.renderTarget, .shaderRead]; d.storageMode = .private
             rerenderTarget = ctx.device.makeTexture(descriptor: d)
         }
@@ -122,16 +128,50 @@ final class PlayerView: NSView {
         if engine.renderCurrentFrame(into: target, commandBuffer: cmd) {
             cmd.commit()
             present(target, retain: [])
-        } else if let pb = lastPixelBuffer, let (tex, cv) = ctx.texture(pb, plane: 0, format: .bgra8Unorm) {
+        } else if let pb = lastPixelBuffer, let (tex, cv) = frameTexture(pb) {
             present(tex, retain: [cv, pb])
         }
     }
 
+    /// Composed frame texture: BGRA8 (SDR projects) or half-float HLG / PQ code values (HDR projects).
+    private func frameTexture(_ pb: CVPixelBuffer) -> (MTLTexture, CVMetalTexture)? {
+        ctx.texture(pb, plane: 0, format: CVPixelBufferGetPixelFormatType(pb) == kCVPixelFormatType_64RGBAHalf ? .rgba16Float : .bgra8Unorm)
+    }
+
+    /// HDR projects on an EDR-capable screen: half-float drawable tagged with the project's Rec.2100 HLG / PQ colour
+    /// space (macOS maps it to the screen's headroom). Elsewhere (SDR screens, offscreen UI tests) the present pass
+    /// tone-maps to SDR Rec.709 with the same curve as SDR export. SDR projects: plain BGRA8, unchanged.
+    private func configureColor() {
+        let space = engine.project.settings.colorSpace
+        let edr = space.isHDR && (window?.screen?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1) > 1
+        guard space != configuredSpace || edr != configuredEDR else { return }
+        configuredSpace = space; configuredEDR = edr
+        if edr {
+            metalLayer.pixelFormat = .rgba16Float
+            metalLayer.wantsExtendedDynamicRangeContent = true
+            metalLayer.colorspace = CGColorSpace(name: space == .hdrPQ ? CGColorSpace.itur_2100_PQ : CGColorSpace.itur_2100_HLG)
+            // reference white (203 nits) = UI white
+            metalLayer.edrMetadata = space == .hdrPQ
+                ? CAEDRMetadata.hdr10(minLuminance: 0.005, maxLuminance: 1000, opticalOutputScale: Float(ColorMath.referenceWhiteNits))
+                : CAEDRMetadata.hlg
+            presentMode = .passthrough
+        } else {
+            metalLayer.pixelFormat = .bgra8Unorm
+            metalLayer.wantsExtendedDynamicRangeContent = false
+            metalLayer.colorspace = nil
+            metalLayer.edrMetadata = nil
+            presentMode = space.isHDR ? .toneMapToSDR(space.transfer) : .passthrough
+        }
+        needsRerender = true
+    }
+
     private func present(_ tex: MTLTexture, retain: [Any]) {
         lastFrame = tex
+        configureColor()
         guard let drawable = metalLayer.nextDrawable(), let cmd = ctx.queue.makeCommandBuffer() else { return }
-        Presenter.encode(tex, to: drawable.texture, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: letterbox,
-                         contentRect: pixelRect(scale: metalLayer.contentsScale),
+        let lb = configuredEDR ? ColorMath.color(letterbox, in: engine.project.settings.colorSpace) : letterbox
+        Presenter.encode(tex, to: drawable.texture, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: lb,
+                         contentRect: pixelRect(scale: metalLayer.contentsScale), mode: presentMode,
                          commandBuffer: cmd)
         cmd.present(drawable)
         let hold = UncheckedSendable(retain)
@@ -150,8 +190,11 @@ final class PlayerView: NSView {
         d.usage = [.renderTarget, .shaderRead]; d.storageMode = .shared
         guard let out = ctx.device.makeTexture(descriptor: d), let cmd = ctx.queue.makeCommandBuffer() else { return nil }
         if let frame = lastFrame {
+            // always SDR (HDR projects tone-mapped like on an SDR screen)
+            let space = engine.project.settings.colorSpace
             Presenter.encode(frame, to: out, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: letterbox,
-                             contentRect: pixelRect(scale: s), commandBuffer: cmd)
+                             contentRect: pixelRect(scale: s), mode: space.isHDR ? .toneMapToSDR(space.transfer) : .passthrough,
+                             commandBuffer: cmd)
         }
         cmd.commit(); cmd.waitUntilCompleted()
         return TextureReadback.cgImage(out)
