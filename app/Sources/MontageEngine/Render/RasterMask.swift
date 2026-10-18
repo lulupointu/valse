@@ -9,7 +9,7 @@ import MontageCore
 /// (CoreGraphics / CoreText) into an r8 coverage texture at the layer texture size, feathered with a Gaussian blur.
 /// Geometry matches the shader masks: centre/size in layer units (y down), rotation clockwise, feather 1 ≈ a quarter
 /// of the layer height. Results are cached (masks are usually static), so steady playback costs nothing.
-final class RasterMasks: @unchecked Sendable {
+public final class RasterMasks: @unchecked Sendable {
     static let shared = RasterMasks()
 
     private struct Key: Hashable { let mask: Mask; let w: Int; let h: Int }
@@ -85,7 +85,7 @@ final class RasterMasks: @unchecked Sendable {
     }
 
     /// Closed Catmull-Rom spline through `pts` as cubic Béziers.
-    static func smoothClosedPath(_ pts: [CGPoint]) -> CGPath {
+    public static func smoothClosedPath(_ pts: [CGPoint]) -> CGPath {
         let p = CGMutablePath(), n = pts.count
         p.move(to: pts[0])
         for i in 0..<n {

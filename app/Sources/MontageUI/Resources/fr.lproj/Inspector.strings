@@ -112,4 +112,4 @@
 /* Text / Pen masks (W3-7) */
 "mask.text.default" = "TEXTE";
 "inspector.mask.text" = "Texte";
-"inspector.mask.penHint" = "Faites glisser le masque dans le lecteur pour le placer ; Taille et Rotation modifient le contour.";
+"inspector.mask.penHint" = "Faites glisser le masque dans le lecteur pour le placer, ou ses points pour modifier le contour ; Taille et Rotation le redimensionnent et le font pivoter.";

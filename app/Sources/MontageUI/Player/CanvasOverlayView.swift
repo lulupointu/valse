@@ -17,7 +17,7 @@ final class CanvasOverlayView: NSView {
         case pan(startPan: CGPoint, startView: CGPoint)
         case guide(id: UUID)
         case newGuide(CanvasGuide.Axis)
-        case mask(handle: MaskHandle, clipID: ClipID, base: Mask, frame: MaskFrame, start: Vec2, startView: CGPoint, started: Bool)
+        case mask(handle: MaskHandle, clipID: ClipID, target: MaskTarget, base: Mask, frame: MaskFrame, start: Vec2, startView: CGPoint, started: Bool)
     }
     private var drag: Drag = .none
     private var snapLines: [SnapLine] = []
@@ -131,14 +131,16 @@ final class CanvasOverlayView: NSView {
 
     private func localTime(_ c: Clip) -> Time { (store.transport.playhead - c.start).clamped(.zero, c.duration) }
 
-    /// Mask editing on the canvas (UX.md §5.1): one selected layer with a mask while the inspector shows a Mask sub-tab.
-    private var maskTarget: (layer: CanvasLayer, clip: Clip, mask: Mask)? {
+    /// Mask editing on the canvas (UX.md §5.1): one selected layer with a mask while the inspector shows a Mask sub-tab
+    /// (Video ▸ Mask edits `Clip.mask`, Adjust ▸ Mask the grading mask `Clip.adjustMask`).
+    private var maskTarget: (layer: CanvasLayer, clip: Clip, mask: Mask, target: MaskTarget)? {
         guard store.selection.count == 1, let l = selectedLayers.first, !l.isLocked,
-              let clip = store.project.timeline.clip(l.clipID), clip.mask != nil else { return nil }
+              let clip = store.project.timeline.clip(l.clipID) else { return nil }
         let tab = store.inspectorTab ?? InspectorRegistry.tabs(for: InspectorContext(store: store)).first?.id
         guard let tab, InspectorUIState.shared.subTab[tab] == "mask" else { return nil }
-        guard let m = clip.resolved(at: localTime(clip)).mask else { return nil }
-        return (l, clip, m)
+        let target: MaskTarget = tab == "adjust" ? .adjust : .clip
+        guard clip[keyPath: target.mask] != nil, let m = clip.resolved(at: localTime(clip))[keyPath: target.mask] else { return nil }
+        return (l, clip, m, target)
     }
 
     private var guideTargets: (x: [Double], y: [Double]) {
@@ -286,8 +288,17 @@ final class CanvasOverlayView: NSView {
         case .rectangle:
             let r = min(mask.roundness * min(hx, hy), min(hx, hy))
             ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil)); ctx.strokePath()
-        case .heart, .star:
+        case .heart, .star, .text:
             ctx.stroke(box)
+        case .pen:
+            // the outline itself (same Catmull-Rom path as the raster mask) inside a faint box
+            let pts = (f.points ?? []).map { b -> CGPoint in let l = f.boxToLocal(b); return CGPoint(x: l.x * vp.scale, y: l.y * vp.scale) }
+            if pts.count >= 3 { ctx.addPath(RasterMasks.smoothClosedPath(pts)); ctx.strokePath() }
+            ctx.saveGState()
+            ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.4).cgColor)
+            ctx.setLineWidth(1)
+            ctx.stroke(box)
+            ctx.restoreGState()
         }
         // centre cross
         ctx.setLineDash(phase: 0, lengths: [3, 3])
@@ -307,6 +318,16 @@ final class CanvasOverlayView: NSView {
         if f.hasBox {
             ctx.setFillColor(NSColor.white.cgColor)
             for p in f.corners.map(vp.toView) { ctx.fillEllipse(in: CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)) }
+        }
+        // pen outline points: hollow dots (drag to reshape)
+        if !f.pointPositions.isEmpty {
+            ctx.setFillColor(NSColor.white.cgColor)
+            ctx.setStrokeColor(NSColor.systemBlue.cgColor)
+            ctx.setLineWidth(1.5)
+            for p in f.pointPositions.map(vp.toView) {
+                let r = CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)
+                ctx.fillEllipse(in: r); ctx.strokeEllipse(in: r)
+            }
         }
         // floating buttons
         var buttons: [(Vec2, String)] = [(f.rotateButton(viewScale: vp.scale), "arrow.triangle.2.circlepath"),
@@ -497,7 +518,7 @@ final class CanvasOverlayView: NSView {
         if let mt = maskTarget {
             let f = MaskFrame(layer: mt.layer.geometry, mask: mt.mask)
             if let h = f.hit(p, viewScale: vp.scale) {
-                drag = .mask(handle: h, clipID: mt.clip.id, base: mt.mask, frame: f, start: p, startView: v, started: false)
+                drag = .mask(handle: h, clipID: mt.clip.id, target: mt.target, base: mt.mask, frame: f, start: p, startView: v, started: false)
                 return
             }
             // inside the masked layer but off the mask: keep the selection (no layer transform while editing the mask)
@@ -550,12 +571,12 @@ final class CanvasOverlayView: NSView {
             let g = store.playerUI.guides[i]
             let pos = g.axis == .horizontal ? Double((v.y - r.minY) / r.height) : Double((v.x - r.minX) / r.width)
             store.playerUI.guides[i].position = min(max(pos, 0), 1)
-        case .mask(let h, let id, let base, let f, let start, let startView, var started):
+        case .mask(let h, let id, let t, let base, let f, let start, let startView, var started):
             if !started {
                 guard hypot(v.x - startView.x, v.y - startView.y) >= 2 else { return }
                 store.beginGesture("cmd.mask")
                 started = true
-                drag = .mask(handle: h, clipID: id, base: base, frame: f, start: start, startView: startView, started: true)
+                drag = .mask(handle: h, clipID: id, target: t, base: base, frame: f, start: start, startView: startView, started: true)
             }
             guard let clip = store.project.timeline.clip(id) else { return }
             let local = localTime(clip)
@@ -565,23 +586,26 @@ final class CanvasOverlayView: NSView {
                 var d = p - start
                 if e.modifierFlags.contains(.shift) { d = CanvasDrag.constrained(d) }
                 let c = f.movedCenter(base.center, by: d)
-                apply(id) { $0.setValue(.maskCenter, .vec2(c), at: local) }
+                apply(id) { $0.setValue(t.center, .vec2(c), at: local) }
             case .corner, .edge:
                 let keep = InspectorUIState.shared.maskLock || e.modifierFlags.contains(.shift)
                 let s = f.resized(base.size, handle: h, to: p, keepAspect: keep)
-                apply(id) { $0.setValue(.maskSize, .vec2(s), at: local) }
+                apply(id) { $0.setValue(t.size, .vec2(s), at: local) }
             case .rotate:
                 let r = f.rotated(base.rotation, start: start, current: p, snapping: !e.modifierFlags.contains(.command))
                 angleLabel = r
-                apply(id) { $0.setValue(.maskRotation, .scalar(r), at: local) }
+                apply(id) { $0.setValue(t.rotation, .scalar(r), at: local) }
             case .feather:
                 let fv = MaskFrame.dragged(base.feather, dy: dy)
                 maskValueLabel = "\(tr("prop.maskFeather")) \(Int((fv * 100).rounded()))"
-                apply(id) { $0.setValue(.maskFeather, .scalar(fv), at: local) }
+                apply(id) { $0.setValue(t.feather, .scalar(fv), at: local) }
             case .roundness:
                 let rv = MaskFrame.dragged(base.roundness, dy: dy)
                 maskValueLabel = "\(tr("prop.maskRoundness")) \(Int((rv * 100).rounded()))"
-                apply(id) { $0.setValue(.maskRoundness, .scalar(rv), at: local) }
+                apply(id) { $0.setValue(t.roundness, .scalar(rv), at: local) }
+            case .point(let i):
+                let pts = f.movedPoint(f.points ?? [], index: i, to: p)
+                apply(id) { $0[keyPath: t.mask]?.points = pts }
             }
             needsDisplay = true
         case .transform(let h, let id, let base, let layer, let others, let start, let startView, var started):
@@ -648,7 +672,7 @@ final class CanvasOverlayView: NSView {
             return
         }
         switch drag {
-        case .transform(_, _, _, _, _, _, _, let started), .mask(_, _, _, _, _, _, let started):
+        case .transform(_, _, _, _, _, _, _, let started), .mask(_, _, _, _, _, _, _, let started):
             if started { store.endGesture() }
         case .pan:
             NSCursor.pop()
@@ -698,7 +722,7 @@ final class CanvasOverlayView: NSView {
         if let mt = maskTarget, let h = MaskFrame(layer: mt.layer.geometry, mask: mt.mask).hit(p, viewScale: vp.scale) {
             switch h {
             case .body: NSCursor.openHand.set()
-            case .corner: NSCursor.crosshair.set()
+            case .corner, .point: NSCursor.crosshair.set()
             case .edge(let i): (i == 0 || i == 2 ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set()
             case .feather, .roundness: NSCursor.resizeUpDown.set()
             case .rotate: NSCursor.pointingHand.set()

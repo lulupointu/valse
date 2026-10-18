@@ -44,10 +44,15 @@ public enum StateDump {
             d["animCombo"] = c.animations.combo?.typeID ?? ""
             d["keyframeCounts"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.count) })   // "transform_position"
             d["keyframeEasings"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.map { Self.easingName($0.easing) }) })
-            if let m = c.mask {
-                d["mask"] = ["shape": m.shape.rawValue, "centerX": m.center.x, "centerY": m.center.y, "sizeX": m.size.x,
-                             "sizeY": m.size.y, "rotation": m.rotation, "feather": m.feather, "roundness": m.roundness] as [String: Any]
+            func maskSummary(_ m: Mask) -> [String: Any] {
+                var s: [String: Any] = ["shape": m.shape.rawValue, "centerX": m.center.x, "centerY": m.center.y, "sizeX": m.size.x,
+                                        "sizeY": m.size.y, "rotation": m.rotation, "feather": m.feather, "roundness": m.roundness]
+                if let t = m.text { s["text"] = t }
+                if m.shape == .pen { s["points"] = (m.points ?? Mask.defaultPenPoints).map { [$0.x, $0.y] } }
+                return s
             }
+            if let m = c.mask { d["mask"] = maskSummary(m) }
+            if let m = c.adjustMask { d["adjustMask"] = maskSummary(m) }
             return d
         }
         func trackSummary(_ t: Track, _ i: Int) -> [String: Any] {

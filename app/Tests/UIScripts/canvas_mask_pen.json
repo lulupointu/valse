@@ -1,0 +1,31 @@
+// Player canvas (integration W2-1 × W3-7): Pen masks show their outline points on the canvas and a point drag reshapes
+// the outline (one undo step); Adjust ▸ Mask shows the same handles and edits the grading mask, not the clip mask.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"click": "id:mask.shape.pen"},
+    {"expect": [{"path": "selectedClips.0.mask.shape", "equals": "pen"}, {"path": "selectedClips.0.mask.points", "count": 7}]},
+    {"snapshot": "pen-added", "element": "id:panel.player"},
+    // outline point 2 (right of the top point, clockwise): drag it right; only that point moves
+    {"drag": "id:panel.player", "at": [0.7208, 0.5369], "by": [40, 0]},
+    {"expect": [{"path": "selectedClips.0.mask.points.2.0", "gt": 0.55}, {"path": "selectedClips.0.mask.points.3.0", "approx": 0.1736, "tolerance": 0.005},
+                {"path": "selectedClips.0.mask.centerX", "approx": 0}, {"path": "undo.depth", "equals": 3}]},
+    {"snapshot": "pen-point-dragged", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.mask.points.2.0", "lt": 0.5}},
+    // Adjust ▸ Mask: the handles now edit the grading mask
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"expect": {"path": "selectedClips.0.adjustMask.shape", "equals": "rectangle"}},
+    {"drag": "id:panel.player", "at": [0.45, 0.5], "by": [60, 0]},
+    {"expect": [{"path": "selectedClips.0.adjustMask.centerX", "gt": 0.05}, {"path": "selectedClips.0.mask.centerX", "approx": 0},
+                {"path": "selectedClips.0.positionX", "approx": 0}]},
+    {"snapshot": "adjust-mask-handles", "element": "id:panel.player"}
+  ]
+}

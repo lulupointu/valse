@@ -112,4 +112,4 @@
 /* Text / Pen masks (W3-7) */
 "mask.text.default" = "TEXT";
 "inspector.mask.text" = "Text";
-"inspector.mask.penHint" = "Drag the mask on the player to place it; Size and Rotate reshape the outline.";
+"inspector.mask.penHint" = "Drag the mask on the player to place it, or drag its points to reshape the outline; Size and Rotate scale and turn it.";

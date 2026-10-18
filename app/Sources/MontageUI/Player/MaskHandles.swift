@@ -16,6 +16,8 @@ nonisolated enum MaskHandle: Equatable {
     case edge(Int)
     /// Floating round buttons: rotate (below), feather (above, drag up/down), round corners (top-left, rectangle only).
     case rotate, feather, roundness
+    /// Pen mask outline point `i` (`Mask.points`): drag to reshape.
+    case point(Int)
 }
 
 /// The mask's frame in canvas pixels for one layer.
@@ -31,6 +33,8 @@ nonisolated struct MaskFrame: Equatable {
     let layerSize: Vec2
     let layerCenter: Vec2
     let layerRotation: Double
+    /// Pen mask outline points in mask-box units (−0.5…0.5, y down); nil for other shapes.
+    let points: [Vec2]?
 
     /// View-point offsets of the floating buttons from the box.
     static let buttonOffset: Double = 26
@@ -47,6 +51,7 @@ nonisolated struct MaskFrame: Equatable {
         let off = Self.rotate(Vec2(m.center.x * w, m.center.y * h), g.rotation)
         center = g.center + off
         rotation = g.rotation + m.rotation * .pi / 180
+        points = m.shape == .pen ? (m.points ?? Mask.defaultPenPoints) : nil
         let reach = (w * w + h * h).squareRoot() / 2
         switch m.shape {
         case .linear: half = Vec2(reach, 0)
@@ -68,6 +73,11 @@ nonisolated struct MaskFrame: Equatable {
     var hasBox: Bool { shape != .linear && shape != .mirror }
     var hasRoundness: Bool { shape == .rectangle }
 
+    /// Mask-box point (−0.5…0.5 units) → mask frame (centre-relative canvas pixels, unrotated).
+    func boxToLocal(_ b: Vec2) -> Vec2 { Vec2(b.x * 2 * half.x, b.y * 2 * half.y) }
+    /// Pen outline points in canvas pixels.
+    var pointPositions: [Vec2] { (points ?? []).map { toCanvas(boxToLocal($0)) } }
+
     /// Corners TL, TR, BL, BR in canvas pixels.
     var corners: [Vec2] { [Vec2(-half.x, -half.y), Vec2(half.x, -half.y), Vec2(-half.x, half.y), Vec2(half.x, half.y)].map(toCanvas) }
 
@@ -75,7 +85,7 @@ nonisolated struct MaskFrame: Equatable {
     func edges() -> [(Int, Vec2)] {
         let all = [(0, Vec2(0, -half.y)), (1, Vec2(half.x, 0)), (2, Vec2(0, half.y)), (3, Vec2(-half.x, 0))]
         switch shape {
-        case .linear: return []
+        case .linear, .pen: return []  // pen: its outline points sit on the box edges
         case .mirror: return all.filter { $0.0 == 0 || $0.0 == 2 }.map { ($0.0, toCanvas($0.1)) }
         default: return all.map { ($0.0, toCanvas($0.1)) }
         }
@@ -93,6 +103,7 @@ nonisolated struct MaskFrame: Equatable {
         if near(rotateButton(viewScale: vs), Self.buttonRadius) { return .rotate }
         if near(featherButton(viewScale: vs), Self.buttonRadius) { return .feather }
         if hasRoundness, near(roundnessButton(viewScale: vs), Self.buttonRadius) { return .roundness }
+        for (i, q) in pointPositions.enumerated() where near(q, Self.cornerRadius + 1) { return .point(i) }
         if hasBox { for (i, c) in corners.enumerated() where near(c, Self.cornerRadius) { return .corner(i) } }
         for (i, e) in edges() where near(e, Self.cornerRadius + 1) { return .edge(i) }
         let l = toLocal(p)
@@ -125,6 +136,15 @@ nonisolated struct MaskFrame: Equatable {
         case .edge(let i): return i == 0 || i == 2 ? Vec2(base.x, h) : Vec2(w, base.y)
         default: return base
         }
+    }
+
+    /// Pen outline after dragging point `i` to canvas point `p` (mask-box units, kept within twice the box).
+    func movedPoint(_ base: [Vec2], index i: Int, to p: Vec2) -> [Vec2] {
+        guard base.indices.contains(i) else { return base }
+        let l = toLocal(p)
+        var out = base
+        out[i] = Vec2(min(max(l.x / max(2 * half.x, 1e-6), -1), 1), min(max(l.y / max(2 * half.y, 1e-6), -1), 1))
+        return out
     }
 
     /// New mask rotation (degrees) when the rotate button is dragged from `start` to `p` (canvas px); snaps to 0/90/180/270.

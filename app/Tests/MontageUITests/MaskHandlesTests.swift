@@ -89,4 +89,25 @@ struct MaskHandlesTests {
         let w = CanvasHandles.textBoxWidth(g, dragTo: Vec2(960 + 480, 540), layerScale: 2, canvasWidth: 1920)
         #expect(abs(w - 0.25) < 1e-9)
     }
+
+    @Test func textAndPenMasksGetBoxHandlesAndPenPoints() {
+        let vs = 0.5
+        // text: box handles like a rectangle, no round-corner button, no points
+        let t = MaskFrame(layer: geometry(), mask: Mask(shape: .text))
+        #expect(t.hasBox && !t.hasRoundness && t.pointPositions.isEmpty)
+        #expect(t.hit(t.corners[0], viewScale: vs) == .corner(0))
+        #expect(t.hit(t.center, viewScale: vs) == .body)
+        // pen: the default outline's points are handles; dragging one moves only that point (mask-box units)
+        let f = MaskFrame(layer: geometry(), mask: Mask(shape: .pen))
+        #expect(f.pointPositions.count == Mask.defaultPenPoints.count)
+        let p0 = f.pointPositions[0]
+        #expect(f.hit(p0, viewScale: vs) == .point(0))
+        #expect(f.hit(f.center, viewScale: vs) == .body)
+        let moved = f.movedPoint(Mask.defaultPenPoints, index: 0, to: f.toCanvas(Vec2(0, -f.half.y * 0.5)))
+        #expect(abs(moved[0].x) < 1e-9 && abs(moved[0].y + 0.25) < 1e-9)
+        #expect(moved[1] == Mask.defaultPenPoints[1])
+        // points outside the box are clamped to twice its size
+        let far = f.movedPoint(Mask.defaultPenPoints, index: 2, to: Vec2(1e6, 540))
+        #expect(far[2].x == 1)
+    }
 }
