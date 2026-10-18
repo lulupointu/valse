@@ -13,19 +13,17 @@ struct MediaTab: View {
     var kinds: Set<MediaKind> = [.video, .image, .audio]
 
     var isFullTab: Bool { kinds.count == 3 }
-    var tabID: String { isFullTab ? "media" : "audio.yours" }
+    var tabID: String { isFullTab ? "media" : "audio" }
 
     var body: some View {
         if isFullTab {
             LibraryBrowser(tab: tabID, namespace: "media", sections: sections, style: .wide(1.5),
                            searchPlaceholder: tr("media.search"),
                            customNav: [("import", tr("media.nav.import"))],
-                           customContent: { _ in AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID)) })
+                           customContent: { _ in AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID)) },
+                           yoursGroup: tr("asset.nav.yours"))
         } else {
-            VStack(spacing: 0) {
-                AssetSearchField(tab: tabID, placeholder: tr("media.search")).padding(.horizontal, 12).padding(.top, 8)
-                MediaBinView(store: store, kinds: kinds, tab: tabID)
-            }
+            MediaBinView(store: store, kinds: kinds, tab: tabID)   // inside the Audio browser (its search lists these too)
         }
     }
 
@@ -87,9 +85,8 @@ struct MediaBinView: View {
 
     var items: [MediaAsset] {
         let k = effectiveKinds
-        let q = state.query[tab] ?? ""
         let base = store.mediaBin.media.filter { k.contains($0.kind) && (!showsFolders || $0.folderID == currentFolder) }
-        let filtered = tab == "media" ? base : base.filter { LibrarySearch.matches(fields: [$0.name], q) }
+        let filtered = base
         return MediaSorting.sorted(filtered, by: prefs.sort, ascending: prefs.ascending)
     }
     var folders: [MediaFolder] { showsFolders && prefs.filter == .all ? BinOps.children(of: currentFolder, in: store.mediaBin) : [] }
@@ -103,13 +100,27 @@ struct MediaBinView: View {
                 dropZone
             } else {
                 toolbar(missing: missing.count)
+                if showsFolders && currentFolder == nil {   // CapCut's "All" caption over the grid
+                    Text(loc: "media.filter.\(prefs.filter.rawValue)").font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12).padding(.bottom, 6)
+                }
                 if showsFolders && currentFolder != nil { BinBreadcrumb(store: store, folder: $folder) }
                 ScrollView {
-                    if prefs.layout == .grid {
+                    if !showsFolders {
+                        // Audio ▸ Imported: the same 56 pt rows as the music / sound-effect libraries (UX_GAPS W8-1).
+                        LazyVStack(spacing: 8) {
+                            ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
+                                LibraryRow(tab: tab, namespace: "audio", item: audioRowItem(a, used: used.contains(a.id))).testID("media.card.\(i)")
+                            }
+                        }
+                        .padding(.horizontal, 12).padding(.bottom, 12)
+                    } else if prefs.layout == .grid {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: columns), spacing: 12) {
                             ForEach(folders) { f in FolderCard(store: store, folder: f, current: $folder) }
                             ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
-                                MediaCard(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id))
+                                MediaCard(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id),
+                                          cardWidth: cardWidth)
                                     .testID("media.card.\(i)")
                             }
                         }
@@ -140,7 +151,18 @@ struct MediaBinView: View {
         .onChange(of: columns) { register(list) }
     }
 
-    var columns: Int { prefs.layout == .list ? 1 : max(1, Int((width - 24 + 10) / (96 + 10))) }
+    var columns: Int { prefs.layout == .list || !showsFolders ? 1 : max(1, Int((width - 24 + 10) / (96 + 10))) }
+    var cardWidth: CGFloat { max(1, (width - 24 - CGFloat(columns - 1) * 10) / CGFloat(columns)) }
+
+    func audioRowItem(_ a: MediaAsset, used: Bool) -> LibraryItem {
+        let id = "media.\(a.id)"
+        let url = a.url
+        return LibraryItem(id: id, title: a.name, subtitle: "\(a.url.pathExtension.uppercased()) · \(Timecode.shortDuration(a.duration))",
+                           art: .async(key: "media.\(a.contentHash)", load: { await MediaThumbs.poster(a) }, placeholder: "waveform"),
+                           payload: DragPayload.media(a.id), added: used, playing: LibraryAudioPreview.shared.playingID == id,
+                           add: { [store] in store.addToTimeline(a.id) },
+                           click: { LibraryAudioPreview.shared.toggle(id) { url } })
+    }
 
     /// Keyboard navigation over the bin cards (ids = media ids).
     func register(_ list: [MediaAsset]) {
@@ -175,11 +197,13 @@ struct MediaBinView: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(.orange).help(tr("media.linkFolder.message"))
             }
-            IconButton(prefs.layout == .grid ? "list.bullet" : "square.grid.2x2",
-                       help: tr(prefs.layout == .grid ? "media.view.list" : "media.view.grid")) {
-                prefs.layout = prefs.layout == .grid ? .list : .grid
+            if showsFolders {
+                IconButton(prefs.layout == .grid ? "list.bullet" : "square.grid.2x2",
+                           help: tr(prefs.layout == .grid ? "media.view.list" : "media.view.grid")) {
+                    prefs.layout = prefs.layout == .grid ? .list : .grid
+                }
+                .testID("media.layout")
             }
-            .testID("media.layout")
             Menu {
                 Picker(tr("media.sort"), selection: $prefs.sort) {
                     ForEach(MediaBrowserPrefs.Sort.allCases, id: \.self) { s in Text(loc: "media.sort.\(s.rawValue)").tag(s) }
@@ -347,6 +371,8 @@ struct MediaCard: View {
     let order: [MediaAsset]
     let used: Bool
     let missing: Bool
+    /// Card width from the grid layout (no per-card geometry observer: keeps 1,000-item scrolling cheap).
+    let cardWidth: CGFloat
     @State private var poster: CGImage?
     @State private var scrub: CGImage?
     @State private var scrubFraction: Double?
@@ -426,7 +452,6 @@ struct MediaCard: View {
                         scrubFraction = nil; scrub = nil
                     }
                 }
-                .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { cardWidth = $0 }
             Text(verbatim: asset.name).font(.system(size: 11)).foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
                 .lineLimit(1).truncationMode(.middle)
         }
@@ -434,7 +459,7 @@ struct MediaCard: View {
         .onHover { hover = $0 }
         .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
         .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
-        .assetTap(asset.id.description, single: { MediaSelection.click(asset, order: order, tab: tab) },
+        .assetTap(asset.id.description, single: { MediaSelection.click(asset, order: order, tab: tab); if AssetPanelFocus.lastClickModifiers.isEmpty { store.previewMedia(asset.id) } },
                   double: { store.addToTimeline(asset.id) })
         .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
         .task(id: asset.contentHash) {
@@ -447,7 +472,6 @@ struct MediaCard: View {
         }
     }
 
-    @State private var cardWidth: CGFloat = 100
 
     @ViewBuilder var picture: some View {
         ZStack {
@@ -534,7 +558,7 @@ struct MediaRow: View {
         .onHover { hover = $0 }
         .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
         .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
-        .assetTap(asset.id.description, single: { MediaSelection.click(asset, order: order, tab: tab) },
+        .assetTap(asset.id.description, single: { MediaSelection.click(asset, order: order, tab: tab); if AssetPanelFocus.lastClickModifiers.isEmpty { store.previewMedia(asset.id) } },
                   double: { store.addToTimeline(asset.id) })
         .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
     }

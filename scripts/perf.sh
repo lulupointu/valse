@@ -36,6 +36,10 @@ echo "▶ timeline 500 clips ($MODE)" >&2
 set +e
 env ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} "$BIN" --uitest "$ROOT/app/Tests/PerfScripts/timeline_500.json" --uitest-out "$DIR/ui" >&2
 UICODE=$?
+echo "▶ asset panel 1,000 items ($MODE)" >&2
+env ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} "$BIN" --uitest "$ROOT/app/Tests/PerfScripts/assets_1000.json" --uitest-out "$DIR/assets" >&2
+ACODE=$?
+[[ $UICODE == 0 ]] && UICODE=$ACODE
 set -e
 
 : > "$DIR/smoke.jsonl"
@@ -63,6 +67,11 @@ try:
     metrics.update(json.load(open(report)).get("metrics", {}))
 except Exception as e:
     print(f"no UI perf report ({e})", file=sys.stderr)
+try:   # asset-panel perf (W13); its memory metrics are prefixed so they don't replace the timeline run's
+    for k, v in json.load(open(os.path.join(os.path.dirname(os.path.dirname(report)), "assets", "report.json"))).get("metrics", {}).items():
+        metrics[("assets_" + k) if k.startswith("memory") else k] = v
+except Exception as e:
+    print(f"no asset perf report ({e})", file=sys.stderr)
 for line in open(smoke):
     try:
         d = json.loads(line); metrics[d["metric"]] = d["value"]

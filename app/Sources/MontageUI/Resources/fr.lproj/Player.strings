@@ -97,6 +97,8 @@
 "player.preview.kind.filter" = "Filtres";
 "player.preview.kind.sticker" = "Stickers";
 "player.preview.kind.text" = "Texte";
+"player.preview.kind.library" = "Bibliothèque";
+"player.preview.kind.transition" = "Transitions";
 "player.preview.exit" = "Revenir à la timeline (échap)";
 
 /* Color oscilloscope (W2-6) */

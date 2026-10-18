@@ -1,5 +1,6 @@
 import SwiftUI
 import MontageCore
+import MontageEffects
 
 /// A video template card (TP-001). The templates team registers these with `TemplateLibrary.register`; the tab
 /// (search, categories, Orientation / Clips / Duration filters, favourites, recent, hover preview) is generic.
@@ -83,10 +84,16 @@ struct TemplatesTab: View {
 
     var body: some View {
         let list = TemplateLibrary.all.filter { TemplateLibrary.matches($0, orientation, clips, length) }
-        let sections = TemplateLibrary.categories.map { cat in
+        // Until video templates ship (TP), the tab offers the local animated text templates (W7) so it is never empty
+        // (UX_GAPS W13-7); video template categories appear as soon as one is registered.
+        let videoSections = TemplateLibrary.all.isEmpty ? [] : TemplateLibrary.categories.map { cat in
             LibrarySection(id: cat, title: tr(cat), items: list.filter { $0.categoryKey == cat }.map(item))
         }
-        LibraryBrowser(tab: "templates", namespace: "templates", sections: sections, style: .wide(9.0 / 16.0),
+        let textSections = BuiltinAssetTabs.grouped(Registries.textTemplates.all, \.groupKey).map { g, items in
+            LibrarySection(id: "text.\(g)", title: tr(g), items: items.map(textItem), group: tr("templates.group.text"))
+        }
+        LibraryBrowser(tab: "templates", namespace: "templates", sections: videoSections + textSections,
+                       style: TemplateLibrary.all.isEmpty ? .square : .wide(9.0 / 16.0),
                        searchPlaceholder: tr("templates.search"),
                        emptyHint: TemplateLibrary.all.isEmpty ? tr("templates.empty") : tr("templates.empty.filtered")) {
             HStack(spacing: 10) {
@@ -107,6 +114,15 @@ struct TemplatesTab: View {
                     add: { [store] in t.apply(store) })
     }
 
+    func textItem(_ d: TextTemplateDescriptor) -> LibraryItem {
+        LibraryItem(id: "text.\(d.id)", title: tr(d.nameKey), keywords: [tr(d.groupKey), tr("text.nav.templates")],
+                    art: .async(key: "texttemplate.\(d.id)", load: {
+                        TextPreviewCache.shared.image("template:\(d.id)", d.makeContent(), fontPx: 34)?
+                            .cgImage(forProposedRect: nil, context: nil, hints: nil)
+                    }, placeholder: "textformat", fit: true),
+                    payload: DragPayload.textTemplate(d.id), add: { [store] in store.addTextTemplate(d) })
+    }
+
     func filterMenu<V: RawRepresentable & Hashable>(_ key: String, _ value: Binding<V>, _ all: [V]) -> some View where V.RawValue == String {
         Menu {
             Picker(tr(key), selection: value) {
@@ -114,14 +130,10 @@ struct TemplatesTab: View {
             }
             .pickerStyle(.inline)
         } label: {
-            HStack(spacing: 3) {
-                Text(verbatim: tr(key)).foregroundStyle(Theme.textTertiary)
-                Text(verbatim: tr("\(key).\(value.wrappedValue.rawValue)")).foregroundStyle(Theme.textPrimary)
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.textTertiary)
-            }
-            .font(.system(size: 11))
+            // One Text: a borderless menu label only draws its first text/image.
+            Text(verbatim: "\(tr(key)) \(tr("\(key).\(value.wrappedValue.rawValue)"))").font(.system(size: 11))
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
         .testID("templates.filter.\(key.split(separator: ".").last ?? "")")
     }
 }

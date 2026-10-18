@@ -39,7 +39,7 @@ public struct AssetPanel: View {
             (AssetTabRegistry.tabs.first { $0.id == store.activeAssetTab } ?? AssetTabRegistry.sorted[0]).content(store)
         }
         .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { AssetPanelFocus.panelFrame = $0 }
-        .onAppear { AssetPanelFocus.install() }
+        .onAppear { AssetPanelFocus.install(); AssetPanelFocus.store = store }
     }
 }
 
@@ -48,6 +48,10 @@ public struct AssetPanel: View {
 enum AssetPanelFocus {
     /// Panel frame in window content coordinates (top-left origin).
     static var panelFrame: CGRect = .zero
+    /// Player panel frame: clicks there keep a library preview running.
+    static var playerFrame: CGRect = .zero
+    /// The store whose library preview a click elsewhere ends.
+    static weak var store: EditorStore?
     /// Modifiers of the last mouse-down (SwiftUI tap actions run after the event; ⌘ / ⇧ multi-select reads these).
     static var lastClickModifiers: NSEvent.ModifierFlags = []
     private static var monitor: Any?
@@ -63,6 +67,7 @@ enum AssetPanelFocus {
                 let p = e.locationInWindow
                 let pt = CGPoint(x: p.x, y: host.bounds.height - p.y)
                 if !panelFrame.contains(pt) { AssetPanelState.shared.keyboardTab = nil }
+                if !panelFrame.contains(pt), !playerFrame.contains(pt), let s = store, s.isPreviewing { s.exitPreview() }
             }
             return e
         }
@@ -152,7 +157,8 @@ struct RegistryGrid<Item>: View {
         LibraryBrowser(tab: tab, namespace: tab, sections: groups.map { g in
             LibrarySection(id: g.0, title: tr(g.0), items: g.1.map(tile).map { t in
                 LibraryItem(id: t.id, title: t.title, keywords: [tr(g.0)],
-                            art: t.emoji.map { .emoji($0) } ?? .symbol(t.symbol ?? "sparkles"), payload: t.payload, add: t.add)
+                            art: t.emoji.map { .emoji($0) } ?? .symbol(t.symbol ?? "sparkles"), payload: t.payload, add: t.add,
+                            click: { [store] in RegistryGridPreview.preview(t.id, store: store) })
             })
         })
     }
@@ -202,9 +208,9 @@ struct SubNav: View {
                         Text(verbatim: item.title)
                             .font(.system(size: 13))
                             .foregroundStyle(selection == item.id ? Theme.accent : Theme.textPrimary)
-                            .lineLimit(1).minimumScaleFactor(0.8)
+                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)   // FR labels wrap (UX_GAPS W13-5)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8).frame(height: 28)
+                            .padding(.horizontal, 8).padding(.vertical, 5).frame(minHeight: 28)
                             .background(selection == item.id ? Theme.accentDim.opacity(0.45) : .clear, in: RoundedRectangle(cornerRadius: 4))
                             .contentShape(Rectangle())
                     }

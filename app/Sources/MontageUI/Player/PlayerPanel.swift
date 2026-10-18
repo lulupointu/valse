@@ -30,6 +30,7 @@ public struct PlayerPanel: View {
                 TransportBar(store: store, transport: store.transport, ui: store.playerUI)
             }
         }
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { AssetPanelFocus.playerFrame = $0 }
     }
 }
 

@@ -14,9 +14,12 @@ struct AudioLibraryTab: View {
 
     var body: some View {
         let usedURLs = Set(store.mediaBin.media.filter { m in store.usedMediaIDs.contains(m.id) }.map(\.url.standardizedFileURL))
-        LibraryBrowser(tab: "audio", namespace: "audio", sections: AudioLibrarySections.music(store, usedURLs) + sfxSections(usedURLs),
+        let bin = LibrarySection(id: "audio.bin", title: tr("audio.lib.imported"), items: store.mediaBin.media.filter { $0.kind == .audio }.map {
+            MediaBinView(store: store, kinds: [.audio], tab: "audio").audioRowItem($0, used: store.usedMediaIDs.contains($0.id))
+        }, inRail: false)
+        LibraryBrowser(tab: "audio", namespace: "audio", sections: [bin] + AudioLibrarySections.music(store, usedURLs) + sfxSections(usedURLs),
                        style: .list, searchPlaceholder: tr("audio.search"),
-                       customNav: [("yours", tr("audio.lib.yours")), ("extracted", tr("audio.lib.extracted")),
+                       customNav: [("yours", tr("audio.lib.imported")), ("extracted", tr("audio.lib.extracted")),
                                    ("folder", tr("audio.lib.folder"))],
                        customContent: { nav in
                            switch nav {
@@ -25,7 +28,7 @@ struct AudioLibraryTab: View {
                            default: return AnyView(MediaTab(store: store, kinds: [.audio]))
                            }
                        },
-                       defaultNav: AudioLibrarySections.defaultNav)
+                       defaultNav: AudioLibrarySections.defaultNav, yoursGroup: tr("asset.nav.yours"))
         .onDisappear { preview.stop() }
     }
 

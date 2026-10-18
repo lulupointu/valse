@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreGraphics
+import ImageIO
 import MontageCore
 import MontageEffects
 import MontageEngine
@@ -121,7 +122,7 @@ final class EffectThumbnails {
     @ObservationIgnored private var pending: Set<String> = []
     @ObservationIgnored private var stillOrder: [String] = []
     @ObservationIgnored private var loopOrder: [String] = []
-    @ObservationIgnored let maxStills = 260
+    @ObservationIgnored let maxStills = 600   // W13: all effects + filters stay cached across tab switches
     @ObservationIgnored let maxLoops = 4
 
     struct Box: @unchecked Sendable { let images: [CGImage] }
@@ -135,7 +136,8 @@ final class EffectThumbnails {
         pending.insert(key)
         let t = Self.stillTime(d), n = Self.pixels
         Self.queue.async {
-            let img = EffectPreviewRenderer.shared.image(d, time: t, width: n, height: n)
+            // W13 (UX_GAPS W13-4): disk cache keyed by descriptor id + size, so cards are instant on later launches.
+            let img = EffectThumbDiskCache.load(d.id, n) ?? EffectPreviewRenderer.shared.image(d, time: t, width: n, height: n).map { EffectThumbDiskCache.save($0, d.id, n); return $0 }
             let box = Box(images: img.map { [$0] } ?? [])
             Task { @MainActor in EffectThumbnails.shared.storeStill(d.id, box) }
         }
@@ -337,5 +339,27 @@ struct RoundBadge: View {
                 .frame(width: 20, height: 20).background(fill, in: Circle())
         }
         .buttonStyle(.plain).help(help)
+    }
+}
+
+/// On-disk PNG cache of effect card stills (Caches/Montage/fxthumbs/<version>/<id>-<px>.png). Bump `version` when the
+/// preview renderer or sample frame changes.
+nonisolated enum EffectThumbDiskCache {
+    static let version = 1
+    static var directory: URL { MontagePaths.cacheDirectory.appendingPathComponent("fxthumbs/v\(version)", isDirectory: true) }
+    static func url(_ id: String, _ px: Int) -> URL { directory.appendingPathComponent("\(id)-\(px).png") }
+
+    static func load(_ id: String, _ px: Int) -> CGImage? {
+        guard let src = CGImageSourceCreateWithURL(url(id, px) as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(src, 0, nil)
+    }
+
+    static func save(_ img: CGImage, _ id: String, _ px: Int) {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let tmp = directory.appendingPathComponent(UUID().uuidString + ".png")
+        guard let dst = CGImageDestinationCreateWithURL(tmp as CFURL, "public.png" as CFString, 1, nil) else { return }
+        CGImageDestinationAddImage(dst, img, nil)
+        guard CGImageDestinationFinalize(dst) else { return }
+        if (try? FileManager.default.replaceItemAt(url(id, px), withItemAt: tmp)) == nil { try? FileManager.default.moveItem(at: tmp, to: url(id, px)) }
     }
 }

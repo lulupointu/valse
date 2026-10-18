@@ -22,6 +22,11 @@ enum AssetStateDump {
             "recents": lib.recents,
             "rendering": Array(AudioLibraryRendering.shared.busy).sorted() + AssetRenderingRegistry.extraBusy(),
             "playing": LibraryAudioPreview.shared.playingID ?? NSNull(),
+            // library / source preview (W2 `PlayerPreview`): time is relative to the previewed item
+            "preview": ["active": store.isPreviewing, "kind": store.playerUI.preview?.kind.rawValue ?? "",
+                        "item": store.playerUI.preview?.itemID ?? "",
+                        "time": store.playerUI.preview.map { (store.playerUI.previewTime - $0.range.start).seconds } ?? 0,
+                        "duration": store.playerUI.preview?.range.duration.seconds ?? 0] as [String: Any],
             "media": ["layout": p.layout.rawValue, "sort": p.sort.rawValue, "ascending": p.ascending, "filter": p.filter.rawValue] as [String: Any],
         ]
     }

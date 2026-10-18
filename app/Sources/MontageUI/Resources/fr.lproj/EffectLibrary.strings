@@ -5,8 +5,8 @@
 "fxlib.results" = "Résultats de recherche";
 "fxlib.search.effects" = "Rechercher des effets";
 "fxlib.search.filters" = "Rechercher des filtres";
-"fxlib.search.adjustments" = "Rechercher des réglages";
-"fxlib.search.stickers" = "Rechercher des autocollants";
+"fxlib.search.adjustments" = "Rechercher des ajustements";
+"fxlib.search.stickers" = "Rechercher des stickers";
 "fxlib.clearSearch" = "Effacer la recherche";
 "fxlib.noResults" = "Aucun résultat. Essayez un autre mot.";
 "fxlib.favorites.empty" = "Survolez une carte et cliquez sur ☆ pour l’ajouter à vos favoris.";

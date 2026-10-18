@@ -1,0 +1,41 @@
+// "Previewing —" player mode (W2 PlayerPreview + W13 card hooks, W13-1/W13-3): clicking a media, stock, effect or sticker card previews it in the player
+// without touching the timeline; the playhead stays; ✕ / an edit / a timeline click goes back to the timeline.
+{
+  "project": "demo",
+  "steps": [
+    {"seek": 2.5},
+    {"click": "id:media.card.1"},
+    {"expect": [{"path": "ui.assets.preview.active", "equals": true}, {"path": "ui.assets.preview.kind", "equals": "video"},
+                {"path": "ui.assets.preview.duration", "approx": 5, "tolerance": 0.05}, {"path": "playhead", "approx": 2.5},
+                {"path": "ui.anchors", "contains": "player.previewTitle"}]},
+    {"wait": 0.6},
+    {"snapshot": "preview-media", "element": "id:panel.player"},
+    {"key": "space"},
+    {"wait": 0.6},
+    {"expect": [{"path": "ui.assets.preview.time", "gt": 0.1}, {"path": "playhead", "approx": 2.5}]},
+    {"key": "space"},
+    {"click": "id:player.exitPreview"},
+    {"expect": [{"path": "ui.assets.preview.active", "equals": false}, {"path": "playhead", "approx": 2.5}]},
+    // stock background: live recipe preview, nothing rendered or added
+    {"click": "id:asset.nav.stock.backgrounds"},
+    {"click": "id:asset.tile.stock.bg.synthwave"},
+    {"expect": [{"path": "ui.assets.preview.kind", "equals": "library"}, {"path": "media.count", "equals": 5}]},
+    {"wait": 0.8},
+    {"snapshot": "preview-stock", "element": "id:panel.player"},
+    // effect card over the frame under the playhead
+    {"click": "id:asset.tab.effects"},
+    {"click": "id:asset.search"},
+    {"type": "vignette"},
+    {"wait": 0.6},
+    {"click": "id:asset.tile.montage.effect.vignette"},
+    {"expect": [{"path": "ui.assets.preview.kind", "equals": "effect"}, {"path": "ui.assets.preview.duration", "approx": 3, "tolerance": 0.05}, {"path": "playhead", "approx": 2.5}]},
+    {"wait": 0.8},
+    {"snapshot": "preview-effect", "element": "id:panel.player"},
+    // a timeline click returns to the timeline
+    {"click": "time:6@ruler"},
+    {"expect": [{"path": "ui.assets.preview.active", "equals": false}, {"path": "playhead", "approx": 6, "tolerance": 0.1}]},
+    {"click": "id:asset.tab.stickers"},
+    {"wait": 0.5},
+    {"dump": "stickers"}
+  ]
+}

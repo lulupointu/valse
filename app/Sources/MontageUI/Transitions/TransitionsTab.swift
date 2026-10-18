@@ -61,7 +61,7 @@ struct TransitionsTab: View {
                             ForEach(items) { d in
                                 TransitionTile(descriptor: d, selected: selectedType == d.id, highlighted: highlighted == d.id,
                                                add: { store.applyTransition(d) },
-                                               select: { highlighted = d.id; if store.selectedTransition != nil { store.applyTransition(d) } })
+                                               select: { highlighted = d.id; if store.selectedTransition != nil { store.applyTransition(d) } else { store.previewTransition(d) } })   // click = "Previewing — Transitions" (W13)
                             }
                         }
                     }

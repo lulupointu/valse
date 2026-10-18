@@ -42,7 +42,7 @@ enum LibraryArt {
     /// Gradient cover with a symbol (audio rows).
     case cover([RGBA], symbol: String)
     /// Loaded lazily (cached by key) when the card scrolls into view.
-    case async(key: String, load: () async -> CGImage?, placeholder: String = "photo")
+    case async(key: String, load: () async -> CGImage?, placeholder: String = "photo", fit: Bool = false)
 }
 
 struct LibrarySection: Identifiable {
@@ -112,6 +112,8 @@ struct LibraryBrowser<Header: View>: View {
     var emptyHint: String? = nil
     /// Rail entry selected the first time (default: the first custom entry, else the first section).
     var initialNav: String? = nil
+    /// Title of a collapsible group holding the custom entries, Favorites and Recent (CapCut "Yours ▴").
+    var yoursGroup: String? = nil
     @ViewBuilder var header: () -> Header
 
     private var lib: AssetLibraryStore { AssetLibraryStore.shared }
@@ -120,9 +122,12 @@ struct LibraryBrowser<Header: View>: View {
     var defaultNav: String { initialNav ?? customNav.first?.id ?? sections.first(where: \.inRail)?.id ?? LibraryNav.favorites }
 
     var navItems: [CategoryRail.Entry] {
-        var out: [CategoryRail.Entry] = customNav.map { .init(id: $0.id, title: $0.title) }
-        if showsFavorites { out.append(.init(id: LibraryNav.favorites, title: tr("asset.nav.favorites"), symbol: "star")) }
-        if showsRecents { out.append(.init(id: LibraryNav.recent, title: tr("asset.nav.recent"), symbol: "clock")) }
+        // CapCut "Yours ▴" group (custom entries, Favorites, Recent) when `yoursGroup` is set.
+        let y = yoursGroup
+        var out: [CategoryRail.Entry] = y.map { [.init(id: "group:" + $0, title: $0, isGroup: true)] } ?? []
+        out += customNav.map { .init(id: $0.id, title: $0.title, group: y) }
+        if showsFavorites { out.append(.init(id: LibraryNav.favorites, title: tr("asset.nav.favorites"), symbol: "star", group: y)) }
+        if showsRecents { out.append(.init(id: LibraryNav.recent, title: tr("asset.nav.recent"), symbol: "clock", group: y)) }
         var groups: [String] = []
         for s in sections where s.inRail {
             if let g = s.group {
@@ -157,6 +162,8 @@ struct LibraryBrowser<Header: View>: View {
                              empty: tr("asset.empty.search", query))
         } else if let custom = customContent, customNav.contains(where: { $0.id == nav }) {
             custom(nav)
+        } else if let y = yoursGroup, nav == "group:" + y {
+            if let custom = customContent, let first = customNav.first { custom(first.id) } else { AnyView(content(LibraryNav.favorites)) }
         } else if nav == LibraryNav.favorites {
             let all = LibrarySearch.results(sections, "")
             let byID = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -183,10 +190,10 @@ extension LibraryBrowser where Header == EmptyView {
     init(tab: String, namespace: String, sections: [LibrarySection], style: LibraryTileStyle = .square,
          searchPlaceholder: String = tr("asset.search"), showsFavorites: Bool = true, showsRecents: Bool = true,
          customNav: [(id: String, title: String)] = [], customContent: ((String) -> AnyView)? = nil, emptyHint: String? = nil,
-         defaultNav: String? = nil) {
+         defaultNav: String? = nil, yoursGroup: String? = nil) {
         self.init(tab: tab, namespace: namespace, sections: sections, style: style, searchPlaceholder: searchPlaceholder,
                   showsFavorites: showsFavorites, showsRecents: showsRecents, customNav: customNav, customContent: customContent,
-                  emptyHint: emptyHint, initialNav: defaultNav, header: { EmptyView() })
+                  emptyHint: emptyHint, initialNav: defaultNav, yoursGroup: yoursGroup, header: { EmptyView() })
     }
 }
 
@@ -510,8 +517,8 @@ struct LibraryArtView: View {
                 LinearGradient(colors: cs.map { Color(red: $0.r, green: $0.g, blue: $0.b) }, startPoint: .topLeading, endPoint: .bottomTrailing)
                 Image(systemName: symbol).font(.system(size: 15, weight: .medium)).foregroundStyle(.white.opacity(0.9))
             }
-        case .async(let key, let load, let placeholder):
-            AsyncArt(key: key, load: load, placeholder: placeholder)
+        case .async(let key, let load, let placeholder, let fit):
+            AsyncArt(key: key, load: load, placeholder: placeholder, fit: fit)
         }
     }
 }
@@ -521,13 +528,14 @@ struct AsyncArt: View {
     let key: String
     let load: () async -> CGImage?
     let placeholder: String
+    var fit = false
     @State private var image: CGImage?
 
     var body: some View {
         ZStack {
             Theme.inset
             if let img = image ?? LibraryArtCache.shared.get(key) {
-                Image(decorative: img, scale: 2).resizable().aspectRatio(contentMode: .fill)
+                Image(decorative: img, scale: 2).resizable().aspectRatio(contentMode: fit ? .fit : .fill).padding(fit ? 6 : 0)
             } else {
                 Image(systemName: placeholder).font(.system(size: 18)).foregroundStyle(Theme.textTertiary)
             }
@@ -581,7 +589,7 @@ struct CategoryRail: View {
                     }
                 }
             }
-            .padding(8)
+            .padding(.horizontal, 6).padding(.vertical, 8)
         }
         .frame(width: 120)
         .background(Theme.panel)
@@ -592,14 +600,15 @@ struct CategoryRail: View {
         let open = !collapsed.contains(e.title)
         let sel = selection == e.id
         return HStack(spacing: 4) {
-            Text(verbatim: e.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            Text(verbatim: e.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.9)
+                .layoutPriority(1)
             Spacer(minLength: 0)
             Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 8, weight: .bold))
-                .frame(width: 14, height: 20).contentShape(Rectangle())
+                .frame(width: 10, height: 20).contentShape(Rectangle())
                 .onTapGesture { if open { collapsed.insert(e.title) } else { collapsed.remove(e.title) } }
         }
         .foregroundStyle(sel ? Theme.accent : Theme.textPrimary)
-        .padding(.leading, 10).padding(.trailing, 4).frame(height: 28)
+        .padding(.leading, 8).padding(.trailing, 3).frame(height: 28)
         .background(sel ? Theme.accentDim.opacity(0.45) : Color(hex: 0x2A2A2A), in: RoundedRectangle(cornerRadius: 4))
         .contentShape(Rectangle())
         .onTapGesture { selection = e.id; AssetPanelState.shared.query[tab] = nil }
@@ -610,11 +619,11 @@ struct CategoryRail: View {
         let sel = selection == e.id
         return HStack(spacing: 5) {
             if let s = e.symbol { Image(systemName: sel ? s + ".fill" : s).font(.system(size: 10)) }
-            Text(verbatim: e.title).font(.system(size: 12)).lineLimit(1)
+            Text(verbatim: e.title).font(.system(size: 12)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(sel ? Theme.accent : Theme.textSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, e.group == nil ? 10 : 18).padding(.trailing, 6).frame(height: 28)
+        .padding(.leading, e.group == nil ? 10 : 18).padding(.trailing, 6).padding(.vertical, 5).frame(minHeight: 28)
         .background(sel ? Theme.accentDim.opacity(0.45) : .clear, in: RoundedRectangle(cornerRadius: 4))
         .contentShape(Rectangle())
         .onTapGesture { selection = e.id; AssetPanelState.shared.query[tab] = nil }

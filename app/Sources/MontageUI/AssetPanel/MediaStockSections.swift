@@ -26,7 +26,8 @@ extension MediaLibraryItems {
                            payload: DragPayload.stock(i.id),
                            added: usedURLs.contains(StockLibrary.fileURL(i).standardizedFileURL),
                            busy: rendering.contains(i.id),
-                           add: { [weak store] in store?.addStockItem(i) })
+                           add: { [weak store] in store?.addStockItem(i) },
+                           click: { [weak store] in store?.previewStock(i) })
     }
 
     /// Timeline drop of a Library card.

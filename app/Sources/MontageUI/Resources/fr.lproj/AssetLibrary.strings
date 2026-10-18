@@ -70,3 +70,8 @@
 "template.cat.lyrics" = "Paroles";
 "template.cat.intro" = "Intro et outro";
 "template.cat.social" = "Réseaux sociaux";
+
+
+"asset.nav.yours" = "Vos fichiers";
+"audio.lib.imported" = "Importés";
+"templates.group.text" = "Titres animés";

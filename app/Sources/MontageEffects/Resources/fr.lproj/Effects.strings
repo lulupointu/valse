@@ -21,7 +21,7 @@
 
 /* Réglages */
 "adjust.group.basic" = "De base";
-"adjust.basic" = "Réglages";
+"adjust.basic" = "Ajustement personnalisé";
 "adjust.brightness" = "Luminosité";
 "adjust.contrast" = "Contraste";
 "adjust.saturation" = "Saturation";

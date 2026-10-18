@@ -110,12 +110,12 @@
 "text.glow.mode.inner" = "Vers l'intérieur";
 "text.glow.mode.both" = "Les deux";
 "text.nav.add" = "Ajouter du texte";
-"text.nav.yours" = "Les vôtres";
+"text.nav.yours" = "Vos fichiers";
 "text.nav.effects" = "Effets de texte";
-"text.nav.templates" = "Modèle de texte";
-"text.nav.local" = "Sous-titres locaux";
+"text.nav.templates" = "Modèles de texte";
+"text.nav.local" = "Importer des sous-titres";
 "text.preset.name" = "Mon préréglage %d";
-"text.preset.saved" = "Enregistré dans Les vôtres";
+"text.preset.saved" = "Enregistré dans Vos fichiers";
 "text.shadow" = "Ombre";
 "text.shadow.3d" = "Ombre 3D";
 "text.shadow.angle" = "Angle";

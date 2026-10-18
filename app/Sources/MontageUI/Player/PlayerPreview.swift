@@ -10,7 +10,7 @@ import MontageEngine
 /// The engine temporarily plays a throw-away project: the media clip alone (source preview) or a copy of the timeline with
 /// the effect / filter / sticker over 3 s at the playhead, looping.
 public struct PlayerPreview: Equatable {
-    public enum Kind: String, Sendable { case video, image, audio, effect, filter, sticker, text }
+    public enum Kind: String, Sendable { case video, image, audio, effect, filter, sticker, text, library, transition }
     public var kind: Kind
     /// What is previewed (media id, effect type id, sticker id…), so a second click on the same card can toggle it off.
     public var itemID: String
@@ -64,13 +64,42 @@ extension EditorStore {
         let saved = playerUI.preview?.savedPlayhead ?? transport.playhead
         var p = project
         let d = Self.libraryPreviewDuration
-        // the 3 s window around the playhead, kept inside the timeline (an empty timeline previews over black)
+        // an empty timeline previews over a sample gradient (W13), so effects / filters show something
+        if p.timeline.allClips.isEmpty, let sample = StockLibrary["gradient.lavender"] {
+            for var sc in StockLibrary.project(for: sample).timeline.allClips { sc.duration = d; _ = try? TimelineOps.insert(sc, into: &p) }
+        }
+        // the 3 s window around the playhead, kept inside the timeline
         let start = p.duration > d ? min(saved, p.duration - d) : .zero
         var c = clip
         c.start = start
         guard (try? TimelineOps.insert(c, into: &p, target: .newTrack)) != nil else { return }
         startPreview(PlayerPreview(kind: kind, itemID: itemID, range: TimeRange(start: start, duration: d), savedPlayhead: saved,
                                    savedLoop: playerUI.preview?.savedLoop ?? engine.loopRange), project: p, autoplay: true)
+    }
+
+    /// Media ▸ Library card (W13): the stock recipe rendered live (nothing imported yet); animated items loop.
+    func previewStock(_ i: StockItem) {
+        let id = "stock.\(i.id)"
+        if playerUI.preview?.itemID == id { return }
+        let p = StockLibrary.project(for: i)
+        startPreview(PlayerPreview(kind: .library, itemID: id, range: TimeRange(start: .zero, duration: p.duration),
+                                   savedPlayhead: transport.playhead, savedLoop: engine.loopRange), project: p, autoplay: i.isVideo)
+    }
+
+    /// Transition card (W13): the main-track cut nearest the playhead with this transition, looped ±1 s around it.
+    public func previewTransition(_ d: TransitionDescriptor) {
+        let itemID = "transition.\(d.id)"
+        if playerUI.preview?.itemID == itemID { return }
+        guard let main = project.timeline.mainTrack, main.clips.count > 1 else { return }
+        let ph = playerUI.preview?.savedPlayhead ?? transport.playhead
+        guard let cut = main.clips.dropLast().min(by: { abs(($0.end - ph).ticks) < abs(($1.end - ph).ticks) }) else { return }
+        var p = project
+        guard (try? TimelineOps.setTransition(cut.id, d.makeInstance(), in: &p.timeline)) != nil,
+              let end = p.timeline.clip(cut.id)?.end else { return }
+        let half = max(Time(1), d.defaultDuration)
+        let start = max(.zero, end - half)
+        startPreview(PlayerPreview(kind: .transition, itemID: itemID, range: TimeRange(start: start, end: min(p.duration, end + half)),
+                                   savedPlayhead: ph, savedLoop: playerUI.preview?.savedLoop ?? engine.loopRange), project: p, autoplay: true)
     }
 
     private func startPreview(_ preview: PlayerPreview, project p: Project, autoplay: Bool) {
@@ -99,5 +128,15 @@ extension EditorStore {
     /// Engine clock → timeline playhead, or the preview's own time while previewing.
     func engineTimeDidUpdate(_ t: Time) {
         if isPreviewing { playerUI.previewTime = t } else { transport.playhead = t }
+    }
+}
+
+/// Click on a registry-grid tile (transitions / stickers / effects without a dedicated tab, W13): preview by id.
+@MainActor
+enum RegistryGridPreview {
+    static func preview(_ id: String, store: EditorStore) {
+        if let d = Registries.transitions[id] { store.previewTransition(d) }
+        else if let d = Registries.effects[id] { store.previewEffect(d) }
+        else if Registries.stickers[id] != nil { store.previewSticker(id) }
     }
 }

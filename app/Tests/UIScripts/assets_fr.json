@@ -1,0 +1,23 @@
+// W13 in French: Media ▸ Library, Audio (Musique / Effets sonores), Templates — labels fit the 120 pt rail.
+{
+  "project": "demo-bin",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:asset.nav.stock.countdowns"},
+    {"wait": 3},
+    {"snapshot": "fr-library", "element": "id:panel.assets"},
+    {"click": "id:asset.nav.import"},
+    {"click": "id:media.card.0"},
+    {"wait": 0.6},
+    {"snapshot": "fr-preview", "element": "id:panel.player"},
+    {"click": "id:asset.tab.audio"},
+    {"snapshot": "fr-audio", "element": "id:panel.assets"},
+    {"click": "id:asset.nav.yours"},
+    {"snapshot": "fr-audio-yours", "element": "id:panel.assets"},
+    {"click": "id:asset.tab.templates"},
+    {"wait": 1.5},
+    {"snapshot": "fr-templates", "element": "id:panel.assets"},
+    {"click": "id:asset.tab.text"},
+    {"snapshot": "fr-text", "element": "id:panel.assets"}
+  ]
+}
