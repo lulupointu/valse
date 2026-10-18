@@ -38,7 +38,7 @@ Run `scripts/uitest.sh app/Tests/UIScripts/<name>.json`. Output goes to `build/u
 errors, metrics), `final.json` (state dump), every `snapshot` PNG, and on failure `failure.json` + `failure.png`.
 **Open the PNGs and look at them.** Exit code 0 = pass. `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
 
-Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `language_fr`.
+Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`.
 
 ### Script keys
 
@@ -120,11 +120,10 @@ events go through the app's shortcut monitor and menu key equivalents; while a t
 delivered to the field editor. Drag & drop calls the destination's
 `NSDraggingDestination` methods with a private pasteboard (no WindowServer drag session). Snapshots use the offscreen
 renderer (`SnapshotRegistry`: SwiftUI `cacheDisplay` + Metal views rendered offscreen).
-**Known limitation (being worked on): SwiftUI `onTapGesture` / `DragGesture` views do not react to synthetic events**
-(SwiftUI `Button`s, AppKit views — timeline, player overlay, NSSlider, NSTextField, NSPopUpButton — do). Until fixed:
-make clickable things `Button`s (`.buttonStyle(.plain)` keeps the look; also better for accessibility), drive
-custom SwiftUI sliders through their numeric field (`slider.<key>.field` + `type` + `return`), or use the menu bar /
-setup steps. `"press": "id:x"` (in-process accessibility press) exists but SwiftUI rarely exposes its AX tree in-process.
+SwiftUI `onTapGesture` / `DragGesture` / `Button`s work: AppKit only delivers a click into an inactive app's window
+to views that accept "first mouse", so in the test process every SwiftUI hosting class is made to accept first mouse
+(`UITestWindow.acceptFirstMouse`). Custom SwiftUI sliders built from `DragGesture` can be dragged; NSSlider drags are
+replayed as described above. `"press": "id:x"` (in-process accessibility press) also exists.
 Also not covered: real NSMenu popups (SwiftUI `Menu`/`Picker` menus open a modal tracking loop — use the menu bar `menu`
 step or set the value via a setup step), NSOpenPanel/NSSavePanel, hover-only visuals that read the real cursor.
 Autosave is disabled during tests; the language preference is restored on exit.
@@ -160,3 +159,14 @@ See `scripts/perf.sh --help`. Perf steps inside a UI script:
 way `TimelineView.draw` builds it (CPU: Canvas2D build + encode; GPU: command buffer time). Metrics land in
 `report.json` → `metrics`: `<name>_cpu_p50_ms`, `_cpu_p95_ms`, `_cpu_max_ms`, `_gpu_p95_ms`; `memory_mb`,
 `memory_peak_mb` (physical footprint, lifetime peak).
+
+`scripts/perf.sh` runs `app/Tests/PerfScripts/timeline_500.json` (release build; timeline scroll / zoom / zoomed-out
+scroll with 500 clips, memory peak) plus the 4K perf smoke tests (`PerfSmokeTests`: playback fps, export, proxy; needs
+`bench/media` from `bench/make_media.sh`, a worktree reuses the main checkout's), writes `build/perf/results.json`
+(`{mode, machine, metrics, violations}`) and exits 1 when a metric breaks its threshold in `bench/perf_thresholds.json`.
+
+- `--air`: MacBook Air approximation — runs under `taskpolicy -c background` (efficiency cores only, throttled I/O;
+  pessimistic vs a real M1 Air) with `MONTAGE_SIMULATE_RAM_GB=8` (`MemoryBudget` 8 GB policies: 720p preview, forced
+  proxies, smaller caches). Compared against the `air` thresholds.
+- Add a metric: a `perf`/`metric` step in a perf script (or an `emit` line in `PerfSmokeTests`), then a threshold entry.
+  Tighten thresholds when something gets faster; never loosen one to hide a regression without saying why.

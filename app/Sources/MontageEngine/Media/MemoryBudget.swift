@@ -4,7 +4,13 @@ import MontageCore
 /// Memory policy for 8 GB machines (STACK.md §5.2: the VideoToolbox decoder dominates memory, ≈300 MB per 4K HEVC
 /// stream). Used to pick preview resolution, force proxies and bound caches.
 public enum MemoryBudget {
-    public static let physicalMemory = ProcessInfo.processInfo.physicalMemory
+    /// `MONTAGE_SIMULATE_RAM_GB=8` pretends to be an 8 GB machine (scripts/perf.sh --air, docs/TESTING.md §3).
+    public static let physicalMemory: UInt64 = {
+        if let gb = ProcessInfo.processInfo.environment["MONTAGE_SIMULATE_RAM_GB"].flatMap(Double.init), gb > 0 {
+            return UInt64(gb * 1024 * 1024 * 1024)
+        }
+        return ProcessInfo.processInfo.physicalMemory
+    }()
     /// Base MacBook Air class.
     public static let isLowMemoryMachine = physicalMemory <= 8 * 1024 * 1024 * 1024
 

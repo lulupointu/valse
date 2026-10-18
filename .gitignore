@@ -16,3 +16,4 @@ dist/
 out/
 release/
 .claude/
+bench/media

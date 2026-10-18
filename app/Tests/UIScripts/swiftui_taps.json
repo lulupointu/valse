@@ -1,0 +1,14 @@
+// SwiftUI onTapGesture targets (asset tabs, inspector tabs) react to synthetic clicks.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"expect": {"path": "ui.assetTab", "equals": "text"}},
+    {"click": "id:asset.tab.media"},
+    {"expect": {"path": "ui.assetTab", "equals": "media"}},
+    {"click": "clip:main/1"},
+    {"click": "id:inspector.tab.speed"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "speed"}},
+    {"snapshot": "inspector-speed", "element": "id:panel.inspector"}
+  ]
+}

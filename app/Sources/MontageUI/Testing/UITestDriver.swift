@@ -26,6 +26,22 @@ public final class UITestWindow: NSWindow {
     static let debug = ProcessInfo.processInfo.environment["MONTAGE_UITEST_DEBUG"] == "1"
     private var mouseTarget: NSView?
 
+    /// The test app is never active, so NSWindow treats every click as a "first click" into an inactive window and
+    /// only delivers it to views that accept first mouse. SwiftUI answers per gesture: `Button` yes, `onTapGesture` /
+    /// `DragGesture` no — so those never fired. In the UI test process only, every SwiftUI hosting class accepts first
+    /// mouse (what a click into the already-active window would do).
+    private static var firstMouseClasses: Set<ObjectIdentifier> = []
+    static func acceptFirstMouse(_ hit: NSView) {
+        var v: NSView? = hit
+        while let x = v {
+            if let cls = object_getClass(x), firstMouseClasses.insert(ObjectIdentifier(cls)).inserted {
+                let blk: @convention(block) (AnyObject, NSEvent?) -> Bool = { _, _ in true }
+                class_replaceMethod(cls, #selector(NSView.acceptsFirstMouse(for:)), imp_implementationWithBlock(blk), "B24@0:8@16")
+            }
+            v = x.superview
+        }
+    }
+
     /// SwiftUI-internal views (event handling goes through NSWindow's own dispatch) vs AppKit views.
     static func isSwiftUIView(_ v: NSView) -> Bool {
         if v is NSControl || v is NSText { return false }  // AppKit controls hosted by SwiftUI (NSSlider, NSTextField…)
@@ -100,7 +116,7 @@ public final class UITestWindow: NSWindow {
             if let slider = v as? NSSlider, event.type == .leftMouseDown, Self.emulateSliders {
                 trackSlider(slider, down: event); mouseTarget = nil; return
             }
-            if isSwiftUI(v) { super.sendEvent(event); return }
+            if isSwiftUI(v) { Self.acceptFirstMouse(v); super.sendEvent(event); return }
             if v.acceptsFirstResponder { makeFirstResponder(v) }
             event.type == .leftMouseDown ? v.mouseDown(with: event) : v.rightMouseDown(with: event)
         case .leftMouseDragged, .rightMouseDragged, .leftMouseUp, .rightMouseUp:

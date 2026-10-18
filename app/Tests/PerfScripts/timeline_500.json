@@ -1,0 +1,14 @@
+// Perf harness (scripts/perf.sh): 500 clips on 3 tracks — timeline scroll + zoom frame cost, memory peak.
+{
+  "project": "stress:500",
+  "settle": 3,
+  "steps": [
+    {"metric": "memory"},
+    {"perf": "timeline_scroll", "frames": 300, "dx": -40, "alternate": true, "period": 75},
+    {"perf": "timeline_zoom", "frames": 120, "dy": 8, "modifiers": ["cmd"], "alternate": true, "period": 20},
+    {"click": "id:toolbar.zoomFit"},
+    {"perf": "timeline_scroll_fit", "frames": 120, "dx": -40, "alternate": true, "period": 30},
+    {"snapshot": "stress-500", "element": "id:timeline"},
+    {"metric": "memory"}
+  ]
+}
