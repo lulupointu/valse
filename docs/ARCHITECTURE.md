@@ -66,7 +66,7 @@ CVPixelBuffers (decoder) ─────────┐ ▼
 
   Animations (registry closures) adjust transform/opacity before placement. Text and emoji stickers are rasterized with Core Text (`TextRasterizer`, LRU cache keyed by content and pixel size). Still images come through `ImageTextureCache`.
 - Shaders are compiled from source at runtime (the offline Metal toolchain is an optional Xcode download). Core passes live in `Engine/Metal/CoreShaders.swift`. Effect and transition sources are compiled lazily and separately, so **a broken effect only disables itself** (`EffectPipelines.validateAll()` is tested).
-- Colour: BT.709, 8-bit output for now, rgba16Float internally. HDR/10-bit export means switching the compositor output to 10-bit buffers (see §15).
+- Colour: `ProjectSettings.colorSpace` (SDR Rec.709 default, HDR Rec.2020 HLG/PQ). Working values are encoded in the project space (rgba16Float). The convert pass turns each source into it from the asset's probed tags (`MediaAsset.transferFunction/colorPrimaries/yCbCrMatrix`; buffer attachments are NOT trusted: AVFoundation stamps frames with the composition tags) using `ColorMath` (Core, CPU mirror of the MSL; linear 1.0 = 203-nit reference white; HDR→SDR via a hue-preserving soft shoulder). Solids/text/background are SDR and converted too. Compositors declare `supportsHDRSourceFrames`, so preview and export convert identically. SDR projects compose into BGRA8 (`MontageCompositor`); HDR projects into 64RGBAHalf (`MontageHDRCompositor`) and export as HEVC Main10 (H.264 is upgraded, `ExportSettings.effectiveCodec`) or ProRes, with Rec.2020 + HLG/PQ tags (`ColorTags`). No EDR preview yet.
 
 ## 5. Playback clock & A/V sync
 
@@ -126,7 +126,7 @@ CVPixelBuffers (decoder) ─────────┐ ▼
 | Keyframeable clip property | `AnimatableProperties.all` + `ParamKey` constant | keyframes, resolved clips, inspector `Bind.slider` |
 | Edit operation | `TimelineOps` function + `EditCommand` struct | undo, store |
 
-Effect shader contract (see `EffectDescriptor` docs): `float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx)`, with straight RGBA in and out and `p[]` in `ParamSpec` order (colour = 4 floats). `ctx.time` is in clip seconds; `ctx.pass` is for multi-pass effects. Transitions: `float4 transition(uv, from, to, s, progress, p, ctx)`.
+Effect shader contract (see `EffectDescriptor` docs): `float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx)`, with straight RGBA in and out and `p[]` in `ParamSpec` order (colour = 4 floats). `ctx.time` is in clip seconds; `ctx.pass` is for multi-pass effects. Transitions: `float4 transition(uv, from, to, s, progress, p, ctx)`. Effects can declare `inputs: [EffectInput]` (e.g. `.lut3D(id:)`): the shader then takes extra trailing args (`texture3d<float> lut, sampler s3`, helper `fx_lut3d`), resolved by `EffectInputs` (engine); a missing resource skips the effect. Imported LUTs: `LUTLibrary` (`~/Library/Application Support/Montage/LUTs`, one `user.lut.<hash>` adjustment descriptor each, loaded at bootstrap). Colour grading descriptors: `Builtin/Color.swift` (HSL, curves, wheels, white balance).
 
 ## 13. Concurrency model
 

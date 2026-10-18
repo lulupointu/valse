@@ -84,6 +84,8 @@ public final class FrameRenderer: @unchecked Sendable {
         let outW = output.width, outH = output.height
         let canvas = frame.canvasSize
         let outScale = Double(outH) / max(canvas.height, 1)
+        var frame = frame
+        frame.background = ColorMath.color(frame.background, in: frame.colorSpace)
 
         func acquire(_ w: Int, _ h: Int) -> MTLTexture {
             let t = ctx.pool.acquire(w, h); scratch.textures.append(t); return t
@@ -124,7 +126,7 @@ public final class FrameRenderer: @unchecked Sendable {
             switch item {
             case .layer(let l):
                 if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
-                                        sources: sources, cmd: cmd, scratch: scratch, acquire: acquire) {
+                                        sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
                     placements.append(.layer(p.0, p.1))
                 }
             case .transition(let a, let b, let typeID, let progress, let params):
@@ -132,7 +134,7 @@ public final class FrameRenderer: @unchecked Sendable {
                     // Unknown transition: hard cut at the midpoint.
                     let l = progress < 0.5 ? a : b
                     if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
-                                            sources: sources, cmd: cmd, scratch: scratch, acquire: acquire) {
+                                            sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
                         placements.append(.layer(p.0, p.1))
                     }
                     continue
@@ -141,7 +143,7 @@ public final class FrameRenderer: @unchecked Sendable {
                 for (l, t) in [(a, ta), (b, tb)] {
                     clear(t, to: .clear, cmd)
                     if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
-                                            sources: sources, cmd: cmd, scratch: scratch, acquire: acquire) {
+                                            sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
                         placeSingle(p.0, p.1, onto: t, cmd)
                     }
                 }
@@ -186,7 +188,7 @@ public final class FrameRenderer: @unchecked Sendable {
         rp.colorAttachments[0].storeAction = .store
         if let enc = cmd.makeRenderCommandEncoder(descriptor: rp) {
             enc.label = "output"
-            enc.setRenderPipelineState(ctx.outputBGRA)
+            enc.setRenderPipelineState(output.pixelFormat == .rgba16Float ? ctx.outputHalf : ctx.outputBGRA)
             enc.setFragmentTexture(finalAcc, index: 0)
             enc.setFragmentBytes(&bg, length: 16, index: 0)
             enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
@@ -204,7 +206,8 @@ public final class FrameRenderer: @unchecked Sendable {
     /// Builds the layer's straight-RGBA texture (with effects) and its placement uniforms.
     private func prepareLayer(_ l0: LayerDescription, canvas: Size2, outW: Int, outH: Int, outScale: Double,
                               media: [MediaID: MediaAsset], sources: any FrameSourceProvider, cmd: MTLCommandBuffer,
-                              scratch: FrameScratch, acquire: (Int, Int) -> MTLTexture) -> (MTLTexture, PlaceUniforms)? {
+                              scratch: FrameScratch, acquire: (Int, Int) -> MTLTexture,
+                              space: ProjectColorSpace = .sdr709) -> (MTLTexture, PlaceUniforms)? {
         var l = l0
         // animations (registry) → transform/opacity
         if !l.animations.isEmpty {
@@ -220,11 +223,14 @@ public final class FrameRenderer: @unchecked Sendable {
         var unpremultiply = false
         var rotation = 0
         var yuv: (MTLTexture, MTLTexture, Bool, Bool)?  // y, cbcr, fullRange, bt709
+        // Source colour (transfer + primaries); stills, text and stickers are SDR Rec.709.
+        var srcTF = TransferFunction.sdr, srcWide = false, matrix2020 = false
 
         switch l.source {
         case .media(let id, _):
             guard let pb = sources.pixelBuffer(for: l.clipID) else { return nil }
             rotation = media[id]?.sourceRotation ?? 0
+            (srcTF, srcWide, matrix2020) = Self.colorInfo(pb, asset: media[id])
             let fmt = CVPixelBufferGetPixelFormatType(pb)
             switch fmt {
             case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange:
@@ -281,8 +287,10 @@ public final class FrameRenderer: @unchecked Sendable {
         var cu = ConvertUniforms(uvXform: Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV,
                                                             rotation: rotation, stabilize: stabilizationCorrection(l, media: media)),
                                  fullRange: 0, matrix709: 1, unpremultiply: unpremultiply ? 1 : 0, pad: 0)
+        cu.inTF = Float(srcTF.code); cu.outTF = Float(space.transfer.code)
+        cu.gamut = srcWide == space.isWideGamut ? 0 : (space.isWideGamut ? 1 : 2)
         if let (y, c, full, bt709) = yuv {
-            cu.fullRange = full ? 1 : 0; cu.matrix709 = bt709 ? 1 : 0
+            cu.fullRange = full ? 1 : 0; cu.matrix709 = matrix2020 ? 2 : (bt709 ? 1 : 0)
             fullscreen(ctx.convertYUV, target: layerTex, cmd, label: "convert-yuv") { enc in
                 enc.setFragmentTexture(y, index: 0); enc.setFragmentTexture(c, index: 1)
                 enc.setFragmentBytes(&cu, length: MemoryLayout<ConvertUniforms>.stride, index: 0)
@@ -292,7 +300,8 @@ public final class FrameRenderer: @unchecked Sendable {
                 enc.setFragmentTexture(t, index: 0)
                 enc.setFragmentBytes(&cu, length: MemoryLayout<ConvertUniforms>.stride, index: 0)
             }
-        } else if case .solid(let color) = l.source {
+        } else if case .solid(let color0) = l.source {
+            let color = ColorMath.color(color0, in: space)
             var c4 = SIMD4<Float>(Float(color.r), Float(color.g), Float(color.b), Float(color.a))
             fullscreen(ctx.solid, target: layerTex, cmd, label: "solid") { $0.setFragmentBytes(&c4, length: 16, index: 0) }
         }
@@ -331,6 +340,9 @@ public final class FrameRenderer: @unchecked Sendable {
         var cur = input
         for e in effects {
             guard let d = Registries.effects[e.typeID], let pipe = EffectPipelines.shared.effect(d) else { continue }
+            // Extra inputs (3D LUTs…): skip the effect if a resource is missing (e.g. LUT file deleted).
+            let extra = d.inputs.map { EffectInputs.texture(for: $0) }
+            if extra.contains(where: { $0 == nil }) { continue }
             var params = d.packParams(e.params)
             for pass in 0..<max(d.passes, 1) {
                 let out = acquire(cur.width, cur.height)
@@ -339,6 +351,7 @@ public final class FrameRenderer: @unchecked Sendable {
                 let src = cur
                 fullscreen(pipe, target: out, cmd, label: e.typeID) { enc in
                     enc.setFragmentTexture(src, index: 0)
+                    for (i, t) in extra.enumerated() { enc.setFragmentTexture(t, index: 1 + i) }
                     enc.setFragmentBytes(&params, length: params.count * 4, index: 0)
                     enc.setFragmentBytes(&fx, length: MemoryLayout<FXContextU>.stride, index: 1)
                 }
@@ -392,6 +405,28 @@ public final class FrameRenderer: @unchecked Sendable {
     static func quantize(_ v: Double) -> Int {
         let n = max(1, Int(v.rounded(.up)))
         return n <= 64 ? n : min(8192, (n + 15) / 16 * 16)
+    }
+
+    /// Transfer / primaries / matrix of a decoded frame. The asset's probed tags win: AVFoundation stamps source
+    /// frames with the video composition's colour tags without converting them, and proxies are untagged but carry
+    /// the original's code values. Buffer attachments are only used when there is no asset; untagged = SDR Rec.709.
+    static func colorInfo(_ pb: CVPixelBuffer, asset: MediaAsset?) -> (TransferFunction, Bool, Bool) {
+        if let asset {
+            return (asset.transfer, asset.isWideGamut, asset.yCbCrMatrix == "ITU_R_2020")
+        }
+        var tf = TransferFunction.sdr, wide = false, m2020 = false
+        if let t = CVBufferCopyAttachment(pb, kCVImageBufferTransferFunctionKey, nil) {
+            if CFEqual(t, kCVImageBufferTransferFunction_ITU_R_2100_HLG) { tf = .hlg }
+            else if CFEqual(t, kCVImageBufferTransferFunction_SMPTE_ST_2084_PQ) { tf = .pq }
+            else { tf = .sdr }
+        }
+        if let p = CVBufferCopyAttachment(pb, kCVImageBufferColorPrimariesKey, nil) {
+            wide = CFEqual(p, kCVImageBufferColorPrimaries_ITU_R_2020)
+        }
+        if let m = CVBufferCopyAttachment(pb, kCVImageBufferYCbCrMatrixKey, nil) {
+            m2020 = CFEqual(m, kCVImageBufferYCbCrMatrix_ITU_R_2020)
+        }
+        return (tf, wide, m2020)
     }
 
     static func isBT709(_ pb: CVPixelBuffer) -> Bool {
@@ -448,6 +483,10 @@ struct ConvertUniforms {
     var matrix709: Float
     var unpremultiply: Float
     var pad: Float
+    var inTF: Float = 0
+    var outTF: Float = 0
+    var gamut: Float = 0
+    var pad2: Float = 0
     static let identity = ConvertUniforms(uvXform: Affine.identity.matrix, fullRange: 0, matrix709: 1, unpremultiply: 0, pad: 0)
 }
 

@@ -23,6 +23,9 @@ public enum Exporter {
     public static func export(project: Project, settings: ExportSettings, to url: URL, range: TimeRange? = nil,
                               progress: (@Sendable (Double) -> Void)? = nil) async throws {
         guard project.duration > .zero else { throw ExportError.emptyProject }
+        let space = project.settings.colorSpace
+        var settings = settings
+        settings.codec = settings.effectiveCodec(for: space)
         let (w, h) = settings.outputSize(canvas: project.settings.canvasSize)
         let built = try await CompositionBuilder.build(project: project, purpose: .export,
                                                        renderSize: CGSize(width: w, height: h), frameRate: settings.frameRate)
@@ -33,8 +36,11 @@ public enum Exporter {
         let reader = try AVAssetReader(asset: built.composition)
         reader.timeRange = exportRange.cmTimeRange
         let vTracks = try await built.composition.loadTracks(withMediaType: .video)
+        // HDR: 10-bit 4:2:0 for HEVC Main10, 16-bit RGBA for ProRes; SDR: 8-bit BGRA.
+        let readFormat: OSType = !space.isHDR ? kCVPixelFormatType_32BGRA
+            : (settings.codec.isProRes ? kCVPixelFormatType_64RGBAHalf : kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange)
         let vOut = AVAssetReaderVideoCompositionOutput(videoTracks: vTracks, videoSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferPixelFormatTypeKey as String: readFormat,
             kCVPixelBufferMetalCompatibilityKey as String: true])
         vOut.videoComposition = built.videoComposition
         vOut.alwaysCopiesSampleData = false
@@ -55,7 +61,7 @@ public enum Exporter {
 
         let writer = try AVAssetWriter(outputURL: url, fileType: settings.codec.isProRes ? .mov : .mp4)
         writer.shouldOptimizeForNetworkUse = !settings.codec.isProRes
-        let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings(settings, w: w, h: h, canvas: project.settings.canvasSize))
+        let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings(settings, w: w, h: h, canvas: project.settings.canvasSize, space: space))
         vIn.expectsMediaDataInRealTime = false
         writer.add(vIn)
         var aIn: AVAssetWriterInput?
@@ -107,12 +113,9 @@ public enum Exporter {
         progress?(1)
     }
 
-    static func videoSettings(_ s: ExportSettings, w: Int, h: Int, canvas: Size2) -> [String: Any] {
+    static func videoSettings(_ s: ExportSettings, w: Int, h: Int, canvas: Size2, space: ProjectColorSpace = .sdr709) -> [String: Any] {
         var out: [String: Any] = [AVVideoWidthKey: w, AVVideoHeightKey: h]
-        let color: [String: Any] = [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                                    AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-                                    AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2]
-        out[AVVideoColorPropertiesKey] = color
+        out[AVVideoColorPropertiesKey] = ColorTags(space).properties
         switch s.codec {
         case .h264, .hevc:
             out[AVVideoCodecKey] = s.codec == .h264 ? AVVideoCodecType.h264 : AVVideoCodecType.hevc
@@ -120,6 +123,7 @@ public enum Exporter {
                                         AVVideoExpectedSourceFrameRateKey: s.frameRate.fps,
                                         AVVideoMaxKeyFrameIntervalKey: Int(s.frameRate.fps.rounded()) * 2]
             if s.codec == .h264 { props[AVVideoProfileLevelKey] = AVVideoProfileLevelH264HighAutoLevel }
+            if s.codec == .hevc && space.isHDR { props[AVVideoProfileLevelKey] = kVTProfileLevel_HEVC_Main10_AutoLevel as String }
             out[AVVideoCompressionPropertiesKey] = props
             if s.preferHardware {
                 out[AVVideoEncoderSpecificationKey] = [kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: true]

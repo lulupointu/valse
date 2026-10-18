@@ -23,6 +23,19 @@ public final class EffectPipelines: @unchecked Sendable {
     }
     """
 
+    /// Wrapper for effects with one `.lut3D` input (see `EffectInput`): texture(1) = 3D LUT.
+    static let effectLUTWrapper = """
+
+    struct FXQuadOut { float4 pos [[position]]; float2 uv; };
+    fragment float4 fx_main(FXQuadOut in [[stage_in]], texture2d<float> src [[texture(0)]],
+                            texture3d<float> lut [[texture(1)]],
+                            constant float* p [[buffer(0)]], constant FXContext& ctx [[buffer(1)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        constexpr sampler s3(filter::linear, address::clamp_to_edge);
+        return effect(in.uv, src, s, p, ctx, lut, s3);
+    }
+    """
+
     static let transitionWrapper = """
 
     struct FXQuadOut { float4 pos [[position]]; float2 uv; };
@@ -36,7 +49,8 @@ public final class EffectPipelines: @unchecked Sendable {
 
     public func effect(_ d: EffectDescriptor) -> MTLRenderPipelineState? {
         if let cached = lock.withLock({ effects[d.id] }) { return cached }
-        let p = compile(id: d.id, source: ShaderPrelude.source + "\n" + d.shader + EffectPipelines.effectWrapper, fn: "fx_main")
+        let wrapper = d.inputs.isEmpty ? EffectPipelines.effectWrapper : EffectPipelines.effectLUTWrapper
+        let p = compile(id: d.id, source: ShaderPrelude.source + "\n" + d.shader + wrapper, fn: "fx_main")
         lock.withLock { effects[d.id] = .some(p) }
         return p
     }

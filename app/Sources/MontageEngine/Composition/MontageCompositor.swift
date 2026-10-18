@@ -87,8 +87,10 @@ public final class MontageInstruction: NSObject, AVVideoCompositionInstructionPr
 
 /// Custom AVVideoCompositing backed by `FrameRenderer`. Used by AVPlayer (preview), AVAssetReader (export) and
 /// AVAssetImageGenerator (thumbnails / render tests). Source frames arrive IOSurface-backed from VideoToolbox and are
-/// sampled zero-copy.
-public final class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
+/// sampled zero-copy. HDR / wide-gamut sources are delivered untouched (`supportsHDRSourceFrames`): the renderer
+/// converts them into the project colour space itself, so preview (proxies) and export (originals) match.
+/// SDR projects render into 8-bit BGRA; HDR projects use `MontageHDRCompositor` (rgba16Float buffers).
+public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     private let renderQueue = DispatchQueue(label: "montage.compositor", qos: .userInteractive)
     private let inflight = DispatchSemaphore(value: 3)
 
@@ -96,13 +98,20 @@ public final class MontageCompositor: NSObject, AVVideoCompositing, @unchecked S
         [kCVPixelBufferPixelFormatTypeKey as String: [kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
                                                       kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
                                                       kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                                                      kCVPixelFormatType_420YpCbCr10BiPlanarFullRange,
                                                       kCVPixelFormatType_32BGRA],
          kCVPixelBufferMetalCompatibilityKey as String: true,
          kCVPixelBufferIOSurfacePropertiesKey as String: [String: any Sendable]()]
     }
 
+    public var supportsHDRSourceFrames: Bool { true }
+    public var supportsWideColorSourceFrames: Bool { true }
+
+    /// Output pixel format of composed frames.
+    class var outputPixelFormat: OSType { kCVPixelFormatType_32BGRA }
+
     public var requiredPixelBufferAttributesForRenderContext: [String: any Sendable] {
-        [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        [kCVPixelBufferPixelFormatTypeKey as String: Self.outputPixelFormat,
          kCVPixelBufferMetalCompatibilityKey as String: true,
          kCVPixelBufferIOSurfacePropertiesKey as String: [String: any Sendable]()]
     }
@@ -121,7 +130,8 @@ public final class MontageCompositor: NSObject, AVVideoCompositing, @unchecked S
     private func render(_ request: AVAsynchronousVideoCompositionRequest) {
         guard let instr = request.videoCompositionInstruction as? MontageInstruction,
               let out = request.renderContext.newPixelBuffer(),
-              let (outTex, outCV) = MetalContext.shared.texture(out, plane: 0, format: .bgra8Unorm),
+              let (outTex, outCV) = MetalContext.shared.texture(
+                  out, plane: 0, format: CVPixelBufferGetPixelFormatType(out) == kCVPixelFormatType_64RGBAHalf ? .rgba16Float : .bgra8Unorm),
               let cmd = MetalContext.shared.queue.makeCommandBuffer() else {
             request.finish(with: NSError(domain: "Montage", code: 1, userInfo: [NSLocalizedDescriptionKey: "compositor setup failed"]))
             return
@@ -150,6 +160,11 @@ public final class MontageCompositor: NSObject, AVVideoCompositing, @unchecked S
         }
         cmd.commit()
     }
+}
+
+/// HDR projects (Rec.2020 HLG/PQ): composes into 16-bit half-float RGBA buffers so 10-bit export keeps precision.
+public final class MontageHDRCompositor: MontageCompositor, @unchecked Sendable {
+    override class var outputPixelFormat: OSType { kCVPixelFormatType_64RGBAHalf }
 }
 
 /// Wraps a non-Sendable value to cross a concurrency boundary when the caller guarantees exclusive use.

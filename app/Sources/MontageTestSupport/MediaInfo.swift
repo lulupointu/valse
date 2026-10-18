@@ -12,6 +12,10 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
     public var duration: Double
     public var hasAudio: Bool
     public var audioCodec: String?
+    /// ffprobe only: e.g. "yuv420p10le", "arib-std-b67", "bt2020".
+    public var pixelFormat: String? = nil
+    public var colorTransfer: String? = nil
+    public var colorPrimaries: String? = nil
 
     public var description: String {
         "\(videoCodec ?? "-") \(width)x\(height) @\(fps) frames=\(frameCount.map(String.init) ?? "?") dur=\(duration) audio=\(audioCodec ?? "none")"
@@ -48,7 +52,7 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: path)
         p.arguments = ["-v", "error", "-count_packets", "-show_entries",
-                       "stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_packets:format=duration", "-of", "json", url.path]
+                       "stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_packets,pix_fmt,color_transfer,color_primaries:format=duration", "-of", "json", url.path]
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
         guard (try? p.run()) != nil else { return nil }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -65,6 +69,8 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
         let dur = Double((obj["format"] as? [String: Any])?["duration"] as? String ?? "") ?? 0
         return MediaInfo(videoCodec: v?["codec_name"] as? String, width: v?["width"] as? Int ?? 0, height: v?["height"] as? Int ?? 0,
                          fps: rate(v?["avg_frame_rate"] as? String), frameCount: Int(v?["nb_read_packets"] as? String ?? ""),
-                         duration: dur, hasAudio: a != nil, audioCodec: a?["codec_name"] as? String)
+                         duration: dur, hasAudio: a != nil, audioCodec: a?["codec_name"] as? String,
+                         pixelFormat: v?["pix_fmt"] as? String, colorTransfer: v?["color_transfer"] as? String,
+                         colorPrimaries: v?["color_primaries"] as? String)
     }
 }

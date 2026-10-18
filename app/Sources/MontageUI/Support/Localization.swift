@@ -31,6 +31,7 @@ public enum MontageBootstrap {
         EngineResources.register()
         AIResources.register()
         UIResources.register()
+        LUTLibrary.shared.loadAll()   // imported LUTs → effect registry
     }
 }
 

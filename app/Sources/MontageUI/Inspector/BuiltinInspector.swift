@@ -19,6 +19,7 @@ enum BuiltinInspector {
 
     static let sections: [InspectorSection] = [
         InspectorSection(id: "details.project", tab: "details", order: 0, titleKey: nil) { AnyView(DetailsSection(store: $0.store)) },
+        InspectorSection(id: "details.colorSpace", tab: "details", order: 1, titleKey: nil) { AnyView(ColorSpaceSection(store: $0.store)) },
 
         InspectorSection(id: "text.content", tab: "text", order: 0, titleKey: "inspector.text.basic") { AnyView(TextSection(ctx: $0)) },
         InspectorSection(id: "text.transform", tab: "text", order: 1, titleKey: "inspector.transform") { AnyView(TransformSection(ctx: $0)) },
@@ -30,6 +31,7 @@ enum BuiltinInspector {
         InspectorSection(id: "audio.basic", tab: "audio", order: 0, titleKey: "inspector.audio.basic") { AnyView(AudioSection(ctx: $0)) },
         InspectorSection(id: "speed.normal", tab: "speed", order: 0, titleKey: "inspector.speed.normal") { AnyView(SpeedSection(ctx: $0)) },
         InspectorSection(id: "animation.pick", tab: "animation", order: 0, titleKey: nil) { AnyView(AnimationSection(ctx: $0)) },
+        InspectorSection(id: "adjust.lut", tab: "adjust", order: -1, titleKey: "inspector.lut") { AnyView(LUTSection(ctx: $0)) },
         InspectorSection(id: "adjust.stack", tab: "adjust", order: 0, titleKey: nil) { AnyView(EffectStackSection(ctx: $0)) },
     ]
 }

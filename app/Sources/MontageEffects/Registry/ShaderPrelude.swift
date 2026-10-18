@@ -26,5 +26,13 @@ public enum ShaderPrelude {
         float3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
         return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
     }
+    // Rec.709 / sRGB-style display gamma ↔ linear light (working values are display-encoded).
+    inline float3 fx_to_linear(float3 c) { return pow(max(c, 0.0), 2.4); }
+    inline float3 fx_to_display(float3 c) { return pow(max(c, 0.0), 1.0 / 2.4); }
+    // 3D LUT lookup with texel-centre mapping (hardware trilinear).
+    inline float3 fx_lut3d(texture3d<float> lut, sampler s3, float3 c) {
+        float n = float(lut.get_width());
+        return lut.sample(s3, saturate(c) * ((n - 1.0) / n) + 0.5 / n).rgb;
+    }
     """
 }

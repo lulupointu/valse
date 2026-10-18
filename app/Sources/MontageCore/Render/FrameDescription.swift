@@ -80,6 +80,8 @@ public struct FrameDescription: Hashable, Sendable {
     public var canvasSize: Size2
     public var background: RGBA
     public var items: [RenderItem]
+    /// Working/output colour space (sources are converted into it by the renderer).
+    public var colorSpace: ProjectColorSpace = .sdr709
 
     /// All media-backed layers (incl. both sides of transitions).
     public var mediaLayers: [LayerDescription] {
@@ -121,7 +123,8 @@ public enum FrameEvaluator {
                 }
             }
         }
-        return FrameDescription(time: t, canvasSize: canvas, background: project.settings.backgroundColor, items: items)
+        return FrameDescription(time: t, canvasSize: canvas, background: project.settings.backgroundColor, items: items,
+                                colorSpace: project.settings.colorSpace)
     }
 
     public static func layer(_ c: Clip, track: Track, project: Project, at t: Time) -> LayerDescription? {
