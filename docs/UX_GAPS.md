@@ -104,7 +104,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W13: Asset library (media tab, cards, search, previews)
 
-**W13-1 · P1 · Clicking a media card does nothing (no selection, no preview, no hover scrub).**
+**W13-1 · P1 · Clicking a media card does nothing (no selection, no preview, no hover scrub).** — FIXED (W13: click selects + "Previewing — Video" in the player, Space plays; hover scrub; in/out pill handles not done)
 - CapCut ([11](ux/11_media_imported.png), [12b](ux/12b_media_card_hover_scrub.png)): click selects the card (2 pt accent border plus
   in/out pill handles) and previews the source in the player ("Previewing — video", playable with Space). Hover scrubs the thumbnail
   with the mouse X position.
@@ -114,51 +114,51 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: single click = select plus source preview (needs W2-3). Add hover scrub through `ThumbnailCache`, the selection border, and
   the in/out handles.
 
-**W13-2 · P1 · The media toolbar and card badges are incomplete.**
+**W13-2 · P1 · The media toolbar and card badges are incomplete.** — FIXED (W13: search, grid/list, sort ▾, type filter ▾, "All" caption, 3:2 cards, duration top-right, ⊕ bottom-right, "Added" chip)
 - CapCut ([11](ux/11_media_imported.png)): a toolbar with `[⊕ Import]`, "Search material", grid/list, sort ▾ and type filter ▾,
   and an "All" caption. Cards are 3:2, with the duration top-right, ⊕ bottom-right, and an "Added" chip once used.
 - Montage ([04_assets_tabs_en](ux_review/04_assets_tabs_en.png)): the toolbar has only Import and a new-folder icon. Ocean, Sunset
   and Forest are on the timeline but show no "Added" chip. The duration is bottom-right and the ⊕ top-right, on 16:10 cards.
 - Fix: add search, sort and filter, the "Added" chip, and CapCut's badge positions.
 
-**W13-3 · P1 (with W2) · Clicking an effect, filter or sticker card doesn't preview it.**
+**W13-3 · P1 (with W2) · Clicking an effect, filter or sticker card doesn't preview it.** — FIXED (W13 + W2: 3 s looped "Previewing — Effects/Filters/Stickers" over the frame under the playhead; stock and transitions too)
 - CapCut ([70b](ux/70b_effect_after_click.png)): click shows "Previewing — Effects" and loops a 3 s preview over the frame under
   the playhead before anything is added.
 - Montage ([07_effect_card_click](ux_review/07_effect_card_click.png)): the card shows ☆/⊕, but the player is unchanged. This is
   the open FX-001 cross-team request.
 - Fix: build a shared "library preview" mode in the player (W2-3) and call it from card clicks.
 
-**W13-4 · P2 (with W4) · Card thumbnails appear late and fall back to placeholders.**
+**W13-4 · P2 (with W4) · Card thumbnails appear late and fall back to placeholders.** — FIXED (W13: versioned disk cache of effect/filter stills, in-memory cache holds all cards across tab switches)
 - CapCut ([63](ux/63_assets_effects.png), [65](ux/65_assets_filters.png)): thumbnails are present when the tab opens.
 - Montage: on first open, Effects and Filters show grey glyph placeholders for more than 1.5 s
   ([05_assets_tabs_fr](ux_review/05_assets_tabs_fr.png)). After a drop, the Filters grid fell back to placeholders again
   ([16](ux_review/16_timeline_effect_filter_colours.png)).
 - Fix: keep rendered thumbnails in a disk cache keyed by descriptor and version, and don't evict them when switching tabs.
 
-**W13-5 · P2 · French sub-nav labels are truncated or shrunk.**
+**W13-5 · P2 · French sub-nav labels are truncated or shrunk.** — FIXED (W13: two-line labels, "Importer des sous-titres", "Bulles", "Modèles de texte")
 - Montage ([05_assets_tabs_fr](ux_review/05_assets_tabs_fr.png)): "Sous-titres aut…" and "Sous-titres loc…" are cut. "Modèle de
   texte" and "Bulles et badges" are drawn in a smaller font (auto-shrink).
 - Fix: use shorter labels ("Sous-titres auto", "Importer des sous-titres", "Bulles") or allow two lines in the 120 pt column.
 
-**W13-6 · P2 · French wording is inconsistent across tabs.**
+**W13-6 · P2 · French wording is inconsistent across tabs.** — FIXED (W13: "Vos fichiers", "Rechercher des stickers", "Ajustement personnalisé" / "Rechercher des ajustements")
 - "Yours" is "Vos fichiers" in Audio but "Les vôtres" in Text.
 - The Stickers tab's search says "Rechercher des autocollants".
 - The Adjustment card is "Réglages" and its search "Rechercher des réglages" (*réglages* reads as "settings"), under the tab
   "Ajustement".
 - Fix: use one term per concept: "Stickers", "Ajustement" / "Ajustement personnalisé", and one translation of "Yours".
 
-**W13-7 · P2 · The Templates tab is an empty "coming soon" page.**
+**W13-7 · P2 · The Templates tab is an empty "coming soon" page.** — FIXED (W13: shows the W7 animated text templates until video templates ship)
 - Montage ([04_assets_tabs_en](ux_review/04_assets_tabs_en.png)): "Templates are coming soon." The TP workstream is still queued.
 - Fix: hide the tab until local templates exist, or show the W7 text templates there.
 
-**W13-8 · P2 · The Media sub-nav has no "Yours ▴" group.**
+**W13-8 · P2 · The Media sub-nav has no "Yours ▴" group.** — FIXED (W13: Yours ▴ — Import, Favorites, Recent — in Media and Audio; ☆ on media cards)
 - CapCut: Yours ▴ (Import, Favorites, My presets) · Library ▾.
 - Montage: "Import" and "Library" only. Library holds solid colour clips, which is fine.
 - Fix: add Favorites for media (☆ on media cards) under a Yours group.
 
 ## W8: Audio (audio library UI, `MontageUI/Audio`)
 
-**W8-1 · P1 · The Audio tab shows two sub-nav columns side by side, and imported audio uses grid cards. — FIXED (POL-B)**
+**W8-1 · P1 · The Audio tab shows two sub-nav columns side by side, and imported audio uses grid cards.** — FIXED (POL-B, then W13: one sub-nav, Imported audio as 56 pt list rows)
 - CapCut ([60](ux/60_assets_audio.png)): one 120 pt sub-nav, and **56 pt list rows** with a 40 pt cover, the title, "artist ·
   02:09", ☆ and ⊕.
 - Montage ([04_assets_tabs_en](ux_review/04_assets_tabs_en.png)): the outer nav (Yours / Sound FX / Extracted) and the media-bin
@@ -167,7 +167,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: use a single nav, and render Yours with the same rows as Sound FX (a waveform image as the cover, ▶ on hover).
 - **Fixed (POL-B):** Yours is now its own list (no nested media-bin nav): Import button, 56 pt rows with the file's real waveform as cover, "artist · duration", ▶ on hover / click to preview, ⊕ adds at the playhead, drag to the timeline, Finder drop. UI script `audio_library` (baseline `audio_library_yours`).
 
-**W8-2 · P2 · There's no Music library. — FIXED (POL-B)**
+**W8-2 · P2 · There's no Music library.** — FIXED (POL-B 8-track pack, replaced by W13: 36 synthesized tracks in 10 genres)
 - CapCut: Music ▴ with genres.
 - Montage: Yours · Sound FX · Extracted only.
 - Fix: ship a small local royalty-free music pack in the same row UI, or hide the concept.
