@@ -343,6 +343,7 @@ public enum CompositionBuilder {
     }
 
     /// Hash of everything that requires rebuilding the AVComposition (vs. live property edits).
+    /// Hot path: `StructureKeyCache` (same result, incremental per track).
     public static func structureKey(_ project: Project, sources: (MediaAsset) -> MediaSourceChoice) -> Int {
         var h = Hasher()
         h.combine(project.settings.canvasSize)
@@ -369,5 +370,84 @@ public enum CompositionBuilder {
             }
         }
         return h.finalize()
+    }
+}
+
+
+/// Incremental `CompositionBuilder.structureKey` for the playback engine (perf, W14 round 2): a property drag on a
+/// 500-clip timeline otherwise rehashes every clip on every tick. The project-only part of each track's hash is cached
+/// against the track's clip array buffer (retained here, so an unchanged buffer means unchanged clips: copy-on-write
+/// copies on any mutation); the media list is checked the same way. Parts that depend on background state (proxy /
+/// playable sources, reversed media, mattes, rendered audio stages) are re-evaluated every time, per distinct media and
+/// for the few clips that need them. Equal inputs → equal key as `structureKey` would give for change detection.
+public final class StructureKeyCache: @unchecked Sendable {
+    private struct Entry {
+        let clips: [Clip]
+        let pure: Int
+        let media: [MediaID]
+        let external: [(Clip, MediaAsset)]
+    }
+    private let lock = NSLock()
+    private var media: [MediaAsset] = []
+    private var entries: [TrackID: Entry] = [:]
+
+    public init() {}
+
+    private static func same<T>(_ a: [T], _ b: [T]) -> Bool {
+        guard a.count == b.count else { return false }
+        if a.isEmpty { return true }
+        return a.withUnsafeBufferPointer { pa in b.withUnsafeBufferPointer { pb in pa.baseAddress == pb.baseAddress } }
+    }
+
+    public func key(_ project: Project, sources: (MediaAsset) -> MediaSourceChoice) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        if !Self.same(media, project.media) { media = project.media; entries.removeAll() }
+        let lookup = project.mediaLookup
+        var h = Hasher()
+        h.combine(project.settings.canvasSize)
+        h.combine(project.settings.frameRate)
+        h.combine(project.settings.colorSpace)
+        var seen = Set<MediaID>(), used: [MediaAsset] = []
+        var live: Set<TrackID> = []
+        for t in CompoundFlattening.decodeTracks(project) {
+            h.combine(t.id); h.combine(t.kind); h.combine(t.isMain); h.combine(t.isMuted)
+            live.insert(t.id)
+            let e: Entry
+            if let c = entries[t.id], Self.same(c.clips, t.clips) { e = c } else {
+                e = Self.entry(t.clips, lookup: lookup)
+                entries[t.id] = e
+            }
+            h.combine(e.pure)
+            for id in e.media where seen.insert(id).inserted { if let a = lookup[id] { used.append(a) } }
+            for (c, a) in e.external {
+                if c.reversed { h.combine(ReverseManager.shared.readyURL(for: a) != nil) }
+                if let m = c.matte { h.combine(MatteStore.shared.readyMatteVideo(media: a, kind: m.kind) != nil) }
+                let spec = ClipAudioPlan.make(c).render
+                if !spec.isIdentity { h.combine(AudioRenderCache.shared.readyURL(for: a, spec: spec) != nil) }
+            }
+        }
+        if entries.count > live.count { entries = entries.filter { live.contains($0.key) } }
+        for a in used { h.combine(a.id); h.combine(sources(a)) }
+        return h.finalize()
+    }
+
+    private static func entry(_ clips: [Clip], lookup: MediaLookup) -> Entry {
+        var h = Hasher()
+        var media: [MediaID] = [], seen = Set<MediaID>(), external: [(Clip, MediaAsset)] = []
+        for c in clips {
+            guard let id = c.mediaID, let a = lookup[id] else { continue }
+            h.combine(c.id); h.combine(id); h.combine(c.start); h.combine(c.duration); h.combine(c.sourceStart)
+            h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audioStreamIndex)
+            let au = c.audio
+            h.combine(au.volume); h.combine(au.fadeIn); h.combine(au.fadeOut); h.combine(au.isMuted); h.combine(au.preservePitch)
+            h.combine(au.loudness); h.combine(au.ducking)
+            let spec = ClipAudioPlan.make(c).render
+            h.combine(spec)
+            h.combine(c.keyframes[ParamKey.volume.raw])
+            h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind)
+            if seen.insert(id).inserted { media.append(id) }
+            if c.reversed || c.matte != nil || !spec.isIdentity { external.append((c, a)) }
+        }
+        return Entry(clips: clips, pure: h.finalize(), media: media, external: external)
     }
 }

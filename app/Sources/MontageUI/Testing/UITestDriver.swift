@@ -830,6 +830,7 @@ public final class UITestDriver {
         let mods = SyntheticEvents.modifiers((step["modifiers"] as? [String]) ?? [])
         var cpu: [Double] = [], dispatch: [Double] = []
         CompositorStats.shared.reset()
+        let freeze = (step["anchors"] as? String ?? "frozen") == "frozen"
         func measure(_ send: () throws -> Void) async throws {
             let c0 = ThreadCPU.nanoseconds(), w0 = DispatchTime.now().uptimeNanoseconds
             try send()
@@ -839,11 +840,18 @@ public final class UITestDriver {
             cpu.append(Double(ThreadCPU.nanoseconds() - c0) / 1e6)
             dispatch.append(Double(w1 - w0) / 1e6)
         }
+        func pauseAnchors() async throws {
+            guard freeze else { return }
+            TestAnchors.live.tracking = false
+            try await idle(settle: 0.15)
+        }
+        defer { TestAnchors.live.tracking = true }
         if let t = step["drag"] {
             if let id = t as? String, id.hasPrefix("id:"), scrollIntoView(id) { try await idle(settle: 0.2) }
             let a = try resolve(t, step)
             var s2 = step; s2["at"] = step["toAt"]; s2["offset"] = step["toOffset"]
             let b = try resolve(step["to"] ?? t, s2)
+            try await pauseAnchors()
             SyntheticEvents.post(SyntheticEvents.mouse(.leftMouseDown, at: a, in: window, modifiers: mods))
             _ = await SyntheticEvents.drain()
             try await Task.sleep(for: .milliseconds(30))
@@ -859,6 +867,7 @@ public final class UITestDriver {
         } else if let target = step["edit"] {
             // programmatic gesture edits (no input event): what one live-edit tick costs the UI
             let id = try clip(from: target).id
+            try await pauseAnchors()
             store.beginGesture("cmd.editClip")
             for i in 0..<frames {
                 let v = 0.5 + 0.4 * Double(i % 2)
@@ -870,14 +879,19 @@ public final class UITestDriver {
             let dx = (step["dx"] as? NSNumber)?.doubleValue ?? 0, dy = (step["dy"] as? NSNumber)?.doubleValue ?? 0
             let alternate = (step["alternate"] as? Bool) ?? false
             let period = max(1, (step["period"] as? Int) ?? 60)
+            try await pauseAnchors()
             for i in 0..<frames {
                 let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
                 try await measure { try deliverScroll(at: p, dx: dx * sign, dy: dy * sign, modifiers: mods) }
             }
         }
+        TestAnchors.live.tracking = true
         try await idle(settle: 0.3)
         let st = CompositorStats.shared.snapshot()
         let c = Percentiles(cpu), d = Percentiles(dispatch), k = Percentiles(st.costsMs)
+        if ProcessInfo.processInfo.environment["MONTAGE_PERF_RAW"] == "1" {
+            print("      raw cpu: " + cpu.map { String(format: "%.1f", $0) }.joined(separator: " "))
+        }
         metrics["\(name)_main_cpu_p50_ms"] = c.p50
         metrics["\(name)_main_cpu_p95_ms"] = c.p95
         metrics["\(name)_dispatch_p95_ms"] = d.p95

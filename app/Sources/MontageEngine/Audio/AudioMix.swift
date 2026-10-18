@@ -13,14 +13,19 @@ public final class AudioMixState: @unchecked Sendable {
 
     public init(project: Project? = nil) { if let project { update(project: project) } }
 
+    /// Live chains per track (recomputed only for tracks whose clips changed).
+    private let perTrack = TrackMemo<[ClipID: [LiveNode]]> { clips in
+        var m: [ClipID: [LiveNode]] = [:]
+        for c in clips where c.mediaID != nil {
+            let plan = ClipAudioPlan.make(c)
+            if plan.hasLive { m[c.id] = plan.live }
+        }
+        return m
+    }
+
     public func update(project: Project) {
         var m: [ClipID: [LiveNode]] = [:]
-        for t in project.timeline.tracks {
-            for c in t.clips where c.mediaID != nil {
-                let plan = ClipAudioPlan.make(c)
-                if plan.hasLive { m[c.id] = plan.live }
-            }
-        }
+        for t in perTrack.values(project.timeline.tracks) { m.merge(t) { a, _ in a } }
         lock.withLock { if m != live { live = m; version &+= 1 } }
     }
 

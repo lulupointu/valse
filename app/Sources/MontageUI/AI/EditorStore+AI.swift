@@ -102,7 +102,7 @@ extension EditorStore {
             Task { await JobQueue.shared.cancel(job) }
         }
         relightProjectDidChange()
-        if project.timeline.allClips.contains(where: { $0.tts != nil }) {
+        if project.timeline.tracks.contains(where: { $0.clips.contains { $0.tts != nil } }) {   // no allClips copy per tick
             ai.ttsRefresh?.cancel()
             ai.ttsRefresh = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(1.2))

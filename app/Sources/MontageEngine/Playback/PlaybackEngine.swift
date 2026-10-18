@@ -64,6 +64,7 @@ public final class PlaybackEngine {
     public var onPlayStateChange: ((Bool) -> Void)?
 
     private var structureKey: Int?
+    private let structureCache = StructureKeyCache()
     private var buildTask: Task<Void, Never>?
     private var timeObserver: Any?
     private var rateObservation: NSKeyValueObservation?
@@ -123,7 +124,7 @@ public final class PlaybackEngine {
 
     public func update(project: Project, force: Bool = false) {
         self.project = project
-        let structure = CompositionBuilder.structureKey(project, sources: sourceChooser)
+        let structure = structureCache.key(project, sources: sourceChooser)
         requestDerivedMedia(project, structure: structure)
         EffectPipelines.shared.prewarm(project)
         state.update(project: project)
@@ -152,12 +153,14 @@ public final class PlaybackEngine {
     /// Inputs of the decoder-budget proxy decision when it last ran (perf: it walks every clip and sorts decode events;
     /// a property drag on a 500-clip timeline changes none of them).
     private var proxyBudgetKey: Int?
+    /// Clips that may need a derived render (reversed / stabilized), per track — recomputed only for changed tracks.
+    private let derivedCandidates = TrackMemo<[Clip]> { $0.filter { $0.mediaID != nil && ($0.reversed || $0.stabilization != nil) } }
 
     private func requestDerivedMedia(_ project: Project, structure: Int) {
         var reverse: [(MediaAsset, ClipID)] = [], stabilize: [(MediaAsset, ClipID)] = []
         let lookup = project.mediaLookup
-        for t in project.timeline.tracks {
-            for c in t.clips {
+        for cands in derivedCandidates.values(project.timeline.tracks) {
+            for c in cands {
                 guard let id = c.mediaID, let a = lookup[id], a.kind == .video else { continue }
                 if c.reversed, ReverseManager.shared.readyURL(for: a) == nil, ReverseManager.shared.pendingJob(for: a) == nil {
                     reverse.append((a, c.id))

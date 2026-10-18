@@ -152,7 +152,16 @@ struct InspectorSectionView: View {
     let ctx: InspectorContext
     @Bindable var ui: InspectorUIState
 
+    /// Perf (W14 round 2): the chrome / content builders run untracked — many read `store.project`, which would
+    /// re-render every section on every edit tick. The section depends on the selection slices instead (its clip,
+    /// track kind, media, settings); child views (rows, toggles) still observe what they read themselves.
     var body: some View {
+        let store = ctx.store
+        let _ = (store.selectedClipSlice, store.selectedTrackKindSlice, store.mediaBin, store.projectSettings, store.canUndo, store.canRedo)
+        return EditorStore.untracked { content }
+    }
+
+    @ViewBuilder private var content: some View {
         let chrome = section.chrome?(ctx)
         let isOn = chrome?.isEnabled?.wrappedValue ?? true
         let expanded = ui.isExpanded(section.id, default: !(chrome?.startsCollapsed ?? false))
@@ -252,12 +261,16 @@ struct ClipParamRow: View {
     var enabled = true
     var labelAccessory: AnyView? = nil
     var testID: String? = nil
+    /// Value shown while this row's slider is dragged: the inspector's clip slice is frozen during the drag
+    /// (`EditorStore.beginInspectorGesture`), so only this row re-renders per tick.
+    @State private var live: Double?
 
     var body: some View {
         let store = ctx.store
         let clip = ctx.clip
         let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
-        let value = clip.map { get($0, local) } ?? spec.range.lowerBound
+        let value = live ?? (clip.map { get($0, local) } ?? spec.range.lowerBound)
+        let liveBox = $live
         let scale = spec.sliderScale
         let id = clip?.id
         let spec = self.spec, set = self.set, name = gestureName
@@ -269,9 +282,9 @@ struct ClipParamRow: View {
             label: label, unit: scale.toUnit(spec.clampSlider(value)),
             originUnit: spec.origin.map { scale.toUnit($0) } ?? 0, gradient: spec.gradient, ticks: spec.ticks,
             display: spec.format(value), enabled: enabled && clip != nil, labelAccessory: labelAccessory, parse: spec.parse,
-            onBegin: { store.beginGesture(name) },
-            onChange: { u in write(spec.clampSlider(scale.fromUnit(u))) },
-            onEnd: { store.endGesture() },
+            onBegin: { store.beginInspectorGesture(name) },
+            onChange: { u in let v = spec.clampSlider(scale.fromUnit(u)); liveBox.wrappedValue = v; write(v) },
+            onEnd: { liveBox.wrappedValue = nil; store.endGesture() },
             commit: { v in write(spec.clampField(v)) },
             step: { d in write(spec.clampField(value + Double(d) * spec.step)) },
             triplet: keyframeKeys.map { AnyView(KeyframeTriplet(ctx: ctx, keys: $0, enabled: !$0.isEmpty)) }, testID: testID)
@@ -351,7 +364,11 @@ enum Bind {
                            default d: V) -> Binding<V> {
         let store = ctx.store
         let id = ctx.clip?.id
-        return Binding(get: { id.flatMap { store.project.timeline.clip($0) }.map(get) ?? d },
+        return Binding(get: {
+            // the selected clip comes from its slice (no observation of every project edit)
+            if let s = store.selectedClipSlice, s.id == id { return get(s) }
+            return id.flatMap { store.project.timeline.clip($0) }.map(get) ?? d
+        },
                        set: { v in if let id { apply(store, id, name) { set(&$0, v) } } })
     }
 }

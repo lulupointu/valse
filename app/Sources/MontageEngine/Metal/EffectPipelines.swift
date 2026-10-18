@@ -91,12 +91,19 @@ public final class EffectPipelines: @unchecked Sendable {
 
     /// Compiles the pipelines a project uses in the background, so the first frame of a transition/effect does not
     /// stall the compositor (a runtime compile takes ~0.1–0.2 s). Cheap when everything is cached.
+    /// Effect / transition ids used per track (recomputed only for tracks that changed).
+    private let usedIDs = TrackMemo<(t: Set<String>, e: Set<String>)> { clips in
+        var t = Set<String>(), e = Set<String>()
+        for c in clips {
+            if let x = c.transitionOut { t.insert(x.typeID) }
+            for x in c.effects { e.insert(x.typeID) }
+        }
+        return (t, e)
+    }
+
     public func prewarm(_ project: Project) {
         var tIDs = Set<String>(), eIDs = Set<String>()
-        for c in project.timeline.allClips {
-            if let t = c.transitionOut { tIDs.insert(t.typeID) }
-            for e in c.effects { eIDs.insert(e.typeID) }
-        }
+        for u in usedIDs.values(project.timeline.tracks) { tIDs.formUnion(u.t); eIDs.formUnion(u.e) }
         let missing: [() -> Void] = lock.withLock {
             tIDs.filter { transitions[$0] == nil }.compactMap { id in Registries.transitions[id].map { d in { _ = self.transition(d) } } }
             + eIDs.filter { effects[$0] == nil }.compactMap { id in Registries.effects[id].map { d in { _ = self.effect(d) } } }

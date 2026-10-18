@@ -36,7 +36,11 @@ public final class RenderState: @unchecked Sendable {
     public var project: Project { lock.withLock { _project } }
 
     public func update(project: Project) {
-        let media = Dictionary(uniqueKeysWithValues: project.media.map { ($0.id, $0) })
+        // the media dictionary is rebuilt only when the media list changed (not on every property tick)
+        let (oldMedia, oldDict) = lock.withLock { (_project.media, _media) }
+        let same = oldMedia.count == project.media.count && (oldMedia.isEmpty
+            || oldMedia.withUnsafeBufferPointer { a in project.media.withUnsafeBufferPointer { b in a.baseAddress == b.baseAddress } })
+        let media = same ? oldDict : Dictionary(project.media.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let (cached, size) = lock.withLock { (_cached, _cacheSize) }
         let valid = Self.validate(cached, project: project, size: size)
         lock.withLock { _project = project; _media = media; _validCached = valid }

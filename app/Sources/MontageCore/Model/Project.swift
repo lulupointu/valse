@@ -40,7 +40,7 @@ public struct Project: Codable, Sendable, Equatable {
 
     /// O(1) asset lookup for loops over every clip (perf: `asset(_:)` is a linear scan — 500 clips × 300 media on every
     /// edit tick otherwise). Build once per pass, not per clip.
-    public var mediaLookup: MediaLookup { MediaLookup(media) }
+    public var mediaLookup: MediaLookup { MediaLookup.cached(media) }
 
     /// Total timeline duration (end of the last clip on any track).
     public var duration: Time { timeline.duration }
@@ -179,4 +179,21 @@ public struct MediaLookup: Sendable {
         index = ix
     }
     public subscript(_ id: MediaID) -> MediaAsset? { index[id].map { media[$0] } }
+
+    /// The last lookup built, reused while the media array is the same buffer (every edit tick asks for one; the media
+    /// list rarely changes). Holding the array keeps its buffer alive, so an equal address means identical contents.
+    private static let cache = NSLock()
+    nonisolated(unsafe) private static var last: MediaLookup?
+    public static func cached(_ media: [MediaAsset]) -> MediaLookup {
+        cache.lock(); defer { cache.unlock() }
+        if let l = last, l.media.count == media.count,
+           media.isEmpty || l.media.withUnsafeBufferPointer({ a in media.withUnsafeBufferPointer { b in a.baseAddress == b.baseAddress } }) {
+            return l
+        }
+        let l = MediaLookup(media)
+        last = l
+        return l
+    }
+    /// Id → asset dictionary (for code that wants one).
+    public var dictionary: [MediaID: MediaAsset] { index.mapValues { media[$0] } }
 }

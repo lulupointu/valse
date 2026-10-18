@@ -124,3 +124,27 @@ final class LogBox: @unchecked Sendable {
     func add(_ s: String) { lock.withLock { _items.append(s) } }
     var items: [String] { lock.withLock { _items } }
 }
+
+@MainActor @Suite struct StructureKeyCacheTests {
+    @Test func incrementalKeyTracksStructuralEditsOnly() async throws {
+        var p = TestProject()
+        let a = try await p.addVideo(.solid(.red), seconds: 2)
+        let b = try await p.addVideo(.solid(.blue), seconds: 2, target: .newTrack)
+        let cache = StructureKeyCache()
+        let src = PlaybackEngine.proxySources
+        let k0 = cache.key(p.project, sources: src)
+        #expect(cache.key(p.project, sources: src) == k0)
+        p[a].opacity = 0.3                     // live property: same key
+        #expect(cache.key(p.project, sources: src) == k0)
+        p[b].start = Time(0.5)                 // structural edit on the other track: new key
+        let k1 = cache.key(p.project, sources: src)
+        #expect(k1 != k0)
+        p[a].audio.volume = 0.2                // audio structure
+        #expect(cache.key(p.project, sources: src) != k1)
+        // a fresh cache agrees with the warmed one
+        #expect(StructureKeyCache().key(p.project, sources: src) == cache.key(p.project, sources: src))
+        p.project.media[0].duration = Time(99) // media change flushes the cache
+        _ = cache.key(p.project, sources: src)
+        #expect(StructureKeyCache().key(p.project, sources: src) == cache.key(p.project, sources: src))
+    }
+}

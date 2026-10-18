@@ -167,13 +167,25 @@ public final class EditorStore {
 
     public func beginGesture(_ nameKey: String) { cancelPilotPreviewBeforeEdit(); session.beginGesture(nameKey) }
 
+    /// Perf (W14 round 2): an inspector row drag (`ClipParamRow`) shows its live value itself, so the inspector's
+    /// selected-clip slice stays frozen until the gesture ends — a tick re-renders one row, not every section.
+    public func beginInspectorGesture(_ nameKey: String) {
+        session.beginGesture(nameKey)
+        inspectorGestureActive = true
+    }
+    @ObservationIgnored private var inspectorGestureActive = false
+    /// Other gestures (canvas / timeline drags) refresh the inspector at most this often (trailing update guaranteed).
+    @ObservationIgnored static let gestureInspectorInterval: Double = 0.1
+    @ObservationIgnored private var lastGestureSliceSync: Double = 0
+    @ObservationIgnored private var pendingSliceSync: Task<Void, Never>?
+
     /// Live update during a gesture (applied to the gesture's base snapshot → idempotent drags).
     public func updateGesture(_ body: (inout Project) throws -> Void) {
         do { try session.updateGesture(body); didChangeProject() } catch {}
     }
 
-    public func endGesture() { session.endGesture(); didChangeProject() }
-    public func cancelGesture() { session.cancelGesture(); didChangeProject() }
+    public func endGesture() { inspectorGestureActive = false; session.endGesture(); didChangeProject() }
+    public func cancelGesture() { inspectorGestureActive = false; session.cancelGesture(); didChangeProject() }
 
     /// Edits the selected clip(s) as one gesture step (slider drag) — begin/end handled by the caller's control.
     public func updateSelectedClips(_ body: @escaping (inout Clip) -> Void) {
@@ -228,6 +240,23 @@ public final class EditorStore {
 
     func syncSelectionSlices() {
         let c = selection.count == 1 ? session.project.timeline.clip(selection.first!) : nil
+        if session.isInGesture, c != nil, c?.id == selectedClipSlice?.id, c != selectedClipSlice {
+            // same clip edited by a live gesture: see beginInspectorGesture / gestureInspectorInterval
+            if inspectorGestureActive { return }
+            let now = CACurrentMediaTime()
+            if now - lastGestureSliceSync < Self.gestureInspectorInterval {
+                if pendingSliceSync == nil {
+                    pendingSliceSync = Task { @MainActor [weak self] in
+                        try? await Task.sleep(nanoseconds: UInt64(Self.gestureInspectorInterval * 1e9))
+                        guard let self else { return }
+                        self.pendingSliceSync = nil
+                        self.syncSelectionSlices()
+                    }
+                }
+                return
+            }
+            lastGestureSliceSync = now
+        }
         if c != selectedClipSlice { selectedClipSlice = c }
         let k = c.flatMap { trackKind(of: $0) }
         if k != selectedTrackKindSlice { selectedTrackKindSlice = k }

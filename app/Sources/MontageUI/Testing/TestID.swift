@@ -19,7 +19,7 @@ struct TestIDModifier: ViewModifier {
     /// Last frame, so an id change without a geometry change (index-based ids in a re-sorted list) re-registers.
     @State private var frame: CGRect?
     func body(content: Content) -> some View {
-        if TestAnchors.isEnabled {
+        if TestAnchors.isEnabled && TestAnchors.live.tracking {
             content
                 .accessibilityIdentifier(id)
                 .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { frame = $0; TestAnchors.shared.set(id, $0, token: token) }
@@ -27,11 +27,19 @@ struct TestIDModifier: ViewModifier {
                     TestAnchors.shared.remove(old, token: token)
                     if let frame { TestAnchors.shared.set(new, frame, token: token) }
                 }
-                .onDisappear { TestAnchors.shared.remove(id, token: token) }
+                .onDisappear { if TestAnchors.live.tracking { TestAnchors.shared.remove(id, token: token) } }
         } else {
             content.accessibilityIdentifier(id)
         }
     }
+}
+
+/// Perf steps pause geometry tracking while they measure (`"anchors": "frozen"`, the default): every `.testID` view's
+/// `onGeometryChange` otherwise runs on each layout pass, a test-only cost that would inflate interaction timings.
+/// Frames recorded before the pause stay valid (the steps don't move views).
+@Observable @MainActor
+public final class TestAnchorTracking {
+    public var tracking = true
 }
 
 /// Frames (SwiftUI global space = hosting view coordinates, top-left origin) of every visible `.testID` view.
@@ -40,6 +48,7 @@ public final class TestAnchors {
     public static let shared = TestAnchors()
     /// Set by the UI test driver before the window is built. Off in normal runs (no geometry tracking cost).
     public nonisolated(unsafe) static var isEnabled = false
+    public static let live = TestAnchorTracking()
     private(set) var frames: [String: CGRect] = [:]
     /// Every live view instance claiming an id, oldest first (a view being removed can still report geometry after
     /// its replacement registered; when it disappears, the remaining owner's frame wins).

@@ -65,12 +65,15 @@ struct InspectorSlider: View {
     let onChange: (Double) -> Void
     let onEnd: () -> Void
     @State private var dragging = false
+    /// Knob position while dragging: the knob follows the pointer even when the store's value reaches the view
+    /// later (the inspector refreshes at most every 100 ms during canvas/timeline gestures, see EditorStore).
+    @State private var liveUnit: Double?
 
     var body: some View {
         GeometryReader { g in
             let knobW: CGFloat = 8
             let w = max(g.size.width - knobW, 1)
-            let u = CGFloat(min(max(unit, 0), 1))
+            let u = CGFloat(min(max(liveUnit ?? unit, 0), 1))
             let o = CGFloat(min(max(originUnit, 0), 1))
             ZStack(alignment: .leading) {
                 if let gradient {
@@ -97,11 +100,13 @@ struct InspectorSlider: View {
                 .onChanged { v in
                     guard enabled else { return }
                     if !dragging { dragging = true; onBegin() }
-                    onChange(Double(min(max((v.location.x - knobW / 2) / w, 0), 1)))
+                    let nu = Double(min(max((v.location.x - knobW / 2) / w, 0), 1))
+                    liveUnit = nu
+                    onChange(nu)
                 }
                 .onEnded { _ in
                     guard dragging else { return }
-                    dragging = false; onEnd()
+                    dragging = false; liveUnit = nil; onEnd()
                 })
         }
         .frame(height: 20)
@@ -134,9 +139,18 @@ struct NumericField: View {
                 TextField("", text: $text)
                     .textFieldStyle(.plain)
                     .font(Theme.Fonts.numeric)
-                    .foregroundStyle(Theme.textPrimary)
+                    // Perf (W14 round 2): while unfocused the value is drawn by the overlay `Text` and the AppKit
+                    // field's string is left alone — setting it re-measured the NSTextField through Auto Layout and
+                    // re-laid out the whole inspector on every slider tick.
+                    .foregroundStyle(focused ? Theme.textPrimary : Color.clear)
                     .multilineTextAlignment(.center)
                     .focused($focused)
+                    .overlay {
+                        if !focused {
+                            Text(verbatim: display).font(Theme.Fonts.numeric).foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1).allowsHitTesting(false)
+                        }
+                    }
                     .onSubmit {
                         if let v = parse(text) { commit(v) }
                         text = display
@@ -152,8 +166,8 @@ struct NumericField: View {
         .disabled(!enabled)
         .onAppear { text = display }
         // also while focused when the field still shows the previous value (after ⏎ the commit re-renders `display`)
-        .onChange(of: display) { old, v in if !focused || text == old { text = v } }
-        .onChange(of: focused) { _, f in if !f { text = display } }
+        .onChange(of: display) { old, v in if focused && text == old { text = v } }
+        .onChange(of: focused) { _, f in text = display }
     }
 }
 
