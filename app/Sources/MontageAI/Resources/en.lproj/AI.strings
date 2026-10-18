@@ -1,0 +1,7 @@
+"ai.captions" = "Auto captions";
+"ai.captions.desc" = "Recognize speech and add captions, on your Mac.";
+"ai.removeBackground" = "Remove background";
+"ai.removeBackground.desc" = "Detect people and cut out the background.";
+"ai.error.unavailable" = "This AI feature is not available on this Mac.";
+"ai.error.noInput" = "Select a clip with the right content first.";
+"cmd.captions" = "Auto captions";

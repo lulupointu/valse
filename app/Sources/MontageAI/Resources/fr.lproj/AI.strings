@@ -1,0 +1,7 @@
+"ai.captions" = "Sous-titres automatiques";
+"ai.captions.desc" = "Reconnaît la parole et ajoute des sous-titres, sur votre Mac.";
+"ai.removeBackground" = "Supprimer l'arrière-plan";
+"ai.removeBackground.desc" = "Détecte les personnes et détoure l'arrière-plan.";
+"ai.error.unavailable" = "Cette fonction d'IA n'est pas disponible sur ce Mac.";
+"ai.error.noInput" = "Sélectionnez d'abord un clip au contenu adapté.";
+"cmd.captions" = "Sous-titres automatiques";
