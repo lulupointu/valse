@@ -1,0 +1,8 @@
+bench/media/
+build/
+.build/
+node_modules/
+target/
+DerivedData/
+*.xcuserstate
+.DS_Store

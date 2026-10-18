@@ -1,0 +1,713 @@
+# FEATURES.md — CapCut desktop feature inventory (target for "Montage")
+
+> Product research for the local-only CapCut clone. Stack-neutral on purpose: this file feeds the stack decision (docs/STACK.md).
+> Snapshot: CapCut desktop **9.6.0 (macOS, bundle `com.lemon.lvoverseas`)**, inspected 2026-10-18, plus web sources (capcut.com resources/help, reviews 2025-2026).
+> This is also the progress tracker (BRIEF.md). Every row starts as `todo`.
+
+## How this inventory was built
+
+- **Installed app (resources only, no code decompiled):** `Contents/Resources/po/en.po` (17,869 UI strings, also `fr-FR.po`) was the main source: menus, panels, toasts, settings, export options, AI feature names, tooltips. Also read: `Info.plist`, `MixMode/MixMode.json` (blend modes), `DefaultAdjustBundle/` (adjustment shader names), `Curves/`, `PrimaryWheel/`, `LogWheel/`, `lut/`, `Chroma2/`, `mattingBlendV2/`, `rnnoise/`, `models/` (on-device model folder names), `Font/`, `notice_sound/`.
+- **Observation:** CapCut ships almost **no creative presets in the bundle**. Filters, effects, transitions, text templates, stickers, music, fonts and templates are all **downloaded from the server on demand**. The bundle only contains the engine pieces (adjustment shaders, blend modes, curves, color wheels, LUT engine, chroma/matting post-process, RNNoise, ~55 small on-device models). So we have to create all preset content ourselves anyway (see "Preset content").
+- **Bundled on-device model folders (names only):** matting/cutout (`mattingmodel`, `tt_interactive_matting`, `tt_mobilevos`, `saliency_seg_model`, `headsegmodel`, `humanparsingmodel`, `skin_seg`, `hairparser`), face (`ttfacemodel`, `facebeautifymodel`, `faceverifymodel`, `facefitting`, `tt_facefitting_3d`, `tt_eyefitting`, `ttfaceattrmodel`, `faceclustingmodel`), body/hand (`skeleton_model`, `handmodel`), `depthmodel`, `interpolation` + `umvfi` (frame interpolation), `deflicker`, `noise_reduction`, `aec` (echo cancel), `audiomodel`, `object_tracking`, `scene_normal_model`, shot-boundary detection (`SceneEditDetection`), `lvop_intelligent_crop` (auto reframe), `media_search`, `colorcard`, stylization (`mangamodel`, `oilpaintbrush`, `foodcomicsmodel`, `bingo_facegan_model`, `tt_gendergan`), `petfacemodel`, `qrcode`, `invisible_watermark`. So CapCut runs the "editing AI" (segmentation, tracking, interpolation, deflicker, denoise, beauty, reframe, scene split) **locally**, and runs generative AI, ASR/TTS (mostly), translation and avatars **in the cloud**.
+- **CapCut's own stack (one data point, not a recommendation):** Qt 6 / QML UI (`QtQuick*`, `QtBodymovin` for Lottie), a proprietary C++ video engine (`VEMetalBinary_Mac.bundle`, `libAGFX`, ANGLE `libEGL`/`libGLESv2`), Chromium Embedded Framework + Lynx for web panels, a bundled `ffmpeg`, and Bun/Node for the agent runtime.
+
+## Column legend
+
+- **Pro?** `Y` = Pro-gated in CapCut (paywall, Pro badge, or watermark on export). `C` = paid with credits (generative/cloud AI). `N` = free. `?` = not verified (it changes by region and version). CapCut desktop lets free users *use* Pro features, but export then requires Pro. Pro also unlocks the "Pro" preset assets in every library.
+- **Pri.** `P0` = core (without it, it isn't a CapCut-class editor). `P1` = important (expected by CapCut users, including the Pro set). `P2` = nice to have, or very expensive. `N/A-local` (or `N/A`) in the priority column = cloud/account-only in CapCut and not reproducible locally (or out of scope under the local-only brief). A substitute, if any, is given in the requirements column.
+- **Tech requirements** are written stack-neutrally. "RT" = real-time during preview. "Offline job" = background processing with progress, cancel and a cache.
+- **Status** = `todo` for every row (tracked here from now on).
+
+---
+
+## 1. Media / import (MI)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| MI-001 | Import media (files) | "Import" button and Cmd-O. Media panel accepts video, audio and images. Drag and drop from Finder onto the panel or straight onto the timeline. | N | P0 | Container/codec probing (MP4/MOV/MKV/AVI/WebM/MXF, H.264/HEVC/ProRes/VP9/AV1/MPEG-2, AAC/MP3/WAV/FLAC/ALAC, JPEG/PNG/HEIC/WebP/GIF/TIFF/PSD-flattened). Hardware decode where available. Async metadata, thumbnail and waveform extraction. | todo |
+| MI-002 | Import folder | Imports a whole folder recursively and keeps its folder structure in the Media panel. | N | P1 | Recursive scan, filtering by type, background batching. | todo |
+| MI-003 | Media panel views | Grid ("card") or list view. Sort by name, time imported, duration or size (A–Z, longest–shortest). Filter by type (video/photo/audio). Hover scrub preview on the thumbnail. "Used" badge on items. | N | P0 | Virtualized grid of thousands of items. Hover-scrub thumbnail sprite sheets. | todo |
+| MI-004 | Media folders | Create/rename/move/delete folders inside the project media bin (max depth 10). | N | P1 | Project-local bin tree model. | todo |
+| MI-005 | Media info panel | "Material Info": path, resolution, fps, codec, duration, size. Opened by dragging media onto it. | N | P2 | Probe results exposed in the UI. | todo |
+| MI-006 | Relink / missing media | "Media lost" overlay, "Link media", auto-relink by folder ("Link media when selecting a folder"), retrieve media. | N | P0 | Path + file fingerprint (size/mtime/partial hash) matching. Batch relink. | todo |
+| MI-007 | Copy media to project | Option "Copy media to project" (consolidate) so projects are self-contained. | N | P1 | Background file copy with progress. Path rewriting. | todo |
+| MI-008 | Proxy media | "Use file proxy": generate low-res proxies (location setting, "only convert material above proxy resolution"), remove proxies, proxy cache size. | N | P0 | Background transcode to an intra-frame/low-res codec (e.g. ProRes Proxy/H.264 all-I). Seamless proxy/original switching. Export always uses the originals. | todo |
+| MI-009 | Remux / transcode for smooth playback | "Your media may cause playback lag → Transcode". "Auto remux" of heavy containers. Location for remuxed files. | N | P1 | Lag detection heuristics (long GOP, high bitrate, VFR). Remux without re-encode. Optional intra-frame transcode. | todo |
+| MI-010 | Variable-frame-rate handling | Phone VFR footage plays in sync. | N | P0 | VFR→CFR timing map. Audio/video sync guaranteed. | todo |
+| MI-011 | HDR media import | Reads HLG/PQ (iPhone Dolby Vision 8.4 as HLG), 10-bit. Auto HDR switch. | N | P1 | 10-bit decode to float/half textures. Color-space metadata (BT.709/2020, PQ/HLG transfer). | todo |
+| MI-012 | Live Photo / motion photo | "Apply as a LIVE photo / Apply as a photo". | N | P2 | HEIC + paired MOV handling. | todo |
+| MI-013 | Image sequences & GIF | GIF import as an animated clip. Image duration default (setting). | N | P1 | GIF/APNG/WebP animated decode. Default still duration setting. | todo |
+| MI-014 | Multi-audio-track media | Detects clips with several audio streams. Right-click → choose audio track. "Separate audio from the track". | N | P1 | Demux of every audio stream. Per-clip stream selection. | todo |
+| MI-015 | Record screen | "Record screen" tool (Shift+Ctrl+R): screen + camera + mic. Modes "Camera & screen separate tracks" or "single track". Cursor style, cursor on/off. Pause/resume. Post-record tools (auto captions, enhance voice, retouch, TTS). | N | P1 | macOS ScreenCaptureKit-class screen capture, camera + mic capture, A/V sync, permissions flow. | todo |
+| MI-016 | Record voiceover | Mic recording straight into the timeline at the playhead, with countdown, input device and volume, and "Echo reduction" (avoid speaker echo). | N | P0 | Low-latency audio input, device enumeration, monitoring, AEC option. | todo |
+| MI-017 | Webcam recording | Camera capture as a clip ("Save camera recording as a separate track"). | N | P2 | Camera capture API. | todo |
+| MI-018 | Import timeline (FCPXML/XML/AAF) | "Import AAF, XML, and FCPXML files" → creates a timeline. | N? | P2 | FCPXML 1.x and FCP7 XML parsers (AAF optional). Mapping to the internal model. | todo |
+| MI-019 | Import project / subprojects | "Import project", import subprojects (compound clips) from other drafts. | N | P2 | Project merge, media path resolution. | todo |
+| MI-020 | Import captions file | SRT, LRC, ASS caption import into text clips (Text → Local captions). | N | P0 | Subtitle parsers incl. ASS styling subset. Charset detection ("Character encoding" setting). | todo |
+| MI-021 | Import fonts | Import up to 9 fonts at once, font book, "install to CapCut", favorites. Uses system fonts too. | N | P1 | Font file loading (TTF/OTF/TTC, variable fonts). Per-app font registry. | todo |
+| MI-022 | Import LUT | Import .cube / .3dl LUTs (limit per batch). "Restore LUT", LUT loss detection. | N | P0 | 1D/3D LUT parsers, 3D texture upload. | todo |
+| MI-023 | Stock library (online) | "Library": stock videos/photos, Adobe/Pond5 materials, Pro stock. | Y | N/A-local | No network allowed. Substitute: local "Library" of our own procedural assets (color mattes, gradients, countdowns, shapes, generated backgrounds) and the user's own indexed folders. | todo |
+| MI-024 | Favorites | Star any media, effect, sticker, font, text template or sound → Favorites tab. | N | P1 | Persistent per-user favorites store. | todo |
+| MI-025 | Smart media search | Search the media bin "for file names, scenes, or dialogs". "Precise mode" analyzes scenes and dialog (local or cloud). | N | P1 | Local index: CLIP/SigLIP image embeddings on sampled frames + Whisper transcripts + full-text search. Background analysis queue. | todo |
+| MI-026 | Built-in color/black clips | "Black video", solid color canvas clips, placeholder. | N | P0 | Generated sources (solid, gradient). | todo |
+| MI-027 | Phone ↔ desktop transfer / Dreamina sync | QR code transfer, Dreamina/space sync. | N | N/A-local | Cloud. Substitute: none (local only). Possibly a LAN import later. | todo |
+| MI-028 | "Edit in CapCut" context menu | Windows right-click "Edit in CapCut". macOS "Open With". | N | P2 | Document types / Open With registration, Services menu. | todo |
+
+## 2. Timeline & editing (TL)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| TL-001 | Multi-track timeline | Main video track + unlimited overlay ("picture-in-picture", CapCut caps PiP display at 7 in some places), text, sticker, effect, filter, adjustment and audio tracks. Tracks auto-created on drop. | N | P0 | Timeline data model (tracks/clips/gaps), O(log n) hit-testing. GPU-drawn timeline at 60 fps with 500+ clips. | todo |
+| TL-002 | Main track magnet | "Main track magnet" toggle: the main track is ripple/gapless (clips butt together, deleting closes the gap). Off = free placement. | N | P0 | Ripple-edit engine with constraint solving on the main track. | todo |
+| TL-003 | Linkage (attach to main track) | "Linkage settings": choose which item types (overlay, text, stickers, effects, filters, adjust, audio, SFX, TTS) move/delete with the main-track clip they sit over. | N | P0 | Parent-child anchoring of secondary clips to main-track clips with offsets. Updates on ripple. | todo |
+| TL-004 | Auto snapping | Toggle "auto snapping": snap to playhead, clip edges, markers and beats, with a visual snap line. | N | P0 | Snap candidate index. Magnetic threshold in px independent of zoom. | todo |
+| TL-005 | Split | Split at playhead (Cmd-B). "Split all" across all tracks. Split mode tool (blade cursor, B key). | N | P0 | Clip split with source-time math, keyframe/effect splitting rules. | todo |
+| TL-006 | Delete left / right (trim to playhead) | Q/W-style "Delete left", "Delete right" of the playhead in the selected clip. | N | P0 | Trim ops with ripple on the main track. | todo |
+| TL-007 | Trim by dragging edges | Drag clip edges. Ripple on the main track. Shows the duration tooltip. Multiple clips can be trimmed together ("many select extend"). | N | P0 | Trim with source-range limits, live preview of the edge frame in the player. | todo |
+| TL-008 | Move / reorder clips | Drag clips between tracks. Drag on the main track reorders with an insertion indicator. Alt-drag duplicates. | N | P0 | Drag engine with insertion/overwrite semantics, auto track creation. | todo |
+| TL-009 | Select modes | Select tool vs split tool toggle. Marquee select. Cmd/Shift multi-select. "Select leftward/rightward" (all clips before/after the playhead). Select all. | N | P0 | Selection model, rubber-band selection over virtualized tracks. | todo |
+| TL-010 | Copy / cut / paste / duplicate | Standard clipboard for clips (with effects/keyframes). Paste at playhead. | N | P0 | Serializable clip subgraph. | todo |
+| TL-011 | Copy / paste attributes | "Copy attributes" → "Paste attributes" with a dialog to choose which (basic, adjust, animation, keyframes, text style, text effect, combo animation, keyframe timing: keep/stretch to fit). | N | P1 | Attribute groups as typed property sets. Keyframe timing remap. | todo |
+| TL-012 | Undo / redo | Unlimited undo/redo with named actions ("Undo: Highlight", "Redo: Auto B-roll"). | N | P0 | Command pattern / persistent data structure. Large-state undo (AI results referenced, not copied). | todo |
+| TL-013 | Freeze frame | "Freeze": inserts a held-frame clip (default 3 s) at the playhead. "Link freeze frame clips to original video". | N | P0 | Still extraction to a cached image clip. | todo |
+| TL-014 | Reverse | "Reverse" clip, processed in the background with progress and cancel. | N | P0 | Reverse decode (GOP-backwards) or render to a cached intra-frame file. Audio reversal. | todo |
+| TL-015 | Duplicate frame | "Duplicate frame" (repeat frame). | N | P2 | Like freeze, insert-in-place. | todo |
+| TL-016 | Replace clip | Right-click "Replace clip" keeping duration/effects. "Replace from local material". | N | P0 | Source swap with duration fit options. | todo |
+| TL-017 | Deactivate / hide clip | "Deactivate clip" (renders as absent, greyed). Show/hide clips. | N | P1 | Enabled flag respected by the compositor. | todo |
+| TL-018 | Track controls | Per track: lock, hide (eye), mute, track volume, track height (short/default/tall). Audio waveform size (30/60/100 %). | N | P0 | Track state in the render graph. | todo |
+| TL-019 | Arrange layers | "Arrange layers": bring forward / send backward / to front / to back. Free layer reorder (setting "Layers can be reordered in every new project"). | N | P1 | Z-order independent from track order (optional mode). | todo |
+| TL-020 | Group / ungroup | Group clips (move together). Double-click enters a group clip to edit individually. | N | P1 | Group nodes in the timeline model. | todo |
+| TL-021 | Compound clip | "Create compound clip", "Undo compound clip", double-click to edit inside. Compound clip presets (save up to 99). "Pre-process" (pre-render) compound clip. | N | P1 | Nested sequences (recursive render graph), nesting depth limit, pre-render cache. | todo |
+| TL-022 | Subprojects | "Create compound clip (subproject)", rename, render subproject, Media tab "Subprojects". | N | P2 | Shared nested sequence assets across timelines. | todo |
+| TL-023 | Multiple timelines | "Multi-timeline": New timeline, timeline tabs, stacked / tabbed / side-by-side, pin, "New timeline with selected item", copy between timelines. | ? | P1 | Several sequence objects per project. Multi-viewport timeline UI. | todo |
+| TL-024 | Multi-camera editing | "Create multi-camera clip" (sync by timecode/marker/audio), 4- or 9-camera view, switch angles live, flatten. | ? | P2 | Audio cross-correlation sync. N-up decode of up to 9 streams (proxy-friendly). Angle cut list. | todo |
+| TL-025 | Markers | Add marker (M), marker colors, edit marker (name/note), next/previous marker, delete all in clip/timeline. Clip and timeline markers. | N | P0 | Marker model on timeline and on clips. | todo |
+| TL-026 | Beat markers (manual & auto) | "Mark beats" manually or "Auto beat" (Beat 1/Beat 2, melody). "Clear beats". "Drag and drop files here to align them with beat markers". | N | P1 | Onset/beat tracking DSP (see AU-020), beat grid display, auto-cut-to-beats. | todo |
+| TL-027 | Close gap / close all gaps | Right-click on gap "Close gap", "Close all gaps". | N | P0 | Ripple ops. | todo |
+| TL-028 | In / out points & range | In point (I), out point (O). Range selection to render / export / add. | N | P1 | Range state. | todo |
+| TL-029 | Timeline zoom & navigation | Cmd +/- zoom, "zoom to fit timeline", Shift-Z. Scroll left/right/up/down. Pinch zoom on trackpad. Ruler with timecode. Playhead follow. | N | P0 | Smooth 60 fps zoom with level-of-detail for filmstrips/waveforms. | todo |
+| TL-030 | Filmstrip thumbnails & waveforms | Video clips show frame filmstrips. Audio shows waveforms (also under video clips). Clip labels show speed, effects icons, keyframe dots. | N | P0 | Background thumbnail extraction at several zoom LODs, waveform peak files, disk cache. | todo |
+| TL-031 | Preview axis (hover scrub) | "Preview axis": a secondary playhead follows the mouse and shows that frame in the player. Modes: video+audio / video only / off. | N | P1 | Very fast random access decode (thumbnail cache + decoder pool). | todo |
+| TL-032 | Audio scrubbing | "Play audio while scrubbing" setting. | N | P1 | Granular/varispeed audio scrub playback. | todo |
+| TL-033 | Detach audio / extract audio | "Extract audio" (split A/V to a separate audio clip). "Restore audio". | N | P0 | Linked A/V clip model. | todo |
+| TL-034 | Auto scene split | "Split scenes": "Split by scene (fewer clips)" / "Split by shot (more clips)" automatic split on the timeline. | N | P1 | Shot-boundary detection (histogram/feature-based, or TransNetV2 MIT). Offline job. | todo |
+| TL-035 | Jump-cut / silence removal | See AI-020 (filler words/pauses). Timeline "Jump cut" UX. | Y | P1 | See AI-020. | todo |
+| TL-036 | Match cut (manual stepping) | "Match cut" (auto cut by music beat). | N | P2 | Beat-aligned cut list generation. | todo |
+| TL-037 | Timecode display & entry | Player timecode HH:MM:SS:FF ("HH:MM:SS+frame"), drop-frame timecode option. Click to type a timecode. | N | P0 | Rational time base, NTSC drop-frame math. | todo |
+| TL-038 | Frame stepping | Left/right one frame. Shift + arrow = many frames. Jump to next/previous cut point, first/last frame. | N | P0 | Frame-accurate seek. | todo |
+| TL-039 | Clip context menu | Right-click: split, delete, copy/paste, replace, reverse, freeze, extract audio, create compound, group, enable/disable, speed, edit captions, mark as, link media, show in folder… | N | P0 | Context menu framework. | todo |
+| TL-040 | Clip properties in timeline | Hover badge with clip name/duration. Rename clip. Color label. | N | P2 | — | todo |
+| TL-041 | Gap insertion / overwrite | Dropping on the main track inserts (ripple). Dropping above creates overlays. Overlay tracks auto-compact. | N | P0 | Drop target resolution. | todo |
+| TL-042 | Transcript-based editing | See AI-019 (edit video by editing text). | Y | P1 | — | todo |
+| TL-043 | Timeline settings | "Timeline settings": resolution/ratio/fps/color space per timeline ("Apply to: all timelines"). | N | P0 | Sequence settings model. | todo |
+| TL-044 | Clip audio mute | "Mute clip audio" icon on the main track head ("Video sound off/on"). | N | P0 | Gain node. | todo |
+| TL-045 | Cover (thumbnail) track | "Cover" button at the main track head: choose a video frame or local image, design the cover with text templates/stickers ("Cover design", cover templates). Export with/without cover ("Add video cover at the beginning"). | N | P1 | Separate still-composition editor. Optional cover frame prepended on export. | todo |
+| TL-046 | Ripple delete / delete | Delete key removes and ripples on the main track only. Backspace equivalent. | N | P0 | — | todo |
+| TL-047 | Large timeline performance | Projects with 500+ clips and 30+ tracks stay fluid. "Simplify the timeline" warnings. | N | P0 | Virtualized track rendering, incremental layout, off-main-thread model diffing. | todo |
+
+## 3. Playback / preview (PB)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| PB-001 | Real-time player | Player panel with play/pause (Space), timecode, total duration, ratio selector, fullscreen. Shows all effects in real time. | N | P0 | Real-time GPU compositor of N layers + effects at project resolution (scaled to the preview). Audio-master clock A/V sync. | todo |
+| PB-002 | Playback quality | "Playback quality": Full / 1/2 / 1/4, or Low/Medium/High/Full. "Playback is lagging" prompt suggesting a lower resolution. No impact on export. | N | P0 | Resolution-scaled render path, decoder downscale (decode at reduced res when possible). | todo |
+| PB-003 | Auto optimization | "Auto optimization": Smart / Deep optimization of playback (may lower preview quality). | N | P1 | Adaptive quality controller based on dropped frames. | todo |
+| PB-004 | Performance vs quality priority | Settings: "Performance priority" vs "Quality priority". "Prioritize playback smoothness" vs "screen resolution". | N | P1 | Global render-quality policy. | todo |
+| PB-005 | Render preview (pre-render) | "Render" / "Auto render": pre-renders heavy sections (green bar). "This part is rendered for a smooth preview". Render cache location/size, delete render cache. | N | P1 | Background segment render into an intra-frame cache keyed by graph hash. Invalidation on edit. | todo |
+| PB-006 | Fullscreen preview | Enter/exit fullscreen. Separate-window / dual-screen player ("Detach player"). | N | P1 | Multi-window rendering, external display. | todo |
+| PB-007 | Player zoom / pan | Zoom in/out/fit player (Cmd +/- over the player). "Hand tool" to pan. | N | P1 | Viewport transform. | todo |
+| PB-008 | Shuttle (JKL) | Shuttle left/right/stop (J/K/L) with varispeed. | N | P1 | Variable-rate playback incl. reverse. Audio varispeed. | todo |
+| PB-009 | Loop playback | Loop the selected range/clip. | N | P2 | — | todo |
+| PB-010 | Social media safe-zone preview | "Social media preview": overlays TikTok / Instagram Reels / YouTube Shorts UI to check safe zones. | N | P1 | Overlay images (we draw our own generic UI mockups, no brand assets). | todo |
+| PB-011 | Guides & rulers | "Guides and rulers": show/hide rulers, add horizontal/vertical guides (pixels/%), lock/clear guides, edit guide position. | N | P1 | Overlay layer in the player. Snapping to guides. | todo |
+| PB-012 | Scopes | "Color oscilloscope": waveform (luma/RGB parade), vectorscope, histogram (in the Adjust panel). | ? | P1 | GPU compute scopes at 30 fps on the preview frame. | todo |
+| PB-013 | Dropped-frame indicator | "There are dropped frames" / "Video lags a lot" warnings. | N | P2 | Frame timing telemetry. | todo |
+| PB-014 | HDR preview | HDR clips displayed with EDR on capable displays ("Devices not supporting HDR"). | N | P2 | EDR/extended-range display output, tone mapping for SDR displays. | todo |
+| PB-015 | Show keystrokes | "Show keystrokes" overlay (for tutorials). | N | P2 | Key event overlay. | todo |
+| PB-016 | Multi-camera viewer | 2x2 / 3x3 angle grid in the player while playing. | ? | P2 | Multi-stream decode. | todo |
+
+## 4. Canvas & transform (CV)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| CV-001 | Project aspect ratio | Ratio menu: Original, 16:9, 9:16, 1:1, 4:3, 3:4, 5.8-inch, 2:1, 2.35:1, 1.85:1, custom. "Landscape/portrait". | N | P0 | Canvas size model. Re-layout of existing clips (fit). | todo |
+| CV-002 | Canvas background | "Canvas settings": background None / Color (incl. picker) / Blur (4 levels, "Blur canvas") / Pattern (image), apply to all. | N | P0 | Blurred, scaled copy of the clip behind (GPU Gaussian/Kawase), pattern tiling. | todo |
+| CV-003 | Position & size | Inspector "Basic": scale (uniform), X/Y position, rotation, flip. Direct manipulation on the player with handles. Snapping to center/edges with guide lines. | N | P0 | 2D affine transforms, gizmo overlay, sub-pixel accurate. | todo |
+| CV-004 | Rotate | Free rotation, ±90° buttons, rotation handle. | N | P0 | — | todo |
+| CV-005 | Mirror / flip | Horizontal mirror, flip vertically. | N | P0 | — | todo |
+| CV-006 | Crop | "Crop" dialog with free/ratio presets, rotate within the crop, reset. Also an inspector crop (left/right/top/bottom). | N | P0 | Crop rect in source space, keyframable. | todo |
+| CV-007 | Opacity | Opacity slider (keyframable). | N | P0 | Alpha compositing. | todo |
+| CV-008 | Blend modes | Blend "Mode": Normal, Darken, Screen ("color_filter"), Overlay, Multiply, Lighten, Hard light, Soft light, Linear burn, Color burn, Color dodge (11 modes in MixMode.json). | N | P0 | Per-layer blend shaders in a linear or gamma-correct compositor. | todo |
+| CV-009 | Align & distribute | Align left/center/right/top/middle/bottom, distribute horizontally/vertically for multiple selected layers. | N | P1 | Multi-layer bounding box ops. | todo |
+| CV-010 | Fit / fill canvas | "Fit to canvas" / "Fill" / "Stretch" when adding media or after a ratio change. | N | P0 | — | todo |
+| CV-011 | Position snapping & keyboard nudge | Arrow-key nudges, Shift for larger steps. "Align horizontally or vertically" while dragging with Shift. | N | P1 | — | todo |
+| CV-012 | Video animations (In/Out/Combo) | "Animation" tab: In, Out, Combo (loop) presets on video/image clips with a duration slider (e.g. zoom-in, spin, slide, shake, bounce). | N/Y | P0 | Parametric transform/opacity/blur animation presets, duration-relative easing. | todo |
+| CV-013 | Video stabilization | "Stabilize" with level "Minimal cropping / Recommended / Most stable". Background processing. | N | P0 | Feature tracking (or global motion estimation) → camera path smoothing → warp + crop. Offline job + cache. Apple Vision registration or OpenCV (Apache-2.0). Avoid vid.stab (GPL). | todo |
+| CV-014 | Motion blur | "Motion blur" on clips: blur amount and direction, "Times" (2x/4x/6x frame blending). Background processing. | Y | P1 | Flow-based or frame-accumulation motion blur. macOS 26 VTMotionBlur option. Offline job. | todo |
+| CV-015 | Lens distortion / AI expand on canvas | See AI-040 (AI expand / outpainting). | C | P2 | — | todo |
+| CV-016 | Auto reframe | See AI-012. | Y | P1 | — | todo |
+| CV-017 | Image adjustments of shapes | See ST-008 for shapes. | — | — | — | todo |
+| CV-018 | 3D rotation (planar) | "Plane rotation", horizontal/vertical rotation (3D tilt) in some effects/animations. | N | P2 | Perspective transform. | todo |
+
+## 5. Keyframes & animation (KF)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| KF-001 | Property keyframes | Diamond button next to each inspector property (position, scale, rotation, opacity, crop, mask, volume, adjustments, filter intensity, chroma, text style…). Adds a keyframe at the playhead. Changing a value with the playhead elsewhere auto-adds one. | N | P0 | Generic animatable-property system over every typed parameter. Deterministic evaluation for preview = export. | todo |
+| KF-002 | Keyframes on effects | "Try keyframes on effects!": effect parameters are keyframable. | N | P1 | Same system for effect param schemas. | todo |
+| KF-003 | Keyframe navigation | Previous/next keyframe buttons. Keyframe dots on the clip in the timeline. Drag keyframes in the timeline. Delete keyframe. | N | P0 | — | todo |
+| KF-004 | Keyframe easing presets | Right-click keyframe → curve presets: Linear, Ease in, Ease out, Easing, "Show all presets" (~20+ named curves). "Use preset curves to create smooth animations". | N | P1 | Cubic-bezier/elastic/bounce easing library. | todo |
+| KF-005 | Keyframe graph editor | "Show/hide keyframe graphs": bezier speed graph per segment ("Select 2 or more keyframes then add a graph", "Adjust properties"). | N | P1 | Graph editor UI with bezier handles. Value + speed graphs. | todo |
+| KF-006 | Keyframe panel | "Show/Hide keyframe panel", "Add keyframe on keyframe panel" shortcut (configurable). | N | P2 | Dope-sheet style panel. | todo |
+| KF-007 | Motion path | Position keyframes shown as a path in the player. | ? | P2 | Spatial bezier interpolation. | todo |
+| KF-008 | Reset keyframes | "Keyframes of the selected clip will be reset". | N | P1 | — | todo |
+| KF-009 | Text animations | See TX-020. | — | — | — | todo |
+| KF-010 | Sticker animations | "Sticker animation" In/Out/Loop. | N | P1 | Same preset engine as text/video animations. | todo |
+| KF-011 | Copy keyframe timing | Paste attributes "Keyframe timing: Maintain / Stretch to fit". | N | P2 | Time remap of keyframes. | todo |
+| KF-012 | Lottie/vector animation playback | Animated stickers/text templates (Bodymovin). | N | P1 | Lottie renderer (e.g. rlottie MIT / ThorVG MIT / Skottie BSD) to GPU textures. | todo |
+
+## 6. Speed (SP)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| SP-001 | Normal (constant) speed | Speed tab "Normal": 0.1x–100x slider. Duration field (type a target duration). Quick values 0.1/0.2/0.5/1/1.5/2/10x. | N | P0 | Time remapping, decode skipping for high speeds, frame-accurate resampling. | todo |
+| SP-002 | Keep pitch | "Change audio pitch" toggle (off = keep original pitch while sped up). Some speeds don't support it. | N | P0 | High-quality time-stretch (WSOLA/phase vocoder). Signalsmith Stretch (MIT) / SoundTouch (LGPL) / Rubber Band (GPL/commercial). | todo |
+| SP-003 | Curve speed presets | "Curve": presets Montage, Hero time, Bullet, Jump cut, Flash in, Flash out, plus Custom. | N | P0 | Speed-curve time remap (integral of speed(t)). Audio follows or is muted. | todo |
+| SP-004 | Custom curve editor | Editable speed curve with draggable control points (add/delete beats, "control points reached the upper limit"), shows the new duration. | N | P0 | Curve editor UI. Monotonic integral, frame-time solver. | todo |
+| SP-005 | Smooth slow-mo (optical flow) | "Smooth slow-mo" on slow clips: method "Frame blending" or "Optical flow" ("Longer time, better quality"). Background processing. | Y | P0 | Frame interpolation: RIFE v4.x (MIT) via ANE/GPU, macOS 26 VTFrameRateConversion, frame-blending fallback. Offline job + cache. | todo |
+| SP-006 | Velocity effects | "Velocity effects": auto beat-synced speed ramps + visual punch (Blur shake, Fade blur, Flash, Retro zoom). Beat frequency, music source. | Y? | P1 | Beat tracking + generated speed curve + effect overlay. | todo |
+| SP-007 | Speed on audio | Speed + keep pitch on audio clips. | N | P0 | As SP-002. | todo |
+| SP-008 | Speed panel shortcut | "Show speed panel" shortcut, speed badge on the clip. | N | P2 | — | todo |
+| SP-009 | Change project frame rate / optical flow for fps | "Make video playback smoother": optical flow to raise fps. "Change frame rate for this project?". | Y | P1 | As SP-005. | todo |
+| SP-010 | Time-lapse | Very high speeds (to 100x) and the "Time-lapse" deflicker mode. | N | P1 | Frame skipping decode path. | todo |
+
+## 7. Text & captions (TX)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| TX-001 | Add text | Text tab → "Add text" / default text. Drag to timeline. Double-click in the player to edit inline. Multi-line. | N | P0 | Text layout engine (shaping, bidi, line breaking), GPU text rendering at any scale. | todo |
+| TX-002 | Font selection | Font list (cloud fonts, system fonts, imported, favorites, recently used, Font book). Search fonts. CapCut Sans bundled. | N | P0 | Font enumeration, preview rendering, lazy font load. | todo |
+| TX-003 | Basic style | Font size, bold, italic, underline, case (Uppercase/Lowercase/Title case), color (picker, eyedropper, my colors), opacity, character spacing, line spacing, alignment (L/C/R/justify, vertical). | N | P0 | Rich text attributes. | todo |
+| TX-004 | Rich text per range | Different styles inside one text box ("multiple values", "Font style (multiple)"). | N | P1 | Attributed string model, range edits. | todo |
+| TX-005 | Stroke | Border/stroke: color, thickness. Position inside/center/outside. Multiple layers ("Triple layer"). | N | P0 | Vector or SDF stroke rendering, multi-layer outlines. | todo |
+| TX-006 | Background (label) | Text background: color, opacity, rounded corners, height/width padding, offset. "Letter background". | N | P0 | Line/paragraph background shapes. | todo |
+| TX-007 | Shadow | Shadow: color, opacity, blur, distance, angle. "Shadow stroke", inner/outer shadow, "3D shadow" (weight). | N | P0 | Blurred alpha offset pass, extruded 3D shadow. | todo |
+| TX-008 | Glow | "Glow": inward / outward / both, color, intensity, range. | N | P1 | Distance-field glow. | todo |
+| TX-009 | Gradient & texture fill | Gradient fills ("Line" gradient), texture/image fill ("Select texture", tile). | N | P1 | Fill shaders with UV mapping per glyph or per box. | todo |
+| TX-010 | Curve text / text path | "Curve text" (arc bend amount) and "Text path" (along a custom path). | N | P1 | Glyph placement along a path with per-glyph rotation. | todo |
+| TX-011 | Text box resize | "Resize the text box from the center", auto/fixed box, captions line wrap. | N | P1 | Box layout constraints. | todo |
+| TX-012 | Text effects (WordArt presets) | "Text effects" library: one-click styles (combination of fills, strokes, shadows, 3D, textures, gradient, chrome, neon…). Searchable. Hundreds of presets, many Pro. | N/Y | P0 | Parametric multi-layer text style engine. Presets = parameter sets (procedural, see preset section). | todo |
+| TX-013 | Text templates | "Text templates": animated multi-layer designed titles (text + shapes + stickers + animation), editable text fields, categories (Trending, Basic, Social, Vlog, Business, Titles, Holidays…). Thousands. | N/Y | P0 | Template format (layers + keyframes + text slots + Lottie). Our own template authoring set. | todo |
+| TX-014 | Bubble text | "Text bubble" shapes behind text (speech bubbles, labels). | N | P1 | Vector shapes auto-sized to the text box. | todo |
+| TX-015 | Save text preset | "Save text presets" / "Saved to Customized" ("My presets"). | N | P1 | Preset store. | todo |
+| TX-016 | Text to speech from text clip | Select text → "Text-to-speech" (see AU-030). "Update speech according to script". | N | P0 | See AU-030. | todo |
+| TX-017 | Auto captions | "Auto captions": spoken language (auto detect, 50+ languages), source track (all/main/selected), "Delete current captions", optional caption template, filler-word identification, bilingual. Generates timed caption clips on a caption track. | Y (2025) | P0 | On-device ASR with word timestamps (Whisper large-v3-turbo / small via whisper.cpp MIT, Apple SpeechAnalyzer on macOS 26), sentence segmentation, max chars per line. FR+EN must be excellent. | todo |
+| TX-018 | Auto lyrics | "Auto lyrics" / "Recognize lyrics" for songs, lyrics language. | Y? | P1 | ASR on vocals (pre-separate with Demucs for accuracy), line timing. | todo |
+| TX-019 | Caption editor panel | Caption list editor: edit text per caption, split/merge, find and replace, search, select all, apply to all main/sub captions, timestamps. | N | P0 | Caption track model with word-level timing. | todo |
+| TX-020 | Text animations | "Animation" for text: In / Out / Loop presets (typewriter, fade, pop, slide, bounce, wave, blur, glitch, per-character/word/line), duration/speed sliders. | N/Y | P0 | Per-glyph animation engine with stagger by character/word/line, easing. | todo |
+| TX-021 | Caption templates / karaoke styles | "Caption templates": styled + animated caption looks applied to all captions. Word-by-word / line-by-line / whole screen. "Spoken word/line" vs "unspoken" highlight states (karaoke), keyword emphasis styles. | N/Y | P0 | Word-timed rendering (needs word timestamps), state-based styling per word. | todo |
+| TX-022 | Highlight keywords (auto) | "Auto highlight keywords" in captions (AI picks keywords → emphasized style). Undo/redo highlight. | Y | P1 | Keyword extraction (local LLM or TF-IDF + POS), applied as style ranges. | todo |
+| TX-023 | Bilingual captions | "Bilingual captions": translate to a target language, show bilingual / translation only, "Update translations automatically", main/sub caption styles. | Y | P1 | On-device MT (Apple Translation framework macOS 15+, Opus-MT/Marian (CC-BY), MADLAD-400 (Apache), or a local LLM). FR↔EN priority. | todo |
+| TX-024 | Captions line wrap & split | "Split captions", one caption max 2 lines, words per line, lines per screen. | N | P0 | Line-breaking with language rules (incl. CJK). | todo |
+| TX-025 | Export captions | Export SRT / TXT (Export panel "Captions"). | N | P0 | SRT/TXT/VTT writers. | todo |
+| TX-026 | Lyric templates | Lyrics caption templates ("Apply to all lyrics", main/sub lyrics). | N | P2 | Same as caption templates. | todo |
+| TX-027 | AI text (prompt → text effect) | "AI-generated text": type text + describe the effect → generated text style images. | C | P2 | Substitute: local LLM maps the prompt → parameters of our procedural text-style engine (instant, no diffusion). Optional SD texture fill. | todo |
+| TX-028 | AI fonts | "Generate AI font" from prompt/reference image (Bytefont). | C | N/A-local | Font generation is impractical on device. Substitute: OFL font library + procedural effects. Mark N/A-local. | todo |
+| TX-029 | Script → captions (long text editor) | "Enter scripts", "Split into captions", "Convert scripts into captions" with timing by TTS or even distribution. | N | P1 | Text segmentation, timing allocation (TTS alignment or uniform). | todo |
+| TX-030 | Text alignment to speech | Align an existing script to the audio (forced alignment). | N | P2 | CTC forced alignment (wav2vec2 / Whisper timestamps). | todo |
+| TX-031 | AI emojis | "AI emojis": auto-add emojis to captions (position above/below/freeform, size S/M/L, auto update). | Y? | P2 | Keyword→emoji mapping (local LLM or lexicon), emoji font rendering (Apple Color Emoji system, or Noto Emoji OFL). | todo |
+| TX-032 | Separate text template | "Separate" / "Text template separated" to edit its parts. | N | P2 | Template flattening into layers. | todo |
+| TX-033 | Multi-language text templates | Templates with per-language variants. | N | P2 | — | todo |
+| TX-034 | Dictate (voice input) | "Dictate" voice input into text fields. | N | P2 | Streaming ASR (Apple Speech / whisper.cpp stream). | todo |
+| TX-035 | Complex script support | Arabic, Hebrew (RTL), Bengali, Khmer, Myanmar, CJK, Thai (bundled Noto fonts). | N | P0 | HarfBuzz/CoreText-class shaping, bidi (ICU), font fallback chains. | todo |
+| TX-036 | Text on cover | Cover text templates. | N | P2 | Reuse text engine in the cover editor. | todo |
+| TX-037 | Caption "find & replace" | "Find and replace" across captions. | N | P1 | — | todo |
+| TX-038 | Smart caption speaker ID | Speaker identification captions (per-speaker style). | Y | P2 | Speaker diarization (pyannote-class or sherpa-onnx with 3D-Speaker embeddings, Apache-2.0). | todo |
+| TX-039 | Number/date counters | (Text templates) animated counters/timers. | N | P2 | Template parameter expressions. | todo |
+| TX-040 | Text glyph-level effects | "Couldn't apply effect to part of the text": per-range effect support. | N | P2 | — | todo |
+| TX-041 | Text templates on timeline | Drag templates to the timeline, edit text fields in the inspector, change template keeping text. | N | P0 | Template instance model. | todo |
+
+## 8. Stickers & shapes (ST)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| ST-001 | Sticker library | Stickers tab: categories (Trending, Emoji, Subscribe/Like, Arrows, Frames, Holidays…), static and animated, search, GIPHY search. | N/Y | P0 | Asset browser. Animated formats (Lottie, APNG/WebP, GIF, PNG sequences). Our own procedural/vector library. | todo |
+| ST-002 | Emoji stickers | "Emoji & Symbols" sticker set. | N | P1 | Emoji font (system Apple Color Emoji on macOS; Noto Emoji OFL; Twemoji CC-BY 4.0 for cross-platform). | todo |
+| ST-003 | Custom stickers import | Import images as stickers, "Import as frame sequence stickers" (3–49 images, fps 1–50, once/repeat). | N | P1 | Image sequence clip type. | todo |
+| ST-004 | Sticker animation | In / Out / Loop presets for stickers. | N | P1 | Shared animation engine. | todo |
+| ST-005 | Motion tracking (stickers follow object) | "Tracking" on stickers/text/overlay: select an object box in the player → the sticker follows (position/scale, "Lock object size", "size change with object size"). Track forward/back. | N | P0 | Visual object tracker (Apple VNTrackObjectRequest; OpenCV CSRT/KCF Apache-2.0; or a light Siamese tracker ONNX), offline job, keyframes generated from track. | todo |
+| ST-006 | Face cover stickers | "Face cover stickers": auto-detect up to 5 faces per frame (max 10), apply mosaic / Gaussian blur / white circle / white heart / custom sticker that follows each face, adjust size/opacity. | ? | P1 | Face detection + tracking + identity association (Apple Vision faces, YuNet / BlazeFace Apache-2.0). | todo |
+| ST-007 | AI stickers | "AI stickers": prompt → generated sticker (styles, ratios, steps). | C | P2 | Local diffusion (SD 1.5/SDXL-Turbo-class via CoreML/MLX) + background removal. On 8 GB: small models only, ~5–20 s per image. Optional download. | todo |
+| ST-008 | Shapes | "Shapes" (basic graphics): rectangle, rounded rect, circle, star, heart, line/arrow, custom drawn shape ("Click to start drawing", pen). Fill (solid/gradient/texture), stroke (dotted/dashed, caps round/arrow), corner radius, keyframable fill. | N | P0 | Vector path rendering (anti-aliased, GPU tessellation or SDF), path editor. | todo |
+| ST-009 | Sticker as layer | Stickers behave as layers: transform, opacity, blend, mask, keyframes, tracking. | N | P0 | Generic layer pipeline. | todo |
+| ST-010 | Sticker packs / favorites | Sticker packs, favorites, recently used, sort by default/favorites/used. | N | P2 | — | todo |
+| ST-011 | GIF stickers online | GIPHY integration. | N | N/A-local | Network. Substitute: user-imported GIFs. | todo |
+
+## 9. Audio (AU)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| AU-001 | Music library | "Audio" tab → Music: categories, search song/artist, TikTok-synced favorites, commercial-use filter, preview on hover, favorites. | N/Y | N/A-local | Licensed cloud catalog. Substitute: user's music folder browser + our own procedural/CC0 music pack (see preset section) + local AI music (AU-031). | todo |
+| AU-002 | Sound effects library | Sound effects tab with categories and search (whoosh, pop, click, laugh, transitions…). | N/Y | P1 | Our own SFX pack: procedurally synthesized (whoosh, riser, impact, pop, click, glitch, beep, typing) + CC0 recordings. | todo |
+| AU-003 | Extract audio from video file | "Extract audio from a video" import in the Audio tab ("Extracted"). | N | P0 | Demux/decode audio track to an audio clip. | todo |
+| AU-004 | Volume | Clip volume in dB (−∞..+20 dB), "Volume ±0.1dB" shortcuts, track volume, project mute. Keyframable volume (rubber band). | N | P0 | Gain automation with sample-accurate ramps. | todo |
+| AU-005 | Fade in / fade out | Fade-in/fade-out duration sliders, visual fade handles on clips. | N | P0 | Gain envelopes (linear/equal-power). | todo |
+| AU-006 | Loudness normalization | "Normalize loudness" to target LUFS: Default (−23 LUFS), YouTube (−14), custom, multi-clip. | N | P1 | EBU R128 / ITU-R BS.1770 integrated loudness analysis (libebur128 MIT) + gain. | todo |
+| AU-007 | Noise reduction | "Reduce noise" (audio) toggle. Strength. | Y | P0 | On-device speech denoise: RNNoise (BSD-3, CapCut bundles `rnnoise_v2.0.model`), DeepFilterNet3 (MIT/Apache) for higher quality. RT-capable. | todo |
+| AU-008 | Enhance voice | "Enhance voice" ("studio quality in one click"), strength. Re-enhance. | Y | P1 | DeepFilterNet + de-reverb + EQ/compressor/de-esser chain. Optional Resemble-Enhance (MIT) offline. | todo |
+| AU-009 | Isolate voice (vocal isolation) | "Isolate voice": Keep vocal / Remove vocal, queue, restore original audio. Clips up to N minutes. | Y | P0 | Source separation: HTDemucs (MIT) / MDX-Net, via GPU/ANE. ~0.2–0.5x realtime on M1. Offline job. | todo |
+| AU-010 | Separate stems (instruments) | "Separate audio": vocals, drums, bass, guitar, piano, strings, synth, wind, others, "Remaining audio"; individual instrument separation. | Y | P1 | HTDemucs 6-stem (htdemucs_6s: vocals/drums/bass/guitar/piano/other, MIT). Extra stems need other models (mark partial). | todo |
+| AU-011 | Voice changer / voice effects | "Voice effects": Voice filters (e.g. Echo, Megaphone, Robot, Chipmunk, Deep, Vinyl, Lo-fi, Low battery, Tremble, Big house…), Voice characters (e.g. "Young Adam", "Sweet Eve", "Uncle Tom", "Monster", Elf, Squirrel…), "Speech to song". Parameters: pitch, timbre, strength, room size, depth, frequency, noise, amplitude, surround rate. | N/Y | P0 | DSP: pitch shift + formant shift (PSOLA/WORLD BSD-3), reverb (Freeverb-class), delay, chorus/flanger, ring-mod, bitcrush, band-pass, distortion, tremolo. RT preview. AI "characters" = voice conversion (see AI-030). | todo |
+| AU-012 | Change pitch | "Change pitch" slider independent of speed. | N | P1 | Pitch shifter (Signalsmith/SoundTouch/Rubber Band). | todo |
+| AU-013 | Channel ops | "Fill channel": fill left with right, fill right with left. Mono material handling. | N | P1 | Channel matrix. | todo |
+| AU-014 | Audio EQ | (CapCut desktop exposes limited EQ.) We add an EQ for parity with "enhance". | ? | P2 | Biquad parametric EQ. | todo |
+| AU-015 | Beat detection | "Auto beat" on music → beat markers (Beat 1 / Beat 2 density, melody). | N | P1 | Onset + tempo + beat tracking (beat_this MIT, or our own spectral-flux + DP implementation; avoid aubio GPL / Essentia AGPL / madmom NC models). | todo |
+| AU-016 | Sync video to sound | "Sync video and audio" / "Video synced to sound" (align external audio to camera audio). | N | P1 | Cross-correlation of audio envelopes/spectra (GCC-PHAT). | todo |
+| AU-017 | Audio ducking | (Auto-lower music under voice.) CapCut has it in some versions. | ? | P2 | Sidechain envelope follower on the voice track. | todo |
+| AU-018 | Split audio track | "Split audio track" (dual-mono to separate tracks). | N | P2 | — | todo |
+| AU-019 | Audio waveform display | Per-clip waveforms, size setting. | N | P0 | Multi-resolution peak cache. | todo |
+| AU-020 | Record audio | See MI-016. | N | P0 | — | todo |
+| AU-021 | Copyright check | "Run a copyright check" before TikTok posting. | N | N/A-local | Cloud fingerprinting. Not applicable. | todo |
+| AU-022 | Audio export | Export audio only: MP3 / WAV / AAC / FLAC, bitrate 192/256/320 kbps, sample rate, bit depth ("Audio bits", "Audio Sampling"). | N | P0 | Encoders: AAC (system), MP3 (LAME LGPL), FLAC (BSD), WAV/PCM. | todo |
+| AU-023 | Audio scrubbing & preview | Play audio while scrubbing. Previewing audio items. | N | P1 | — | todo |
+| AU-024 | Audio mixer / master | Master output device selection ("Sound output device"), sound for export completion. | N | P1 | Audio device routing. | todo |
+| AU-025 | Similar sounds / original sound | "Similar sounds", "Original sound – X" (TikTok). | N | N/A-local | — | todo |
+| AU-026 | Echo reduction on recording | "Echo reduction" (avoid speaker echo) while recording. | N | P2 | AEC (Apple voice processing I/O unit, or WebRTC AEC3 BSD). | todo |
+| AU-027 | Remove filler words in audio | See AI-020. | Y | P1 | — | todo |
+| AU-028 | Speed / keep pitch for audio | See SP-002. | N | P0 | — | todo |
+| AU-029 | Mute track / solo | Mute track, solo (we add solo). | N | P0 | — | todo |
+| AU-030 | Text-to-speech | Text clip → TTS: voice catalog by language/accent (EN-US/UK/AU, FR-Parisian/Canadian, ES, PT, DE, JA, ZH…), tabs (Trending, Narration, Characters, Commercial, Anime, Premium), emotions/styles (joyful, calm, newscast, whispering, narration…), speed/pitch, "Update speech according to script", preview. Generates an audio clip linked to the text. | N/Y | P0 | On-device TTS FR+EN: Kokoro-82M (Apache-2.0, FR voice), Piper (MIT legacy / GPL fork, FR voices), Apple AVSpeechSynthesizer (premium/enhanced voices), Chatterbox-multilingual (MIT, expressive, heavier). ~real-time on CPU for Kokoro/Piper. | todo |
+| AU-031 | AI music generator | "AI music": prompt → instrumental (30 s–2 min) or vocal songs (30 s–4 min), music types, lyrics generation. | C | P2 | Local options: ACE-Step (Apache-2.0, 3.5B, heavy, 16 GB+ recommended), MusicGen-small (CC-BY-NC weights, avoid). Substitute for 8 GB: procedural/loop-based music generator (genre templates, chord progressions, synthesized instruments). Partial-local. | todo |
+| AU-032 | AI sound effects | "AI sound effects": analyze the selected video clip → generate matching SFX. | C | P2 | Local: Stable Audio Open Small (341M, Stability Community License) for text→SFX. Video→SFX needs VLM captioning (SmolVLM Apache) → text prompt → SFX model, or retrieval from our SFX pack. | todo |
+| AU-033 | AI audio generator (all-in-one) | "Audio generator / Seed Audio": dialogue + SFX + BGM from prompt, character voices, reference voice/video. | C | P2 | Composition of TTS (multi-voice) + SFX gen + music gen. Local partial. | todo |
+| AU-034 | Custom voice (voice clone) | "Custom voices": create your voice from 5–10 s of recording/import/extract from video. Keep accent option. Use it for TTS and voice change. Voice verification step. | C | P1 | Zero-shot voice cloning TTS: Chatterbox (MIT), OpenVoice v2 (MIT), F5-TTS (code MIT, weights CC-BY-NC, avoid). Our local version can skip CapCut's identity verification but must show a consent notice. | todo |
+| AU-035 | Voice changer to custom voice | "Voice changer" (speech-to-speech): turn any voice into a chosen/custom voice. | C | P2 | Voice conversion: RVC (MIT, needs per-voice training ~minutes) or OpenVoice tone-color converter (MIT, zero-shot). Seed-VC is GPL-3. | todo |
+| AU-036 | Overdub (correct speech) | "Overdub": edit transcript words → regenerated audio in your voice with lip sync. "Correct speech mistakes as easily as you fix typos". | C | P2 | ASR + cloned TTS for the edited span + crossfade + optional lip sync (AI-034). Heavy. | todo |
+| AU-037 | Speech to song | "Speech to song" voice effect. | N? | P2 | Pitch quantization to a melody with a vocoder (WORLD BSD-3), rhythm alignment. | todo |
+| AU-038 | Lyrics adaptation | "Lyrics adaptation / Smart Lyrics" (rewrite lyrics and re-sing, Chinese only). | C | N/A-local | Singing voice synthesis + melody extraction. Out of scope (CN-only in CapCut). | todo |
+| AU-039 | Audio translator | "Audio translator": translate speech to another language in the same voice. | C | P2 | Whisper ASR → MT → voice-cloned TTS → time-fit (stretch). All local, slow (minutes). | todo |
+| AU-040 | Notification sounds | Export success/fail sounds ("Send a notification sound when export is complete"). | N | P2 | Short UI sounds (our own). | todo |
+
+## 10. Effects (FX)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| FX-001 | Video effects library | "Effects" tab → Video effects: categories (Trending, Pro, Basic, Party, Lens, Retro/VHS, Light/Glow, Bling, Glitch, Distortion, Comic, Split/Mirror, Nature/Weather, Motion, Frame/Borders, Atmosphere…). Hover preview on thumbnails. Drag to timeline (effect track, covers all layers below) or onto a clip (clip-only). | N/Y | P0 | Effect = GPU shader graph with parameter schema. RT for 4K at 30 fps on M1 for typical effects. Effect scoping (global layer vs per-clip). | todo |
+| FX-002 | Body effects | "Body effects": person-aware effects (outline/neon edge, glow aura, afterimage/clone, X-ray, flames around body, heart particles, hero shadow…). | N/Y | P1 | Per-frame person segmentation (RT at preview res), plus face/pose for some. | todo |
+| FX-003 | Effect parameters | Per-effect sliders: Intensity, Speed, Range, Amount, Rotate, Glow/luminance, Sharpen, Texture, Soft light, Twist (distortion), Horizontal/Vertical shift, lateral/longitudinal chromatic aberration, Atmosphere, Filters, etc. Keyframable. | N | P0 | Typed parameter schemas with UI auto-generation. | todo |
+| FX-004 | Effect on clip vs effect track | "Apply to: main/pip/all/clip" (pc_audio_effects_main/pip/all). Effect clip duration trims independently. | N | P0 | Effect application target model. | todo |
+| FX-005 | Effect mask | "Effect mask" (Pro): limit an effect to a mask area. | Y | P1 | Mask textures feeding effect blend. | todo |
+| FX-006 | Search & favorites | "Search for effects", trending searches, favorites. | N | P1 | Local tag index over our presets. | todo |
+| FX-007 | AI effects / AI stylize | "AI effects" / "AI stylize": prompt or style preset (Cartoon, Comics I/II/III, Oil Painting, Scumbling painting, Manga, Collage, Van Gogh…) on images/short clips (≤10 s). Random, refine, regenerate. | C | P2 | Local: fast style networks (AnimeGANv3-class, check weight licenses), SD img2img + ControlNet (OpenRAIL) for images, temporally stabilized per-frame stylization for video (flow-warped consistency). Procedural NPR shaders (toon/oil/sketch/halftone) as an instant fallback. | todo |
+| FX-008 | Magic cutout effect | "Magic cutout": AI effect that cuts out the subject and animates it with an effect. | C | P2 | Segmentation + effect templates (local). | todo |
+| FX-009 | Lens / camera effects | Shake, zoom punch, lens flare, bokeh, blur (Gaussian/radial/zoom/motion), fisheye, vignette. | N | P0 | Procedural shaders. | todo |
+| FX-010 | Glitch / retro | RGB split, VHS noise, scanlines, pixelate, datamosh-look, film burn, film grain, dust and scratches. | N | P0 | Procedural shaders + generated noise textures. | todo |
+| FX-011 | Light effects | Light leaks, glow, sparkle, flash, rays, neon. | N | P1 | Procedural light leaks (animated gradients/noise), additive blends. | todo |
+| FX-012 | Split-screen / mirror / kaleidoscope | Multi-screen (2/3/4/6/9 splits), mirror, kaleidoscope. | N | P1 | UV remapping shaders. | todo |
+| FX-013 | Particles / weather | Snow, rain, confetti, hearts, fireworks, petals, bubbles. | N | P1 | GPU particle system with deterministic seeding (preview = export). | todo |
+| FX-014 | Frames / borders | Film frame, polaroid, letterbox bars, rounded corners. | N | P1 | Procedural vector frames. | todo |
+| FX-015 | Distortion | Twist, wave, ripple, bulge/pinch, liquify-like warps, heat haze. | N | P1 | Displacement shaders. | todo |
+| FX-016 | Manga / comic / painterly effects | "Manga effect", comics, oil painting (CapCut has local `mangamodel`, `oilpaintbrush`). | N/Y | P2 | NPR shaders (edge detection + posterize + halftone), Kuwahara filter for paint, optional ML stylization. | todo |
+| FX-017 | Edit effect (effect editing) | "Effects – Edit": adjust effect parameters on the timeline clip. | N | P0 | — | todo |
+| FX-018 | Custom effect authoring | Creator tool to post visual effects (ZIP, slider). | N | P2 | Our own effect package format (shader + manifest) for user plugins later. | todo |
+
+## 11. Filters & color / adjustments (CL)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| CL-001 | Filter library | "Filters" tab: categories (Featured, Life/Vlog, Scenery/Landscape, Movies/Cinematic, Retro/Film, Food, Night, Style, Black & white, Portrait…). Hover preview. Apply to clip or as a filter track. Intensity slider (0–100), keyframable. | N/Y | P0 | Filters = 3D LUT (33³/64³) or parametric grade graph + intensity mix. RT. | todo |
+| CL-002 | Basic adjustments | "Adjust → Basic": Temp, Tint, Saturation, Brightness, Contrast, Highlights, Shadows, Whites, Blacks, Brilliance, Exposure ("light sensation"), Sharpen, Clarity, Grain ("Particle"), Fade, Vignette. Reset. Keyframable. Auto adjust. | N | P0 | Adjustment shaders in a defined working space (CapCut bundles these as shaders: brightness/contrast/saturation/temperature_tone/shadow_highlight/sharpen/clear/particle/fade/vignetting/light_sensation). Must be fast at 4K. | todo |
+| CL-003 | HSL | "HSL": 8 color ranges (red, orange, yellow, green, cyan, blue, purple, magenta), Hue/Saturation/Lightness per range. | N? | P0 | Hue-band selective adjustments with smooth falloff. | todo |
+| CL-004 | Curves | "Curves": Luma + R + G + B curves, add/drag points, reset. | N? | P0 | Spline curves baked to 1D LUTs per channel. | todo |
+| CL-005 | Color wheels | "Color wheel": Primary wheels (Lift/Gamma/Gain/Offset) and Log wheels (Shadows/Midtones/Highlights/Offset), plus luma per wheel. "Advanced color wheels". | Y | P1 | Lift-gamma-gain math (ASC CDL-like), log-space wheels with range controls. | todo |
+| CL-006 | LUT application | "LUT": choose an imported .cube/.3dl, intensity. "Using LUTs". Supports CDL. | N | P0 | 3D texture trilinear/tetrahedral interpolation, LUT size up to 65³. | todo |
+| CL-007 | Auto adjust | "Auto adjust" (smart color, with strength). | Y? | P1 | Auto exposure/white-balance/contrast via histogram statistics (gray-world, percentile stretch). No ML needed. | todo |
+| CL-008 | Color correction (AI) | "Color correction: Correct colors in one click". | Y | P1 | As CL-007 + face-aware skin-tone white balance. | todo |
+| CL-009 | Color match | "Color match": apply the color theme from a reference frame (pick from the timeline) or imported image to clips. | Y | P1 | Statistical color transfer (Reinhard Lab mean/std, MKL, histogram matching) baked to a LUT. | todo |
+| CL-010 | Skin tone protection | "Protect skin tone" toggle in adjustments. | N | P1 | Skin-hue mask (hue range or skin segmentation) attenuating the grade. | todo |
+| CL-011 | Adjustment layer | "Adjust" clip on its own track: applies adjustments to everything below for its duration (custom adjustment). | N | P0 | Adjustment layer in the compositor (applies to the composite below). | todo |
+| CL-012 | Adjustment mask | "Adjustment mask" (Pro): mask the adjustment area (shapes, brush "Quick brush/Quick erase", "Smart brush", pen), track mask. | Y | P1 | Mask system + mask tracking (see MK). | todo |
+| CL-013 | Save adjustment preset | "Save preset" (My presets), "Preset coloring", rename/delete. | N | P1 | Preset serialization. | todo |
+| CL-014 | HDR conversion | "Convert to HDR", "HDR conversion tool": Rec.709 SDR ↔ Rec.2100 PQ/HLG ↔ Rec.2020 SDR conversions, peak brightness (nits). | N? | P2 | Color science transforms (BT.2390 EETF tone mapping, inverse tone mapping), 10-bit pipeline. | todo |
+| CL-015 | Color space settings | Project color space: SDR Rec.709, HDR Rec.2020 HLG/PQ. | N | P1 | Color-managed pipeline (working space, input/output transforms). | todo |
+| CL-016 | Scopes | Waveform/parade/vectorscope/histogram (see PB-012). | ? | P1 | — | todo |
+| CL-017 | Remove flickers | "Remove flickers": modes Flashlight / Time-lapse, levels weak/normal/strong. Background processing. | Y | P1 | Temporal luminance/chroma deflicker (per-frame gain matching against a smoothed reference). CapCut ships a `deflicker` model. Offline job. | todo |
+| CL-018 | Reduce image noise | "Reduce image noise" (video denoise), strength. | Y | P1 | Temporal denoise: macOS 26 VTTemporalNoiseFilter, FastDVDnet (MIT), or a GPU NLM/bilateral temporal shader. Offline job + cache. | todo |
+| CL-019 | Enhance quality / HD | "Enhance quality" (image quality enhancement, HD/UHD), "AI HD" on images. | Y | P1 | Super-resolution: Real-ESRGAN (BSD-3) / realesr-general-x4v3, macOS 26 VTSuperResolutionScaler. Offline job. | todo |
+| CL-020 | Relight | "Relight": add virtual lights (Point / Directional, color, radius, intensity, moving/blinking/color-changing speed), Facial / Object / Ambient presets, save relight presets. | Y | P1 | Depth + normal estimation (Depth Anything V2 Small, Apache-2.0) → 2.5D shading shader. Face-aware lighting with face mesh normals. RT after the depth pass is cached. | todo |
+| CL-021 | Brightness (Luma) vs exposure | Separate "Brightness (Luma)" and "Exposure" controls. | N | P1 | — | todo |
+| CL-022 | Filter + adjust intensity mix | Intensity slider on every filter. | N | P0 | Linear blend between graded and source. | todo |
+| CL-023 | Black & white presets | B&W adjust ("pc_bw_*" presets: blacks/whites/clarity). | N | P2 | Channel-mixer B&W. | todo |
+| CL-024 | Color picker / eyedropper | Pick colors from the canvas for text/background/chroma. | N | P0 | Readback of the composited frame. | todo |
+| CL-025 | Copy/paste adjustments | Copy attributes → Adjust / Advanced. | N | P1 | — | todo |
+| CL-026 | Filter posting (creator) | "Post filter / filter pack" (creator platform). | N | N/A-local | — | todo |
+| CL-027 | Add preset to brand kit | "Add preset to brand kit". | Y | N/A-local | Teams/cloud. Local substitute: presets folder export/import. | todo |
+| CL-028 | Color card (calibration) | CapCut bundles `colorcard` (color checker detection). | ? | P2 | ColorChecker detection → correction matrix. | todo |
+
+## 12. Transitions (TR)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| TR-001 | Transition library | "Transitions" tab: categories (Trending, Basic/Dissolve, Camera/Zoom, Blur, Light, Slide, Wipe, Mask/Shape, Split, Glitch, Distortion, Social media, Overlay, Mirror, MG…). Hover preview. Drag between two adjacent main-track clips (or click "+" to add at a cut). | N/Y | P0 | Two-input GPU transition shaders with progress 0..1 + parameters. Handle media overlap (uses handles or freezes). | todo |
+| TR-002 | Transition duration | Duration slider (0.1–5 s), drag transition edges on the timeline. | N | P0 | Overlap model in the timeline (centered on the cut). | todo |
+| TR-003 | Apply to all | "Apply to all" clips. | N | P0 | Batch op. | todo |
+| TR-004 | Transitions on overlay tracks | PiP transitions ("Transition of picture-in-picture lost" implies support between adjacent overlay clips on the same track). | N | P1 | Same as main track. | todo |
+| TR-005 | AI transition | "Generate transitions / AI transition": a generated video bridging two clips from a prompt. | C | P2 | Generative video. Not feasible on 8 GB. Substitute: morph transitions (optical-flow morph between last/first frames, RIFE-based "smart morph"), N/A-local for true generation. | todo |
+| TR-006 | Transition parameters | Some transitions expose direction/color/softness. | N | P1 | Param schema. | todo |
+| TR-007 | Validation | "No continuous clips at current position", "Video too short", layer change invalidates the transition. | N | P0 | Constraint checks. | todo |
+
+## 13. Masks (MK)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| MK-001 | Shape masks | "Mask": None, Linear (split), Mirror (parallel lines), Circle, Rectangle, Heart, Star, Pen (custom). On-canvas handles: position, rotation, size, feather (handle), round corners (rectangle), invert. Keyframable. | N | P0 | Analytic mask SDFs + feather, pen bezier paths rasterized at render res. | todo |
+| MK-002 | Pen mask | Draw bezier masks with points and handles. | N | P1 | Path editor + rasterizer. | todo |
+| MK-003 | Mask tracking | "Track mask" forward / backward / both ("Mask tracking complete"). | Y? | P1 | Point/planar tracking driving mask transform keyframes. Or segmentation propagation. | todo |
+| MK-004 | Custom (brush) mask tracking | "Tracking custom mask": brush a region → tracked through the clip. | Y | P2 | Video object segmentation (SAM 2 Apache-2.0 small/tiny, Cutie/XMem MIT). Offline job. Heavy on 8 GB (tiny model). | todo |
+| MK-005 | Multiple masks | "Mask %d (%s)": several masks per clip (adjustment masks). | Y | P2 | Mask stack with boolean ops. | todo |
+| MK-006 | Mask on effects/adjustments | See FX-005, CL-012. | Y | P1 | — | todo |
+| MK-007 | Smart brush / smart eraser | "Smart brush" / "Smart eraser" for cutout refinement. | Y | P2 | Interactive segmentation (SAM-class click/brush prompts, or MobileSAM/EfficientSAM Apache-2.0). | todo |
+| MK-008 | Mask invert & feather | Invert toggle, feather slider. | N | P0 | — | todo |
+
+## 14. Chroma key & cutout / background removal (CK)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| CK-001 | Chroma key | "Remove BG → Chroma key": color picker on the canvas, Intensity, Shadow, edge feather, "Clean up edge", spill suppression. | N | P0 | GPU keyer (YCbCr/HSV distance, soft matte, despill), RT 4K. | todo |
+| CK-002 | Auto background removal | "Auto removal": detect human subjects and remove the background on video (background job) with "Clean up edge", "Feather edge", expand/shrink (dilate/erode). Undo while processing. | Y | P0 | Video person matting: Apple Vision person segmentation (macOS 12+, RT), MODNet (Apache-2.0), RVM (GPL-3, avoid for proprietary), BiRefNet (MIT, slow, images), RMBG-1.4/2.0 (non-commercial, avoid). Temporal smoothing of mattes. Cache matte video. | todo |
+| CK-003 | Custom removal (brush) | "Custom removal": Smart brush / eraser to choose the subject (any object, not only humans), then propagate. | Y | P1 | Interactive segmentation + video propagation (SAM 2 tiny, Apple VNGenerateForegroundInstanceMaskRequest for stills). | todo |
+| CK-004 | Image background removal | One-click on photos. | Y | P0 | Apple Vision foreground instance mask (macOS 14+), BiRefNet-lite (MIT), U²-Net (Apache-2.0). | todo |
+| CK-005 | Cutout + stroke/outline | Cutout combined with an outline/glow (sticker look) via effects. | N | P1 | Matte → distance field → stroke shader. | todo |
+| CK-006 | Change background (AI) | "Change background": prompt → new generated background ("Describe your new background"), aspect ratio. | C | P2 | Local SD inpainting/outpainting behind the matte (SD 1.5-inpaint OpenRAIL, CoreML). 8 GB: 512–768 px, ~10–30 s/image. Images only. | todo |
+| CK-007 | AI background (product shots) | "AI background": wooden platform, white background prompts. | C | P2 | As CK-006 with relighting harmonization. | todo |
+| CK-008 | Matting blend | CapCut bundles `mattingBlend(V2)`: edge blending of cutouts. | N | P1 | Edge-aware matte refinement (guided filter), color decontamination. | todo |
+
+## 15. Retouch / body (RT)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| RT-001 | Face beauty: smooth | "Retouch → Face": Smooth skin, Whitening/Brighten, Skin even, Clear blemishes, Teeth whitening, "Tan"/skin tone, applied to all faces or one ("Single face / Multiple faces"). | N/Y | P1 | Face detection + landmarks per frame, skin segmentation, edge-preserving smoothing (bilateral/guided frequency separation). RT at preview res. | todo |
+| RT-002 | Face reshape | Thin face, V-shape, jawline, chin length, cheekbones, head size, eyes (size, inner corners, distance, tilt), eyebrows (peak, tilt), nose (slim, nasal root, length), mouth (size, smile), upper/mid/lower face, forehead. "Auto reshape", "Protect face". | N/Y | P1 | Dense face landmarks (Apple Vision 76-pt, MediaPipe Face Mesh 468-pt Apache-2.0) → mesh warp (moving-least-squares / triangle warp) shader. Temporal landmark smoothing. | todo |
+| RT-003 | Makeup | "Makeup": lipstick, eye shadow, blush, contour, eyebrows, sets/presets with intensity. | Y | P2 | Landmark-anchored makeup texture rendering with blend modes. Our own procedural makeup textures. | todo |
+| RT-004 | Manual retouch | "Manual reshape" / "Manual smooth skin" brushes, "Distortion-free (protect)". | Y? | P2 | Brush-based local warps/masks tracked to face landmarks. | todo |
+| RT-005 | Body reshape | "Body": Slim, Legs (long leg), Waist, Head size, Breasts/Buttocks/Hip enhancement, "Stretch area", presets (Proportional/Refined), "Keep body size". | Y | P2 | Human pose (Apple Vision body pose, MediaPipe Pose Apache-2.0) + body segmentation → smooth warp field avoiding background bending. | todo |
+| RT-006 | Face/body presets | Save face presets / body presets. | N | P2 | Preset store. | todo |
+| RT-007 | Auto styles (auto beautify) | "Auto styles": one-tap beauty combos (filter + reshape params). | Y? | P2 | Preset bundles. | todo |
+| RT-008 | Facial beauty filters | "Facial beauty" (smart beauty). | N | P1 | As RT-001. | todo |
+| RT-009 | Eye contact | "Eye contact": redirects the gaze of the main character toward the camera. | Y | P2 | Gaze redirection (warping eye region with landmarks + learned model). Research-grade, no clean permissive model. Mark P2 / experimental (LivePortrait MIT code, but InsightFace deps are NC). | todo |
+| RT-010 | Hair (AI) | "Hair": change hair color/style by prompt (images only). | C | P2 | Hair segmentation (MediaPipe hair segmenter Apache-2.0) + recolor (local, easy for color) / SD inpainting for style (hard). Color: P2 local, style: N/A-local on 8 GB. | todo |
+| RT-011 | Recorder retouch | One-click retouch in the screen recorder. | N | P2 | Reuse RT-001. | todo |
+| RT-012 | Face mosaic | "Mosaic": click faces to blur (up to N faces). | N | P1 | See ST-006. | todo |
+| RT-013 | Pet face | CapCut bundles a `petfacemodel` (pet face stickers/effects). | N | P2 | Pet face detector (needs a permissive model; uncertain). | todo |
+| RT-014 | Gender/age/face-swap style GANs | CapCut bundles `tt_gendergan`, `bingo_facegan_model` (face AI effects). | N | P2 | Out of scope initially (licensing + ethics). | todo |
+
+## 16. AI features (AI)
+
+Each AI feature is listed once here (cross-referenced from areas above). The "On-device candidates" column lists options with license and rough compute on Apple Silicon M1/M2 8 GB. "Cloud-only in CapCut" items get a local substitute or `N/A-local`.
+
+| ID | Feature | CapCut behavior | Pro? | Pri. | Technical requirement | On-device candidates (license · rough cost) | Status |
+|---|---|---|---|---|---|---|---|
+| AI-001 | Auto captions (ASR) | Speech → timed captions, 50+ languages, auto language detect. | Y | P0 | Speech-to-text with word timestamps, FR/EN priority, punctuation. | whisper.cpp + Whisper large-v3-turbo (MIT · ~809M, Q5 ~550 MB, ~5–8x realtime on M1 GPU); Whisper small (MIT · ~15x RT); Apple SpeechAnalyzer/SpeechTranscriber (macOS 26, OS · fast, on ANE, FR+EN); WhisperKit CoreML (MIT); Parakeet-TDT 0.6B v3 (CC-BY-4.0 · very fast, 25 EU langs incl. FR). | todo |
+| AI-002 | Auto lyrics | Lyrics recognition on music. | Y? | P1 | ASR robust to music. | Demucs vocal pre-separation + Whisper (MIT). | todo |
+| AI-003 | Bilingual / translated captions | Translate captions to a target language. | Y | P1 | Machine translation, segment-preserving. | Apple Translation framework (macOS 15+, OS · fast); Opus-MT Marian (CC-BY-4.0 · ~300 MB/pair, fast CPU); MADLAD-400-3B (Apache-2.0 · heavy); local LLM (Qwen3-4B Apache-2.0). Avoid NLLB (CC-BY-NC). | todo |
+| AI-004 | Keyword highlight | Auto-highlight keywords in captions. | Y | P1 | Keyword extraction per sentence. | Local LLM (Qwen2.5/3 1.5–4B Apache-2.0 · Q4 1–2.5 GB, ~20–40 tok/s M1), Apple Foundation Models (macOS 26, OS); fallback YAKE/TF-IDF (no model). | todo |
+| AI-005 | Speaker ID captions | Per-speaker captions. | Y | P2 | Speaker diarization. | sherpa-onnx (Apache-2.0) + pyannote segmentation-3.0 (MIT) + 3D-Speaker/WeSpeaker embeddings (Apache-2.0) · ~50x RT CPU. | todo |
+| AI-006 | Text-to-speech | Voices with styles/emotions, many languages. | N/Y | P0 | Natural TTS FR+EN with several voices, controllable speed. | Kokoro-82M (Apache-2.0 · ~RT×5 CPU, FR "ff_siwis"); Piper (MIT legacy repo; new fork GPL-3 · RT×10 CPU, several FR voices with per-voice licenses); Apple AVSpeechSynthesizer premium voices (OS); Chatterbox Multilingual (MIT · 0.5B, ~RT on M1 GPU, emotion exaggeration, FR). | todo |
+| AI-007 | Voice clone (custom voice) | 10 s recording → custom TTS voice. | C | P1 | Zero-shot speaker cloning. | Chatterbox (MIT, zero-shot from ~10 s); OpenVoice v2 (MIT); Apple Personal Voice (macOS 14+, user's own voice, 15 min enrollment, OS). Avoid XTTS-v2 (CPML non-commercial), F5-TTS weights (CC-BY-NC). | todo |
+| AI-008 | Voice changer (speech-to-speech) | Convert a voice into a character/custom voice. | C | P2 | Voice conversion preserving prosody. | RVC (MIT · training ~10–30 min per voice on M1, inference RT); OpenVoice tone converter (MIT · zero-shot). Character voices: DSP presets (AU-011). | todo |
+| AI-009 | Noise reduction (audio) | One-click denoise. | Y | P0 | Speech denoise, RT. | RNNoise (BSD-3 · ~1% CPU RT); DeepFilterNet3 (MIT/Apache · RT on CPU, better quality). | todo |
+| AI-010 | Enhance voice | Studio-quality voice. | Y | P1 | Denoise + dereverb + bandwidth extension. | DeepFilterNet3 + DSP chain; Resemble-Enhance (MIT · offline, ~0.5x RT GPU). | todo |
+| AI-011 | Vocal isolation / stem separation | Keep/remove vocals, multi-stem. | Y | P0 | Music source separation. | HTDemucs / htdemucs_ft / htdemucs_6s (MIT · ~80 MB; ~2–4x RT on M1 GPU via MLX/ONNX/CoreML ports); Open-Unmix (MIT · lighter); MDX-Net UVR models (MIT, check per model). | todo |
+| AI-012 | Auto reframe | Re-crop to a new ratio keeping the subject, camera moving speed (slow/stable/flexible), stabilization. | Y | P1 | Saliency/face/person detection per frame + smoothed crop path optimization. | Apple Vision saliency + face/human rectangles (OS · RT); BlazeFace/YuNet (Apache-2.0); RT-DETR/YOLOX (Apache-2.0). Avoid Ultralytics YOLO (AGPL). Crop path = L1-optimal camera path (no model). | todo |
+| AI-013 | Camera tracking (subject lock) | "Camera tracking": select body/face/hand/custom → video re-centered on the subject ("Lens lock"), keep face/body size, fit/blur canvas. | Y | P1 | Detection + tracking + inverse transform with smoothing. | Apple Vision face/body/hand pose + VNTrackObjectRequest (OS); MediaPipe hands/pose (Apache-2.0). | todo |
+| AI-014 | Motion tracking (object → sticker) | Stickers/text follow a tracked object. | N | P0 | Single-object tracker with scale. | Apple VNTrackObjectRequest (OS · RT); OpenCV CSRT/KCF (Apache-2.0 · RT CPU); NanoTrack/LightTrack ONNX (Apache-2.0). | todo |
+| AI-015 | Background removal (video) | Auto person cutout. | Y | P0 | Per-frame person matting, temporally stable. | Apple Vision VNGeneratePersonSegmentationRequest (OS · RT, quality levels); MODNet (Apache-2.0 · ~10 ms/frame 512px GPU); RVM (GPL-3 · best temporal, license issue); BiRefNet (MIT · slow, stills); RMBG-2.0 (CC-BY-NC, avoid). | todo |
+| AI-016 | Custom cutout / smart brush | Any object via brush/click + propagation. | Y | P1 | Promptable segmentation + video propagation. | SAM 2.1 tiny/small (Apache-2.0 · tiny ~40 MB, ~50–100 ms/frame M1 GPU); EfficientSAM / MobileSAM (Apache-2.0); Apple VNGenerateForegroundInstanceMaskRequest (OS, stills). | todo |
+| AI-017 | Retouch (face/body) | Beauty, reshape, makeup. | N/Y | P1 | Face landmarks, skin seg, body pose, RT. | Apple Vision face landmarks + body pose (OS); MediaPipe Face Mesh / Pose / selfie-multiclass seg (Apache-2.0 · RT). | todo |
+| AI-018 | Smooth slow-mo / optical flow | Frame interpolation for slow motion or fps up-conversion. | Y | P0 | Learned frame interpolation. | RIFE v4.x (MIT · ~30–60 ms/1080p frame on M1 GPU, ncnn/CoreML ports); FILM (Apache-2.0 · slower, better large motion); macOS 26 VTFrameRateConversion (OS · fast, ANE); fallback frame blending. | todo |
+| AI-019 | Transcript-based editing | Edit video by deleting text in the transcript, show/hide deleted, re-transcribe, mark as filler, rough cut. | Y | P1 | Word-level ASR timestamps → edit decision list, ripple cuts on the timeline. | Whisper word timestamps (+ optional WhisperX-style CTC alignment with wav2vec2 Apache/MIT models). | todo |
+| AI-020 | Remove filler words / pauses / repeats | Identify pauses (min duration), repeats, hesitations ("uh/um/euh"), delete in one click. | Y | P1 | Word timestamps + VAD + repetition detection + filler lexicon (FR: euh, ben, bah, du coup…; EN). | Silero VAD (MIT · tiny); Whisper (prompted to keep disfluencies) or a disfluency-aware model; local LLM for repeats. | todo |
+| AI-021 | Enhance quality / super resolution / AI ultra HD export | Upscale to 2K/4K, sharpen, "AI ultra HD" on export. | Y | P1 | Video super-resolution, temporally stable. | Real-ESRGAN / realesr-animevideov3 / realesr-general-x4v3 (BSD-3 · ~0.2–1 s/1080p frame on M1, offline); macOS 26 VTSuperResolutionScaler (OS · fast); SwinIR (Apache-2.0, slow). | todo |
+| AI-022 | Video denoise | Reduce image noise. | Y | P1 | Temporal video denoising. | VTTemporalNoiseFilter (macOS 26, OS); FastDVDnet (MIT · offline); GPU temporal NLM (no model). | todo |
+| AI-023 | Deflicker | Remove flicker (flashlight / time-lapse modes). | Y | P1 | Temporal brightness stabilization. | Classical algorithm (no model needed); optional learned deflicker (research, NC). | todo |
+| AI-024 | Relight | Virtual lighting. | Y | P1 | Monocular depth + normals, face mesh. | Depth Anything V2 Small (Apache-2.0 · ~25M, ~30 ms/frame 518px M1 GPU); Apple Depth Pro (Apple sample-code license, heavy); IC-Light (Apache-2.0, diffusion, stills only, heavy). | todo |
+| AI-025 | AI movement | Adds AI camera motion (Dynamic / Soft / Shake / Zoom presets, scale) to stills/clips. | Y | P1 | Smart Ken-Burns centered on salient content, optional 2.5D parallax. | Saliency (Apple Vision) + Depth Anything V2 → parallax mesh shader. No generative model needed. | todo |
+| AI-026 | Auto scene split | Split by scene/shot. | N | P1 | Shot boundary detection. | TransNetV2 (MIT · ~fast on CPU/GPU); classical histogram/edge-change detector (PySceneDetect algorithm, BSD-3). | todo |
+| AI-027 | Beat detection | Auto beats. | N | P1 | Beat/downbeat tracking. | beat_this (MIT · small CNN/transformer, offline fast); own spectral-flux + DP tracker (no model). | todo |
+| AI-028 | Smart media search | Search by scene content and dialog. | N | P1 | Image-text embeddings + transcript index. | SigLIP / SigLIP2 base (Apache-2.0 · ~400 MB, ~10 ms/image ANE); OpenCLIP ViT-B/32 (MIT); Apple VNGenerateImageFeaturePrintRequest + VNClassifyImageRequest (OS); Whisper transcripts + SQLite FTS. | todo |
+| AI-029 | AI writer (smart writer / scripts) | Generate scripts from a topic (ads, inspirational, meme, romantic…), make longer/shorter. | C | P1 | Local text generation FR/EN. | Qwen3-4B / Qwen2.5-3B-Instruct (Apache-2.0 · Q4 ~2–2.5 GB, 15–30 tok/s M1); Llama 3.2 3B (Llama community license); Mistral/Ministral 3B–8B (Apache for 7B); Apple Foundation Models (macOS 26, OS · ~3B, free, tool-calling). | todo |
+| AI-030 | Script to video / AI storyboard | Script (typed, generated or from a link) → video with matched media (stock), TTS voiceover, captions, music. | C | P2 | Script → scenes → media retrieval → TTS → auto-assembly. | Local: LLM scene breakdown + SigLIP retrieval over the user's own library + optional local image generation (SD) for missing shots + Kokoro TTS + auto captions. Stock footage N/A-local (no catalog). Partial-local. | todo |
+| AI-031 | Long video to shorts / AI clipper | Find highlight clips in long talking videos (podcast, interview, product demo), duration buckets, editing style (chronological, story-driven, speech-based), auto reframe to 9:16, captions. | C | P1 | Transcript + LLM highlight scoring + scene cuts + reframe. | Whisper + local LLM (Qwen3-4B, 8 GB OK with 32k context chunks) + AI-012 reframe. ~minutes per hour of video. | todo |
+| AI-032 | AI packaging (auto edit polish) | One click: intro/title, chapter transitions by topic, captions with keyword highlight, matching SFX, style (ads/learning/tech/lifestyle). | C | P2 | Transcript topic segmentation + template selection. | Local LLM + our template/SFX libraries. | todo |
+| AI-033 | Auto B-roll | Insert supplementary footage matching speech (stock or web search). | C | P2 | Keyword extraction + media retrieval. | Local: SigLIP search over the user's library / our procedural graphics. Web/stock N/A-local. | todo |
+| AI-034 | Lip sync | Re-sync lips to new audio (Lite / Expressive modes), used by video translator & overdub. | C | P2 | Audio-driven mouth region generation. | MuseTalk 1.5 (MIT code+weights, needs face det deps · ~RT on NVIDIA, slow on M1); LatentSync (Apache-2.0 · diffusion, very slow on 8 GB). Avoid Wav2Lip (NC). Mark experimental. | todo |
+| AI-035 | Video translator | Translate speech with your voice + lip sync (5–300 s). | C | P2 | ASR → MT → cloned TTS → timing fit → lip sync. | Pipeline of AI-001 + AI-003 + AI-007 + AI-034. Feasible offline, slow (several × RT). | todo |
+| AI-036 | AI avatars (digital humans) | Avatar library, photo-to-avatar, video-to-avatar, talking avatar reading a script, AI dialogue scene. | C | P2 | Talking-head generation from a photo/video + TTS. | LivePortrait (MIT code, InsightFace/landmark deps NC, check); SadTalker (Apache-2.0 code; check weights); EchoMimic (Apache-2.0, heavy). 8 GB: N/A-local for real-time quality; offline experimental only. Substitute: animated 2D character puppets (procedural) + TTS + mouth-shape (viseme) animation. | todo |
+| AI-037 | AI image generation | "AI image" / "Create image": text→image, reference image (composition/pose/edge/depth/face/style), aspect ratio, models (Seedream, GPT Image, Nano Banana, Flux, Midjourney…). | C | P2 | Text-to-image diffusion. | Apple ml-stable-diffusion CoreML: SD 1.5 / SDXL-base 6-bit (CreativeML OpenRAIL-M / ++ · SD1.5 512px ~5–10 s on M1; SDXL ~40–60 s, tight on 8 GB); SDXL-Lightning 4-step (OpenRAIL++ · ~10 s); FLUX.1-schnell (Apache-2.0, 12B · needs ≥16 GB with 4-bit, slow); SD 3.5 Medium (Stability Community License). Apple Image Playground (macOS 15.2+, limited styles). | todo |
+| AI-038 | AI video generation | Text→video, image→video, multiframes, omni reference, AI extend (Seedance, Veo, Sora, Kling, Vidu, Hailuo, Wan…). | C | N/A-local | Video diffusion. | Wan 2.1/2.2 1.3B–5B (Apache-2.0) and LTX-Video 2B (LTXV open weights license) need far more memory/time than an 8 GB Air. Mark N/A-local on the base target, "optional heavy model" on 16 GB+ Macs. Substitute: image→motion via AI-025 (2.5D parallax) and RIFE morphs. | todo |
+| AI-039 | AI edit (prompt-based image/video edit) | "Describe what to add, remove, or change" on images/videos, brush select area. | C | P2 | Instruction-based editing. | Images: SD inpainting + LaMa (Apache-2.0) for removal; InstructPix2Pix (MIT code, SD weights OpenRAIL). Video: N/A-local except removal (AI-041). | todo |
+| AI-040 | AI expand (outpainting) | Expand canvas around an image/clip with generated content (prompt optional). | C | P2 | Outpainting. | SD 1.5/SDXL inpaint (OpenRAIL) for images; video outpaint N/A-local → substitute: blurred/mirrored/stretched fill (CV-002) + per-frame LaMa for static shots. | todo |
+| AI-041 | AI remove (object removal) | Brush over objects → removed from images or short videos. | C | P1 | Inpainting, temporally consistent for video. | LaMa / big-LaMa (Apache-2.0 · ~0.2 s/512px image M1); MI-GAN (MIT · faster, lighter); video: flow-guided propagation + LaMa per frame (ProPainter/E2FGVI are NC). Offline job. | todo |
+| AI-042 | AI remix (replace region by prompt) | Brush area + prompt to change it (e.g. hair to brown, add a rainbow). | C | P2 | Masked diffusion edit. | SD inpainting for stills. Video N/A-local. | todo |
+| AI-043 | AI stickers | Prompt → sticker with transparent background. | C | P2 | T2I + cutout. | SD 1.5 (OpenRAIL) + BiRefNet (MIT) / Apple foreground mask. | todo |
+| AI-044 | AI text effects | Prompt → text style. | C | P2 | — | Substitute: local LLM chooses parameters of the procedural text-style engine (instant, deterministic). | todo |
+| AI-045 | AI fonts | Prompt → font. | C | N/A-local | Font synthesis. | No practical on-device model. Substitute: curated OFL fonts + procedural styling. | todo |
+| AI-046 | AI music | Prompt → music. | C | P2 | Music generation. | ACE-Step (Apache-2.0 · 3.5B, ~16 GB recommended); procedural music engine (no model, 8 GB-friendly); avoid MusicGen weights (CC-BY-NC). | todo |
+| AI-047 | AI sound effects / video-to-audio | Generate SFX matching a clip. | C | P2 | Video understanding + audio generation. | Stable Audio Open Small (Stability Community License · ~341M, seconds per clip); MMAudio (MIT code, weights check); VLM caption (SmolVLM2 Apache-2.0) → retrieval from our SFX pack (cheap). | todo |
+| AI-048 | EditPilot (editing agent) | Chat assistant: "turn my clips into a 1 min video", "remove filler words", "add captions and highlight keywords", "add matching music"; @-reference clips; task list; recommendations of effects/filters/transitions/stickers/music/voices. | C | P1 | LLM with tool calling over the project/timeline API, plan/execute/undo. | Apple Foundation Models with guided generation + tool calling (macOS 26, OS · free, ~3B); Qwen3-4B (Apache-2.0, strong tool calling, Q4 ~2.5 GB); Llama 3.2 3B. Every tool action is an undoable command. | todo |
+| AI-049 | Interactive edit (VLM on canvas) | "Select an area in the preview, then tell AI what to change", "Smart recognition" of screen elements. | C | P2 | Vision-language grounding + edit tools. | SmolVLM2 (Apache-2.0 · 256M–2.2B), Moondream 2 (Apache-2.0 · 1.9B), Qwen2.5-VL-3B (Qwen research license, check) → maps to our tools (masks, effects, removal). | todo |
+| AI-050 | AI emojis | Auto emojis for captions. | Y? | P2 | Text → emoji. | Local LLM or emoji keyword lexicon (CLDR annotations, Unicode license). | todo |
+| AI-051 | Face cover stickers / mosaic | Auto-detect and track faces, apply mosaic/blur/sticker. | ? | P1 | Multi-face detection + tracking + ID. | Apple Vision face rects + tracking (OS); YuNet (Apache-2.0); SORT-style association (no model). | todo |
+| AI-052 | Eye contact | Gaze correction. | Y | P2 | Gaze redirection. | No clean permissive model. Experimental via landmark-guided eye warp. P2. | todo |
+| AI-053 | AI stylize (video) | Turn clips into anime/comic/painting styles. | C | P2 | Temporally stable stylization. | Feed-forward style nets + flow-based temporal consistency (RAFT BSD-3 flow / VTOpticalFlow); NPR shader fallback (instant). | todo |
+| AI-054 | Hair change | Hair color/style by prompt (images). | C | P2 | Hair segmentation + recolor / inpaint. | MediaPipe hair segmenter (Apache-2.0) + HSL recolor (cheap); style N/A-local on 8 GB. | todo |
+| AI-055 | Color correction / color match | One-click color. | Y | P1 | Statistics-based. | No ML needed (CL-007/CL-009). | todo |
+| AI-056 | Smart crop of templates / "Crop videos to match the template" | Fit user media into template slots smartly. | N | P2 | Saliency crop. | Apple Vision saliency (OS). | todo |
+| AI-057 | AI fashion model / product video | Fashion model images, product promotion videos (marketing). | C | N/A-local | Generative virtual try-on. | N/A-local (heavy generative, niche). | todo |
+| AI-058 | Photo acting / AI drama (Pippit) | Animate photos, AI short dramas. | C | N/A-local | Generative video. | N/A-local; substitute AI-025. | todo |
+| AI-059 | Content-aware stabilization | Stabilize (CV-013). | N | P0 | — | Apple Vision homographic registration (OS); OpenCV feature tracking + RANSAC (Apache-2.0). | todo |
+| AI-060 | Invisible watermark / AI label | "AI watermark" on AI-generated content. | N | P2 | C2PA-style metadata label for AI-generated media. | c2pa-rs (MIT/Apache) for content credentials (optional). | todo |
+
+## 17. Templates (TP)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| TP-001 | Video templates | Home → Templates: browse/search community templates (ratio, clip count, duration), preview, "Use template" → replace media slots (auto-fill, crop to fit), edit texts, export. | N/Y | P1 | Template format = project with replaceable slots + locked layers. Local: ship our own template pack (procedurally authored), user-saved templates. Community feed N/A-local. | todo |
+| TP-002 | Template editor (unlock & edit) | "Unlock the template to edit it" → becomes a normal project. | N | P1 | Template → project conversion. | todo |
+| TP-003 | Save project as template | "Post as template": choose replaceable clips, keep original sound, cover. | N | P2 | Local "Save as template" (no posting). | todo |
+| TP-004 | Text templates | See TX-013. | N/Y | P0 | — | todo |
+| TP-005 | Caption templates | See TX-021. | N/Y | P0 | — | todo |
+| TP-006 | Thumbnail/cover templates | "Thumbnail Templates" for covers. | N/Y | P2 | Cover-editor templates. | todo |
+| TP-007 | Compound clip presets | Save reusable clip groups as presets (≤99). | N | P1 | Preset = serialized subgraph. | todo |
+| TP-008 | Business/marketing templates | Business templates, brand kit, product ads. | Y | N/A-local | Brand kit substitute: local "Brand" folder of logos, colors and fonts (P2). | todo |
+| TP-009 | Template recording | "Set as recording template" (shooting script). | N | P2 | — | todo |
+
+## 18. Export (EX)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| EX-001 | Export dialog | Title/name, export path ("Export to"), cover preview + "Edit cover", estimated size and duration, toggles for Video / Audio / Captions / GIF sections. | N | P0 | Export settings model, size estimate from bitrate. | todo |
+| EX-002 | Resolution | 480p, 720p, 1080p, 2K, 4K, 8K (pc_export_8k). Custom canvas sizes must be multiples of 2/4. | N (4K+ Y?) | P0 | Encoder support up to 8K (HEVC hardware on Apple Silicon handles 8K on M1? partially; ProRes/HEVC software fallback). | todo |
+| EX-003 | Bitrate | Lower / Recommended / Higher / Custom; rate control CBR / VBR / ABR. | N | P0 | Encoder rate-control exposure (VideoToolbox: average bitrate, data-rate limits, quality). | todo |
+| EX-004 | Codec | H.264, HEVC (H.265), HEVC with alpha, Apple ProRes (incl. ProRes 4444 alpha), AV1 on supported HW. "Most common compression method" vs "Efficient compression, saving space". | N | P0 | Hardware encoders (VideoToolbox H.264/HEVC/ProRes on Apple Silicon, ProRes engines on M1 Pro+), software fallback (x264 GPL! / OpenH264 BSD / SVT-AV1 BSD). | todo |
+| EX-005 | Format / container | MP4, MOV. | N | P0 | MP4/MOV muxer with proper color tags (nclx/colr), fast-start. | todo |
+| EX-006 | Frame rate | 24, 25, 29.97, 30, 50, 59.94, 60 fps. | N | P0 | Frame-rate conversion at render (nearest/blend/optical flow). | todo |
+| EX-007 | Color space & depth | SDR Rec.709, HDR Rec.2020 HLG / PQ; 8-bit / 10-bit ("10-bit recommended for HDR"). | N? | P1 | 10-bit HEVC Main10 encode, HDR metadata (mastering display, CLL), HLG/PQ tags. | todo |
+| EX-008 | Audio export settings | Format (MP3/WAV/AAC/FLAC), bitrate 192/256/320 kbps, sample rate, bits. | N | P0 | Audio encoders. | todo |
+| EX-009 | Export audio only | Separate "Export audio" toggle. | N | P0 | — | todo |
+| EX-010 | Export captions | SRT / TXT. | N | P0 | — | todo |
+| EX-011 | Export GIF | "Export GIF" 320p / 640p. "GIF maker". | N | P1 | Palette quantization (e.g. gifski-like libimagequant, GPL! → use own median-cut/Floyd–Steinberg or a BSD quantizer). | todo |
+| EX-012 | Export still frame | "Export still frame(s)" (PNG/JPEG at the playhead). | N | P1 | Frame render + image encoder. | todo |
+| EX-013 | Export selected clips | "Export clips": export each selected clip separately ("Include all changes when exporting"). | N | P1 | Batch range export. | todo |
+| EX-014 | Export range | Export in/out range. | N | P1 | — | todo |
+| EX-015 | Background export / queue | Export runs with progress, keep editing / cancel ("Stop exporting your video?"), notification sound on finish. | N | P0 | Export in a separate pipeline/process, priority vs preview, cancel. | todo |
+| EX-016 | Hardware acceleration toggles | Settings: "Speed up hardware decoding", "Speed up hardware encoding", "Faster exporting, but may have color differences". | N | P0 | HW/SW encoder selection with identical color results. | todo |
+| EX-017 | Watermark | Free tier: watermark or Pro prompt ("Made with CapCut Desktop", position corners). | Y | N/A | No watermark in Montage (all features free locally). Optional user watermark/logo overlay (P2). | todo |
+| EX-018 | Super resolution / AI ultra HD on export | Upscale at export to the set resolution. | Y | P2 | See AI-021. | todo |
+| EX-019 | Export with/without cover | Prepend cover frame. | N | P2 | See TL-045. | todo |
+| EX-020 | Export timeline (XML) | "Export timeline" (to other NLEs). | ? | P2 | FCPXML writer. | todo |
+| EX-021 | Share to platforms | Post to TikTok/YouTube after export. | N | N/A-local | No network. "Open folder" / "Share" via macOS share sheet only (local action, optional). | todo |
+| EX-022 | Export validation | Missing/damaged media check before export ("Link media"), not enough storage. | N | P0 | Preflight. | todo |
+| EX-023 | Deterministic output | Exported frames identical to preview at the same quality. | N | P0 | Same render graph for preview and export, fixed seeds for particles/noise. | todo |
+| EX-024 | Alpha export | ProRes 4444 / HEVC with alpha ("Supports alpha channel. Large export file"). | N? | P1 | Alpha-preserving composite + alpha-capable encoders. | todo |
+| EX-025 | Motion blur at export | "Motion blur" export function. | Y | P2 | See CV-014. | todo |
+
+## 19. Project management (PM)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| PM-001 | Home screen / projects list | Home: "Create project" big button, recent projects grid/list with thumbnail, name, duration, size, last modified. Sort, search project names, multi-select delete, rename, duplicate, open folder. | N | P0 | Project index (local DB), thumbnails. | todo |
+| PM-002 | New project settings | "Project settings": name, save path, ratio, resolution, frame rate, color space, proxy, "Arrange layers" mode. Settings can change later. | N | P0 | — | todo |
+| PM-003 | Auto-save | Continuous autosave ("Auto saved: hh:mm"), save on exit. | N | P0 | Crash-safe atomic writes (journal), debounced. | todo |
+| PM-004 | Crash recovery | "CapCut quit unexpectedly" → "Do you want to recover the unsaved project?", "Recover project". | N | P0 | Write-ahead journal, recovery flow. | todo |
+| PM-005 | Project folders | Folders on the home screen, move projects between folders. | N | P1 | — | todo |
+| PM-006 | Trash / recently deleted | "Trash" / "Recents" deleted projects with restore. | N | P1 | Soft-delete. | todo |
+| PM-007 | Duplicate project | "Duplicate", "Copy to project". | N | P0 | Deep copy of the project file (media referenced). | todo |
+| PM-008 | Import/export project package | Move a project with its media to another machine. | ? | P1 | Archive format (project + media + presets). | todo |
+| PM-009 | Project save location | "Project save path" setting (change only with projects closed), external drive warnings. | N | P0 | — | todo |
+| PM-010 | Cache management | "Cache management": media cache, render cache, proxy cache sizes, auto delete cache older than N days, clear cache. | N | P1 | Cache accounting & GC. | todo |
+| PM-011 | Cloud backup / spaces / teams | Cloud drafts, backup, collaboration, comments/review, team spaces. | Y | N/A-local | Cloud only. Excluded (local-only brief). | todo |
+| PM-012 | Project details | "Details": draft parameters, resolution, fps, size. | N | P2 | — | todo |
+| PM-013 | Open project file directly | Double-click a project file in Finder. | N | P1 | Document type registration. | todo |
+| PM-014 | Multiple projects / windows | One project open at a time in CapCut (dialog when opening another). We can allow several windows (P2). | N | P2 | — | todo |
+| PM-015 | Project versioning / schema migration | "Draft Schema Version", "Project needs to be updated". | N | P0 | Versioned project schema + migrations. | todo |
+| PM-016 | Tutorials & onboarding | Walkthrough tooltips, "What's new", feature tips. | N | P2 | Localized onboarding content. | todo |
+
+## 20. Settings / shortcuts (SE)
+
+| ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
+|---|---|---|---|---|---|---|
+| SE-001 | Settings dialog | Tabs: General (language, project path, import options), Performance (HW decode/encode, GPU UI rendering, proxy, playback quality, auto optimization), Projects/Cache, Shortcuts, Notifications, Version. | N | P0 | Settings store (versioned). | todo |
+| SE-002 | App language | Switch app language (restart required in CapCut). We need FR + EN, follow system by default. | N | P0 | Runtime-switchable i18n with plural rules (ICU MessageFormat). | todo |
+| SE-003 | Keyboard shortcuts editor | View/customize shortcuts, conflict detection ("already belongs to X, override?"), presets (CapCut / Premiere / Final Cut layouts), reset to defaults. | N | P0 | Keymap system with chords/modifiers, conflict resolution. | todo |
+| SE-004 | Default shortcuts | Space play/pause, Cmd-B split, Q/W delete left/right, I/O in/out, M marker, Cmd-Z/Shift-Cmd-Z, Cmd-C/V/X/D, ←/→ frame step, Shift+←/→ 10 frames, ↑/↓ prev/next cut, J/K/L shuttle, Cmd +/- zoom timeline, Shift-Z fit, A/B select/split mode, N snapping, Cmd-E export, Cmd-G group/compound, Alt-drag duplicate, Cmd-R record screen, F fullscreen… | N | P0 | — | todo |
+| SE-005 | Layouts | Layout presets: Default, Media first, Player first, Timeline first, Attributes (inspector) first, Vertical layout (for 9:16), Custom layouts 1–3, reset layout. Resizable splitters. | N | P1 | Dockable/resizable panel framework, layout persistence. | todo |
+| SE-006 | Detachable panels / dual screen | "Detach player / media panel / editing panel / timeline" into separate windows ("Separate window, Dual screen"). | N | P1 | Multi-window with shared state, GPU context sharing. | todo |
+| SE-007 | Default image duration, default transition duration | General editing defaults. | N | P1 | — | todo |
+| SE-008 | Frame rate / timecode style | Time code display, drop-frame option. | N | P1 | — | todo |
+| SE-009 | Performance settings | HW decode, HW encode, "Render interface with GPU", proxy mode, preview quality, "Performance priority vs Quality". | N | P0 | — | todo |
+| SE-010 | Import options | "Import method" (copy to project or link), "Show media from subprojects". | N | P1 | — | todo |
+| SE-011 | Audio settings | Audio output device, input device, scrub audio. | N | P1 | — | todo |
+| SE-012 | Notifications | Export-finished sound and system notification. | N | P2 | OS notifications. | todo |
+| SE-013 | Theme | CapCut desktop is dark-only. We follow dark by default, light optional (P2). | N | P2 | Theme tokens. | todo |
+| SE-014 | Environment check / GPU diagnostics | "Environment testing", graphics driver checks, "Your computer can run CapCut smoothly". | N | P2 | Hardware capability probe (GPU family, HW codec support, RAM). | todo |
+| SE-015 | Check for updates | Updater (Sparkle on macOS). | N | P2 | Must stay offline by default (manual updates). | todo |
+| SE-016 | Mouse settings | Scroll behavior for the timeline (scroll = horizontal/vertical, zoom modifiers). | N | P1 | Input mapping. | todo |
+| SE-017 | Accessibility | Keyboard navigation, VoiceOver labels (CapCut is weak here; we should do better). | N | P2 | Accessibility tree for custom-drawn widgets. | todo |
+| SE-018 | About / legal / logs | About, legal notices (open-source licenses list), "Package logs & drafts" for support. | N | P1 | License attribution generator (required for MIT/Apache/OFL assets). | todo |
+
+---
+
+## 21. Preset content: what CapCut ships and how we produce ours
+
+CapCut's preset libraries are **server-delivered, region-dependent and constantly rotated**. There is no authoritative public count, and the app bundle contains essentially none of them. The figures below are **order-of-magnitude estimates** from browsing the desktop panels, CapCut marketing ("thousands of trending effects, transitions and stickers", "12M+ royalty-free assets" for Pro) and reviews. Treat them as targets for *perceived richness*, not exact parity. We must never ship CapCut's assets. Everything below is generated by us or taken from permissively licensed sources.
+
+| Library | CapCut (est., 2025-26) | Our target v1 → v2 | How we produce it ourselves (no third-party assets we don't own) |
+|---|---|---|---|
+| Filters | ~400–600 across ~10 categories (≈30–40 % Pro) | 80 → 200 | **Parametric grade graph** (temperature/tint, curves, split-toning, HSL shifts, channel mixer, fade, grain, vignette, halation/bloom) → each preset is a JSON parameter set, baked at runtime to a 33³ 3D LUT. Film-emulation looks authored by us (approximate characteristic curves + crosstalk matrices). Generator script renders thumbnails on a neutral test image that we own. Users can import .cube/.3dl LUTs. |
+| Adjustment params | ~16 basic + HSL (8×3) + curves (4) + 2 wheel sets | Full parity | Shaders (not content). |
+| Video effects | ~1,000–1,500 (incl. Pro) | 120 → 300 | **Shader primitives × parameter presets**: ~40 base shaders (blur family, glitch/RGB split, VHS/CRT, pixelate/mosaic, halftone, posterize/toon/Kuwahara, film grain/dust/scratches, light leaks (procedural noise gradients), lens flare (procedural), bokeh, zoom/shake/punch, mirror/kaleidoscope/multi-screen, wave/ripple/twist, chromatic aberration, vignette, flash/strobe, letterbox/frames, color cycling, particles (snow/rain/confetti/hearts/sparkles/fireworks)). Each base yields 3–10 named presets via parameters + keyframed animation. Deterministic seeds. |
+| Body effects | ~200–300 | 20 → 60 | Segmentation-driven shaders: outline/neon edge, glow aura, afterimage/echo trail, clone/split-self, color-pop (subject in color, BG in B&W), background blur/replace, X-ray/negative subject, particles emitted from the body contour. |
+| Transitions | ~500–800 (≈ half Pro) | 60 → 200 | Two-input transition shaders. **gl-transitions** collection (MIT license, ~80 transitions) is a legitimate starting point (keep the license notice). Plus our own: zoom-in/out punch, whip pan with motion blur, spin, slide/push/wipe variants (8 directions), shape masks (circle/heart/star/diamond iris), luma-matte wipes from procedurally generated gradients/noise, glitch, light-leak flash, film burn, blur dissolve, morph (optical flow), split-screen slides. Parameter variants (direction, softness, color) ×3–4 each. |
+| Text effects (WordArt styles) | ~800–1,500 | 100 → 300 | Procedural multi-layer text style engine (fill: solid/gradient/texture-noise/metal/chrome; up to 3 strokes; inner/outer shadow; glow; bevel/3D extrude; background label shapes). Presets = parameter sets, partially auto-generated (palette generator × style archetypes) then curated. |
+| Text templates (animated titles) | several thousand | 60 → 200 | Template DSL (layers + keyframes + text slots + shapes + our Lottie). Authored in-house by archetype: lower thirds, titles, subscribe/like CTA, chapter cards, quotes, price tags, countdowns, callouts, social handles, end screens. Localized FR/EN sample text. |
+| Text animations (In/Out/Loop) | ~200 (≈70 in, ≈70 out, ≈60 loop) | 60 → 120 | Per-glyph/word/line animation presets generated from a combinatorial space: {fade, slide ×4 dir, scale/pop, rotate, blur, typewriter, wave, bounce, elastic, flicker, glitch, 3D flip, letter-spacing, color sweep} × {stagger by char/word/line, order fwd/rev/random/center} × easing curves. |
+| Video animations (In/Out/Combo) | ~150 (≈50/50/50) | 40 → 100 | Transform/opacity/blur keyframe presets (zoom, spin, slide, swing, shake, bounce, flip, wobble) with duration-relative easing. Same generator as text. |
+| Caption templates | ~300–600 | 30 → 80 | Word-timed karaoke styles (spoken/unspoken states, keyword emphasis, background highlight, pop-in per word), built on the text-style engine. |
+| Stickers | tens of thousands + GIPHY | 300 → 1,000 | (a) **Emoji**: Apple Color Emoji at runtime on macOS (system font, not redistributed), Noto Emoji (OFL) or Twemoji (CC-BY 4.0) for cross-platform. (b) Procedural vector stickers: arrows, callouts, speech bubbles, badges, progress bars, frames, doodles, underline/circle scribbles, sparkles, social-like UI elements drawn generically (no brand logos). (c) Lottie animations authored in-house (pop, bounce, draw-on). (d) Optional OpenMoji (CC-BY-SA: share-alike applies to the artwork only, keep separate). |
+| Shapes | ~10 basic + custom draw | Parity | Vector primitives. |
+| Fonts | ~300–500 cloud fonts + system | 60 → 150 | **SIL OFL** fonts (Google Fonts catalog) bundled or downloaded at install time only (no runtime network): OFL permits bundling with attribution. Must include fonts with full French diacritics coverage. |
+| Music | large licensed catalog | 30 → 100 tracks | No licensed catalog. Options: (1) user's own music folder; (2) **procedural music engine** (genre templates: lo-fi, corporate upbeat, cinematic, hip-hop, acoustic; chord progressions + synthesized/sampled instruments from CC0 samples); (3) optional on-device AI music (AU-031) on high-RAM Macs; (4) CC0 tracks only. |
+| Sound effects | ~10,000+ | 150 → 500 | **Synthesized SFX** (whoosh, swish, riser, downlifter, impact/boom, pop, click, beep, ding, glitch, typing, camera shutter, notification, cartoon boing) generated offline by our DSP scripts and rendered to files. Plus CC0 recordings (e.g. Freesound items explicitly CC0, keep a manifest). Avoid "royalty-free but no redistribution" packs. |
+| Voice filters / characters | ~30 filters, ~40 characters | 25 → 40 | DSP chains (AU-011) + voice-conversion targets created from our own recorded/consented voices or synthetic TTS voices. |
+| TTS voices | 100s (cloud) | FR ≥4, EN ≥6 local | Kokoro/Piper/Chatterbox voices (check each voice's dataset license) + Apple system voices. |
+| Speed curve presets | 6 (Montage, Hero, Bullet, Jump cut, Flash in, Flash out) + custom | 6 + custom | Bezier speed curves (trivial). |
+| Blend modes | 11 | 11 → 16 (+ Lighten, Difference, Exclusion, Hue, Color, Luminosity) | Shaders. |
+| Mask shapes | 7 (Linear, Mirror, Circle, Rectangle, Heart, Star, Pen) | 7 | SDFs + bezier. |
+| Canvas patterns / backgrounds | ~50 | 30 | Procedural gradients, noise, geometric patterns. |
+| Templates (video) | very large community feed | 20 → 60 | In-house, built from our assets only. |
+
+**Content pipeline requirement (stack-relevant):** presets must be *data* (JSON/manifest + shader references), hot-reloadable, with **thumbnail/preview generation done by our own renderer at build time** (headless render of the same engine). That means the render engine must run headless/offscreen in CI.
+
+---
+
+## 22. On-device AI model summary (cross-platform view)
+
+| Capability | macOS-native option | Cross-platform option(s) | License caveats | Rough cost on M1 8 GB |
+|---|---|---|---|---|
+| ASR + word timestamps | SpeechAnalyzer/SpeechTranscriber (macOS 26), SFSpeechRecognizer on-device | whisper.cpp / WhisperKit, Parakeet-TDT (ONNX/MLX) | Whisper MIT; Parakeet CC-BY-4.0 (attribution) | turbo: 1 h audio ≈ 8–12 min; small: ≈ 4 min |
+| Translation | Translation framework (macOS 15+) | Opus-MT (Marian/CTranslate2), MADLAD-400, LLM | NLLB is NC → avoid | ms per sentence (Opus-MT CPU) |
+| TTS (FR/EN) | AVSpeechSynthesizer, Personal Voice | Kokoro-82M (ONNX), Piper (ONNX), Chatterbox | Check per-voice dataset licenses; Piper fork GPL-3 | Kokoro ≈ 5x RT CPU |
+| Voice cloning | Personal Voice (own voice only) | Chatterbox, OpenVoice v2 | XTTS/F5 NC → avoid | ≈ 1x RT GPU |
+| Denoise / enhance | Voice-processing I/O (live mic only) | RNNoise, DeepFilterNet3 | — | RT, <5 % CPU |
+| Stem separation | — | HTDemucs (PyTorch→ONNX/CoreML/MLX) | MIT | 3-min song ≈ 45–90 s |
+| Person segmentation (RT) | Vision person segmentation (fast/balanced/accurate) | MODNet, MediaPipe selfie (ONNX/TFLite) | RVM GPL-3; RMBG NC → avoid | 3–15 ms/frame at 512 px |
+| Promptable seg / VOS | Vision foreground instance mask (stills) | SAM 2.1 tiny, EfficientSAM, Cutie | Apache/MIT | 50–150 ms/frame |
+| Face/body landmarks | Vision face landmarks, body pose 2D/3D, hand pose | MediaPipe Face Mesh / Pose / Hands | Apache-2.0 | RT |
+| Tracking | VNTrackObjectRequest / rectangle tracking | OpenCV CSRT/KCF, NanoTrack | Apache-2.0 | RT |
+| Optical flow / interpolation | VTFrameRateConversion, VNGenerateOpticalFlowRequest | RIFE v4 (ncnn/ONNX/CoreML), FILM | MIT / Apache | RIFE ≈ 15–30 fps at 720p |
+| Super-resolution | VTSuperResolutionScaler (macOS 26) | Real-ESRGAN compact | BSD-3 | 1–5 fps at 1080p→4K |
+| Denoise (video) | VTTemporalNoiseFilter (macOS 26) | FastDVDnet, GPU NLM | MIT | 5–20 fps at 1080p |
+| Depth | (Depth Pro, Apple license) | Depth Anything V2 Small | Apache-2.0 (Small only; Base/Large are NC) | ≈ 30 ms/frame |
+| Inpainting / removal | — | LaMa, MI-GAN | Apache / MIT | 0.1–0.3 s/frame 512 px |
+| Image generation | ml-stable-diffusion (CoreML), Image Playground | SD 1.5 / SDXL (diffusers/MLX/ONNX) | OpenRAIL use restrictions; FLUX-schnell Apache (heavy) | SD1.5 ≈ 5–10 s/img |
+| LLM / agent | Foundation Models framework (macOS 26) | llama.cpp / MLX with Qwen3-4B, Llama 3.2 3B | Apache / Llama license | 15–30 tok/s, 2–2.5 GB RAM |
+| VLM | Foundation Models (image input, macOS 26.x) | SmolVLM2, Moondream 2 | Apache-2.0 | 1–3 s/image |
+| Image/text embeddings | Vision feature print | SigLIP2 / OpenCLIP | Apache / MIT | ≈ 10 ms/image |
+| Shot detection | — | TransNetV2 | MIT | ≫ RT |
+| Beat tracking | — | beat_this | MIT | ≫ RT |
+| Diarization | — | sherpa-onnx + pyannote seg-3.0 | MIT/Apache | ≈ 50x RT |
+| Music / SFX gen | — | ACE-Step, Stable Audio Open Small | Apache / Stability Community | heavy / seconds |
+
+**Memory policy on 8 GB:** never keep more than one "heavy" model (>500 MB) resident; load on demand, unload after the job; jobs run sequentially in a queue; prefer ANE/GPU-quantized variants (int8/4-bit). Models are installed via an "AI packs" manager (download once at setup or import a file; after that the app works fully offline). The brief says no network calls at runtime, so the pack install must be a separate, explicit, user-initiated step or come bundled.
+
+---
+
+## 23. Stack-sensitive requirements (the 15 that discriminate between stacks)
+
+1. **Real-time GPU compositor:** 4K/30 (target 60) preview of ≥8 stacked layers with per-layer transform, opacity, 11+ blend modes, masks, LUT/adjustments, 2–3 shader effects and a transition, on an M1 8 GB Air, with no frame drops at 1/2 preview res. Requires native Metal-class access (or a thin portable layer such as wgpu/Vulkan→MoltenVK) and **zero-copy decode→texture** (CVPixelBuffer/IOSurface ↔ GPU texture). Any stack that forces CPU readback or JS-side frame handling fails here.
+2. **Hardware codecs via the OS:** VideoToolbox decode/encode of H.264/HEVC (8/10-bit, HDR, alpha) and ProRes (incl. 4444), with an FFmpeg/libav fallback for exotic formats (LGPL dynamic linking). Frame-accurate decode with GOP-aware seeking and decoder pooling (many simultaneous streams for multicam / 9-up / overlays).
+3. **Instant scrubbing and hover preview:** <50 ms random-access frame display while dragging the playhead or hovering the timeline (preview axis), plus audio scrub. Needs multi-threaded decoder pools, thumbnail caches and proxy/remux support.
+4. **The 500-clip timeline UI:** 30+ tracks, filmstrips and waveforms at several LODs, smooth 60 fps zoom/scroll/drag with magnet, snapping and ripple, linked secondary clips, keyframe diamonds, live trim preview. Needs a custom GPU-drawn canvas with virtualization. Native widget trees or DOM-per-clip approaches tend to choke here.
+5. **On-device ML runtime breadth:** CoreML/ANE, Metal GPU (MLX/MPSGraph) and ONNX Runtime (CoreML EP), plus first-class access to Apple frameworks (Vision, Speech/SpeechAnalyzer, Translation, Foundation Models, VTFrameProcessor). Needs a stack with cheap native interop (Swift/ObjC/C++ FFI) and the ability to run models off the UI thread with shared GPU buffers (segmentation masks must feed the compositor without copies).
+6. **Real-time person segmentation in preview:** body effects, background removal preview and retouch run per frame at preview resolution (≥24 fps), with temporal smoothing, while the compositor keeps 30 fps. Requires ML → GPU texture zero-copy and scheduling across the ANE and GPU.
+7. **Pro audio engine:** sample-accurate multi-track mixing locked to the video clock, low-latency playback, real-time effect chains (EQ, reverb, pitch/formant, denoise RNNoise/DeepFilterNet), **time-stretch with pitch preservation at arbitrary and curve-varying speeds**, keyframed gain, loudness analysis (EBU R128), waveform peaks, recording with monitoring. Needs a real-time-safe audio thread (no GC pauses) in C/C++/Rust/Swift with lock-free messaging.
+8. **Time remapping and interpolation:** curve speed (integral solver), reverse, freeze, optical-flow slow-mo (RIFE/VTFrameRateConversion) and frame blending, rendered identically in preview and export.
+9. **Text engine:** full shaping (HarfBuzz/CoreText), bidi, CJK/Indic/Arabic, color emoji, variable fonts, rich-text ranges, multi-stroke/glow/shadow/3D extrude, text on path, per-glyph animation of thousands of glyphs, rendered sharply on the GPU at any scale (SDF/MSDF or vector tessellation) for 4K/8K export.
+10. **Color pipeline:** linear/working-space compositing, 10-bit and HDR (PQ/HLG) end to end, OCIO-like transforms, 3D LUT 65³, curves/HSL/wheels in GPU, real-time scopes via GPU compute, EDR display on macOS. Requires half/float textures throughout and precise control over color tags in decode/encode.
+11. **Universal keyframe system:** every parameter (transform, effects, masks, text, audio, color) is animatable with bezier graphs. Deterministic evaluation shared by the preview and export renderers, and also by the headless thumbnail generator for presets (CI).
+12. **Background job system:** queued offline processing (stabilize, cutout, interpolation, super-res, denoise, separation, ASR, reverse, proxies, pre-render), with progress, cancel, priorities, a persistent disk cache keyed by content hash, and resume after restart. The UI stays responsive during 100 % GPU/ANE jobs.
+13. **8 GB unified-memory discipline:** texture/frame pools, bounded decode queues, model load/unload, 4K export without swapping, total app footprint (UI + engine + one model) ideally <3 GB. Heavy runtimes with large baseline memory (e.g. bundled browser engines) eat into this budget.
+14. **Undo/redo + autosave + crash recovery on a large project graph:** structural sharing or command log, incremental saves of a project with thousands of objects in <50 ms, schema migrations.
+15. **Native desktop integration and i18n:** macOS menu bar, multi-window detachable panels and a second screen, Finder drag and drop, file permissions/sandbox bookmarks, screen recording (ScreenCaptureKit), camera/mic, notifications, FR/EN runtime switching with ICU plurals, accessibility for custom-drawn widgets. Cross-platform is a bonus: abstractions should not block Metal/VideoToolbox/Vision fast paths.
+16. *(Bonus)* **Interchange & formats:** FCPXML/XML import/export, SRT/LRC/ASS/VTT, .cube/.3dl, Lottie playback, GIF encoding, MP4/MOV muxing with correct HDR/color metadata.
+
+---
+
+## 24. Key UX traits (what makes CapCut desktop feel good)
+
+**Layout (default, dark UI, single window):**
+- **Top-left: asset panel** with a horizontal icon tab bar: **Media · Audio · Text · Stickers · Effects · Transitions · Captions · Filters · Adjustment · Templates** (plus "AI media/Gen AI" and "Library" in recent versions). Each tab has a left sub-nav: Local/Library/Favorites or categories like Trending/Pro/Basic, plus search. Assets are thumbnail grids that **animate on hover** (live preview of the effect/transition/text animation on the thumbnail) and show a download spinner, then a "+" button to add at the playhead. Drag and drop goes straight to the timeline or onto a clip.
+- **Top-center: player.** Timecode current/total, play button, ratio menu ("Original/16:9/9:16…"), quality/zoom, fullscreen. On-canvas manipulation with handles (scale/rotate) and **snap guide lines** (pink/cyan) to the center and edges. Double-click text to edit inline. Masks, crop and tracking boxes are edited directly on the canvas.
+- **Top-right: inspector ("Details/Properties")** that changes with the selection. For a video: tabs **Video (Basic, Remove BG, Mask, Retouch, Enhance) · Animation · Speed · Adjustment · Audio · AI tools**. For text: **Text (Basic, Bubble, Effects) · Animation · Tracking · Text-to-speech**. Every row has a **keyframe diamond** and a reset icon. Sliders show numeric fields. Pro features show a small Pro diamond badge. With nothing selected, it shows **project settings** (name, ratio, resolution, fps, color space, save path).
+- **Bottom: timeline** spanning the full width. Toolbar above it: select/split mode, undo/redo, split, delete left/right, delete, freeze, reverse, mirror, rotate, crop, markers, auto-reframe, AI tools; on the right: **main track magnet**, **auto snapping**, **linkage**, **preview axis** toggles, and a zoom slider. The **main track** is visually distinct (larger, cover button at its head). Overlays stack above it and audio below it. Text/stickers/effects/filters get colored clip types (text orange, effects purple, filters/adjust teal…). Clips show filmstrips, waveforms, speed badges and effect icons.
+- **Layouts menu:** Default / Media / Player / Timeline / Attributes / Vertical, plus 3 custom layouts. Panels can be resized or **detached to separate windows** (dual screen).
+
+**Interaction details that matter:**
+1. **Main track magnet + linkage:** you can't accidentally leave gaps in the main story, and titles/stickers/music stay attached to "their" shot when you reorder or trim. This is the single biggest "feels easy" factor compared to classic NLEs.
+2. **Everything is drag and drop, everything previews on hover:** assets, effects, transitions and templates preview before you commit. Hovering the timeline scrubs the player (preview axis).
+3. **One-click AI buttons right in the inspector** (Remove BG, Enhance voice, Reduce noise, Auto reframe, Stabilize, Captions), with **non-blocking progress** shown on the clip itself ("Applying… 34 %") while you keep editing. A queue handles multiple jobs, and each one is undoable.
+4. **Sane defaults:** a new text is centered with a readable style. Captions arrive pre-styled and line-broken. Transitions default to 0.5 s. Images default to 3–5 s. Freeze inserts 3 s.
+5. **Keyframes without ceremony:** one diamond click. Moving the playhead and changing a value auto-creates the next keyframe. Easing presets are one right-click away.
+6. **Smart snapping and guides** on both the timeline (playhead, edges, markers, beats) and the canvas (center, edges, other layers), with visible snap lines.
+7. **Instant feedback:** trimming shows the edge frame in the player, speed changes show the new duration live, and volume shows dB.
+8. **Batch "Apply to all":** transitions, caption styles, text style to all captions, canvas background to all, adjustments to all clips.
+9. **Undo history with named actions and toasts** ("Undo: Highlight") gives confidence to experiment.
+10. **Lag mitigation prompts:** when playback drops frames, CapCut proposes a lower preview resolution, proxies or transcoding with one click, and reminds you export quality is unaffected.
+11. **Context menus everywhere** (right-click on clip, gap, track header, keyframe, marker, media item) mirror the toolbar, with shortcuts shown.
+12. **Home screen** that gets you editing in one click ("Create project") and reopens recent work. Autosave means no "Save" button anxiety.
+13. **Dark, low-chrome visual style** with a cyan accent (#00C1CD-like). Dense but legible 12–13 px UI. Thumbnails dominate. Panels have subtle dividers.
+14. **Captions workflow:** generate, then edit text in a side list synced to the timeline. Fixing a word updates the clip. Styles apply to all at once.
+15. **Export dialog** is a single compact sheet with sensible presets (1080p/30/Recommended) and a size estimate. Export runs in the background with a progress overlay and an "open folder" / "export another" finish screen.
+
+**What we should do better than CapCut (low cost, high value):** fully offline, no login walls, no "Pro" badges, true French localization (CapCut's FR has gaps), VoiceOver accessibility, multiple projects open, deterministic exports, FCPXML export, and transparent job queue/cache management.
+
+---
+
+## 25. Counts
+
+| Area | Rows | Pro-gated rows (Y, Y?, C) |
+|---|---|---|
+| MI Media/import | 28 | 1 |
+| TL Timeline & editing | 47 | 2 |
+| PB Playback/preview | 16 | 0 |
+| CV Canvas & transform | 18 | 3 |
+| KF Keyframes & animation | 12 | 0 |
+| SP Speed | 10 | 3 |
+| TX Text & captions | 41 | 8 |
+| ST Stickers & shapes | 11 | 1 |
+| AU Audio | 40 | 13 |
+| FX Effects | 18 | 3 |
+| CL Filters & color | 28 | 10 |
+| TR Transitions | 7 | 1 |
+| MK Masks | 8 | 5 |
+| CK Chroma/cutout | 8 | 5 |
+| RT Retouch/body | 14 | 6 |
+| AI AI features | 60 | 50 |
+| TP Templates | 9 | 1 |
+| EX Export | 25 | 3 |
+| PM Project management | 16 | 1 |
+| SE Settings/shortcuts | 18 | 0 |
+| **Total** | **434** | **116** |
+
+(Counts of "Pro" include features whose *preset libraries* are partly Pro only when the feature itself is gated. Most libraries — filters, effects, transitions, text, stickers, animations — are mixed free/Pro and marked `N/Y`, which is not counted above. Several AI rows duplicate area rows by design.)
+
+## Sources
+
+- Installed CapCut 9.6.0 resources: `/Applications/CapCut.app/Contents/Resources/po/en.po`, `fr-FR.po`, `MixMode/MixMode.json`, `DefaultAdjustBundle/`, `models/`, `Font/`, `Info.plist` (inspected as data only, no code decompiled).
+- CapCut, "Why Should You Go for CapCut Pro PC?" — https://www.capcut.com/resource/capcut-pro-pc
+- CapCut Help, "Will CapCut Pro Benefits Be Updated?" — https://www.capcut.com/help/capcut-pro-benefits-updates
+- Primal Video, "CapCut Pro Review" — https://primalvideo.com/video-creation/editing/capcut-pro-review
+- BIGVU, "CapCut free vs Pro: what 2026's restructure gives you" — https://bigvu.tv/blog/capcut-free-vs-pro-what-2026s-restructure-gives-you/
+- Kapwing, "Best CapCut alternatives for PC, desktop and Mac in 2025" — https://kapwing.com/resources/best-capcut-alternatives-for-pc-desktop-and-mac-in-2025
+- Model licenses are as known at writing time. **Re-verify each license before integrating** (several popular models are non-commercial: RMBG, NLLB, XTTS, F5-TTS weights, MusicGen weights, Wav2Lip, ProPainter, CodeFormer, Depth Anything V2 Base/Large; GPL: RVM, vid.stab, aubio, Rubber Band, x264, Seed-VC; AGPL: Ultralytics, Essentia).
