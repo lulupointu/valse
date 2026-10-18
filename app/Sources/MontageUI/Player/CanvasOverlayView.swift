@@ -221,6 +221,17 @@ final class CanvasOverlayView: NSView {
             for (i, p) in pts.enumerated() where !(l.isText && i == 0) {
                 ctx.fillEllipse(in: CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8))
             }
+            // text: pill handles on the left / right edge midpoints (wrap width, UX.md §4.2)
+            if l.isText {
+                for (_, e) in CanvasHandles.edgePills(l.geometry) {
+                    let v = vp.toView(e)
+                    ctx.saveGState()
+                    ctx.translateBy(x: v.x, y: v.y); ctx.rotate(by: l.geometry.rotation)
+                    ctx.addPath(CGPath(roundedRect: CGRect(x: -3, y: -8, width: 6, height: 16), cornerWidth: 3, cornerHeight: 3, transform: nil))
+                    ctx.fillPath()
+                    ctx.restoreGState()
+                }
+            }
             // rotate button
             let rp = vp.toView(CanvasHandles.rotatePosition(l.geometry, viewScale: vp.scale))
             ctx.fillEllipse(in: CGRect(x: rp.x - 10, y: rp.y - 10, width: 20, height: 20))
@@ -565,6 +576,14 @@ final class CanvasOverlayView: NSView {
                 let r = CanvasDrag.rotated(r0, center: layer.geometry.center, start: start, current: p, snapping: snapping)
                 angleLabel = r
                 apply(id) { $0.setValue(.rotation, .scalar(r), at: local) }
+            case .edge:
+                let sx = abs(base.value(.scale, at: local)?.vec2?.x ?? 1)
+                let w = CanvasHandles.textBoxWidth(layer.geometry, dragTo: p, layerScale: sx, canvasWidth: canvas.width)
+                apply(id) { c in
+                    guard case .text(var t) = c.content else { return }
+                    t.boxWidth = w
+                    c.content = .text(t)
+                }
             case .delete:
                 break
             }
@@ -640,6 +659,7 @@ final class CanvasOverlayView: NSView {
             switch h {
             case .body: NSCursor.openHand.set()
             case .corner: NSCursor.crosshair.set()
+            case .edge: NSCursor.resizeLeftRight.set()
             case .rotate, .delete: NSCursor.pointingHand.set()
             }
             return

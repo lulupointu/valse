@@ -57,4 +57,15 @@ struct MaskHandlesTests {
         #expect(r == 90)
         #expect(MaskFrame.dragged(0.2, dy: -30) > 0.2 && MaskFrame.dragged(0.2, dy: 300) == 0)
     }
+
+    /// W2-7: text edge pills sit on the left/right midpoints and set the wrap width (fraction of the canvas width).
+    @Test func textEdgePillsSetBoxWidth() {
+        let g = geometry(half: Vec2(200, 50))
+        let pills = CanvasHandles.edgePills(g)
+        #expect(pills.map(\.0) == [1, 3] && abs(pills[0].1.x - 1160) < 1e-9)
+        #expect(CanvasHandles.hit(g, isText: true, at: pills[0].1, viewScale: 0.5) == .edge(1))
+        #expect(CanvasHandles.hit(g, isText: false, at: pills[0].1, viewScale: 0.5) == .body)
+        let w = CanvasHandles.textBoxWidth(g, dragTo: Vec2(960 + 480, 540), layerScale: 2, canvasWidth: 1920)
+        #expect(abs(w - 0.25) < 1e-9)
+    }
 }

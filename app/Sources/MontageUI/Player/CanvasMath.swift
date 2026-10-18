@@ -106,6 +106,8 @@ nonisolated enum CanvasHandle: Equatable {
     case corner(Int)   // 0 TL, 1 TR, 2 BL, 3 BR
     case rotate
     case delete
+    /// Text box edge pill (1 right, 3 left): changes the wrap width (`TextContent.boxWidth`, W2-7).
+    case edge(Int)
     case body
 }
 
@@ -130,8 +132,23 @@ nonisolated enum CanvasHandles {
         let corners = g.corners
         if isText, near(corners[0], deleteRadius) { return .delete }
         for (i, c) in corners.enumerated() where near(c, cornerRadius) { return .corner(i) }
+        if isText { for (i, e) in edgePills(g) where near(e, cornerRadius + 1) { return .edge(i) } }
         if g.contains(p) { return .body }
         return nil
+    }
+
+    /// Left / right edge midpoints of a text box (canvas pixels).
+    static func edgePills(_ g: LayerGeometry) -> [(Int, Vec2)] {
+        let d = Vec2(cos(g.rotation) * abs(g.halfSize.x), sin(g.rotation) * abs(g.halfSize.x))
+        return [(1, g.center + d), (3, g.center - d)]
+    }
+
+    /// Text wrap width (fraction of the canvas width) when an edge pill is dragged to `p`: the box stays centred, so its
+    /// width is twice the distance from the centre along the box's own x axis, in unscaled text pixels.
+    static func textBoxWidth(_ g: LayerGeometry, dragTo p: Vec2, layerScale: Double, canvasWidth: Double) -> Double {
+        let d = p - g.center
+        let lx = abs(d.x * cos(g.rotation) + d.y * sin(g.rotation))
+        return min(max(2 * lx / max(abs(layerScale), 0.01) / max(canvasWidth, 1), 0.03), 4)
     }
 }
 

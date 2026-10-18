@@ -1,0 +1,15 @@
+// Player canvas (W2-7): a selected text box has pill handles on its left/right edges; dragging one sets the wrap width
+// (TextContent.boxWidth, the text wraps onto two lines) in one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "player:0.5,0.726"},
+    {"expect": {"path": "selectedClips.0.kind", "equals": "text"}},
+    {"snapshot": "text-box-pills", "element": "id:panel.player"},
+    {"drag": "player:0.645,0.726", "by": [-55, 0]},
+    {"expect": [{"path": "selectedClips.0.boxWidth", "lt": 0.2}, {"path": "selectedClips.0.boxWidth", "gt": 0.05},
+                {"path": "undo.depth", "equals": 1}, {"path": "selectedClips.0.scale", "approx": 1}]},
+    {"snapshot": "text-box-wrapped", "element": "id:panel.player"}
+  ]
+}
