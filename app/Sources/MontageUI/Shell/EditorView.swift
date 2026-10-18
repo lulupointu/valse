@@ -14,6 +14,17 @@ public struct EditorView: View {
     public init(store: EditorStore) { self.store = store }
 
     public var body: some View {
+        if store.playerUI.isFullscreen {
+            FullscreenPlayer(store: store)
+                .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
+                .preferredColorScheme(.dark)
+                .id(locale.revision)
+        } else {
+            editor
+        }
+    }
+
+    private var editor: some View {
         VStack(spacing: 0) {
             TitleBar(store: store)
             GeometryReader { geo in

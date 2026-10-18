@@ -76,6 +76,24 @@ CVPixelBuffers (decoder) ─────────┐ ▼
   - When it doesn't change (opacity, transform, effects, text, masks…), there is no rebuild. The compositor reads the new project, and when paused `onRedrawNeeded` → `renderCurrentFrame` re-renders the last decoded frame within the same display refresh.
 - Seeking: at most one seek in flight, and the latest request wins. While dragging, seeks are keyframe-tolerant (`exact: false`); on mouse-up an exact seek follows (STACK.md lesson 1).
 
+### 5.1 Player canvas (W2, `MontageUI/Player`)
+
+- `PlayerContainerView` = `PlayerView` (Metal) + `CanvasOverlayView` (transparent AppKit, flipped). The overlay owns the
+  `PlayerViewport` (canvas px ↔ view pt, 16 pt padding, zoom/pan from `store.playerUI`) and pushes the frame rect to
+  `PlayerView.contentRect` → `Presenter.encode(contentRect:)` (target-pixel rect, may exceed the target when zoomed).
+- Pure geometry lives in `CanvasMath.swift` (`CanvasLayers.at` sizes text/stickers with `MontageEngine.TextMetrics`,
+  which mirrors `TextRasterizer` layout — keep them in sync; `CanvasHandles`, `CanvasSnapper`, `CanvasDrag`, align/fit,
+  safe zones). Canvas drags are store gestures (one undo step) using `Clip.setValue` (keyframe semantics).
+- `PlayerUIState` (`store.playerUI`): zoom/pan, rulers/guides (session only), safe zone, loop, full screen,
+  `editingTextClip` (inline `NSTextView` over the text layer; the engine keeps rendering the real text live), canvas focus
+  (arrows nudge instead of stepping frames — `Shortcut.isEnabled` lets a binding fall through).
+- Engine: `loopRange` (boundary observer + item-end), emulated reverse shuttle when `canPlayReverse` is false
+  (`shuttleRate`), `previewHover(_:)` (show a frame without moving the playhead — for the timeline preview axis, TL-031),
+  `usesProxies` toggle.
+- Canvas background (CV-002) is W3's `Clip.canvas` (`FrameEvaluator.canvasItems`); its fill layers carry
+  `LayerDescription.isCanvasBackground = true`, which `CanvasLayers` skips so clicks in the filled letterbox never select them.
+- `--player-state <spec>` (see `PlayerDebugState`) puts the player in a state for screenshots.
+
 ## 6. Proxies, preview cache and the memory budget (8 GB)
 
 - `ProxyManager`: background job (`JobQueue`, priority −1) per video that needs one. The **auto** policy: long side > 1920, or > 30 fps above 1280, or any > 1280 on ≤ 8 GB machines. Proxies are H.264, short side 720, GOP 10, no B-frames, video only, stored in `~/Library/Caches/Montage/proxies/<contentHash>.mp4`, and shared across projects.
@@ -221,4 +239,4 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 
 ## 18. Known gaps (foundation)
 
-Reverse playback rendering, on-canvas handles, home screen and settings window, AI matte applied in the compositor, audio effects chain, HDR export, compound clips (nested-timeline rendering), auto beat detection, and the Templates/Library content.
+Reverse playback rendering, on-canvas crop handles, home screen and settings window, AI matte applied in the compositor, audio effects chain, HDR export, compound clips (nested-timeline rendering), auto beat detection, and the Templates/Library content.

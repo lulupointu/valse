@@ -155,10 +155,11 @@ enum CoreShaders {
     }
 
     // ---- Preview presentation: aspect-fit a BGRA frame into the drawable with a letterbox colour.
-    struct PresentU { float2 scale; float4 letterbox; };
+    // `offset` = content centre in NDC (player zoom / pan).
+    struct PresentU { float2 scale; float2 offset; float4 letterbox; };
     vertex QuadOut present_vs(uint vid [[vertex_id]], constant PresentU& u [[buffer(0)]]) {
         float2 c = float2((vid & 1) ? 1.0 : -1.0, (vid & 2) ? -1.0 : 1.0);
-        QuadOut o; o.pos = float4(c * u.scale, 0, 1); o.uv = float2((c.x + 1.0) * 0.5, (1.0 - c.y) * 0.5); return o;
+        QuadOut o; o.pos = float4(c * u.scale + u.offset, 0, 1); o.uv = float2((c.x + 1.0) * 0.5, (1.0 - c.y) * 0.5); return o;
     }
     fragment float4 present_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);

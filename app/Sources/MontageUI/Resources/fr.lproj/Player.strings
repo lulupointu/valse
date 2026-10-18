@@ -1,0 +1,87 @@
+/* Lecteur : canevas et lecture (W2). */
+"player.menu" = "Menu du lecteur";
+"player.exitFullscreen" = "Quitter le mode plein écran (esc)";
+"player.ok" = "OK";
+"player.zoom" = "Zoom";
+"player.zoom.fit" = "Ajuster";
+"player.loop" = "Lecture en boucle";
+"player.proxy" = "Utiliser les proxys pour l'aperçu";
+"player.exportStill" = "Exporter l'image";
+"player.stillSaved" = "Image exportée";
+"player.stillFailed" = "Impossible d'exporter l'image";
+
+/* Qualité de l'aperçu */
+"player.quality.full.title" = "Qualité maximale";
+"player.quality.full.detail" = "Résolution vidéo d'origine";
+"player.quality.full.short" = "Max";
+"player.quality.auto.title" = "Haute qualité";
+"player.quality.auto.detail" = "Lecture fluide, sans effet sur la vidéo exportée";
+"player.quality.auto.short" = "Haute";
+"player.quality.half.title" = "Qualité moyenne";
+"player.quality.half.detail" = "Lecture plus fluide, sans effet sur la vidéo exportée";
+"player.quality.half.short" = "Moy.";
+"player.quality.quarter.title" = "Basse qualité";
+"player.quality.quarter.detail" = "Lecture la plus fluide, sans effet sur la vidéo exportée";
+"player.quality.quarter.short" = "Basse";
+
+/* Format */
+"player.ratio.custom" = "Personnalisé";
+"player.ratio.custom.title" = "Taille de canevas personnalisée";
+"player.ratio.custom.detail" = "Largeur × hauteur en pixels.";
+"player.ratio.16:9" = "16:9";
+"player.ratio.4:3" = "4:3";
+"player.ratio.2.35:1" = "2.35:1";
+"player.ratio.2:1" = "2:1";
+"player.ratio.1.85:1" = "1.85:1";
+"player.ratio.9:16" = "9:16";
+"player.ratio.3:4" = "3:4";
+"player.ratio.5.8-inch" = "5,8 pouces";
+"player.ratio.1:1" = "1:1";
+"player.ratio.21:9" = "21:9";
+"player.ratio.4:5" = "4:5";
+
+/* Repères et règles */
+"player.guidesRulers" = "Repères et règles";
+"player.guide.addH" = "Ajouter un repère horizontal";
+"player.guide.addV" = "Ajouter un repère vertical";
+"player.guide.lock" = "Verrouiller les repères";
+"player.guide.show" = "Afficher les repères";
+"player.guide.clear" = "Effacer les repères";
+"player.rulers" = "Afficher les règles";
+
+/* Zones de sécurité */
+"player.safe" = "Aperçu réseaux sociaux";
+"player.safe.none" = "Désactivé";
+"player.safe.tiktok" = "TikTok";
+"player.safe.reels" = "Instagram Reels";
+"player.safe.shorts" = "YouTube Shorts";
+"player.safe.broadcast" = "Zones de sécurité titre et action";
+
+/* Menu contextuel du canevas */
+"player.align" = "Aligner";
+"player.align.left" = "Aligner à gauche";
+"player.align.centerH" = "Centrer horizontalement";
+"player.align.right" = "Aligner à droite";
+"player.align.top" = "Aligner en haut";
+"player.align.centerV" = "Centrer verticalement";
+"player.align.bottom" = "Aligner en bas";
+"player.fit.fit" = "Ajuster au canevas";
+"player.fit.fill" = "Remplir le canevas";
+"player.fit.stretch" = "Étirer au canevas";
+"player.rotate90" = "Pivoter de 90°";
+"player.editText" = "Modifier le texte";
+
+/* Noms d'annulation */
+"cmd.scale" = "Échelle";
+"cmd.textEdit" = "Modifier le texte";
+
+/* Raccourcis */
+"shortcut.nudgeUp" = "Déplacer vers le haut";
+"shortcut.nudgeDown" = "Déplacer vers le bas";
+"shortcut.playerFullscreen" = "Activer/quitter le plein écran";
+"shortcut.exitFullscreen" = "Quitter le mode plein écran";
+"shortcut.playerZoomIn" = "Zoom avant dans le lecteur";
+"shortcut.playerZoomOut" = "Zoom arrière dans le lecteur";
+"shortcut.playerZoomFit" = "Ajuster le lecteur";
+"shortcut.rulers" = "Afficher/masquer les règles";
+"shortcut.guides" = "Afficher/masquer les repères";

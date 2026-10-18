@@ -41,6 +41,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var animations: [ActiveAnimation]
     /// Clip-local time (for time-based effects such as glitch/shake).
     public var localTime: Time
+    /// Canvas background fill (blurred copy / image) of a main-track clip, not the clip itself: not hit-testable.
+    public var isCanvasBackground = false
 
     /// Media/images/solids are aspect-fitted to the canvas at scale 1; text and stickers use their own
     /// size in canvas pixels (`sourceSize`).
@@ -149,13 +151,15 @@ public enum FrameEvaluator {
             b.effects = l.effects + CanvasBackground.blurStack(level: level).enumerated().map { i, r in
                 ResolvedEffect(instanceID: canvasEffectIDs[i], typeID: CanvasBackground.blurEffectID, params: ["radius": .scalar(r)])
             }
+            b.isCanvasBackground = true
             return [.layer(b)]
         case .style(let id):
-            let fillLayer = LayerDescription(
+            var fillLayer = LayerDescription(
                 clipID: l.clipID, trackID: l.trackID, source: .solid(.black), sourceSize: canvasSize, transform: .identity,
                 opacity: 1, blendMode: .normal, crop: CropRect(), mask: nil,
                 effects: [ResolvedEffect(instanceID: canvasEffectIDs[3], typeID: id, params: [:])], animations: [],
                 localTime: l.localTime)
+            fillLayer.isCanvasBackground = true
             return [.layer(fillLayer)]
         }
     }

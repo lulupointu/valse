@@ -9,6 +9,8 @@ public final class SnapshotRegistry {
     public static let shared = SnapshotRegistry()
     weak var player: PlayerView?
     weak var timeline: TimelineView?
+    /// Transparent AppKit overlay drawn over the player (canvas handles, guides); composited after the Metal views.
+    weak var playerOverlay: NSView?
 
     public func snapshot(window: NSWindow) -> CGImage? {
         guard let content = window.contentView else { return nil }
@@ -28,6 +30,14 @@ public final class SnapshotRegistry {
             // content view is flipped? convert to bottom-left origin for CG
             let y = content.isFlipped ? bounds.height - r.maxY : r.minY
             ctx.draw(img, in: CGRect(x: r.minX * scale, y: y * scale, width: r.width * scale, height: r.height * scale))
+        }
+        if let o = playerOverlay, o.window === window, let rep = o.bitmapImageRepForCachingDisplay(in: o.bounds) {
+            o.cacheDisplay(in: o.bounds, to: rep)
+            if let img = rep.cgImage {
+                let r = o.convert(o.bounds, to: content)
+                let y = content.isFlipped ? bounds.height - r.maxY : r.minY
+                ctx.draw(img, in: CGRect(x: r.minX * scale, y: y * scale, width: r.width * scale, height: r.height * scale))
+            }
         }
         return ctx.makeImage()
     }

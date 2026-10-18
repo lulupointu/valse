@@ -47,6 +47,8 @@ public final class EditorStore {
     public let transport = TransportState()
     /// Timeline view state: tool mode, scroll, clipboard, selected transition/marker (W1, MontageUI/Timeline).
     public let timelineUI = TimelineUIState()
+    /// Player viewport / overlays / modes (MontageUI/Player).
+    public let playerUI = PlayerUIState()
     /// Timeline zoom (points per second).
     public var pixelsPerSecond: Double = 40
     public private(set) var packageURL: URL?
@@ -137,11 +139,13 @@ public final class EditorStore {
         engine.update(project: session.project)
         selection = selection.filter { session.project.timeline.clip($0) != nil }
         if let t = selectedTransition, session.project.timeline.clip(t)?.transitionOut == nil { selectedTransition = nil }
+        if playerUI.loopEnabled { updateLoopRange() }
         scheduleAutosave()
     }
 
     private func selectionDidChange() {
         if !selection.isEmpty, selectedTransition != nil { selectedTransition = nil }
+        if playerUI.loopEnabled { updateLoopRange() }
         if let t = inspectorTab, !InspectorRegistry.tabs(for: InspectorContext(store: self)).contains(where: { $0.id == t }) {
             inspectorTab = nil
         }
@@ -292,8 +296,8 @@ public final class EditorStore {
     public func shuttle(_ key: Character) {
         switch key {
         case "k": engine.pause()
-        case "l": engine.setRate(engine.player.rate > 0 ? min(engine.player.rate * 2, 8) : 1)
-        case "j": engine.setRate(engine.player.rate < 0 ? max(engine.player.rate * 2, -8) : -1)
+        case "l": engine.setRate(engine.shuttleRate > 0 ? min(engine.shuttleRate * 2, 8) : 1)
+        case "j": engine.setRate(engine.shuttleRate < 0 ? max(engine.shuttleRate * 2, -8) : -1)
         default: break
         }
     }
