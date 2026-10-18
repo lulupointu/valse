@@ -23,9 +23,9 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W5 | Transitions & animations content | 2 | running | |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | merged (TX 21 done / 9 partial / 5 blocked) | main 8602b57 |
 | W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | running | |
-| W11 | Export & interchange | 2 | running | |
+| W11 | Export & interchange | 2 | merged (EX 22 done / 1 partial / 2 todo P2) | main 8fea692 |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | running | |
-| W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | queued | |
+| W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | running | |
 | — | Templates (TP), Retouch/body (RT) | 3 | queued (depend on W7, W10) | |
 
 ## Cross-team requests / blockers (open)
@@ -65,6 +65,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - Agents never send real mouse/keyboard input while teams run in parallel; real-input E2E pass is phase 4.
 
 ## Engineering gotchas (read!)
+- PlaybackTests realtime check can flake under heavy machine load (seen by W11) — W14 to harden.
+- MP3 export requires FFmpeg sidecar with libmp3lame; otherwise option disabled with hint.
 - Never use AVAudioTimePitchAlgorithm `.varispeed`: hangs the audio reader during export on sped-up clips.
 - Heavy work from main-actor code/tests starves PlaybackTests — run it off-main (`Task.detached`).
 
