@@ -111,7 +111,11 @@ public final class PlaybackEngine {
         StabilizationStore.shared.onReady = { [weak self] _ in self?.onRedrawNeeded?() }
         MatteStore.shared.onMatteReady = { [weak self] _, _ in self?.forceRebuild() }
         RenderCache.shared.onReady = { [weak self] _ in self?.forceRebuild() }
-        AudioRenderCache.shared.onReady = { [weak self] _ in self?.forceRebuild() }
+        AudioRenderCache.shared.onReady = { [weak self] hash in
+            // only rebuild when the finished render belongs to this project (variants are "<hash>~<suffix>")
+            guard let self, self.project.media.contains(where: { hash.hasPrefix($0.contentHash) }) else { return }
+            self.forceRebuild()
+        }
         update(project: project, force: true)
     }
 

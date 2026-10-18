@@ -35,8 +35,8 @@ struct AudioLibraryView: View {
                     ForEach(SoundEffects.all.filter { $0.category == cat }) { d in
                         AudioRow(title: tr(d.nameKey), subtitle: "\(tr("sfx.category.\(cat)")) · \(Timecode.shortDuration(Time(d.duration)))",
                                  symbol: "waveform", playing: preview.playingID == d.id,
-                                 onPlay: { if let u = try? SoundEffects.file(d) { preview.toggle(d.id, u) } },
-                                 onAdd: { if let u = try? SoundEffects.file(d) { store.importFiles([u], thenInsertAt: store.transport.playhead) } })
+                                 onPlay: { Task { if let u = await Self.sfxFile(d) { preview.toggle(d.id, u) } } },
+                                 onAdd: { Task { if let u = await Self.sfxFile(d) { store.importFiles([u], thenInsertAt: store.transport.playhead) } } })
                     }
                 }
             }
@@ -64,6 +64,11 @@ struct AudioLibraryView: View {
             }
         }
         .padding(10)
+    }
+
+    /// Synthesized off the main thread on first use, then cached on disk.
+    static func sfxFile(_ d: SoundEffectDescriptor) async -> URL? {
+        await Task.detached(priority: .userInitiated) { try? SoundEffects.file(d) }.value
     }
 
     private func pickVideos() {

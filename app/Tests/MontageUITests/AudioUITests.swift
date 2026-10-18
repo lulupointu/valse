@@ -59,10 +59,13 @@ import MontageTestSupport
 
     @Test func autoBeatsWritesClipBeats() async throws {
         // 120 BPM clicks
-        let click = AudioBuffer(seconds: 6, channels: 2) { _, t in
-            let d = (t - 0.25).truncatingRemainder(dividingBy: 0.5)
-            return t >= 0.25 && d < 0.02 ? Float(0.6 * sin(2 * .pi * 2000 * t) * exp(-d * 200)) : 0
-        }
+        // signal generation off the main actor (the playback tests need it)
+        let click = await Task.detached {
+            AudioBuffer(seconds: 6, channels: 2) { _, t in
+                let d = (t - 0.25).truncatingRemainder(dividingBy: 0.5)
+                return t >= 0.25 && d < 0.02 ? Float(0.6 * sin(2 * .pi * 2000 * t) * exp(-d * 200)) : 0
+            }
+        }.value
         var p = TestProject()
         let a = try await p.addAudio(click)
         let s = EditorStore(project: p.project)
@@ -84,7 +87,7 @@ import MontageTestSupport
         let s = EditorStore(project: p.project)
         s.autosaveEnabled = false
         let url = TestMedia.directory.appendingPathComponent("rec-\(UUID().uuidString).caf")
-        try AudioFileIO.write(AudioTestSignals.sine(300, seconds: 1), to: url, format: .wav16)
+        try await Task.detached { try AudioFileIO.write(AudioTestSignals.sine(300, seconds: 1), to: url, format: .wav16) }.value
         s.insertRecording(url, at: Time(1))
         await waitUntil { s.project.timeline.tracks.contains { $0.kind == .audio } }
         let track = try #require(s.project.timeline.tracks.first { $0.kind == .audio })
@@ -96,15 +99,17 @@ import MontageTestSupport
         let video = try await TestMedia.video(.solid(.red), seconds: 1, audioHz: 440)
         let dst = FileManager.default.temporaryDirectory.appendingPathComponent("x-\(UUID().uuidString) (audio).m4a")
         try await AudioExtractor.extract(from: video, to: dst)
-        let b = try await AudioFileIO.read(dst)
-        #expect(abs(Double(b.frames) / 48000 - 1) < 0.05)
-        #expect(abs(AudioTestSignals.dominantFrequency(b, lo: 300, hi: 600, from: 0.2, to: 0.8) - 440) < 3)
+        let (frames, f) = try await Task.detached {
+            let b = try await AudioFileIO.read(dst)
+            return (b.frames, AudioTestSignals.dominantFrequency(b, lo: 300, hi: 600, from: 0.2, to: 0.8))
+        }.value
+        #expect(abs(Double(frames) / 48000 - 1) < 0.05)
+        #expect(abs(f - 440) < 3)
     }
 
-    @Test func soundEffectsSynthesize() throws {
-        for d in SoundEffects.all {
-            let u = try SoundEffects.file(d)
-            #expect(FileManager.default.fileExists(atPath: u.path), "\(d.id)")
-        }
+    @Test func soundEffectsSynthesize() async throws {
+        // off the main actor: synthesis is CPU work (and other suites need the main thread)
+        let urls = try await Task.detached { try SoundEffects.all.map { try SoundEffects.file($0) } }.value
+        for u in urls { #expect(FileManager.default.fileExists(atPath: u.path), "\(u.lastPathComponent)") }
     }
 }

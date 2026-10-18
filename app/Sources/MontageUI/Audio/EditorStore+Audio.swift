@@ -26,7 +26,7 @@ extension EditorStore {
         Task {
             let job = await JobQueue.shared.enqueue(titleKey: "job.loudness", priority: 1) { progress in
                 for (i, (id, url, range)) in items.enumerated() {
-                    let l = try await AudioAnalysis.loudness(url: url, range: range)
+                    let l = try await Task.detached { try await AudioAnalysis.loudness(url: url, range: range) }.value
                     box.update { $0[id] = l }
                     progress.report(Double(i + 1) / Double(items.count))
                 }
@@ -64,7 +64,7 @@ extension EditorStore {
         Task {
             let job = await JobQueue.shared.enqueue(titleKey: "job.beats", priority: 1) { progress in
                 for (i, (c, a)) in items.enumerated() {
-                    let b = try await AudioAnalysis.clipBeats(c, asset: a, level: level)
+                    let b = try await Task.detached { try await AudioAnalysis.clipBeats(c, asset: a, level: level) }.value
                     box.update { $0[c.id] = b }
                     progress.report(Double(i + 1) / Double(items.count))
                 }
@@ -94,7 +94,8 @@ extension EditorStore {
                 }
                 let r = try await mono(ref)
                 for c in clips.dropFirst() {
-                    let off = AudioAnalysis.syncOffset(r, try await mono(c), maxLag: 20)
+                    let other = try await mono(c)
+                    let off = await Task.detached { AudioAnalysis.syncOffset(r, other, maxLag: 20) }.value
                     // b's content starts at its start; aligned position = ref.start + (b.start offset from content)
                     box.update { $0[c.id] = max(.zero, ref.start + Time(-off)) }
                 }
@@ -129,7 +130,7 @@ extension EditorStore {
             let job = await JobQueue.shared.enqueue(titleKey: "job.extractAudio", priority: 1) { progress in
                 for (i, u) in urls.enumerated() {
                     let dst = dir.appendingPathComponent(u.deletingPathExtension().lastPathComponent + " (audio).m4a")
-                    try await AudioExtractor.extract(from: u, to: dst)
+                    try await Task.detached { try await AudioExtractor.extract(from: u, to: dst) }.value
                     box.update { $0.append(dst) }
                     progress.report(Double(i + 1) / Double(urls.count))
                 }

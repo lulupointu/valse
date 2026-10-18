@@ -4,7 +4,7 @@ import MontageCore
 @testable import MontageEngine
 import MontageTestSupport
 
-@Suite struct AudioAnalysisTests {
+@Suite(.serialized) struct AudioAnalysisTests {
     @Test func loudnessOfReferenceSine() {
         // EBU Tech 3341: stereo 1 kHz sine at −23 dBFS peak on both channels reads −23.0 LUFS.
         let a = pow(10, -23.0 / 20)

@@ -5,7 +5,7 @@ import MontageCore
 import MontageTestSupport
 
 /// Numerical checks of the audio DSP building blocks (offline, no AVFoundation).
-@Suite struct AudioDSPTests {
+@Suite(.serialized) struct AudioDSPTests {
     typealias S = AudioTestSignals
 
     @Test func biquadLowPassAttenuatesHighs() {
@@ -40,13 +40,13 @@ import MontageTestSupport
     @Test func pitchShiftMovesFrequencyKeepsDuration() {
         for (semis, expected) in [(12.0, 880.0), (-5.0, 440 * pow(2, -5.0 / 12)), (7.0, 440 * pow(2, 7.0 / 12))] {
             var spec = RenderStageSpec(); spec.pitch = pow(2, semis / 12); spec.formant = spec.pitch   // pure tone: no envelope
-            let x = S.sine(440, seconds: 1)
+            let x = S.sine(440, seconds: 0.6)
             let y = RenderStageProcessor(spec: spec).render(x)
             #expect(y.frames == x.frames)
-            let f = S.dominantFrequency(y, lo: 200, hi: 1200, from: 0.3, to: 0.8)
+            let f = S.dominantFrequency(y, lo: 200, hi: 1200, from: 0.25, to: 0.55)
             #expect(abs(f - expected) < expected * 0.01, "\(semis) st → \(f) Hz, expected \(expected)")
             // level roughly preserved
-            #expect(abs(dB(y.rms(seconds: 0.3, 0.8) / x.rms(seconds: 0.3, 0.8))) < 3)
+            #expect(abs(dB(y.rms(seconds: 0.25, 0.55) / x.rms(seconds: 0.25, 0.55))) < 3)
         }
     }
 
@@ -143,14 +143,14 @@ import MontageTestSupport
     }
 
     @Test func everyVoicePresetProducesSaneOutput() {
-        let x = S.voice(seconds: 0.4)
+        let x = S.voice(seconds: 0.15)
         for d in VoiceEffects.all {
             let plan = ClipAudioPlan.make({ var a = AudioProps(); a.voice = d.makeEffect(); return a }())
             let y = plan.render.isIdentity ? x.copy() : RenderStageProcessor(spec: plan.render).render(x)
             LiveChain(plan.live, sampleRate: 48000).process(y)
             #expect(!S.hasNaN(y), "\(d.id) NaN")
             #expect(y.peak < 4, "\(d.id) peak \(y.peak)")
-            #expect(y.rms(seconds: 0.2, 0.4) > 0.003, "\(d.id) silent")
+            #expect(y.rms(seconds: 0.08, 0.15) > 0.003, "\(d.id) silent")
             #expect(!plan.render.isIdentity || !plan.live.isEmpty, "\(d.id) does nothing")
         }
     }

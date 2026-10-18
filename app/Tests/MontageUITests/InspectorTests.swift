@@ -53,7 +53,7 @@ import MontageTestSupport
         s.selection = [f.image]
         #expect(tabs(s) == ["video", "animation", "adjust"])
         s.selection = [f.audio]
-        #expect(tabs(s) == ["audioBasic", "speed"])
+        #expect(tabs(s) == ["audioBasic", "audioVoice", "speed"])
         #expect(subs(s, "speed") == ["normal"])
         s.selection = [f.text]
         #expect(tabs(s) == ["text", "animation"])
