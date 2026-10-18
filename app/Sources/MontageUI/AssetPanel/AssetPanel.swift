@@ -70,10 +70,7 @@ enum BuiltinAssetTabs {
         AssetTab(id: "audio", titleKey: "tab.audio", symbol: "music.note", order: 1) { AnyView(AudioTab(store: $0)) },
         AssetTab(id: "text", titleKey: "tab.text", symbol: "textformat", order: 2) { AnyView(TextAssetTab(store: $0)) },
         AssetTab(id: "stickers", titleKey: "tab.stickers", symbol: "face.smiling", order: 3) { store in
-            AnyView(RegistryGrid(store: store, groups: grouped(Registries.stickers.all, \.groupKey), tile: { s in
-                .init(id: s.id, title: tr(s.nameKey), symbol: nil, emoji: { if case .emoji(let e) = s.source { return e }; return nil }(),
-                      payload: DragPayload.sticker(s.id)) { store.addGeneratorClip(.sticker(id: s.id)) }
-            }))
+            AnyView(StickerLibraryTab(store: store))
         },
         AssetTab(id: "effects", titleKey: "tab.effects", symbol: "sparkles", order: 4) { store in
             AnyView(EffectLibraryTab(store: store, category: .effect))

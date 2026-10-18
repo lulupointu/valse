@@ -135,8 +135,23 @@ public final class TextRasterizer: @unchecked Sendable {
             guard let url = bundle().url(forResource: name, withExtension: nil),
                   let tex = ImageTextureCache.load(url: url, maxSide: Int(canvasSide * outputScale) + 1) else { return nil }
             return Result(texture: tex, canvasSize: Size2(canvasSide, canvasSide))
+        case .vector(let layers):
+            let px = max(8, Int((canvasSide * outputScale).rounded(.up)))
+            let key = "\(id)@\(px)"
+            if let t = vectorLock.withLock({ vectorCache[key] }) { return Result(texture: t, canvasSize: Size2(canvasSide, canvasSide)) }
+            guard let tex = VectorStickerRenderer.texture(layers, px: px) else { return nil }
+            vectorLock.withLock {
+                vectorCache[key] = tex; vectorOrder.append(key)
+                if vectorOrder.count > 64 { vectorCache[vectorOrder.removeFirst()] = nil }
+            }
+            return Result(texture: tex, canvasSize: Size2(canvasSide, canvasSide))
         }
     }
+
+    // Vector sticker textures (W4), keyed by id + pixel size.
+    private let vectorLock = NSLock()
+    private var vectorCache: [String: MTLTexture] = [:]
+    private var vectorOrder: [String] = []
 
     /// Rest-pose CGImage of a text at `fontPx` (asset tiles, previews, tests). Not cached.
     public static func image(_ t: TextContent, fontPx: Double, canvasWidthPx: Double = 1920, duration: Double = 3) -> CGImage? {

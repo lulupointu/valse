@@ -202,15 +202,42 @@ public struct AnimationDescriptor: Sendable, Identifiable {
     }
 }
 
-/// Sticker (asset panel "Stickers"). `emoji` stickers render through Core Text; `image` stickers load a bundled PNG.
+/// One layer of a procedural vector sticker / shape, drawn in a unit square (y down) by the engine
+/// (`VectorStickerRenderer`) at output resolution, so shapes stay sharp at any scale.
+public struct VectorLayer: Sendable, Hashable {
+    public enum Shape: Sendable, Hashable {
+        case rect, roundedRect, circle, triangle, diamond, hexagon, star(points: Int), heart, arrow, chevron, line, ring
+        case cross, plus, check, bubble, burst(points: Int), sparkle
+    }
+    public var shape: Shape
+    public var fill: RGBA?
+    /// Optional vertical gradient end colour (top = `fill`, bottom = `fillBottom`).
+    public var fillBottom: RGBA?
+    public var stroke: RGBA?
+    /// Stroke width as a fraction of the sticker side.
+    public var strokeWidth: Double
+    /// Inset of this layer's box inside the unit square (fraction of the side).
+    public var inset: Double
+    public var shadow: Bool
+    public init(_ shape: Shape, fill: RGBA? = nil, fillBottom: RGBA? = nil, stroke: RGBA? = nil, strokeWidth: Double = 0,
+                inset: Double = 0.06, shadow: Bool = false) {
+        self.shape = shape; self.fill = fill; self.fillBottom = fillBottom; self.stroke = stroke
+        self.strokeWidth = strokeWidth; self.inset = inset; self.shadow = shadow
+    }
+}
+
+/// Sticker (asset panel "Stickers"). `emoji` stickers render through Core Text; `image` stickers load a bundled PNG;
+/// `vector` stickers (shapes, arrows, callouts, decorations) are drawn procedurally.
 public struct StickerDescriptor: Sendable, Identifiable {
-    public enum Source: Sendable { case emoji(String), image(resource: String, bundle: @Sendable () -> Bundle) }
+    public enum Source: Sendable { case emoji(String), image(resource: String, bundle: @Sendable () -> Bundle), vector([VectorLayer]) }
     public let id: String
     public let nameKey: String
     public let groupKey: String
     public let source: Source
-    public init(id: String, nameKey: String, groupKey: String, source: Source) {
-        self.id = id; self.nameKey = nameKey; self.groupKey = groupKey; self.source = source
+    /// Extra search keywords (English, lowercase).
+    public let tags: [String]
+    public init(id: String, nameKey: String, groupKey: String, source: Source, tags: [String] = []) {
+        self.id = id; self.nameKey = nameKey; self.groupKey = groupKey; self.source = source; self.tags = tags
     }
 }
 

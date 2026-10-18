@@ -6,6 +6,7 @@
 "fxlib.search.effects" = "Search for effects";
 "fxlib.search.filters" = "Search for filters";
 "fxlib.search.adjustments" = "Search adjustments";
+"fxlib.search.stickers" = "Search for stickers";
 "fxlib.clearSearch" = "Clear search";
 "fxlib.noResults" = "No results. Try another word.";
 "fxlib.favorites.empty" = "Hover a card and click ☆ to add it to your favorites.";

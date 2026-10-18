@@ -42,6 +42,18 @@ import MontageTestSupport
         #expect(EffectLibraryCatalog.search(.filter, "heure doree").contains { $0.id == "montage.filter.goldenHour" })
     }
 
+    @Test func stickerCatalogueGroupsAndSearch() {
+        let groups = StickerCatalog.groups()
+        #expect(groups.first == "sticker.group.emoji" && groups.contains("sticker.group.shapes"))
+        let total = groups.reduce(0) { $0 + StickerCatalog.entries(nav: $1, favorites: []).count }
+        #expect(total == Registries.stickers.all.count)
+        #expect(StickerCatalog.search("heart").contains { $0.id == "montage.sticker.heartPink" })
+        #expect(StickerCatalog.search("circle yellow").contains { $0.id == "montage.sticker.shape.circle.yellow" })
+        L10n.shared.setLanguageForSession("fr")
+        defer { L10n.shared.setLanguageForSession("en") }
+        #expect(StickerCatalog.search("fleche").contains { $0.id == "montage.sticker.arrowRed" })
+    }
+
     @Test func favoritesToggleAndPersist() {
         let suite = "montage.test.favorites.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -88,6 +100,8 @@ import MontageTestSupport
         defer { L10n.shared.setLanguageForSession("en") }
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let s = EditorStore(project: Project(name: "Snap")); s.autosaveEnabled = false
+        s.activeAssetTab = "stickers"
+        try snapshot(AssetPanel(store: s), to: URL(fileURLWithPath: dir).appendingPathComponent("assets-stickers-\(lang).png"))
         for (tab, cat) in [("effects", EffectCategory.effect), ("filters", .filter), ("adjustment", .adjustment)] {
             // warm the thumbnails of the first page so the snapshot shows real renders
             let first = EffectLibraryCatalog.entries(cat, nav: EffectLibraryCatalog.nav(cat).dropFirst().first!.id, favorites: [])
