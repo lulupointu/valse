@@ -21,6 +21,7 @@
 "pilot.planning" = "Préparation du plan…";
 "pilot.reply.none" = "Je n'ai pas pu transformer cette demande en modification. Voici ce que je sais faire :";
 "pilot.reply.plan" = "Voici mon plan (%d étapes). Décochez une étape pour l'ignorer.";
+"pilot.reply.plan1" = "Voici mon plan (1 étape). Décochez-la pour l'ignorer.";
 "pilot.cancelled" = "Annulé.";
 "pilot.error.failed" = "Impossible de préparer ces modifications. Réessayez.";
 "pilot.nothingChanged" = "Rien à modifier";

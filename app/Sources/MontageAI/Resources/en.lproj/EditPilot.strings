@@ -21,6 +21,7 @@
 "pilot.planning" = "Planning the edits…";
 "pilot.reply.none" = "I couldn't turn that into an edit. Here are things I can do:";
 "pilot.reply.plan" = "Here's my plan (%d steps). Untick a step to skip it.";
+"pilot.reply.plan1" = "Here's my plan (1 step). Untick it to skip it.";
 "pilot.cancelled" = "Cancelled.";
 "pilot.error.failed" = "Couldn't prepare these edits. Try again.";
 "pilot.nothingChanged" = "Nothing to change";

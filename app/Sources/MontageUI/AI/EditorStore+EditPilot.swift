@@ -84,7 +84,7 @@ extension EditorStore {
                 finishPilotCard(id, state: .empty)
                 return
             }
-            setMessageText(id, tr("pilot.reply.plan", plan.actions.count))
+            setMessageText(id, plan.actions.count == 1 ? tr("pilot.reply.plan1") : tr("pilot.reply.plan", plan.actions.count))
             await preparePilot(id)
         }
     }
