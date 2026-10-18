@@ -94,7 +94,7 @@ public enum CompositionBuilder {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = track.isMain ? i % 2 : 0
                 let choice = sources(asset)
-                let segments = clip.speed.segments(outputDuration: clip.duration)
+                let segments = remapSegments(clip, asset: asset, frameRate: frameRate ?? project.settings.frameRate)
                 if clip.reversed { EngineLog.info("reverse playback not yet rendered (clip \(clip.id.short))") }
 
                 if asset.kind == .video, asset.hasVideo, track.kind.isVisual {
@@ -146,6 +146,16 @@ public enum CompositionBuilder {
         if !audioParams.isEmpty { mix = AVMutableAudioMix(); mix!.inputParameters = audioParams }
         return BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
                                 duration: duration, state: state)
+    }
+
+    /// Frame-accurate speed segments for a clip (see `Speed.frameAccurateSegments`): boundaries on the output frame
+    /// grid of this build; every composed frame lands in the same source frame as the exact remap.
+    static func remapSegments(_ clip: Clip, asset: MediaAsset, frameRate: FrameRate) -> [(output: TimeRange, source: TimeRange)] {
+        let fd = frameRate.frameDuration
+        let phase = Time(ticks: (fd.ticks - clip.start.ticks % fd.ticks) % fd.ticks)
+        let srcFrame = (asset.frameRate ?? .fps30).frameDuration
+        return clip.speed.frameAccurateSegments(outputDuration: clip.duration, frameDuration: fd, firstFrame: phase,
+                                                tolerance: srcFrame * 0.5, sourceFrame: (clip.sourceStart, srcFrame))
     }
 
     /// Inserts a clip's speed segments into a composition track at the clip's timeline position.

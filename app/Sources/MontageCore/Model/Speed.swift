@@ -67,6 +67,63 @@ public enum Speed: Hashable, Codable, Sendable {
             return out
         }
     }
+
+    /// Frame-accurate piecewise-linear remap for the AVComposition (preview AND export use it).
+    ///
+    /// Output frames are only ever requested at `firstFrame + k·frameDuration` (clip-local). Segment boundaries are
+    /// placed on those frame times and grown greedily while the linear interpolation inside the segment stays within
+    /// `tolerance` of the exact remap (`sourceOffset`) at every frame time it covers. So every composed frame shows the
+    /// source frame the exact integral asks for (tolerance ≪ one source frame), with as few edits as possible
+    /// (constant speed → 1 segment; gentle curves → a handful; steep ramps → up to one per frame).
+    /// Audio uses the same segments, so it follows the identical remap (piecewise-constant rate).
+    /// - `sourceFrame`: optional (media time of `sourceOffset` 0, source frame duration). When given, a segment is only
+    ///   accepted if the interpolated time also falls in the SAME source frame as the exact remap at every frame time.
+    public func frameAccurateSegments(outputDuration: Time, frameDuration: Time, firstFrame: Time = .zero,
+                                      tolerance: Time, sourceFrame: (origin: Time, duration: Time)? = nil)
+    -> [(output: TimeRange, source: TimeRange)] {
+        guard case .curve = self, outputDuration.ticks > 0, frameDuration.ticks > 0 else {
+            return segments(outputDuration: outputDuration)
+        }
+        // Candidate boundaries: 0, every frame time inside (0, D), D.
+        var cand: [Time] = [.zero]
+        let fd = frameDuration.ticks
+        var f = Time(ticks: ((firstFrame.ticks % fd) + fd) % fd)
+        while f < outputDuration {
+            if f > .zero { cand.append(f) }
+            f += frameDuration
+        }
+        cand.append(outputDuration)
+        let src = cand.map { sourceOffset(at: $0, outputDuration: outputDuration) }
+        var out: [(TimeRange, TimeRange)] = []
+        var a = 0
+        let tol = Double(max(tolerance.ticks, 1))
+        while a < cand.count - 1 {
+            var b = a + 1
+            // grow while every interior candidate is within tolerance of the chord a → c
+            while b + 1 < cand.count {
+                let c = b + 1
+                let o0 = Double(cand[a].ticks), o1 = Double(cand[c].ticks)
+                let s0 = Double(src[a].ticks), s1 = Double(src[c].ticks)
+                var ok = true
+                for i in (a + 1)..<c {
+                    let lin = s0 + (s1 - s0) * (Double(cand[i].ticks) - o0) / (o1 - o0)
+                    let exact = Double(src[i].ticks)
+                    if abs(lin - exact) > tol { ok = false; break }
+                    if let (o, d) = sourceFrame {
+                        let dd = Double(d.ticks), oo = Double(o.ticks)
+                        if ((oo + lin) / dd).rounded(.down) != ((oo + exact) / dd).rounded(.down) { ok = false; break }
+                    }
+                }
+                if !ok { break }
+                b = c
+            }
+            if cand[b] > cand[a], src[b] > src[a] {
+                out.append((TimeRange(start: cand[a], end: cand[b]), TimeRange(start: src[a], end: src[b])))
+            }
+            a = b
+        }
+        return out
+    }
 }
 
 public struct SpeedPoint: Hashable, Codable, Sendable {
