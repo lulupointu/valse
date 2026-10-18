@@ -26,7 +26,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W11 | Export & interchange | 2 | merged (EX 22 done / 1 partial / 2 todo P2) | main 8fea692 |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | ready to merge (PM 12 done / 2 partial; SE 6 done / 4 partial) | worktree-agent-ac8ee24bcf15bf705 |
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | running | |
-| PERF | MacBook Air smoothness: 500-clip fit-zoom timeline 154 ms/frame on E-cores → <16 ms; full --air audit; flaky PlaybackTests | 3 | running | |
+| PERF | MacBook Air smoothness: timeline fit scroll 154 → 1.7 ms (air); --air audit (drag/scrub/playback/scrub latency/launch/open/memory/export) thresholded; machine-wide test semaphore; load-aware timing tests | 3 | running (milestones merged) | worktree-agent-ab5ab60793bbf0159 |
 | UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
 | POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | running | |
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | merged (all 8 gaps fixed) | main 9b94922 |
@@ -81,8 +81,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 
 ## Engineering gotchas (read!)
 - UI tests are environment-independent (7d89983): AI models sandboxed (scripts declare `requires.models`, else SKIP), fixed cache sizes/clock in test mode, snapshot `mask`. uitest.sh exits non-zero on failure.
-- Unit timing checks are load-aware (985b24e, TimingBudget: 3x gross bound, skipped when load > cores); precise budgets live in scripts/perf.sh.
-- PlaybackTests realtime check can flake under heavy machine load (seen by W11) — W14 to harden.
+- Unit timing checks are load-aware (985b24e, TimingBudget: 3x gross bound, skipped when load > cores); precise budgets live in scripts/perf.sh. Heavy scripts share 2 machine-wide slots (scripts/slots.sh).
 - MP3 export requires FFmpeg sidecar with libmp3lame; otherwise option disabled with hint.
 - Never use AVAudioTimePitchAlgorithm `.varispeed`: hangs the audio reader during export on sped-up clips.
 - Heavy work from main-actor code/tests starves PlaybackTests — run it off-main (`Task.detached`).

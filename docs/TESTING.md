@@ -201,13 +201,20 @@ way `TimelineView.draw` builds it (CPU: Canvas2D build + encode; GPU: command bu
 `report.json` → `metrics`: `<name>_cpu_p50_ms`, `_cpu_p95_ms`, `_cpu_max_ms`, `_gpu_p95_ms`; `memory_mb`,
 `memory_peak_mb` (physical footprint, lifetime peak).
 
-`scripts/perf.sh` runs `app/Tests/PerfScripts/timeline_500.json` (release build; timeline scroll / zoom / zoomed-out
-scroll with 500 clips, memory peak) plus the 4K perf smoke tests (`PerfSmokeTests`: playback fps, export, proxy; needs
+`scripts/perf.sh` runs `app/Tests/PerfScripts/timeline_500.json` (release build, 500 clips / 300 media: timeline scroll /
+zoom / zoomed-out scroll, inspector slider drag, ruler scrub, asset grid scroll — main-thread CPU per event —, launch,
+project open, memory peak) plus `PerfAuditTests` (complex 1080p/4K playback with effects: compositor cost + dropped %,
+scrub latency proxy/original, paused live-edit re-render, engine memory peak), the timing unit tests (`unit_*`) and the
+4K perf smoke tests (`PerfSmokeTests`: playback fps, export, proxy; needs
 `bench/media` from `bench/make_media.sh`, a worktree reuses the main checkout's), writes `build/perf/results.json`
 (`{mode, machine, metrics, violations}`) and exits 1 when a metric breaks its threshold in `bench/perf_thresholds.json`.
 
 - `--air`: MacBook Air approximation — runs under `taskpolicy -c background` (efficiency cores only, throttled I/O;
   pessimistic vs a real M1 Air) with `MONTAGE_SIMULATE_RAM_GB=8` (`MemoryBudget` 8 GB policies: 720p preview, forced
   proxies, smaller caches). Compared against the `air` thresholds.
-- Add a metric: a `perf`/`metric` step in a perf script (or an `emit` line in `PerfSmokeTests`), then a threshold entry.
+- Add a metric: a `perf`/`metric` step in a perf script (or an `emit` line in `PerfSmokeTests`/`PerfAuditTests`, or
+  `TimingBudget.metric` in a unit test listed in perf.sh's `--filter`), then a threshold entry for both modes.
+- Profiling a UI interaction: run the app with a one-step perf script and attach `xcrun xctrace record --template
+  'Time Profiler' --attach <pid>`; SwiftUI layout of the hosting view usually dominates. Editor panels live in separate
+  hosting views (`IsolatedHost`) so one panel's updates don't lay out the window — keep new panels inside one.
   Tighten thresholds when something gets faster; never loosen one to hide a regression without saying why.
