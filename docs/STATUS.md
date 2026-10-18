@@ -79,7 +79,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - Agents never send real mouse/keyboard input while teams run in parallel; real-input E2E pass is phase 4.
 
 ## Engineering gotchas (read!)
-- check_clean --ui on main was red for env reasons (ai_remove needs LaMa model; settings_window snapshot includes variable disk sizes) and uitest.sh exited 0 on failure — QA fix in progress; until merged, these two are known pre-existing failures.
+- UI tests are environment-independent (7d89983): AI models sandboxed (scripts declare `requires.models`, else SKIP), fixed cache sizes/clock in test mode, snapshot `mask`. uitest.sh exits non-zero on failure.
+- Unit timing checks are load-aware (985b24e, TimingBudget: 3x gross bound, skipped when load > cores); precise budgets live in scripts/perf.sh.
 - PlaybackTests realtime check can flake under heavy machine load (seen by W11) — W14 to harden.
 - MP3 export requires FFmpeg sidecar with libmp3lame; otherwise option disabled with hint.
 - Never use AVAudioTimePitchAlgorithm `.varispeed`: hangs the audio reader during export on sped-up clips.
