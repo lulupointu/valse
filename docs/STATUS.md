@@ -21,7 +21,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W14 | QA: UI test driver, screenshot diff, perf | 1 | running (others wait for `--uitest`) | worktree-agent-aa1de47edb2d5d946 |
 | W4 | Effects & filters content | 2 | running | |
 | W5 | Transitions & animations content | 2 | running | |
-| W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | queued | |
+| W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | merged (TX: 21 done / 9 partial / 5 blocked / 6 todo) | worktree-agent-a88c18fc0417d0660 |
 | W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | running | |
 | W11 | Export & interchange | 2 | running | |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | queued | |
@@ -41,13 +41,17 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W3 | W10+W6 | AI matte in compositor → flip `CutoutAvailability.matteCompositingAvailable` | CK-002 |
 | W3 | W1/W2/W5/W8 | Timeline/canvas/content/audio-render parts of inspector-partial rows | CV-003/004/006/012, KF-001/003/008, SP-002, AU-004/005, CL-002, TR-002, MK-001 |
 | W1/W2/W3 | W14 | `--uitest` driver to add interaction tests | — |
-| W2 | W7 | Text box width in the model (CapCut edge pills / ⌥-drag resize on canvas); keep `TextMetrics` (Engine/Render) in sync with `TextRasterizer` layout | CV-003, TX-* |
+| W7 | W2 | Canvas edge pills / ⌥-drag set `TextContent.boxWidth` (fraction of canvas width; engine wraps) | TX-011 |
+| W7 | W10 | Auto captions/lyrics: call `CaptionOps.addCaptionTrack(segments, origin: .auto/.lyrics, replacing:)` with word timings (karaoke needs them); translations → `caption.translation` | TX-017/018/023/030/038 |
+| W7 | W11 | Export dialog "Captions" option: `CaptionOps.segments(of:)` + `CaptionFiles.serialize(_:format:)` | TX-025 |
+| W7 | W8/W10 | Text-to-speech tab for text clips | TX-016 |
 | W2 | W1 | Timeline preview axis: call `store.hoverPreview(t)` / `hoverPreview(nil)` on hover so the player shows the hovered frame | TL preview axis |
 | W2 | W9 | Decoder downscale + preview render cache for Low/Med quality; real reverse decode (J shuttle is emulated with seeks, no audio) | PB-002/005/008 |
 | W2 | W12 | Settings ▸ Performance: persist preview quality + proxy toggle (`store.previewQuality`, `store.setUsesProxies`) | PB-002, SE-001 |
 | W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
 
 ## Done cross-team items
+- W7 did W2's request: `TextContent.boxWidth` in the model; `TextMetrics` now backed by the text engine layout (handles hug rendered text).
 - W3 built transition inspector (requested by W1).
 - W8 delivered auto beats into `Clip.beats` (TL-026) for W1.
 - W6/W9 delivered reverse render (TL-014) and nested compound rendering (TL-021 render side) for W1.

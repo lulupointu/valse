@@ -296,6 +296,33 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   keyframes, live EQ, voice changer, pitch vs speed, speed curves, loudness, ducking, denoise, taps present, live-edit structure key,
   A/V sync through speed + export), `AudioUITests`.
 
+## 17d. Text engine (W7)
+
+- **Model** (`MontageCore/Text/`): `TextContent` (all distances in **em** = font px; new fields decode with defaults): case, vertical
+  orientation, extra strokes, background (block/line/letter), shadow (+3D extrude), glow, gradient/texture fill, curve, path,
+  `boxWidth`, per-range `runs` (UTF-16 `TextSpan`; `setString` keeps runs on their characters, `applyStyle`, `commonStyle`),
+  bubble, `caption: CaptionData` (word timings in *content time* = clip-local + `sourceStart`; the evaluator shifts them to
+  clip-local), `karaoke: KaraokeStyle`, `template: TextTemplateInstance`. `TextTokenizer` = the one word segmentation shared by
+  captions and renderer. `CaptionOps` (pure): add caption track from `CaptionSegment`s (the AI hand-off), split/merge/nudge/setText,
+  find & replace, apply look to all, line wrap, script → captions, keyword picker. `CaptionFiles`: SRT/VTT/ASS/LRC/TXT parse +
+  serialize (word timings round-trip via VTT `<t>`, ASS `\k`, enhanced LRC).
+- **Content** (`MontageEffects`): `GlyphAnimationSpec` on `AnimationDescriptor.glyph` (unit char/word/line/all, stagger order,
+  span, loop wave) — `BuiltinTextAnimations` (targets `.text`); `Registries.textStyles` (procedural presets + word art, `kind`),
+  `textBubbles`, `textTemplates` (layers = text slots / shapes with time window + glyph anims, `fitSlot`), `captionTemplates`.
+- **Engine** (`MontageEngine/Text/`, `Render/TextRasterizer.swift`): Core Text layout → `LaidCluster`s (shaping, bidi, fallback;
+  curve/path/vertical transforms) → `TextScene` (blocks: main, bilingual sub line, template layers; items: bubble, backgrounds,
+  karaoke word boxes, per-glyph back = shadow/glow/outlines, front = fill/underline) → `TextPainter` (CG glyph outlines).
+  Static text: one cached CG image. Animated / karaoke / template text: every item rasterized once into a `TextAtlas`; per frame
+  `TextAnimator` computes glyph instances and `TextGPU` draws them with one instanced pass into a pool texture. Images are padded to
+  16 px and margins to 8 px so the compositor draws them 1:1 (rest pose == static image, no pop). Raster scale follows the layer
+  scale (√2 buckets). Bounds are symmetric around the text box (effects never move the text). `measure` / `textBox` /
+  `TextMetrics.size` give canvas sizes for handles. 50 animated karaoke captions at 1080p ≈ 13–16 ms/frame (debug, M1 Pro).
+- **UI** (`MontageUI/Text/`): `TextInspector` (tabs/sections registered from `BuiltinInspector`), `FontPicker` (+ `FontCatalog`
+  over W9's `FontLibrary`), `ClipTextEditor` (typing = one undo step per burst), `CaptionEditor`, `TextAssetTab`, previews rendered
+  with the real engine (`TextPreviewCache`). Inline canvas editing is W2's `InlineTextEditor`; `store.beginInlineTextEdit(id)`.
+- **Add a text style / animation / bubble / template / caption template**: one entry in the matching `Builtin/Text*.swift` /
+  `CaptionTemplates.swift` list + keys in `MontageEffects/Resources/*/Text.strings`. `TextRenderTests` renders every registry entry.
+
 ## 18. Known gaps (foundation)
 
 Speed-curve editor UI, on-canvas crop handles, home screen and settings window, audio effects chain, editing inside compound clips (UI), pen/text/brush masks, rotation in stabilization, auto beat detection, and the Templates/Library content.

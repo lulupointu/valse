@@ -161,7 +161,7 @@
 | KF-006 | Keyframe panel | "Show/Hide keyframe panel", "Add keyframe on keyframe panel" shortcut (configurable). | N | P2 | Dope-sheet style panel. | todo |
 | KF-007 | Motion path | Position keyframes shown as a path in the player. | ? | P2 | Spatial bezier interpolation. | todo |
 | KF-008 | Reset keyframes | "Keyframes of the selected clip will be reset". | N | P1 | — | partial (W3: section reset clears that section's keyframes) |
-| KF-009 | Text animations | See TX-020. | — | — | — | todo |
+| KF-009 | Text animations | See TX-020. | — | — | — | done (W7, see TX-020) |
 | KF-010 | Sticker animations | "Sticker animation" In/Out/Loop. | N | P1 | Same preset engine as text/video animations. | todo |
 | KF-011 | Copy keyframe timing | Paste attributes "Keyframe timing: Maintain / Stretch to fit". | N | P2 | Time remap of keyframes. | todo |
 | KF-012 | Lottie/vector animation playback | Animated stickers/text templates (Bodymovin). | N | P1 | Lottie renderer (e.g. rlottie MIT / ThorVG MIT / Skottie BSD) to GPU textures. | todo |
@@ -185,47 +185,47 @@
 
 | ID | Feature | Behavior / UX in CapCut | Pro? | Pri. | Technical requirements | Status |
 |---|---|---|---|---|---|---|
-| TX-001 | Add text | Text tab → "Add text" / default text. Drag to timeline. Double-click in the player to edit inline. Multi-line. | N | P0 | Text layout engine (shaping, bidi, line breaking), GPU text rendering at any scale. | partial (W2 part done: double-click text on the canvas edits inline, live render, one undo step; rest = text team) |
-| TX-002 | Font selection | Font list (cloud fonts, system fonts, imported, favorites, recently used, Font book). Search fonts. CapCut Sans bundled. | N | P0 | Font enumeration, preview rendering, lazy font load. | todo |
-| TX-003 | Basic style | Font size, bold, italic, underline, case (Uppercase/Lowercase/Title case), color (picker, eyedropper, my colors), opacity, character spacing, line spacing, alignment (L/C/R/justify, vertical). | N | P0 | Rich text attributes. | todo |
-| TX-004 | Rich text per range | Different styles inside one text box ("multiple values", "Font style (multiple)"). | N | P1 | Attributed string model, range edits. | todo |
-| TX-005 | Stroke | Border/stroke: color, thickness. Position inside/center/outside. Multiple layers ("Triple layer"). | N | P0 | Vector or SDF stroke rendering, multi-layer outlines. | todo |
-| TX-006 | Background (label) | Text background: color, opacity, rounded corners, height/width padding, offset. "Letter background". | N | P0 | Line/paragraph background shapes. | todo |
-| TX-007 | Shadow | Shadow: color, opacity, blur, distance, angle. "Shadow stroke", inner/outer shadow, "3D shadow" (weight). | N | P0 | Blurred alpha offset pass, extruded 3D shadow. | todo |
-| TX-008 | Glow | "Glow": inward / outward / both, color, intensity, range. | N | P1 | Distance-field glow. | todo |
-| TX-009 | Gradient & texture fill | Gradient fills ("Line" gradient), texture/image fill ("Select texture", tile). | N | P1 | Fill shaders with UV mapping per glyph or per box. | todo |
-| TX-010 | Curve text / text path | "Curve text" (arc bend amount) and "Text path" (along a custom path). | N | P1 | Glyph placement along a path with per-glyph rotation. | todo |
-| TX-011 | Text box resize | "Resize the text box from the center", auto/fixed box, captions line wrap. | N | P1 | Box layout constraints. | todo |
-| TX-012 | Text effects (WordArt presets) | "Text effects" library: one-click styles (combination of fills, strokes, shadows, 3D, textures, gradient, chrome, neon…). Searchable. Hundreds of presets, many Pro. | N/Y | P0 | Parametric multi-layer text style engine. Presets = parameter sets (procedural, see preset section). | todo |
-| TX-013 | Text templates | "Text templates": animated multi-layer designed titles (text + shapes + stickers + animation), editable text fields, categories (Trending, Basic, Social, Vlog, Business, Titles, Holidays…). Thousands. | N/Y | P0 | Template format (layers + keyframes + text slots + Lottie). Our own template authoring set. | todo |
-| TX-014 | Bubble text | "Text bubble" shapes behind text (speech bubbles, labels). | N | P1 | Vector shapes auto-sized to the text box. | todo |
-| TX-015 | Save text preset | "Save text presets" / "Saved to Customized" ("My presets"). | N | P1 | Preset store. | todo |
-| TX-016 | Text to speech from text clip | Select text → "Text-to-speech" (see AU-030). "Update speech according to script". | N | P0 | See AU-030. | todo |
-| TX-017 | Auto captions | "Auto captions": spoken language (auto detect, 50+ languages), source track (all/main/selected), "Delete current captions", optional caption template, filler-word identification, bilingual. Generates timed caption clips on a caption track. | Y (2025) | P0 | On-device ASR with word timestamps (Whisper large-v3-turbo / small via whisper.cpp MIT, Apple SpeechAnalyzer on macOS 26), sentence segmentation, max chars per line. FR+EN must be excellent. | todo |
-| TX-018 | Auto lyrics | "Auto lyrics" / "Recognize lyrics" for songs, lyrics language. | Y? | P1 | ASR on vocals (pre-separate with Demucs for accuracy), line timing. | todo |
-| TX-019 | Caption editor panel | Caption list editor: edit text per caption, split/merge, find and replace, search, select all, apply to all main/sub captions, timestamps. | N | P0 | Caption track model with word-level timing. | todo |
-| TX-020 | Text animations | "Animation" for text: In / Out / Loop presets (typewriter, fade, pop, slide, bounce, wave, blur, glitch, per-character/word/line), duration/speed sliders. | N/Y | P0 | Per-glyph animation engine with stagger by character/word/line, easing. | todo |
-| TX-021 | Caption templates / karaoke styles | "Caption templates": styled + animated caption looks applied to all captions. Word-by-word / line-by-line / whole screen. "Spoken word/line" vs "unspoken" highlight states (karaoke), keyword emphasis styles. | N/Y | P0 | Word-timed rendering (needs word timestamps), state-based styling per word. | todo |
-| TX-022 | Highlight keywords (auto) | "Auto highlight keywords" in captions (AI picks keywords → emphasized style). Undo/redo highlight. | Y | P1 | Keyword extraction (local LLM or TF-IDF + POS), applied as style ranges. | todo |
-| TX-023 | Bilingual captions | "Bilingual captions": translate to a target language, show bilingual / translation only, "Update translations automatically", main/sub caption styles. | Y | P1 | On-device MT (Apple Translation framework macOS 15+, Opus-MT/Marian (CC-BY), MADLAD-400 (Apache), or a local LLM). FR↔EN priority. | todo |
-| TX-024 | Captions line wrap & split | "Split captions", one caption max 2 lines, words per line, lines per screen. | N | P0 | Line-breaking with language rules (incl. CJK). | todo |
-| TX-025 | Export captions | Export SRT / TXT (Export panel "Captions"). | N | P0 | SRT/TXT/VTT writers. | todo |
-| TX-026 | Lyric templates | Lyrics caption templates ("Apply to all lyrics", main/sub lyrics). | N | P2 | Same as caption templates. | todo |
+| TX-001 | Add text | Text tab → "Add text" / default text. Drag to timeline. Double-click in the player to edit inline. Multi-line. | N | P0 | Text layout engine (shaping, bidi, line breaking), GPU text rendering at any scale. | done (W7: add text, multi-line, inline canvas edit via W2 editor) |
+| TX-002 | Font selection | Font list (cloud fonts, system fonts, imported, favorites, recently used, Font book). Search fonts. CapCut Sans bundled. | N | P0 | Font enumeration, preview rendering, lazy font load. | done (W7: system + imported fonts, previews, search, favourites, recents; no proprietary CapCut Sans) |
+| TX-003 | Basic style | Font size, bold, italic, underline, case (Uppercase/Lowercase/Title case), color (picker, eyedropper, my colors), opacity, character spacing, line spacing, alignment (L/C/R/justify, vertical). | N | P0 | Rich text attributes. | done (W7) |
+| TX-004 | Rich text per range | Different styles inside one text box ("multiple values", "Font style (multiple)"). | N | P1 | Attributed string model, range edits. | done (W7: per-range colour/font/size/B/I/U/stroke colour/background) |
+| TX-005 | Stroke | Border/stroke: color, thickness. Position inside/center/outside. Multiple layers ("Triple layer"). | N | P0 | Vector or SDF stroke rendering, multi-layer outlines. | partial (W7: outside stroke + up to 3 extra layers; no inside/centre position) |
+| TX-006 | Background (label) | Text background: color, opacity, rounded corners, height/width padding, offset. "Letter background". | N | P0 | Line/paragraph background shapes. | done (W7: block/line/letter, radius, padding, offset, opacity) |
+| TX-007 | Shadow | Shadow: color, opacity, blur, distance, angle. "Shadow stroke", inner/outer shadow, "3D shadow" (weight). | N | P0 | Blurred alpha offset pass, extruded 3D shadow. | done (W7: drop shadow + 3D extrusion) |
+| TX-008 | Glow | "Glow": inward / outward / both, color, intensity, range. | N | P1 | Distance-field glow. | done (W7) |
+| TX-009 | Gradient & texture fill | Gradient fills ("Line" gradient), texture/image fill ("Select texture", tile). | N | P1 | Fill shaders with UV mapping per glyph or per box. | done (W7: gradients + 8 procedural textures) |
+| TX-010 | Curve text / text path | "Curve text" (arc bend amount) and "Text path" (along a custom path). | N | P1 | Glyph placement along a path with per-glyph rotation. | done (W7: arc curve + circle/wave/arch/spiral/custom paths) |
+| TX-011 | Text box resize | "Resize the text box from the center", auto/fixed box, captions line wrap. | N | P1 | Box layout constraints. | partial (W7: fixed box width wraps in model+render; edge-handle resize needs W2) |
+| TX-012 | Text effects (WordArt presets) | "Text effects" library: one-click styles (combination of fills, strokes, shadows, 3D, textures, gradient, chrome, neon…). Searchable. Hundreds of presets, many Pro. | N/Y | P0 | Parametric multi-layer text style engine. Presets = parameter sets (procedural, see preset section). | done (W7: 228 procedural presets/word art, searchable) |
+| TX-013 | Text templates | "Text templates": animated multi-layer designed titles (text + shapes + stickers + animation), editable text fields, categories (Trending, Basic, Social, Vlog, Business, Titles, Holidays…). Thousands. | N/Y | P0 | Template format (layers + keyframes + text slots + Lottie). Our own template authoring set. | partial (W7: 24 animated multi-layer templates; no Lottie, not thousands) |
+| TX-014 | Bubble text | "Text bubble" shapes behind text (speech bubbles, labels). | N | P1 | Vector shapes auto-sized to the text box. | done (W7: 24 bubbles/banners) |
+| TX-015 | Save text preset | "Save text presets" / "Saved to Customized" ("My presets"). | N | P1 | Preset store. | done (W7) |
+| TX-016 | Text to speech from text clip | Select text → "Text-to-speech" (see AU-030). "Update speech according to script". | N | P0 | See AU-030. | blocked (TTS is AU-030, W8/W10) |
+| TX-017 | Auto captions | "Auto captions": spoken language (auto detect, 50+ languages), source track (all/main/selected), "Delete current captions", optional caption template, filler-word identification, bilingual. Generates timed caption clips on a caption track. | Y (2025) | P0 | On-device ASR with word timestamps (Whisper large-v3-turbo / small via whisper.cpp MIT, Apple SpeechAnalyzer on macOS 26), sentence segmentation, max chars per line. FR+EN must be excellent. | partial (W7 caption track/styling + `CaptionOps.addCaptionTrack` API ready; STT generation W10) |
+| TX-018 | Auto lyrics | "Auto lyrics" / "Recognize lyrics" for songs, lyrics language. | Y? | P1 | ASR on vocals (pre-separate with Demucs for accuracy), line timing. | partial (W7: LRC import, lyrics origin; recognition W10) |
+| TX-019 | Caption editor panel | Caption list editor: edit text per caption, split/merge, find and replace, search, select all, apply to all main/sub captions, timestamps. | N | P0 | Caption track model with word-level timing. | done (W7) |
+| TX-020 | Text animations | "Animation" for text: In / Out / Loop presets (typewriter, fade, pop, slide, bounce, wave, blur, glitch, per-character/word/line), duration/speed sliders. | N/Y | P0 | Per-glyph animation engine with stagger by character/word/line, easing. | done (W7: 45 per-glyph In/Out/Loop animations, GPU atlas) |
+| TX-021 | Caption templates / karaoke styles | "Caption templates": styled + animated caption looks applied to all captions. Word-by-word / line-by-line / whole screen. "Spoken word/line" vs "unspoken" highlight states (karaoke), keyword emphasis styles. | N/Y | P0 | Word-timed rendering (needs word timestamps), state-based styling per word. | done (W7: 16 karaoke/caption templates, spoken/unspoken/keyword states) |
+| TX-022 | Highlight keywords (auto) | "Auto highlight keywords" in captions (AI picks keywords → emphasized style). Undo/redo highlight. | Y | P1 | Keyword extraction (local LLM or TF-IDF + POS), applied as style ranges. | done (W7: local heuristic keyword picker) |
+| TX-023 | Bilingual captions | "Bilingual captions": translate to a target language, show bilingual / translation only, "Update translations automatically", main/sub caption styles. | Y | P1 | On-device MT (Apple Translation framework macOS 15+, Opus-MT/Marian (CC-BY), MADLAD-400 (Apache), or a local LLM). FR↔EN priority. | partial (W7: bilingual layout/display modes; translation W10) |
+| TX-024 | Captions line wrap & split | "Split captions", one caption max 2 lines, words per line, lines per screen. | N | P0 | Line-breaking with language rules (incl. CJK). | done (W7) |
+| TX-025 | Export captions | Export SRT / TXT (Export panel "Captions"). | N | P0 | SRT/TXT/VTT writers. | partial (W7: SRT/VTT/ASS/LRC/TXT writers + export from Captions tab; export-dialog option W11) |
+| TX-026 | Lyric templates | Lyrics caption templates ("Apply to all lyrics", main/sub lyrics). | N | P2 | Same as caption templates. | partial (W7: caption templates apply to lyrics; no dedicated lyric set) |
 | TX-027 | AI text (prompt → text effect) | "AI-generated text": type text + describe the effect → generated text style images. | C | P2 | Substitute: local LLM maps the prompt → parameters of our procedural text-style engine (instant, no diffusion). Optional SD texture fill. | todo |
-| TX-028 | AI fonts | "Generate AI font" from prompt/reference image (Bytefont). | C | N/A-local | Font generation is impractical on device. Substitute: OFL font library + procedural effects. Mark N/A-local. | todo |
-| TX-029 | Script → captions (long text editor) | "Enter scripts", "Split into captions", "Convert scripts into captions" with timing by TTS or even distribution. | N | P1 | Text segmentation, timing allocation (TTS alignment or uniform). | todo |
-| TX-030 | Text alignment to speech | Align an existing script to the audio (forced alignment). | N | P2 | CTC forced alignment (wav2vec2 / Whisper timestamps). | todo |
+| TX-028 | AI fonts | "Generate AI font" from prompt/reference image (Bytefont). | C | N/A-local | Font generation is impractical on device. Substitute: OFL font library + procedural effects. Mark N/A-local. | N/A-local |
+| TX-029 | Script → captions (long text editor) | "Enter scripts", "Split into captions", "Convert scripts into captions" with timing by TTS or even distribution. | N | P1 | Text segmentation, timing allocation (TTS alignment or uniform). | done (W7) |
+| TX-030 | Text alignment to speech | Align an existing script to the audio (forced alignment). | N | P2 | CTC forced alignment (wav2vec2 / Whisper timestamps). | blocked (forced alignment, W10) |
 | TX-031 | AI emojis | "AI emojis": auto-add emojis to captions (position above/below/freeform, size S/M/L, auto update). | Y? | P2 | Keyword→emoji mapping (local LLM or lexicon), emoji font rendering (Apple Color Emoji system, or Noto Emoji OFL). | todo |
 | TX-032 | Separate text template | "Separate" / "Text template separated" to edit its parts. | N | P2 | Template flattening into layers. | todo |
 | TX-033 | Multi-language text templates | Templates with per-language variants. | N | P2 | — | todo |
-| TX-034 | Dictate (voice input) | "Dictate" voice input into text fields. | N | P2 | Streaming ASR (Apple Speech / whisper.cpp stream). | todo |
-| TX-035 | Complex script support | Arabic, Hebrew (RTL), Bengali, Khmer, Myanmar, CJK, Thai (bundled Noto fonts). | N | P0 | HarfBuzz/CoreText-class shaping, bidi (ICU), font fallback chains. | todo |
-| TX-036 | Text on cover | Cover text templates. | N | P2 | Reuse text engine in the cover editor. | todo |
-| TX-037 | Caption "find & replace" | "Find and replace" across captions. | N | P1 | — | todo |
-| TX-038 | Smart caption speaker ID | Speaker identification captions (per-speaker style). | Y | P2 | Speaker diarization (pyannote-class or sherpa-onnx with 3D-Speaker embeddings, Apache-2.0). | todo |
+| TX-034 | Dictate (voice input) | "Dictate" voice input into text fields. | N | P2 | Streaming ASR (Apple Speech / whisper.cpp stream). | blocked (streaming ASR, W10) |
+| TX-035 | Complex script support | Arabic, Hebrew (RTL), Bengali, Khmer, Myanmar, CJK, Thai (bundled Noto fonts). | N | P0 | HarfBuzz/CoreText-class shaping, bidi (ICU), font fallback chains. | done (W7: Core Text shaping/bidi/fallback, vertical text) |
+| TX-036 | Text on cover | Cover text templates. | N | P2 | Reuse text engine in the cover editor. | blocked (cover editor, W1/W12) |
+| TX-037 | Caption "find & replace" | "Find and replace" across captions. | N | P1 | — | done (W7) |
+| TX-038 | Smart caption speaker ID | Speaker identification captions (per-speaker style). | Y | P2 | Speaker diarization (pyannote-class or sherpa-onnx with 3D-Speaker embeddings, Apache-2.0). | blocked (diarization W10; speaker field in caption model) |
 | TX-039 | Number/date counters | (Text templates) animated counters/timers. | N | P2 | Template parameter expressions. | todo |
-| TX-040 | Text glyph-level effects | "Couldn't apply effect to part of the text": per-range effect support. | N | P2 | — | todo |
-| TX-041 | Text templates on timeline | Drag templates to the timeline, edit text fields in the inspector, change template keeping text. | N | P0 | Template instance model. | todo |
+| TX-040 | Text glyph-level effects | "Couldn't apply effect to part of the text": per-range effect support. | N | P2 | — | partial (W7: per-range styles; effects per range not yet) |
+| TX-041 | Text templates on timeline | Drag templates to the timeline, edit text fields in the inspector, change template keeping text. | N | P0 | Template instance model. | done (W7: template clips, slot fields, switch template keeping text) |
 
 ## 8. Stickers & shapes (ST)
 
@@ -475,8 +475,8 @@ Each AI feature is listed once here (cross-referenced from areas above). The "On
 | TP-001 | Video templates | Home → Templates: browse/search community templates (ratio, clip count, duration), preview, "Use template" → replace media slots (auto-fill, crop to fit), edit texts, export. | N/Y | P1 | Template format = project with replaceable slots + locked layers. Local: ship our own template pack (procedurally authored), user-saved templates. Community feed N/A-local. | todo |
 | TP-002 | Template editor (unlock & edit) | "Unlock the template to edit it" → becomes a normal project. | N | P1 | Template → project conversion. | todo |
 | TP-003 | Save project as template | "Post as template": choose replaceable clips, keep original sound, cover. | N | P2 | Local "Save as template" (no posting). | todo |
-| TP-004 | Text templates | See TX-013. | N/Y | P0 | — | todo |
-| TP-005 | Caption templates | See TX-021. | N/Y | P0 | — | todo |
+| TP-004 | Text templates | See TX-013. | N/Y | P0 | — | partial (W7, see TX-013) |
+| TP-005 | Caption templates | See TX-021. | N/Y | P0 | — | done (W7, see TX-021) |
 | TP-006 | Thumbnail/cover templates | "Thumbnail Templates" for covers. | N/Y | P2 | Cover-editor templates. | todo |
 | TP-007 | Compound clip presets | Save reusable clip groups as presets (≤99). | N | P1 | Preset = serialized subgraph. | todo |
 | TP-008 | Business/marketing templates | Business templates, brand kit, product ads. | Y | N/A-local | Brand kit substitute: local "Brand" folder of logos, colors and fonts (P2). | todo |
