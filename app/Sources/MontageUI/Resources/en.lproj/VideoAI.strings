@@ -61,3 +61,25 @@
 "look.match.select" = "Select source frame";
 "look.match.import" = "Import image";
 "look.match.apply" = "Apply";
+
+/* W10 video enhance (CL-017/018/019) */
+"enhance.quality" = "Enhance quality";
+"enhance.quality.level" = "Quality";
+"enhance.quality.hd" = "HD";
+"enhance.quality.uhd" = "UHD";
+"enhance.quality.hint" = "HD makes videos clearer and more natural (on-device super resolution ×2).";
+"enhance.quality.unavailable" = "Available for videos up to 960 px on this Mac";
+"enhance.denoise" = "Reduce image noise";
+"enhance.flicker" = "Remove flickers";
+"enhance.flicker.mode" = "Mode";
+"enhance.flicker.flashlight" = "Flashlight";
+"enhance.flicker.timelapse" = "Time-lapse";
+"enhance.level" = "Level";
+"enhance.level.weak" = "Weak";
+"enhance.level.normal" = "Normal";
+"enhance.level.strong" = "Strong";
+"enhance.job" = "Enhancing video...";
+"enhance.applying" = "Enhancing video... %d%%";
+"enhance.done" = "Video enhanced";
+"enhance.failed" = "Couldn't enhance the video. Try again.";
+"enhance.cancelled" = "Video enhancement canceled";

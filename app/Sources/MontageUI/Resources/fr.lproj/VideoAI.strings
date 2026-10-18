@@ -61,3 +61,25 @@
 "look.match.select" = "Sélectionner le cadre source";
 "look.match.import" = "Importer une image";
 "look.match.apply" = "Appliquer";
+
+/* W10 amélioration vidéo (CL-017/018/019) */
+"enhance.quality" = "Améliorer la qualité";
+"enhance.quality.level" = "Qualité";
+"enhance.quality.hd" = "HD";
+"enhance.quality.uhd" = "UHD";
+"enhance.quality.hint" = "La HD rend les vidéos plus nettes et plus naturelles (super-résolution ×2 sur l'appareil).";
+"enhance.quality.unavailable" = "Disponible pour les vidéos jusqu'à 960 px sur ce Mac";
+"enhance.denoise" = "Réduire le bruit de l'image";
+"enhance.flicker" = "Supprimer les scintillements";
+"enhance.flicker.mode" = "Mode";
+"enhance.flicker.flashlight" = "Lampe de poche";
+"enhance.flicker.timelapse" = "Accéléré";
+"enhance.level" = "Niveau";
+"enhance.level.weak" = "Faible";
+"enhance.level.normal" = "Normal";
+"enhance.level.strong" = "Fort";
+"enhance.job" = "Amélioration de la vidéo…";
+"enhance.applying" = "Amélioration de la vidéo… %d %%";
+"enhance.done" = "Vidéo améliorée";
+"enhance.failed" = "Impossible d'améliorer la vidéo. Réessaie.";
+"enhance.cancelled" = "Amélioration de la vidéo annulée";

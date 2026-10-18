@@ -36,6 +36,8 @@ public final class AIUIState {
     public var trackingJobs: [ClipID: JobID] = [:]
     /// Colour looks being computed (clip → job), per kind.
     public var lookJobs: [String: JobID] = [:]
+    /// Enhance quality / denoise / deflicker renders (clip → job + the enhancement being rendered).
+    public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false
     @ObservationIgnored var ttsRefresh: Task<Void, Never>?

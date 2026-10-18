@@ -380,6 +380,9 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Colour looks** (CL-007/008/009): `ColorTransfer` (Core: Lab stats, Reinhard match, auto adjust) → `ColorLooks` (MontageAI)
   bakes a 33³ LUT into `App Support/Montage/Generated/looks/<kind>.<hash>.cube`, registered unlisted in W6's `LUTLibrary` as
   effect `ai.look.<kind>.<hash>` (Strength param; `ColorLooks.loadAll()` at startup). UI: `ColorLookUI.swift` (Adjust ▸ Basic).
+- **Video enhance** (CL-017/018/019): `VideoEnhancer` renders a processed copy (deflicker gains, temporal denoise, VT low-latency
+  super resolution ×2; streaming reader → HEVC writer + audio passthrough) into `Caches/Montage/enhanced/<hash>-<key>.mov`;
+  `VideoEnhanceJob` swaps the clip's media to it and records `Clip.enhance` (original media id) so unticking restores it.
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
   `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,

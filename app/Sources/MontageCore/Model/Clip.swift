@@ -81,6 +81,9 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var reframe: ReframeOptions?
     /// Motion tracking (W10, AI/MotionTracking.swift): this clip's position/scale keyframes follow a tracked object.
     public var tracking: MotionTrackInfo?
+    /// Reduce image noise / Remove flickers / Enhance quality (W10, AI/VideoEnhance.swift): the clip plays a processed
+    /// copy of its media; `enhance.original` is the media to restore.
+    public var enhance: VideoEnhancement?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

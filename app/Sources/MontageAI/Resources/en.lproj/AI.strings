@@ -20,3 +20,4 @@
 "cmd.autoAdjust" = "Auto adjust";
 "cmd.colorMatch" = "Color match";
 "cmd.colorCorrect" = "Color correction";
+"cmd.enhance" = "Enhance video";
