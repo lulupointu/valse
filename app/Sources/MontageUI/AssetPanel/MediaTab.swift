@@ -54,7 +54,7 @@ struct MediaTab: View {
                         if showsFolders && currentFolder != nil && store.ai.mediaQuery.isEmpty { BinBreadcrumb(store: store, folder: $folder) }
                         ScrollView {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96, maximum: 130), spacing: 10)], spacing: 12) {
-                                let found = showsFolders ? store.smartSearchResults(store.project.media.filter { kinds.contains($0.kind) }) : nil
+                                let found = showsFolders ? store.smartSearchResults(store.mediaBin.media.filter { kinds.contains($0.kind) }) : nil
                                 if found == nil { ForEach(folders) { f in FolderCard(store: store, folder: f, current: $folder) } }
                                 ForEach(Array((found ?? items).enumerated()), id: \.element.id) { i, a in MediaCard(store: store, asset: a).testID("media.card.\(i)") }
                             }

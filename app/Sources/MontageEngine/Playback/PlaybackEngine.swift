@@ -150,9 +150,10 @@ public final class PlaybackEngine {
     /// show progress on the clip.
     private func requestDerivedMedia(_ project: Project) {
         var reverse: [(MediaAsset, ClipID)] = [], stabilize: [(MediaAsset, ClipID)] = []
+        let lookup = project.mediaLookup
         for t in project.timeline.tracks {
             for c in t.clips {
-                guard let id = c.mediaID, let a = project.asset(id), a.kind == .video else { continue }
+                guard let id = c.mediaID, let a = lookup[id], a.kind == .video else { continue }
                 if c.reversed, ReverseManager.shared.readyURL(for: a) == nil, ReverseManager.shared.pendingJob(for: a) == nil {
                     reverse.append((a, c.id))
                 }

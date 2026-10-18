@@ -14,9 +14,10 @@ public enum DecoderBudget {
 
     static func streams(_ project: Project) -> [Stream] {
         var out: [Stream] = []
+        let lookup = project.mediaLookup
         for t in CompoundFlattening.decodeTracks(project) where t.kind.isVisual && !t.isHidden {
             for c in t.clips where c.isEnabled {
-                guard let id = c.mediaID, let a = project.asset(id), a.kind == .video, a.hasVideo else { continue }
+                guard let id = c.mediaID, let a = lookup[id], a.kind == .video, a.hasVideo else { continue }
                 var lanes = 1
                 if c.smoothSlowMo != nil { lanes += 1 }
                 if let mb = c.motionBlur, mb.amount > 0 { lanes += mb.clampedSamples - 1 }

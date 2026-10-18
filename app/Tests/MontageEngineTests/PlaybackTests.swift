@@ -24,11 +24,16 @@ import MontageTestSupport
             let load = PlaybackProbe.loadPerCore()
             print("playback probe: \(String(format: "%.1f", r.fps)) fps wall, composed \(r.composed) in \(String(format: "%.2f", r.itemSeconds)) s item time, cost p95 \(String(format: "%.2f", r.composeCostP95Ms)) ms, load/core \(String(format: "%.2f", load)), attempts \(attempt)")
             #expect(r.composed > 0, "compositor never ran")
-            #expect(r.sustainableFPS > 30, "compositor p95 frame cost \(r.composeCostP95Ms) ms")
-            if r.itemSeconds > 0.3 { #expect(r.composedFPS > 20, "composed \(r.composedFPS) fps of item time") }
+            // gross-regression bounds only (budgets: 30 fps sustainable, 20 fps composed); precise ones in scripts/perf.sh
+            if let lim = TimingBudget.limit(1000 / 30, "compositor frame cost") {
+                #expect(r.composeCostP95Ms < lim, "compositor p95 frame cost \(r.composeCostP95Ms) ms")
+            }
+            if r.itemSeconds > 0.3, let lim = TimingBudget.limit(1000 / 20, "composed frame interval") {
+                #expect(1000 / max(r.composedFPS, 0.001) < lim, "composed \(r.composedFPS) fps of item time")
+            }
             if r.fps <= 20 {
-                if load > 1 && r.sustainableFPS > 60 {
-                    print("⚠️ wall-clock playback \(r.fps) fps under machine load \(load)/core — compositor is fast, not failing")
+                if load > 1 || r.fps > 20 / TimingBudget.factor {
+                    print("⚠️ wall-clock playback \(r.fps) fps (machine load \(load)/core) — gross-regression bound only, not failing")
                 } else {
                     Issue.record("got \(r.fps) fps (load \(load)/core, compositor p95 \(r.composeCostP95Ms) ms)")
                 }

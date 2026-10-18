@@ -1,4 +1,5 @@
 import Testing
+import MontageTestSupport
 import Foundation
 import CoreGraphics
 import AppKit
@@ -175,12 +176,15 @@ import MontageCore
         let t0 = Date()
         for _ in 0..<10 { _ = v.buildCanvas() }
         let ms = Date().timeIntervalSince(t0) * 100
-        #expect(ms < 30, "buildCanvas took \(ms) ms")
+        TimingBudget.metric("unit_timeline_canvas_600_ms", ms, "ms")
+        if let lim = TimingBudget.limit(30, "buildCanvas 600 clips") { #expect(ms < lim, "buildCanvas took \(ms) ms") }
         // hit-testing is O(log n) per row
         let l = v.layoutNow
         let t1 = Date()
         for i in 0..<1000 { _ = l.hitTest(CGPoint(x: 200 + Double(i % 1000), y: l.rows[l.mainRowIndex!].y + 20), timeline: p.timeline) }
-        #expect(Date().timeIntervalSince(t1) < 0.05)
+        let hitMs = Date().timeIntervalSince(t1) * 1000
+        TimingBudget.metric("unit_timeline_hittest_1000_ms", hitMs, "ms")
+        if let lim = TimingBudget.limit(50, "1000 hit tests") { #expect(hitMs < lim, "1000 hit tests took \(hitMs) ms") }
     }
 
     @Test func dynamicTimelineKeysAreTranslated() {

@@ -33,6 +33,10 @@ public struct Project: Codable, Sendable, Equatable {
 
     public func asset(_ id: MediaID) -> MediaAsset? { media.first { $0.id == id } }
 
+    /// O(1) asset lookup for loops over every clip (perf: `asset(_:)` is a linear scan — 500 clips × 300 media on every
+    /// edit tick otherwise). Build once per pass, not per clip.
+    public var mediaLookup: MediaLookup { MediaLookup(media) }
+
     /// Total timeline duration (end of the last clip on any track).
     public var duration: Time { timeline.duration }
 }
@@ -156,4 +160,18 @@ public struct Marker: Codable, Sendable, Equatable, Identifiable {
     public init(time: Time, label: String = "", color: RGBA = RGBA(hex: 0x00C1CD)) {
         id = MarkerID(); self.time = time; self.label = label; self.color = color
     }
+}
+
+/// Id → asset index over a project's media (first match wins, like `Project.asset(_:)`).
+public struct MediaLookup: Sendable {
+    private let media: [MediaAsset]
+    private let index: [MediaID: Int]
+    public init(_ media: [MediaAsset]) {
+        self.media = media
+        var ix: [MediaID: Int] = [:]
+        ix.reserveCapacity(media.count)
+        for (i, m) in media.enumerated() where ix[m.id] == nil { ix[m.id] = i }
+        index = ix
+    }
+    public subscript(_ id: MediaID) -> MediaAsset? { index[id].map { media[$0] } }
 }

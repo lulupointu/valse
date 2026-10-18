@@ -456,8 +456,8 @@ import MontageTestSupport
         let start = Date()
         for i in 0..<n { encode(p, at: Double(i) / 30, renderer: r, into: out).waitUntilCompleted() }
         let ms = Date().timeIntervalSince(start) / Double(n) * 1000
-        print("metric text.50captions.frame_ms \(String(format: "%.2f", ms))")
-        #expect(ms < 33, "50 animated captions took \(ms) ms/frame")
+        TimingBudget.metric("unit_text_50captions_frame_ms", ms, "ms")
+        if let lim = TimingBudget.limit(33, "50 animated captions") { #expect(ms < lim, "50 animated captions took \(ms) ms/frame") }
         #expect(r.text.rasterizationCount == 50)
     }
 

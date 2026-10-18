@@ -20,6 +20,12 @@ inside its own process. Safe to run while other agents (or the user) use the mac
 runs queue behind it). A blocked run prints "waiting for test slot…". Nested scripts reuse their parent's slot.
 `MONTAGE_SLOTS=<n>` changes the count, `MONTAGE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
 
+**No exact timing budgets in the unit suite.** Wall-clock checks in `scripts/test.sh` use `TimingBudget`
+(MontageTestSupport): they assert only gross regressions (3× the budget, `MONTAGE_TIMING_FACTOR`) and are skipped with a
+"⚠️ timing check … skipped" line when the 1-min load average exceeds the core count. Emit the measurement with
+`TimingBudget.metric("unit_…", value, "ms")`, add the test to the `--filter` in `scripts/perf.sh` and the precise
+budget to `bench/perf_thresholds.json` — perf.sh runs exclusively, so its numbers are trustworthy.
+
 ## 1. A UI test in 5 minutes
 
 Create `app/Tests/UIScripts/<name>.json` (`//` line comments allowed):

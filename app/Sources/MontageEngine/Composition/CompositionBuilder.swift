@@ -332,10 +332,11 @@ public enum CompositionBuilder {
         h.combine(project.settings.canvasSize)
         h.combine(project.settings.frameRate)
         h.combine(project.settings.colorSpace)
+        let lookup = project.mediaLookup
         for t in CompoundFlattening.decodeTracks(project) {
             h.combine(t.id); h.combine(t.kind); h.combine(t.isMain); h.combine(t.isMuted)
             for c in t.clips {
-                guard let id = c.mediaID, let a = project.asset(id) else { continue }
+                guard let id = c.mediaID, let a = lookup[id] else { continue }
                 h.combine(c.id); h.combine(id); h.combine(c.start); h.combine(c.duration); h.combine(c.sourceStart)
                 h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audioStreamIndex)
                 AudioPipeline.combineStructure(c, asset: a, into: &h)

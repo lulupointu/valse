@@ -11,7 +11,10 @@
     "memory_peak_mb": {"max": 1200},
     "preview4k_composed_fps": {"min": 27},
     "export_10s_1080p_seconds": {"max": 3.5},
-    "proxy_60s_4k_seconds": {"max": 12}
+    "proxy_60s_4k_seconds": {"max": 12},
+    "unit_timeline_canvas_600_ms": {"max": 30},
+    "unit_timeline_hittest_1000_ms": {"max": 50},
+    "unit_text_50captions_frame_ms": {"max": 33}
   },
   "air": {
     "timeline_scroll_cpu_p95_ms": {"max": 16},
@@ -24,6 +27,9 @@
     "memory_peak_mb": {"max": 1200},
     "preview4k_composed_fps": {"min": 20},
     "export_10s_1080p_seconds": {"max": 8},
-    "proxy_60s_4k_seconds": {"max": 25}
+    "proxy_60s_4k_seconds": {"max": 25},
+    "unit_timeline_canvas_600_ms": {"max": 60},
+    "unit_timeline_hittest_1000_ms": {"max": 100},
+    "unit_text_50captions_frame_ms": {"max": 50}
   }
 }
