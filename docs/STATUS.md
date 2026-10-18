@@ -31,12 +31,10 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 ## Cross-team requests / blockers (open)
 | From | Needs from | What | Feature IDs |
 |---|---|---|---|
-| W10 | W7 | Caption model agreed (ARCH §17d): render `Clip.caption` — karaoke/word-by-word from `words` (clip-local), keyword emphasis (`isKeyword`), main/sub styles for `translation` (`display`); caption template choice in Auto captions panel | TX-017/021/022/023 |
-| W10 | W8 | Use `AudioStemStore.readyStem(media:kind:)` (`voice` / `novoice`, ML AUSoundIsolation) as the clip's audio for Isolate voice / Reduce noise / Enhance voice; `EditorStore.requestVoiceStems(_:)` makes them (job + progress on the clip) | AU-007/008/009 |
-| W10 | W11 | Export: "Caption exporting" checkbox → `CaptionExport.export(_:format:)`; wait for running AI jobs (cutout) before export; call `AIEngineHooks.prepareOpticalFlow(width:height:wait:)` when clips use optical flow | TX-025, EX |
+| W10 | W11 | Export: wait for running AI jobs (cutout / reframe / stems) before export; call `AIEngineHooks.prepareOpticalFlow(width:height:wait: true)` when clips use optical flow | EX, SP-005 |
 | W6 | W1 | Double-click enter/edit inside compound clips (nested render done) | TL-021 |
 | W6 | W12 | Proxy settings UI; render cache auto-render + green bar | MI-008, PB-005 |
-| W8 | W10 | ML audio: Demucs stems (install torch+coremltools in a venv to convert; downloads allowed), ML denoise/voice enhance/isolation upgrade over W8's DSP, TTS | AU-010, AU-007..009, AI-009..011 |
+| W8 | W10 | Demucs instrument stems (AU-010) still open; ML voice isolation/denoise plugged into W8's rendered stage (`AudioML`, `RenderStageSpec.mlVoice`) | AU-010 |
 | W8 | W1 | Menu entry for AU-016; waveform drawing polish; track volume ±0.1 dB shortcuts | AU-016, AU-019, AU-004 |
 | W8 | W11 | Audio-only export dialog (engine done: WAV/AAC/FLAC/ALAC; add MP3) | AU-022, EX-009 |
 | W1 | W11 | Export range (in/out) | TL-028 |
@@ -44,15 +42,15 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W14 | W1/W2/W3/W6/W7/W8 | Driver landed (73ea621, docs/TESTING.md): merged teams still lack interaction tests → hardening pass | — |
 | W14 | W14 | SwiftUI onTapGesture/DragGesture views don't receive synthetic events yet (custom inspector sliders) | — |
 | W7 | W2 | Canvas edge pills / ⌥-drag set `TextContent.boxWidth` (fraction of canvas width; engine wraps) | TX-011 |
-| W7 | W10 | Auto captions/lyrics: call `CaptionOps.addCaptionTrack(segments, origin: .auto/.lyrics, replacing:)` with word timings (karaoke needs them); translations → `caption.translation` | TX-017/018/023/030/038 |
 | W7 | W11 | Export dialog "Captions" option: `CaptionOps.segments(of:)` + `CaptionFiles.serialize(_:format:)` | TX-025 |
-| W7 | W8/W10 | Text-to-speech tab for text clips | TX-016 |
 | W2 | W1 | Timeline preview axis: call `store.hoverPreview(t)` / `hoverPreview(nil)` on hover so the player shows the hovered frame | TL preview axis |
 | W2 | W9 | Decoder downscale + preview render cache for Low/Med quality; real reverse decode (J shuttle is emulated with seeks, no audio) | PB-002/005/008 |
 | W2 | W12 | Settings ▸ Performance: persist preview quality + proxy toggle (`store.previewQuality`, `store.setUsesProxies`) | PB-002, SE-001 |
 | W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
 
 ## Done cross-team items
+- W10 for W7: auto captions/lyrics through `CaptionOps.addCaptionTrack` with word timings (karaoke), translations in `caption.translation`, LLM keywords + translate menu in W7's Captions tab; Text to speech tab (TX-016).
+- W10 for W8: ML voice stems (AUSoundIsolation) feed Isolate voice / Reduce noise / Enhance voice in the rendered stage.
 - W7 did W2's request: `TextContent.boxWidth` in the model; `TextMetrics` now backed by the text engine layout (handles hug rendered text).
 
 - W10 wrote person/subject/custom mattes through W6's `MatteVideoWriter`, flipped `CutoutAvailability.matteCompositingAvailable` (W3 cutout sections now live) and installed the optical-flow `FrameInterpolation.provider`.

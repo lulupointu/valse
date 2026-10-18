@@ -85,9 +85,16 @@ extension TimelineView {
                 item("tlmenu.rotate", enabled: visual) { s.rotateSelection() },
                 item("tlmenu.crop", enabled: visual && single != nil) { s.inspectorTab = "video" },
             ]),
-            item("tlmenu.splitScenes", enabled: false) {},
-            item("tlmenu.transcript", enabled: false) {},
-            sub("tlmenu.separateAudio", [item("tlmenu.separateAudio.vocals", enabled: false) {}, item("tlmenu.separateAudio.music", enabled: false) {}]),
+            // W10 AI entries
+            item("tlmenu.splitScenes", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id) } },
+            item("tlmenu.generateCaptions", enabled: single.map { c in c.mediaID.flatMap(s.project.asset)?.hasAudio ?? false } ?? false) {
+                if let c = single { s.ai.captionSource = .clip(c.id); s.generateCaptions() }
+            },
+            item("tlmenu.transcript", enabled: isMedia) { s.ai.transcriptOpen = true },
+            sub("tlmenu.separateAudio", [
+                item("tlmenu.separateAudio.vocals", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: true) } },
+                item("tlmenu.separateAudio.music", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: false) } },
+            ]),
             item(hasExtract ? "tlmenu.restoreAudio" : "tlmenu.extractAudio", "s", [.control, .shift],
                  enabled: hasExtract || (isVideo && asset?.hasAudio == true && single?.audio.isMuted == false)) { s.extractOrRestoreAudio() },
             item("tlmenu.syncAudio", enabled: false) {},

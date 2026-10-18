@@ -102,6 +102,34 @@ import MontageTestSupport
         }
     }
 
+    func waitIdle(_ s: EditorStore, _ until: () -> Bool) async throws {
+        for _ in 0..<300 where !until() { try await Task.sleep(nanoseconds: 50_000_000) }
+    }
+
+    @Test func splitScenesAndAutoReframeFlows() async throws {
+        try await HeavyWorkGate.run {
+            var src = TestProject()
+            _ = try await src.addVideo(.solid(RGBA(0.9, 0.1, 0.1)), seconds: 1, at: 0)
+            _ = try await src.addVideo(.solid(RGBA(0.1, 0.8, 0.2)), seconds: 1, at: 10)
+            let file = try await src.export().url
+            var p = TestProject(canvas: Size2(640, 360))
+            let id = try await p.addMedia(file)
+            let s = EditorStore(project: p.project); s.autosaveEnabled = false
+            s.splitScenes(id)
+            try await waitIdle(s) { s.project.timeline.mainTrack!.clips.count == 2 }
+            #expect(s.project.timeline.mainTrack!.clips.count == 2)
+            s.undo()
+            #expect(s.project.timeline.mainTrack!.clips.count == 1)
+
+            s.autoReframe(id, options: ReframeOptions(ratio: "9:16"))
+            try await waitIdle(s) { s.project.timeline.clip(id)?.reframe != nil }
+            #expect(s.project.timeline.clip(id)?.reframe?.ratio == "9:16")
+            #expect(s.project.settings.canvasSize.width < s.project.settings.canvasSize.height)
+            s.removeReframe(id)
+            #expect(s.project.timeline.clip(id)?.reframe == nil && s.project.timeline.clip(id)?.transform.scale == .one)
+        }
+    }
+
     // MARK: Snapshots (opt-in)
 
     @Test func renderAISnapshots() async throws {

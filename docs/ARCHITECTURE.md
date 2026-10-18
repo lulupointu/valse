@@ -328,7 +328,7 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Add a text style / animation / bubble / template / caption template**: one entry in the matching `Builtin/Text*.swift` /
   `CaptionTemplates.swift` list + keys in `MontageEffects/Resources/*/Text.strings`. `TextRenderTests` renders every registry entry.
 
-## 17d. AI (W10) — MontageAI + MontageUI/AI
+## 17e. AI (W10) — MontageAI + MontageUI/AI
 
 - **Models** (`MontageAI/Models`): `ModelCatalog` (spec: url, bytes, SHA-256, licence, runtime MB) and `ModelManager` (@MainActor
   @Observable: notInstalled / downloading(p) / verifying / installed / failed; download via URLSession with progress + cancel,
@@ -342,20 +342,22 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   NLLanguageRecognizer). `AudioExtractor.wav16k` feeds them. Results are Core `Transcript`s (media-time words) cached in
   `TranscriptStore` (Caches/Montage/transcripts, key = hash + range + language + engine). bench/speech_fr.wav: whisper WER 3.1 %,
   RTF 0.11; Apple 12.6 %.
-- **Caption model** (Core, agreed with W7): a caption is a text clip with `Clip.caption: CaptionInfo` (source auto/lyrics/imported/
-  script, clip-local `words` with filler/keyword flags, language, translation + `display` original/bilingual/translationOnly,
-  `sourceClip`). `TextContent.string` is always the displayed text; `CaptionOps.mainText` gives the spoken-language text.
-  `CaptionSegmenter` (≤ 2 lines × 28 chars, breaks on sentence ends / pauses > 0.6 s / 6 s), `CaptionOps` (make/insert/replace,
-  setText with word re-timing, split/merge, find & replace, apply style to all, translations, keywords), `CaptionExport`
-  (SRT/VTT/TXT). TimelineOps split/trim keep caption words consistent. `CaptionGenerator` (MontageAI) runs the whole job;
-  `TranscriptEditing` (Core) maps transcript words to main-track pieces and ripple-deletes / restores them.
+- **Captions** use the text team's model (§17d: `TextContent.caption`, `CaptionOps`). W10 adds `Captions/SpeechCaptions.swift`
+  (Core): `SpeechSegmenter` (≤ 2 lines × 28 chars, breaks on sentence ends / pauses > 0.6 s / 6 s, filler tagging/removal),
+  `SpeechCaptions.segments(transcript, for: mediaClip)` → `CaptionSegment`s in timeline seconds with word timings (inverse time
+  remap `Clip.timelineTime(forSource:)`, speed curves included), `finish` (filler flags, linkage to the main clip), translations and
+  keyword marks. `CaptionGenerator` (MontageAI) runs the job and ends with `CaptionOps.addCaptionTrack(…, origin: .auto/.lyrics,
+  replacing:)`. `TranscriptEditing` (Core) maps transcript words to main-track pieces and ripple-deletes / restores them.
 - **Cutout**: `MatteGenerator` writes mattes through the render team's `MatteVideoWriter` / `MatteStore.setStill`: `person`
   (VNGeneratePersonSegmentationRequest .balanced + temporal smoothing), `subject` (VNGenerateForegroundInstanceMaskRequest), and
   `custom.<id>` (brush strokes → instances on the painted frame, tracked frame to frame by overlap). Frames are decoded at ≤ 960 px.
   UI: `CutoutUI.swift` sections + `CutoutBrushTool` (a `PlayerUIState.canvasTool`, the generic modal-canvas-tool hook in
   `CanvasOverlayView`). Unticking or ⌘Z cancels the job (`aiProjectDidChange`).
 - **Audio**: `VoiceIsolator` runs Apple's ML `AUSoundIsolation` offline (AVAudioEngine manual rendering, ~35× RT) into
-  `AudioStemStore` stems (`voice`, `novoice`, 48 kHz stereo CAF aligned with the media) for the audio engine.
+  `AudioStemStore` stems (`voice`, `novoice`, 48 kHz stereo CAF aligned with the media). The app installs `AudioML.voiceStems`
+  (Engine/AI): `ClipAudioPlan` then sets `RenderStageSpec.mlVoice` for Isolate voice / Reduce noise / Enhance voice and W8's
+  rendered stage starts from the stem mix (voice + (1 − strength)·rest) instead of its DSP separation/denoiser (§17c). Tests install
+  the provider without `usedByPlans` so DSP tests stay DSP. Separate audio ▸ Vocals / Background music adds a stem clip.
   `SpeechSynthesis` (AVSpeechSynthesizer.write, FR/EN voices) → content-addressed files in App Support/Montage/Generated/tts;
   `Clip.tts: TTSInfo` links the audio clip to its text clip (`TTSOps`, "Update speech according to script").
 - **Video**: `VTFrameInterpolator` (VTFrameProcessor frame-rate conversion, macOS 15.4+) is installed as
@@ -365,11 +367,16 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Text**: `CaptionTranslator` (Translation framework: installed pairs in the background; otherwise `TranslationHost` view's
   `.translationTask` lets the OS download), `OnDeviceLLM` (Foundation Models when available, else callers fall back) and
   `KeywordExtractor` (LLM, fallback TF-IDF + NLTagger nouns).
-- **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation),
-  `AutoCaptionsPanel` (Text ▸ Auto captions), `CaptionsInspector` (Captions tab), `TTSInspector`, `ModelManagerSheet`,
+- **Video**: `SceneDetector` (histogram + luma, adaptive peaks) → `SceneSplit` (right-click ▸ Split scenes); `SubjectAnalyzer`
+  (Vision faces → humans → objectness saliency) → `ReframePath` (Core: dead zone, Gaussian path, fill scale, position keyframes) →
+  `AutoReframe` (Video ▸ Basic ▸ Auto reframe, `Clip.reframe`).
+- **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
+  `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
+  `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,
   `AIInspector` (tabs/sections appended to `BuiltinInspector`). All AI work runs in `JobQueue` (progress, cancel; subject = clip id
   → progress overlay on the clip). Tests: `MontageAITests` (WER, segmentation on generated frames, compositor, TTS round trip,
-  voice isolation SNR, optical flow) + `AIUITests` (flows, snapshots with `MONTAGE_SNAPSHOT_DIR`).
+  voice isolation SNR, optical flow, scenes, reframe) + `AIUITests` (flows, snapshots with `MONTAGE_SNAPSHOT_DIR`).
+  GPU/ANE-heavy tests and real-time probes (PlaybackTests) run inside `HeavyWorkGate.run` (TestSupport) so they never overlap.
 
 ## 18. Known gaps (foundation)
 

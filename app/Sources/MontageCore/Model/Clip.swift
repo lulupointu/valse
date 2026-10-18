@@ -77,6 +77,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var colorLabel: Int?
     /// Text-to-speech provenance (W10): this audio clip speaks a text clip. See Captions/TTSModel.swift.
     public var tts: TTSInfo?
+    /// Auto reframe applied to this clip (W10, AI/Reframe.swift): its position keyframes come from subject tracking.
+    public var reframe: ReframeOptions?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

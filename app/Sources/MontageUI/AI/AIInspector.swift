@@ -5,5 +5,5 @@ import MontageCore
 @MainActor
 enum AIInspector {
     static var tabs: [InspectorTab] { TTSInspector.tabs }
-    static var sections: [InspectorSection] { CutoutInspector.sections + TTSInspector.sections }
+    static var sections: [InspectorSection] { CutoutInspector.sections + TTSInspector.sections + VideoAIInspector.sections }
 }

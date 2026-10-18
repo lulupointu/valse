@@ -1,0 +1,26 @@
+/* W10 IA vidéo : diviser les scènes, séparer l'audio, recadrage automatique */
+"tlmenu.generateCaptions" = "Générer les légendes";
+"scenes.job" = "Division des scènes…";
+"scenes.done" = "Clip divisé en %d scènes";
+"scenes.none" = "Aucun changement de scène trouvé";
+"scenes.failed" = "Impossible de diviser les scènes. Réessayez.";
+"cmd.splitScenes" = "Diviser les scènes";
+"cmd.separateAudio" = "Séparer l'audio";
+"audio.separate.done" = "Audio séparé";
+"audio.separate.failed" = "Impossible de séparer l'audio. Réessayez.";
+"inspector.reframe" = "Recadrage automatique";
+"reframe.ratio" = "Format";
+"reframe.speed" = "Vitesse déplacement caméra";
+"reframe.speed.slow" = "Lent";
+"reframe.speed.normal" = "Par défaut";
+"reframe.speed.fast" = "Rapide";
+"reframe.stability" = "Stabilisation de l'image";
+"reframe.stability.flexible" = "Flexible";
+"reframe.stability.normal" = "Par défaut";
+"reframe.stability.stable" = "Stable";
+"reframe.hint" = "Garde le sujet dans le cadre et change le format du projet. La stabilisation et le recadrage de ce clip sont supprimés.";
+"reframe.job" = "Application du recadrage automatique…";
+"reframe.applying" = "Application du recadrage automatique… %d %%";
+"reframe.done" = "Recadrage automatique appliqué";
+"reframe.failed" = "Impossible d'appliquer le recadrage automatique. Réessayez plus tard.";
+"reframe.cancelled" = "Recadrage automatique annulé";

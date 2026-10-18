@@ -28,6 +28,7 @@ public final class AIUIState {
     public var translationRequest: TranslationRequest?
     // Cutout: clip → running matte job
     public var cutoutJobs: [ClipID: JobID] = [:]
+    public var reframeJobs: [ClipID: JobID] = [:]
     /// Customized cutout brush session (canvas tool) for a clip.
     public var brush: CutoutBrushTool?
     // Models sheet
