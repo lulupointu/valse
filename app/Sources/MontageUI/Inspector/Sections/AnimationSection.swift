@@ -34,7 +34,7 @@ struct AnimationPickerSection: View {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(IStyle.caption)
                 TextField(tr("inspector.animation.search"), text: Binding(get: { ui.animationSearch }, set: { ui.animationSearch = $0 }))
-                    .textFieldStyle(.plain).font(.system(size: 12))
+                    .textFieldStyle(.plain).font(.system(size: 12)).testID("anim.search")
             }
             .padding(.horizontal, 10).frame(height: 28)
             .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
@@ -151,7 +151,6 @@ struct AnimationTile: View {
           }
         }
         .onHover { h in hover = h; if h { start = Date() } }
-        .testID("anim.tile.\(descriptor.id)")
     }
 
     /// Hover loops the animation (with a short hold at the end); idle shows the clip's resting state.

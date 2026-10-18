@@ -36,7 +36,6 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 ## Cross-team requests / blockers (open)
 | From | Needs from | What | Feature IDs |
 |---|---|---|---|
-| POL-B | W5 | FYI (additive): text glyph-animation tiles now render via `GlyphAnimationFrames` / `TextRasterizer.animationFrames` (TextPreviews.swift); `AnimationTile` only gained `.testID("anim.tile.<id>")`. Video tiles untouched; W5-3 two-line captions would also help long names | W5-2, W5-3 |
 | W10 | W11 | Export: wait for running AI jobs (cutout / reframe / stems) before export; call `AIEngineHooks.prepareOpticalFlow(width:height:wait: true)` when clips use optical flow | EX, SP-005 |
 | W6 | W1 | Double-click enter/edit inside compound clips (nested render done) | TL-021 |
 | W8 | W1 | Menu entry for AU-016; waveform drawing polish; track volume ±0.1 dB shortcuts | AU-016, AU-019, AU-004 |

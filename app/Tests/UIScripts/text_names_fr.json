@@ -2,6 +2,7 @@
 {
   "project": "demo",
   "lang": "fr",
+  "size": [1687, 2300],
   "steps": [
     {"click": "id:asset.tab.text"},
     {"click": "id:asset.nav.effects"},
@@ -11,10 +12,10 @@
     {"click": "id:inspector.tab.animation"},
     {"wait": 2},
     {"snapshot": "anim-in-fr", "element": "id:panel.inspector", "baseline": "text_animation_tiles_fr", "threshold": 40, "tolerance": 0.03},
-    {"click": "id:panel.inspector", "at": [0.5, 0.14]},
+    {"click": "id:inspector.sub.out"},
     {"wait": 2},
     {"snapshot": "anim-out-fr", "element": "id:panel.inspector"},
-    {"click": "id:panel.inspector", "at": [0.82, 0.14]},
+    {"click": "id:inspector.sub.loop"},
     {"wait": 2},
     {"snapshot": "anim-loop-fr", "element": "id:panel.inspector"}
   ]

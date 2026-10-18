@@ -139,6 +139,7 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   `keymap.preset.<preset>`, `keymap.conflict(.override|.cancel)`, `keymap.reset`. State: `app.{screen, modal, scope, projects,
   selected, settings, keymap.bindings, renderedRanges…}` (StateDump.appHook).
 - asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>`, `media.import`
+- animation search field: `anim.search`
 - inspector sub-tabs: `inspector.sub.<subTabID>` (e.g. `inspector.sub.out`); asset sub-nav: `asset.nav.<itemID>`
 - transitions (W5): `transitions.search`, `transition.tile.<id>` / `transition.add.<id>` (id without `montage.transition.`),
   inspector `transition.duration(.field)`, `transition.param.<key>(.field)`, footer `transition.applyAll`
@@ -148,7 +149,6 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   `keyframes.preset.<presetID>`, `keyframes.applyAll`, `keyframes.reset`. Select a timeline keyframe by clicking the
   bottom band of the selected clip (`"clip:main/2:0.08", "offset": [0, 32]`, see `w5_keyframe_ease.json`)
 - audio library: `asset.nav.<section>` (yours / music / sfx / extracted), `audio.import`, `audio.row.<index>` (+`.add`), `audio.music.<trackID>` (+`.add`)
-- inspector animation tiles: `anim.tile.<animationID>`
 
 ### How it works / limits
 
