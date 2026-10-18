@@ -50,7 +50,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W4 | W6 | Effect mask (mask texture feeding the effect mix) | FX-005, CL-012 |
 | W4 | W14 | Driver `hover` doesn't trigger SwiftUI `.onHover` (posted mouseMoved never reaches the inactive window); card hover-loop previews untested | FX-001 |
 | W4 | W2/W13 | Click on an effect/filter card = 3 s "Previewing — Effects" loop in the player | FX-001 |
-| W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
+| W1 | — | Group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-020/025/018 |
+| UXR-W1 | W12 | Home thumbnail / package cover.jpg: render `Project.cover` with `CoverRenderer.jpeg` (nil cover = first frame) | TL-045 |
 | W5 | W7 | Per-glyph/word text In/Out/Loop presets: register `AnimationDescriptor`s (targets `.text`) in `Registries.animations`; bind ‹◇› on text style rows to the new `ParamKey.text*` | TX-020, KF-009 |
 | W5 | W13 | Sticker/effect tiles: hover-play animated stickers (`LottieLibrary`) like transition tiles do; favourites for the Transitions tab | TR-001, ST-* |
 
