@@ -1,0 +1,7 @@
+/* Finisher rows (colour, stickers, masks, effects, cutout, canvas, text, export) */
+"adjust.nav.add" = "Add adjustment";
+"adjust.custom" = "Custom adjustment";
+"adjust.custom.help" = "Add an adjustment layer: its Adjust settings apply to everything below it";
+"cmd.adjustmentLayer" = "Add adjustment layer";
+"color.eyedropper.help" = "Pick a color from the video";
+"inspector.hsl.pickHelp" = "Pick a color on the video to select its range";

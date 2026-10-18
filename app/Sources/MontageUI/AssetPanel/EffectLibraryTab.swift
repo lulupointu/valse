@@ -14,6 +14,8 @@ import MontageEngine
 enum EffectLibraryCatalog {
     static let favoritesNav = "fxlib.nav.favorites"
     static let curatedNav = "fxlib.nav.curated"
+    /// Adjustment tab ▸ "Add adjustment": the "Custom adjustment" card (empty adjustment layer, CL-011).
+    static let customAdjustNav = "fxlib.nav.customAdjust"
 
     static let groupOrder: [EffectCategory: [String]] = [
         .effect: ["basic", "blur", "lens", "motion", "glitch", "retro", "light", "dreamy", "bling", "party", "nature", "comic",
@@ -51,6 +53,7 @@ enum EffectLibraryCatalog {
     static func nav(_ category: EffectCategory) -> [(id: String, titleKey: String)] {
         var out: [(String, String)] = [(favoritesNav, "fxlib.favorites")]
         if !curated(category).isEmpty { out.append((curatedNav, curatedTitleKey(category))) }
+        if category == .adjustment { out.append((customAdjustNav, "adjust.nav.add")) }
         return out + groups(category).map { ($0, $0) }
     }
 
@@ -204,7 +207,17 @@ struct EffectLibraryTab: View {
             VStack(alignment: .leading, spacing: 8) {
                 searchField
                 Text(verbatim: title).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
-                if items.isEmpty {
+                if current == EffectLibraryCatalog.customAdjustNav && !searching {
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
+                            CustomAdjustmentCard(selected: selected == EffectLibraryCatalog.customAdjustNav,
+                                                 select: { selected = EffectLibraryCatalog.customAdjustNav },
+                                                 add: { selected = EffectLibraryCatalog.customAdjustNav; store.addCustomAdjustment() })
+                                .testID("asset.tile.customAdjustment")
+                        }
+                        .padding(.horizontal, 12).padding(.bottom, 12)
+                    }
+                } else if items.isEmpty {
                     EmptyState(symbol: current == EffectLibraryCatalog.favoritesNav && !searching ? "star" : "magnifyingglass",
                                title: tr(searching ? "fxlib.noResults" : (current == EffectLibraryCatalog.favoritesNav ? "fxlib.favorites.empty" : "fxlib.noResults")))
                 } else {
@@ -239,6 +252,59 @@ struct EffectLibraryTab: View {
         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
         .padding(.horizontal, 12)
         .testID("asset.search")
+    }
+}
+
+/// "Custom adjustment" (CapCut [66]): text-only card; ⊕ / double-click / drag adds an empty adjustment layer at the
+/// playhead, whose inspector is the Adjust tab (Basic · HSL · Curves · Color wheel · Mask) applied to everything below.
+struct CustomAdjustmentCard: View {
+    let selected: Bool
+    let select: () -> Void
+    let add: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        VStack(spacing: 5) {
+            ZStack(alignment: .bottomTrailing) {
+                Button {
+                    if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { add() } else { select() }
+                } label: {
+                    RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                        .overlay {
+                            Text(loc: "adjust.custom").font(.system(size: 11)).foregroundStyle(Theme.textPrimary)
+                                .multilineTextAlignment(.center).padding(6)
+                        }
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                                                                           lineWidth: selected ? 2 : 1.5))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if hover || selected {
+                    RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
+                        .padding(4)
+                        .testID("asset.tile.customAdjustment.add")
+                }
+            }
+            .aspectRatio(1, contentMode: .fit)
+        }
+        .onHover { hover = $0 }
+        .onDrag { NSItemProvider(object: DragPayload.customAdjustment as NSString) }
+        .contextMenu { Button(tr("asset.addToTrack"), action: add) }
+        .help(tr("adjust.custom.help"))
+    }
+}
+
+extension EditorStore {
+    /// Adds an empty adjustment layer ("Custom adjustment", CL-011) at the playhead on its own lane and selects it,
+    /// opening the Adjust tab.
+    @discardableResult
+    public func addCustomAdjustment(at time: Time? = nil) -> ClipID? {
+        exitPreview()
+        let c = Clip(content: .adjustment, start: time ?? transport.playhead, duration: Time(3))
+        guard perform(InsertClip(c, target: .automatic, nameKey: "cmd.adjustmentLayer")) else { return nil }
+        selection = [c.id]
+        inspectorTab = "adjust"
+        return c.id
     }
 }
 

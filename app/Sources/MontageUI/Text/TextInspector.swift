@@ -64,7 +64,7 @@ enum TextInspector {
     static func colorRow(_ ctx: InspectorContext, _ label: String, get: @escaping (TextContent) -> RGBA,
                          set: @escaping (inout TextContent, RGBA) -> Void) -> some View {
         InlineRow(label: label) {
-            ColorSwatchButton(color: text(ctx).map(get) ?? .white) { col in
+            ColorSwatchButton(color: text(ctx).map(get) ?? .white, eyedropper: ctx.store) { col in
                 guard let id = ctx.clip?.id else { return }
                 ctx.store.updateText(id) { set(&$0, col) }
             }
@@ -127,7 +127,7 @@ struct TextBasicSection: View {
                     .background(IStyle.strip, in: RoundedRectangle(cornerRadius: 4))
                 }
                 InlineRow(label: tr("inspector.color"), triplet: Bind.triplet(ctx, [.textColor])) {
-                    ColorSwatchButton(color: style(t).color ?? t.color) { col in
+                    ColorSwatchButton(color: style(t).color ?? t.color, eyedropper: store, testID: "text.color") { col in
                         guard let sel = TextUIState.shared.selection[clip.id], sel.length > 0, sel.length < t.utf16Count else {
                             let local = ctx.localTime
                             store.perform(UpdateClip(clip.id, nameKey: "cmd.text") { $0.setValue(.textColor, .color(col), at: local) })
@@ -316,7 +316,7 @@ struct TextStrokeSection: View {
                     HStack(spacing: 8) {
                         Text(verbatim: tr("text.stroke.layer", i + 2)).font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                             .frame(width: IStyle.labelWidth, alignment: .leading)
-                        ColorSwatchButton(color: s.color) { col in
+                        ColorSwatchButton(color: s.color, eyedropper: ctx.store) { col in
                             guard let id = ctx.clip?.id else { return }
                             ctx.store.updateText(id) { if i < $0.extraStrokes.count { $0.extraStrokes[i].color = col } }
                         }

@@ -28,7 +28,10 @@ enum BuiltinInspector {
         InspectorTab(id: "properties", titleKey: "inspector.tab.properties", order: -8, appliesTo: any(.multiple)),
         // Text + Captions tabs: text engine (W7), MontageUI/Text/TextInspector.swift
         TextInspector.textTab, TextInspector.captionsTab,
-        InspectorTab(id: "sticker", titleKey: "inspector.tab.stickers", order: 0, appliesTo: any(.sticker)),
+        InspectorTab(id: "sticker", titleKey: "inspector.tab.stickers", order: 0, subTabs: [
+            InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
+            InspectorSubTab(id: "mask", titleKey: "inspector.sub.mask", order: 1),
+        ], appliesTo: any(.sticker)),
         InspectorTab(id: "video", titleKey: "inspector.tab.video", order: 1, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
             InspectorSubTab(id: "cutout", titleKey: "inspector.sub.cutout", order: 1),
@@ -53,7 +56,7 @@ enum BuiltinInspector {
         InspectorTab(id: "adjust", titleKey: "inspector.tab.adjust", order: 6, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
         ] + ColorGradingInspector.subTabs + [
-            InspectorSubTab(id: "mask", titleKey: "inspector.sub.mask", order: 4) { $0.kind == .video || $0.kind == .image },
+            InspectorSubTab(id: "mask", titleKey: "inspector.sub.mask", order: 4) { [.video, .image, .adjustment].contains($0.kind) },
         ], footer: { ctx, _ in
             // Sticky footer on every Adjust sub-tab (CapCut [32]); adjustment-layer clips have no "Apply to all".
             guard ctx.kind != .adjustment else { return nil }
@@ -63,8 +66,12 @@ enum BuiltinInspector {
                      appliesTo: { $0.kind.isPlacedVisual && ClipEffectBlocks.hasEffects($0) }),
         InspectorTab(id: "specialEffects", titleKey: "inspector.tab.specialEffects", order: 0, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
+            InspectorSubTab(id: "mask", titleKey: "inspector.sub.mask", order: 1),
         ], appliesTo: any(.effect)),
-        InspectorTab(id: "filter", titleKey: "inspector.tab.filter", order: 0, appliesTo: any(.filter)),
+        InspectorTab(id: "filter", titleKey: "inspector.tab.filter", order: 0, subTabs: [
+            InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
+            InspectorSubTab(id: "mask", titleKey: "inspector.sub.mask", order: 1),
+        ], appliesTo: any(.filter)),
     ] + AudioInspector.tabs + AIInspector.tabs
 
     static let sections: [InspectorSection] = [
@@ -76,9 +83,14 @@ enum BuiltinInspector {
             AnyView(MultiTransformSection(ctx: $0))
         },
 
-        // Sticker
-        InspectorSection(id: "sticker.transform", tab: "sticker", order: 0, titleKey: "inspector.transform",
+        // Sticker (ST-009: a full layer — Position & Size, Blend (opacity + mode), Mask)
+        InspectorSection(id: "sticker.transform", tab: "sticker", subTab: "basic", order: 0, titleKey: "inspector.transform",
                          chrome: TransformSection.chrome) { AnyView(TransformSection(ctx: $0)) },
+        InspectorSection(id: "sticker.blend", tab: "sticker", subTab: "basic", order: 10, titleKey: "inspector.blend",
+                         chrome: BlendSection.chrome) { AnyView(BlendSection(ctx: $0)) },
+        InspectorSection(id: "sticker.mask.shapes", tab: "sticker", subTab: "mask", order: 0, titleKey: "inspector.mask") { AnyView(MaskShapesSection(ctx: $0)) },
+        InspectorSection(id: "sticker.mask.settings", tab: "sticker", subTab: "mask", order: 1, titleKey: "inspector.mask.settings",
+                         appliesTo: { $0.clip?.mask != nil }, chrome: MaskSettingsSection.chrome) { AnyView(MaskSettingsSection(ctx: $0)) },
 
         // Video ▸ Basic
         InspectorSection(id: "video.transform", tab: "video", subTab: "basic", order: 0, titleKey: "inspector.transform",
@@ -147,7 +159,16 @@ enum BuiltinInspector {
         // Clip effects, effect clips, filter clips
         InspectorSection(id: "effects.stack", tab: "effects", order: 0, titleKey: nil) { AnyView(ClipEffectBlocks(ctx: $0)) },
         InspectorSection(id: "specialEffects.details", tab: "specialEffects", subTab: "basic", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
-        InspectorSection(id: "filter.details", tab: "filter", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
-    ] + RenderFeatureInspector.sections + AudioInspector.sections + TextInspector.sections + AIInspector.sections
+        InspectorSection(id: "filter.details", tab: "filter", subTab: "basic", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
+        // Effect mask (FX-005 / MK-006): effect / filter layers apply inside the mask only (canvas space, `adjustMask`).
+    ] + ["specialEffects", "filter"].flatMap { tab in [
+        InspectorSection(id: "\(tab).mask.shapes", tab: tab, subTab: "mask", order: 0, titleKey: "inspector.mask") {
+            AnyView(MaskShapesSection(ctx: $0, target: .adjust))
+        },
+        InspectorSection(id: "\(tab).mask.settings", tab: tab, subTab: "mask", order: 1, titleKey: "inspector.mask.settings",
+                         appliesTo: { $0.clip?.adjustMask != nil }, chrome: { MaskSettingsSection.chrome($0, target: .adjust) }) {
+            AnyView(MaskSettingsSection(ctx: $0, target: .adjust))
+        },
+    ] } + RenderFeatureInspector.sections + AudioInspector.sections + TextInspector.sections + AIInspector.sections
       + ColorGradingInspector.sections
 }

@@ -1,0 +1,35 @@
+// ST-009: a sticker is a full layer — Stickers ▸ Basic has Position & Size + Blend (opacity, mode), Stickers ▸ Mask
+// adds a mask with canvas handles. CL-024: the text colour row's eyedropper picks the colour from the video.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "id:asset.tab.stickers"},
+    {"click": "id:asset.nav.sticker.group.shapes"},
+    {"click": "id:asset.tile.montage.sticker.shape.circle.white"},
+    {"click": "id:asset.tile.montage.sticker.shape.circle.white.add"},
+    {"expect": [{"path": "selectedClips.0.kind", "contains": "sticker"}, {"path": "ui.inspectorTabs", "contains": "sticker"}]},
+    {"expect": {"path": "ui.anchors", "contains": "inspector.section.sticker.blend"}},
+    {"click": "id:slider.opacity.field"},
+    {"type": "50", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "selectedClips.0.opacity", "approx": 0.5, "tolerance": 0.01}},
+    {"snapshot": "sticker-basic", "element": "id:panel.inspector"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"expect": {"path": "selectedClips.0.mask.shape", "equals": "rectangle"}},
+    {"click": "id:mask.shape.circle"},
+    {"expect": {"path": "selectedClips.0.mask.shape", "equals": "circle"}},
+    {"snapshot": "sticker-mask", "element": "id:panel.player"},
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "montage.text.default"}, "on": "time:1@2"},
+    {"expect": {"path": "selectedClips.0.kind", "equals": "text"}},
+    {"click": "id:text.color.eyedropper"},
+    {"wait": 1},
+    {"hover": "player:0.9,0.15"},
+    {"snapshot": "text-eyedropper-loupe", "element": "id:panel.player"},
+    {"click": "player:0.9,0.15"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.text"},
+                {"path": "project.timeline.tracks.-1.clips.0.content.text._0.color.r", "lt": 0.5}]}
+  ]
+}

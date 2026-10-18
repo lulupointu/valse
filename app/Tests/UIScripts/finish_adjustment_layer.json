@@ -1,0 +1,36 @@
+// CL-011 + FX-005/MK-006: Adjustment tab opens on "Add adjustment" with the "Custom adjustment" card; ⊕ adds an empty
+// adjustment layer at the playhead (Adjust tab opens); Adjust ▸ Mask adds an effect mask with its handles on the canvas.
+// CL-024: the HSL eyedropper samples the video with the canvas loupe and selects the nearest colour ring.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "id:asset.tab.adjustment"},
+    {"expect": {"path": "ui.anchors", "contains": "asset.tile.customAdjustment"}},
+    {"click": "id:asset.tile.customAdjustment"},
+    {"snapshot": "custom-adjustment-card", "element": "id:panel.assets"},
+    {"click": "id:asset.tile.customAdjustment.add"},
+    {"expect": [{"path": "selectedClips.0.kind", "equals": "adjustment"}, {"path": "selectedClips.0.effects.count", "equals": 0},
+                {"path": "selectedClips.0.start", "approx": 1, "tolerance": 0.05},
+                {"path": "undo.name", "equals": "cmd.adjustmentLayer"}, {"path": "ui.inspectorTab", "equals": "adjust"}]},
+    {"snapshot": "adjustment-layer-inspector", "element": "id:panel.inspector"},
+    {"click": "id:slider.Brightness.field"},
+    {"type": "40", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.adjust.basic"}},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"expect": {"path": "selectedClips.0.adjustMask.shape", "equals": "rectangle"}},
+    {"snapshot": "adjustment-layer-mask", "element": "id:panel.player"},
+    {"click": "id:inspector.sub.hsl"},
+    {"click": "id:hsl.pick"},
+    {"wait": 1},
+    {"hover": "player:0.8,0.3"},
+    {"click": "player:0.8,0.3"},
+    {"snapshot": "hsl-picked", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 0}}
+  ]
+}

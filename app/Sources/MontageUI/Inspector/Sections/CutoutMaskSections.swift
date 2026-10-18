@@ -53,7 +53,7 @@ struct EffectParamRow: View {
         case .color(let d):
             let c = ctx.clip?.effects.first { $0.id == instanceID }?.params[spec.key].flatMap { if case .color(let c) = $0 { return c }; return nil } ?? d
             InlineRow(label: tr(spec.nameKey), enabled: enabled, triplet: Bind.triplet(ctx, [key])) {
-                ColorSwatchButton(color: c) { v in setParam(.color(v)) }
+                ColorSwatchButton(color: c, eyedropper: ctx.store, testID: "effect.\(spec.key)") { v in setParam(.color(v)) }
             }
         case .bool(let d):
             ToggleLine(label: tr(spec.nameKey), isOn: Binding(get: {

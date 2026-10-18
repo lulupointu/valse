@@ -533,6 +533,7 @@ extension TimelineView {
         case .media(let id):
             store.addToTimeline(id, at: time, target: target)
         case .effect(let typeID):
+            if typeID == DragPayload.customAdjustmentID { store.addCustomAdjustment(at: time); return true }
             guard let d = Registries.effects[typeID] else { return false }
             // Onto a media/text clip = that clip only; elsewhere (or onto another effect/filter layer) = a new layer clip.
             if case .clip(let cid, _, _) = hit, let c = store.project.timeline.clip(cid), c.content != .adjustment {

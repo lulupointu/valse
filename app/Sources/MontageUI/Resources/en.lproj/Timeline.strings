@@ -149,7 +149,8 @@
 "attr.timing.keep" = "Keep original timing";
 "attr.timing.stretch" = "Stretch to fit";
 "attr.basic" = "Basic (position, scale, opacity, blend, crop, mask)";
-"attr.effects" = "Effects, filters and adjustments";
+"attr.effects" = "Effects and filters";
+"attr.adjust" = "Adjust (color grading, LUT, HSL, curves, color wheels, adjust mask)";
 "attr.animation" = "Animation";
 "attr.keyframes" = "Keyframes";
 "attr.speed" = "Speed";

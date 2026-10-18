@@ -134,11 +134,20 @@ final class CanvasOverlayView: NSView {
     /// Mask editing on the canvas (UX.md §5.1): one selected layer with a mask while the inspector shows a Mask sub-tab
     /// (Video ▸ Mask edits `Clip.mask`, Adjust ▸ Mask the grading mask `Clip.adjustMask`).
     private var maskTarget: (layer: CanvasLayer, clip: Clip, mask: Mask, target: MaskTarget)? {
-        guard store.selection.count == 1, let l = selectedLayers.first, !l.isLocked,
-              let clip = store.project.timeline.clip(l.clipID) else { return nil }
+        guard store.selection.count == 1 else { return nil }
+        // Adjustment / effect / filter layers have no canvas layer: their effect mask spans the whole canvas.
+        let l: CanvasLayer
+        if let s = selectedLayers.first { l = s }
+        else if let id = store.selection.first, let c = store.project.timeline.clip(id), c.content == .adjustment,
+                c.start <= store.transport.playhead, store.transport.playhead < c.end {
+            let canvas = store.project.settings.canvasSize
+            l = CanvasLayer(clipID: id, geometry: LayerGeometry(sourceSize: canvas, canvasSize: canvas, transform: Transform()),
+                            isText: false, isLocked: store.project.timeline.locate(id).map { store.project.timeline.tracks[$0.track].isLocked } ?? false)
+        } else { return nil }
+        guard !l.isLocked, let clip = store.project.timeline.clip(l.clipID) else { return nil }
         let tab = store.inspectorTab ?? InspectorRegistry.tabs(for: InspectorContext(store: store)).first?.id
         guard let tab, InspectorUIState.shared.subTab[tab] == "mask" else { return nil }
-        let target: MaskTarget = tab == "adjust" ? .adjust : .clip
+        let target: MaskTarget = ["adjust", "specialEffects", "filter"].contains(tab) ? .adjust : .clip
         guard clip[keyPath: target.mask] != nil, let m = clip.resolved(at: localTime(clip))[keyPath: target.mask] else { return nil }
         return (l, clip, m, target)
     }

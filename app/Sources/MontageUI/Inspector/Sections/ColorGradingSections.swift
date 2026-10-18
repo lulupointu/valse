@@ -106,6 +106,11 @@ struct HSLSection: View {
         let c = Self.colors[range]
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
+                // eyedropper (UX.md §5.1 HSL): pick a colour on the video → select the nearest colour ring
+                SmallIconButton(symbol: "eyedropper", help: tr("inspector.hsl.pickHelp"), size: 13) {
+                    ctx.store.pickCanvasColor(disabling: nil) { c in range = Self.nearestRange(c) }
+                }
+                .testID("hsl.pick")
                 ForEach(0..<8, id: \.self) { i in
                     let edited = abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).hue"))
                         + abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).sat"))
@@ -129,6 +134,21 @@ struct HSLSection: View {
             ColorGradingInspector.row(ctx, d, key: "\(r.key).sat", label: tr("inspector.hsl.saturation"), gradient: [Color(white: 0.45), c])
             ColorGradingInspector.row(ctx, d, key: "\(r.key).light", label: tr("inspector.hsl.lightness"), gradient: [.black, c, .white])
         }
+    }
+}
+
+extension HSLSection {
+    /// Index in `BuiltinColor.hslRanges` of the range whose centre hue is nearest to `c`'s hue.
+    nonisolated static func nearestRange(_ c: RGBA) -> Int {
+        let mx = max(c.r, c.g, c.b), mn = min(c.r, c.g, c.b), d = mx - mn
+        guard d > 1e-6 else { return 0 }
+        var h: Double
+        if mx == c.r { h = ((c.g - c.b) / d).truncatingRemainder(dividingBy: 6) }
+        else if mx == c.g { h = (c.b - c.r) / d + 2 }
+        else { h = (c.r - c.g) / d + 4 }
+        h = (h * 60 + 360).truncatingRemainder(dividingBy: 360)
+        let dist: (Double) -> Double = { let x = abs($0 - h).truncatingRemainder(dividingBy: 360); return min(x, 360 - x) }
+        return BuiltinColor.hslRanges.indices.min { dist(BuiltinColor.hslRanges[$0].hue) < dist(BuiltinColor.hslRanges[$1].hue) } ?? 0
     }
 }
 
@@ -256,12 +276,9 @@ struct CurveEditor: View {
 
     func pickColor() {
         let ch = channel
-        NSColorSampler().show { ns in
-            guard let ns, let c = ns.usingColorSpace(.sRGB) else { return }
-            let rgba = RGBA(Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent), 1)
-            MainActor.assumeIsolated {
-                if let pts = Self.pointAdding(level: Self.level(rgba, channel: ch), to: points) { write(pts, live: false) }
-            }
+        // canvas eyedropper (loupe over the video, CL-024) instead of the screen-wide system sampler
+        ctx.store.pickCanvasColor { rgba in
+            if let pts = Self.pointAdding(level: Self.level(rgba, channel: ch), to: points) { write(pts, live: false) }
         }
     }
 

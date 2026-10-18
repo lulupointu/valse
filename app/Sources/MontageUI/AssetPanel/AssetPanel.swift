@@ -82,6 +82,9 @@ public enum DragPayload {
     public static func transition(_ id: String) -> String { "montage-transition:\(id)" }
     public static func sticker(_ id: String) -> String { "montage-sticker:\(id)" }
     public static func textStyle(_ id: String) -> String { "montage-text:\(id)" }
+    /// Adjustment tab ▸ "Custom adjustment" card (an empty adjustment layer, not a registry effect).
+    public static let customAdjustmentID = "montage.customAdjustment"
+    public static var customAdjustment: String { effect(customAdjustmentID) }
 
     public enum Parsed { case media(MediaID), effect(String), transition(String), sticker(String), text(String) }
     public static func parse(_ s: String) -> Parsed? {

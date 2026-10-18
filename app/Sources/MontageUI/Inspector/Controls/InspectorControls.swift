@@ -612,18 +612,31 @@ struct PillButton: View {
     }
 }
 
-/// Colour swatch that opens the system colour panel (no SwiftUI ColorPicker chrome).
+/// Colour swatch that opens the system colour panel (no SwiftUI ColorPicker chrome). With `eyedropper`, an eyedropper
+/// button before the swatch picks the colour from the video with the canvas loupe (CL-024).
 struct ColorSwatchButton: View {
     let color: RGBA
     var size: CGFloat = 22
+    var eyedropper: EditorStore? = nil
+    var testID: String = "color"
     let onChange: (RGBA) -> Void
     var body: some View {
-        ColorPicker("", selection: Binding(get: { Color(color) }, set: { c in
-            if let ns = NSColor(c).usingColorSpace(.sRGB) {
-                onChange(RGBA(Double(ns.redComponent), Double(ns.greenComponent), Double(ns.blueComponent), Double(ns.alphaComponent)))
+        HStack(spacing: 6) {
+            if let store = eyedropper {
+                SmallIconButton(symbol: "eyedropper", help: tr("color.eyedropper.help"), active: store.canvasEyedropper != nil, size: 12) {
+                    if store.canvasEyedropper != nil { store.endCanvasColorPick(); return }
+                    let keepAlpha = color.a
+                    store.pickCanvasColor { c in var c = c; c.a = keepAlpha; onChange(c) }
+                }
+                .testID("\(testID).eyedropper")
             }
-        }), supportsOpacity: false)
-        .labelsHidden()
-        .frame(width: size + 18, height: size)
+            ColorPicker("", selection: Binding(get: { Color(color) }, set: { c in
+                if let ns = NSColor(c).usingColorSpace(.sRGB) {
+                    onChange(RGBA(Double(ns.redComponent), Double(ns.greenComponent), Double(ns.blueComponent), Double(ns.alphaComponent)))
+                }
+            }), supportsOpacity: false)
+            .labelsHidden()
+            .frame(width: size + 18, height: size)
+        }
     }
 }

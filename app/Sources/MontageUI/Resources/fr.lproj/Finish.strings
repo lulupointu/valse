@@ -1,0 +1,7 @@
+/* Finisher rows (colour, stickers, masks, effects, cutout, canvas, text, export) */
+"adjust.nav.add" = "Ajouter un ajustement";
+"adjust.custom" = "Ajustement personnalisé";
+"adjust.custom.help" = "Ajouter un calque d'ajustement : ses réglages s'appliquent à tout ce qui se trouve en dessous";
+"cmd.adjustmentLayer" = "Ajouter un calque d'ajustement";
+"color.eyedropper.help" = "Prélever une couleur dans la vidéo";
+"inspector.hsl.pickHelp" = "Prélever une couleur dans la vidéo pour sélectionner sa plage";

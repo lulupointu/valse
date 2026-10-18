@@ -149,7 +149,8 @@
 "attr.timing.keep" = "Conserver le minutage d'origine";
 "attr.timing.stretch" = "Étirer pour ajuster";
 "attr.basic" = "Base (position, échelle, opacité, fusion, recadrage, masque)";
-"attr.effects" = "Effets, filtres et réglages";
+"attr.effects" = "Effets et filtres";
+"attr.adjust" = "Ajuster (étalonnage, LUT, TSL, courbes, roues chromatiques, masque d’ajustement)";
 "attr.animation" = "Animation";
 "attr.keyframes" = "Images clés";
 "attr.speed" = "Vitesse";

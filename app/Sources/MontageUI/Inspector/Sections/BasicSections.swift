@@ -204,7 +204,7 @@ struct CanvasSection: View {
             }
             HStack(spacing: 8) {
                 Text(loc: "canvas.color.custom").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                ColorSwatchButton(color: current) { set(.color($0)) }
+                ColorSwatchButton(color: current, eyedropper: ctx.store, testID: "canvas.color") { set(.color($0)) }
             }
         }
     }

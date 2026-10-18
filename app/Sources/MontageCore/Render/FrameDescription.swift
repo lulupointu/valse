@@ -80,8 +80,9 @@ public enum RenderItem: Hashable, Sendable {
     case layer(LayerDescription)
     /// Main-track transition between two layers.
     case transition(from: LayerDescription, to: LayerDescription, typeID: String, progress: Double, params: [String: ParamValue])
-    /// Adjustment layer: apply `effects` to everything composited so far, blended by `opacity`.
-    case adjustment(clipID: ClipID, effects: [ResolvedEffect], opacity: Double, localTime: Time)
+    /// Adjustment layer: apply `effects` to everything composited so far, blended by `opacity`; `mask` (canvas space,
+    /// the clip's `adjustMask`) limits them to a region (effect mask, FX-005 / MK-006).
+    case adjustment(clipID: ClipID, effects: [ResolvedEffect], opacity: Double, localTime: Time, mask: Mask?)
     /// Compound clip: `items` (the nested timeline at this instant, clip ids made unique with `nestedClipID`) are
     /// composited into one canvas-size layer, which is then placed like `container` (transform, opacity, blend, mask,
     /// effects of the compound clip; its source is a placeholder).
@@ -147,7 +148,7 @@ public enum FrameEvaluator {
                 if case .adjustment = c.content {
                     let local = c.localTime(t)
                     let r = c.resolved(at: local)
-                    items.append(.adjustment(clipID: c.id, effects: resolveEffects(r), opacity: r.opacity, localTime: local))
+                    items.append(.adjustment(clipID: c.id, effects: resolveEffects(r), opacity: r.opacity, localTime: local, mask: r.adjustMask))
                 } else if case .compound(let cid) = c.content {
                     if let n = nestedItem(c, cid, track: track, project: project, at: t, depth: depth) { items.append(n) }
                 } else if let l = layer(c, track: track, project: project, at: t) {
@@ -182,7 +183,7 @@ public enum FrameEvaluator {
         switch item {
         case .layer(let l): return .layer(fix(l))
         case .transition(let a, let b, let id, let p, let params): return .transition(from: fix(a), to: fix(b), typeID: id, progress: p, params: params)
-        case .adjustment(let id, let e, let o, let lt): return .adjustment(clipID: nestedClipID(container, id), effects: e, opacity: o, localTime: lt)
+        case .adjustment(let id, let e, let o, let lt, let m): return .adjustment(clipID: nestedClipID(container, id), effects: e, opacity: o, localTime: lt, mask: m)
         case .nested(let cont, let inner): return .nested(container: fix(cont), items: inner.map { rewriteIDs($0, container: container) })
         }
     }

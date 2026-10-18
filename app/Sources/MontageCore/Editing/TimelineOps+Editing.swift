@@ -13,7 +13,9 @@ public struct ClipboardItem: Codable, Sendable, Equatable {
 
 /// Attribute groups offered by "Paste attributes" (TL-011).
 public enum AttributeGroup: String, Codable, Sendable, CaseIterable {
-    case basic, effects, animation, keyframes, speed, audio, textStyle
+    /// `effects` = effects + filters; `adjust` = Adjust-tab grading (adjustment-category effects, LUT, HSL, curves,
+    /// wheels) + the Adjust ▸ Mask (CL-025).
+    case basic, effects, adjust, animation, keyframes, speed, audio, textStyle
     public var nameKey: String { "attr.\(rawValue)" }
 }
 
@@ -268,16 +270,27 @@ extension TimelineOps {
             guard var c = tl.clip(id) else { continue }
             if groups.contains(.basic) {
                 c.transform = src.transform; c.opacity = src.opacity; c.blendMode = src.blendMode
-                c.crop = src.crop; c.mask = src.mask; c.adjustMask = src.adjustMask
+                c.crop = src.crop; c.mask = src.mask
             }
+            if groups.contains(.adjust) { c.adjustMask = src.adjustMask }
             var effectIDMap: [String: String] = [:]
-            if groups.contains(.effects) {
-                c.effects = src.effects.map { e in
+            // Effects / filters and Adjust grading are separate groups: each replaces only its own part of the stack.
+            let isAdjust: (EffectInstance) -> Bool = { AdjustmentLanes.resolver?($0.typeID) == .adjustment }
+            let replaces: (EffectInstance) -> Bool = { e in isAdjust(e) ? groups.contains(.adjust) : groups.contains(.effects) }
+            if groups.contains(.effects) || groups.contains(.adjust) {
+                let removed = Set(c.effects.filter(replaces).map { $0.id.raw.uuidString })
+                let copied = src.effects.filter(replaces).map { e in
                     var n = e; n.id = EffectInstanceID()
                     effectIDMap[e.id.raw.uuidString] = n.id.raw.uuidString
                     return n
                 }
-                c.keyframes = c.keyframes.filter { !$0.key.hasPrefix("effect.") }
+                // keep the untouched part in place; pasted adjustments go first (grade, then effects), effects last
+                let kept = c.effects.filter { !replaces($0) }
+                c.effects = kept.isEmpty ? copied : copied.filter(isAdjust) + kept + copied.filter { !isAdjust($0) }
+                c.keyframes = c.keyframes.filter { k in
+                    guard let (eid, _) = ParamKey(k.key).effectParam else { return true }
+                    return !removed.contains(eid.raw.uuidString)
+                }
             }
             if groups.contains(.animation) { c.animations = src.animations }
             if groups.contains(.audio) { c.audio = src.audio }
@@ -301,7 +314,8 @@ extension TimelineOps {
                     else { frames.removeAll { $0.time > c.duration } }
                     if !frames.isEmpty { kfs[newKey] = KeyframeTrack(frames) }
                 }
-                c.keyframes = c.keyframes.filter { $0.key.hasPrefix("effect.") && !groups.contains(.effects) }.merging(kfs) { _, b in b }
+                // effect keyframes of replaced effects were dropped above; the rest stay valid
+                c.keyframes = c.keyframes.filter { $0.key.hasPrefix("effect.") }.merging(kfs) { _, b in b }
             }
             tl[clip: id] = c
             if groups.contains(.speed), c.mediaID != nil, src.mediaID != nil, !c.isFreezeFrame {

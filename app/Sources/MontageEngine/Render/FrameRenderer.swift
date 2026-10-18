@@ -230,14 +230,21 @@ public final class FrameRenderer: @unchecked Sendable {
                     }
                     scratch.recycle(ta); scratch.recycle(tb)
                     placements.append(.premultipliedFullscreen(out))
-                case .adjustment(_, let effects, let opacity, let local):
+                case .adjustment(_, let effects, let opacity, let local, let mask):
                     guard !effects.isEmpty, opacity > 0 else { continue }
                     flush()
                     let straight = acquire(outW, outH)
                     fullscreen(ctx.unpremultiply, target: straight, cmd, label: "unpremultiply") { $0.setFragmentTexture(acc, index: 0) }
                     let processed = applyEffects(effects, to: straight, time: local, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
-                    let premul = acquire(outW, outH)
+                    var premul = acquire(outW, outH)
                     fullscreen(ctx.premultiply, target: premul, cmd, label: "premultiply") { $0.setFragmentTexture(processed, index: 0) }
+                    // Effect mask (FX-005 / MK-006): the layer's effects apply inside its mask only (canvas space).
+                    if let mask {
+                        let unmasked = premul
+                        premul = maskedMix(pre: acc, post: unmasked, mask: mask, aspect: canvas.width / max(canvas.height, 1),
+                                           cmd: cmd, acquire: acquire)
+                        if premul !== unmasked { scratch.recycle(unmasked) }
+                    }
                     let mixed = acquire(outW, outH)
                     var k = Float(min(max(opacity, 0), 1))
                     fullscreen(ctx.mix, target: mixed, cmd, label: "adjust-mix") { enc in
@@ -452,27 +459,8 @@ public final class FrameRenderer: @unchecked Sendable {
                 // Adjust ▸ Mask: the Adjust-tab grading applies inside the mask only; other effects follow on the result.
                 let pre = layerTex
                 let post = applyEffects(l.effects.filter(isAdjust), to: pre, time: l.localTime, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
-                let out = acquire(pre.width, pre.height)
-                if am.shape.isRaster {
-                    if let mt = RasterMasks.shared.texture(am, width: pre.width, height: pre.height) {
-                        var inv: Float = am.inverted ? 1 : 0
-                        fullscreen(FeaturePipelines.shared.maskTexMix, target: out, cmd, label: "adjust-mask-raster") { enc in
-                            enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1); enc.setFragmentTexture(mt, index: 2)
-                            enc.setFragmentBytes(&inv, length: 4, index: 0)
-                        }
-                        layerTex = out
-                    } else { layerTex = post }
-                } else {
-                    var mu = PlaceUniforms(c0: .zero, c1: .zero, c2: .zero, c3: .zero, opacity: 1, blend: 0, maskShape: -1, maskInvert: 0,
-                                           maskCenter: .zero, maskSize: .one, maskRotation: 0, maskFeather: 0, maskRoundness: 0,
-                                           layerAspect: Float(abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)))
-                    Self.setMask(am, &mu)
-                    fullscreen(ctx.maskMix, target: out, cmd, label: "adjust-mask") { enc in
-                        enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1)
-                        enc.setFragmentBytes(&mu, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
-                    }
-                    layerTex = out
-                }
+                layerTex = maskedMix(pre: pre, post: post, mask: am, aspect: abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6),
+                                     cmd: cmd, acquire: acquire)
                 if layerTex !== pre { scratch.recycle(pre) }
                 if layerTex !== post { scratch.recycle(post) }
                 let rest = l.effects.filter { !isAdjust($0) }
@@ -535,6 +523,31 @@ public final class FrameRenderer: @unchecked Sendable {
             let k = min(r, 1.2)
             out.append(ResolvedEffect(instanceID: id, typeID: CanvasBackground.blurEffectID, params: ["radius": .scalar(k)]))
             r = (r * r - k * k).squareRoot()   // gaussian variances add
+        }
+        return out
+    }
+
+    /// `pre` inside `mask`'s complement, `post` inside it (shape masks analytically, text / pen masks rasterized);
+    /// `aspect` = width / height of the mask's space. Used by Adjust ▸ Mask and adjustment-layer effect masks.
+    func maskedMix(pre: MTLTexture, post: MTLTexture, mask m: Mask, aspect: Double, cmd: MTLCommandBuffer,
+                   acquire: (Int, Int) -> MTLTexture) -> MTLTexture {
+        let out = acquire(pre.width, pre.height)
+        if m.shape.isRaster {
+            guard let mt = RasterMasks.shared.texture(m, width: pre.width, height: pre.height) else { return post }
+            var inv: Float = m.inverted ? 1 : 0
+            fullscreen(FeaturePipelines.shared.maskTexMix, target: out, cmd, label: "mask-mix-raster") { enc in
+                enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1); enc.setFragmentTexture(mt, index: 2)
+                enc.setFragmentBytes(&inv, length: 4, index: 0)
+            }
+        } else {
+            var mu = PlaceUniforms(c0: .zero, c1: .zero, c2: .zero, c3: .zero, opacity: 1, blend: 0, maskShape: -1, maskInvert: 0,
+                                   maskCenter: .zero, maskSize: .one, maskRotation: 0, maskFeather: 0, maskRoundness: 0,
+                                   layerAspect: Float(aspect))
+            Self.setMask(m, &mu)
+            fullscreen(ctx.maskMix, target: out, cmd, label: "mask-mix") { enc in
+                enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1)
+                enc.setFragmentBytes(&mu, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
+            }
         }
         return out
     }
