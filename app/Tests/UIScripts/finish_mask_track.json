@@ -1,0 +1,19 @@
+// MK-003: Video ▸ Mask ▸ Track mask (Forward / Backward / Both) tracks the mask's box from the playhead in the
+// background and writes mask centre keyframes in one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"expect": {"path": "ui.anchors", "contains": "maskTrack.start.clip"}},
+    {"snapshot": "mask-track-section", "element": "id:panel.inspector"},
+    {"click": "id:maskTrack.start.clip"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.maskTrack", "timeout": 30}},
+    {"expect": {"path": "selectedClips.0.keyframeCounts.mask_center", "gt": 3}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.name", "equals": "cmd.mask"}}
+  ]
+}

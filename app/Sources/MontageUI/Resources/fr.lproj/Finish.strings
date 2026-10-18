@@ -34,3 +34,15 @@
 "faceCover.opacity" = "Opacité";
 "faceCover.stickerHint" = "Détecte jusqu’à 5 visages par image (10 au total) et place sur chacun un sticker qui le suit.";
 "faceCover.noFaces" = "Aucun visage trouvé dans ce clip";
+"maskTrack.title" = "Suivre le masque";
+"maskTrack.direction" = "Direction";
+"maskTrack.forward" = "Vers l’avant";
+"maskTrack.backward" = "Vers l’arrière";
+"maskTrack.both" = "Les deux";
+"maskTrack.start" = "Suivre";
+"maskTrack.hint" = "Placez le masque sur un objet à la tête de lecture : il suit l’objet dans tout le clip.";
+"maskTrack.job" = "Suivi du masque...";
+"maskTrack.applying" = "Suivi du masque... %d%%";
+"maskTrack.done" = "Suivi du masque terminé";
+"maskTrack.failed" = "Impossible de suivre le masque. Essayez un cadre plus petit sur un objet bien distinct.";
+"cmd.maskTrack" = "Suivre le masque";
