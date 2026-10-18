@@ -202,3 +202,9 @@
 "demo.clip.forest" = "Forest";
 "demo.clip.overlay" = "Overlay";
 "demo.clip.music" = "Music";
+
+/* LUT (Adjust ▸ Basic) */
+"inspector.lut" = "LUT";
+"inspector.lut.name" = "Name";
+"inspector.lut.none" = "None";
+"inspector.lut.import" = "Import";

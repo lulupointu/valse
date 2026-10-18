@@ -46,6 +46,20 @@ public struct ParamSpec: Sendable {
     public var floatCount: Int { if case .color = kind { return 4 }; return 1 }
 }
 
+/// Extra GPU resource bound to an effect's shader (beyond `src`).
+///
+/// When a descriptor declares `inputs`, its shader signature gains one trailing argument per input, in order:
+/// - `.lut3D(id:)` → `texture3d<float> lut` (rgba16Float lattice over [0,1]³, linear filtering; sample at
+///   `c * (N-1)/N + 0.5/N`, or use the prelude helper `fx_lut3d(lut, s3, rgb)` — `s3` is passed as a 3D sampler).
+///   The id names a LUT in the engine's `LUTLibrary`. If the resource is missing the effect is skipped for that frame.
+/// ```metal
+/// float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx,
+///               texture3d<float> lut, sampler s3)
+/// ```
+public enum EffectInput: Sendable, Hashable {
+    case lut3D(id: String)
+}
+
 /// A shader-based effect, filter or adjustment applied to one layer (or, on an adjustment clip, to the composite below).
 ///
 /// `shader` is Metal Shading Language defining:
@@ -68,11 +82,13 @@ public struct EffectDescriptor: Sendable, Identifiable {
     public let passes: Int
     /// SF Symbol for the asset tile until real thumbnails are generated.
     public let symbol: String
+    /// Extra textures bound to the shader (see `EffectInput`). Empty for ordinary effects.
+    public let inputs: [EffectInput]
 
     public init(id: String, category: EffectCategory, nameKey: String, groupKey: String, params: [ParamSpec] = [],
-                passes: Int = 1, symbol: String = "sparkles", shader: String) {
+                passes: Int = 1, symbol: String = "sparkles", inputs: [EffectInput] = [], shader: String) {
         self.id = id; self.category = category; self.nameKey = nameKey; self.groupKey = groupKey
-        self.params = params; self.passes = passes; self.symbol = symbol; self.shader = shader
+        self.params = params; self.passes = passes; self.symbol = symbol; self.inputs = inputs; self.shader = shader
     }
 
     /// New instance with every parameter at its default.

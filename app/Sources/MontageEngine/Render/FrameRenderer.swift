@@ -309,6 +309,9 @@ public final class FrameRenderer: @unchecked Sendable {
         var cur = input
         for e in effects {
             guard let d = Registries.effects[e.typeID], let pipe = EffectPipelines.shared.effect(d) else { continue }
+            // Extra inputs (3D LUTs…): skip the effect if a resource is missing (e.g. LUT file deleted).
+            let extra = d.inputs.map { EffectInputs.texture(for: $0) }
+            if extra.contains(where: { $0 == nil }) { continue }
             var params = d.packParams(e.params)
             for pass in 0..<max(d.passes, 1) {
                 let out = acquire(cur.width, cur.height)
@@ -317,6 +320,7 @@ public final class FrameRenderer: @unchecked Sendable {
                 let src = cur
                 fullscreen(pipe, target: out, cmd, label: e.typeID) { enc in
                     enc.setFragmentTexture(src, index: 0)
+                    for (i, t) in extra.enumerated() { enc.setFragmentTexture(t, index: 1 + i) }
                     enc.setFragmentBytes(&params, length: params.count * 4, index: 0)
                     enc.setFragmentBytes(&fx, length: MemoryLayout<FXContextU>.stride, index: 1)
                 }

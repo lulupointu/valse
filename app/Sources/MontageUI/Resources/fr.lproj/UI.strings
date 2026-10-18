@@ -202,3 +202,9 @@
 "demo.clip.forest" = "Forêt";
 "demo.clip.overlay" = "Superposition";
 "demo.clip.music" = "Musique";
+
+/* LUT (Adjust ▸ Basic) */
+"inspector.lut" = "LUT";
+"inspector.lut.name" = "Nom";
+"inspector.lut.none" = "Aucun";
+"inspector.lut.import" = "Importer";
