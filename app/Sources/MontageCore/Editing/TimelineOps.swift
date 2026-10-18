@@ -25,6 +25,26 @@ public enum EditError: Error, Equatable, Sendable {
 
 public enum TrimEdge: String, Codable, Sendable { case head, tail }
 
+/// Lane kind of an adjustment-layer clip (CapCut: effects, filters and adjustments each get their own lane type, colour
+/// and icon, UX.md §1.2 / §6.4). Derived from the category of the clip's first effect; MontageCore can't see the effect
+/// registry, so MontageEffects installs `resolver` at bootstrap (`EffectsResources.register()`). Without it every
+/// adjustment clip is `.adjustment`.
+public enum AdjustmentLanes {
+    /// Effect type id → `.effect` / `.filter` / `.adjustment` (nil = unknown). Lock-protected (tests bootstrap in parallel).
+    public static var resolver: (@Sendable (String) -> TrackKind?)? {
+        get { lock.withLock { _resolver } }
+        set { lock.withLock { _resolver = newValue } }
+    }
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var _resolver: (@Sendable (String) -> TrackKind?)?
+
+
+    public static func kind(of clip: Clip) -> TrackKind {
+        guard case .adjustment = clip.content else { return .adjustment }
+        return clip.effects.first.flatMap { resolver?($0.typeID) } ?? .adjustment
+    }
+}
+
 /// Where a new clip goes.
 public enum InsertTarget: Equatable, Sendable {
     /// Main track (magnetic insert at the nearest cut) for video/images; first free audio track for audio.
@@ -60,7 +80,7 @@ public enum TimelineOps {
         case .text: return .text
         case .sticker: return .sticker
         case .solid: return .video
-        case .adjustment: return .adjustment
+        case .adjustment: return AdjustmentLanes.kind(of: clip)
         case .compound: return .video
         }
     }
@@ -404,11 +424,8 @@ public enum TimelineOps {
 
     // MARK: Tracks
 
-    public static func compatible(_ trackKind: TrackKind, _ clipKind: TrackKind) -> Bool {
-        if trackKind == clipKind { return true }
-        let adjustments: Set<TrackKind> = [.effect, .filter, .adjustment]
-        return adjustments.contains(trackKind) && adjustments.contains(clipKind)
-    }
+    /// Lanes hold one kind of clip: effects, filters and adjustment layers never share a lane (UX.md §6.4).
+    public static func compatible(_ trackKind: TrackKind, _ clipKind: TrackKind) -> Bool { trackKind == clipKind }
 
     static func fits(_ range: TimeRange, in track: Track) -> Bool {
         !track.clips.contains { $0.range.overlaps(range) }

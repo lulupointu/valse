@@ -58,7 +58,31 @@
 "timeline.freeze" = "Freeze";
 "timeline.badge.curve" = "Curve";
 "toast.attributesCopied" = "Attributes copied";
-"cover.notYet" = "Cover editor coming soon";
+"cover.title" = "Cover";
+"cover.source.frame" = "Video frame";
+"cover.source.image" = "Local";
+"cover.frame.hint" = "Drag on the filmstrip to choose the cover frame";
+"cover.usePlayhead" = "Use playhead frame";
+"cover.import" = "Import image";
+"cover.image.none" = "No image";
+"cover.text" = "Cover text";
+"cover.text.hint" = "Add a title to the cover. Drag it on the preview to place it.";
+"cover.text.default" = "Your title";
+"cover.addText" = "Add text";
+"cover.fontSize" = "Font size";
+"cover.position" = "Position";
+"cover.position.top" = "Top";
+"cover.position.middle" = "Middle";
+"cover.position.bottom" = "Bottom";
+"cover.styles" = "Styles";
+"cover.deleteText" = "Delete text";
+"cover.reset" = "Reset";
+"cover.cancel" = "Cancel";
+"cover.save" = "Save";
+"cmd.cover" = "Cover";
+"toast.coverSaved" = "Cover saved";
+"toast.coverReset" = "Cover reset to the first frame";
+
 
 "tlmenu.copy" = "Copy";
 "tlmenu.cut" = "Cut";

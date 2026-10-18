@@ -41,7 +41,7 @@ import MontageCore
         #expect(l.hitTest(CGPoint(x: l.x(Time(3.5)), y: row.y + 30), timeline: p.timeline) == .transition(ids[0], edge: nil, row: l.mainRowIndex!))
         #expect(l.hitTest(CGPoint(x: l.x(Time(3)) + 1, y: row.y + 30), timeline: p.timeline) == .transition(ids[0], edge: .head, row: l.mainRowIndex!))
         // keyframe only for selected clips (clip 1 starts at 3 → keyframe at 4)
-        let kp = CGPoint(x: l.x(Time(4.0)) + 1, y: row.maxY - 5)
+        let kp = CGPoint(x: l.x(Time(4.0)) + 1, y: row.y + row.height / 2 + 3)
         if case .keyframe(let id, _, let t, _) = l.hitTest(kp, timeline: p.timeline, selection: [ids[1]]) {
             #expect(id == ids[1] && t == Time(1))
         } else { Issue.record("no keyframe hit") }
@@ -187,7 +187,53 @@ import MontageCore
         if let lim = TimingBudget.limit(50, "1000 hit tests") { #expect(hitMs < lim, "1000 hit tests took \(hitMs) ms") }
     }
 
+    /// UX_GAPS W1-1: effects, filters and adjustments each get their own lane (never shared), and the timeline draws them
+    /// in their own colours.
+    @Test func effectFilterAdjustmentLanesAreSeparate() throws {
+        MontageBootstrap.registerResources()
+        var (p, _) = try project(clips: 1)
+        func layer(_ id: String, at s: Double) throws -> TrackID {
+            var c = Clip(content: .adjustment, start: Time(s), duration: Time(1))
+            c.effects = [EffectInstance(typeID: id)]
+            return try TimelineOps.insert(c, into: &p)
+        }
+        let fx = try layer("montage.effect.shake", at: 0)
+        let filter = try layer("montage.filter.tealOrange", at: 2)
+        let adjust = try layer("montage.adjust.basic", at: 4)
+        let fx2 = try layer("montage.effect.vhs", at: 2)
+        #expect(Set([fx, filter, adjust]).count == 3)
+        #expect(fx2 == fx)
+        let kinds = [fx, filter, adjust].map { id in p.timeline.tracks.first { $0.id == id }!.kind }
+        #expect(kinds == [.effect, .filter, .adjustment])
+        #expect(!TimelineOps.compatible(.filter, .effect))
+        #expect(Theme.clipColor(.effect) != Theme.clipColor(.adjustment) && Theme.clipColor(.filter) != Theme.clipColor(.adjustment))
+    }
+
+    /// TL-045: the cover renders a timeline frame (or an image) with its text layers on top tracks.
+    @Test func coverCompositionAddsTextLayers() throws {
+        var (p, _) = try project(clips: 2)
+        var t = Clip(content: .text(TextContent(string: "Title")), start: .zero, duration: Time(1))
+        t.transform.position = Vec2(0, -0.3)
+        let cover = ProjectCover(time: Time(5), texts: [t])
+        let (cp, time) = cover.compositionProject(base: p, image: nil)
+        #expect(time == Time(5))
+        let texts = cp.timeline.tracks.filter { $0.kind == .text }
+        #expect(texts.count == 1 && texts[0].clips[0].start == Time(5) && texts[0].clips[0].transform.position.y == -0.3)
+        let img = Self.asset("cover", seconds: 0, kind: .image)
+        let (ip, it) = cover.compositionProject(base: p, image: img)
+        #expect(it == .zero && ip.media.map(\.id) == [img.id] && ip.timeline.mainTrack?.clips.count == 1)
+        p.cover = cover
+        let data = try JSONEncoder().encode(p)
+        #expect(try JSONDecoder().decode(Project.self, from: data).cover == cover)
+    }
+
+    @Test func frenchDurationChips() {
+        #expect(TimelineView.durationLabel(Time(4), french: true) == "4,0\u{202F}s")
+        #expect(TimelineView.durationLabel(Time(4), french: false) == "4.0s")
+    }
+
     @Test func dynamicTimelineKeysAreTranslated() {
+
         MontageBootstrap.registerResources()
         var keys: [String] = []
         keys += LinkageCategory.allCases.map(\.nameKey) + AttributeGroup.allCases.map(\.nameKey)

@@ -565,8 +565,28 @@ public final class UITestDriver {
                 y = row.y + row.height / 2
             }
             return tl.convert(CGPoint(x: l.x(Time(secs)), y: y), to: nil)
+        case "header":
+            // header:<track>/<item>: a track-header control (type, lock, eye, mute, more; cover on the main track)
+            guard let tl = timelineView else { throw Failure("no timeline view") }
+            let parts = rest.split(separator: "/").map(String.init)
+            guard parts.count == 2 else { throw Failure("expected header:<track>/<item>, got \(rest)") }
+            let ti = parts[0] == "main" ? store.project.timeline.mainTrackIndex : Int(parts[0])
+            let l = tl.layoutNow
+            guard let ti, let row = l.rows.first(where: { $0.trackIndex == ti }) else { throw Failure("no row for track \(parts[0])") }
+            let r: CGRect
+            if parts[1] == "cover" {
+                guard row.isMain else { throw Failure("only the main track has a Cover button") }
+                r = tl.coverButtonRect(row)
+            } else {
+                guard let item = tl.headerItems(store.project.timeline.tracks[ti], row: row).first(where: { $0.id == parts[1] }) else {
+                    throw Failure("no header item \(parts[1])")
+                }
+                r = item.rect
+            }
+            return tl.convert(CGPoint(x: r.minX + r.width * at.x, y: r.minY + r.height * at.y), to: nil)
         case "player":
             guard let pv = SnapshotRegistry.shared.player else { throw Failure("no player view") }
+
             let f = rest.split(separator: ",").compactMap { Double($0) }
             return point(in: pv, unit: f.count == 2 ? CGPoint(x: f[0], y: f[1]) : at)
         case "point":

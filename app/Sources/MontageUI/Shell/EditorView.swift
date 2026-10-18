@@ -70,7 +70,12 @@ public struct EditorView: View {
             if store.isExportSheetPresented { ExportModal(store: store) }
         }
         .overlay {
+            // W1 cover editor (main-track "Cover" button, TL-045): in-window modal like Export
+            if let m = store.timelineUI.coverEditor { CoverEditorModal(store: store, model: m) }
+        }
+        .overlay {
             // W10 AI clipper: in-window modal like Export
+
             if let st = store.ai.clipper {
                 ZStack {
                     Color.black.opacity(0.45).ignoresSafeArea()

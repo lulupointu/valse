@@ -49,5 +49,21 @@ public enum Registries {
 public enum EffectsResources {
     public static let bundle: Bundle = ResourceBundleLocator.find("Montage_MontageEffects", fallback: .module)
     /// Registers this module's strings with `L10n` (called by the app bootstrap and tests).
-    public static func register() { L10n.shared.register(bundle) }
+    public static func register() {
+        L10n.shared.register(bundle)
+        installLaneResolver()
+    }
+
+    /// Lets MontageCore put effect / filter / adjustment clips on their own lanes (`AdjustmentLanes`).
+    public static func installLaneResolver() {
+        guard AdjustmentLanes.resolver == nil else { return }  // idempotent
+        AdjustmentLanes.resolver = { id in
+            switch Registries.effects[id]?.category {
+            case .effect: return .effect
+            case .filter: return .filter
+            case .adjustment: return .adjustment
+            default: return nil
+            }
+        }
+    }
 }

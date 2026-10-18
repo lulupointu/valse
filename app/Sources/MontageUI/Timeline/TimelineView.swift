@@ -69,7 +69,11 @@ final class TimelineView: NSView {
     var trimLabel: (x: CGFloat, y: CGFloat, text: String)?
     /// Ids created by the latest ⌥-drag duplicate gesture update.
     var duplicatedIDs: [ClipID] = []
+    /// Rendered project cover for the main-track Cover button (TL-045), refreshed when the cover changes.
+    var coverThumbnail: CGImage?
+    var coverThumbnailKey: ProjectCover?
     var requestedThumbs: Set<String> = []
+
     var requestedWaves: Set<String> = []
     /// Per-revision drawing data (asset map, duration, labels) — see TimelineView+LOD.swift.
     let drawCache = TimelineDrawCache()
@@ -201,13 +205,19 @@ final class TimelineView: NSView {
                    row.isMain ? RGBA(hex: 0x242425) : RGBA(hex: 0x1E1E1F), radius: 0)
             _ = track
         }
-        if l.rows.count == 1, tl.mainTrack?.clips.isEmpty == true {
-            let row = l.rows[0]
-            let r = CGRect(x: headerW + 8, y: row.y + 4, width: min(W - headerW - 16, 600), height: row.height - 8)
-            c.rect(r, RGBA(1, 1, 1, 0.03), radius: 6)
-            c.rect(r, RGBA(1, 1, 1, 0.18), radius: 6, border: 1)
-            c.text(tr("timeline.emptyHint"), at: CGPoint(x: r.minX + 16, y: r.midY - 7), size: 12, weight: .regular,
-                   color: RGBA(hex: 0x7A7A7A))
+        if Self.isEmpty(tl) {
+            // CapCut's empty state ([10]): no ruler, no headers, one full-width dashed lane with a film icon and a hint.
+            c.clip = CGRect(x: 0, y: 0, width: W, height: H)
+            c.rect(CGRect(x: 0, y: 0, width: W, height: H), RGBA(hex: 0x1B1B1C))
+            let r = Self.emptyLaneRect(viewSize: bounds.size)
+            c.rect(r, RGBA(1, 1, 1, dropIndicator != nil ? 0.07 : 0.025), radius: 6)
+            Self.dashedBorder(&c, r, color: dropIndicator != nil ? accent : RGBA(1, 1, 1, 0.2))
+            if let img = SymbolImages.image("film") {
+                c.image(img, in: CGRect(x: r.minX + 18, y: r.midY - 9, width: 18, height: 18), alpha: 0.75, fill: false)
+            }
+            c.text(tr("timeline.emptyHint"), at: CGPoint(x: r.minX + 44, y: r.midY - 8), size: 12, weight: .regular,
+                   color: RGBA(hex: 0xC8C8C8))
+            return c
         }
 
         // Clips
@@ -221,12 +231,14 @@ final class TimelineView: NSView {
             track.clips.withUnsafeBufferPointer { clips in
             for k in vis where clips[k].transitionOut != nil {
                 guard let r = l.transitionRect(clips[k], row: row) else { continue }
+                // Translucent block with a ⋈ bow-tie (UX.md §6.5, [96]); brighter on hover, outlined when selected.
                 let sel = ui.selectedTransition == clips[k].id
-                c.rect(r, RGBA(1, 1, 1, sel ? 0.45 : 0.28), radius: 3)
-                if sel { c.rect(r, .white, radius: 3, border: 1.5) }
-                if let img = SymbolImages.image("arrow.left.and.right.righttriangle.left.righttriangle.right.fill") ?? SymbolImages.image("rectangle.split.2x1") {
-                    let s = min(14, r.height - 4)
-                    if r.width >= s { c.image(img, in: CGRect(x: r.midX - s / 2, y: r.midY - s / 2, width: s, height: s), alpha: 0.95, fill: false) }
+                let hov = !sel && hoverPoint.map { r.insetBy(dx: -2, dy: 0).contains($0) } == true
+                c.rect(r, RGBA(1, 1, 1, sel ? 0.45 : (hov ? 0.4 : 0.26)), radius: 3)
+                if sel || hov { c.rect(r, sel ? .white : RGBA(1, 1, 1, 0.75), radius: 3, border: sel ? 1.5 : 1) }
+                if let img = SymbolImages.bowTie {
+                    let s = min(16, r.height - 4, r.width - 2)
+                    if s >= 8 { c.image(img, in: CGRect(x: r.midX - s / 2, y: r.midY - s / 2, width: s, height: s), alpha: 0.95, fill: false) }
                 }
             }
             }
@@ -335,16 +347,25 @@ final class TimelineView: NSView {
             if case .trackReorder(let id, _) = drag, id == track.id { c.rect(r, RGBA(1, 1, 1, 0.08), radius: 4) }
             for item in headerItems(track, row: row) {
                 if let img = SymbolImages.image(item.symbol) {
-                    c.image(img, in: item.rect, alpha: item.on ? 1 : 0.5, fill: false)
+                    // UX.md §6.3: 14 pt grey icons; a toggled state (locked / hidden / muted) is white and slashed.
+                    c.image(img, in: item.rect, alpha: item.on ? 1 : 0.55, fill: false)
                 }
             }
             if row.isMain {
-                // "Cover" button next to the clips (UX.md §6.3)
+                // "Cover" button in the gap right of the header controls (UX.md §6.3): shows the cover once one is set.
                 let b = coverButtonRect(row)
+                refreshCoverThumbnail()
                 c.rect(b, RGBA(hex: 0x2A2A2A), radius: 4)
-                if let img = SymbolImages.image("pencil") { c.image(img, in: CGRect(x: b.midX - 6, y: b.minY + 5, width: 12, height: 12), alpha: 0.9, fill: false) }
-                let w = c.measure(tr("timeline.cover"), size: 10)
-                c.text(tr("timeline.cover"), at: CGPoint(x: b.midX - w / 2, y: b.midY + 1), size: 10, weight: .medium, color: RGBA(hex: 0xE6E6E6))
+                if let thumb = coverThumbnail {
+                    c.image(thumb, in: b, alpha: 1, radius: 4)
+                    c.rect(CGRect(x: b.minX, y: b.maxY - 13, width: b.width, height: 13), RGBA(0, 0, 0, 0.55), radius: 0)
+                } else if let img = SymbolImages.image("pencil") {
+                    c.image(img, in: CGRect(x: b.midX - 7, y: b.minY + 4, width: 14, height: 14), alpha: 0.9, fill: false)
+                }
+                let (label, size) = Self.fittedLabel(tr("timeline.cover"), width: b.width - 4, maxSize: 10, canvas: c)
+                let w = c.measure(label, size: size)
+                c.text(label, at: CGPoint(x: b.midX - w / 2, y: b.maxY - (coverThumbnail == nil ? 16 : 13)), size: size,
+                       weight: .medium, color: RGBA(hex: 0xE6E6E6))
             }
         }
         c.clip = CGRect(x: 0, y: 0, width: headerW, height: TimelineLayout.rulerHeight)
@@ -379,8 +400,94 @@ final class TimelineView: NSView {
         return CGRect(x: x, y: bounds.height - TimelineLayout.scrollbarHeight, width: w, height: 6)
     }
 
+    /// Renders the Cover button thumbnail when `Project.cover` changes.
+    func refreshCoverThumbnail() {
+        let cover = store.project.cover
+        guard cover != coverThumbnailKey else { return }
+        coverThumbnailKey = cover
+        guard let cover else { coverThumbnail = nil; return }
+        let p = store.project
+        Task { [weak self] in
+            let a = await CoverRenderer.asset(for: cover)
+            let img = try? await Task.detached(priority: .utility) {
+                try await CoverRenderer.image(project: p, cover: cover, asset: a, shortSide: 80)
+            }.value
+            guard let self, self.coverThumbnailKey == cover else { return }
+            self.coverThumbnail = img
+            self.dirty = true
+        }
+    }
+
+    /// 48×36 pt (CapCut 40 pt; wider so "Couverture" fits), centred in the 52 pt gap between the header controls and the clips.
+
     func coverButtonRect(_ row: TimelineLayout.Row) -> CGRect {
-        CGRect(x: TimelineLayout.headerWidth - 48, y: row.y + row.height / 2 - 18, width: 44, height: 36)
+        let gap = TimelineLayout.headerWidth - TimelineLayout.headerControlsWidth
+        return CGRect(x: TimelineLayout.headerControlsWidth + (gap - 48) / 2, y: row.y + row.height / 2 - 18, width: 48, height: 36)
+    }
+
+    /// Shrinks a label (down to 8 pt) to fit `width`, then truncates.
+    static func fittedLabel(_ s: String, width: CGFloat, maxSize: CGFloat, canvas c: Canvas2D) -> (String, CGFloat) {
+        var size = maxSize
+        while size > 8, c.measure(s, size: size) > width { size -= 0.5 }
+        if c.measure(s, size: size) <= width { return (s, size) }
+        var t = s
+        while t.count > 2, c.measure(t + "…", size: size) > width { t.removeLast() }
+        return (t + "…", size)
+    }
+
+    static func isEmpty(_ tl: Timeline) -> Bool { tl.tracks.allSatisfy { $0.clips.isEmpty } }
+
+    /// The dashed "Drag material here" lane of an empty timeline (full width, about where the main track sits).
+    static func emptyLaneRect(viewSize: CGSize) -> CGRect {
+        let h: CGFloat = 64
+        let y = min(max(TimelineLayout.rulerHeight + 40, viewSize.height * 0.42 - h / 2), max(viewSize.height - h - 16, 8))
+        return CGRect(x: 40, y: y, width: max(viewSize.width - 56, 100), height: h)
+    }
+
+    static func dashedBorder(_ c: inout Canvas2D, _ r: CGRect, color: RGBA, dash: CGFloat = 5, gap: CGFloat = 4) {
+        var x = r.minX + 6
+        while x < r.maxX - 6 {
+            let w = min(dash, r.maxX - 6 - x)
+            c.rect(CGRect(x: x, y: r.minY, width: w, height: 1), color)
+            c.rect(CGRect(x: x, y: r.maxY - 1, width: w, height: 1), color)
+            x += dash + gap
+        }
+        var y = r.minY + 6
+        while y < r.maxY - 6 {
+            let h = min(dash, r.maxY - 6 - y)
+            c.rect(CGRect(x: r.minX, y: y, width: 1, height: h), color)
+            c.rect(CGRect(x: r.maxX - 1, y: y, width: 1, height: h), color)
+            y += dash + gap
+        }
+    }
+
+    /// Kind a clip is drawn as: effect / filter / adjustment layers by their first effect (UX.md §1.2 colours).
+    static func displayKind(_ clip: Clip, track: Track) -> TrackKind {
+        if case .adjustment = clip.content { return AdjustmentLanes.kind(of: clip) }
+        return track.kind
+    }
+
+    /// Kind a track header shows (older projects may have filter clips on an "adjustment" lane).
+    static func displayKind(_ track: Track) -> TrackKind {
+        guard [.effect, .filter, .adjustment].contains(track.kind), let first = track.clips.first else { return track.kind }
+        return AdjustmentLanes.kind(of: first)
+    }
+
+    /// Chips for effects / filters applied directly to a media or text clip.
+    static func appliedEffectSymbols(_ clip: Clip) -> [String] {
+        var out: [String] = []
+        let cats = clip.effects.filter(\.isEnabled).compactMap { Registries.effects[$0.typeID]?.category }
+        if cats.contains(.effect) { out.append(typeSymbol(.effect)) }
+        if cats.contains(.filter) { out.append(typeSymbol(.filter)) }
+        return out
+    }
+
+    /// Clip duration chip ("4.0s" / "4,0 s" in French).
+    static func durationLabel(_ t: Time, french fr: Bool = L10n.shared.language.hasPrefix("fr")) -> String {
+        let s = t.seconds
+        if s >= 60 { return Timecode.shortDuration(t) }
+        let v = String(format: "%.1f", s)
+        return fr ? v.replacingOccurrences(of: ".", with: ",") + "\u{202F}s" : v + "s"
     }
 
     struct HeaderItem { let id: String; let symbol: String; let on: Bool; let rect: CGRect }
@@ -388,16 +495,18 @@ final class TimelineView: NSView {
     /// Track header controls (UX.md §6.3): type icon · lock · eye · speaker · ⋯ (main track: no type icon, Cover button).
     func headerItems(_ t: Track, row: TimelineLayout.Row) -> [HeaderItem] {
         var items: [(String, String, Bool)] = []
-        if !t.isMain { items.append(("type", Self.typeSymbol(t.kind), false)) }
-        items.append(("lock", t.isLocked ? "lock.fill" : "lock.open", t.isLocked))
+        items.append(("type", Self.typeSymbol(Self.displayKind(t)), false))
+        items.append(("lock", t.isLocked ? "lock.slash" : "lock", t.isLocked))
         if t.kind.isVisual { items.append(("eye", t.isHidden ? "eye.slash" : "eye", t.isHidden)) }
         if t.kind == .audio || t.kind == .video { items.append(("mute", t.isMuted ? "speaker.slash" : "speaker.wave.2", t.isMuted)) }
         if t.kind == .audio || t.kind == .video { items.append(("more", "ellipsis", false)) }
-        let step: CGFloat = t.isMain ? 17 : 21
+        // 14 pt glyphs (SymbolImages pad their 40 px tile by 10 %, hence the 17 pt rect), 22 pt pitch.
+        let step: CGFloat = 22, side: CGFloat = 17
         return items.enumerated().map { i, it in
             HeaderItem(id: it.0, symbol: it.1, on: it.0 == "type" ? false : it.2,
-                       rect: CGRect(x: 6 + CGFloat(i) * step, y: row.y + row.height / 2 - 7, width: 14, height: 14))
+                       rect: CGRect(x: 8 + CGFloat(i) * step, y: row.y + row.height / 2 - side / 2, width: side, height: side))
         }
+
     }
 
     static func typeSymbol(_ k: TrackKind) -> String {
@@ -416,7 +525,8 @@ final class TimelineView: NSView {
                   ctx: TimelineFrameContext) {
         let r = l.clipRect(clip, row: row).insetBy(dx: 0.5, dy: 0)
         guard r.maxX > TimelineLayout.headerWidth, r.minX < bounds.width else { return }
-        var base = Theme.clipColor(track.kind)
+        let kind = Self.displayKind(clip, track: track)
+        var base = Theme.clipColor(kind)
         if let li = clip.colorLabel, li >= 0, li < Self.labelColors.count { base = Self.labelColors[li] }
         let assetRef = drawCache.asset(clip.mediaID)
         let asset = assetRef?.asset
@@ -478,15 +588,25 @@ final class TimelineView: NSView {
         let room = r.maxX - labelX - 4
         if room > 14 {
             let names = drawCache.label(clip) { clipName(clip, asset: asset) }
-            if !(asset != nil), let img = SymbolImages.image(Self.typeSymbol(track.kind)), room > 30, r.height < 30 {
-                c.image(img, in: CGRect(x: labelX, y: r.minY + 4, width: 12, height: 12), alpha: 0.9 * dim, fill: false)
-                labelX += 15
+            if !(asset != nil), let img = SymbolImages.image(Self.typeSymbol(kind)), room > 30, r.height < 30 {
+                c.image(img, in: CGRect(x: labelX - 1, y: r.minY + 2.5, width: 15, height: 15), alpha: 0.95 * dim, fill: false)
+                labelX += 16
             }
             let label = r.width > 90 ? names.long : names.short
             let w = min(c.measure(label) + 8, r.maxX - labelX - 4)
             if w > 8 {
                 c.rect(CGRect(x: labelX, y: r.minY + 2.5, width: w, height: 15), RGBA(1, 1, 1, 0.15 * dim), radius: 3)
                 c.text(label, at: CGPoint(x: labelX + 4, y: r.minY + 3), size: 10.5, color: RGBA(1, 1, 1, dim), maxWidth: w - 8)
+                labelX += w + 3
+            }
+            // Effects / filters applied *to* this clip: chips next to the name (UX.md §6.5)
+            if clip.content != .adjustment {
+                for sym in Self.appliedEffectSymbols(clip) where labelX + 17 < r.maxX - 4 {
+                    let cr = CGRect(x: labelX, y: r.minY + 2.5, width: 17, height: 15)
+                    c.rect(cr, RGBA(1, 1, 1, 0.15 * dim), radius: 3)
+                    if let img = SymbolImages.image(sym) { c.image(img, in: cr.insetBy(dx: 1, dy: 0), alpha: 0.95 * dim, fill: false) }
+                    labelX += 20
+                }
             }
         }
         // Badges (right side of the name strip): speed, reversed, freeze, muted, effects, group
@@ -507,7 +627,6 @@ final class TimelineView: NSView {
             }
             if clip.reversed { badge("arrow.uturn.backward") }
             if clip.audio.isMuted && asset?.hasAudio == true && !clip.isFreezeFrame { badge("speaker.slash") }
-            if !clip.effects.isEmpty, clip.mediaID != nil || { if case .text = clip.content { return true }; return false }() { badge("sparkles") }
             if clip.groupID != nil { badge("square.on.square") }
             if !clip.isEnabled { badge("eye.slash") }
         }
@@ -546,7 +665,8 @@ final class TimelineView: NSView {
                 c.rect(CGRect(x: r.minX + 1, y: r.midY - 8, width: 3, height: 16), .white, radius: 1.5)
                 c.rect(CGRect(x: r.maxX - 4, y: r.midY - 8, width: 3, height: 16), .white, radius: 1.5)
             }
-            let ky = r.maxY - TimelineLayout.keyframeBand / 2 - 1
+            let ky = r.midY
+
             let img = SymbolImages.image("diamond.fill")
             for (key, track) in clip.keyframes {
                 for k in track.keyframes {
@@ -666,13 +786,33 @@ final class TimelineView: NSView {
 @MainActor
 enum SymbolImages {
     private static var cache: [String: CGImage?] = [:]
+
+    /// CapCut's ⋈ transition glyph (two white triangles meeting in the middle); no SF Symbol matches it.
+    static let bowTie: CGImage? = {
+        let size = NSSize(width: 40, height: 40)
+        let img = NSImage(size: size, flipped: false) { _ in
+            NSColor.white.setFill()
+            let p = NSBezierPath()
+            p.move(to: NSPoint(x: 6, y: 9)); p.line(to: NSPoint(x: 6, y: 31)); p.line(to: NSPoint(x: 20, y: 20)); p.close()
+            p.move(to: NSPoint(x: 34, y: 9)); p.line(to: NSPoint(x: 34, y: 31)); p.line(to: NSPoint(x: 20, y: 20)); p.close()
+            p.fill()
+            return true
+        }
+        var rect = CGRect(origin: .zero, size: size)
+        return img.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+    }()
     static func image(_ name: String) -> CGImage? {
         if let c = cache[name] { return c }
         guard let base = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 28, weight: .regular)) else { cache[name] = .some(nil); return nil }
         let size = NSSize(width: 40, height: 40)
         let img = NSImage(size: size, flipped: false) { r in
-            base.draw(in: r.insetBy(dx: 4, dy: 4))
+            // aspect-fit (wide glyphs like ellipsis / eye were stretched into a square)
+            let box = r.insetBy(dx: 4, dy: 4), s = base.size
+            let k = min(box.width / max(s.width, 1), box.height / max(s.height, 1))
+            let w = s.width * k, h = s.height * k
+            base.draw(in: NSRect(x: box.midX - w / 2, y: box.midY - h / 2, width: w, height: h))
+
             NSColor.white.set()
             r.fill(using: .sourceAtop)
             return true

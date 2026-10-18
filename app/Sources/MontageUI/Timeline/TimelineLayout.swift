@@ -36,12 +36,14 @@ public struct TimelineLayout {
     public enum ClipRegion: Equatable { case body, leadingEdge, trailingEdge }
 
     public static let rulerHeight: CGFloat = 24
-    public static let headerWidth: CGFloat = 120
+    /// Header column: 120 pt of track controls plus the 52 pt gap that holds the main track's Cover button (UX.md §6.3/§6.4).
+    public static let headerWidth: CGFloat = 172
+    public static let headerControlsWidth: CGFloat = 120
     public static let rowGap: CGFloat = 4
     public static let edgeHandle: CGFloat = 7
     public static let topPadding: CGFloat = 18
     public static let scrollbarHeight: CGFloat = 8
-    /// Keyframe diamonds are drawn in this band at the bottom of a selected clip.
+    /// Keyframe diamonds are centred vertically on a selected clip; this is the height of their hit band.
     public static let keyframeBand: CGFloat = 12
 
     public static func height(for kind: TrackKind, isMain: Bool, preset: TrackHeight? = nil) -> CGFloat {
@@ -136,7 +138,7 @@ public struct TimelineLayout {
         // keyframes of selected clips
         for c in cands where selection.contains(c.id) && !c.keyframes.isEmpty {
             let r = clipRect(c, row: row)
-            guard p.y >= r.maxY - Self.keyframeBand - 2, p.y <= r.maxY, r.contains(CGPoint(x: p.x, y: r.midY)) else { continue }
+            guard abs(p.y - r.midY) <= Self.keyframeBand / 2 + 1, r.contains(CGPoint(x: p.x, y: r.midY)) else { continue }
             var best: (String, Time, CGFloat)?
             for (k, track) in c.keyframes.sorted(by: { $0.key < $1.key }) {   // deterministic pick when keys share a time
                 for f in track.keyframes {

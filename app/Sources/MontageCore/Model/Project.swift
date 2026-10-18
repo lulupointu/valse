@@ -17,6 +17,9 @@ public struct Project: Codable, Sendable, Equatable {
     public var mediaFolders: [MediaFolder]?
     /// Nested timelines of compound clips (TL-021). Optional so older files decode.
     public var compounds: [CompoundClip]?
+    /// Project cover (TL-045, main-track "Cover" button): nil = the first frame. Optional so older files decode.
+    public var cover: ProjectCover?
+
     public var createdAt: Date
     public var modifiedAt: Date
 

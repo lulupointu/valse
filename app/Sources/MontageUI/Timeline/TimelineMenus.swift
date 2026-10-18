@@ -305,12 +305,6 @@ extension TimelineView {
         return menu(items)
     }
 
-    // MARK: Cover (TL-045: the cover editor is not built yet; the frame picker is the first step)
-
-    func showCoverMenu(event e: NSEvent) {
-        let m = menu([item("cover.notYet", enabled: false) {}])
-        NSMenu.popUpContextMenu(m, with: e, for: self)
-    }
 }
 
 extension EditorStore {

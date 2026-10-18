@@ -303,7 +303,9 @@ public final class EditorStore {
 
     /// Applies an effect/filter: to the selected visual clips, or as a new adjustment clip when nothing is selected.
     public func applyEffect(_ d: EffectDescriptor) {
-        let targets = selectedClips.filter { c in trackKind(of: c).map { $0 != .audio } ?? false }
+        // Effect / filter / adjustment layers aren't targets: a new layer clip goes on its own lane instead.
+        let targets = selectedClips.filter { c in c.content != .adjustment && (trackKind(of: c).map { $0 != .audio } ?? false) }
+
         if targets.isEmpty {
             addGeneratorClip(.adjustment, effects: [d.makeInstance()], nameKey: d.category == .filter ? "cmd.filter" : "cmd.effect")
         } else {

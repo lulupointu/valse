@@ -1,0 +1,37 @@
+// W1 UX parity (docs/UX_GAPS.md W1-1/2/3): effect and filter layers get their own lanes and colours (never the
+// adjustment lane), header icons toggle (lock), the main-track Cover button opens the cover editor, a text is added
+// and saved into Project.cover (one undo step) and the button then shows the cover.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"drop": {"effect": "montage.effect.shake"}, "on": "time:14@ruler"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.effect"}, {"path": "selectedClips.0.lane", "equals": "effect"}]},
+    {"drop": {"effect": "montage.filter.tealOrange"}, "on": "time:14.5@ruler"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.filter"}, {"path": "selectedClips.0.lane", "equals": "filter"}]},
+    {"drop": {"effect": "montage.adjust.basic"}, "on": "time:2@ruler"},
+    {"expect": {"path": "selectedClips.0.lane", "equals": "adjustment"}},
+    {"click": "time:17@ruler"},
+    {"snapshot": "lanes", "element": "id:timeline"},
+    {"click": "header:main/lock"},
+    {"expect": {"path": "main.locked", "equals": true}},
+    {"snapshot": "header-locked", "element": "id:timeline"},
+    {"click": "header:main/lock"},
+    {"expect": {"path": "main.locked", "equals": false}},
+    {"click": "header:main/cover"},
+    {"expect": {"path": "ui.coverEditor", "equals": true}},
+    {"idle": 2},
+    {"snapshot": "cover-editor", "element": "id:cover.dialog"},
+    {"click": "id:cover.addText"},
+    {"click": "id:cover.position.top"},
+    {"idle": 1.5},
+    {"snapshot": "cover-editor-text", "element": "id:cover.dialog"},
+    {"click": "id:cover.save"},
+    {"expect": [{"path": "ui.coverEditor", "equals": false}, {"path": "undo.name", "equals": "cmd.cover"},
+                {"path": "project.cover.texts.count", "equals": 1}]},
+    {"idle": 1.5},
+    {"snapshot": "cover-button", "element": "id:timeline"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "project.cover", "exists": false}}
+  ]
+}

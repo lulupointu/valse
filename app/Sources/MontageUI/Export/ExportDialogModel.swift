@@ -56,6 +56,11 @@ public final class ExportDialogModel {
     /// "Export selected clips": include every layer during each clip (CapCut "Include all changes when exporting").
     public var includeAllLayers = true
     public var coverTime: Time = .zero
+    /// True while the dialog shows the project cover (`Project.cover`, edited from the timeline's Cover button).
+    /// Picking another frame / image in "Edit cover" overrides it for this export only.
+    public var usesProjectCover = false {
+        didSet { if !usesProjectCover && oldValue { coverImage = nil } }
+    }
     public var coverImage: Data?
     public var coverPreview: NSImage?
     public var mp3Available = true
@@ -108,7 +113,8 @@ public final class ExportDialogModel {
         let tl = project.timeline
         selectedClipIDs = tl.tracks.flatMap(\.clips).filter { selection.contains($0.id) }.sorted { $0.start < $1.start }.map(\.id)
         if let scope, isAvailable(scope) { self.scope = scope }
-        coverTime = .zero
+        coverTime = project.cover?.time ?? .zero
+        usesProjectCover = project.cover.map { !$0.isPlainFrame } ?? false
     }
 
     /// ~/Movies (CapCut: ~/Movies/CapCut).
@@ -232,6 +238,16 @@ public final class ExportDialogModel {
     /// Cover thumbnail for the dialog (async, off-main render).
     public func refreshCover() async {
         if let d = coverImage, let img = NSImage(data: d) { coverPreview = img; return }
+        if usesProjectCover, let cover = project.cover {
+            let p = project
+            if let d = await Task.detached(operation: { await CoverRenderer.jpeg(project: p, cover: cover) }).value,
+               let img = NSImage(data: d), usesProjectCover {
+                coverImage = d
+                coverPreview = img
+                return
+            }
+        }
+
         let p = project, t = coverTime
         guard p.duration > .zero else { return }
         let img = try? await Task.detached { try await StillFrameExporter.image(project: p, at: t, shortSide: 360) }.value

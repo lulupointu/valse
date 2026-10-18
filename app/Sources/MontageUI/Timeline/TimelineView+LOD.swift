@@ -78,7 +78,7 @@ final class TimelineDrawCache {
     func label(_ clip: Clip, _ make: () -> String) -> (short: String, long: String) {
         if let l = labels[clip.id] { return l }
         let name = make()
-        let l = (name, "\(name)  \(Timecode.shortDuration(clip.duration))")
+        let l = (name, "\(name)  \(TimelineView.durationLabel(clip.duration))")  // W1: FR "1,0 s" chips
         labels[clip.id] = l
         return l
     }
@@ -146,7 +146,7 @@ extension TimelineView {
         let r = CGRect(x: x0, y: row.y, width: max(1, CGFloat((end - run[f].start) * pps)), height: row.height).insetBy(dx: 0.5, dy: 0)
         guard r.maxX > TimelineLayout.headerWidth, r.minX < bounds.width else { return }
         func xOf(_ t: Double) -> CGFloat { x0 + CGFloat((t - run[f].start) * pps) }
-        var bg = Theme.clipColor(track.kind)
+        var bg = Theme.clipColor(Self.displayKind(track))  // W1 lane colours (effect / filter / adjustment)
         bg.a = dim
         c.rect(r, bg, radius: r.width > 8 ? 4 : 1)
         // Per-clip exceptions (colour label, disabled) as plain rects.

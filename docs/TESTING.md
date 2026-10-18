@@ -77,7 +77,9 @@ volatile pixels add `"mask": ["id:x", …]` to a `snapshot` step (those elements
 | `"clip:0/0:trailing"` | its right edge (`:leading`, `:body`, or `:0.25` = fraction of its width) |
 | `"clip:selected"` | the (first) selected clip |
 | `"time:7.5@ruler"` / `"time:3@main"` / `"time:3@2"` | a time on the ruler / on a track row |
+| `"header:main/lock"` · `"header:2/more"` · `"header:main/cover"` | a track-header control (`type`, `lock`, `eye`, `mute`, `more`; `cover` = the main track's Cover button) |
 | `"player:0.5,0.5"` | a point in the preview (0…1, top-left) |
+
 | `"point:100,200"` | window content coordinates (points, top-left) |
 
 Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd", "shift", "opt", "ctrl"]`.

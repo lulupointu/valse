@@ -28,6 +28,7 @@ struct TimelineToolbar: View {
         var canUndo = false, canRedo = false
         var hasSel = false, hasTarget = false, canDelete = false
         var audioSel = false, isVideo = false, reversed = false, hasMedia = false, visualSel = false, single = false
+        var mediaSel = false
         var transcriptOpen = false
         var magnet = false, snapping = false, linkage = false, previewAxis = false
         var pixelsPerSecond: Double = 0
@@ -50,6 +51,13 @@ struct TimelineToolbar: View {
         m.reversed = single?.reversed ?? false
         m.hasMedia = single?.mediaID != nil
         m.single = single != nil
+        // UX.md §8.3 (W1): clip-type tools are hidden (not dimmed) unless a video / image clip is selected.
+        m.mediaSel = sel.contains { c in
+            switch c.content {
+            case .media, .solid, .compound: return store.trackKind(of: c)?.isVisual == true
+            default: return false
+            }
+        }
         m.transcriptOpen = store.ai.transcriptOpen
         m.magnet = tl.mainTrackMagnet; m.snapping = tl.snapping; m.linkage = tl.linkage
         m.previewAxis = ui.previewAxis
@@ -88,7 +96,7 @@ struct TimelineToolbarBar: View, Equatable {
             IconButton("bookmark", help: tr("toolbar.marker")) { store.addMarker() }
             if m.audioSel {
                 BeatsMenu(store: store)
-            } else if m.hasSel {
+            } else if m.mediaSel {
                 IconButton("snowflake", help: tr("toolbar.freeze"), enabled: m.isVideo) { store.freezeFrame() }
                 IconButton("arrow.counterclockwise", help: tr("toolbar.reverse"), active: m.reversed, enabled: m.hasMedia) { store.reverseSelection() }
                 IconButton("arrow.left.and.right.righttriangle.left.righttriangle.right", help: tr("toolbar.mirror"), enabled: m.visualSel) { store.mirrorSelection() }

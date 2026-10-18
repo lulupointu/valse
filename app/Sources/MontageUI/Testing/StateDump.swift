@@ -35,6 +35,7 @@ public enum StateDump {
                 "volume": c.audio.volume, "keyframes": Array(c.keyframes.keys).sorted(),
             ]
             if let n = c.name { d["name"] = n }
+            if tl.tracks.indices.contains(track) { d["lane"] = tl.tracks[track].kind.rawValue }
             if case .text(let t) = c.content { d["text"] = t.string }
             if let t = c.transitionOut { d["transition"] = t.typeID; d["transitionDuration"] = t.duration.seconds }
             // W5: animations and keyframe counts per property
@@ -64,6 +65,8 @@ public enum StateDump {
             "inspectorTabs": tabs.map(\.id),
             "assetTab": store.activeAssetTab,
             "exportSheet": store.isExportSheetPresented,
+            "coverEditor": store.timelineUI.coverEditor != nil,
+
             "language": L10n.shared.language,
             "pixelsPerSecond": store.pixelsPerSecond,
             "scrollTime": timeline?.scrollTime ?? 0,

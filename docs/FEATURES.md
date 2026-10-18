@@ -101,7 +101,7 @@
 | TL-042 | Transcript-based editing | See AI-019 (edit video by editing text). | Y | P1 | — | done (see AI-019) |
 | TL-043 | Timeline settings | "Timeline settings": resolution/ratio/fps/color space per timeline ("Apply to: all timelines"). | N | P0 | Sequence settings model. | todo |
 | TL-044 | Clip audio mute | "Mute clip audio" icon on the main track head ("Video sound off/on"). | N | P0 | Gain node. | done (track mute on the main header; clip mute badge) |
-| TL-045 | Cover (thumbnail) track | "Cover" button at the main track head: choose a video frame or local image, design the cover with text templates/stickers ("Cover design", cover templates). Export with/without cover ("Add video cover at the beginning"). | N | P1 | Separate still-composition editor. Optional cover frame prepended on export. | todo |
+| TL-045 | Cover (thumbnail) track | "Cover" button at the main track head: choose a video frame or local image, design the cover with text templates/stickers ("Cover design", cover templates). Export with/without cover ("Add video cover at the beginning"). | N | P1 | Separate still-composition editor. Optional cover frame prepended on export. | done (UXR: main-track Cover button opens the cover editor: filmstrip frame picker / use playhead / import a local image, text layers in the text-style presets, drag to place; `Project.cover`, one undo step; button shows the cover; feeds export artwork + prepend cover; no sticker layers or cover templates yet; UI script timeline_lanes_cover) |
 | TL-046 | Ripple delete / delete | Delete key removes and ripples on the main track only. Backspace equivalent. | N | P0 | — | done (⌫ deletes selection / transition / marker / keyframe, ripple on main only) |
 | TL-047 | Large timeline performance | Projects with 500+ clips and 30+ tracks stay fluid. "Simplify the timeline" warnings. | N | P0 | Virtualized track rendering, incremental layout, off-main-thread model diffing. | done (O(log n) hit-testing & snapping, virtualized drawing; 600 clips on 8 tracks canvas-build test) |
 
@@ -220,7 +220,7 @@
 | TX-033 | Multi-language text templates | Templates with per-language variants. | N | P2 | — | todo |
 | TX-034 | Dictate (voice input) | "Dictate" voice input into text fields. | N | P2 | Streaming ASR (Apple Speech / whisper.cpp stream). | blocked (streaming ASR, W10) |
 | TX-035 | Complex script support | Arabic, Hebrew (RTL), Bengali, Khmer, Myanmar, CJK, Thai (bundled Noto fonts). | N | P0 | HarfBuzz/CoreText-class shaping, bidi (ICU), font fallback chains. | done (W7: Core Text shaping/bidi/fallback, vertical text) |
-| TX-036 | Text on cover | Cover text templates. | N | P2 | Reuse text engine in the cover editor. | blocked (cover editor, W1/W12) |
+| TX-036 | Text on cover | Cover text templates. | N | P2 | Reuse text engine in the cover editor. | done (UXR: cover editor text layers rendered by the text engine, 16 style presets as cover text templates, size / colour / position / drag) |
 | TX-037 | Caption "find & replace" | "Find and replace" across captions. | N | P1 | — | done (W7) |
 | TX-038 | Smart caption speaker ID | Speaker identification captions (per-speaker style). | Y | P2 | Speaker diarization (pyannote-class or sherpa-onnx with 3D-Speaker embeddings, Apache-2.0). | blocked (diarization W10; speaker field in caption model) |
 | TX-039 | Number/date counters | (Text templates) animated counters/timers. | N | P2 | Template parameter expressions. | todo |

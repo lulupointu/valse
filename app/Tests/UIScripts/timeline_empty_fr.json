@@ -1,0 +1,21 @@
+// W1 UX parity (UX_GAPS W1-2/4/5/7/8): the empty timeline is one dashed drop lane (no ruler, no headers); dropping
+// media onto it fills the main track; French header with the fitted "Couverture" label, "6,0 s" duration chips,
+// transition ⋈ glyph; tools that don't apply to a filter layer are hidden.
+{
+  "project": "demo-bin",
+  "lang": "fr",
+  "steps": [
+    {"idle": 1},
+    {"snapshot": "empty", "element": "id:panel.timeline"},
+    {"drop": {"media": 0}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 10}},
+    {"drop": {"media": 1}, "on": "time:30@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 2, "timeout": 10}},
+    {"drop": {"transition": "montage.transition.dissolve"}, "on": "time:6@main"},
+    {"drop": {"effect": "montage.filter.tealOrange"}, "on": "time:1@ruler"},
+    {"expect": {"path": "selectedClips.0.lane", "equals": "filter"}},
+    {"expect": {"path": "ui.anchors", "contains": "toolbar.split"}},
+    {"idle": 1},
+    {"snapshot": "fr-filled", "element": "id:panel.timeline"}
+  ]
+}

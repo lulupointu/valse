@@ -58,7 +58,31 @@
 "timeline.freeze" = "Figer";
 "timeline.badge.curve" = "Courbe";
 "toast.attributesCopied" = "Attributs copiés";
-"cover.notYet" = "Éditeur de couverture bientôt disponible";
+"cover.title" = "Couverture";
+"cover.source.frame" = "Image de la vidéo";
+"cover.source.image" = "Local";
+"cover.frame.hint" = "Faites glisser sur la pellicule pour choisir l'image de couverture";
+"cover.usePlayhead" = "Image de la tête de lecture";
+"cover.import" = "Importer une image";
+"cover.image.none" = "Aucune image";
+"cover.text" = "Texte de couverture";
+"cover.text.hint" = "Ajoutez un titre à la couverture. Faites-le glisser sur l'aperçu pour le placer.";
+"cover.text.default" = "Votre titre";
+"cover.addText" = "Ajouter du texte";
+"cover.fontSize" = "Taille de police";
+"cover.position" = "Position";
+"cover.position.top" = "Haut";
+"cover.position.middle" = "Milieu";
+"cover.position.bottom" = "Bas";
+"cover.styles" = "Styles";
+"cover.deleteText" = "Supprimer le texte";
+"cover.reset" = "Réinitialiser";
+"cover.cancel" = "Annuler";
+"cover.save" = "Enregistrer";
+"cmd.cover" = "Couverture";
+"toast.coverSaved" = "Couverture enregistrée";
+"toast.coverReset" = "Couverture réinitialisée sur la première image";
+
 
 "tlmenu.copy" = "Copier";
 "tlmenu.cut" = "Couper";

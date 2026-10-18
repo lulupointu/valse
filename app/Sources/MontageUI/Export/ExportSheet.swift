@@ -396,12 +396,12 @@ struct CoverEditor: View {
             }
             .frame(width: 288, height: 162).background(Color.black).clipShape(RoundedRectangle(cornerRadius: 6))
             Slider(value: $seconds, in: 0...max(0.01, model.project.duration.seconds)) { editing in
-                if !editing { model.coverImage = nil; model.coverTime = Time(seconds) }
+                if !editing { model.usesProjectCover = false; model.coverImage = nil; model.coverTime = Time(seconds) }
             }
             .controlSize(.small)
             HStack {
                 Button(tr("export.cover.playhead")) {
-                    model.coverImage = nil; seconds = store.transport.playhead.seconds; model.coverTime = store.transport.playhead
+                    model.usesProjectCover = false; model.coverImage = nil; seconds = store.transport.playhead.seconds; model.coverTime = store.transport.playhead
                 }.buttonStyle(SecondaryButtonStyle())
                 Button(tr("export.cover.import")) { importImage() }.buttonStyle(SecondaryButtonStyle())
             }
@@ -419,7 +419,7 @@ struct CoverEditor: View {
         let p = NSOpenPanel(); p.allowedContentTypes = [.image]
         guard p.runModal() == .OK, let u = p.url, let img = NSImage(contentsOf: u), let tiff = img.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff), let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) else { return }
-        model.coverImage = jpeg
+        model.usesProjectCover = false; model.coverImage = jpeg
         model.coverPreview = img
     }
 }

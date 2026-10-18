@@ -175,7 +175,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W1: Timeline editing UX
 
-**W1-1 · P1 · Effect and filter clips look exactly like adjustment clips.**
+**W1-1 · P1 · Effect and filter clips look exactly like adjustment clips.** — **Fixed** (effect / filter / adjustment layers resolve their lane kind from the first effect (`AdjustmentLanes`), never share a lane, and use the purple / indigo / ochre colours and icons; UI script timeline_lanes_cover)
 - CapCut ([86](ux/86_timeline_fit.png), [72](ux/72_effect_clip_added.png)): effects are purple (`#7C5E8C`, ✦), filters indigo
   (`#595493`), and adjustment layers ochre (`#A58744`), each kind on its own lane type.
 - Montage ([16](ux_review/16_timeline_effect_filter_colours.png)): the dropped "Shake" effect and "Teal & orange" filter are ochre
@@ -184,47 +184,47 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: derive the display kind from the clip's first effect category for the colour, icon and track-header icon. Don't mix
   effects, filters and adjustments on one lane.
 
-**W1-2 · P1 · The Cover button is a dead end, and it overflows in French.**
+**W1-2 · P1 · The Cover button is a dead end, and it overflows in French.** — **Fixed** (the Cover button opens a cover editor (frame picker, local image, text layers) stored in `Project.cover` and used by the export; the button sits in the 52 pt gap, is 48 pt wide and fits "Couverture")
 - CapCut ([18](ux/18_track_header_main.png)): the 40×36 "Cover" button opens the cover editor.
 - Montage ([18_track_header_fr](ux_review/18_track_header_fr.png)): clicking it shows a single disabled "not yet" menu item. In
   French, "Couverture" is wider than the button and runs into the first clip.
 - Fix: hide the button until TL-045 lands (or open a frame picker), and fit the label: a smaller font, two lines, or "Couv.".
 
-**W1-3 · P1 · Track headers are cramped and missing ⋯.**
+**W1-3 · P1 · Track headers are cramped and missing ⋯.** — **Fixed** (type icon on every header incl. main, 14 pt icons at 22 pt pitch (aspect-correct glyphs), ⋯ on video/audio tracks, white slashed icon when toggled)
 - CapCut ([18](ux/18_track_header_main.png), [90](ux/90_track_more_menu.png)): a type icon, then 🔒 👁 🔊 at 14 pt with 22 pt
   pitch, and ⋯ more (track height, waveform size) at the right.
 - Montage ([17_timeline_fit](ux_review/17_timeline_fit.png), [18](ux_review/18_track_header_fr.png)): icons are about 9 pt and grey,
   bunched at the left, with no ⋯. The main track has no type icon, and track height can be changed only from a right-click.
 - Fix: follow UX §6.3 (sizes, ⋯ button, a white slashed icon when toggled).
 
-**W1-4 · P1 · The empty timeline doesn't match CapCut's empty state.**
+**W1-4 · P1 · The empty timeline doesn't match CapCut's empty state.** — **Fixed** (empty timeline = full-width dashed lane with a film icon and the hint; ruler and headers hidden until the first clip)
 - CapCut ([10](ux/10_editor_empty.png)): no ruler and no track header. A full-width **dashed** lane with a film icon and "Drag
   material here and start to create".
 - Montage ([02_empty_editor](ux_review/02_empty_editor.png)): a solid-outlined box about 570 pt wide with no icon. The ruler and a
   track header with lock, hide, mute and Cover are already shown.
 - Fix: draw the dashed full-width lane with an icon, and hide the ruler and headers until the first clip.
 
-**W1-5 · P2 · Transitions are hard to see on the timeline.**
+**W1-5 · P2 · Transitions are hard to see on the timeline.** — **Fixed** (⋈ bow-tie glyph, brighter fill and outline on hover)
 - CapCut ([96](ux/96_clip_detail_transition.png)): a translucent block with a ⋈ bow-tie icon.
 - Montage ([17_timeline_fit](ux_review/17_timeline_fit.png)): a light rectangle with no icon.
 - Fix: add the ⋈ glyph and a hover highlight.
 
-**W1-6 · P2 · Keyframe diamonds sit on the clip's bottom edge.**
+**W1-6 · P2 · Keyframe diamonds sit on the clip's bottom edge.** — **Fixed** (diamonds centred on the clip body (hit band too))
 - CapCut ([100d](ux/100d_kf_clip_two.png)): 6 pt diamonds centred on the filmstrip.
 - Montage ([20_keyframes](ux_review/20_keyframes.png)): the diamonds are on the waveform strip at the bottom edge.
 - Fix: centre them vertically on the clip body.
 
-**W1-7 · P2 · The toolbar shows tools that don't apply to the selection.**
+**W1-7 · P2 · The toolbar shows tools that don't apply to the selection.** — **Fixed** (Freeze, Reverse, Mirror, Rotate, Crop and Transcript only show for video / image clips)
 - CapCut (UX §8.3): tools that depend on the clip type are hidden when they don't apply.
 - Montage ([16](ux_review/16_timeline_effect_filter_colours.png)): with a filter clip selected, Freeze, Reverse, Mirror, Rotate,
   Crop and Transcript still show (some dimmed).
 - Fix: hide them for effect, filter, adjustment, text and sticker clips.
 
-**W1-8 · P2 · French clip duration chips use English number format.**
+**W1-8 · P2 · French clip duration chips use English number format.** — **Fixed** ("4,0 s" in French)
 - Montage ([29_editor_fr](ux_review/29_editor_fr.png)): "4.0s", "12.0s".
 - Fix: localized decimal and spacing: "4,0 s".
 
-**W1-9 · P2 · The badge for an effect applied to a clip is tiny.**
+**W1-9 · P2 · The badge for an effect applied to a clip is tiny.** — **Fixed** (17×15 pt ✦ / filter chips next to the name chip)
 - CapCut (UX §6.5): small effect and filter icons in the clip's name strip.
 - Montage ([27](ux_review/27_fx_adjust_inspectors.png), timeline in the VHS-on-Forest run): a few-pixel glyph in the clip's
   top-right corner.

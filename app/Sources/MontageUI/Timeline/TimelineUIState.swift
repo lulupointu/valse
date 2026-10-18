@@ -35,6 +35,9 @@ public final class TimelineUIState {
     public var previewAxisAudio = false
     /// Index into `TimelineOps.markerColors` for ⌥M.
     public var markerColorIndex = 0
+    /// Open cover editor (main-track "Cover" button), nil = closed.
+    var coverEditor: CoverEditorModel?
+
 
     public init() {}
 }

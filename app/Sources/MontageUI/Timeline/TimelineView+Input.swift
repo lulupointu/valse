@@ -24,6 +24,8 @@ extension TimelineView {
         // Clicking the timeline ends inspector field editing so shortcuts (⇧⌥K, ⌘B…) reach the editor again.
         if window?.firstResponder is NSTextView { window?.makeFirstResponder(nil) }
         defer { dirty = true }
+        // Empty timeline: only the dashed drop lane is shown (no headers, ruler or clips to hit).
+        if Self.isEmpty(tl) { store.deselectAll(); return }
 
         // scrollbar
         if pt.y >= bounds.height - TimelineLayout.scrollbarHeight - 2, pt.x > TimelineLayout.headerWidth, let thumb = scrollbarThumb(l) {
@@ -417,7 +419,8 @@ extension TimelineView {
     private func headerMouseDown(_ ri: Int, pt: CGPoint, layout l: TimelineLayout, event e: NSEvent) {
         let row = l.rows[ri]
         let track = store.project.timeline.tracks[row.trackIndex]
-        if row.isMain, coverButtonRect(row).contains(pt) { showCoverMenu(event: e); return }
+        if row.isMain, coverButtonRect(row).contains(pt) { store.openCoverEditor(); return }
+
         if let item = headerItems(track, row: row).first(where: { $0.rect.insetBy(dx: -3, dy: -4).contains(pt) }), item.id != "type" {
             let tid = track.id
             switch item.id {
@@ -528,7 +531,10 @@ extension TimelineView {
             store.addToTimeline(id, at: time, target: target)
         case .effect(let typeID):
             guard let d = Registries.effects[typeID] else { return false }
-            if case .clip(let cid, _, _) = hit { store.selection = [cid] } else { store.selection = []; store.seek(to: time) }
+            // Onto a media/text clip = that clip only; elsewhere (or onto another effect/filter layer) = a new layer clip.
+            if case .clip(let cid, _, _) = hit, let c = store.project.timeline.clip(cid), c.content != .adjustment {
+                store.selection = [cid]
+            } else { store.selection = []; store.seek(to: time) }
             store.applyEffect(d)
         case .transition(let typeID):
             guard let d = Registries.transitions[typeID] else { return false }
