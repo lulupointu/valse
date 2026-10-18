@@ -6,6 +6,8 @@
   "steps": [
     {"key": "cmd+e"},
     {"waitFor": {"path": "ui.export.dialog.canExport", "equals": true, "timeout": 5}},
+    {"waitFor": {"path": "ui.export.dialog.coverReady", "equals": true, "timeout": 10}},
+    {"wait": 0.3},
     {"expect": [{"path": "ui.export.dialog.footer", "contains": " Mo (estimation)"},
                 {"path": "ui.export.dialog.burnCaptionsRow", "equals": false}]},
     {"snapshot": "dialog-fr", "element": "id:export.dialog", "baseline": "export_dialog_fr", "threshold": 40, "tolerance": 0.03},

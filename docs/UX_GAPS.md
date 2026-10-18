@@ -13,14 +13,14 @@ feedback, missing control, or something that looks unfinished). **P2** is polish
 |---|---|---|---|---|
 | W12 Home, project, settings, shell | 1 | 3 | 4 | 8 |
 | W13 Asset library | 0 | 3 | 5 | 8 |
-| W8 Audio (audio library UI) | 0 | 1 | 1 | 2 |
+| W8 Audio (audio library UI), all fixed (POL-B) | 0 | 1 | 1 | 2 |
 | W1 Timeline | 0 | 4 | 5 | 9 |
 | W2 Player canvas | 0 | 3 | 5 | 8 |
 | W3 Inspector | 0 | 1 | 8 | 9 |
 | W5 Transitions & animations | 0 | 2 | 1 | 3 |
-| W7 Text | 0 | 1 | 2 | 3 |
+| W7 Text, all fixed (POL-B) | 0 | 1 | 2 | 3 |
 | W10 AI | 0 | 0 | 2 | 2 |
-| W11 Export | 0 | 0 | 3 | 3 |
+| W11 Export, all fixed (POL-B) | 0 | 0 | 3 | 3 |
 | **Total** | **1** | **18** | **36** | **55** |
 
 **Top items to dispatch first:** W12-1 (home screen), W12-2 (title bar takes 67 pt), W1-1 (effect and filter clips look like
