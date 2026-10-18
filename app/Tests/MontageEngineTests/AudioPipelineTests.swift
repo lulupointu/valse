@@ -42,6 +42,20 @@ import MontageTestSupport
         #expect(abs(g + 12) < 1.5, "EQ gain \(g)")
     }
 
+    @Test func liveChainFollowsClipsOnALane() async throws {
+        var p = TestProject()
+        let a = try await p.addAudio(seconds: 1, hz: 1000)
+        let lane = p.project.timeline.tracks.first { $0.kind == .audio }!.id
+        let b = try await p.addAudio(seconds: 1, hz: 1000, at: Time(1), target: .track(lane))
+        #expect(p.project.timeline.locate(a)?.track == p.project.timeline.locate(b)?.track)
+        var eq = AudioEQ(); eq.gains[5] = -12
+        p[b].audio.eq = eq
+        let m = try await p.mixdown()
+        let g1 = dB(S.amplitude(at: 1000, in: m, from: 0.2, to: 0.8) / 0.3), g2 = dB(S.amplitude(at: 1000, in: m, from: 1.2, to: 1.8) / 0.3)
+        #expect(abs(g1) < 1, "first clip \(g1)")
+        #expect(abs(g2 + 12) < 1.5, "second clip \(g2)")
+    }
+
     @Test func voiceChangerPitchIsRenderedForExport() async throws {
         var p = TestProject()
         let id = try await p.addAudio(seconds: 1.5, hz: 440)

@@ -22,6 +22,7 @@ public enum PlayerDebugState {
                     case "text": return tr.kind == .text
                     case "sticker": return tr.kind == .sticker
                     case "main": return tr.isMain
+                    case "audio": return tr.kind == .audio
                     default: return tr.kind == .video && !tr.isMain
                     }
                 }?.clips.first { $0.range.contains(t) } ?? tl.tracks.first { $0.isMain }?.clips.first
@@ -45,6 +46,15 @@ public enum PlayerDebugState {
                 let bg: CanvasBackground = value == "color" ? .color(RGBA(hex: 0x57BECB)) : .blur(level: 3)
                 let ids = main.clips.map(\.id)
                 store.perform(Edit("cmd.canvas") { p in for id in ids { p.timeline[clip: id]?.canvas = bg } })
+            // inspector (screenshots): tab=<id>, sub=<tab>:<subTab>, voice=<voice preset id suffix>
+            case "tab": store.inspectorTab = value
+            case "assets": store.activeAssetTab = value
+            case "audiolib": AudioLibraryUIState.shared.section = value
+            case "sub":
+                let p = value.split(separator: ":").map(String.init)
+                if p.count == 2 { InspectorUIState.shared.subTab[p[0]] = p[1] }
+            case "voice": if let d = VoiceEffects.descriptor("montage.voice.\(value)") { store.applyVoice(d.makeEffect(), toAll: false) }
+            case "expand": InspectorUIState.shared.expanded[value] = true
             default: break
             }
         }

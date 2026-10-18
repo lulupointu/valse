@@ -37,31 +37,32 @@ enum BuiltinInspector {
         ], appliesTo: any(.video, .image)),
         InspectorTab(id: "audio", titleKey: "inspector.tab.audio", order: 2, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
+            AudioInspector.voiceSubTab,
         ], appliesTo: { $0.kind == .video && $0.hasAudio }),
         InspectorTab(id: "audioBasic", titleKey: "inspector.sub.basic", order: 2, appliesTo: any(.audio)),
-        InspectorTab(id: "speed", titleKey: "inspector.tab.speed", order: 3, subTabs: [
+        InspectorTab(id: "speed", titleKey: "inspector.tab.speed", order: 4, subTabs: [
             InspectorSubTab(id: "normal", titleKey: "inspector.speed.normal", order: 0),
             InspectorSubTab(id: "curve", titleKey: "inspector.speed.curve", order: 1),
         ], appliesTo: any(.video, .audio)),
-        InspectorTab(id: "animation", titleKey: "inspector.tab.animation", order: 4, subTabs: [
+        InspectorTab(id: "animation", titleKey: "inspector.tab.animation", order: 5, subTabs: [
             InspectorSubTab(id: "in", titleKey: "anim.phase.in", order: 0),
             InspectorSubTab(id: "out", titleKey: "anim.phase.out", order: 1),
             InspectorSubTab(id: "combo", titleKey: "anim.phase.combo", order: 2) { ![.text, .sticker].contains($0.kind) },
             InspectorSubTab(id: "loop", titleKey: "anim.phase.loop", order: 2) { [.text, .sticker].contains($0.kind) },
         ], appliesTo: any(.video, .image, .text, .sticker)),
-        InspectorTab(id: "adjust", titleKey: "inspector.tab.adjust", order: 5, subTabs: [
+        InspectorTab(id: "adjust", titleKey: "inspector.tab.adjust", order: 6, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
         ], footer: { ctx, sub in
             guard sub == nil || sub == "basic", ctx.kind != .adjustment, AdjustBasicSection.instance(ctx.clip) != nil else { return nil }
             return AnyView(PillButton(title: tr("inspector.applyToAll")) { AdjustBasicSection.applyToAll(ctx) })
         }, appliesTo: any(.video, .image, .adjustment)),
-        InspectorTab(id: "effects", titleKey: "inspector.tab.effects", order: 6,
+        InspectorTab(id: "effects", titleKey: "inspector.tab.effects", order: 7,
                      appliesTo: { $0.kind.isPlacedVisual && ClipEffectBlocks.hasEffects($0) }),
         InspectorTab(id: "specialEffects", titleKey: "inspector.tab.specialEffects", order: 0, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
         ], appliesTo: any(.effect)),
         InspectorTab(id: "filter", titleKey: "inspector.tab.filter", order: 0, appliesTo: any(.filter)),
-    ]
+    ] + AudioInspector.tabs
 
     static let sections: [InspectorSection] = [
         InspectorSection(id: "details.project", tab: "details", order: 0, titleKey: nil) { AnyView(DetailsSection(store: $0.store)) },
@@ -142,5 +143,5 @@ enum BuiltinInspector {
         InspectorSection(id: "effects.stack", tab: "effects", order: 0, titleKey: nil) { AnyView(ClipEffectBlocks(ctx: $0)) },
         InspectorSection(id: "specialEffects.details", tab: "specialEffects", subTab: "basic", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
         InspectorSection(id: "filter.details", tab: "filter", order: 0, titleKey: nil) { AnyView(EffectClipSection(ctx: $0)) },
-    ] + RenderFeatureInspector.sections
+    ] + RenderFeatureInspector.sections + AudioInspector.sections
 }

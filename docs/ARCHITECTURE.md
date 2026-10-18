@@ -265,6 +265,37 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - Visual check: `MONTAGE_SNAPSHOT_DIR=… [MONTAGE_SNAPSHOT_LANG=fr] swift test --filter InspectorTests` writes a PNG per panel.
 - Cutout sections are disabled until `CutoutAvailability.matteCompositingAvailable` is set by the AI/render teams.
 
+## 17c. Audio pipeline (W8, `MontageEngine/Audio`)
+
+- **Model**: `AudioProps` (Clip.audio) gained `pitch`, `voice: VoiceEffect?` (registry id + 0…100 params), `noiseReduction`, `enhanceVoice`,
+  `separation`, `loudness` (target + measured LUFS), `eq` (10-band), `channels`, `ducking`. All optional/neutral and decoded with defaults
+  (no schema bump). Beat markers are W1's `Clip.beats` (clip-local); auto beats (`AudioAnalysis.clipBeats`) write there.
+- **Per clip, `ClipAudioPlan.make(clip)`** splits the settings into three stages, identical in preview and export (same composition):
+  1. **Rendered stage** (`RenderStageSpec`: pitch/formant phase vocoder, harmony, robot, whisper, denoise, enhance, vocal separation, and
+     "Change pitch" with speed): latency-bearing DSP rendered OFFLINE over the whole media file, latency-compensated, cached as lossless CAF
+     in `Caches/Montage/audio/<hash>-<spec>.caf` (`AudioRenderCache`). The composition inserts the rendered file instead of the original.
+     Export awaits it; preview plays the original until ready, then `onReady` → rebuild (structure key includes readiness).
+  2. **Live stage** (`[LiveNode]`: EQ, voice-filter colour — filters, echo, chorus, Freeverb, tremolo, ring-mod, bitcrush, distortion, noise,
+     compressor, limiter — and channel matrix): one `MTAudioProcessingTap` per composition audio lane (`LaneProcessor`, post-effects),
+     reading `AudioMixState` each buffer, so edits are heard without a rebuild (not part of the structure key).
+  3. **Gains** (volume/keyframes, fades, loudness gain, ducking envelope) → AVAudioMix ramps.
+  Speed/time remap = the shared segments + AVFoundation spectral time-pitch. Never use `.varispeed`: it stalls
+  `AVAssetReaderAudioMixOutput` on sped-up segments (pitch-follows-speed is done in the rendered stage).
+- **Analysis**: `AudioAnalysis` (BS.1770 loudness meter, onset envelope, tempo + DP beat tracker, onset cross-correlation sync),
+  `Ducking` (waveform-envelope trigger). **I/O**: `AudioFileIO` (streaming decode to 48 kHz float, writer for ALAC/WAV/AAC/FLAC),
+  `AudioMixdown` (the export mix as samples: audio-only export `AudioExporter`, tests), `AudioExtractor` (video file → .m4a),
+  `VoiceRecorder` (AVAudioEngine input, devices, voice processing), `SoundEffects` (procedural SFX pack).
+- **Add a voice preset**: one entry in `VoiceEffects.filters`/`characters` (design = pitch/formant/robot + live nodes) + `voice.<id>` in
+  MontageUI `Audio.strings` (en + fr). `AudioDSPTests.everyVoicePresetProducesSaneOutput` checks it automatically.
+- **UI**: `MontageUI/Audio/*` — inspector sections registered via `AudioInspector.sections/tabs` (video ▸ Audio [Basic · Voice changer];
+  audio clip ▸ Basic · Voice changer · Speed), Audio asset tab (`AudioLibraryView`: Yours · Sound FX · Extracted), recorder popover,
+  toolbar ♥ beats menu, store actions in `EditorStore+Audio.swift`. Screenshot keys: `--player-state "select=audio,tab=audioVoice,voice=helium,
+  sub=audio:voice,assets=audio,audiolib=sfx"`.
+- **Tests**: `AudioDSPTests` (filters, EQ, STFT transparency, pitch/formant, echo, reverb, compressor, denoise, separation, robot, all
+  presets), `AudioAnalysisTests` (LUFS reference, tempo/beats, sync), `AudioPipelineTests` (mixdown through the export path: volume, fades,
+  keyframes, live EQ, voice changer, pitch vs speed, speed curves, loudness, ducking, denoise, taps present, live-edit structure key,
+  A/V sync through speed + export), `AudioUITests`.
+
 ## 18. Known gaps (foundation)
 
 Speed-curve editor UI, on-canvas crop handles, home screen and settings window, audio effects chain, editing inside compound clips (UI), pen/text/brush masks, rotation in stabilization, auto beat detection, and the Templates/Library content.

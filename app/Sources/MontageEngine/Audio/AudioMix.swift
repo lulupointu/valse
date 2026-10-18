@@ -29,8 +29,8 @@ public final class AudioMixState: @unchecked Sendable {
 }
 
 /// The tap processor of one composition audio lane: routes each buffer to the live chain of the clip playing at that
-/// composition time. The tap runs BEFORE the time-pitch stage ("pre-effects"), so frames are source-rate frames while
-/// `time` is composition time; the clip boundary inside a buffer is located with the clip's speed.
+/// composition time. The tap runs AFTER the time-pitch stage ("post-effects"), so frames are composition-rate; a clip
+/// boundary inside a buffer splits it.
 final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     struct Entry { let id: ClipID; let start: Double; let end: Double; let clip: Clip }
     let entries: [Entry]
@@ -78,7 +78,7 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
                 offset += gap; t = e.start
                 continue
             }
-            let rate = max(0.01, e.clip.speed.rate(at: Time(t) - e.clip.start, outputDuration: e.clip.duration))
+            let rate = 1.0   // post-effects tap: frames are composition-rate (after time-pitch)
             let n = min(frames - offset, max(1, Int(((e.end - t) * sampleRate * rate).rounded(.up))))
             if last != e.id { chains[e.id]?.reset(); last = e.id }
             if let chain = chains[e.id], !chain.isEmpty {

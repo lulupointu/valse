@@ -50,7 +50,7 @@ struct TimelineToolbar: View {
             IconButton("trash", help: tr("toolbar.delete"), enabled: hasSel || ui.selectedTransition != nil || ui.selectedMarker != nil) { store.deleteSmart() }
             IconButton("bookmark", help: tr("toolbar.marker")) { store.addMarker() }
             if kind == .audio {
-                IconButton("heart", help: tr("toolbar.beat")) { store.addMarker() }
+                BeatsMenu(store: store)
             } else if hasSel {
                 IconButton("snowflake", help: tr("toolbar.freeze"), enabled: isVideo) { store.freezeFrame() }
                 IconButton("arrow.counterclockwise", help: tr("toolbar.reverse"), active: single?.reversed ?? false, enabled: single?.mediaID != nil) { store.reverseSelection() }
@@ -59,6 +59,8 @@ struct TimelineToolbar: View {
                 IconButton("crop", help: tr("toolbar.crop"), enabled: visualSel && single != nil) { store.inspectorTab = "video" }
             }
             Spacer()
+            VoiceoverButton(store: store)
+            divider
             IconButton("magnet", help: tr(tl.mainTrackMagnet ? "toolbar.magnet.off" : "toolbar.magnet.on"), active: tl.mainTrackMagnet) {
                 store.setOption(.magnet(!tl.mainTrackMagnet))
             }

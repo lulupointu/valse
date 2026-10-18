@@ -86,7 +86,7 @@ struct MediaTab: View {
 /// Audio tab: imported audio (music/sound-effect libraries are a content workstream).
 struct AudioTab: View {
     let store: EditorStore
-    var body: some View { MediaTab(store: store, kinds: [.audio]) }
+    var body: some View { AudioLibraryView(store: store) }   // W8: Yours · Sound effects · Extracted
 }
 
 struct MediaCard: View {
