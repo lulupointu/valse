@@ -6,7 +6,7 @@ target/
 DerivedData/
 *.xcuserstate
 .DS_Store
-models/
+/models/
 *.gguf
 *.bin
 *.onnx
