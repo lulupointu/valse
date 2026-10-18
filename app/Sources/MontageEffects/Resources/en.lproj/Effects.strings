@@ -79,8 +79,3 @@
 "sticker.check" = "Check";
 
 /* Text styles */
-"textStyle.default" = "Default";
-"textStyle.outline" = "Outline";
-"textStyle.yellow" = "Yellow";
-"textStyle.box" = "Box";
-"textStyle.shadow" = "Shadow";

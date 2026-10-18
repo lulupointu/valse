@@ -176,12 +176,15 @@ public struct AnimationDescriptor: Sendable, Identifiable {
     public let symbol: String
     public let defaultDuration: Time
     public let apply: @Sendable (_ progress: Double, _ state: inout AnimatedLayerState) -> Void
+    /// Per-glyph part (text only): characters / words / lines animate individually (W7 text engine). `apply` still
+    /// runs on the whole layer, so an animation may combine both.
+    public let glyph: GlyphAnimationSpec?
 
     public init(id: String, phase: AnimationPhaseKind, targets: AnimationTargets = .all, nameKey: String,
-                symbol: String = "wand.and.stars", defaultDuration: Time = Time(0.5),
-                apply: @escaping @Sendable (Double, inout AnimatedLayerState) -> Void) {
+                symbol: String = "wand.and.stars", defaultDuration: Time = Time(0.5), glyph: GlyphAnimationSpec? = nil,
+                apply: @escaping @Sendable (Double, inout AnimatedLayerState) -> Void = { _, _ in }) {
         self.id = id; self.phase = phase; self.targets = targets; self.nameKey = nameKey; self.symbol = symbol
-        self.defaultDuration = defaultDuration; self.apply = apply
+        self.defaultDuration = defaultDuration; self.apply = apply; self.glyph = glyph
     }
 }
 
@@ -197,12 +200,33 @@ public struct StickerDescriptor: Sendable, Identifiable {
     }
 }
 
-/// Text style preset ("Text → Presets" in CapCut).
+/// Text style preset ("Text ▸ Basic" preset row) or word-art text effect ("Text effects" library).
+/// Procedural families share a `nameKey` and differ by `number` ("Neon 3").
 public struct TextStyleDescriptor: Sendable, Identifiable {
     public let id: String
     public let nameKey: String
+    public let groupKey: String
+    public let kind: TextStyleKind
+    public let number: Int?
     public let apply: @Sendable (inout TextContent) -> Void
-    public init(id: String, nameKey: String, apply: @escaping @Sendable (inout TextContent) -> Void) {
-        self.id = id; self.nameKey = nameKey; self.apply = apply
+    public init(id: String, nameKey: String, groupKey: String = "textStyle.group.basic", kind: TextStyleKind = .preset,
+                number: Int? = nil, apply: @escaping @Sendable (inout TextContent) -> Void) {
+        self.id = id; self.nameKey = nameKey; self.groupKey = groupKey; self.kind = kind; self.number = number; self.apply = apply
+    }
+    public var displayName: String { number.map { "\(tr(nameKey)) \($0)" } ?? tr(nameKey) }
+
+    /// Applies the style to `t`, keeping its text, size, alignment, box, caption data and runs' text (CapCut presets
+    /// replace the look, not the content).
+    public func restyle(_ t: inout TextContent) {
+        var n = TextContent(string: t.string, fontName: t.fontName, fontSize: t.fontSize, alignment: t.alignment)
+        n.boxWidth = t.boxWidth; n.caption = t.caption; n.karaoke = t.karaoke; n.template = t.template
+        n.orientation = t.orientation; n.lineSpacing = t.lineSpacing; n.letterSpacing = t.letterSpacing; n.textCase = t.textCase
+        n.runs = t.runs.compactMap { r in
+            var st = r.style; st.color = nil; st.strokeColor = nil; st.backgroundColor = nil
+            return st.isEmpty ? nil : TextRun(r.range, st)
+        }
+        apply(&n)
+        n.styleID = id
+        t = n
     }
 }

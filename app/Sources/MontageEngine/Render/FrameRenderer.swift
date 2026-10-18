@@ -271,7 +271,10 @@ public final class FrameRenderer: @unchecked Sendable {
             guard let asset = media[id], let t = images.texture(for: asset) else { return nil }
             rgbaSource = t; unpremultiply = true
         case .text(let content):
-            guard let r = text.texture(for: content, canvasHeight: canvas.height, outputScale: outScale) else { return nil }
+            // text engine (W7): static image, or per-glyph / karaoke / template composition for this frame
+            guard let r = text.layerTexture(content, canvas: canvas, outputScale: outScale, layerScale: l.transform.scale,
+                                            animations: l.animations, localTime: l.localTime, duration: l.duration,
+                                            commandBuffer: cmd, acquire: acquire) else { return nil }
             rgbaSource = r.texture; unpremultiply = true
             sourceSizeOverride = r.canvasSize
         case .sticker(let id):

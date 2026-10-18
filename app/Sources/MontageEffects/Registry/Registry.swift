@@ -27,9 +27,15 @@ public enum Registries {
     public static let effects = Registry<EffectDescriptor>(BuiltinFilters.all + BuiltinEffects.all + BuiltinAdjustments.all
                                                             + BuiltinColor.all + BuiltinKeying.all + BuiltinCanvasStyles.all)
     public static let transitions = Registry<TransitionDescriptor>(BuiltinTransitions.all)
-    public static let animations = Registry<AnimationDescriptor>(BuiltinAnimations.all)
+    public static let animations = Registry<AnimationDescriptor>(BuiltinAnimations.all + BuiltinTextAnimations.all)
     public static let stickers = Registry<StickerDescriptor>(BuiltinStickers.all)
     public static let textStyles = Registry<TextStyleDescriptor>(BuiltinTextStyles.all)
+    // Text engine content (W7)
+    public static let textBubbles = Registry<TextBubbleDescriptor>(BuiltinTextBubbles.all)
+    public static let textTemplates = Registry<TextTemplateDescriptor>(BuiltinTextTemplates.all)
+    public static let captionTemplates = Registry<CaptionTemplateDescriptor>(BuiltinCaptionTemplates.all)
+
+    public static func textStyles(_ kind: TextStyleKind) -> [TextStyleDescriptor] { textStyles.all.filter { $0.kind == kind } }
 
     public static func effects(in category: EffectCategory) -> [EffectDescriptor] {
         effects.all.filter { $0.category == category }

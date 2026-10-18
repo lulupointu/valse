@@ -79,8 +79,3 @@
 "sticker.check" = "Coche";
 
 /* Styles de texte */
-"textStyle.default" = "Par défaut";
-"textStyle.outline" = "Contour";
-"textStyle.yellow" = "Jaune";
-"textStyle.box" = "Encadré";
-"textStyle.shadow" = "Ombre";

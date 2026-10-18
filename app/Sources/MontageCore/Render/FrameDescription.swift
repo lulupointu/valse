@@ -50,6 +50,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var stabilization: Stabilization? = nil
     /// Canvas background fill (blurred copy / image) of a main-track clip, not the clip itself: not hit-testable.
     public var isCanvasBackground = false
+    /// Clip duration (text templates time their layers on it).
+    public var duration: Time = .zero
 
     /// Media/images/solids are aspect-fitted to the canvas at scale 1; text and stickers use their own
     /// size in canvas pixels (`sourceSize`).
@@ -247,6 +249,7 @@ public enum FrameEvaluator {
                                  localTime: local)
         l.matte = r.matte
         l.stabilization = r.stabilization
+        l.duration = c.duration
         if case .media(let id) = c.content, let a = project.asset(id), a.kind == .video {
             l.motionBlur = r.motionBlur
             if let m = r.smoothSlowMo, c.speed.rate(at: local, outputDuration: c.duration) < 0.999 {
