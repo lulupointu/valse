@@ -12,6 +12,7 @@ inside its own process. Safe to run while other agents (or the user) use the mac
 | a screenshot test | a `snapshot` step with `"baseline"` in a UI script |
 | compare two PNGs | `scripts/imgdiff.sh a.png b.png [--tolerance 0.005] [--threshold 16]` |
 | perf numbers / regressions | `scripts/perf.sh` (`--air` = MacBook Air approximation) |
+| check a clean checkout builds + tests (before "ready to merge") | `scripts/check_clean.sh [--ui]` |
 | just look at the UI | `scripts/screenshot.sh --demo --offscreen` |
 
 ## 1. A UI test in 5 minutes
