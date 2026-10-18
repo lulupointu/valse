@@ -128,6 +128,16 @@ struct TitleBar: View {
                         .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                 }
                 Spacer()
+                // AI2: EditPilot editing agent (AI-048), ⌘J
+                Button { store.togglePilot() } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles").font(.system(size: 12))
+                        Text(loc: "pilot.title").font(.system(size: 11, weight: .medium))
+                    }
+                }
+                .buttonStyle(.plain).foregroundStyle(store.ai.pilot.isOpen ? Theme.accent : Theme.textSecondary)
+                .help(tr("pilot.help"))
+                .testID("titlebar.pilot")
                 // CapCut: ⌨ opens the shortcut window (language lives in Settings ▸ General)
                 if let show = TitleBar.showShortcuts {
                     Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)) }

@@ -56,6 +56,8 @@ public final class AIUIState {
     public var isModelSheetPresented = false
     @ObservationIgnored var ttsRefresh: Task<Void, Never>?
     // Transcript-based editing
+    /// EditPilot chat (AI-048, EditorStore+EditPilot.swift).
+    public let pilot = PilotState()
     public var transcriptOpen = false
     public var transcriptJob: JobID?
     public var transcriptProgress: Double = 0

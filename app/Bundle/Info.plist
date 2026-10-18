@@ -18,7 +18,7 @@
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
   <key>NSSpeechRecognitionUsageDescription</key><string>Montage recognizes speech on your Mac to create captions. Nothing leaves your Mac.</string>
-  <key>NSMicrophoneUsageDescription</key><string>Montage records voice-overs.</string>
+  <key>NSMicrophoneUsageDescription</key><string>Montage records voice-overs and dictation. Nothing leaves your Mac.</string>
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>

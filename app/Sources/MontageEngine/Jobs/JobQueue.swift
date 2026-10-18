@@ -38,6 +38,7 @@ public actor JobQueue {
     private var tasks: [JobID: Task<Void, Never>] = [:]
     private var subscribers: [UUID: AsyncStream<[JobInfo]>.Continuation] = [:]
     private var waiters: [JobID: [CheckedContinuation<JobInfo.State, Never>]] = [:]
+    private var isShutDown = false
 
     public init(maxConcurrent: Int) { self.maxConcurrent = maxConcurrent }
 
@@ -58,6 +59,24 @@ public actor JobQueue {
     }
 
     public func cancelAll() { for id in order { cancel(id) } }
+
+    /// App quit / end of a UI test: cancels every job and waits (up to `timeout` s) until no job body is still running.
+    /// Exiting while a Core ML / Metal job is mid-inference crashes in the frameworks' atexit teardown (MPSGraph), so
+    /// callers wait for this before `exit`. Returns false when something was still running at the timeout (the caller
+    /// then leaves with `_exit`, which skips that teardown). No new job starts afterwards.
+    @discardableResult
+    public func shutdown(timeout: Double = 8) async -> Bool {
+        isShutDown = true
+        cancelAll()
+        let deadline = Date().addingTimeInterval(timeout)
+        while !tasks.isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        return tasks.isEmpty
+    }
+
+    /// Jobs whose body is still executing.
+    public var runningCount: Int { tasks.count }
 
     /// Waits for a job to end.
     public func wait(_ id: JobID) async -> JobInfo.State {
@@ -86,6 +105,10 @@ public actor JobQueue {
     }
 
     private func schedule() {
+        if isShutDown {
+            for id in order where jobs[id]?.state == .queued { finish(id, .cancelled) }
+            return
+        }
         let running = jobs.values.filter { $0.state == .running }.count
         guard running < maxConcurrent else { return }
         let next = order.compactMap { jobs[$0] }.filter { $0.state == .queued }.max { $0.priority < $1.priority }

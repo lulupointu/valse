@@ -150,6 +150,12 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
 - keyframe panel (⌥K): `panel.keyframes` — during UI tests it is hosted inside the test window (normally a floating NSPanel),
   `keyframes.preset.<presetID>`, `keyframes.applyAll`, `keyframes.reset`. Select a timeline keyframe by clicking the
   bottom band of the selected clip (`"clip:main/2:0.08", "offset": [0, 32]`, see `w5_keyframe_ease.json`)
+- EditPilot (AI2): `titlebar.pilot` (or ⌘J), `pilot.panel`, `pilot.input`, `pilot.send`, `pilot.dictate`, `pilot.suggestion.<i>`,
+  `pilot.card`, `pilot.step.<i>` (checkbox; steps are shown in execution order), `pilot.diff`, `pilot.progress`, `pilot.preview`,
+  `pilot.apply`, `pilot.discard`, `pilot.undo`, `pilot.new`, `pilot.close`; state `ui.pilot.{open, messages, busy, previewing,
+  engine, state (planning/preparing/ready/applied/discarded/failed/empty), steps, results, diff}`. Without `requires.models` the
+  rule-based planner is used (deterministic); `ai_editpilot_llm.json` requires the Qwen model. Dictate buttons: `text.dictate`,
+  `writer.dictate`. The app cancels and waits for every background job before exiting (`ai_quit_mid_job.json`).
 - audio library: `asset.nav.<section>` (yours / music / sfx / extracted), `audio.import`, `audio.row.<index>` (+`.add`), `audio.music.<trackID>` (+`.add`)
 
 ### How it works / limits

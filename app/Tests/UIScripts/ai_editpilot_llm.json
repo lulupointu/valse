@@ -1,0 +1,19 @@
+// AI2: EditPilot with the local language model (Qwen3-4B via the llama.cpp sidecar): a free-form French request that
+// the rules alone wouldn't phrase-match is planned by the model into typed tool calls, then applied as one undo step.
+// SKIPPED when the model isn't installed (the basic-mode UX is ai_editpilot.json).
+{
+  "project": "demo",
+  "requires": {"models": ["llm.qwen3-4b-instruct-q4km"]},
+  "steps": [
+    {"click": "id:titlebar.pilot"},
+    {"click": "id:pilot.input"},
+    {"type": "J'aimerais une version verticale pour Instagram, avec une transition douce entre chaque plan"},
+    {"click": "id:pilot.send"},
+    {"waitFor": {"path": "ui.pilot.state", "equals": "ready", "timeout": 110}},
+    {"expect": [{"path": "ui.pilot.engine", "notEquals": "rules"}, {"path": "ui.pilot.steps", "contains": "setAspect"},
+                {"path": "ui.pilot.steps", "contains": "addTransitions"}]},
+    {"snapshot": "pilot-llm-plan", "element": "id:panel.assets"},
+    {"click": "id:pilot.apply"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.editPilot"}, {"path": "canvas.aspect", "equals": "9:16"}]}
+  ]
+}

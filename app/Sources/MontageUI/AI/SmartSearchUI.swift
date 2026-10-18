@@ -42,6 +42,7 @@ extension EditorStore {
         Task {
             let id = await JobQueue.shared.enqueue(titleKey: "media.indexing", priority: 0) { progress in
                 for (i, a) in todo.enumerated() {
+                    try Task.checkCancellation()
                     try? await MediaIndex.shared.index(a)
                     progress.report(Double(i + 1) / Double(todo.count))
                 }

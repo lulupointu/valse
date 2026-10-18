@@ -39,6 +39,7 @@ public final class L10n: @unchecked Sendable {
         lock.withLock {
             guard !bundles.contains(where: { $0.bundleURL == bundle.bundleURL }) else { return }
             bundles.append(bundle)
+            otherTables = [:]
         }
         reload()
     }
@@ -77,6 +78,16 @@ public final class L10n: @unchecked Sendable {
     }
 
     public func has(_ key: String) -> Bool { lock.withLock { table[key] != nil } }
+
+    /// Every string of one language (cached), e.g. to match names typed in either language (EditPilot).
+    public func strings(for lang: String) -> [String: String] {
+        if lang == language { return lock.withLock { table } }
+        if let t = lock.withLock({ otherTables[lang] }), t.count > 0 { return t }
+        let t = L10n.load(lang, from: lock.withLock { bundles })
+        lock.withLock { otherTables[lang] = t }
+        return t
+    }
+    private var otherTables: [String: [String: String]] = [:]
 
     /// Plural-aware lookup via `.stringsdict` (e.g. "%d clips").
     public func plural(_ key: String, count: Int) -> String {

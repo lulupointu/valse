@@ -393,6 +393,21 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **AI remove**: `LaMaInpainter` (Core ML LaMa 800², zip from the model manager → compiled `Caches/Montage/models/LaMa.mlmodelc`;
   mask bbox ×2 crop → 800 px → feathered paste-back) → `ObjectRemover` (image PNG / per-frame video ≤ 30 s) → `ObjectRemovalJob`
   swaps the clip's media (`Clip.removal`, strokes = `RemovalStroke` raw source coords). UI `AIRemoveUI.swift` (`RemoveBrushTool`).
+- **EditPilot** (AI-048, `MontageAI/Pilot`): `EditPilotPlanner` (Foundation Models → Qwen sidecar → `PilotRules` FR/EN
+  keyword planner; UI tests on the sandboxed models folder always use the rules, `ModelCatalog.isSandboxed`) turns a chat
+  request into `PilotAction`s — a closed, typed, validated command set (`PilotCallParser` drops unknown tools, clamps numbers,
+  resolves transition/filter names in en+fr via `PilotCatalog`). `EditPilotExecutor` orders them (cuts → timing → structure
+  → looks → audio → fades → captions → titles), gathers what they need into a `PilotContext` (Core `ActivityProfile` per
+  media from `ActivityAnalyzer`: 50 ms dBFS + 0.25 s motion, cached in `Caches/Montage/activity`; `PilotTranscripts` with
+  disfluencies via `TranscriptStore`; loudness) and applies the pure `PilotOps` to a project copy → `PilotExecution`
+  (before/after + per-step results) and `PilotDiff`. UI: `EditPilotPanel` (replaces the asset panel), `EditorStore+EditPilot`
+  (`store.ai.pilot`): plan/prepare run in `JobQueue`; Preview = a store gesture showing `after` (any other `perform` /
+  `beginGesture` cancels it first, so an unapplied preview is never committed); Apply = ONE undo step `cmd.editPilot`.
+- **Dictate** (TX-034): `Dictation` (AVAudioEngine tap → `SFSpeechAudioBufferRecognitionRequest`, on-device only, partial
+  results) + `DictateButton` (text inspector, AI writer, EditPilot); text clips wrap a dictation in one gesture.
+- **Quit**: `AppShutdown.stopBackgroundWork` (applicationShouldTerminate / end of a UI test) cancels exports and every
+  `JobQueue` job and waits (`JobQueue.shutdown(timeout:)`, refuses new jobs) for the bodies to return; exiting under live
+  Core ML/Metal work crashed in the frameworks' atexit teardown, a timeout leaves through `_exit`.
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
   `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,

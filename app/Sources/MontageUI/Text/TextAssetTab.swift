@@ -166,6 +166,7 @@ struct LocalCaptionsPanel: View {
                 Button(tr("captions.script.noSplit")) { store.addScriptCaptions(script, split: false); script = "" }
                     .buttonStyle(SecondaryButtonStyle()).disabled(script.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            AlignScriptRow(store: store, script: $script)   // AI2 TX-030: time the script on the speech
             Spacer()
         }
         .padding(16)

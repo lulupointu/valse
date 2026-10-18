@@ -1,0 +1,24 @@
+// AI2: EditPilot in French: ⌘J opens it, a suggestion chip sends "Ajoutez un fondu entre les clips", the plan card is
+// French, Apply makes one undo step; a request it can't map gets the "here's what I can do" reply.
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"key": "cmd+j"},
+    {"expect": {"path": "ui.pilot.open", "equals": true}},
+    {"click": "id:pilot.suggestion.3"},
+    {"waitFor": {"path": "ui.pilot.state", "equals": "ready", "timeout": 20}},
+    {"expect": [{"path": "ui.pilot.steps", "count": 1}, {"path": "ui.pilot.results.0", "contains": "transition"}]},
+    {"snapshot": "pilot-plan-fr", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:pilot.apply"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.editPilot"}, {"path": "ui.pilot.state", "equals": "applied"}]},
+    {"click": "id:pilot.input"},
+    {"type": "bonjour"},
+    {"click": "id:pilot.send"},
+    {"waitFor": {"path": "ui.pilot.state", "equals": "empty", "timeout": 20}},
+    {"expect": {"path": "ui.pilot.messages", "equals": 4}},
+    {"snapshot": "pilot-none-fr", "element": "id:panel.assets"},
+    {"click": "id:pilot.close"},
+    {"expect": {"path": "ui.pilot.open", "equals": false}}
+  ]
+}

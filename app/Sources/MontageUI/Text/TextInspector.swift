@@ -105,6 +105,11 @@ struct TextBasicSection: View {
                     .id(clip.id)
                     .frame(height: 64)
                     .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                    .overlay(alignment: .bottomTrailing) {   // AI2 TX-034: dictate into the text clip
+                        DictateButton(text: store.dictationBinding(for: clip.id), testID: "text.dictate",
+                                      onStart: { store.beginGesture("cmd.dictate") }, onEnd: { store.endGesture() })
+                            .padding(2)
+                    }
                     .padding(.bottom, 4)
                 FontRow(ctx: ctx)
                 TextInspector.row(ctx, tr("text.fontSize"), range: 1...300, get: { $0.fontSize * 250 }, set: { t, v in t.fontSize = v / 250 })

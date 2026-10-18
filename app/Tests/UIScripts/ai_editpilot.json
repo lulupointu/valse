@@ -1,0 +1,40 @@
+// AI2: EditPilot (AI-048). Title bar ✦ EditPilot → chat panel replaces the asset panel → type an instruction → plan
+// card (steps + diff) → Preview shows the result live (a store gesture, nothing committed) → Apply = ONE undo step
+// "EditPilot" → ⌘Z restores everything. UI tests use the rule-based planner (no models in the sandbox).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:titlebar.pilot"},
+    {"expect": [{"path": "ui.pilot.open", "equals": true}, {"path": "ui.anchors", "contains": "pilot.suggestion.0"},
+                {"path": "ui.pilot.engine", "equals": "rules"}]},
+    {"snapshot": "pilot-empty", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:pilot.input"},
+    {"type": "make it 9:16 and add a fade between clips"},
+    {"click": "id:pilot.send"},
+    {"waitFor": {"path": "ui.pilot.state", "equals": "ready", "timeout": 20}},
+    {"expect": [{"path": "ui.pilot.steps", "count": 2}, {"path": "ui.pilot.diff", "contains": "pilot.diff.ratio"},
+                {"path": "ui.pilot.diff", "contains": "pilot.diff.transitions"}, {"path": "canvas.aspect", "equals": "16:9"},
+                {"path": "undo.inGesture", "equals": false}]},
+    {"snapshot": "pilot-plan", "element": "id:panel.assets", "baseline": true},
+    // untick the transitions step (steps run cuts → timing → structure → looks: transitions come before the ratio)
+    {"click": "id:pilot.step.0"},
+    {"waitFor": {"path": "ui.pilot.state", "equals": "ready", "timeout": 10}},
+    {"expect": {"path": "ui.pilot.diff", "notContains": "pilot.diff.transitions"}},
+    {"click": "id:pilot.step.0"},
+    {"waitFor": {"path": "ui.pilot.diff", "contains": "pilot.diff.transitions", "timeout": 10}},
+    // live preview, then apply
+    {"click": "id:pilot.preview"},
+    {"expect": [{"path": "ui.pilot.previewing", "equals": true}, {"path": "canvas.aspect", "equals": "9:16"},
+                {"path": "undo.inGesture", "equals": true}]},
+    {"click": "id:pilot.apply"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.editPilot"}, {"path": "undo.inGesture", "equals": false},
+                {"path": "canvas.aspect", "equals": "9:16"}, {"path": "main.clips.0.transition", "equals": "montage.transition.dissolve"},
+                {"path": "ui.pilot.state", "equals": "applied"}]},
+    {"snapshot": "pilot-applied", "element": "id:panel.assets"},
+    {"click": "id:pilot.undo"},
+    {"expect": [{"path": "canvas.aspect", "equals": "16:9"}, {"path": "undo.redoName", "equals": "cmd.editPilot"},
+                {"path": "ui.pilot.state", "equals": "ready"}]},
+    {"click": "id:pilot.discard"},
+    {"expect": {"path": "ui.pilot.state", "equals": "discarded"}}
+  ]
+}

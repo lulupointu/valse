@@ -264,6 +264,7 @@ public final class UITestDriver {
     static func applyModelPolicy(_ script: [String: Any]) -> String? {
         let required = ((script["requires"] as? [String: Any])?["models"] as? [String]) ?? []
         defer { ModelManager.shared.refresh() }
+        ModelCatalog.isSandboxed = required.isEmpty
         if required.isEmpty {
             ModelCatalog.directoryOverride = FileManager.default.temporaryDirectory
                 .appendingPathComponent("montage-uitest-models-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)

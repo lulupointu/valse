@@ -150,6 +150,7 @@ public final class EditorStore {
     /// Applies an undoable command. Errors become a toast.
     @discardableResult
     public func perform(_ command: any EditCommand) -> Bool {
+        cancelPilotPreviewBeforeEdit()   // AI2: an EditPilot preview is never committed by another edit
         do {
             try session.perform(command)
             didChangeProject()
@@ -164,7 +165,7 @@ public final class EditorStore {
         return false
     }
 
-    public func beginGesture(_ nameKey: String) { session.beginGesture(nameKey) }
+    public func beginGesture(_ nameKey: String) { cancelPilotPreviewBeforeEdit(); session.beginGesture(nameKey) }
 
     /// Live update during a gesture (applied to the gesture's base snapshot → idempotent drags).
     public func updateGesture(_ body: (inout Project) throws -> Void) {

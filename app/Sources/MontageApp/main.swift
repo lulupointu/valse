@@ -83,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let lang = options.lang { L10n.shared.setLanguageForSession(lang) }
         if options.uitest != nil || options.homeDemo != nil { HomeSandbox.isolate(uitest: options.uitest != nil) }
         store = EditorStore()
+        AppShutdown.store = store
         app = AppModel(store: store)
         // UI tests and --open/--demo start in the editor; the normal launch shows Home.
         if options.uitest != nil || options.open != nil || options.demo { app.screen = .editor }
@@ -120,7 +121,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             UITestDriver.projectHook = { [weak self] spec in try await self?.app.uitestSetUp(spec) ?? false }
             StateDump.appHook = { [weak self] in self?.app.stateDump() ?? [:] }
             let code = await UITestDriver(store: store, window: window, config: config).run()
-            exit(code)
+            await AppShutdown.stopBackgroundWork()
+            AppShutdown.exit(code)
         }
         do {
             if let n = options.homeDemo { await app.populateDemoLibrary(count: n) }
@@ -192,9 +194,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationWillTerminate(_ notification: Notification) { store?.close() }
 
     /// Quit saves the open project (version + cover) before exiting.
+    /// Also stops background AI / media jobs first: quitting while Core ML or Metal work is mid-flight crashed in the
+    /// frameworks' exit teardown (LaMa inference, STATUS cross-team row).
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let app, app.screen == .editor, store.packageURL != nil, options.uitest == nil else { return .terminateNow }
-        Task { await store.closeProject(); sender.reply(toApplicationShouldTerminate: true) }
+        let saves = app != nil && app.screen == .editor && store.packageURL != nil && options.uitest == nil
+        Task {
+            await AppShutdown.stopBackgroundWork()
+            if saves { await store.closeProject() }
+            if AppShutdown.workStillRunning { store?.close(); AppShutdown.exit(0) }
+            sender.reply(toApplicationShouldTerminate: true)
+        }
         return .terminateLater
     }
 

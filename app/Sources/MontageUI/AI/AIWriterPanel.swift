@@ -32,7 +32,10 @@ struct AIWriterPanel: View {
                     label("writer.topic")
                     TextField(tr("writer.topic.placeholder"), text: Binding(get: { st.topic }, set: { st.topic = $0 }), axis: .vertical)
                         .textFieldStyle(.plain).font(Theme.Fonts.row).lineLimit(2...4)
-                        .padding(8).background(IStyle.field, in: RoundedRectangle(cornerRadius: 6)).testID("writer.topic")
+                        .padding(8).padding(.trailing, 22).background(IStyle.field, in: RoundedRectangle(cornerRadius: 6)).testID("writer.topic")
+                        .overlay(alignment: .trailing) {   // AI2 TX-034
+                            DictateButton(text: Binding(get: { st.topic }, set: { st.topic = $0 }), testID: "writer.dictate").padding(.trailing, 2)
+                        }
                     label("writer.requirements")
                     TextField(tr("writer.requirements.placeholder"), text: Binding(get: { st.requirements }, set: { st.requirements = $0 }), axis: .vertical)
                         .textFieldStyle(.plain).font(Theme.Fonts.row).lineLimit(2...4)

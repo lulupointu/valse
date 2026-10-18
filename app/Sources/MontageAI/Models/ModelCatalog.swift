@@ -74,6 +74,9 @@ public enum ModelCatalog {
     /// Set by the UI test driver: scripts see an empty sandboxed models folder (deterministic "not installed" UX) unless
     /// they declare `"requires": {"models": [...]}`, which points this back at `userModelsDirectory`.
     public nonisolated(unsafe) static var directoryOverride: URL?
+    /// True while a UI test runs on the empty sandboxed models folder (no `requires.models`): features that could
+    /// otherwise pick up an OS model (Apple Intelligence) stay deterministic.
+    public nonisolated(unsafe) static var isSandboxed = false
 
     /// ~/Library/Application Support/Montage/Models (override: `MONTAGE_MODELS_DIR`).
     public static var modelsDirectory: URL { directoryOverride ?? userModelsDirectory }
@@ -130,6 +133,10 @@ public enum LlamaRuntime {
         if let e = ProcessInfo.processInfo.environment["MONTAGE_LLAMA_CLI"], !e.isEmpty { c.append(e) }
         c.append(Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/llama-completion").path)
         c.append(MontagePaths.supportDirectory.appendingPathComponent("bin/llama-completion").path)
+        // the user's real App Support (UI tests sandbox `supportDirectory`, but runtimes aren't settings)
+        if let u = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            c.append(u.appendingPathComponent("Montage/bin/llama-completion").path)
+        }
         return c.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }
     public static var model: URL? { ModelCatalog.installedURL(ModelCatalog.qwen3_4b) }

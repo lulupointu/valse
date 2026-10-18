@@ -11,7 +11,8 @@ public struct AssetPanel: View {
     public init(store: EditorStore) { self.store = store }
 
     public var body: some View {
-        if store.ai.transcriptOpen { TranscriptPanel(store: store) } else { tabs }   // W10 transcript replaces the asset panel
+        // AI: EditPilot chat (AI2) and the transcript (W10) replace the asset panel
+        if store.ai.pilot.isOpen { EditPilotPanel(store: store) } else if store.ai.transcriptOpen { TranscriptPanel(store: store) } else { tabs }
     }
 
     var tabs: some View {
