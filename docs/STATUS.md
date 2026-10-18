@@ -33,7 +33,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | BUG1 | Owner bugs: crash on voice-changer clip in project 1018; HDR(HLG) footage colours wrong in SDR / washed in HDR | 4 | running | |
 | BUG2 | Owner bugs: auto captions too big (out of 9:16 frame); caption timing early/late/badly cut | 4 | running | |
 | FIN | Final polish backlog (collect here): text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
-| AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | running | |
+| AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | ready to merge (AI-048, AI-005, TX-038, TX-030, TX-034, AI-024/CL-020, AI-025, AI-041, CL-019 done; AI-013 hand + custom box; AI-031 Home wizard; quit-mid-job + LaMa segfault fixed) | worktree-agent-ace3ab6274c22fd67 |
 | MUS | Music & sound library usable on Instagram (AU-001, AU-025): bundled royalty-free/CC0 music + SFX with license metadata, mood/genre browse, "similar sounds" via local audio embeddings | 3 | running | |
 
 ## Cross-team requests / blockers (open)
@@ -91,6 +91,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - MP3 export requires FFmpeg sidecar with libmp3lame; otherwise option disabled with hint.
 - Never use AVAudioTimePitchAlgorithm `.varispeed`: hangs the audio reader during export on sped-up clips.
 - Heavy work from main-actor code/tests starves PlaybackTests — run it off-main (`Task.detached`).
+- Quit / end of a UI test: `AppShutdown.stopBackgroundWork()` cancels exports + every `JobQueue` job and waits for them (exiting under live Core ML/Metal work crashed in MPSGraph teardown). New background work must go through `JobQueue` (or check `Task.isCancelled`) so quit can stop it.
 
 ## Known risks
 - Apple on-device French STT WER ~13% without OS model download → whisper.cpp (large-v3-turbo, 547 MB) as quality path.
