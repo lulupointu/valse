@@ -5,7 +5,7 @@ import MontageCore
 import MontageEngine
 import MontageAI
 
-// Text / Sticker / overlay ▸ Tracking (UX.md §5.2–5.3, AI-014 / ST-005): tiles ⊘ None · Motion tracking. Motion
+// Text / Sticker ▸ Tracking (UX.md §5.2–5.3, AI-014 / ST-005): tiles ⊘ None · Motion tracking. Motion
 // tracking shows a yellow box on the canvas (drag to move, corners to resize, drag outside to draw a new one) over
 // the video below; [Start tracking] runs Vision object tracking forward and backward in the background (progress on
 // the clip), then writes the clip's position (+ scale) keyframes as one undo step.
@@ -16,7 +16,6 @@ enum TrackingInspector {
             guard ctx.store.selection.count == 1, let c = ctx.clip else { return false }
             switch c.content {
             case .text, .sticker: return !TextInspector.isCaption(ctx)
-            case .media: return !ctx.isMainTrack && ctx.trackKind != .audio
             default: return false
             }
         }),

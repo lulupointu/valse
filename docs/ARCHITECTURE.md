@@ -370,6 +370,13 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Video**: `SceneDetector` (histogram + luma, adaptive peaks) → `SceneSplit` (right-click ▸ Split scenes); `SubjectAnalyzer`
   (Vision faces → humans → objectness saliency) → `ReframePath` (Core: dead zone, Gaussian path, fill scale, position keyframes) →
   `AutoReframe` (Video ▸ Basic ▸ Auto reframe, `Clip.reframe`).
+- **Stabilization** (AI-059, W6's `StabilizationStore`): the analysis fits content-aware similarity motion per frame (5 × 4
+  textured blocks, outlier rejection → shift + roll; cache `<hash>.v2.json`); `StabilizationTrack.dr` / `aspect` carry the roll
+  correction that `FrameRenderer.uvTransform(stabilize: StabilizeCorrection)` applies with the shift and crop zoom.
+- **Motion tracking** (AI-014): `ObjectTracker` (Vision `VNTrackObjectRequest`, ≤ 640 px, forward + 1 s-chunk backward) →
+  `TrackSample`s in raw source coords → `MotionTracking.apply` (Core) maps them through the reference layer
+  (`FrameEvaluator` layer geometry, crop/flip/rotation) into position (+ scale) keyframes on the follower; `Clip.tracking`
+  remembers the request. UI: `TrackingUI.swift` (Tracking tab, `MotionTrackBoxTool` canvas tool).
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
   `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,

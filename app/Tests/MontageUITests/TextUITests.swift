@@ -33,7 +33,7 @@ import MontageTestSupport
     @Test func textAndCaptionTabs() {
         let s = store()
         s.addDefaultText()
-        #expect(tabs(s) == ["text", "animation", "tts"])   // + W10 Text to speech
+        #expect(tabs(s) == ["text", "animation", "tts", "tracking"])   // + W10 Text to speech, Tracking
         let ctx = InspectorContext(store: s)
         let textTab = InspectorRegistry.allTabs.first { $0.id == "text" }!
         #expect(InspectorRegistry.subTabs(of: textTab, ctx: ctx).map(\.id) == ["basic", "bubble", "effects"])
