@@ -8,7 +8,9 @@ import MontageTestSupport
 /// W8 audio UI: localization of dynamic keys, inspector registration, store flows (voice changer, beats, recording).
 @MainActor @Suite(.serialized) struct AudioUITests {
     func waitUntil(_ cond: () -> Bool) async {
-        for _ in 0..<600 where !cond() { try? await Task.sleep(for: .milliseconds(10)) }
+        // wall-clock bound (30 s): under full clean-checkout load the beat analysis job can take > 6 s
+        let end = Date().addingTimeInterval(30)
+        while !cond(), Date() < end { try? await Task.sleep(for: .milliseconds(10)) }
     }
 
     @Test func dynamicAudioKeysAreLocalized() {
