@@ -19,7 +19,7 @@ struct TransformSection: View {
     }
 
     var body: some View {
-        let canvas = ctx.store.project.settings.canvasSize
+        let canvas = ctx.store.projectSettings.canvasSize   // observation slice (perf)
         let uniform = UniformScaleState.isUniform(ctx)
         let pct = RowSpec(range: 1...500, step: 1, fieldRange: 1...1000, format: Fmt.percentValue)
         VStack(alignment: .leading, spacing: 6) {

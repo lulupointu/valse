@@ -43,10 +43,10 @@ if [[ ! -e bench/media ]]; then
   [[ -f "$MAIN/bench/media/.done" && "$MAIN" != "$ROOT" ]] && ln -s "$MAIN/bench/media" bench/media
 fi
 if [[ $SMOKE == 1 && -f bench/media/.done ]]; then
-  echo "▶ 4K perf smoke ($MODE)" >&2
+  echo "▶ 4K perf smoke + audit ($MODE)" >&2
   swift build -c release --build-tests --scratch-path .build/perf -Xswiftc -enable-testing >&2  # incremental; needed even with --no-build
   set +e
-  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter PerfSmokeTests 2>&1 \
+  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfSmokeTests|PerfAuditTests' 2>&1 \
     | tee "$DIR/smoke.log" | grep -E '^\{"stack"' > "$DIR/smoke.jsonl"
   set -e
 elif [[ $SMOKE == 1 ]]; then

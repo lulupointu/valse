@@ -28,8 +28,56 @@ public struct Toast: Equatable, Identifiable {
 /// - Long work (import probing, export, AI) runs off-main and reports back here.
 @Observable
 public final class EditorStore {
-    public private(set) var session: EditSession
+    @ObservationIgnored private var sessionStorage: EditSession
+    /// Observation-tracked like a stored property, except inside `EditorStore.untracked { }` (perf: lets a container
+    /// view compute its structure from the project without re-rendering on every edit; see InspectorPanel).
+    public private(set) var session: EditSession {
+        get {
+            if EditorStore.trackingSuspended == 0 { access(keyPath: \.session) }
+            return sessionStorage
+        }
+        _modify {
+            access(keyPath: \.session)
+            _$observationRegistrar.willSet(self, keyPath: \.session)
+            defer { _$observationRegistrar.didSet(self, keyPath: \.session) }
+            yield &sessionStorage
+        }
+    }
     public var project: Project { session.project }
+
+    @ObservationIgnored private static var trackingSuspended = 0
+    /// Runs `body` without registering SwiftUI/Observation dependencies on `session`/`project`/`selectedClipSlice`. The caller must depend
+    /// on something else that changes when what it computes changes (e.g. `inspectorStructureKey`).
+    public static func untracked<T>(_ body: () throws -> T) rethrows -> T {
+        trackingSuspended += 1
+        defer { trackingSuspended -= 1 }
+        return try body()
+    }
+
+    // Observation slices (perf, W14): every edit (each slider-drag tick) replaces `session`, which invalidates every
+    // SwiftUI view that reads `project`. Views that only show one part of it read these instead; each is assigned only
+    // when its value changes (`syncProjectSlices`), so a property drag no longer re-renders the bin, title bar, transport…
+    /// Media bin view of the project: `media` + `mediaFolders` only (timeline empty) — for `BinOps` in bin views.
+    public private(set) var mediaBin = Project()
+    public private(set) var projectDuration: Time = .zero
+    public private(set) var projectSettings = ProjectSettings()
+    public private(set) var canUndo = false
+    public private(set) var canRedo = false
+    /// Changes when the inspector's tabs / sections for the selection change (InspectorPanel observes this, not `project`).
+    public private(set) var inspectorStructureKey = 0
+    /// The single selected clip / its track kind (InspectorContext reads these: editing another clip doesn't re-render
+    /// the inspector).
+    @ObservationIgnored private var selectedClipStorage: Clip?
+    @ObservationIgnored private var selectedTrackKindStorage: TrackKind?
+    public private(set) var selectedClipSlice: Clip? {
+        get { if EditorStore.trackingSuspended == 0 { access(keyPath: \.selectedClipSlice) }; return selectedClipStorage }
+        set { withMutation(keyPath: \.selectedClipSlice) { selectedClipStorage = newValue } }
+    }
+    public private(set) var selectedTrackKindSlice: TrackKind? {
+        get { if EditorStore.trackingSuspended == 0 { access(keyPath: \.selectedTrackKindSlice) }; return selectedTrackKindStorage }
+        set { withMutation(keyPath: \.selectedTrackKindSlice) { selectedTrackKindStorage = newValue } }
+    }
+    private var projectNameSlice = ""
     public var selection: Set<ClipID> = [] { didSet { if selection != oldValue { selectionDidChange() } } }
     /// Selected transition, identified by the clip that owns it (`transitionOut`). Exclusive with `selection`
     /// (CapCut selects a transition after dropping it and shows its inspector). Stored in `timelineUI`.
@@ -46,7 +94,7 @@ public final class EditorStore {
     public let ai = AIUIState()
     /// Timeline zoom (points per second).
     public var pixelsPerSecond: Double = 40
-    public private(set) var packageURL: URL?
+    public private(set) var packageURL: URL? { didSet { syncProjectSlices() } }
     public private(set) var lastAutosave: Date?
     public var toast: Toast?
     public private(set) var jobs: [JobInfo] = []
@@ -72,7 +120,7 @@ public final class EditorStore {
 
     public init(project: Project = Project(), packageURL: URL? = nil) {
         MontageBootstrap.registerResources()
-        session = EditSession(project: project)
+        sessionStorage = EditSession(project: project)
         self.packageURL = packageURL
         engine = PlaybackEngine(project: project)
         engine.onTimeUpdate = { [weak self] t in self?.transport.playhead = t }
@@ -89,6 +137,7 @@ public final class EditorStore {
         installMediaPipelineHooks()
         installAIHooks()
         installExportHooks()
+        syncProjectSlices()
     }
 
     // MARK: Editing
@@ -141,15 +190,51 @@ public final class EditorStore {
 
     private func didChangeProject() {
         engine.update(project: session.project)
-        selection = selection.filter { session.project.timeline.clip($0) != nil }
+        syncProjectSlices()
+        // assign only on change: every assignment notifies all views reading `selection`
+        if selection.contains(where: { session.project.timeline.clip($0) == nil }) {
+            selection = selection.filter { session.project.timeline.clip($0) != nil }
+        }
         if let t = selectedTransition, session.project.timeline.clip(t)?.transitionOut == nil { selectedTransition = nil }
         if playerUI.loopEnabled { updateLoopRange() }
         aiProjectDidChange()
         scheduleAutosave()
     }
 
+    /// Updates the observation slices that changed (see `mediaBin`).
+    func syncProjectSlices() {
+        let p = session.project
+        if mediaBin.media != p.media || mediaBin.mediaFolders != p.mediaFolders || mediaBin.id != p.id {
+            var b = Project(name: "", settings: p.settings)
+            b.id = p.id; b.media = p.media; b.mediaFolders = p.mediaFolders
+            mediaBin = b
+        }
+        let d = p.duration
+        if projectDuration != d { projectDuration = d }
+        if projectSettings != p.settings { projectSettings = p.settings }
+        if canUndo != session.canUndo { canUndo = session.canUndo }
+        if canRedo != session.canRedo { canRedo = session.canRedo }
+        let n = p.name.isEmpty ? (packageURL?.deletingPathExtension().lastPathComponent ?? tr("project.untitled")) : p.name
+        if projectNameSlice != n { projectNameSlice = n }
+        syncSelectionSlices()
+    }
+
+    func syncSelectionSlices() {
+        let c = selection.count == 1 ? session.project.timeline.clip(selection.first!) : nil
+        if c != selectedClipSlice { selectedClipSlice = c }
+        let k = c.flatMap { trackKind(of: $0) }
+        if k != selectedTrackKindSlice { selectedTrackKindSlice = k }
+        syncInspectorStructure()
+    }
+
+    func syncInspectorStructure() {
+        let k = EditorStore.untracked { InspectorPanel.structure(self).key }
+        if inspectorStructureKey != k { inspectorStructureKey = k }
+    }
+
     private func selectionDidChange() {
         if !selection.isEmpty, selectedTransition != nil { selectedTransition = nil }
+        syncSelectionSlices()
         if playerUI.loopEnabled { updateLoopRange() }
         if let t = inspectorTab, !InspectorRegistry.tabs(for: InspectorContext(store: self)).contains(where: { $0.id == t }) {
             inspectorTab = nil
@@ -288,7 +373,8 @@ public final class EditorStore {
 
     // MARK: Persistence
 
-    public var projectName: String { project.name.isEmpty ? (packageURL?.deletingPathExtension().lastPathComponent ?? tr("project.untitled")) : project.name }
+    /// Title shown in the title bar (observation slice: changes only with the name / package).
+    public var projectName: String { projectNameSlice }
 
     /// Saves to the current package (creating one in the drafts folder if needed).
     public func save() {
@@ -324,6 +410,7 @@ public final class EditorStore {
         packageURL = url
         session.reset(p)
         selection = []
+        syncProjectSlices()
         engine.update(project: p, force: true)
         engine.seek(to: .zero)
         Task { await ProxyManager.shared.request(p.media) }
@@ -338,6 +425,7 @@ public final class EditorStore {
         if let url { SessionLock.acquire(url) }
         session.reset(p)
         selection = []
+        syncProjectSlices()
         lastAutosave = nil
         engine.update(project: p, force: true)
         engine.seek(to: .zero)

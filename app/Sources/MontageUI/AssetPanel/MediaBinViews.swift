@@ -12,7 +12,7 @@ struct BinBreadcrumb: View {
     var body: some View {
         HStack(spacing: 4) {
             crumb(tr("media.folder.root"), nil)
-            ForEach(BinOps.path(to: folder, in: store.project)) { f in
+            ForEach(BinOps.path(to: folder, in: store.mediaBin)) { f in
                 Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
                 crumb(f.name, f.id)
             }
@@ -40,7 +40,7 @@ struct FolderCard: View {
     @State private var renaming = false
     @State private var newName = ""
 
-    var count: Int { BinOps.media(in: folder.id, of: store.project).count + BinOps.children(of: folder.id, in: store.project).count }
+    var count: Int { BinOps.media(in: folder.id, of: store.mediaBin).count + BinOps.children(of: folder.id, in: store.mediaBin).count }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -121,8 +121,8 @@ struct MediaCardMenu: View {
         Divider()
         Menu(tr("media.moveTo")) {
             Button(tr("media.folder.root")) { store.moveMedia([asset.id], to: nil) }
-            ForEach(store.project.folders) { f in
-                Button(BinOps.path(to: f.id, in: store.project).map(\.name).joined(separator: " › ")) { store.moveMedia([asset.id], to: f.id) }
+            ForEach(store.mediaBin.folders) { f in
+                Button(BinOps.path(to: f.id, in: store.mediaBin).map(\.name).joined(separator: " › ")) { store.moveMedia([asset.id], to: f.id) }
             }
         }
         Button(tr("media.copyToProject")) { store.copyMediaToProject() }

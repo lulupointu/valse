@@ -60,6 +60,19 @@ final class TimelineFrameProbe {
     }
 }
 
+/// Time since this process was started (kernel start time), for the launch metric.
+nonisolated public enum ProcessLaunch {
+    public static func millisecondsSinceStart() -> Double {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0 else { return 0 }
+        let st = info.kp_proc.p_un.__p_starttime
+        let start = Double(st.tv_sec) + Double(st.tv_usec) / 1e6
+        return (Date().timeIntervalSince1970 - start) * 1000
+    }
+}
+
 /// CPU time consumed by the calling thread (ns).
 nonisolated public enum ThreadCPU {
     public static func nanoseconds() -> UInt64 { clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) }

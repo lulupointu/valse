@@ -164,6 +164,7 @@ public final class UITestDriver {
     private var report: [[String: Any]] = []
     private var warnings: [String] = []
     private let probe = TimelineFrameProbe()
+    private var launchMs: Double = 0
 
     /// Creates the offscreen test window (call before building the content view; enables `.testID` geometry tracking).
     public static func makeWindow(size: CGSize) -> NSWindow {
@@ -203,6 +204,10 @@ public final class UITestDriver {
         try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
         log("▶ \(name)  (out: \(out.path))")
 
+        // Launch to an editor window that has laid out and drawn once (before the script's project is loaded).
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        launchMs = ProcessLaunch.millisecondsSinceStart()
         var failed: String?
         do {
             try await setUp(script)
@@ -278,8 +283,11 @@ public final class UITestDriver {
             p.timeline = Timeline()
             store.load(project: p)
         case let s where s.hasPrefix("stress"):
-            let n = Int(s.split(separator: ":").last ?? "") ?? 500
-            store.load(project: try await StressProject.make(clips: n))
+            // "stress:<clips>[:<media items in the bin>]"
+            let parts = s.split(separator: ":")
+            let n = parts.count > 1 ? Int(parts[1]) ?? 500 : 500
+            let m = parts.count > 2 ? Int(parts[2]) ?? 0 : 0
+            store.load(project: try await StressProject.make(clips: n, media: m))
         default:
             let url = URL(fileURLWithPath: project, relativeTo: config.script.deletingLastPathComponent())
             try store.open(url)
@@ -304,6 +312,7 @@ public final class UITestDriver {
     private func perform(_ step: [String: Any], index: Int) async throws {
         let mods = SyntheticEvents.modifiers((step["modifiers"] as? [String]) ?? [])
         let settle = (step["settle"] as? NSNumber)?.doubleValue ?? 0.25
+        if let name = step["perf"] as? String { return try await perf(name, step) }  // may carry "drag"/"scroll" targets
         for key in ["click", "doubleClick", "rightClick", "drag", "hover"] {
             if let t = step[key] as? String, t.hasPrefix("id:"), scrollIntoView(t) { try await idle(settle: 0.2) }
         }
@@ -400,7 +409,7 @@ public final class UITestDriver {
         } else if let name = step["perf"] as? String {
             try await perf(name, step)
         } else if let m = step["metric"] as? String {
-            try recordMetric(m)
+            if m == "open_project" { try await measureOpenProject() } else { try recordMetric(m) }
         } else if let s = step["log"] as? String {
             log("      \(s)")
         } else {
@@ -692,6 +701,7 @@ public final class UITestDriver {
     ///   "alternate": true}` — delivers one scroll event per frame through the real `scrollWheel` path, then measures the
     /// timeline frame (CPU build + GPU encode). Metrics: `<name>_cpu_p50_ms`, `_cpu_p95_ms`, `_cpu_max_ms`, `_gpu_p95_ms`.
     private func perf(_ name: String, _ step: [String: Any]) async throws {
+        if step["drag"] != nil || step["scroll"] != nil || step["edit"] != nil { return try await perfInteraction(name, step) }
         guard let tl = timelineView else { throw Failure("no timeline view") }
         let p = try resolve(step["on"] ?? "id:timeline", step)
         let frames = (step["frames"] as? Int) ?? 240
@@ -721,6 +731,74 @@ public final class UITestDriver {
         try await idle(settle: 0.1)
     }
 
+    /// Interaction perf (any view, SwiftUI included): `{"perf": "inspector_drag", "drag": "id:slider.opacity", "at": [0.1, 0.5],
+    /// "toAt": [0.9, 0.5], "frames": 90}` (drag back and forth, one event per frame) or `{"perf": "assets_scroll", "scroll":
+    /// "id:panel.assets", "dy": -30, "frames": 120, "alternate": true, "period": 30}`. Per event: main-thread CPU time
+    /// from posting it through one 16 ms frame (event handling + SwiftUI/observation updates + view draws it triggers)
+    /// and dispatch wall time. Also counts preview frames composed meanwhile (live preview).
+    /// Metrics: `<name>_main_cpu_p50_ms`, `_main_cpu_p95_ms`, `_dispatch_p95_ms`, `_preview_frames`, `_compose_p95_ms`.
+    private func perfInteraction(_ name: String, _ step: [String: Any]) async throws {
+        let frames = (step["frames"] as? Int) ?? 90
+        let mods = SyntheticEvents.modifiers((step["modifiers"] as? [String]) ?? [])
+        var cpu: [Double] = [], dispatch: [Double] = []
+        CompositorStats.shared.reset()
+        func measure(_ send: () throws -> Void) async throws {
+            let c0 = ThreadCPU.nanoseconds(), w0 = DispatchTime.now().uptimeNanoseconds
+            try send()
+            _ = await SyntheticEvents.drain()
+            let w1 = DispatchTime.now().uptimeNanoseconds
+            try await Task.sleep(for: .milliseconds(16))
+            cpu.append(Double(ThreadCPU.nanoseconds() - c0) / 1e6)
+            dispatch.append(Double(w1 - w0) / 1e6)
+        }
+        if let t = step["drag"] {
+            if let id = t as? String, id.hasPrefix("id:"), scrollIntoView(id) { try await idle(settle: 0.2) }
+            let a = try resolve(t, step)
+            var s2 = step; s2["at"] = step["toAt"]; s2["offset"] = step["toOffset"]
+            let b = try resolve(step["to"] ?? t, s2)
+            SyntheticEvents.post(SyntheticEvents.mouse(.leftMouseDown, at: a, in: window, modifiers: mods))
+            _ = await SyntheticEvents.drain()
+            try await Task.sleep(for: .milliseconds(30))
+            let half = max(1, frames / 4)
+            for i in 0..<frames {
+                // triangle wave a → b → a … so every event changes the value
+                let ph = Double(i % (2 * half)) / Double(half)
+                let f = CGFloat(ph <= 1 ? ph : 2 - ph)
+                let pt = CGPoint(x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f)
+                try await measure { SyntheticEvents.post(SyntheticEvents.mouse(.leftMouseDragged, at: pt, in: window, modifiers: mods)) }
+            }
+            SyntheticEvents.post(SyntheticEvents.mouse(.leftMouseUp, at: a, in: window, modifiers: mods))
+        } else if let target = step["edit"] {
+            // programmatic gesture edits (no input event): what one live-edit tick costs the UI
+            let id = try clip(from: target).id
+            store.beginGesture("cmd.editClip")
+            for i in 0..<frames {
+                let v = 0.5 + 0.4 * Double(i % 2)
+                try await measure { store.updateGesture { p in p.timeline[clip: id]?.opacity = v } }
+            }
+            store.endGesture()
+        } else if let t = step["scroll"] {
+            let p = try resolve(t, step)
+            let dx = (step["dx"] as? NSNumber)?.doubleValue ?? 0, dy = (step["dy"] as? NSNumber)?.doubleValue ?? 0
+            let alternate = (step["alternate"] as? Bool) ?? false
+            let period = max(1, (step["period"] as? Int) ?? 60)
+            for i in 0..<frames {
+                let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
+                try await measure { try deliverScroll(at: p, dx: dx * sign, dy: dy * sign, modifiers: mods) }
+            }
+        }
+        try await idle(settle: 0.3)
+        let st = CompositorStats.shared.snapshot()
+        let c = Percentiles(cpu), d = Percentiles(dispatch), k = Percentiles(st.costsMs)
+        metrics["\(name)_main_cpu_p50_ms"] = c.p50
+        metrics["\(name)_main_cpu_p95_ms"] = c.p95
+        metrics["\(name)_dispatch_p95_ms"] = d.p95
+        metrics["\(name)_preview_frames"] = Double(st.frames)
+        metrics["\(name)_compose_p95_ms"] = k.p95
+        log(String(format: "      %@: main cpu p50 %.2f ms, p95 %.2f ms, max %.2f; dispatch p95 %.2f ms; preview %d frames, compose p95 %.2f ms (%d events)",
+                   name, c.p50, c.p95, c.max, d.p95, st.frames, k.p95, frames))
+    }
+
     /// `{"metric": "memory"}` → `memory_mb`, `memory_peak_mb` (physical footprint).
     private func recordMetric(_ m: String) throws {
         switch m {
@@ -729,14 +807,39 @@ public final class UITestDriver {
             metrics["memory_mb"] = Double(f.current) / 1_048_576
             metrics["memory_peak_mb"] = Double(f.peak) / 1_048_576
             log(String(format: "      memory %.0f MB (peak %.0f MB)", Double(f.current) / 1_048_576, Double(f.peak) / 1_048_576))
+        case "launch":
+            metrics["launch_ms"] = launchMs
+            log(String(format: "      launch to editor drawn: %.0f ms", launchMs))
         default: throw Failure("unknown metric \(m)")
         }
+    }
+
+    /// `{"metric": "open_project"}`: saves the current project to a temp package and times `store.open` through the
+    /// first laid-out + drawn window and timeline frame → `open_project_ms` (wall), `open_project_cpu_ms` (main thread).
+    private func measureOpenProject() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("montage-perf-open-\(UUID().uuidString).montage")
+        try ProjectPackage.save(store.project, to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let c0 = ThreadCPU.nanoseconds(), w0 = DispatchTime.now().uptimeNanoseconds
+        try store.open(url)
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        if let tl = timelineView { _ = probe.measure(tl) }
+        let wall = Double(DispatchTime.now().uptimeNanoseconds - w0) / 1e6, cpu = Double(ThreadCPU.nanoseconds() - c0) / 1e6
+        metrics["open_project_ms"] = wall
+        metrics["open_project_cpu_ms"] = cpu
+        log(String(format: "      open project (%d clips, %d media): %.0f ms (main cpu %.0f ms)",
+                   store.project.timeline.tracks.reduce(0) { $0 + $1.clips.count }, store.project.media.count, wall, cpu))
+        store.autosaveEnabled = false
+        try await idle(settle: 0.5)
     }
 }
 
 /// `"project": "stress:500"` — many short clips on several tracks (perf harness).
 public enum StressProject {
-    public static func make(clips n: Int) async throws -> Project {
+    /// `media` > 0 pads the bin to that many items (copies of the demo media with their own ids / names / cache keys,
+    /// so thumbnails are generated per item like a real big bin).
+    public static func make(clips n: Int, media: Int = 0) async throws -> Project {
         var p = try await DemoProject.make()
         let videos = p.media.filter { $0.kind == .video }
         let audio = p.media.filter { $0.kind == .audio }
@@ -757,6 +860,13 @@ public enum StressProject {
         tl.tracks = [main, overlay, music]
         p.timeline = tl
         p.name = "stress-\(n)"
+        let base = p.media
+        var k = 0
+        while p.media.count < media, !base.isEmpty {
+            var a = base[k % base.count]
+            a.id = MediaID(); a.name = "\(k + 1) \(a.name)"; a.contentHash += "-s\(k)"
+            p.media.append(a); k += 1
+        }
         return p
     }
 }

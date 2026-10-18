@@ -33,12 +33,45 @@ public struct InspectorPanel: View {
     private let ui = InspectorUIState.shared
     public init(store: EditorStore) { self.store = store }
 
-    public var body: some View {
+    /// What the panel shows (tabs, active tab's sub-tabs, sections, footer) for the current selection.
+    struct Structure {
+        let ctx: InspectorContext
+        let tabs: [InspectorTab]
+        let active: InspectorTab?
+        let subs: [InspectorSubTab]
+        let sub: InspectorSubTab?
+        let sections: [InspectorSection]
+        let footer: AnyView?
+        var key: Int {
+            var h = Hasher()
+            for t in tabs { h.combine(t.id) }
+            h.combine(active?.id); h.combine(sub?.id)
+            for t in subs { h.combine(t.id) }
+            for x in sections { h.combine(x.id) }
+            h.combine(footer != nil)
+            return h.finalize()
+        }
+    }
+
+    static func structure(_ store: EditorStore) -> Structure {
+        let ui = InspectorUIState.shared
         let ctx = InspectorContext(store: store)
         let tabs = InspectorRegistry.tabs(for: ctx)
         let active = tabs.first { $0.id == store.inspectorTab } ?? tabs.first
         let subs = active.map { InspectorRegistry.subTabs(of: $0, ctx: ctx) } ?? []
         let sub: InspectorSubTab? = subs.isEmpty ? nil : (subs.first { $0.id == ui.subTab[active!.id] } ?? subs.first)
+        let sections = active.map { InspectorRegistry.sections(tab: $0, subTab: subs.count >= 2 ? sub?.id : nil, ctx: ctx) } ?? []
+        let footer = active.flatMap { $0.footer?(ctx, sub?.id) }
+        return Structure(ctx: ctx, tabs: tabs, active: active, subs: subs, sub: sub, sections: sections, footer: footer)
+    }
+
+    /// Perf (W14): the panel's structure is computed without observing the project (every slider tick replaces it); the
+    /// panel depends on `store.inspectorStructureKey` instead, which changes only when tabs / sections / footer change.
+    /// Sections still observe the project themselves, so their values stay live.
+    public var body: some View {
+        let _ = (store.inspectorStructureKey, store.inspectorTab, ui.subTab)
+        let st = EditorStore.untracked { Self.structure(store) }
+        let ctx = st.ctx, tabs = st.tabs, active = st.active, subs = st.subs, sub = st.sub
         Panel {
             HStack(spacing: 22) {
                 ForEach(tabs) { tab in
@@ -68,14 +101,14 @@ public struct InspectorPanel: View {
                     }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            ForEach(InspectorRegistry.sections(tab: active, subTab: subs.count >= 2 ? sub?.id : nil, ctx: ctx)) { section in
+                            ForEach(st.sections) { section in
                                 InspectorSectionView(section: section, ctx: ctx, ui: ui).testID("inspector.section.\(section.id)")
                             }
                         }
                         .padding(.bottom, 16)
                     }
                     .id("\(store.selection.hashValue)-\(store.selectedTransition?.description ?? "")-\(active.id)-\(sub?.id ?? "")")
-                    if let footer = active.footer?(ctx, sub?.id) {
+                    if let footer = st.footer {
                         HStack(spacing: 8) { Spacer(); footer }
                             .padding(.horizontal, Theme.Metrics.inspectorPadding)
                             .frame(height: 46)
@@ -240,6 +273,7 @@ struct ClipParamRow: View {
             commit: { v in write(spec.clampField(v)) },
             step: { d in write(spec.clampField(value + Double(d) * spec.step)) },
             triplet: keyframeKeys.map { AnyView(KeyframeTriplet(ctx: ctx, keys: $0, enabled: !$0.isEmpty)) }, testID: testID)
+            .equatable()
     }
 }
 

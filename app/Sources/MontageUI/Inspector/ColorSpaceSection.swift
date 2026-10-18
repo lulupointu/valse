@@ -6,7 +6,7 @@ import MontageCore
 struct ColorSpaceSection: View {
     @Bindable var store: EditorStore
     var body: some View {
-        let current = store.project.settings.colorSpace
+        let current = store.projectSettings.colorSpace   // observation slice
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(loc: "details.colorSpace").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)

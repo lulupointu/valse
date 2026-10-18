@@ -15,12 +15,12 @@ struct MediaTab: View {
 
     var showsFolders: Bool { kinds.count == 3 }
     var items: [MediaAsset] {
-        store.project.media.filter { kinds.contains($0.kind) && (!showsFolders || $0.folderID == currentFolder) }
+        store.mediaBin.media.filter { kinds.contains($0.kind) && (!showsFolders || $0.folderID == currentFolder) }
     }
-    var folders: [MediaFolder] { showsFolders ? BinOps.children(of: currentFolder, in: store.project) : [] }
+    var folders: [MediaFolder] { showsFolders ? BinOps.children(of: currentFolder, in: store.mediaBin) : [] }
     /// The open folder, if it still exists (undo may remove it).
-    var currentFolder: MediaFolderID? { folder.flatMap { f in store.project.folders.contains { $0.id == f } ? f : nil } }
-    var missingCount: Int { store.project.media.filter(store.isMissing).count }
+    var currentFolder: MediaFolderID? { folder.flatMap { f in store.mediaBin.folders.contains { $0.id == f } ? f : nil } }
+    var missingCount: Int { store.mediaBin.media.filter(store.isMissing).count }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -28,7 +28,7 @@ struct MediaTab: View {
             Group {
                 if nav == "library" {
                     ColorClipsGrid(store: store)
-                } else if store.project.media.isEmpty {
+                } else if store.mediaBin.media.isEmpty {
                     dropZone
                 } else {
                     VStack(spacing: 0) {

@@ -6,10 +6,11 @@ import MontageEngine
 /// What inspector tabs/sections see.
 public struct InspectorContext {
     public let store: EditorStore
-    public var clip: Clip? { store.singleSelectedClip }
-    public var trackKind: TrackKind? { clip.flatMap { store.trackKind(of: $0) } }
+    // Observation slices (perf, W14): sections re-render when the selected clip changes, not on every project edit.
+    public var clip: Clip? { store.selectedClipSlice }
+    public var trackKind: TrackKind? { store.selectedTrackKindSlice }
     public var track: Track? { clip.flatMap { c in store.project.timeline.locate(c.id).map { store.project.timeline.tracks[$0.track] } } }
-    public var asset: MediaAsset? { clip?.mediaID.flatMap { store.project.asset($0) } }
+    public var asset: MediaAsset? { clip?.mediaID.flatMap { store.mediaBin.asset($0) } }
     public var hasSelection: Bool { !store.selection.isEmpty || store.selectedTransition != nil }
     public var isVisualClip: Bool { trackKind.map { $0 != .audio } ?? false }
     public var hasAudio: Bool { (asset?.hasAudio ?? false) }
@@ -20,7 +21,7 @@ public struct InspectorContext {
     /// Playhead relative to the selected clip (for keyframes).
     public var localTime: Time { clip.map { (store.transport.playhead - $0.start).clamped(.zero, $0.duration) } ?? .zero }
     /// Half a frame: keyframes closer than this to the playhead count as "on" it.
-    public var keyframeTolerance: Time { store.project.settings.frameRate.frameDuration / 2.0 }
+    public var keyframeTolerance: Time { store.projectSettings.frameRate.frameDuration / 2.0 }
 
     /// What the inspector is showing (drives tabs, like CapCut's per-type headers).
     public var kind: InspectorSelectionKind {

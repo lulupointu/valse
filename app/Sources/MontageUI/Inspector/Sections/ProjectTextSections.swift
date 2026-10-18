@@ -10,7 +10,7 @@ import MontageEngine
 struct DetailsSection: View {
     @Bindable var store: EditorStore
     var body: some View {
-        let s = store.project.settings
+        let s = store.projectSettings   // observation slice: not re-rendered by clip edits
         VStack(alignment: .leading, spacing: 4) {
             DetailRow(label: tr("details.name"), value: store.projectName)
             DetailRow(label: tr("details.saved"), value: store.packageURL?.path ?? tr("details.notSaved"))

@@ -193,41 +193,65 @@ struct KeyframeTriplet: View {
     let keys: [ParamKey]
     var enabled = true
 
+    /// What the triplet shows. Perf (W14): the outer view re-evaluates on every edit of the clip (cheap); the buttons
+    /// (with tooltips) re-render only when this changes. Actions recompute from the store at tap time.
+    struct Model: Equatable {
+        var active = false, on = false, has = false
+        var prev: Time?, next: Time?
+    }
+
     var body: some View {
-        let store = ctx.store
         let clip = ctx.clip
         let tol = ctx.keyframeTolerance
         let local = ctx.localTime
-        let active = enabled && !keys.isEmpty && clip != nil
-        let on = active && clip!.isOnKeyframe(keys, at: local, tolerance: tol)
-        let has = active && clip!.hasKeyframes(keys)
-        let prev = active ? clip!.previousKeyframe(keys, before: local, tolerance: tol) : nil
-        let next = active ? clip!.nextKeyframe(keys, after: local, tolerance: tol) : nil
+        var m = Model()
+        m.active = enabled && !keys.isEmpty && clip != nil
+        if m.active, let clip {
+            m.on = clip.isOnKeyframe(keys, at: local, tolerance: tol)
+            m.has = clip.hasKeyframes(keys)
+            m.prev = clip.previousKeyframe(keys, before: local, tolerance: tol)
+            m.next = clip.nextKeyframe(keys, after: local, tolerance: tol)
+        }
+        return KeyframeTripletButtons(ctx: ctx, keys: keys, m: m).equatable()
+    }
+}
+
+struct KeyframeTripletButtons: View, Equatable {
+    let ctx: InspectorContext
+    let keys: [ParamKey]
+    let m: KeyframeTriplet.Model
+
+    nonisolated static func == (a: Self, b: Self) -> Bool { MainActor.assumeIsolated { a.m == b.m && a.keys == b.keys } }
+
+    var body: some View {
+        let store = ctx.store
+        let ctx = self.ctx
         HStack(spacing: 1) {
-            Button { if let prev, let clip { store.seek(to: clip.start + prev) } } label: {
+            Button { if let prev = m.prev, let clip = ctx.clip { store.seek(to: clip.start + prev) } } label: {
                 Image(systemName: "chevron.left").font(.system(size: 9, weight: .medium)).frame(width: 12, height: 20).contentShape(Rectangle())
             }
-            .disabled(prev == nil)
-            .foregroundStyle(prev == nil ? IStyle.iconDim.opacity(0.6) : IStyle.icon)
+            .disabled(m.prev == nil)
+            .foregroundStyle(m.prev == nil ? IStyle.iconDim.opacity(0.6) : IStyle.icon)
             Button {
-                guard let clip else { return }
-                let keys = self.keys
+                guard let clip = ctx.clip else { return }
+                let keys = self.keys, local = ctx.localTime, tol = ctx.keyframeTolerance
+                let on = clip.isOnKeyframe(keys, at: local, tolerance: tol)
                 store.perform(UpdateClip(clip.id, nameKey: on ? "cmd.keyframe.remove" : "cmd.keyframe.add") {
                     $0.toggleKeyframes(keys, at: local, tolerance: tol)
                 })
             } label: {
-                Image(systemName: on ? "diamond.fill" : "diamond")
+                Image(systemName: m.on ? "diamond.fill" : "diamond")
                     .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(on ? Theme.accent : (active ? (has ? Color.white : IStyle.icon) : IStyle.iconDim.opacity(0.6)))
+                    .foregroundStyle(m.on ? Theme.accent : (m.active ? (m.has ? Color.white : IStyle.icon) : IStyle.iconDim.opacity(0.6)))
                     .frame(width: 16, height: 20).contentShape(Rectangle())
             }
-            .disabled(!active)
-            .help(tr(on ? "inspector.keyframe.remove" : "inspector.keyframe.add"))
-            Button { if let next, let clip { store.seek(to: clip.start + next) } } label: {
+            .disabled(!m.active)
+            .help(tr(m.on ? "inspector.keyframe.remove" : "inspector.keyframe.add"))
+            Button { if let next = m.next, let clip = ctx.clip { store.seek(to: clip.start + next) } } label: {
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .medium)).frame(width: 12, height: 20).contentShape(Rectangle())
             }
-            .disabled(next == nil)
-            .foregroundStyle(next == nil ? IStyle.iconDim.opacity(0.6) : IStyle.icon)
+            .disabled(m.next == nil)
+            .foregroundStyle(m.next == nil ? IStyle.iconDim.opacity(0.6) : IStyle.icon)
         }
         .buttonStyle(.plain)
         .frame(width: IStyle.tripletWidth)
@@ -235,6 +259,20 @@ struct KeyframeTriplet: View {
 }
 
 // MARK: - Rows
+
+/// Perf (W14): a slider row re-renders only when what it shows changes. During a drag of one slider every other row of
+/// the inspector gets new closures (non-comparable) but the same values; comparing the displayed values lets SwiftUI
+/// skip their bodies and layout. `unit` changes with the exact value, so captured values in closures stay current;
+/// the keyframe triplet and accessories observe the store themselves and update independently.
+extension SliderRowView: Equatable {
+    nonisolated static func == (a: SliderRowView, b: SliderRowView) -> Bool {
+        MainActor.assumeIsolated {
+            a.label == b.label && a.unit == b.unit && a.originUnit == b.originUnit && a.display == b.display && a.enabled == b.enabled
+                && a.ticks == b.ticks && a.gradient == b.gradient && a.testID == b.testID
+                && (a.triplet == nil) == (b.triplet == nil) && (a.labelAccessory == nil) == (b.labelAccessory == nil)
+        }
+    }
+}
 
 /// `Label` on its own line, then `[──●──] [value][⇕] ‹◇›` (UX.md §5 "Rows").
 struct SliderRowView: View {

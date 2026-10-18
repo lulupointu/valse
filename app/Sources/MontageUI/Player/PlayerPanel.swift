@@ -69,12 +69,12 @@ struct TransportBar: View {
     @Bindable var ui: PlayerUIState
 
     var body: some View {
-        let rate = store.project.settings.frameRate
+        let rate = store.projectSettings.frameRate
         ZStack {
             HStack(spacing: 4) {
                 Text(verbatim: Timecode.string(transport.playhead, rate: rate)).foregroundStyle(Theme.accent)
                 Text(verbatim: "/").foregroundStyle(Theme.textTertiary)
-                Text(verbatim: Timecode.string(store.project.duration, rate: rate)).foregroundStyle(Theme.textSecondary)
+                Text(verbatim: Timecode.string(store.projectDuration, rate: rate)).foregroundStyle(Theme.textSecondary)
                 Spacer()
                 PopupButton(help: tr("player.quality")) { BoxLabel(text: tr(PlayerMenus.qualityShortKey(store.previewQuality))) }
                     menu: { PlayerMenus.quality(store) }

@@ -128,7 +128,7 @@ struct TitleBar: View {
                     }
                 }
                 .buttonStyle(AccentButtonStyle())
-                .disabled(store.project.duration == .zero)
+                .disabled(store.projectDuration == .zero)
                 .keyboardShortcut("e", modifiers: .command)
                 .testID("titlebar.export")
             }
