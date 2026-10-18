@@ -39,7 +39,7 @@ Run `scripts/uitest.sh app/Tests/UIScripts/<name>.json`. Output goes to `build/u
 errors, metrics), `final.json` (state dump), every `snapshot` PNG, and on failure `failure.json` + `failure.png`.
 **Open the PNGs and look at them.** Exit code 0 = pass. `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
 
-Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`.
+Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`; per area: `timeline_edit` (move, ⌫, W, magnet), `canvas_drag` (select + drag on the preview), `inspector_tabs` (Scale + Speed fields), `audio_volume`, `text_add`, `ai_tts`, `ai_transcript_panel`.
 
 ### Script keys
 

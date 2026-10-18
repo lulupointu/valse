@@ -1,0 +1,19 @@
+// Timeline (W1): move a clip by dragging, delete it with ⌫, undo twice; W = trim end to playhead; magnet toggle.
+{
+  "project": "demo",
+  "steps": [
+    {"drag": "clip:1/0", "by": [80, 0]},
+    {"expect": [{"path": "tracks.1.clips.0.start", "gt": 2.5}, {"path": "undo.name", "equals": "cmd.move"},
+                {"path": "selectedClips.0.track", "equals": 1}]},
+    {"key": "delete"},
+    {"expect": [{"path": "selection.count", "equals": 0}, {"path": "undo.depth", "equals": 2}]},
+    {"key": "cmd+z", "repeat": 2},
+    {"expect": [{"path": "tracks.1.clips.0.start", "approx": 2.0}, {"path": "undo.depth", "equals": 0}]},
+    {"click": "time:7.5@ruler"},
+    {"key": "w"},
+    {"expect": [{"path": "main.clips.1.end", "approx": 7.5, "tolerance": 0.05}, {"path": "main.clips.count", "equals": 3}]},
+    {"click": "id:toolbar.magnet"},
+    {"expect": {"path": "project.timeline.mainTrackMagnet", "equals": false}},
+    {"snapshot": "timeline-edited", "element": "id:panel.timeline"}
+  ]
+}

@@ -1,0 +1,13 @@
+// Text (W7): drop "Default text" from the Text tab onto the timeline at 12 s: a selected text clip, Text inspector; undo.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "montage.text.default"}, "on": "time:12@2"},
+    {"expect": [{"path": "selectedClips.0.kind", "equals": "text"}, {"path": "selectedClips.0.start", "approx": 12, "tolerance": 0.1},
+                {"path": "ui.inspectorTab", "equals": "text"}, {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "text-added"},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "undo.depth", "equals": 0}, {"path": "selection.count", "equals": 0}]}
+  ]
+}

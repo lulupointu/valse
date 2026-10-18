@@ -1,0 +1,16 @@
+// Audio (W8): select the music clip, Basic tab ▸ Volume: type -12 dB (≈ ×0.25 gain); undo restores.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:5/0"},
+    {"expect": [{"path": "ui.inspectorTabs", "contains": "audioBasic"}, {"path": "selectedClips.0.volume", "approx": 0.5}]},
+    {"click": "id:inspector.tab.audioBasic"},
+    {"click": "id:slider.audio.volume.field"},
+    {"type": "-12", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "selectedClips.0.volume", "approx": 0.251, "tolerance": 0.02}, {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "volume", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.volume", "approx": 0.5}}
+  ]
+}

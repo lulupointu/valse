@@ -1,0 +1,15 @@
+// Player canvas (W2): click the overlay in the preview to select it, drag it left: position changes, one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:3@ruler"},
+    {"click": "player:0.76,0.3"},
+    {"expect": [{"path": "selectedClips.0.track", "equals": 1}, {"path": "selectedClips.0.positionX", "approx": 0.28}]},
+    {"drag": "player:0.76,0.3", "by": [-120, 0]},
+    {"expect": [{"path": "selectedClips.0.positionX", "lt": 0.2}, {"path": "selectedClips.0.positionY", "approx": -0.25, "tolerance": 0.02},
+                {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "canvas-moved", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.positionX", "approx": 0.28}}
+  ]
+}

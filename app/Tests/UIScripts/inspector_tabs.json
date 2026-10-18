@@ -1,0 +1,21 @@
+// Inspector (W3): Video ▸ Scale field, then Speed tab ▸ Speed field: the clip gets shorter; undo restores.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/1"},
+    {"click": "id:slider.Scale.field"},
+    {"type": "50", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "selectedClips.0.scale", "approx": 0.5, "tolerance": 0.01}},
+    {"click": "id:inspector.tab.speed"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "speed"}},
+    {"click": "id:slider.Speed.field"},
+    {"type": "2", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "selectedClips.0.speed", "approx": 2.0, "tolerance": 0.01},
+                {"path": "selectedClips.0.duration", "lt": 3.0}]},
+    {"snapshot": "speed-2x", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.speed", "approx": 1.0}}
+  ]
+}
