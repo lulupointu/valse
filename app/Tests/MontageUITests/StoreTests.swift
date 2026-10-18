@@ -111,7 +111,7 @@ import MontageTestSupport
         MontageBootstrap.registerResources()
         var keys: [String] = []
         keys += Registries.effects.all.filter { $0.id.hasPrefix("montage.") }.flatMap { [$0.nameKey, $0.groupKey] + $0.params.map(\.nameKey) }
-        keys += Registries.transitions.all.flatMap { [$0.nameKey, $0.groupKey] }
+        keys += Registries.transitions.all.flatMap { [$0.nameKey, $0.groupKey] + $0.params.map(\.nameKey) }
         keys += Registries.animations.all.map(\.nameKey)
         keys += Registries.stickers.all.flatMap { [$0.nameKey, $0.groupKey] }
         keys += Registries.textStyles.all.map(\.nameKey)

@@ -76,9 +76,28 @@ public final class EffectPipelines: @unchecked Sendable {
 
     /// Compiles every registered effect/transition; returns id → error for failures (used by tests).
     public func validateAll() -> [String: String] {
-        for d in Registries.effects.all { _ = effect(d) }
-        for d in Registries.transitions.all { _ = transition(d) }
+        let effects = Registries.effects.all, transitions = Registries.transitions.all
+        // Runtime MSL compiles are independent and thread-safe: spread them over the cores.
+        DispatchQueue.concurrentPerform(iterations: effects.count + transitions.count) { i in
+            if i < effects.count { _ = effect(effects[i]) } else { _ = transition(transitions[i - effects.count]) }
+        }
         return lock.withLock { errors }
+    }
+
+    /// Compiles the pipelines a project uses in the background, so the first frame of a transition/effect does not
+    /// stall the compositor (a runtime compile takes ~0.1–0.2 s). Cheap when everything is cached.
+    public func prewarm(_ project: Project) {
+        var tIDs = Set<String>(), eIDs = Set<String>()
+        for c in project.timeline.allClips {
+            if let t = c.transitionOut { tIDs.insert(t.typeID) }
+            for e in c.effects { eIDs.insert(e.typeID) }
+        }
+        let missing: [() -> Void] = lock.withLock {
+            tIDs.filter { transitions[$0] == nil }.compactMap { id in Registries.transitions[id].map { d in { _ = self.transition(d) } } }
+            + eIDs.filter { effects[$0] == nil }.compactMap { id in Registries.effects[id].map { d in { _ = self.effect(d) } } }
+        }
+        guard !missing.isEmpty else { return }
+        DispatchQueue.global(qos: .utility).async { DispatchQueue.concurrentPerform(iterations: missing.count) { missing[$0]() } }
     }
 
     private func compile(id: String, source: String, fn: String) -> MTLRenderPipelineState? {

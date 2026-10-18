@@ -124,6 +124,7 @@ public final class PlaybackEngine {
     public func update(project: Project, force: Bool = false) {
         self.project = project
         requestDerivedMedia(project)
+        EffectPipelines.shared.prewarm(project)
         state.update(project: project)
         audioState.update(project: project)
         let size = Self.previewSize(canvas: project.settings.canvasSize, quality: previewQuality)
