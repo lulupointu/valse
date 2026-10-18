@@ -14,7 +14,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | WS | Area | Wave | State | Branch / last merge |
 |---|---|---|---|---|
 | W1 | Timeline editing UX | 1 | merged (24 done / 10 partial / 1 blocked) | main 82aaa0d |
-| W2 | Player canvas & playback | 1 | running | worktree-agent-a3c6e5cca7f786ff4 |
+| W2 | Player canvas & playback | 1 | merged (10 done / 7 partial) | main bf3e193 |
 | W3 | Inspector panels | 1 | merged (16 done / 14 partial / 1 blocked) | main 19504fe |
 | W6+W9 | Render engine + media pipeline | 1 | running (+ colour helper a7f0245b, media helper a83b02c9 done, unmerged @5752332) | worktree-agent-a02d613df7e45068d |
 | W8 | Audio | 1 | running | worktree-agent-ae7ca6ffd6a3618a5 |
@@ -22,7 +22,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W4 | Effects & filters content | 2 | queued | |
 | W5 | Transitions & animations content | 2 | queued | |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | queued | |
-| W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | queued | |
+| W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | running | |
 | W11 | Export & interchange | 2 | queued | |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | queued | |
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | queued | |
