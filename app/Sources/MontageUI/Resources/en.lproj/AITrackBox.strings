@@ -1,0 +1,8 @@
+/* AI2: AI remove ▸ Track object (AI-041), camera tracking ▸ Custom box (AI-013) */
+"remove.track" = "Track object";
+"remove.track.hint" = "The brushed area follows the object as it moves (paint it on the current frame). Leave off for logos and watermarks.";
+"cameraLock.target.custom" = "Custom box";
+"cameraLock.keepObject" = "Keep object size";
+"cameraLock.box.hint" = "Draw a box around the subject in the player, then click Track.";
+"cameraLock.box.track" = "Track";
+"cameraLock.box.edit" = "Edit box";

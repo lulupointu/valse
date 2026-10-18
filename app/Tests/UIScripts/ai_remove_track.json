@@ -1,0 +1,17 @@
+// AI2 (AI-041): Video ▸ Basic ▸ ☐ AI remove on a video offers ☐ Track object (the brushed mask follows a moving
+// object; off = static mask for logos). Runs without the LaMa model (the Download row shows; Remove is disabled).
+// The tracked inpainting itself is ai_remove_track_inference.json (LaMa) and RemovalTrackingAITests.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"scroll": "id:inspector.section.video.stabilize", "dx": 0, "dy": -800},
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.5]},
+    {"expect": [{"path": "ui.anchors", "contains": "remove.track"}, {"path": "ui.anchors", "contains": "model.download.coreml.lama-800"}]},
+    {"click": "id:remove.track", "at": [0.95, 0.5]},
+    {"drag": "player:0.3,0.5", "to": "player:0.4,0.55", "steps": 8},
+    {"snapshot": "remove-track", "element": "id:inspector.section.video.aiRemove", "baseline": true, "tolerance": 0.01},
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.08]}
+  ]
+}

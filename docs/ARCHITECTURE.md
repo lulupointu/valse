@@ -407,6 +407,10 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **AI remove**: `LaMaInpainter` (Core ML LaMa 800², zip from the model manager → compiled `Caches/Montage/models/LaMa.mlmodelc`;
   mask bbox ×2 crop → 800 px → feathered paste-back) → `ObjectRemover` (image PNG / per-frame video ≤ 30 s) → `ObjectRemovalJob`
   swaps the clip's media (`Clip.removal`, strokes = `RemovalStroke` raw source coords). UI `AIRemoveUI.swift` (`RemoveBrushTool`).
+  Track object (AI2): `ObjectRemovalInfo.tracking` (`RemovalTracking`, media time of the brushed frame) → `ObjectRemover.trackedBoxes`
+  (`ObjectTracker` on the strokes' bounds) → per frame `RemovalTracking.box(at:)` + `transform` (Core) move/scale the strokes
+  before the mask is drawn; the cache key includes the tracking. Camera tracking ▸ Custom box: `CameraLockOptions.customBox/customTime`
+  → `ObjectTracker` → `CameraLock.samples(fromTracked:)`; UI `LockBoxTool` (wraps `MotionTrackBoxTool` over the clip's own layer).
 - **EditPilot** (AI-048, `MontageAI/Pilot`): `EditPilotPlanner` (Foundation Models → Qwen sidecar → `PilotRules` FR/EN
   keyword planner; UI tests on the sandboxed models folder always use the rules, `ModelCatalog.isSandboxed`) turns a chat
   request into `PilotAction`s — a closed, typed, validated command set (`PilotCallParser` drops unknown tools, clamps numbers,

@@ -75,7 +75,15 @@ public enum CameraLockJob {
     public static func run(project p: Project, clipID: ClipID, options: CameraLockOptions,
                            progress: (@Sendable (Double) -> Void)? = nil) async throws -> any EditCommand {
         guard let c = p.timeline.clip(clipID), let a = c.mediaID.flatMap(p.asset), a.kind == .video else { throw AIToolError.noInput }
-        let s = try await CameraTracker.samples(a, range: c.sourceRange, target: options.target, progress: progress)
+        let s: [LockSample]
+        if options.target == .custom {
+            // custom box (AI2): track the drawn object like motion tracking, then lock the camera on it
+            guard let box = options.customBox else { throw AIToolError.noInput }
+            let t = try await ObjectTracker.track(a, box: box, at: options.customTime ?? c.sourceStart.seconds, range: c.sourceRange, progress: progress)
+            s = CameraLock.samples(fromTracked: t, rotation: a.sourceRotation)
+        } else {
+            s = try await CameraTracker.samples(a, range: c.sourceRange, target: options.target, progress: progress)
+        }
         guard s.contains(where: { $0.size > 0 }) else { throw AIToolError.noInput }
         let source = a.pixelSize, canvas = p.settings.canvasSize
         return Edit("cmd.cameraLock") { p in

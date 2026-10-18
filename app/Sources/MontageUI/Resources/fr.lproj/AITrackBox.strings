@@ -1,0 +1,8 @@
+/* AI2 : Suppression par l'IA ▸ Suivre l'objet (AI-041), suivi de la caméra ▸ Cadre personnalisé (AI-013) */
+"remove.track" = "Suivre l'objet";
+"remove.track.hint" = "La zone peinte suit l'objet quand il bouge (peignez-le sur l'image actuelle). Laissez désactivé pour les logos et filigranes.";
+"cameraLock.target.custom" = "Cadre personnalisé";
+"cameraLock.keepObject" = "Conserver la taille de l'objet";
+"cameraLock.box.hint" = "Tracez un cadre autour du sujet dans le lecteur, puis cliquez sur Suivre.";
+"cameraLock.box.track" = "Suivre";
+"cameraLock.box.edit" = "Modifier le cadre";

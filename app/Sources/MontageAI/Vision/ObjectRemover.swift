@@ -205,12 +205,24 @@ public enum ObjectRemover {
         return ctx.makeImage()!
     }
 
-    static func key(_ a: MediaAsset, _ strokes: [RemovalStroke]) -> String {
-        let d = (try? JSONEncoder().encode(strokes)) ?? Data()
+    static func key(_ a: MediaAsset, _ strokes: [RemovalStroke], tracking: RemovalTracking? = nil) -> String {
+        var d = (try? JSONEncoder().encode(strokes)) ?? Data()
+        if let tracking { d += Data(String(format: "track@%.4f", tracking.time).utf8) }
         return a.contentHash + "-" + SHA256.hash(data: d).prefix(6).map { String(format: "%02x", $0) }.joined()
     }
 
-    public static func process(_ a: MediaAsset, strokes: [RemovalStroke], progress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
+    /// Track object (AI2): the object under the strokes' bounding box, tracked through the whole media from the brushed
+    /// frame (Vision, ≤ 640 px). Empty when there's nothing to track.
+    public static func trackedBoxes(_ a: MediaAsset, strokes: [RemovalStroke], tracking: RemovalTracking,
+                                    progress: (@Sendable (Double) -> Void)? = nil) async throws -> (ref: NormRect, samples: [TrackSample])? {
+        let (rw, rh) = a.sourceRotation % 180 == 0 ? (a.pixelSize.width, a.pixelSize.height) : (a.pixelSize.height, a.pixelSize.width)
+        guard let ref = RemovalTracking.bounds(strokes, aspect: rw / max(rh, 1)) else { return nil }
+        let samples = try await ObjectTracker.track(a, box: ref, at: tracking.time, range: TimeRange(start: .zero, duration: a.duration), progress: progress)
+        return samples.isEmpty ? nil : (ref, samples)
+    }
+
+    public static func process(_ a: MediaAsset, strokes: [RemovalStroke], tracking: RemovalTracking? = nil,
+                               progress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let lama = try LaMaInpainter.acquire()
         defer { LaMaInpainter.release() }
@@ -227,8 +239,14 @@ public enum ObjectRemover {
             return out
         }
         guard a.duration.seconds <= maxVideoSeconds + 0.5 else { throw AIToolError.unavailable("too long") }
-        let out = directory.appendingPathComponent(key(a, strokes) + ".mov")
+        let out = directory.appendingPathComponent(key(a, strokes, tracking: tracking) + ".mov")
         if FileManager.default.fileExists(atPath: out.path) { return out }
+        // moving object: track it first (30 % of the progress), then move the mask on every frame
+        var track: (ref: NormRect, samples: [TrackSample])?
+        if let tracking {
+            track = try await trackedBoxes(a, strokes: strokes, tracking: tracking) { progress?(0.3 * $0) }
+        }
+        let base = track == nil ? 0.0 : 0.3
         let av = AVURLAsset(url: a.url)
         guard let vt = try await av.loadTracks(withMediaType: .video).first else { throw AIToolError.noInput }
         let natural = try await vt.load(.naturalSize), transform = try await vt.load(.preferredTransform)
@@ -270,7 +288,11 @@ public enum ObjectRemover {
                 try Task.checkCancellation()
                 guard let pb = CMSampleBufferGetImageBuffer(sb), let frame = LaMaInpainter.cgImage(pb) else { continue }
                 let pts = CMSampleBufferGetPresentationTimeStamp(sb)
-                let res = try autoreleasepool { try lama.inpaint(frame, mask: m) }
+                var frameMask = m
+                if let track, let box = RemovalTracking.box(at: pts.seconds, in: track.samples) {
+                    frameMask = mask(RemovalTracking.transform(strokes, from: track.ref, to: box), width: w, height: h)
+                }
+                let res = try autoreleasepool { try lama.inpaint(frame, mask: frameMask) }
                 guard let outPB = adaptor.pixelBufferPool.flatMap({ pool -> CVPixelBuffer? in var b: CVPixelBuffer?; CVPixelBufferPoolCreatePixelBuffer(nil, pool, &b); return b }) else { throw AIToolError.noInput }
                 CVPixelBufferLockBaseAddress(outPB, [])
                 let ctx = CGContext(data: CVPixelBufferGetBaseAddress(outPB), width: w, height: h, bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(outPB),
@@ -279,7 +301,7 @@ public enum ObjectRemover {
                 CVPixelBufferUnlockBaseAddress(outPB, [])
                 while !vIn.isReadyForMoreMediaData { try Task.checkCancellation(); try await Task.sleep(nanoseconds: 2_000_000) }
                 adaptor.append(outPB, withPresentationTime: pts)
-                progress?(min(0.99, pts.seconds / duration))
+                progress?(min(0.99, base + (1 - base) * pts.seconds / duration))
             }
             vIn.markAsFinished()
             try await audio?.value
@@ -295,7 +317,8 @@ public enum ObjectRemover {
 
 /// AI remove job → edit swapping the clip to the processed copy (strokes empty = restore the original).
 public enum ObjectRemovalJob {
-    public static func run(project p: Project, clipID: ClipID, strokes: [RemovalStroke], progress: (@Sendable (Double) -> Void)? = nil) async throws -> any EditCommand {
+    public static func run(project p: Project, clipID: ClipID, strokes: [RemovalStroke], tracking: RemovalTracking? = nil,
+                           progress: (@Sendable (Double) -> Void)? = nil) async throws -> any EditCommand {
         guard let c = p.timeline.clip(clipID), let originalID = c.removal?.original ?? c.mediaID, let original = p.asset(originalID) else { throw AIToolError.noInput }
         if strokes.isEmpty {
             return Edit("cmd.aiRemove") { p in
@@ -304,11 +327,12 @@ public enum ObjectRemovalJob {
                 p.timeline[clip: clipID] = c
             }
         }
-        let url = try await ObjectRemover.process(original, strokes: strokes, progress: progress)
+        let track = original.kind == .video ? tracking : nil
+        let url = try await ObjectRemover.process(original, strokes: strokes, tracking: track, progress: progress)
         var processed = try await MediaProbe.probe(url)
         processed.name = original.name
         let asset = processed
-        let info = ObjectRemovalInfo(original: originalID, strokes: strokes)
+        let info = ObjectRemovalInfo(original: originalID, strokes: strokes, tracking: track)
         return Edit("cmd.aiRemove") { p in
             guard var c = p.timeline.clip(clipID) else { throw EditError.clipNotFound }
             let id: MediaID

@@ -1,0 +1,23 @@
+// AI2 (AI-013): Video ▸ Basic ▸ ☐ Camera tracking ▸ Custom box: draw a box on the player (yellow tracking box),
+// Track → the object is tracked (Vision) and the clip gets position keyframes keeping it centred (one undo step).
+{
+  "project": "demo",
+  "size": [1687, 2600],
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    // ticking starts the default (Face) detection; Custom box replaces it with a drawn box
+    {"click": "id:inspector.section.video.cameraLock", "at": [0.035, 0.5]},
+    {"waitFor": {"path": "ui.anchors", "contains": "cameraLock.customBox", "timeout": 5}},
+    {"click": "id:cameraLock.customBox"},
+    {"expect": {"path": "ui.anchors", "contains": "cameraLock.track"}},
+    {"drag": "player:0.1,0.46", "to": "player:0.3,0.56", "steps": 8},
+    {"snapshot": "camera-custom-box", "element": "id:inspector.section.video.cameraLock", "baseline": true, "tolerance": 0.01},
+    {"click": "id:cameraLock.track"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.cameraLock", "timeout": 40}},
+    // (keyframe accuracy on a moving object is covered by RemovalTrackingAITests.cameraLocksOnACustomBox)
+    {"expect": [{"path": "ui.anchors", "contains": "cameraLock.editBox"}, {"path": "selectedClips.0.scale", "approx": 1.25}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.scale", "approx": 1}}
+  ]
+}

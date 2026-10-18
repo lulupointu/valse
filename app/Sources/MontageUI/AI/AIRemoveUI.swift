@@ -28,6 +28,10 @@ enum AIRemoveInspector {
 
 struct AIRemoveSection: View {
     let ctx: InspectorContext
+    var isVideo: Bool {
+        guard let c = ctx.clip else { return false }
+        return (c.removal?.original ?? c.mediaID).flatMap(ctx.store.project.asset)?.kind == .video
+    }
     var body: some View {
         let store = ctx.store
         VStack(alignment: .leading, spacing: 8) {
@@ -46,6 +50,11 @@ struct AIRemoveSection: View {
                               commit: { tool.size = min(max($0, 1), 100) }, step: { tool.size = min(max(tool.size + Double($0), 1), 100) },
                               triplet: nil)
                 HintText(text: tr("remove.hint"))
+                if isVideo {   // AI2 AI-041: the mask follows a moving object
+                    ToggleLine(label: tr("remove.track"), detail: tr("remove.track.hint"),
+                               isOn: Binding(get: { tool.track }, set: { tool.track = $0 }))
+                        .testID("remove.track")
+                }
                 HStack {
                     Spacer()
                     PillButton(title: tr("remove.clear"), enabled: !tool.strokes.isEmpty) { tool.clear() }
@@ -64,6 +73,8 @@ struct AIRemoveSection: View {
 public final class RemoveBrushTool: CanvasTool {
     public let clipID: ClipID
     public var size: Double = 25
+    /// Track object (AI-041): move the mask with the object brushed on this frame.
+    public var track = false
     public private(set) var strokes: [RemovalStroke] = []
     public private(set) var revision = 0
     @ObservationIgnored weak var store: EditorStore?
@@ -74,6 +85,7 @@ public final class RemoveBrushTool: CanvasTool {
     init(clipID: ClipID, store: EditorStore) {
         self.clipID = clipID; self.store = store
         strokes = store.project.timeline.clip(clipID)?.removal?.strokes ?? []
+        track = store.project.timeline.clip(clipID)?.removal?.tracking != nil
     }
 
     public func clear() { strokes = []; painted = []; revision += 1 }
@@ -137,18 +149,22 @@ extension EditorStore {
     public func applyRemoveBrush() {
         guard let t = ai.removeTool, !t.strokes.isEmpty else { return }
         let strokes = t.strokes
+        // media time of the brushed frame (the strokes' reference for Track object)
+        let tracking: RemovalTracking? = t.track ? project.timeline.clip(t.clipID).map { c in
+            RemovalTracking(time: c.sourceTime(at: transport.playhead.clamped(c.start, c.end)).seconds)
+        } : nil
         endRemoveBrush()
-        runRemoval(t.clipID, strokes: strokes)
+        runRemoval(t.clipID, strokes: strokes, tracking: tracking)
     }
 
-    public func runRemoval(_ clipID: ClipID, strokes: [RemovalStroke]) {
+    public func runRemoval(_ clipID: ClipID, strokes: [RemovalStroke], tracking: RemovalTracking? = nil) {
         cancelRemoval(clipID)
         guard !strokes.isEmpty || project.timeline.clip(clipID)?.removal != nil else { return }
         let project = self.project
         let box = CommandBox()
         Task {
             let id = await JobQueue.shared.enqueue(titleKey: "remove.job", priority: 1, subject: clipID.description) { progress in
-                box.command = try await ObjectRemovalJob.run(project: project, clipID: clipID, strokes: strokes) { progress.report($0) }
+                box.command = try await ObjectRemovalJob.run(project: project, clipID: clipID, strokes: strokes, tracking: tracking) { progress.report($0) }
             }
             ai.removeJobs[clipID] = id
             let st = await JobQueue.shared.wait(id)

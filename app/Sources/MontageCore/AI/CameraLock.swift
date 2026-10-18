@@ -6,10 +6,12 @@ import Foundation
 public struct CameraLockOptions: Hashable, Codable, Sendable {
     public enum Target: String, Codable, Sendable, CaseIterable {
         case face, body, hand
+        /// A box drawn on the canvas, tracked as an object (AI2).
+        case custom
         public var nameKey: String { "cameraLock.target.\(rawValue)" }
         /// "Keep face size" / "Keep body size" / "Keep hand size".
         public var keepSizeKey: String {
-            switch self { case .face: return "cameraLock.keepFace"; case .body: return "cameraLock.keepBody"; case .hand: return "cameraLock.keepHand" }
+            switch self { case .face: return "cameraLock.keepFace"; case .body: return "cameraLock.keepBody"; case .hand: return "cameraLock.keepHand"; case .custom: return "cameraLock.keepObject" }
         }
     }
     public enum Fill: String, Codable, Sendable, CaseIterable {
@@ -25,6 +27,9 @@ public struct CameraLockOptions: Hashable, Codable, Sendable {
     public var fill: Fill
     /// Base zoom (1 = fitted).
     public var zoom: Double
+    /// Custom target: the box (raw source coords, y down) drawn at media time `customTime`.
+    public var customBox: NormRect?
+    public var customTime: Double?
     public init(target: Target = .face, keepSize: Bool = false, fill: Fill = .blur, zoom: Double = 1.25) {
         self.target = target; self.keepSize = keepSize; self.fill = fill; self.zoom = zoom
     }
@@ -46,6 +51,14 @@ public enum CameraLock {
         let xs = ok.map(\.x), ys = ok.map { 1 - $0.y }
         let (x0, x1, y0, y1) = (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
         return ((x0 + x1) / 2, (y0 + y1) / 2, max(x1 - x0, y1 - y0) * 1.3)
+    }
+
+    /// Custom box target: tracked boxes (raw source coords) → lock samples in display coordinates.
+    public static func samples(fromTracked t: [TrackSample], rotation: Int) -> [LockSample] {
+        t.map { s in
+            let c = MotionTracking.rawToDisplay(s.box.center, rotation: rotation)
+            return LockSample(time: s.time, x: c.x, y: c.y, size: rotation % 180 == 0 ? s.box.height : s.box.width)
+        }
     }
 
     /// Fills gaps by holding the last seen subject (size 0 = not found) and Gaussian-smooths (σ ≈ 0.35 s).

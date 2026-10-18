@@ -80,7 +80,60 @@ extension EnhanceLevel {
 public struct ObjectRemovalInfo: Hashable, Codable, Sendable {
     public var original: MediaID
     public var strokes: [RemovalStroke]
-    public init(original: MediaID, strokes: [RemovalStroke]) { self.original = original; self.strokes = strokes }
+    /// "Track object" (AI2): the brushed area follows the object; nil = static mask (logos, watermarks).
+    public var tracking: RemovalTracking?
+    public init(original: MediaID, strokes: [RemovalStroke], tracking: RemovalTracking? = nil) {
+        self.original = original; self.strokes = strokes; self.tracking = tracking
+    }
+}
+
+/// AI remove ▸ Track object (AI-041): the strokes were painted on the frame at media time `time`; the object under
+/// their bounding box is tracked through the clip and the mask is moved (and scaled) with it on every frame.
+public struct RemovalTracking: Hashable, Codable, Sendable {
+    public var time: Double
+    public init(time: Double) { self.time = time }
+
+    /// Bounding box of the strokes (raw source coords, y down); `aspect` = source width / height (radius is a fraction
+    /// of the width). Erase strokes don't count.
+    public static func bounds(_ strokes: [RemovalStroke], aspect: Double) -> NormRect? {
+        var x0 = Double.infinity, y0 = Double.infinity, x1 = -Double.infinity, y1 = -Double.infinity
+        for s in strokes where !s.erase {
+            let ry = s.radius * aspect
+            for p in s.points {
+                x0 = min(x0, p.x - s.radius); x1 = max(x1, p.x + s.radius)
+                y0 = min(y0, p.y - ry); y1 = max(y1, p.y + ry)
+            }
+        }
+        guard x1 > x0, y1 > y0 else { return nil }
+        let a = max(0, x0), b = max(0, y0)
+        let r = NormRect(x: a, y: b, width: min(1, x1) - a, height: min(1, y1) - b)
+        return r.isEmpty ? nil : r
+    }
+
+    /// The tracked box at media time `t`: linear between samples, held before the first / after the last (an object
+    /// that is lost keeps its last position).
+    public static func box(at t: Double, in samples: [TrackSample]) -> NormRect? {
+        guard let first = samples.first, let last = samples.last else { return nil }
+        if t <= first.time { return first.box }
+        if t >= last.time { return last.box }
+        var lo = 0, hi = samples.count - 1
+        while hi - lo > 1 { let m = (lo + hi) / 2; if samples[m].time <= t { lo = m } else { hi = m } }
+        let a = samples[lo], b = samples[hi]
+        let k = (t - a.time) / max(b.time - a.time, 1e-9)
+        func mix(_ u: Double, _ v: Double) -> Double { u + (v - u) * k }
+        return NormRect(x: mix(a.box.x, b.box.x), y: mix(a.box.y, b.box.y), width: mix(a.box.width, b.box.width), height: mix(a.box.height, b.box.height))
+    }
+
+    /// Strokes moved from the reference box to `box`: points keep their position relative to the box (centre +
+    /// per-axis scale), radii scale with the box width.
+    public static func transform(_ strokes: [RemovalStroke], from ref: NormRect, to box: NormRect) -> [RemovalStroke] {
+        let sx = box.width / max(ref.width, 1e-6), sy = box.height / max(ref.height, 1e-6)
+        let c0 = ref.center, c1 = box.center
+        return strokes.map { s in
+            RemovalStroke(points: s.points.map { Vec2(c1.x + ($0.x - c0.x) * sx, c1.y + ($0.y - c0.y) * sy) },
+                          radius: s.radius * sx, erase: s.erase)
+        }
+    }
 }
 
 public struct RemovalStroke: Hashable, Codable, Sendable {

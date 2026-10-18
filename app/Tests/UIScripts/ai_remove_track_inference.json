@@ -1,0 +1,19 @@
+// AI2 (AI-041): AI remove with ☐ Track object → the brushed object is tracked, then LaMa inpaints every frame with
+// the moved mask in the background (progress on the section). SKIPPED without the LaMa model.
+{
+  "project": "demo",
+  "requires": {"models": ["coreml.lama-800"]},
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"scroll": "id:inspector.section.video.stabilize", "dx": 0, "dy": -800},
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.5]},
+    {"click": "id:remove.track", "at": [0.95, 0.5]},
+    {"drag": "player:0.3,0.5", "to": "player:0.4,0.55", "steps": 8},
+    {"click": "id:remove.apply"},
+    {"waitFor": {"path": "ui.anchors", "contains": "remove.progress", "timeout": 10}},
+    {"snapshot": "remove-track-running", "element": "id:panel.inspector"},
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.08]},
+    {"wait": 1}
+  ]
+}
