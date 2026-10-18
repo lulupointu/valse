@@ -9,7 +9,8 @@
     {"seek": 14},
     {"key": "opt+shift+k"},
     {"expect": {"path": "selectedClips.0.keyframeCounts.transform_position", "equals": 2}},
-    {"click": "clip:main/2:0.083333", "offset": [0, 32]},
+    // keyframe diamonds sit on the clip's vertical centre (W1, UX.md §6)
+    {"click": "clip:main/2:0.083333"},
     {"expect": [{"path": "ui.selectedKeyframe.time", "approx": 0.5, "tolerance": 0.05}, {"path": "playhead", "approx": 11, "tolerance": 0.05}]},
     {"key": "opt+k"},
     {"expect": {"path": "ui.keyframePanel", "equals": true}},
