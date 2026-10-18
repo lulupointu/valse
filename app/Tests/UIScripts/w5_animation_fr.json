@@ -1,0 +1,14 @@
+// W5: French Animation tab — names fit the 62 pt tiles (UX_GAPS W5-3), mid-animation stills.
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "clip:main/2"},
+    {"click": "id:inspector.tab.animation"},
+    {"snapshot": "animation-in-fr", "element": "id:panel.inspector", "baseline": "w5_animation_in_fr"},
+    {"click": "id:inspector.sub.out"},
+    {"snapshot": "animation-out-fr", "element": "id:panel.inspector"},
+    {"click": "id:inspector.sub.combo"},
+    {"snapshot": "animation-combo-fr", "element": "id:panel.inspector"}
+  ]
+}

@@ -1,0 +1,14 @@
+// W5: Animation tab on a text clip (per-glyph presets, mid-animation stills — UX_GAPS W7-1) and on a sticker (Loop).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:2/0"},
+    {"click": "id:inspector.tab.animation"},
+    {"snapshot": "text-animation-in", "element": "id:panel.inspector", "baseline": "w5_text_animation_in"},
+    {"click": "id:inspector.sub.loop"},
+    {"snapshot": "text-animation-loop", "element": "id:panel.inspector"},
+    {"click": "clip:3/0"},
+    {"click": "id:inspector.tab.animation"},
+    {"snapshot": "sticker-animation", "element": "id:panel.inspector"}
+  ]
+}

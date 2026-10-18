@@ -330,6 +330,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 ## W5: Transitions and animations content (running)
 
 **W5-1 · P1 · The transition library is nearly empty.**
+  *Fixed on the W5 branch: 121 transitions in 12 categories + Trending + Favorites (☆ on hover, shared `EffectFavorites`), search, shader-rendered A→B stills and hover loops (`w5_transitions_tab`).*
 - CapCut ([64](ux/64_assets_transitions.png)): Favorites, Trending, and more than 15 categories with hundreds of items, a search
   field, and an A→B demo on hover.
 - Montage ([04_assets_tabs_en](ux_review/04_assets_tabs_en.png)): Basic shows two items (Dissolve, Black fade) as static glyph
@@ -337,12 +338,14 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: deliver the W5 content, use the same `EffectLibraryTab` grid as Effects (search, ☆, ⊕), and add rendered A→B thumbnails.
 
 **W5-2 · P1 · There are few video animations, and the tiles are generic glyphs.**
+  *Fixed on the W5 branch: 91 In/Out/Combo/Loop presets; tiles show the subject (sample picture / "Abc" / sticker) caught mid-animation and play on hover (`w5_animation_apply`, `w5_animation_text_sticker`). Glyph text tiles (W7) also show a mid-animation still now.*
 - CapCut ([31](ux/31_insp_animation.png)): dozens of In, Out and Combo tiles that play the animation on hover.
 - Montage ([09_inspector_speed_anim](ux_review/09_inspector_speed_anim.png)): 5 In and 2 Combo, shown as teal icon tiles with no
   preview.
 - Fix: add more content and rendered preview loops (at least a rendered still of mid-animation).
 
 **W5-3 · P2 · French animation names are truncated.**
+  *Fixed on the W5 branch: shorter French names (no redundant entrant/sortant) and two-line captions on animation tiles (`w5_animation_fr`).*
 - Montage ([14](ux_review/14_inspector_fr_video.png)): "Fond…ntrant", "Glisse…haut", "Glisse…droite", "Rotati…trante",
   "Mom…roïque", "Flash…erture".
 - Fix: shorter French names ("Fondu", "Vers le haut", "Rotation"…) or two-line captions.

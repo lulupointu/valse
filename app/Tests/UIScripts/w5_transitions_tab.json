@@ -1,4 +1,5 @@
-// W5: Transitions tab — search, pick a tile, ⊕ replaces the transition at the nearest cut; refused on a lone overlay clip.
+// W5: Transitions tab — search, pick a tile, ⊕ replaces the transition at the nearest cut; refused on a lone overlay clip;
+// ☆ adds it to Favorites (sub-nav), Trending is the default category.
 {
   "project": "demo",
   "steps": [
@@ -13,6 +14,12 @@
     {"snapshot": "transitions-search", "element": "id:panel.assets", "baseline": "w5_transitions_search", "threshold": 40, "tolerance": 0.03},
     {"click": "clip:1/0"},
     {"click": "id:transition.add.heart"},
-    {"expect": [{"path": "ui.toast", "contains": "continuous"}, {"path": "tracks.1.clips.0.transition", "exists": false}]}
+    {"expect": [{"path": "ui.toast", "contains": "continuous"}, {"path": "tracks.1.clips.0.transition", "exists": false}]},
+    {"click": "id:transition.favorite.heart"},
+    {"click": "id:asset.nav.fxlib.nav.favorites"},
+    {"expect": [{"path": "ui.anchors", "contains": "transition.tile.heart"}, {"path": "ui.anchors", "contains": "transition.favorite.heart"}]},
+    {"expect": {"path": "ui.anchors", "contains": "asset.nav.fxlib.nav.curated"}},
+    {"click": "id:asset.nav.fxlib.nav.curated"},
+    {"snapshot": "transitions-trending", "element": "id:panel.assets", "baseline": "w5_transitions_trending", "threshold": 40, "tolerance": 0.03}
   ]
 }

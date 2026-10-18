@@ -464,6 +464,8 @@ struct Tile<Content: View>: View {
     var enabled = true
     var size: CGFloat = 62
     var testID: String? = nil
+    /// Caption lines (animation tiles use 2 so long — e.g. French — names stay readable, UX_GAPS W5-3).
+    var titleLines = 1
     let action: () -> Void
     @ViewBuilder let content: () -> Content
     @State private var hover = false
@@ -488,7 +490,8 @@ struct Tile<Content: View>: View {
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? Theme.accent : (hover ? Color.white.opacity(0.25) : .clear),
                                                                    lineWidth: selected ? 2 : 1))
             Text(verbatim: title).font(.system(size: 11)).foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
-                .lineLimit(1).truncationMode(.middle).frame(width: size + 10)
+                .lineLimit(titleLines).truncationMode(.middle).multilineTextAlignment(.center)
+                .frame(width: size + 10, height: titleLines > 1 ? 28 : nil, alignment: .top)
         }
         .contentShape(Rectangle())
     }

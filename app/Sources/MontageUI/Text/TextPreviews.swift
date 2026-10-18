@@ -90,7 +90,8 @@ struct GlyphAnimationPreview: View {
     }
 
     func progress(at date: Date) -> Double {
-        guard playing else { return descriptor.phase == .out ? 0 : (descriptor.phase == .combo ? 0.25 : 1) }
+        // idle: a mid-animation still (letters caught part-way) so tiles differ at rest, like CapCut's stills
+        guard playing else { return descriptor.phase == .out ? 0.6 : (descriptor.phase == .combo ? 0.25 : 0.45) }
         let d = max(descriptor.defaultDuration.seconds, 0.3)
         let t = date.timeIntervalSince(start)
         if descriptor.phase == .combo { return (t / d).truncatingRemainder(dividingBy: 1) }

@@ -53,13 +53,13 @@
 "transition.circle" = "Cercle";
 
 /* Animations */
-"anim.fadeIn" = "Fondu entrant";
-"anim.slideUp" = "Glisser vers le haut";
-"anim.slideRight" = "Glisser vers la droite";
+"anim.fadeIn" = "Fondu";
+"anim.slideUp" = "Vers le haut";
+"anim.slideRight" = "Vers la droite";
 "anim.zoomIn" = "Zoom avant";
-"anim.spinIn" = "Rotation entrante";
-"anim.fadeOut" = "Fondu sortant";
-"anim.slideDown" = "Glisser vers le bas";
+"anim.spinIn" = "Toupie";
+"anim.fadeOut" = "Fondu";
+"anim.slideDown" = "Vers le bas";
 "anim.zoomOut" = "Zoom arrière";
 "anim.pulse" = "Pulsation";
 "anim.swing" = "Balancement";

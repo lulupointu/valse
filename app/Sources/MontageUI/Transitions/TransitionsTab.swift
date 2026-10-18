@@ -14,16 +14,30 @@ struct TransitionsTab: View {
     /// Last clicked tile (shows its ⊕ without hover, like CapCut's selected card).
     @State private var highlighted: String?
 
+    /// "Trending" (CapCut's first category): a curated pick across groups.
+    static let trending = ["dissolve", "pullIn", "whipLeft", "glitch", "lightLeak", "cubeLeft", "zoomBlur", "slideRight",
+                           "inkWipe", "heart", "flash", "rgbSplit", "pageCurl", "swirl", "filmBurn", "mosaic"]
+        .map { "montage.transition.\($0)" }
+    private var favorites: EffectFavorites { EffectFavorites.shared }
+
     var body: some View {
-        let groups = BuiltinAssetTabs.grouped(Registries.transitions.all, \.groupKey)
-        let current = group.isEmpty ? (groups.first?.0 ?? "") : group
+        let byGroup = BuiltinAssetTabs.grouped(Registries.transitions.all, \.groupKey)
+        let nav: [(String, String)] = [(EffectLibraryCatalog.favoritesNav, tr("fxlib.favorites")), (EffectLibraryCatalog.curatedNav, tr("fxlib.trending"))]
+            + byGroup.map { ($0.0, tr($0.0)) }
+        let groups: [(String, [TransitionDescriptor])] = [
+            (EffectLibraryCatalog.favoritesNav, Registries.transitions.all.filter { favorites.contains($0.id) }),
+            (EffectLibraryCatalog.curatedNav, Self.trending.compactMap { Registries.transitions[$0] }),
+        ] + byGroup
+        let current = group.isEmpty ? EffectLibraryCatalog.curatedNav : group
+        let title = current == EffectLibraryCatalog.favoritesNav ? tr("fxlib.favorites")
+            : current == EffectLibraryCatalog.curatedNav ? tr("fxlib.trending") : tr(current)
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         let items = q.isEmpty ? (groups.first { $0.0 == current }?.1 ?? [])
             : Registries.transitions.all.filter { tr($0.nameKey).lowercased().contains(q) || tr($0.groupKey).lowercased().contains(q) }
         let selectedType = store.selectedTransition.flatMap { store.project.timeline.clip($0)?.transitionOut?.typeID }
         HStack(spacing: 0) {
             // while searching no category is highlighted (results span all of them)
-            SubNav(items: groups.map { ($0.0, tr($0.0)) }, selection: Binding(get: { q.isEmpty ? current : "" }, set: { group = $0; query = "" }))
+            SubNav(items: nav, selection: Binding(get: { q.isEmpty ? current : "" }, set: { group = $0; query = "" }))
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
@@ -39,9 +53,9 @@ struct TransitionsTab: View {
                 .padding(.horizontal, 12).padding(.top, 10)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(verbatim: q.isEmpty ? tr(current) : tr("transitions.results"))
+                        Text(verbatim: q.isEmpty ? title : tr("transitions.results"))
                             .font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
-                        if items.isEmpty { Text(loc: "transitions.noResults").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
+                        if items.isEmpty { Text(loc: current == EffectLibraryCatalog.favoritesNav && q.isEmpty ? "fxlib.favorites.empty" : "transitions.noResults").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
                         // UX.md §3.2: 86 pt squares, 16 pt gaps (4 per row at the default panel width)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 86, maximum: 104), spacing: 16)], spacing: 12) {
                             ForEach(items) { d in
@@ -86,12 +100,20 @@ struct TransitionTile: View {
                 }
                 .buttonStyle(.plain)
                 .testID("transition.tile.\(shortID)")
+                let fav = EffectFavorites.shared.contains(descriptor.id)
                 if hover || highlighted {
-                    Button(action: add) {
-                        Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                            .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
+                    // UX.md §3.2: ☆ favourite + ⊕ add, bottom-right
+                    HStack(spacing: 4) {
+                        RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
+                                   help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
+                            .testID("transition.favorite.\(shortID)")
+                        RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
+                            .testID("transition.add.\(shortID)")
                     }
-                    .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack")).testID("transition.add.\(shortID)")
+                    .padding(4)
+                } else if fav {
+                    Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                        .allowsHitTesting(false)
                 }
             }
             .aspectRatio(1, contentMode: .fit)
@@ -102,6 +124,10 @@ struct TransitionTile: View {
         .onHover { h in hover = h; if h { start = Date() } }
         .simultaneousGesture(TapGesture(count: 2).onEnded(add))
         .onDrag { NSItemProvider(object: DragPayload.transition(descriptor.id) as NSString) }
+        .contextMenu {
+            Button(tr(EffectFavorites.shared.contains(descriptor.id) ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
+            Button(tr("asset.addToTrack"), action: add)
+        }
         .help(tr(descriptor.nameKey))
     }
 

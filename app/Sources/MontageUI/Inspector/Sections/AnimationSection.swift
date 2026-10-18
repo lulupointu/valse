@@ -41,12 +41,12 @@ struct AnimationPickerSection: View {
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
             TileGrid {
                 if query.isEmpty {
-                    Tile(title: tr("anim.none"), selected: cur == nil, testID: "anim.none") { apply(nil) } content: {
+                    Tile(title: tr("anim.none"), selected: cur == nil, testID: "anim.none", titleLines: 2) { apply(nil) } content: {
                         Image(systemName: "nosign").font(.system(size: 26, weight: .light)).foregroundStyle(Color(white: 0.75))
                     }
                 }
                 ForEach(items) { d in
-                    AnimationTile(descriptor: d, selected: cur?.typeID == d.id) { apply(d) }
+                    AnimationTile(descriptor: d, selected: cur?.typeID == d.id, subject: target) { apply(d) }
                 }
             }
             if items.isEmpty && !query.isEmpty { HintText(text: tr("inspector.animation.noResults")) }
@@ -110,12 +110,14 @@ struct AnimationPickerSection: View {
 struct AnimationTile: View {
     let descriptor: AnimationDescriptor
     let selected: Bool
+    /// What the tile animates: a sample picture (video), "Abc" (text) or a star (sticker), like CapCut's tiles.
+    var subject: AnimationTargets = .video
     let action: () -> Void
     @State private var hover = false
     @State private var start = Date()
 
     var body: some View {
-        Tile(title: tr(descriptor.nameKey), selected: selected, testID: "anim.\(descriptor.id.replacingOccurrences(of: "montage.anim.", with: ""))", action: action) {
+        Tile(title: tr(descriptor.nameKey), selected: selected, testID: "anim.\(descriptor.id.replacingOccurrences(of: "montage.anim.", with: ""))", titleLines: 2, action: action) {
           if descriptor.glyph != nil {
             // per-glyph text animation (text engine, W7)
             GlyphAnimationPreview(descriptor: descriptor, playing: hover, start: start)
@@ -126,7 +128,7 @@ struct AnimationTile: View {
                 // one Canvas: transforms, reveal mask, blur and clipping are rasterised together (never overflow the tile)
                 Canvas { ctx, size in
                     let w = size.width, h = size.height
-                    ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+                    ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(subject == .video ? .black : Color(hex: 0x262626)))
                     let r = state.reveal
                     ctx.clip(to: Path(CGRect(x: w * r.left, y: h * r.top, width: w * max(0, 1 - r.left - r.right),
                                              height: h * max(0, 1 - r.top - r.bottom))))
@@ -136,7 +138,14 @@ struct AnimationTile: View {
                     ctx.rotate(by: .degrees(state.transform.rotation))
                     ctx.scaleBy(x: state.transform.scale.x, y: state.transform.scale.y)
                     ctx.translateBy(x: -w / 2, y: -h / 2)
-                    AnimationSampleScene.draw(in: &ctx, size: size)
+                    switch subject {
+                    case .text:
+                        ctx.draw(Text(verbatim: "Abc").font(.system(size: h * 0.32, weight: .bold)).foregroundColor(.white), at: CGPoint(x: w / 2, y: h / 2))
+                    case .sticker:
+                        ctx.draw(Text(verbatim: "⭐️").font(.system(size: h * 0.46)), at: CGPoint(x: w / 2, y: h / 2))
+                    default:
+                        AnimationSampleScene.draw(in: &ctx, size: size)
+                    }
                 }
             }
           }
@@ -149,7 +158,7 @@ struct AnimationTile: View {
         var s = AnimatedLayerState(transform: Transform(), opacity: 1)
         guard hover else {
             // still: the animation caught part-way, so tiles read differently at rest (like CapCut's stills)
-            descriptor.apply(descriptor.phase == .out ? 0.65 : (descriptor.phase == .combo ? 0.25 : 0.35), &s)
+            descriptor.apply(descriptor.phase == .out ? 0.65 : (descriptor.phase == .combo ? (subject == .video ? 0.08 : 0.3) : 0.35), &s)
             return s
         }
         let d = max(descriptor.defaultDuration.seconds, 0.3)
