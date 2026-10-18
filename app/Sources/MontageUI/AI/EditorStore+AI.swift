@@ -317,6 +317,26 @@ extension CutoutMode {
 
 nonisolated final class CaptionBox: @unchecked Sendable { var result: CaptionResult? }
 
+extension EditorStore {
+    /// UI tests: `ui.models.<model id, "." → "_">` = notInstalled / downloading / verifying / installed / failed, and
+    /// `ui.models.progress.<id>` (0…1) while downloading — for download-flow checks.
+    func modelsStateDump() -> [String: Any] {
+        var d: [String: Any] = [:], progress: [String: Any] = [:]
+        for spec in ModelCatalog.all {
+            let k = spec.id.replacingOccurrences(of: ".", with: "_")   // path segments split on "."
+            switch ModelManager.shared.state(spec) {
+            case .notInstalled: d[k] = "notInstalled"
+            case .downloading(let p): d[k] = "downloading"; progress[k] = p
+            case .verifying: d[k] = "verifying"
+            case .installed: d[k] = "installed"
+            case .failed(let m): d[k] = "failed: \(m)"
+            }
+        }
+        d["progress"] = progress
+        return d
+    }
+}
+
 /// One-time installs of AI engine hooks (optical-flow interpolator for smooth slow-mo).
 enum AIModelsInstall {
     nonisolated(unsafe) private static var done = false

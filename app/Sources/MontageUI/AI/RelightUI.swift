@@ -36,6 +36,7 @@ struct RelightSection: View {
 
     var body: some View {
         let st = RelightUIState.shared
+        let _ = ModelManager.shared.states   // re-render when the depth model download finishes (`hasModel` is a disk check)
         let r = ctx.clip?.relight ?? RelightSettings.preset(.facial)
         let sel = min(st.selectedLight, max(r.lights.count - 1, 0))
         VStack(alignment: .leading, spacing: 6) {

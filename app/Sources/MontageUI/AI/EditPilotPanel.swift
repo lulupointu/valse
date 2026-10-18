@@ -30,6 +30,7 @@ struct EditPilotPanel: View {
             .padding(.horizontal, 12)
         } content: {
             VStack(spacing: 0) {
+                let _ = ModelManager.shared.states   // re-render when the Qwen download finishes (disk check below)
                 // basic mode: no local LLM (and no Apple Intelligence, which UI tests on the sandbox ignore)
                 if !LlamaRuntime.isAvailable && (!OnDeviceLLM.hasFoundationModels || !store.pilotUsesModel) { modelBanner }
                 ScrollViewReader { proxy in

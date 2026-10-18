@@ -63,6 +63,12 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
   scripts assert the Download UX (`model.download.<modelID>`, e.g. `ai_remove`). With it the user's models folder
   (`MONTAGE_MODELS_DIR` or ~/Library/Application Support/Montage/Models) is used and the script is **SKIPPED** (exit
   code 3, reported separately by `uitest.sh`) when a model is missing (e.g. `ai_remove_inference`).
+  Sidecar runtimes (`whisper-cli`, `demucs`, `llama-completion`) are looked up in the user's real
+  `~/Library/Application Support/Montage/bin` even though UI tests sandbox the support folder.
+- Opt-in AI tests: `MONTAGE_SLOW_TESTS=1 scripts/test.sh --filter MontageAITests` (demucs, LLM writer/clipper);
+  `MONTAGE_QA_VIDEO=/path/to/talking-person.mp4 scripts/test.sh --filter RealMediaQATests` runs every engine on real
+  footage and prints real-time factors + quality metrics (transcript, stems RMS, scenes, speakers, shorts, TTS round
+  trip, super resolution).
 
 **Environment-independent results.** Settings/library are sandboxed; in UI tests the cache-size readouts are fixed
 (`SettingsView.uitestCacheSizes`, "clear" only zeroes them) and the `home` sample projects use a fixed clock. For other
@@ -89,6 +95,7 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 | Step | Example |
 |---|---|
 | click / doubleClick / rightClick | `{"click": "id:inspector.tab.speed"}` · `{"click": "clip:main/0", "modifiers": ["shift"]}` |
+| timeline context-menu item | `{"rightClick": "clip:main/0", "menuItem": "tlmenu.separateAudio/stem.vocals"}` (l10n keys or titles; the menu is captured, not popped up) |
 | drag (press, N moves, release) | `{"drag": "clip:main/0:trailing", "by": [-60, 0]}` · `{"drag": "id:slider.opacity", "at": [0.9, 0.5], "to": "id:slider.opacity", "toAt": [0.2, 0.5], "steps": 12}` |
 | scroll | `{"scroll": "id:timeline", "dx": -200, "dy": 0}` · zoom: `{"scroll": "id:timeline", "dy": 10, "modifiers": ["cmd"]}` |
 | hover | `{"hover": "clip:main/0"}` |
@@ -116,7 +123,7 @@ muted, clips}`) · `main` (the main track) · clip summary: `{id, track, index, 
 sourceStart, speed, opacity, enabled, blend, effects, transition, scale, rotation, positionX, positionY, volume,
 keyframes, selected, transitionDuration, animIn, animOut, animCombo, keyframeCounts.<key>, keyframeEasings.<key>}` (keys with
 `_` for `.`: `transform_position`; easings are preset ids: `linear`, `easeIn`, `quadOut`…) · `media` · `canvas.{width,height,aspect}` · `ui.{inspectorTab, inspectorTabs, assetTab,
-exportSheet, export, language, toast, pixelsPerSecond, scrollTime, scrollY, menu, anchors, selectedKeyframe.{key,time}, keyframePanel}` (`ui.export.dialog.{scope, duration, video, audio, gif, captions, codec, container, outputs, canExport, footer, burnCaptionsRow, coverReady, …}`, `ui.export.jobs` / `ui.export.shown` = `{title, state, progress, written, outputs}`) · `project` (full project JSON).
+exportSheet, export, language, toast, pixelsPerSecond, scrollTime, scrollY, menu, anchors, selectedKeyframe.{key,time}, keyframePanel}` (`ui.export.dialog.{scope, duration, video, audio, gif, captions, codec, container, outputs, canExport, footer, burnCaptionsRow, coverReady, …}`, `ui.export.jobs` / `ui.export.shown` = `{title, state, progress, written, outputs}`) · `ui.jobs` (background jobs `{title, progress, state}`) and `ui.activeJobs` (queued + running count: `{"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 600}}` waits for AI jobs) · `ui.models.<model id with "." → "_">` (`notInstalled` / `downloading` / `verifying` / `installed` / `failed: …`, progress in `ui.models.progress.<id>`) · `project` (full project JSON).
 Path segments: keys, indices (negative from the end), `count`, `first`, `last`. Source: `MontageUI/Testing/StateDump.swift`.
 
 ### Test IDs (stable element lookup)

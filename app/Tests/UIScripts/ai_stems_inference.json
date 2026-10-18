@@ -1,0 +1,16 @@
+// QA: timeline context menu ▸ Separate audio ▸ Vocals (HTDemucs via the demucs.cpp sidecar) on the demo music clip →
+// background job → a "Vocals" stem clip on a new audio track (one undo step). Uses the driver's `menuItem` on a
+// rightClick (the context menu is captured instead of popped up). SKIPPED when the demucs model isn't installed.
+{
+  "project": "demo",
+  "requires": {"models": ["demucs.htdemucs-4s"]},
+  "steps": [
+    {"expect": {"path": "tracks.count", "equals": 6}},
+    {"rightClick": "clip:5/0", "menuItem": "tlmenu.separateAudio/stem.vocals"},
+    {"waitFor": {"path": "tracks.count", "equals": 7, "timeout": 240}},
+    {"expect": [{"path": "undo.name", "equals": "cmd.separateAudio"}, {"path": "tracks.last.kind", "equals": "audio"},
+                {"path": "ui.toast", "exists": true}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "tracks.count", "equals": 6}}
+  ]
+}

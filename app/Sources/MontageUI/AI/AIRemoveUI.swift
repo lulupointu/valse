@@ -34,6 +34,7 @@ struct AIRemoveSection: View {
     }
     var body: some View {
         let store = ctx.store
+        let _ = ModelManager.shared.states   // re-render when the LaMa download finishes (`isAvailable` is a disk check)
         VStack(alignment: .leading, spacing: 8) {
             if !LaMaInpainter.isAvailable {
                 HintText(text: tr("remove.needsModel")).testID("remove.needsModel")

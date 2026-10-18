@@ -35,6 +35,18 @@ public enum WhisperEngine {
                     "-pp", "-t", String(o.threads), "-bs", "5"]
         if o.keepFillers {
             args += ["--prompt", o.language == "en" ? "Um, so, uh, I mean, like, you know." : "Euh, alors, bah, en fait, du coup, hein."]
+        } else {
+            // Style prompt: with timestamps on, large-v3-turbo often drops capitals and punctuation (seen on clear
+            // English speech: "hello and welcome to this video editing tutorial today we…"). A short punctuated prompt
+            // keeps sentence case + punctuation; bilingual when auto-detecting (detection itself ignores the prompt).
+            let prompt: String
+            switch o.language {
+            case "en": prompt = "Hello, welcome. This is a sentence."
+            case "fr": prompt = "Bonjour, bienvenue. Voici une phrase."
+            case nil: prompt = "Hello, welcome. Bonjour, bienvenue."
+            default: prompt = ""
+            }
+            if !prompt.isEmpty { args += ["--prompt", prompt] }
         }
         if o.dtw, let preset = dtwPreset(model: o.model) {
             do {

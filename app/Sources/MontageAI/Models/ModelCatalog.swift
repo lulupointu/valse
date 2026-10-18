@@ -197,6 +197,10 @@ public enum WhisperRuntime {
         c.append(Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/whisper-cli").path)
         c.append(MontagePaths.supportDirectory.appendingPathComponent("bin/whisper-cli").path)
         c.append(MontagePaths.supportDirectory.appendingPathComponent("AIPacks/whisper/whisper-cli").path)
+        // the user's real App Support (UI tests sandbox `supportDirectory`, but runtimes aren't settings)
+        if let u = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            c.append(u.appendingPathComponent("Montage/bin/whisper-cli").path)
+        }
         c += ["/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli"]
         return c.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }

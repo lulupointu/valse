@@ -51,8 +51,14 @@ extension TimelineView {
         default: break
         }
         dirty = true
-        if let m { NSMenu.popUpContextMenu(m, with: e, for: self) }
+        if let m {
+            if let sink = Self.uitestMenuSink { sink(m) } else { NSMenu.popUpContextMenu(m, with: e, for: self) }
+        }
     }
+
+    /// UI tests (`{"rightClick": …, "menuItem": "a/b"}`): receives the context menu instead of popping it up (a real
+    /// popup runs a modal tracking loop the driver can't reach).
+    @MainActor static var uitestMenuSink: ((NSMenu) -> Void)?
 
     // MARK: Clip
 

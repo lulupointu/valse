@@ -12,6 +12,10 @@ public enum DemucsRuntime {
         if let e = ProcessInfo.processInfo.environment["MONTAGE_DEMUCS_CLI"], !e.isEmpty { c.append(e) }
         c.append(Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/demucs").path)
         c.append(MontagePaths.supportDirectory.appendingPathComponent("bin/demucs").path)
+        // the user's real App Support (UI tests sandbox `supportDirectory`, but runtimes aren't settings)
+        if let u = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            c.append(u.appendingPathComponent("Montage/bin/demucs").path)
+        }
         return c.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }
     /// Installed model (6 stems preferred), nil when the runtime or the model is missing.

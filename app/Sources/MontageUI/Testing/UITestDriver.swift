@@ -368,8 +368,18 @@ public final class UITestDriver {
             let p = try resolve(t, step)
             let right = step["rightClick"] != nil
             let count = step["doubleClick"] != nil ? 2 : ((step["count"] as? Int) ?? 1)
+            // timeline context menu item: `{"rightClick": "clip:main/0", "menuItem": "tlmenu.separateAudio/tlmenu.splitScenes"}`
+            let itemPath = right ? step["menuItem"] as? String : nil
+            var captured: NSMenu?
+            if itemPath != nil { TimelineView.uitestMenuSink = { captured = $0 } }
+            defer { if itemPath != nil { TimelineView.uitestMenuSink = nil } }
             SyntheticEvents.click(at: p, in: window, modifiers: mods, count: count, right: right)
             try await idle(settle: settle)
+            if let itemPath {
+                guard let m = captured else { throw Failure("no context menu at \(t)") }
+                try performMenu(itemPath, in: m)
+                try await idle(settle: max(settle, 0.4))
+            }
         } else if let t = step["drag"] {
             let a = try resolve(t, step)
             let b: CGPoint
@@ -664,8 +674,8 @@ public final class UITestDriver {
     }
 
     /// `"menu.edit/menu.undo"`: menu path by localization key (or literal title) from the menu bar.
-    private func performMenu(_ path: String) throws {
-        var menu = NSApp.mainMenu
+    private func performMenu(_ path: String, in root: NSMenu? = nil) throws {
+        var menu = root ?? NSApp.mainMenu
         let parts = path.split(separator: "/").map(String.init)
         for (i, part) in parts.enumerated() {
             guard let m = menu else { throw Failure("menu \(path): no menu at \(part)") }

@@ -22,6 +22,7 @@ struct AIWriterPanel: View {
     let store: EditorStore
     var body: some View {
         let st = AIWriterState.shared
+        let _ = ModelManager.shared.states   // re-render when a model download finishes (`isAvailable` is a disk check)
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
