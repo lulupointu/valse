@@ -11,30 +11,34 @@ public final class EffectPipelines: @unchecked Sendable {
     private let lock = NSLock()
     private var effects: [String: MTLRenderPipelineState?] = [:]
     private var transitions: [String: MTLRenderPipelineState?] = [:]
+    private var bySource: [String: MTLRenderPipelineState] = [:]
     public private(set) var errors: [String: String] = [:]
 
-    static let effectWrapper = """
+    /// Fragment wrapper for an effect: `texture(0)` = src, then one texture per `EffectInput` in order
+    /// (`.lut3D` → texture3d + sampler `s3`, `.original` → texture2d `orig`).
+    static func effectWrapper(inputs: [EffectInput]) -> String {
+        var decl = "", args = ""
+        for (i, input) in inputs.enumerated() {
+            switch input {
+            case .lut3D:
+                decl += "texture3d<float> in\(i) [[texture(\(i + 1))]], "
+                args += ", in\(i), s3"
+            case .original:
+                decl += "texture2d<float> in\(i) [[texture(\(i + 1))]], "
+                args += ", in\(i)"
+            }
+        }
+        return """
 
-    struct FXQuadOut { float4 pos [[position]]; float2 uv; };
-    fragment float4 fx_main(FXQuadOut in [[stage_in]], texture2d<float> src [[texture(0)]],
-                            constant float* p [[buffer(0)]], constant FXContext& ctx [[buffer(1)]]) {
-        constexpr sampler s(filter::linear, address::clamp_to_edge);
-        return effect(in.uv, src, s, p, ctx);
+        struct FXQuadOut { float4 pos [[position]]; float2 uv; };
+        fragment float4 fx_main(FXQuadOut in [[stage_in]], texture2d<float> src [[texture(0)]], \(decl)
+                                constant float* p [[buffer(0)]], constant FXContext& ctx [[buffer(1)]]) {
+            constexpr sampler s(filter::linear, address::clamp_to_edge);
+            constexpr sampler s3(filter::linear, address::clamp_to_edge);
+            return effect(in.uv, src, s, p, ctx\(args));
+        }
+        """
     }
-    """
-
-    /// Wrapper for effects with one `.lut3D` input (see `EffectInput`): texture(1) = 3D LUT.
-    static let effectLUTWrapper = """
-
-    struct FXQuadOut { float4 pos [[position]]; float2 uv; };
-    fragment float4 fx_main(FXQuadOut in [[stage_in]], texture2d<float> src [[texture(0)]],
-                            texture3d<float> lut [[texture(1)]],
-                            constant float* p [[buffer(0)]], constant FXContext& ctx [[buffer(1)]]) {
-        constexpr sampler s(filter::linear, address::clamp_to_edge);
-        constexpr sampler s3(filter::linear, address::clamp_to_edge);
-        return effect(in.uv, src, s, p, ctx, lut, s3);
-    }
-    """
 
     static let transitionWrapper = """
 
@@ -49,9 +53,17 @@ public final class EffectPipelines: @unchecked Sendable {
 
     public func effect(_ d: EffectDescriptor) -> MTLRenderPipelineState? {
         if let cached = lock.withLock({ effects[d.id] }) { return cached }
-        let wrapper = d.inputs.isEmpty ? EffectPipelines.effectWrapper : EffectPipelines.effectLUTWrapper
-        let p = compile(id: d.id, source: ShaderPrelude.source + "\n" + d.shader + wrapper, fn: "fx_main")
-        lock.withLock { effects[d.id] = .some(p) }
+        let source = ShaderPrelude.source + "\n" + d.shader + EffectPipelines.effectWrapper(inputs: d.inputs)
+        // Presets of one base shader (same source, different `constants`) share one compiled pipeline.
+        if let shared = lock.withLock({ bySource[source] }) {
+            lock.withLock { effects[d.id] = .some(shared) }
+            return shared
+        }
+        let p = compile(id: d.id, source: source, fn: "fx_main")
+        lock.withLock {
+            effects[d.id] = .some(p)
+            if let p { bySource[source] = p }
+        }
         return p
     }
 

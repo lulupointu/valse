@@ -62,6 +62,9 @@ public struct ParamSpec: Sendable {
 /// ```
 public enum EffectInput: Sendable, Hashable {
     case lut3D(id: String)
+    /// The effect's own input before its first pass → `texture2d<float> orig` (sampled with `s`). Lets multi-pass
+    /// effects (glow, bloom, halation) combine a blurred intermediate with the untouched layer in their last pass.
+    case original
 }
 
 /// A shader-based effect, filter or adjustment applied to one layer (or, on an adjustment clip, to the composite below).
@@ -88,12 +91,22 @@ public struct EffectDescriptor: Sendable, Identifiable {
     public let symbol: String
     /// Extra textures bound to the shader (see `EffectInput`). Empty for ordinary effects.
     public let inputs: [EffectInput]
+    /// Preset constants appended to `p[]` after the parameters (never shown, stored or keyframed). Presets of one base
+    /// shader differ only by these, so they share the same source and therefore one compiled pipeline.
+    public let constants: [Float]
+    /// Extra search keywords (English, lowercase), matched in addition to the localized name and group.
+    public let tags: [String]
 
     public init(id: String, category: EffectCategory, nameKey: String, groupKey: String, params: [ParamSpec] = [],
-                passes: Int = 1, symbol: String = "sparkles", inputs: [EffectInput] = [], shader: String) {
+                passes: Int = 1, symbol: String = "sparkles", inputs: [EffectInput] = [], constants: [Float] = [],
+                tags: [String] = [], shader: String) {
         self.id = id; self.category = category; self.nameKey = nameKey; self.groupKey = groupKey
         self.params = params; self.passes = passes; self.symbol = symbol; self.inputs = inputs; self.shader = shader
+        self.constants = constants; self.tags = tags
     }
+
+    /// Index of the first preset constant in `p[]` (= total float count of `params`).
+    public var constantsOffset: Int { params.reduce(0) { $0 + $1.floatCount } }
 
     /// New instance with every parameter at its default.
     public func makeInstance() -> EffectInstance {
@@ -104,6 +117,7 @@ public struct EffectDescriptor: Sendable, Identifiable {
     public func packParams(_ values: [String: ParamValue]) -> [Float] {
         var out: [Float] = []
         for p in params { out += (values[p.key] ?? p.defaultValue).floats }
+        out += constants
         return out.isEmpty ? [0] : out
     }
 }

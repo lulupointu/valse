@@ -23,6 +23,9 @@ public struct ResolvedEffect: Hashable, Sendable {
     public var instanceID: EffectInstanceID
     public var typeID: String
     public var params: [String: ParamValue]
+    public init(instanceID: EffectInstanceID, typeID: String, params: [String: ParamValue]) {
+        self.instanceID = instanceID; self.typeID = typeID; self.params = params
+    }
 }
 
 /// A fully resolved visual layer at one instant: no keyframes, no timing left to compute.

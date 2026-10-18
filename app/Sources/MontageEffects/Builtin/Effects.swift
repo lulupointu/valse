@@ -64,5 +64,8 @@ public enum BuiltinEffects {
         }
         """)
 
-    public static let all: [EffectDescriptor] = [blur, vignette, glitch, pixelate]
+    public static let all: [EffectDescriptor] = [blur, vignette, glitch, pixelate] + library
+
+    /// The procedural effects library (FXKit bases × presets), in asset-panel order.
+    public static let library: [EffectDescriptor] = FXBlur.all + FXGlitch.all + FXArt.all + FXDistort.all + FXLight.all + FXParticles.all
 }

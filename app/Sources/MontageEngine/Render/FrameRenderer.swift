@@ -364,7 +364,8 @@ public final class FrameRenderer: @unchecked Sendable {
         for e in effects {
             guard let d = Registries.effects[e.typeID], let pipe = EffectPipelines.shared.effect(d) else { continue }
             // Extra inputs (3D LUTs…): skip the effect if a resource is missing (e.g. LUT file deleted).
-            let extra = d.inputs.map { EffectInputs.texture(for: $0) }
+            let input = cur
+            let extra = d.inputs.map { $0 == .original ? input : EffectInputs.texture(for: $0) }
             if extra.contains(where: { $0 == nil }) { continue }
             var params = d.packParams(e.params)
             for pass in 0..<max(d.passes, 1) {
