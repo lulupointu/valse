@@ -123,6 +123,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    /// Finder "Open With" / drop on the Dock icon (MI-028): projects open, media files are imported.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let store else { return }
+        let projects = urls.filter { $0.pathExtension.lowercased() == ProjectPackage.fileExtension }
+        if let p = projects.first {
+            do { try store.open(p) } catch { store.showToast(tr("error.unreadable"), error: true) }
+        }
+        let media = urls.filter { !projects.contains($0) }
+        if !media.isEmpty { store.importMedia(media) }
+    }
     func applicationWillTerminate(_ notification: Notification) { store?.close() }
 
     // MARK: Menu

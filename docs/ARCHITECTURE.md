@@ -82,6 +82,26 @@ CVPixelBuffers (decoder) ─────────┐ ▼
 - **Auto-switch**: `PlaybackEngine.sourceChooser` picks the proxy when it is ready. When a proxy finishes, `onProxyReady` → `forceRebuild()`. Export always uses originals. Proxy files carry the source rotation, and since the model works in normalized coordinates a proxy swap is invisible.
 - `MemoryBudget`: decoder budget = 15 % of RAM (max 2 GB), costed at ~300 MB per 4K stream. It sets preview size (`PreviewQuality.auto`: 720p on ≤ 8 GB, 1080p otherwise; half/quarter manual), thumbnail cache size and proxy policy. Compositor work is bounded: 3 frames in flight and a texture pool. Next steps: an explicit decoder-count limiter and an all-intra preview render cache for heavy segments (§15).
 
+### 6.1 Import breadth, conversion cache, FFmpeg sidecar, bin (W9)
+
+- `MediaProbe` reads AVFoundation media (incl. ProRes 4444 / HEVC alpha, VFR, multiple audio streams → `MediaAsset.techInfo`) and
+  ImageIO stills. Animated GIF/APNG/WebP/HEICS and numbered image sequences (`MediaProbe.detectSequences`: ≥ 10 contiguous frames,
+  JPEG ≥ 24 and no camera prefix) become `.video` assets with `conversion` set. Anything AVFoundation can't open is probed with
+  `ffprobe` (`conversion = .ffmpeg`).
+- `PlayableMediaCache` converts those once (JobQueue, priority 1) to `Caches/Montage/converted/<contentHash>.mov` (ProRes 4444 with
+  straight alpha when the source has alpha, else H.264; FFmpeg → ProRes + PCM). **Every engine path resolves files through
+  `PlayableMediaCache.shared.resolvedURL(for:)`** (composition default sources, preview `sourceChooser`, thumbnails, waveforms,
+  proxies); `onReady` → store `forceRebuild()`.
+- **FFmpeg licensing decision**: FFmpeg is only ever run as a separate executable (`FFmpegSidecar`), never linked. A bundled
+  binary must be an LGPL build (no `--enable-gpl` / `--enable-nonfree`: no x264/x265/fdk-aac); the mezzanine uses only the LGPL
+  `prores_ks` encoder and PCM. Ship FFmpeg's LICENSE + a written source offer. Lookup: `$MONTAGE_FFMPEG`,
+  `Contents/Resources/ffmpeg`, `/opt/homebrew/bin`, `/usr/local/bin`. Without it, those formats are reported as unsupported.
+- Bin folders: `Project.mediaFolders` (optional, use `project.folders`) + `MediaAsset.folderID`; pure `BinOps` (depth ≤ 10) +
+  `BinCommand`. Folder imports keep their structure (`MediaProbe.expandWithFolders`). `MediaRelinker` (hash, then name+size),
+  `MediaConsolidator` (copy into `<package>/media/`), `LivePhoto.pair`, `FontLibrary` (App Support/Montage/Fonts, process
+  registration at launch), `CaptionFile` (Core: SRT/VTT/LRC/ASS, charset detection) — store flows in `EditorStore+Media.swift`.
+- `Clip.audioStreamIndex` picks the audio stream of multi-track media (`AssetCache.Entry.audioStream`).
+
 ## 7. Thumbnails & waveforms
 
 - `ThumbnailCache`: memory (NSCache, cost-bounded) + disk JPEG `Caches/Montage/thumbs/<hash>/<q>-<h>.jpg`. Times are quantized to 0.25 s so every zoom level reuses tiles. It uses proxies when ready, runs at most 3 concurrent generations, and provides `cached()` (sync, for drawing) and `thumbnail()` (async).
