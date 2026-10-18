@@ -23,7 +23,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W5 | Transitions & animations content | 2 | running | |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | queued | |
 | W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | running | |
-| W11 | Export & interchange | 2 | queued | |
+| W11 | Export & interchange | 2 | running | |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | queued | |
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | queued | |
 | — | Templates (TP), Retouch/body (RT) | 3 | queued (depend on W7, W10) | |
