@@ -25,7 +25,7 @@ import MontageTestSupport
         let (s, _) = try await store()
         let ctx = InspectorContext(store: s)
         let tab = InspectorRegistry.allTabs.first { $0.id == "adjust" }!
-        #expect(InspectorRegistry.subTabs(of: tab, ctx: ctx).map(\.id) == ["basic", "hsl", "curves", "wheels"])
+        #expect(InspectorRegistry.subTabs(of: tab, ctx: ctx).map(\.id) == ["basic", "hsl", "curves", "wheels", "mask"])
         #expect(InspectorRegistry.sections(tab: tab, subTab: "basic", ctx: ctx).map(\.id).contains("adjust.auto"))
     }
 

@@ -48,7 +48,7 @@ import MontageTestSupport
         s.selection = [f.video]
         #expect(tabs(s) == ["video", "audio", "speed", "animation", "adjust"])
         #expect(subs(s, "video") == ["basic", "cutout", "mask"])
-        #expect(subs(s, "speed") == ["normal", "curve"])
+        #expect(subs(s, "speed") == ["normal", "curve", "velocity"])
         #expect(subs(s, "animation") == ["in", "out", "combo"])
         s.selection = [f.image]
         #expect(tabs(s) == ["video", "animation", "adjust"])
