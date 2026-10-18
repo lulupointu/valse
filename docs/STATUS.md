@@ -18,7 +18,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W3 | Inspector panels | 1 | merged (16 done / 14 partial / 1 blocked) | main 19504fe |
 | W6+W9 | Render engine + media pipeline | 1 | merged incl. colour + media helpers | main 9c54c1b |
 | W8 | Audio | 1 | merged (19 done / 13 partial / 1 blocked) | main a3bf1f7 |
-| W14 | QA: UI test driver, screenshot diff, perf | 1 | running (others wait for `--uitest`) | worktree-agent-aa1de47edb2d5d946 |
+| W14 | QA: UI test driver, screenshot diff, perf | 1 | driver merged; perf harness in progress | worktree-agent-aa1de47edb2d5d946 |
 | W4 | Effects & filters content | 2 | running | |
 | W5 | Transitions & animations content | 2 | running | |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | merged (TX 21 done / 9 partial / 5 blocked) | main 8602b57 |
@@ -40,7 +40,8 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W1 | W11 | Export range (in/out) | TL-028 |
 | W3 | W10+W6 | AI matte in compositor → flip `CutoutAvailability.matteCompositingAvailable` | CK-002 |
 | W3 | W1/W2/W5/W8 | Timeline/canvas/content/audio-render parts of inspector-partial rows | CV-003/004/006/012, KF-001/003/008, SP-002, AU-004/005, CL-002, TR-002, MK-001 |
-| W1/W2/W3 | W14 | `--uitest` driver to add interaction tests | — |
+| W14 | W1/W2/W3/W6/W7/W8 | Driver landed (73ea621, docs/TESTING.md): merged teams still lack interaction tests → hardening pass | — |
+| W14 | W14 | SwiftUI onTapGesture/DragGesture views don't receive synthetic events yet (custom inspector sliders) | — |
 | W7 | W2 | Canvas edge pills / ⌥-drag set `TextContent.boxWidth` (fraction of canvas width; engine wraps) | TX-011 |
 | W7 | W10 | Auto captions/lyrics: call `CaptionOps.addCaptionTrack(segments, origin: .auto/.lyrics, replacing:)` with word timings (karaoke needs them); translations → `caption.translation` | TX-017/018/023/030/038 |
 | W7 | W11 | Export dialog "Captions" option: `CaptionOps.segments(of:)` + `CaptionFiles.serialize(_:format:)` | TX-025 |
