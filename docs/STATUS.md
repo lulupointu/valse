@@ -46,6 +46,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W11 | W12 | Settings toggles: "Speed up hardware encoding" → UserDefaults `montage.export.hardwareEncoding`; "Sound for export" → `ExportQueue.soundDefaultsKey` | EX-016, EX-015 |
 | W4 | W10+W6 | Person matte as an effect input (`EffectInput.matte`) so body effects work on plain video | FX-002 |
 | W4 | W6 | Effect mask (mask texture feeding the effect mix) | FX-005, CL-012 |
+| W4 | W14 | Driver `hover` doesn't trigger SwiftUI `.onHover` (posted mouseMoved never reaches the inactive window); card hover-loop previews untested | FX-001 |
 | W4 | W2/W13 | Click on an effect/filter card = 3 s "Previewing — Effects" loop in the player | FX-001 |
 | W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
 
