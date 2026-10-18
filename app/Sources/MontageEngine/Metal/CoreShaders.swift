@@ -247,6 +247,13 @@ enum CoreShaders {
         return mix(a.sample(s, in.uv), b.sample(s, in.uv), k);
     }
 
+    // ---- Adjust ▸ Mask (W3): out = mix(original, adjusted, shape mask) on straight RGBA, layer space; `u` carries the mask.
+    fragment float4 mask_mix_fs(QuadOut in [[stage_in]], texture2d<float> a [[texture(0)]], texture2d<float> b [[texture(1)]],
+                                constant PlaceU& u [[buffer(0)]]) {
+        constexpr sampler s(filter::nearest, address::clamp_to_edge);
+        return mix(a.sample(s, in.uv), b.sample(s, in.uv), maskAlpha(u, in.uv));
+    }
+
     // Premultiplied → straight (so effects see straight colors).
     fragment float4 unpremultiply_fs(QuadOut in [[stage_in]], texture2d<float> a [[texture(0)]]) {
         constexpr sampler s(filter::nearest, address::clamp_to_edge);

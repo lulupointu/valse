@@ -89,3 +89,11 @@
 "settings.project.title" = "Project settings";
 "speed.preset.none" = "None";
 "toast.appliedToAll" = "Applied to all";
+
+/* Adjust footer + My presets (W3 UX polish) */
+"adjust.preset.section" = "My presets";
+"adjust.preset.name" = "Preset %d";
+"adjust.preset.applyHelp" = "Apply this preset to the selected clip";
+"adjust.preset.delete" = "Delete preset";
+"toast.presetSaved" = "Saved as “%@”";
+"cmd.adjust.preset" = "Apply preset";

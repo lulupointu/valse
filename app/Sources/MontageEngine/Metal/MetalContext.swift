@@ -20,6 +20,8 @@ public final class MetalContext: @unchecked Sendable {
     let solid: MTLRenderPipelineState
     let place: MTLRenderPipelineState
     let mix: MTLRenderPipelineState
+    /// Adjust ▸ Mask blend (original vs adjusted through a shape mask).
+    let maskMix: MTLRenderPipelineState
     let unpremultiply: MTLRenderPipelineState
     let premultiply: MTLRenderPipelineState
     let outputBGRA: MTLRenderPipelineState
@@ -63,6 +65,7 @@ public final class MetalContext: @unchecked Sendable {
         solid = pipe("fullscreen_vs", "solid_fs", w)
         place = pipe("place_vs", "place_fs", w)
         mix = pipe("fullscreen_vs", "mix_fs", w)
+        maskMix = pipe("fullscreen_vs", "mask_mix_fs", w)
         unpremultiply = pipe("fullscreen_vs", "unpremultiply_fs", w)
         premultiply = pipe("fullscreen_vs", "premultiply_fs", w)
         outputBGRA = pipe("fullscreen_vs", "output_fs", .bgra8Unorm)

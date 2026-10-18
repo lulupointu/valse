@@ -78,25 +78,8 @@ struct AdjustBasicSection: View {
             keyframeKeys: key.map { [$0] } ?? [], gestureName: "cmd.adjust"))
     }
 
-    /// Footer "Apply to all": copies this clip's basic adjustment to every visual clip of the same track.
-    static func applyToAll(_ ctx: InspectorContext) {
-        guard let clip = ctx.clip, let src = instance(clip), let loc = ctx.store.project.timeline.locate(clip.id) else { return }
-        let params = src.params, enabled = src.isEnabled, id = clip.id
-        ctx.store.perform(Edit("cmd.adjust.applyAll") { p in
-            for i in p.timeline.tracks[loc.track].clips.indices where p.timeline.tracks[loc.track].clips[i].id != id {
-                var c = p.timeline.tracks[loc.track].clips[i]
-                if let j = c.effects.firstIndex(where: { $0.typeID == descriptor.id }) {
-                    c.clearKeyframes(c.effectParamKeys(c.effects[j].id))
-                    c.effects[j].params = params; c.effects[j].isEnabled = enabled
-                } else {
-                    var e = descriptor.makeInstance(); e.params = params; e.isEnabled = enabled
-                    c.effects.append(e)
-                }
-                p.timeline.tracks[loc.track].clips[i] = c
-            }
-        })
-        ctx.store.showToast(tr("toast.appliedToAll"))
-    }
+    /// Footer "Apply to all" (kept for callers): the whole Adjust-tab grade on every video / image clip.
+    static func applyToAll(_ ctx: InspectorContext) { AdjustTools.applyToAll(ctx) }
 }
 
 /// Filter applied to a clip (Adjust ▸ Basic ▸ Filter): Name + Strength ‹◇› (UX.md §5.5).

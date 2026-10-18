@@ -336,7 +336,26 @@ public final class FrameRenderer: @unchecked Sendable {
                                       scratch: scratch, acquire: acquire)
 
         if !l.effects.isEmpty {
-            layerTex = applyEffects(l.effects, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire)
+            let isAdjust: (ResolvedEffect) -> Bool = { Registries.effects[$0.typeID]?.category == .adjustment }
+            if let am = l.adjustMask, l.effects.contains(where: isAdjust) {
+                // Adjust ▸ Mask: the Adjust-tab grading applies inside the mask only; other effects follow on the result.
+                let pre = layerTex
+                let post = applyEffects(l.effects.filter(isAdjust), to: pre, time: l.localTime, cmd: cmd, acquire: acquire)
+                let out = acquire(pre.width, pre.height)
+                var mu = PlaceUniforms(c0: .zero, c1: .zero, c2: .zero, c3: .zero, opacity: 1, blend: 0, maskShape: -1, maskInvert: 0,
+                                       maskCenter: .zero, maskSize: .one, maskRotation: 0, maskFeather: 0, maskRoundness: 0,
+                                       layerAspect: Float(abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)))
+                Self.setMask(am, &mu)
+                fullscreen(ctx.maskMix, target: out, cmd, label: "adjust-mask") { enc in
+                    enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1)
+                    enc.setFragmentBytes(&mu, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
+                }
+                layerTex = out
+                let rest = l.effects.filter { !isAdjust($0) }
+                if !rest.isEmpty { layerTex = applyEffects(rest, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire) }
+            } else {
+                layerTex = applyEffects(l.effects, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire)
+            }
         }
 
         // Placement uniforms (canvas px → output px → NDC).
@@ -348,15 +367,7 @@ public final class FrameRenderer: @unchecked Sendable {
                               maskShape: -1, maskInvert: 0, maskCenter: .zero, maskSize: .one, maskRotation: 0,
                               maskFeather: 0, maskRoundness: 0,
                               layerAspect: Float(abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)))
-        if let m = l.mask {
-            u.maskShape = Int32(MaskShape.allCases.firstIndex(of: m.shape)!)
-            u.maskInvert = m.inverted ? 1 : 0
-            u.maskCenter = SIMD2(Float(m.center.x), Float(m.center.y))
-            u.maskSize = SIMD2(Float(m.size.x), Float(m.size.y))
-            u.maskRotation = Float(m.rotation * .pi / 180)
-            u.maskFeather = Float(m.feather)
-            u.maskRoundness = Float(m.roundness)
-        }
+        if let m = l.mask { Self.setMask(m, &u) }
         return (layerTex, u)
     }
 
@@ -379,6 +390,17 @@ public final class FrameRenderer: @unchecked Sendable {
             r = (r * r - k * k).squareRoot()   // gaussian variances add
         }
         return out
+    }
+
+    /// Fills the shape-mask fields of `PlaceU` (shared by layer placement and Adjust ▸ Mask).
+    static func setMask(_ m: Mask, _ u: inout PlaceUniforms) {
+        u.maskShape = Int32(MaskShape.allCases.firstIndex(of: m.shape)!)
+        u.maskInvert = m.inverted ? 1 : 0
+        u.maskCenter = SIMD2(Float(m.center.x), Float(m.center.y))
+        u.maskSize = SIMD2(Float(m.size.x), Float(m.size.y))
+        u.maskRotation = Float(m.rotation * .pi / 180)
+        u.maskFeather = Float(m.feather)
+        u.maskRoundness = Float(m.roundness)
     }
 
     func applyEffects(_ effects: [ResolvedEffect], to input: MTLTexture, time: Time, cmd: MTLCommandBuffer,

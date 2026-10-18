@@ -47,6 +47,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var localTime: Time
     // W6/W9 per-layer features (defaults = off).
     public var matte: ClipMatte? = nil
+    /// Adjust ▸ Mask: region (layer space) where the adjustment-category effects apply; nil = whole layer.
+    public var adjustMask: Mask? = nil
     /// Smooth slow-mo: weight 0…1 of the NEXT source frame (aux lane `.nextFrame`) at this instant; nil = off.
     public var frameBlend: Double? = nil
     public var slowMoMethod: SlowMotionMethod? = nil
@@ -252,6 +254,7 @@ public enum FrameEvaluator {
                                  mask: r.mask, effects: resolveEffects(r), animations: animations(c, local: local),
                                  localTime: local)
         l.matte = r.matte
+        l.adjustMask = r.adjustMask
         l.stabilization = r.stabilization
         l.duration = c.duration
         if case .media(let id) = c.content, let a = project.asset(id), a.kind == .video {

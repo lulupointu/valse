@@ -51,9 +51,12 @@ enum BuiltinInspector {
         ], appliesTo: any(.video, .image, .text, .sticker)),
         InspectorTab(id: "adjust", titleKey: "inspector.tab.adjust", order: 6, subTabs: [
             InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
-        ] + ColorGradingInspector.subTabs, footer: { ctx, sub in
-            guard sub == nil || sub == "basic", ctx.kind != .adjustment, AdjustBasicSection.instance(ctx.clip) != nil else { return nil }
-            return AnyView(PillButton(title: tr("inspector.applyToAll")) { AdjustBasicSection.applyToAll(ctx) })
+        ] + ColorGradingInspector.subTabs + [
+            InspectorSubTab(id: "mask", titleKey: "inspector.sub.mask", order: 4) { $0.kind == .video || $0.kind == .image },
+        ], footer: { ctx, _ in
+            // Sticky footer on every Adjust sub-tab (CapCut [32]); adjustment-layer clips have no "Apply to all".
+            guard ctx.kind != .adjustment else { return nil }
+            return AnyView(AdjustFooter(ctx: ctx))
         }, appliesTo: any(.video, .image, .adjustment)),
         InspectorTab(id: "effects", titleKey: "inspector.tab.effects", order: 7,
                      appliesTo: { $0.kind.isPlacedVisual && ClipEffectBlocks.hasEffects($0) }),
@@ -113,6 +116,8 @@ enum BuiltinInspector {
         InspectorSection(id: "animation.loop", tab: "animation", subTab: "loop", order: 0, titleKey: nil) { AnyView(AnimationPickerSection(ctx: $0, phase: .combo)) },
 
         // Adjust ▸ Basic
+        InspectorSection(id: "adjust.presets", tab: "adjust", subTab: "basic", order: -1, titleKey: "adjust.preset.section",
+                         appliesTo: { $0.kind != .adjustment && !AdjustPresets.shared.all.isEmpty }) { AnyView(AdjustPresetsSection(ctx: $0)) },
         InspectorSection(id: "adjust.filters", tab: "adjust", subTab: "basic", order: 0, titleKey: nil,
                          appliesTo: { ctx in ctx.kind != .adjustment && (ctx.clip?.effects ?? []).contains { Registries.effects[$0.typeID]?.category == .filter } }) {
             AnyView(ClipFilterBlocks(ctx: $0))
@@ -124,6 +129,15 @@ enum BuiltinInspector {
         InspectorSection(id: "adjust.others", tab: "adjust", subTab: "basic", order: 20, titleKey: nil,
                          appliesTo: { ctx in (ctx.clip?.effects ?? []).contains { OtherAdjustmentBlocks.listed($0) } }) {
             AnyView(OtherAdjustmentBlocks(ctx: $0))
+        },
+
+        // Adjust ▸ Mask (limits the grade to a region; same component as Video ▸ Mask)
+        InspectorSection(id: "adjust.mask.shapes", tab: "adjust", subTab: "mask", order: 0, titleKey: "inspector.mask") {
+            AnyView(MaskShapesSection(ctx: $0, target: .adjust))
+        },
+        InspectorSection(id: "adjust.mask.settings", tab: "adjust", subTab: "mask", order: 1, titleKey: "inspector.mask.settings",
+                         appliesTo: { $0.clip?.adjustMask != nil }, chrome: { MaskSettingsSection.chrome($0, target: .adjust) }) {
+            AnyView(MaskSettingsSection(ctx: $0, target: .adjust))
         },
 
         // Clip effects, effect clips, filter clips

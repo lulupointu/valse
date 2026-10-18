@@ -88,6 +88,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var cameraLock: CameraLockOptions?
     /// AI remove (W10): the clip plays an inpainted copy of `removal.original`.
     public var removal: ObjectRemovalInfo?
+    /// Adjust ▸ Mask (W3): limits the clip's Adjust-tab grading (adjustment-category effects) to a region.
+    public var adjustMask: Mask?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

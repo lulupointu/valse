@@ -218,10 +218,22 @@ struct ChromaKeySection: View {
 
 // MARK: - Mask
 
+/// Which mask a mask section edits: the clip's shape mask (Video ▸ Mask) or the grading mask (Adjust ▸ Mask).
+nonisolated struct MaskTarget: Sendable {
+    nonisolated(unsafe) let mask: WritableKeyPath<Clip, Mask?>
+    let center: ParamKey, size: ParamKey, feather: ParamKey, rotation: ParamKey, roundness: ParamKey
+    let group: [ParamKey]
+    static let clip = MaskTarget(mask: \.mask, center: .maskCenter, size: .maskSize, feather: .maskFeather, rotation: .maskRotation,
+                                 roundness: .maskRoundness, group: ParamKey.maskGroup)
+    static let adjust = MaskTarget(mask: \.adjustMask, center: .adjustMaskCenter, size: .adjustMaskSize, feather: .adjustMaskFeather,
+                                   rotation: .adjustMaskRotation, roundness: .adjustMaskRoundness, group: ParamKey.adjustMaskGroup)
+}
+
 /// Video ▸ Mask ▸ ☑ Mask: "+ Add mask" pill (dimmed shape grid until a mask exists), then a "Mask 1 · Shape" chip and
 /// the shape grid with the selected tile outlined (UX.md §5.1, [24]/[26]).
 struct MaskShapesSection: View {
     let ctx: InspectorContext
+    var target: MaskTarget = .clip
 
     static func symbol(_ s: MaskShape) -> String {
         switch s {
@@ -246,7 +258,7 @@ struct MaskShapesSection: View {
     }
 
     var body: some View {
-        let mask = ctx.clip?.mask
+        let mask = ctx.clip?[keyPath: target.mask]
         VStack(alignment: .leading, spacing: 12) {
             if let mask {
                 HStack(spacing: 8) {
@@ -266,7 +278,7 @@ struct MaskShapesSection: View {
                     .background(Theme.buttonSecondary, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .testID("inspector.mask.add")
+                .testID("mask.add")
             }
             TileGrid {
                 ForEach(MaskShape.allCases, id: \.self) { s in
@@ -274,6 +286,7 @@ struct MaskShapesSection: View {
                         Image(systemName: Self.symbol(s)).font(.system(size: 24, weight: .light)).foregroundStyle(Color(white: 0.85))
                     }
                     .opacity(mask == nil ? 0.35 : 1)
+                    .testID("mask.shape.\(s.rawValue)")
                 }
             }
         }
@@ -281,13 +294,14 @@ struct MaskShapesSection: View {
 
     func setShape(_ s: MaskShape?) {
         guard let id = ctx.clip?.id else { return }
+        let t = target
         ctx.store.perform(UpdateClip(id, nameKey: s == nil ? "cmd.mask.remove" : "cmd.mask") { c in
             if let s {
-                if var m = c.mask { m.shape = s; if s == .mirror && m.size.y > 0.9 { m.size.y = 0.4 }; c.mask = m }
-                else { c.mask = MaskShapesSection.defaultMask(s) }
+                if var m = c[keyPath: t.mask] { m.shape = s; if s == .mirror && m.size.y > 0.9 { m.size.y = 0.4 }; c[keyPath: t.mask] = m }
+                else { c[keyPath: t.mask] = MaskShapesSection.defaultMask(s) }
             } else {
-                c.mask = nil
-                c.clearKeyframes(ParamKey.maskGroup)
+                c[keyPath: t.mask] = nil
+                c.clearKeyframes(t.group)
             }
         })
     }
@@ -296,47 +310,51 @@ struct MaskShapesSection: View {
 /// Video ▸ Mask ▸ Mask settings: [invert] ↺ ‹◇›; Position, Rotation + dial, Size W ⛓ H, Feather, Round corners.
 struct MaskSettingsSection: View {
     let ctx: InspectorContext
+    var target: MaskTarget = .clip
 
-    static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
+    static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome { chrome(ctx, target: .clip) }
+
+    static func chrome(_ ctx: InspectorContext, target t: MaskTarget) -> InspectorSectionChrome {
         let store = ctx.store
-        let inverted = ctx.clip?.mask?.inverted ?? false
+        let inverted = ctx.clip?[keyPath: t.mask]?.inverted ?? false
         return InspectorSectionChrome(
             reset: {
                 guard let id = ctx.clip?.id else { return }
                 store.perform(UpdateClip(id, nameKey: "cmd.mask") { c in
-                    if let s = c.mask?.shape { c.mask = MaskShapesSection.defaultMask(s) }
-                    c.clearKeyframes(ParamKey.maskGroup)
+                    if let s = c[keyPath: t.mask]?.shape { c[keyPath: t.mask] = MaskShapesSection.defaultMask(s) }
+                    c.clearKeyframes(t.group)
                 })
             },
-            keyframeKeys: ParamKey.maskGroup,
+            keyframeKeys: t.group,
             accessory: AnyView(SmallIconButton(symbol: "circle.lefthalf.striped.horizontal.inverse", help: tr("inspector.mask.invert"),
                                                active: inverted, size: 14) {
                 guard let id = ctx.clip?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.mask") { $0.mask?.inverted.toggle() })
+                store.perform(UpdateClip(id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.inverted.toggle() })
             }))
     }
 
     var body: some View {
         let layer = layerSize()
-        let shape = ctx.clip?.mask?.shape
+        let t = target
+        let shape = ctx.clip?[keyPath: t.mask]?.shape
         let locked = InspectorUIState.shared.maskLock
         VStack(alignment: .leading, spacing: 4) {
-            InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [.maskCenter])) {
+            InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [t.center])) {
                 HStack(spacing: 14) {
-                    Bind.field(ctx, key: .maskCenter, component: 0, prefix: "X", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
+                    Bind.field(ctx, key: t.center, component: 0, prefix: "X", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
                                toUI: { $0 * layer.width }, fromUI: { $0 / max(layer.width, 1) }, gestureName: "cmd.mask")
-                    Bind.field(ctx, key: .maskCenter, component: 1, prefix: "Y", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
+                    Bind.field(ctx, key: t.center, component: 1, prefix: "Y", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
                                toUI: { -$0 * layer.height }, fromUI: { -$0 / max(layer.height, 1) }, gestureName: "cmd.mask")
                 }
             }
-            InlineRow(label: tr("prop.rotation"), triplet: Bind.triplet(ctx, [.maskRotation])) {
+            InlineRow(label: tr("prop.rotation"), triplet: Bind.triplet(ctx, [t.rotation])) {
                 HStack(spacing: 18) {
-                    Bind.field(ctx, key: .maskRotation, spec: RowSpec(range: -360...360, step: 1, format: Fmt.degrees1), gestureName: "cmd.mask")
-                    RotationDialBinding(ctx: ctx, key: .maskRotation)
+                    Bind.field(ctx, key: t.rotation, spec: RowSpec(range: -360...360, step: 1, format: Fmt.degrees1), gestureName: "cmd.mask")
+                    RotationDialBinding(ctx: ctx, key: t.rotation)
                 }
             }
             if shape != .linear {
-                InlineRow(label: tr("inspector.size"), triplet: Bind.triplet(ctx, [.maskSize])) {
+                InlineRow(label: tr("inspector.size"), triplet: Bind.triplet(ctx, [t.size])) {
                     HStack(spacing: 4) {
                         sizeField(0, layer: layer, locked: locked)
                         Button { InspectorUIState.shared.maskLock.toggle() } label: {
@@ -348,10 +366,10 @@ struct MaskSettingsSection: View {
                     }
                 }
             }
-            Bind.row(ctx, tr("prop.maskFeather"), key: .maskFeather, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+            Bind.row(ctx, tr("prop.maskFeather"), key: t.feather, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
                      toUI: { $0 * 100 }, fromUI: { $0 / 100 }, gestureName: "cmd.mask")
             if shape == .rectangle {
-                Bind.row(ctx, tr("prop.maskRoundness"), key: .maskRoundness, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+                Bind.row(ctx, tr("prop.maskRoundness"), key: t.roundness, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
                          toUI: { $0 * 100 }, fromUI: { $0 / 100 }, gestureName: "cmd.mask")
             }
         }
@@ -362,9 +380,9 @@ struct MaskSettingsSection: View {
         let dim = i == 0 ? layer.width : layer.height
         return ClipNumberField(ctx: ctx, prefixSymbol: i == 0 ? "arrow.left.and.right" : "arrow.up.and.down", width: 64,
                                spec: RowSpec(range: 1...100_000, step: 1, format: Fmt.int),
-                               get: { c, t in (c.value(.maskSize, at: t)?.component(i) ?? 0.5) * dim },
-                               set: { c, v, t in
-                                   c.modifyValue(.maskSize, at: t) { val in
+                               get: { [key = target.size] c, t in (c.value(key, at: t)?.component(i) ?? 0.5) * dim },
+                               set: { [key = target.size] c, v, t in
+                                   c.modifyValue(key, at: t) { val in
                                        guard var s = val.vec2 else { return }
                                        let nv = v / max(dim, 1)
                                        let old = i == 0 ? s.x : s.y
@@ -373,7 +391,7 @@ struct MaskSettingsSection: View {
                                        val = .vec2(s)
                                    }
                                },
-                               dependsOnTime: { $0.hasKeyframes(.maskSize) }, gestureName: "cmd.mask")
+                               dependsOnTime: { [key = target.size] in $0.hasKeyframes(key) }, gestureName: "cmd.mask")
     }
 
     /// Layer size in canvas pixels at scale 1 (mask coordinates are layer-relative).

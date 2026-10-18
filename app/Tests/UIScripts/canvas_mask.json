@@ -7,7 +7,7 @@
     {"click": "clip:main/0"},
     {"click": "id:inspector.tab.video"},
     {"click": "id:inspector.sub.mask"},
-    {"click": "id:inspector.mask.add"},
+    {"click": "id:mask.add"},
     {"expect": [{"path": "selectedClips.0.mask.shape", "equals": "rectangle"}, {"path": "undo.depth", "equals": 1}]},
     {"snapshot": "mask-added", "element": "id:panel.player"},
     // feather button: 26 pt above the top edge midpoint (player fractions are of the player view, not the frame)

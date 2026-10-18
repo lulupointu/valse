@@ -1,0 +1,44 @@
+// Adjust tab (W3-1): sticky footer [Apply to all] [Save as preset] on every sub-tab, "My presets" chips, and the
+// Adjust ▸ Mask sub-tab (the grade only applies inside the mask).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.adjust"},
+    {"expect": {"path": "ui.anchors", "contains": "adjust.applyAll"}},
+    {"click": "id:slider.Brightness.field"},
+    {"type": "50", "replace": true},
+    {"key": "return"},
+    {"click": "id:adjust.savePreset"},
+    {"expect": [{"path": "ui.anchors", "contains": "adjust.preset.0"}, {"path": "ui.toast", "contains": "Preset 1"}]},
+    {"click": "id:adjust.applyAll"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.adjust.applyAll"},
+                {"path": "project.timeline.tracks.0.clips.1.effects", "count": 1},
+                {"path": "project.timeline.tracks.0.clips.1.effects.0.params.brightness.scalar._0", "approx": 1.0},
+                {"path": "project.timeline.tracks.0.clips.2.effects.0.typeID", "equals": "montage.adjust.basic"}]},
+    {"snapshot": "adjust-footer", "element": "id:panel.inspector"},
+    {"click": "id:inspector.sub.hsl"},
+    {"expect": {"path": "ui.anchors", "contains": "adjust.savePreset"}},
+    // Mask sub-tab: + Add mask creates a rectangle grading mask
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"expect": [{"path": "project.timeline.tracks.0.clips.0.adjustMask.shape", "equals": "rectangle"},
+                {"path": "project.timeline.tracks.0.clips.0.mask", "exists": false},
+                {"path": "undo.name", "equals": "cmd.mask"}]},
+    {"click": "id:mask.shape.circle"},
+    {"expect": {"path": "project.timeline.tracks.0.clips.0.adjustMask.shape", "equals": "circle"}},
+    {"seek": 1},
+    {"snapshot": "adjust-mask-tab", "element": "id:panel.inspector"},
+    {"snapshot": "adjust-mask-player", "element": "id:panel.player", "threshold": 40},
+    // My presets: another clip, change its brightness, the preset chip restores the saved grade
+    {"click": "clip:main/1"},
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:inspector.sub.basic"},
+    {"click": "id:slider.Brightness.field"},
+    {"type": "-30", "replace": true},
+    {"key": "return"},
+    {"click": "id:adjust.preset.0"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.adjust.preset"},
+                {"path": "project.timeline.tracks.0.clips.1.effects.0.params.brightness.scalar._0", "approx": 1.0}]}
+  ]
+}

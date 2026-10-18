@@ -19,6 +19,11 @@ public struct ParamKey: Hashable, Sendable, Codable, ExpressibleByStringLiteral,
     public static let maskRotation: ParamKey = "mask.rotation"
     public static let textColor: ParamKey = "text.color"
     public static let maskRoundness: ParamKey = "mask.roundness"
+    public static let adjustMaskCenter: ParamKey = "adjustMask.center"
+    public static let adjustMaskSize: ParamKey = "adjustMask.size"
+    public static let adjustMaskFeather: ParamKey = "adjustMask.feather"
+    public static let adjustMaskRotation: ParamKey = "adjustMask.rotation"
+    public static let adjustMaskRoundness: ParamKey = "adjustMask.roundness"
     public static let cropLeft: ParamKey = "crop.left"
     public static let cropTop: ParamKey = "crop.top"
     public static let cropRight: ParamKey = "crop.right"
@@ -35,6 +40,8 @@ public struct ParamKey: Hashable, Sendable, Codable, ExpressibleByStringLiteral,
     /// Inspector groups (section-level diamonds).
     public static let transformGroup: [ParamKey] = [.scale, .position, .rotation]
     public static let maskGroup: [ParamKey] = [.maskCenter, .maskRotation, .maskSize, .maskFeather, .maskRoundness]
+    public static let adjustMaskGroup: [ParamKey] = [.adjustMaskCenter, .adjustMaskRotation, .adjustMaskSize, .adjustMaskFeather,
+                                                     .adjustMaskRoundness]
     public static let cropGroup: [ParamKey] = [.cropLeft, .cropTop, .cropRight, .cropBottom]
 
     public static func effect(_ id: EffectInstanceID, _ param: String) -> ParamKey { ParamKey("effect.\(id.raw.uuidString).\(param)") }
@@ -81,6 +88,16 @@ public enum AnimatableProperties {
               set: { c, v in if let v = v.scalar { c.mask?.rotation = v } }),
         .init(key: .maskRoundness, nameKey: "prop.maskRoundness", get: { .scalar($0.mask?.roundness ?? 0) },
               set: { c, v in if let v = v.scalar { c.mask?.roundness = v } }),
+        .init(key: .adjustMaskCenter, nameKey: "prop.maskCenter", get: { .vec2($0.adjustMask?.center ?? .zero) },
+              set: { c, v in if let v = v.vec2 { c.adjustMask?.center = v } }),
+        .init(key: .adjustMaskSize, nameKey: "prop.maskSize", get: { .vec2($0.adjustMask?.size ?? .one) },
+              set: { c, v in if let v = v.vec2 { c.adjustMask?.size = v } }),
+        .init(key: .adjustMaskFeather, nameKey: "prop.maskFeather", get: { .scalar($0.adjustMask?.feather ?? 0) },
+              set: { c, v in if let v = v.scalar { c.adjustMask?.feather = v } }),
+        .init(key: .adjustMaskRotation, nameKey: "prop.maskRotation", get: { .scalar($0.adjustMask?.rotation ?? 0) },
+              set: { c, v in if let v = v.scalar { c.adjustMask?.rotation = v } }),
+        .init(key: .adjustMaskRoundness, nameKey: "prop.maskRoundness", get: { .scalar($0.adjustMask?.roundness ?? 0) },
+              set: { c, v in if let v = v.scalar { c.adjustMask?.roundness = v } }),
         .init(key: .cropLeft, nameKey: "prop.cropLeft", get: { .scalar($0.crop.left) },
               set: { c, v in if let v = v.scalar { c.crop.left = v } }),
         .init(key: .cropTop, nameKey: "prop.cropTop", get: { .scalar($0.crop.top) },

@@ -268,7 +268,7 @@ extension TimelineOps {
             guard var c = tl.clip(id) else { continue }
             if groups.contains(.basic) {
                 c.transform = src.transform; c.opacity = src.opacity; c.blendMode = src.blendMode
-                c.crop = src.crop; c.mask = src.mask
+                c.crop = src.crop; c.mask = src.mask; c.adjustMask = src.adjustMask
             }
             var effectIDMap: [String: String] = [:]
             if groups.contains(.effects) {

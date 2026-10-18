@@ -89,3 +89,11 @@
 "settings.project.title" = "Paramètres du projet";
 "speed.preset.none" = "Aucun";
 "toast.appliedToAll" = "Appliqué à tout";
+
+/* Adjust footer + My presets (W3 UX polish) */
+"adjust.preset.section" = "Mes préréglages";
+"adjust.preset.name" = "Préréglage %d";
+"adjust.preset.applyHelp" = "Appliquer ce préréglage au clip sélectionné";
+"adjust.preset.delete" = "Supprimer le préréglage";
+"toast.presetSaved" = "Enregistré sous « %@ »";
+"cmd.adjust.preset" = "Appliquer le préréglage";
