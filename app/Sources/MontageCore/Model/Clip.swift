@@ -292,33 +292,4 @@ public struct AudioProps: Hashable, Codable, Sendable {
     public static func decibels(_ gain: Double) -> Double { gain <= 0 ? -.infinity : 20 * log10(gain) }
 }
 
-public enum TextAlignment: String, Codable, Sendable { case left, center, right }
-
-/// Text clip content. Sizes are canvas-relative so a project renders identically at any export resolution.
-public struct TextContent: Hashable, Codable, Sendable {
-    public var string: String
-    /// PostScript or family name; empty = system font.
-    public var fontName: String
-    /// Font size as a fraction of canvas height (CapCut default ≈ 15 → 0.06).
-    public var fontSize: Double
-    public var color: RGBA
-    public var alignment: TextAlignment
-    public var bold: Bool
-    public var italic: Bool
-    public var strokeColor: RGBA
-    public var strokeWidth: Double
-    public var backgroundColor: RGBA
-    public var shadowColor: RGBA
-    public var lineSpacing: Double
-    public var letterSpacing: Double
-    /// Text style preset id (registry), if any.
-    public var styleID: String?
-
-    public init(string: String, fontName: String = "", fontSize: Double = 0.06, color: RGBA = .white,
-                alignment: TextAlignment = .center) {
-        self.string = string; self.fontName = fontName; self.fontSize = fontSize; self.color = color
-        self.alignment = alignment; bold = false; italic = false
-        strokeColor = .black; strokeWidth = 0; backgroundColor = .clear; shadowColor = .clear
-        lineSpacing = 0; letterSpacing = 0; styleID = nil
-    }
-}
+// Text model (TextContent, TextAlignment…) lives in MontageCore/Text/ (text engine, W7).

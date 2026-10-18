@@ -225,8 +225,13 @@ public enum FrameEvaluator {
             guard let a = project.asset(id), a.hasVideo || a.kind == .image else { return nil }
             source = a.kind == .image ? .image(id) : .media(id, sourceTime: c.sourceTime(at: t))
             size = a.pixelSize
-        case .text(let text):
+        case .text(var text):
             // Real size is known only after rasterization (engine measures the text); placement uses `.native`.
+            // Caption word timings are content time; the renderer wants clip-local time.
+            if c.sourceStart != .zero, text.caption?.words.isEmpty == false {
+                let d = c.sourceStart
+                text.caption!.words = text.caption!.words.map { var w = $0; w.start = w.start - d; w.end = w.end - d; return w }
+            }
             source = .text(text); size = .zero
         case .solid(let color):
             source = .solid(color); size = project.settings.canvasSize
