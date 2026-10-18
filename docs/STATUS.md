@@ -18,7 +18,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W3 | Inspector panels | 1 | merged (16 done / 14 partial / 1 blocked) | main 19504fe |
 | W6+W9 | Render engine + media pipeline | 1 | merged incl. colour + media helpers | main 9c54c1b |
 | W8 | Audio | 1 | merged (19 done / 13 partial / 1 blocked) | main a3bf1f7 |
-| W14 | QA: UI test driver, screenshot diff, perf | 1 | driver merged; perf harness in progress | worktree-agent-aa1de47edb2d5d946 |
+| W14 | QA: UI test driver, screenshot diff, perf | 1 | merged (driver, gestures, perf.sh --air, check_clean, 14 UI scripts) | worktree-agent-aa1de47edb2d5d946 |
 | W4 | Effects & filters content | 2 | running | |
 | W5 | Transitions & animations content | 2 | running | |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | merged (TX 21 done / 9 partial / 5 blocked) | main 8602b57 |
@@ -26,6 +26,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W11 | Export & interchange | 2 | merged (EX 22 done / 1 partial / 2 todo P2) | main 8fea692 |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | running | |
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | running | |
+| PERF | MacBook Air smoothness: 500-clip fit-zoom timeline 154 ms/frame on E-cores → <16 ms; full --air audit; flaky PlaybackTests | 3 | running | |
 | — | Templates (TP), Retouch/body (RT) | 3 | queued (depend on W7, W10) | |
 
 ## Cross-team requests / blockers (open)
