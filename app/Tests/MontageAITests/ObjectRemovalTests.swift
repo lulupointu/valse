@@ -47,4 +47,54 @@ import MontageTestSupport
             #expect(p[id].removal == nil && p[id].mediaID == p.project.media[0].id)
         }
     }
+
+    /// AI2 stress (segfault seen in a clean-check run of ai_remove_inference): several inpainting jobs at once, while
+    /// another GPU-heavy job runs, then cancelled mid-inference. One shared model, serialized predictions, owned
+    /// pixel copies; every job ends (done or cancelled) and the process survives.
+    @Test func concurrentInpaintingUnderLoadAndCancel() async throws {
+        try await HeavyWorkGate.run {
+            guard LaMaInpainter.isAvailable else { print("skip: LaMa model not installed"); return }
+            var assets: [MediaAsset] = []
+            for (i, c) in [RGBA.red, .green, .blue].enumerated() {
+                let url = try await TestMedia.video(.movingBox(RGBA(0.2 + 0.2 * Double(i), 0.5, 0.8), c), seconds: 0.3, size: CGSize(width: 640, height: 360))
+                assets.append(try await MediaProbe.probe(url))
+            }
+            let strokes = [RemovalStroke(points: [Vec2(0.3 + Double.random(in: 0...0.01), 0.5), Vec2(0.6, 0.5)], radius: 0.08)]
+            let q = JobQueue(maxConcurrent: 3)
+            // a competing GPU/decoder-heavy job: a denoise render of another clip
+            let heavyURL = try await TestMedia.video(.movingBox(.white, .black), seconds: 1, size: CGSize(width: 1280, height: 720))
+            let heavy = try await MediaProbe.probe(heavyURL)
+            let other = await q.enqueue(titleKey: "heavy") { _ in
+                _ = try await VideoEnhancer.process(heavy, VideoEnhancement(original: heavy.id, denoise: .strong))
+            }
+            for round in 0..<1 {
+                let ids = await assets.asyncMap { a in
+                    await q.enqueue(titleKey: "lama") { _ in
+                        let u = try await ObjectRemover.process(a, strokes: strokes + [RemovalStroke(points: [Vec2(0.1, 0.1)], radius: 0.02 + 0.01 * Double(round))])
+                        #expect(FileManager.default.fileExists(atPath: u.path))
+                        #expect(LaMaInpainter.loadedCount <= 1)
+                    }
+                }
+                for id in ids { #expect(await q.wait(id) == .done) }
+            }
+            // cancel mid-inference: shutdown must wait for the running predictions to return
+            let late = await assets.asyncMap { a in
+                await q.enqueue(titleKey: "lama") { _ in
+                    _ = try await ObjectRemover.process(a, strokes: strokes + [RemovalStroke(points: [Vec2(0.9, 0.9)], radius: 0.05)])
+                }
+            }
+            try await Task.sleep(for: .milliseconds(400))
+            #expect(await q.shutdown(timeout: 20))
+            for id in late + [other] { let s = await q.wait(id); #expect(s == .cancelled || s == .done) }
+            #expect(LaMaInpainter.loadedCount == 0)
+        }
+    }
+}
+
+extension Array {
+    func asyncMap<T>(_ f: (Element) async -> T) async -> [T] {
+        var out: [T] = []
+        for e in self { out.append(await f(e)) }
+        return out
+    }
 }

@@ -16,6 +16,34 @@ public final class LaMaInpainter: @unchecked Sendable {
 
     public static var isAvailable: Bool { ModelCatalog.installedURL(ModelCatalog.lama) != nil }
 
+    // One model per process (~600 MB): concurrent AI remove jobs share it, its first-use compile runs once, and
+    // predictions are serialized (two clips inpainting at once used to load two models and race the compile/move of
+    // LaMa.mlmodelc; under memory pressure that ended in MPSGraph crashes). Released when the last user is done.
+    private static let sharedLock = NSLock()
+    nonisolated(unsafe) private static var sharedInstance: LaMaInpainter?
+    nonisolated(unsafe) private static var users = 0
+    private static let predictLock = NSLock()
+
+    /// The shared inpainter; pair every call with `release()`.
+    public static func acquire() throws -> LaMaInpainter {
+        try sharedLock.withLock {
+            if let s = sharedInstance { users += 1; return s }
+            let s = try LaMaInpainter()
+            sharedInstance = s; users = 1
+            return s
+        }
+    }
+
+    public static func release() {
+        sharedLock.withLock {
+            users = max(0, users - 1)
+            if users == 0 { sharedInstance = nil }
+        }
+    }
+
+    /// Number of loaded models (tests: always ≤ 1).
+    public static var loadedCount: Int { sharedLock.withLock { sharedInstance == nil ? 0 : 1 } }
+
     public init() throws {
         guard let zip = ModelCatalog.installedURL(ModelCatalog.lama) else { throw AIToolError.modelMissing(ModelCatalog.lama.id) }
         let compiled = MontagePaths.cacheDirectory.appendingPathComponent("models/LaMa.mlmodelc")
@@ -56,7 +84,7 @@ public final class LaMaInpainter: @unchecked Sendable {
         let S = Self.side
         guard let inImg = Self.bgra(image, crop: crop, S), let inMask = Self.maskBuffer(m, W, H, crop: crop, S) else { throw AIToolError.noInput }
         let input = try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: inImg), "mask": MLFeatureValue(pixelBuffer: inMask)])
-        let out = try model.prediction(from: input)
+        let out = try Self.predictLock.withLock { try model.prediction(from: input) }
         guard let res = out.featureValue(for: "output")?.imageBufferValue else { throw AIToolError.noInput }
         // composite: original everywhere, inpainted crop through a feathered (dilated) mask
         let ctx = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
@@ -113,13 +141,18 @@ public final class LaMaInpainter: @unchecked Sendable {
         return pb
     }
 
+    /// BGRA pixel buffer → CGImage that OWNS a copy of the pixels (a bitmap context over the buffer's memory can hand
+    /// out an image still pointing at it, which the decoder / Core ML pool then recycles).
     static func cgImage(_ pb: CVPixelBuffer) -> CGImage? {
         CVPixelBufferLockBaseAddress(pb, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
-        let ctx = CGContext(data: CVPixelBufferGetBaseAddress(pb), width: CVPixelBufferGetWidth(pb), height: CVPixelBufferGetHeight(pb), bitsPerComponent: 8,
-                            bytesPerRow: CVPixelBufferGetBytesPerRow(pb), space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
-        return ctx?.makeImage()
+        guard let base = CVPixelBufferGetBaseAddress(pb) else { return nil }
+        let w = CVPixelBufferGetWidth(pb), h = CVPixelBufferGetHeight(pb), bpr = CVPixelBufferGetBytesPerRow(pb)
+        let data = Data(bytes: base, count: bpr * h) as CFData
+        guard let provider = CGDataProvider(data: data) else { return nil }
+        return CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: bpr, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
     }
 
     /// Dilated + box-blurred mask as a CG clip mask (image orientation preserved: row 0 = top).
@@ -179,7 +212,8 @@ public enum ObjectRemover {
 
     public static func process(_ a: MediaAsset, strokes: [RemovalStroke], progress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let lama = try LaMaInpainter()
+        let lama = try LaMaInpainter.acquire()
+        defer { LaMaInpainter.release() }
         if a.kind == .image {
             let out = directory.appendingPathComponent(key(a, strokes) + ".png")
             if FileManager.default.fileExists(atPath: out.path) { return out }

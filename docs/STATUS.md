@@ -91,7 +91,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - MP3 export requires FFmpeg sidecar with libmp3lame; otherwise option disabled with hint.
 - Never use AVAudioTimePitchAlgorithm `.varispeed`: hangs the audio reader during export on sped-up clips.
 - Heavy work from main-actor code/tests starves PlaybackTests — run it off-main (`Task.detached`).
-- Quit / end of a UI test: `AppShutdown.stopBackgroundWork()` cancels exports + every `JobQueue` job and waits for them (exiting under live Core ML/Metal work crashed in MPSGraph teardown). New background work must go through `JobQueue` (or check `Task.isCancelled`) so quit can stop it.
+- Quit / end of a UI test: `AppShutdown.stopBackgroundWork()` cancels exports + every `JobQueue` job and waits for them (exiting under live Core ML/Metal work crashed in MPSGraph teardown). The `ai_remove_inference` exit-139 segfault (clean-check) was the same teardown crash (inference still running at `exit`, MPSGraph logging); also LaMa is now one shared model with serialized predictions and owned pixel copies (stress test `concurrentInpaintingUnderLoadAndCancel`). New background work must go through `JobQueue` (or check `Task.isCancelled`) so quit can stop it.
 
 ## Known risks
 - Apple on-device French STT WER ~13% without OS model download → whisper.cpp (large-v3-turbo, 547 MB) as quality path.
