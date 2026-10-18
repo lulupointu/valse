@@ -1,0 +1,7 @@
+{"stack":"tauri-rust","metric":"app_size_mb","value":15.7,"unit":"MB"}
+{"stack":"tauri-rust","metric":"cold_start_ms","value":526.094,"unit":"ms"}
+{"stack":"tauri-rust","metric":"preview_util_fps","value":15.513,"unit":"fps"}
+{"stack":"tauri-rust","metric":"preview_util_dropped_frames","value":145,"unit":"frames"}
+{"stack":"tauri-rust","metric":"preview_util_cpu_pct","value":20.24,"unit":"%"}
+{"stack":"tauri-rust","metric":"preview_util_rss_mb","value":333.9,"unit":"MB"}
+{"stack":"tauri-rust","metric":"preview_util_rss_peak_mb","value":348.4,"unit":"MB"}

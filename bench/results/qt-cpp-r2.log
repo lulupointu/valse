@@ -1,0 +1,10 @@
+[bench] build ok (0s incremental)
+[bench] run: --mode preview --seconds 20 --seeks 50 --screenshot /Users/lulupointu/Development/local-capcut/prototypes/qt-cpp/screenshots/preview.png
+[bench] run: preview8 (MONTAGE_LAYERS=8)
+[bench] run: --mode timeline --seconds 5 --screenshot /Users/lulupointu/Development/local-capcut/prototypes/qt-cpp/screenshots/timeline.png
+[bench] run: --mode export --seconds 10 --out /var/folders/zy/m37swc7n5d31l_tmrqsb79gm0000gn/T/montage-qt.Y8EeFvNhu3/export.mp4
+[bench] export ffprobe: h264,1920,1080,300
+[bench] run: --mode seg --frames 300 --model /Users/lulupointu/Development/local-capcut/prototypes/qt-cpp/models/modnet.onnx
+[bench] run: --mode stt --model /Users/lulupointu/Development/local-capcut/prototypes/qt-cpp/models/ggml-large-v3-turbo-q5_0.bin --ref /Users/lulupointu/Development/local-capcut/bench/speech_fr.txt --out /Users/lulupointu/Development/local-capcut/prototypes/qt-cpp/screenshots/stt_words.json
+[bench] run: --mode audio --seconds 5 --rate 1.5
+[bench] done -> /Users/lulupointu/Development/local-capcut/prototypes/qt-cpp/results.jsonl

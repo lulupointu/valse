@@ -1,0 +1,1114 @@
+{
+ "app_size_mb": {
+  "swift-native": {
+   "median": 0.7,
+   "min": 0.7,
+   "max": 0.7,
+   "n": 4
+  },
+  "electron-web": {
+   "median": 360.0,
+   "min": 360.0,
+   "max": 360.0,
+   "n": 4
+  },
+  "tauri-rust": {
+   "median": 15.7,
+   "min": 15.7,
+   "max": 15.7,
+   "n": 4
+  },
+  "qt-cpp": {
+   "median": 242.8,
+   "min": 242.8,
+   "max": 242.8,
+   "n": 2
+  }
+ },
+ "audio_stretch_live_rate": {
+  "swift-native": {
+   "median": 1.5,
+   "min": 1.5,
+   "max": 1.5,
+   "n": 2
+  }
+ },
+ "audio_stretch_ok": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "audio_stretch_pitch_ratio": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "audio_stretch_video_fps": {
+  "swift-native": {
+   "median": 45.082,
+   "min": 44.984,
+   "max": 45.18,
+   "n": 2
+  }
+ },
+ "audio_video_fps": {
+  "qt-cpp": {
+   "median": 42.9945,
+   "min": 42.79,
+   "max": 43.199,
+   "n": 2
+  }
+ },
+ "build_seconds": {
+  "swift-native": {
+   "median": 2.725,
+   "min": 1.32,
+   "max": 2.86,
+   "n": 4
+  }
+ },
+ "cold_start_ms": {
+  "swift-native": {
+   "median": 398.4365,
+   "min": 389.713,
+   "max": 416.863,
+   "n": 4
+  },
+  "electron-web": {
+   "median": 642.5,
+   "min": 635.0,
+   "max": 683.0,
+   "n": 4
+  },
+  "tauri-rust": {
+   "median": 544.8165,
+   "min": 526.094,
+   "max": 559.709,
+   "n": 4
+  },
+  "qt-cpp": {
+   "median": 465.01099999999997,
+   "min": 401.636,
+   "max": 528.386,
+   "n": 2
+  }
+ },
+ "cold_start_ui_ms": {
+  "qt-cpp": {
+   "median": 486.2865,
+   "min": 478.582,
+   "max": 493.991,
+   "n": 2
+  }
+ },
+ "compositor_frame_ms_p50": {
+  "swift-native": {
+   "median": 1.2825,
+   "min": 1.275,
+   "max": 1.29,
+   "n": 2
+  }
+ },
+ "export_realtime_factor": {
+  "swift-native": {
+   "median": 4.5440000000000005,
+   "min": 4.525,
+   "max": 4.563,
+   "n": 2
+  }
+ },
+ "export_seconds": {
+  "swift-native": {
+   "median": 2.201,
+   "min": 2.192,
+   "max": 2.21,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 1.96,
+   "min": 1.93,
+   "max": 1.99,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 1.959,
+   "min": 1.951,
+   "max": 1.967,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 4.128,
+   "min": 4.114,
+   "max": 4.142,
+   "n": 2
+  }
+ },
+ "export_valid": {
+  "qt-cpp": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "preview8_cpu_pct": {
+  "swift-native": {
+   "median": 30.697499999999998,
+   "min": 30.244,
+   "max": 31.151,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 82.4,
+   "min": 81.5,
+   "max": 83.3,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 39.655,
+   "min": 39.32,
+   "max": 39.99,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 61.193,
+   "min": 60.336,
+   "max": 62.05,
+   "n": 2
+  }
+ },
+ "preview8_dropped_frames": {
+  "swift-native": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 5.5,
+   "min": 2.0,
+   "max": 9.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 10.5,
+   "min": 8.0,
+   "max": 13.0,
+   "n": 2
+  }
+ },
+ "preview8_footprint_mb": {
+  "swift-native": {
+   "median": 2494.0,
+   "min": 2494.0,
+   "max": 2494.0,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 2724.0,
+   "min": 2724.0,
+   "max": 2724.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 2754.0,
+   "min": 2754.0,
+   "max": 2754.0,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 1998.0,
+   "min": 1998.0,
+   "max": 1998.0,
+   "n": 1
+  }
+ },
+ "preview8_fps": {
+  "swift-native": {
+   "median": 30.008499999999998,
+   "min": 29.989,
+   "max": 30.028,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 29.7,
+   "min": 29.5,
+   "max": 29.9,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 29.9485,
+   "min": 29.947,
+   "max": 29.95,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 29.423499999999997,
+   "min": 29.299,
+   "max": 29.548,
+   "n": 2
+  }
+ },
+ "preview8_gap_dropped_frames": {
+  "swift-native": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  }
+ },
+ "preview8_playback_rate": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "preview8_rss_mb": {
+  "swift-native": {
+   "median": 250.43099999999998,
+   "min": 248.117,
+   "max": 252.745,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 868.5,
+   "min": 855.0,
+   "max": 882.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 379.35,
+   "min": 373.7,
+   "max": 385.0,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 377.7475,
+   "min": 319.009,
+   "max": 436.486,
+   "n": 2
+  }
+ },
+ "preview8_rss_peak_mb": {
+  "swift-native": {
+   "median": 261.2735,
+   "min": 257.891,
+   "max": 264.656,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 1031.0,
+   "min": 1025.0,
+   "max": 1037.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 390.9,
+   "min": 385.6,
+   "max": 396.2,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 487.703,
+   "min": 409.484,
+   "max": 565.922,
+   "n": 2
+  }
+ },
+ "preview8_window_visible": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "preview_bg_cpu_pct": {
+  "swift-native": {
+   "median": 38.648,
+   "min": 38.648,
+   "max": 38.648,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 57.2,
+   "min": 57.2,
+   "max": 57.2,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 25.14,
+   "min": 25.14,
+   "max": 25.14,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 26.015,
+   "min": 26.015,
+   "max": 26.015,
+   "n": 1
+  }
+ },
+ "preview_bg_dropped_frames": {
+  "swift-native": {
+   "median": 21.0,
+   "min": 21.0,
+   "max": 21.0,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 695.0,
+   "min": 695.0,
+   "max": 695.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 335.0,
+   "min": 335.0,
+   "max": 335.0,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 1
+  }
+ },
+ "preview_bg_fps": {
+  "swift-native": {
+   "median": 28.944,
+   "min": 28.944,
+   "max": 28.944,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 0.1,
+   "min": 0.1,
+   "max": 0.1,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 9.26,
+   "min": 9.26,
+   "max": 9.26,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 0.05,
+   "min": 0.05,
+   "max": 0.05,
+   "n": 1
+  }
+ },
+ "preview_bg_gap_dropped_frames": {
+  "swift-native": {
+   "median": 37.0,
+   "min": 37.0,
+   "max": 37.0,
+   "n": 1
+  }
+ },
+ "preview_bg_playback_rate": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 1
+  }
+ },
+ "preview_bg_rss_mb": {
+  "swift-native": {
+   "median": 187.375,
+   "min": 187.375,
+   "max": 187.375,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 833.0,
+   "min": 833.0,
+   "max": 833.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 337.9,
+   "min": 337.9,
+   "max": 337.9,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 468.971,
+   "min": 468.971,
+   "max": 468.971,
+   "n": 1
+  }
+ },
+ "preview_bg_rss_peak_mb": {
+  "swift-native": {
+   "median": 199.188,
+   "min": 199.188,
+   "max": 199.188,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 884.0,
+   "min": 884.0,
+   "max": 884.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 350.4,
+   "min": 350.4,
+   "max": 350.4,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 472.234,
+   "min": 472.234,
+   "max": 472.234,
+   "n": 1
+  }
+ },
+ "preview_bg_window_visible": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 1
+  }
+ },
+ "preview_cpu_pct": {
+  "swift-native": {
+   "median": 20.786,
+   "min": 20.196,
+   "max": 21.376,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 59.55,
+   "min": 59.4,
+   "max": 59.7,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 26.15,
+   "min": 26.09,
+   "max": 26.21,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 41.987,
+   "min": 41.081,
+   "max": 42.893,
+   "n": 2
+  }
+ },
+ "preview_dropped_frames": {
+  "swift-native": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 5.5,
+   "min": 4.0,
+   "max": 7.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  }
+ },
+ "preview_footprint_mb": {
+  "swift-native": {
+   "median": 1286.0,
+   "min": 1286.0,
+   "max": 1286.0,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 1500.0,
+   "min": 1500.0,
+   "max": 1500.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 1453.0,
+   "min": 1453.0,
+   "max": 1453.0,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 1050.0,
+   "min": 1050.0,
+   "max": 1050.0,
+   "n": 1
+  }
+ },
+ "preview_fps": {
+  "swift-native": {
+   "median": 30.005499999999998,
+   "min": 29.982,
+   "max": 30.029,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 29.75,
+   "min": 29.6,
+   "max": 29.9,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 29.996499999999997,
+   "min": 29.991,
+   "max": 30.002,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 29.949,
+   "min": 29.949,
+   "max": 29.949,
+   "n": 2
+  }
+ },
+ "preview_gap_dropped_frames": {
+  "swift-native": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  }
+ },
+ "preview_playback_rate": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "preview_rss_mb": {
+  "swift-native": {
+   "median": 184.9435,
+   "min": 173.668,
+   "max": 196.219,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 773.0,
+   "min": 773.0,
+   "max": 773.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 279.8,
+   "min": 279.1,
+   "max": 280.5,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 476.4735,
+   "min": 476.246,
+   "max": 476.701,
+   "n": 2
+  }
+ },
+ "preview_rss_peak_mb": {
+  "swift-native": {
+   "median": 195.0625,
+   "min": 182.109,
+   "max": 208.016,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 873.0,
+   "min": 858.0,
+   "max": 888.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 289.4,
+   "min": 289.4,
+   "max": 289.4,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 505.5235,
+   "min": 505.25,
+   "max": 505.797,
+   "n": 2
+  }
+ },
+ "preview_util_cpu_pct": {
+  "swift-native": {
+   "median": 22.372,
+   "min": 22.372,
+   "max": 22.372,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 65.8,
+   "min": 65.8,
+   "max": 65.8,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 20.24,
+   "min": 20.24,
+   "max": 20.24,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 42.568,
+   "min": 42.568,
+   "max": 42.568,
+   "n": 1
+  }
+ },
+ "preview_util_dropped_frames": {
+  "swift-native": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 2.0,
+   "min": 2.0,
+   "max": 2.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 145.0,
+   "min": 145.0,
+   "max": 145.0,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 1
+  }
+ },
+ "preview_util_fps": {
+  "swift-native": {
+   "median": 30.048,
+   "min": 30.048,
+   "max": 30.048,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 29.9,
+   "min": 29.9,
+   "max": 29.9,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 15.513,
+   "min": 15.513,
+   "max": 15.513,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 29.894,
+   "min": 29.894,
+   "max": 29.894,
+   "n": 1
+  }
+ },
+ "preview_util_gap_dropped_frames": {
+  "swift-native": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 1
+  }
+ },
+ "preview_util_playback_rate": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 1
+  }
+ },
+ "preview_util_rss_mb": {
+  "swift-native": {
+   "median": 188.638,
+   "min": 188.638,
+   "max": 188.638,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 791.0,
+   "min": 791.0,
+   "max": 791.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 333.9,
+   "min": 333.9,
+   "max": 333.9,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 475.425,
+   "min": 475.425,
+   "max": 475.425,
+   "n": 1
+  }
+ },
+ "preview_util_rss_peak_mb": {
+  "swift-native": {
+   "median": 201.891,
+   "min": 201.891,
+   "max": 201.891,
+   "n": 1
+  },
+  "electron-web": {
+   "median": 890.0,
+   "min": 890.0,
+   "max": 890.0,
+   "n": 1
+  },
+  "tauri-rust": {
+   "median": 348.4,
+   "min": 348.4,
+   "max": 348.4,
+   "n": 1
+  },
+  "qt-cpp": {
+   "median": 504.094,
+   "min": 504.094,
+   "max": 504.094,
+   "n": 1
+  }
+ },
+ "preview_util_window_visible": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 1
+  }
+ },
+ "preview_window_visible": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "scrub_keyframe_ms_p50": {
+  "swift-native": {
+   "median": 40.9285,
+   "min": 40.924,
+   "max": 40.933,
+   "n": 2
+  }
+ },
+ "scrub_keyframe_ms_p95": {
+  "swift-native": {
+   "median": 49.158500000000004,
+   "min": 49.134,
+   "max": 49.183,
+   "n": 2
+  }
+ },
+ "scrub_ms_p50": {
+  "swift-native": {
+   "median": 73.4985,
+   "min": 73.477,
+   "max": 73.52,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 69.95,
+   "min": 69.9,
+   "max": 70.0,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 48.375,
+   "min": 46.11,
+   "max": 50.64,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 85.2565,
+   "min": 81.45,
+   "max": 89.063,
+   "n": 2
+  }
+ },
+ "scrub_ms_p95": {
+  "swift-native": {
+   "median": 106.73400000000001,
+   "min": 106.626,
+   "max": 106.842,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 92.5,
+   "min": 91.6,
+   "max": 93.4,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 76.142,
+   "min": 75.482,
+   "max": 76.802,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 152.487,
+   "min": 152.182,
+   "max": 152.792,
+   "n": 2
+  }
+ },
+ "scrub_timeouts": {
+  "swift-native": {
+   "median": 0.0,
+   "min": 0.0,
+   "max": 0.0,
+   "n": 2
+  }
+ },
+ "seg_first_frame_ms": {
+  "swift-native": {
+   "median": 153.44650000000001,
+   "min": 152.576,
+   "max": 154.317,
+   "n": 2
+  }
+ },
+ "seg_fps": {
+  "swift-native": {
+   "median": 50.388,
+   "min": 48.211,
+   "max": 52.565,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 49.1,
+   "min": 49.0,
+   "max": 49.2,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 23.747,
+   "min": 23.64,
+   "max": 23.854,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 54.9255,
+   "min": 54.876,
+   "max": 54.975,
+   "n": 2
+  }
+ },
+ "seg_fps_accurate": {
+  "swift-native": {
+   "median": 17.637,
+   "min": 17.27,
+   "max": 18.004,
+   "n": 2
+  }
+ },
+ "seg_fps_fast": {
+  "swift-native": {
+   "median": 58.4905,
+   "min": 57.554,
+   "max": 59.427,
+   "n": 2
+  }
+ },
+ "seg_infer_ms": {
+  "qt-cpp": {
+   "median": 16.8495,
+   "min": 16.834,
+   "max": 16.865,
+   "n": 2
+  }
+ },
+ "stt_rtf": {
+  "swift-native": {
+   "median": 0.0595,
+   "min": 0.059,
+   "max": 0.06,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 0.08,
+   "min": 0.08,
+   "max": 0.08,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 0.055499999999999994,
+   "min": 0.052,
+   "max": 0.059,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 0.068,
+   "min": 0.063,
+   "max": 0.073,
+   "n": 2
+  }
+ },
+ "stt_rtf_whisper": {
+  "swift-native": {
+   "median": 0.079,
+   "min": 0.079,
+   "max": 0.079,
+   "n": 2
+  }
+ },
+ "stt_wer_estimate": {
+  "swift-native": {
+   "median": 0.126,
+   "min": 0.126,
+   "max": 0.126,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 0.03,
+   "min": 0.03,
+   "max": 0.03,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 0.031,
+   "min": 0.031,
+   "max": 0.031,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 0.031,
+   "min": 0.031,
+   "max": 0.031,
+   "n": 2
+  }
+ },
+ "stt_wer_whisper": {
+  "swift-native": {
+   "median": 0.031,
+   "min": 0.031,
+   "max": 0.031,
+   "n": 2
+  }
+ },
+ "stt_word_timestamps": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ },
+ "timeline_display_hz": {
+  "swift-native": {
+   "median": 120.0,
+   "min": 120.0,
+   "max": 120.0,
+   "n": 2
+  }
+ },
+ "timeline_fps": {
+  "swift-native": {
+   "median": 119.8,
+   "min": 119.6,
+   "max": 120.0,
+   "n": 2
+  },
+  "electron-web": {
+   "median": 119.4,
+   "min": 119.0,
+   "max": 119.8,
+   "n": 2
+  },
+  "tauri-rust": {
+   "median": 60.548500000000004,
+   "min": 60.455,
+   "max": 60.642,
+   "n": 2
+  },
+  "qt-cpp": {
+   "median": 119.395,
+   "min": 119.19,
+   "max": 119.6,
+   "n": 2
+  }
+ },
+ "timeline_frame_cpu_ms_p95": {
+  "swift-native": {
+   "median": 0.1825,
+   "min": 0.181,
+   "max": 0.184,
+   "n": 2
+  }
+ },
+ "timeline_frame_interval_ms_p95": {
+  "swift-native": {
+   "median": 8.3335,
+   "min": 8.333,
+   "max": 8.334,
+   "n": 2
+  }
+ },
+ "timeline_window_visible": {
+  "swift-native": {
+   "median": 1.0,
+   "min": 1.0,
+   "max": 1.0,
+   "n": 2
+  }
+ }
+}

@@ -1,0 +1,26 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "metal", "wgsl"] }
+pollster = "1"
+bytemuck = { version = "1", features = ["derive"] }
+anyhow = "1"
+raw-window-handle = "0.6"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-av-foundation = { version = "0.3", features = ["block2", "objc2-core-media", "objc2-core-video", "objc2-core-foundation", "objc2-quartz-core"] }
+objc2-core-video = { version = "0.3", features = ["objc2-metal", "objc2-io-surface"] }
+objc2-core-media = { version = "0.3", features = ["objc2-core-video"] }
+objc2-core-foundation = "0.3"
+objc2-metal = { version = "0.3", features = ["objc2-io-surface", "objc2-core-foundation", "block2"] }
+objc2-quartz-core = { version = "0.3", features = ["objc2-metal", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3", features = ["objc2-quartz-core", "objc2-core-foundation"] }
+objc2-io-surface = "0.3"
+block2 = "0.6"
+cpal = "0.18"
+signalsmith-stretch = "0.1"

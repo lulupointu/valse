@@ -1,0 +1,26 @@
+:root { --bg: #141417; --panel: #1d1d22; --line: #2a2a31; --text: #d8d8de; --muted: #8a8a96; --accent: #00c1cd; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: transparent; color: var(--text); font: 12px -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; user-select: none; }
+#app { display: grid; height: 100vh; grid-template-columns: 300px 1fr 300px; grid-template-rows: 36px 1fr 300px;
+  grid-template-areas: "top top top" "assets player inspector" "tl tl tl"; gap: 1px; background: transparent; }
+#topbar { grid-area: top; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.logo { font-weight: 700; color: var(--accent); }
+.spacer { flex: 1; }
+button, select { background: #2a2a31; color: var(--text); border: 0; border-radius: 4px; padding: 4px 10px; font: inherit; }
+button.accent { background: var(--accent); color: #002; }
+#assets { grid-area: assets; background: var(--panel); overflow: hidden; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
+.tabs button.active { color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; }
+.grid div { aspect-ratio: 16/9; border-radius: 4px; background: linear-gradient(135deg, #333, #222); font-size: 10px; padding: 3px; color: var(--muted); }
+/* the player is a transparent hole: the native Metal view sits below the webview */
+#player { grid-area: player; display: flex; flex-direction: column; background: transparent; min-width: 0; min-height: 0; }
+#player-hole { flex: 1; background: transparent; outline: 1px solid var(--line); }
+#player-bar { height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 10px; background: rgba(20,20,23,0.92); }
+#timecode { font-variant-numeric: tabular-nums; color: var(--accent); }
+#inspector { grid-area: inspector; background: var(--panel); padding: 10px; }
+#inspector label { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+.muted { color: var(--muted); }
+#timeline-wrap { grid-area: tl; background: var(--bg); display: flex; flex-direction: column; min-height: 0; }
+#timeline-toolbar { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
+#timeline { flex: 1; width: 100%; min-height: 0; display: block; }

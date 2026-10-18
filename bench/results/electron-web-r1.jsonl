@@ -1,0 +1,18 @@
+{"stack":"electron-web","metric":"app_size_mb","value":360,"unit":"MB","note":"packaged .app (asar, arm64-only ORT), excludes models: RVM 14 MB + whisper large-v3-turbo q5_0 547 MB; excludes whisper.cpp sidecar (~5 MB)"}
+{"stack":"electron-web","metric":"cold_start_ms","value":638,"unit":"ms","first_launch_after_build_ms":2451,"runs":"2451 638 622","note":"median of 3 launches; spawn -> React shell + 500-clip timeline painted"}
+{"stack":"electron-web","metric":"preview_fps","value":29.6,"unit":"fps","slots":611,"stale":0,"skipped":7,"seconds":20.37,"engine":"worker: WebCodecs HEVC HW decode + WebGPU importExternalTexture"}
+{"stack":"electron-web","metric":"preview_dropped_frames","value":7,"unit":"frames","of":611}
+{"stack":"electron-web","metric":"preview_cpu_pct","value":59.4,"unit":"%","note":"100% = one core; all Electron processes (main+GPU+renderer+utility)","procs":10}
+{"stack":"electron-web","metric":"preview_rss_mb","value":773,"unit":"MB","peak":888,"procs":10}
+{"stack":"electron-web","metric":"preview8_fps","value":29.5,"unit":"fps","slots":612,"stale":0,"skipped":9,"seconds":20.43,"engine":"worker: WebCodecs HEVC HW decode + WebGPU importExternalTexture"}
+{"stack":"electron-web","metric":"preview8_dropped_frames","value":9,"unit":"frames","of":612}
+{"stack":"electron-web","metric":"preview8_cpu_pct","value":81.5,"unit":"%","note":"100% = one core; all Electron processes (main+GPU+renderer+utility)","procs":10}
+{"stack":"electron-web","metric":"preview8_rss_mb","value":855,"unit":"MB","peak":1025,"procs":10}
+{"stack":"electron-web","metric":"scrub_ms_p50","value":70,"unit":"ms","n":50}
+{"stack":"electron-web","metric":"scrub_ms_p95","value":91.6,"unit":"ms","n":50,"max":134}
+{"stack":"electron-web","metric":"export_seconds","value":1.99,"unit":"s","duration_s":10,"frames":300,"codec":"h264","w":1920,"h":1080,"nb_frames":"300","encoder":"WebCodecs VideoEncoder avc1 prefer-hardware","path":"/Users/lulupointu/Development/local-capcut/prototypes/electron-web/.bench-out/export.mp4"}
+{"stack":"electron-web","metric":"timeline_fps","value":119,"unit":"fps","clips":500,"tracks":6,"p95_frame_ms":9.3,"max_visible_clips":420,"avg_draw_ms":0.73,"p95_draw_ms":1.5,"dpr":2,"display_hz_note":"rAF-bound; display refresh caps fps"}
+{"stack":"electron-web","metric":"seg_fps","value":49,"unit":"fps","frames":300,"model":"RVM mobilenetv3 fp32 (ONNX, 14.3 MB)","input":"960x544, downsample 0.25","backend":"node-cpu","load_ms":73,"avg_infer_ms":18.9,"pipeline":"WebCodecs decode -> GPU downscale -> readback -> ORT"}
+{"stack":"electron-web","metric":"stt_rtf","value":0.08,"unit":"x","wall_ms":3491,"engine":"whisper.cpp large-v3-turbo q5_0 (Metal) sidecar","includes_model_load":true,"audio_s":45.3,"words":120,"first_words":[{"w":"Bonjour","t0":10,"t1":430},{"w":"et","t0":430,"t1":550},{"w":"bienvenue","t0":550,"t1":1100},{"w":"dans","t0":1100,"t1":1330}]}
+{"stack":"electron-web","metric":"stt_wer_estimate","value":0.03,"unit":"ratio","hyp":" Bonjour et bienvenue dans ce tutoriel de montage vidéo.  Aujourd'hui, nous allons apprendre à découper une séquence,  à ajouter des sous-titres automatiques et à appliquer des filtres de couleurs.  C"}
+{"stack":"electron-web","metric":"audio_stretch_ok","value":true,"unit":"bool","rate":1.5,"in_hz":440,"out_hz":440.3,"realtime_input_rate":1.49,"video_fps_during":44,"api":"Signalsmith Stretch WASM AudioWorklet (signalsmith-stretch npm)"}

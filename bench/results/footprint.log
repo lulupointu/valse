@@ -1,0 +1,16 @@
+[footprint] swift-native L=4 total=1286 MB : [Montage]:173MB [VTDecoderXPCService]:1113MB
+{"stack":"swift-native","metric":"preview_footprint_mb","value":1286,"unit":"MB"}
+[footprint] electron-web L=4 total=1500 MB : [VTEncoderXPCService]:5MB [VTDecoderXPCService]:951MB [Montage]:76MB [Montage Helper]:113MB [Montage Helper]:6MB [Montage Helper (Renderer)]:348MB
+{"stack":"electron-web","metric":"preview_footprint_mb","value":1500,"unit":"MB"}
+[footprint] tauri-rust L=4 total=1453 MB : [montage-proto]:110MB [com.apple.WebKit.GPU]:15MB [com.apple.WebKit.Networking]:6MB [com.apple.WebKit.WebContent]:46MB [VTDecoderXPCService]:1276MB
+{"stack":"tauri-rust","metric":"preview_footprint_mb","value":1453,"unit":"MB"}
+[footprint] qt-cpp L=4 total=1050 MB : [VTDecoderXPCService]:655MB [Montage]:395MB
+{"stack":"qt-cpp","metric":"preview_footprint_mb","value":1050,"unit":"MB"}
+[footprint] swift-native L=8 total=2494 MB : [Montage]:191MB [VTDecoderXPCService]:2303MB
+{"stack":"swift-native","metric":"preview8_footprint_mb","value":2494,"unit":"MB"}
+[footprint] electron-web L=8 total=2724 MB : [Montage Helper]:6MB [Montage Helper (Renderer)]:597MB [VTEncoderXPCService]:5MB [VTDecoderXPCService]:1898MB [Montage]:87MB [Montage Helper]:130MB
+{"stack":"electron-web","metric":"preview8_footprint_mb","value":2724,"unit":"MB"}
+[footprint] tauri-rust L=8 total=2754 MB : [montage-proto]:137MB [com.apple.WebKit.GPU]:16MB [com.apple.WebKit.Networking]:6MB [com.apple.WebKit.WebContent]:46MB [VTDecoderXPCService]:2549MB
+{"stack":"tauri-rust","metric":"preview8_footprint_mb","value":2754,"unit":"MB"}
+[footprint] qt-cpp L=8 total=1998 MB : [Montage]:693MB [VTDecoderXPCService]:1305MB
+{"stack":"qt-cpp","metric":"preview8_footprint_mb","value":1998,"unit":"MB"}

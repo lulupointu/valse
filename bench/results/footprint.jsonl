@@ -1,0 +1,8 @@
+{"stack":"swift-native","metric":"preview_footprint_mb","value":1286,"unit":"MB"}
+{"stack":"electron-web","metric":"preview_footprint_mb","value":1500,"unit":"MB"}
+{"stack":"tauri-rust","metric":"preview_footprint_mb","value":1453,"unit":"MB"}
+{"stack":"qt-cpp","metric":"preview_footprint_mb","value":1050,"unit":"MB"}
+{"stack":"swift-native","metric":"preview8_footprint_mb","value":2494,"unit":"MB"}
+{"stack":"electron-web","metric":"preview8_footprint_mb","value":2724,"unit":"MB"}
+{"stack":"tauri-rust","metric":"preview8_footprint_mb","value":2754,"unit":"MB"}
+{"stack":"qt-cpp","metric":"preview8_footprint_mb","value":1998,"unit":"MB"}

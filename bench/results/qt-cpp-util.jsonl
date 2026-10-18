@@ -1,0 +1,5 @@
+{"stack":"qt-cpp","metric":"preview_util_fps","value":29.894,"unit":"fps"}
+{"stack":"qt-cpp","metric":"preview_util_dropped_frames","value":1.000,"unit":"frames"}
+{"stack":"qt-cpp","metric":"preview_util_cpu_pct","value":42.568,"unit":"%"}
+{"stack":"qt-cpp","metric":"preview_util_rss_mb","value":475.425,"unit":"MB"}
+{"stack":"qt-cpp","metric":"preview_util_rss_peak_mb","value":504.094,"unit":"MB"}

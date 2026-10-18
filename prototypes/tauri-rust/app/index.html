@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Montage</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <span class="logo">Montage</span>
+        <span id="project-name" data-i18n="project.untitled"></span>
+        <span class="spacer"></span>
+        <select id="lang-select"><option value="en">English</option><option value="fr">Français</option></select>
+        <button id="export-btn" class="accent" data-i18n="action.export"></button>
+      </header>
+      <section id="assets">
+        <nav class="tabs">
+          <button data-i18n="tab.media" class="active"></button><button data-i18n="tab.audio"></button>
+          <button data-i18n="tab.text"></button><button data-i18n="tab.effects"></button>
+          <button data-i18n="tab.transitions"></button><button data-i18n="tab.filters"></button>
+        </nav>
+        <div class="grid" id="asset-grid"></div>
+      </section>
+      <section id="player">
+        <div id="player-hole"></div>
+        <div id="player-bar">
+          <span id="timecode">00:00:00:00</span>
+          <button id="play-btn" data-i18n="action.play"></button>
+          <span class="spacer"></span>
+          <span id="player-status"></span>
+        </div>
+      </section>
+      <section id="inspector">
+        <h3 data-i18n="inspector.title"></h3>
+        <label><span data-i18n="inspector.opacity"></span><input type="range" value="80" /></label>
+        <label><span data-i18n="inspector.saturation"></span><input type="range" value="50" /></label>
+        <label><span data-i18n="inspector.brightness"></span><input type="range" value="50" /></label>
+        <p id="clip-count" class="muted"></p>
+      </section>
+      <section id="timeline-wrap">
+        <div id="timeline-toolbar">
+          <button data-i18n="action.split"></button><button data-i18n="action.delete"></button>
+          <span class="spacer"></span><span id="tl-fps" class="muted"></span>
+        </div>
+        <canvas id="timeline"></canvas>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

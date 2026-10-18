@@ -6,3 +6,12 @@ target/
 DerivedData/
 *.xcuserstate
 .DS_Store
+models/
+*.gguf
+*.bin
+*.onnx
+*.mlpackage
+*.mlmodelc
+dist/
+out/
+release/

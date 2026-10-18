@@ -1,0 +1,10 @@
+"app.name" = "Montage";
+"panel.media" = "Médias";
+"panel.player" = "Lecteur";
+"panel.inspector" = "Détails";
+"media.item" = "Plan %d";
+"inspector.scale" = "Échelle";
+"inspector.opacity" = "Opacité";
+"inspector.saturation" = "Saturation";
+"inspector.brightness" = "Luminosité";
+"timeline.clipLabel" = "Plan %03d";

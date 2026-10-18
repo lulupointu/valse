@@ -1,0 +1,10 @@
+"app.name" = "Montage";
+"panel.media" = "Media";
+"panel.player" = "Player";
+"panel.inspector" = "Details";
+"media.item" = "Clip %d";
+"inspector.scale" = "Scale";
+"inspector.opacity" = "Opacity";
+"inspector.saturation" = "Saturation";
+"inspector.brightness" = "Brightness";
+"timeline.clipLabel" = "Clip %03d";

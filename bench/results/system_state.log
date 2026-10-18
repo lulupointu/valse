@@ -1,0 +1,180 @@
+=== swift-native -> swift-native-r1.jsonl 2026-10-18 11:50:04
+11:50  up 3 days, 22:02, 9 users, load averages: 4,96 8,61 8,73
+ -InternalBattery-0 (id=28704867)	87%; charging; 0:52 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           22.6 655M- 
+510    coreaudiod       15.0 35M   
+539    airportd         14.2 20M+  
+665    com.crowdstrike. 13.5 1551M 
+472    locationd        11.8 13M+  
+40876  top              11.3 5920K+
+=== electron-web -> electron-web-r1.jsonl 2026-10-18 11:52:40
+11:52  up 3 days, 22:04, 9 users, load averages: 5,65 7,56 8,29
+ -InternalBattery-0 (id=28704867)	88%; charging; 0:53 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           27.6 664M  
+510    coreaudiod       16.4 35M   
+48790  top              12.1 5824K+
+665    com.crowdstrike. 9.9  1551M+
+29050  CapCut           7.3  1938M 
+24618  plugin-container 6.4  438M+ 
+=== tauri-rust -> tauri-rust-r1.jsonl 2026-10-18 11:55:18
+11:55  up 3 days, 22:07, 9 users, load averages: 7,38 8,42 8,59
+ -InternalBattery-0 (id=28704867)	90%; charging; 0:54 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           26.0 658M  
+510    coreaudiod       15.6 35M   
+37352  plugin-container 11.5 649M+ 
+52469  top              11.5 5776K+
+665    com.crowdstrike. 11.2 2070M 
+29050  CapCut           7.5  1862M 
+=== qt-cpp -> qt-cpp-r1.jsonl 2026-10-18 11:59:44
+11:59  up 3 days, 22:12, 9 users, load averages: 5,26 7,31 8,06
+ -InternalBattery-0 (id=28704867)	91%; charging; 0:48 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           24.7 660M  
+510    coreaudiod       16.1 35M   
+665    com.crowdstrike. 12.6 2071M+
+79932  top              11.9 5776K+
+29050  CapCut           7.2  1862M 
+24618  plugin-container 6.0  462M+ 
+=== qt-cpp -> qt-cpp-r2.jsonl 2026-10-18 12:02:09
+12:02  up 3 days, 22:14, 9 users, load averages: 4,06 6,40 7,60
+ -InternalBattery-0 (id=28704867)	92%; charging; 0:46 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           32.8 661M  
+665    com.crowdstrike. 15.7 2071M 
+510    coreaudiod       15.4 35M   
+81018  top              11.8 5776K+
+54732  2.1.300          8.1  508M  
+29050  CapCut           7.0  1863M+
+=== tauri-rust -> tauri-rust-r2.jsonl 2026-10-18 12:04:33
+12:04  up 3 days, 22:16, 9 users, load averages: 5,50 6,18 7,31
+ -InternalBattery-0 (id=28704867)	93%; charging; 0:46 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           14.7 636M+ 
+510    coreaudiod       13.3 35M   
+82137  top              11.3 5824K+
+665    com.crowdstrike. 10.9 2071M 
+497    WindowServer     9.1  526M- 
+0      kernel_task      5.8  11M   
+=== electron-web -> electron-web-r2.jsonl 2026-10-18 12:09:00
+12:09  up 3 days, 22:21, 9 users, load averages: 5,63 6,88 7,33
+ -InternalBattery-0 (id=28704867)	94%; charging; 0:43 remaining present: true
+PID    COMMAND          %CPU MEM   
+665    com.crowdstrike. 26.3 2072M+
+825    iTerm2           23.4 633M  
+510    coreaudiod       15.3 35M   
+9909   top              10.3 5728K+
+24618  plugin-container 6.2  467M+ 
+29050  CapCut           6.0  1866M+
+=== swift-native -> swift-native-r2.jsonl 2026-10-18 12:11:37
+12:11  up 3 days, 22:23, 9 users, load averages: 5,18 6,98 7,36
+ -InternalBattery-0 (id=28704867)	95%; charging; 0:43 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           31.4 633M  
+510    coreaudiod       14.9 35M   
+665    com.crowdstrike. 14.3 1349M 
+13502  top              11.2 5712K+
+37352  plugin-container 8.8  643M+ 
+24618  plugin-container 6.9  499M+ 
+=== swift-native -> swift-native-bg.jsonl 2026-10-18 12:14:10
+12:14  up 3 days, 22:26, 9 users, load averages: 3,04 5,96 6,93
+ -InternalBattery-0 (id=28704867)	95%; charging; 0:41 remaining present: true
+PID    COMMAND          %CPU MEM   
+665    com.crowdstrike. 31.2 1362M+
+825    iTerm2           22.5 660M+ 
+510    coreaudiod       15.2 35M   
+37352  plugin-container 9.9  652M+ 
+14958  top              6.8  5712K+
+0      kernel_task      6.0  15M+  
+=== electron-web -> electron-web-bg.jsonl 2026-10-18 12:15:44
+12:15  up 3 days, 22:27, 9 users, load averages: 8,11 6,84 7,16
+ -InternalBattery-0 (id=28704867)	96%; charging; 0:40 remaining present: true
+PID    COMMAND          %CPU MEM   
+506    runningboardd    30.2 10M-  
+31211  PerfPowerService 29.1 15M+  
+825    iTerm2           24.5 660M  
+510    coreaudiod       14.7 35M   
+665    com.crowdstrike. 14.3 1363M 
+22225  top              10.9 5744K+
+=== tauri-rust -> tauri-rust-bg.jsonl 2026-10-18 12:17:51
+12:17  up 3 days, 22:30, 9 users, load averages: 5,18 6,80 7,15
+ -InternalBattery-0 (id=28704867)	96%; charging; 0:40 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           32.5 661M  
+510    coreaudiod       15.7 35M   
+665    com.crowdstrike. 14.6 1370M 
+91220  top              11.0 5712K+
+29050  CapCut           7.5  1935M 
+497    WindowServer     6.5  521M- 
+=== qt-cpp -> qt-cpp-bg.jsonl 2026-10-18 12:21:37
+12:21  up 3 days, 22:33, 9 users, load averages: 7,36 7,86 7,53
+ -InternalBattery-0 (id=28704867)	97%; charging; 0:37 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           26.0 662M  
+510    coreaudiod       15.7 35M   
+665    com.crowdstrike. 13.5 1377M 
+18726  top              11.6 5696K+
+23907  2.1.302          7.8  369M+ 
+29050  CapCut           7.1  1936M+
+=== end 2026-10-18 12:23:04
+12:23  up 3 days, 22:35, 9 users, load averages: 3,18 6,37 6,99
+ -InternalBattery-0 (id=28704867)	97%; charging; 0:37 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           27.1 663M  
+510    coreaudiod       15.8 35M   
+665    com.crowdstrike. 14.2 1377M 
+19431  top              10.8 5744K+
+9602   plugin-container 8.9  337M- 
+29050  CapCut           6.9  1937M 
+=== swift-native -> swift-native-util.jsonl 2026-10-18 12:35:03
+12:35  up 3 days, 22:47, 9 users, load averages: 5,68 5,50 6,04
+ -InternalBattery-0 (id=28704867)	98%; charging; 0:25 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           36.2 662M  
+665    com.crowdstrike. 16.0 1876M 
+510    coreaudiod       15.6 35M   
+50733  top              11.0 5680K+
+29050  CapCut           7.6  1935M 
+497    WindowServer     6.3  462M- 
+=== electron-web -> electron-web-util.jsonl 2026-10-18 12:36:34
+12:36  up 3 days, 22:48, 9 users, load averages: 3,38 4,99 5,80
+ -InternalBattery-0 (id=28704867)	100%; finishing charge; 0:25 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           27.9 662M  
+665    com.crowdstrike. 16.1 1876M 
+510    coreaudiod       15.9 35M   
+57884  top              11.2 5680K+
+29050  CapCut           7.0  1935M 
+24618  plugin-container 5.9  490M  
+=== tauri-rust -> tauri-rust-util.jsonl 2026-10-18 12:38:12
+12:38  up 3 days, 22:50, 9 users, load averages: 5,53 5,66 6,00
+ -InternalBattery-0 (id=28704867)	100%; finishing charge; 0:24 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           27.5 663M  
+510    coreaudiod       16.0 35M   
+665    com.crowdstrike. 13.7 1877M 
+56625  top              11.6 5680K+
+29050  CapCut           7.1  1935M+
+24618  plugin-container 6.8  455M+ 
+=== qt-cpp -> qt-cpp-util.jsonl 2026-10-18 12:41:43
+12:41  up 3 days, 22:53, 9 users, load averages: 8,34 7,04 6,47
+ -InternalBattery-0 (id=28704867)	100%; finishing charge; 0:22 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           34.2 664M  
+510    coreaudiod       16.3 35M   
+665    com.crowdstrike. 12.1 1879M+
+83562  top              11.5 5680K+
+29050  CapCut           6.8  1936M+
+497    WindowServer     5.7  584M- 
+=== end 2026-10-18 12:43:05
+12:43  up 3 days, 22:55, 9 users, load averages: 5,24 6,54 6,33
+ -InternalBattery-0 (id=28704867)	100%; finishing charge; 0:22 remaining present: true
+PID    COMMAND          %CPU MEM   
+825    iTerm2           31.6 664M+ 
+510    coreaudiod       15.5 35M   
+665    com.crowdstrike. 12.9 1879M 
+84174  top              9.8  5664K+
+30980  2.1.302          6.7  322M  
+29050  CapCut           6.5  1937M+

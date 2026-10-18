@@ -1,0 +1,11 @@
+{"stack":"swift-native","metric":"build_seconds","value":2.85,"unit":"s"}
+{"stack":"swift-native","metric":"app_size_mb","value":0.70,"unit":"MB"}
+{"stack":"swift-native","metric":"cold_start_ms","value":416.863,"unit":"ms"}
+{"stack":"swift-native","metric":"preview_util_window_visible","value":1.0,"unit":"bool"}
+{"stack":"swift-native","metric":"preview_util_fps","value":30.048,"unit":"fps"}
+{"stack":"swift-native","metric":"preview_util_dropped_frames","value":0.0,"unit":"frames"}
+{"stack":"swift-native","metric":"preview_util_cpu_pct","value":22.372,"unit":"%"}
+{"stack":"swift-native","metric":"preview_util_rss_mb","value":188.638,"unit":"MB"}
+{"stack":"swift-native","metric":"preview_util_rss_peak_mb","value":201.891,"unit":"MB"}
+{"stack":"swift-native","metric":"preview_util_gap_dropped_frames","value":0.0,"unit":"frames"}
+{"stack":"swift-native","metric":"preview_util_playback_rate","value":1.0,"unit":"x"}

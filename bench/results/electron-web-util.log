@@ -1,0 +1,3 @@
+[build] done in 1729 ms
+[bench] build+package: 5141 ms
+[bench] preview only; results in /Users/lulupointu/Development/local-capcut/prototypes/electron-web/results.jsonl

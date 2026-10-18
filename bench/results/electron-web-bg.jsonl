@@ -1,0 +1,6 @@
+{"stack":"electron-web","metric":"app_size_mb","value":360,"unit":"MB","note":"packaged .app (asar, arm64-only ORT), excludes models: RVM 14 MB + whisper large-v3-turbo q5_0 547 MB; excludes whisper.cpp sidecar (~5 MB)"}
+{"stack":"electron-web","metric":"cold_start_ms","value":683,"unit":"ms","first_launch_after_build_ms":2399,"runs":"2399 683 643","note":"median of 3 launches; spawn -> React shell + 500-clip timeline painted"}
+{"stack":"electron-web","metric":"preview_bg_fps","value":0.1,"unit":"fps","slots":698,"stale":186,"skipped":509,"seconds":23.28,"engine":"worker: WebCodecs HEVC HW decode + WebGPU importExternalTexture"}
+{"stack":"electron-web","metric":"preview_bg_dropped_frames","value":695,"unit":"frames","of":698}
+{"stack":"electron-web","metric":"preview_bg_cpu_pct","value":57.2,"unit":"%","note":"100% = one core; all Electron processes (main+GPU+renderer+utility)","procs":11}
+{"stack":"electron-web","metric":"preview_bg_rss_mb","value":833,"unit":"MB","peak":884,"procs":11}

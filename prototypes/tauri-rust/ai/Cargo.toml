@@ -1,0 +1,13 @@
+[package]
+name = "ai"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engine = { path = "../engine" }
+anyhow = "1"
+ort = { version = "=2.0.0-rc.14", features = ["coreml", "ndarray"] }
+ndarray = "0.17"
+whisper-rs = { version = "0.16", features = ["metal"] }
+objc2-core-video = "0.3"
+hound = "3"
