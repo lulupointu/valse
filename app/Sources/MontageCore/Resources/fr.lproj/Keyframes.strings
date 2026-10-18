@@ -1,0 +1,8 @@
+/* W5 — keyframeable text-style properties (AnimatableProperties). */
+"prop.textSize" = "Taille de police";
+"prop.textStrokeColor" = "Couleur du contour";
+"prop.textStrokeWidth" = "Épaisseur du contour";
+"prop.textBackground" = "Arrière-plan";
+"prop.textShadowColor" = "Couleur de l'ombre";
+"prop.textLetterSpacing" = "Espacement des caractères";
+"prop.textLineSpacing" = "Interligne";

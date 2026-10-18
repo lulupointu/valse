@@ -121,6 +121,7 @@ extension TimelineView {
             item("tlmenu.reveal", enabled: clips.contains { $0.mediaID != nil }) { s.revealSelectedInFinder() },
             .separator(),
             item("tlmenu.editEffects", enabled: single.map { !$0.effects.isEmpty } ?? false) { s.inspectorTab = "adjust" },
+            item("keyframes.reset", enabled: clips.contains { !$0.keyframes.isEmpty }) { KeyframePanel.confirmReset(s) },
             item("tlmenu.speed", "r", .command, enabled: isMedia && asset?.kind != .image) { s.inspectorTab = "speed" },
             sub("tlmenu.arrange", LayerArrangement.allCases.map { a in item(a.nameKey, enabled: overlay) { s.arrange(a) } }),
             sub("tlmenu.colorLabel", [item("tlmenu.colorLabel.none") { s.setColorLabel(nil) }] +
@@ -187,18 +188,8 @@ extension TimelineView {
 
     // MARK: Keyframe (UX.md §6.5, [101])
 
-    static let easingPresets: [(key: String, easing: Easing)] = [
-        ("easing.none", .hold), ("easing.linear", .linear),
-        ("easing.easeIn", .easeIn), ("easing.quadIn", .bezier(x1: 0.55, y1: 0.085, x2: 0.68, y2: 0.53)),
-        ("easing.cubicIn", .bezier(x1: 0.55, y1: 0.055, x2: 0.675, y2: 0.19)),
-        ("easing.easeOut", .easeOut), ("easing.quadOut", .bezier(x1: 0.25, y1: 0.46, x2: 0.45, y2: 0.94)),
-        ("easing.cubicOut", .bezier(x1: 0.215, y1: 0.61, x2: 0.355, y2: 1)),
-        ("easing.ease", .easeInOut), ("easing.quadEase", .bezier(x1: 0.455, y1: 0.03, x2: 0.515, y2: 0.955)),
-        ("easing.cubicEase", .bezier(x1: 0.645, y1: 0.045, x2: 0.355, y2: 1)),
-        ("easing.circularEase", .bezier(x1: 0.785, y1: 0.135, x2: 0.15, y2: 0.86)),
-        ("easing.reboundIn", .bezier(x1: 0.6, y1: -0.28, x2: 0.735, y2: 0.045)),
-        ("easing.reboundOut", .bezier(x1: 0.175, y1: 0.885, x2: 0.32, y2: 1.275)),
-    ]
+    /// Preset curves (Core `EasingPreset.all`, shared with the keyframe panel).
+    static let easingPresets: [(key: String, easing: Easing)] = EasingPreset.all.map { ($0.nameKey, $0.easing) }
 
     func keyframeMenu(_ ref: KeyframeRef) -> NSMenu {
         let s = store
@@ -217,8 +208,9 @@ extension TimelineView {
             item("easing.ease", checked: current == .easeInOut) { set(.easeInOut) },
             item("easing.linear", checked: current == .linear) { set(.linear) },
             sub("easing.presets", Self.easingPresets.map { p in item(p.key, checked: current == p.easing) { set(p.easing) } }),
+            item("tlmenu.speed", "k", .option) { if !s.keyframeUI.showsPanel { s.toggleKeyframePanel() } },
             .separator(),
-            item("tlmenu.speed", "k", .option) { s.inspectorTab = "speed" },
+            item("tlmenu.copy", "c", .command) { s.copyKeyframes(ref) },
             item("tlmenu.delete", "\u{8}", []) { s.deleteSmart() },
         ])
     }

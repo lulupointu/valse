@@ -1,0 +1,8 @@
+/* W5 — keyframeable text-style properties (AnimatableProperties). */
+"prop.textSize" = "Font size";
+"prop.textStrokeColor" = "Stroke color";
+"prop.textStrokeWidth" = "Stroke width";
+"prop.textBackground" = "Background";
+"prop.textShadowColor" = "Shadow color";
+"prop.textLetterSpacing" = "Character spacing";
+"prop.textLineSpacing" = "Line spacing";

@@ -29,6 +29,8 @@ public enum Easing: Hashable, Codable, Sendable {
     case easeIn, easeOut, easeInOut
     /// CSS-style cubic bezier on (time → progress), control points in [0,1]² (y may overshoot).
     case bezier(x1: Double, y1: Double, x2: Double, y2: Double)
+    /// Bouncing / elastic arrival (W5 preset curves; not expressible as one cubic).
+    case bounceOut, elasticOut
 
     /// Maps linear segment progress `t` ∈ [0,1] to eased progress.
     public func apply(_ t: Double) -> Double {
@@ -40,6 +42,15 @@ public enum Easing: Hashable, Codable, Sendable {
         case .easeOut: return CubicBezier.solve(t, 0, 0, 0.58, 1)
         case .easeInOut: return CubicBezier.solve(t, 0.42, 0, 0.58, 1)
         case let .bezier(x1, y1, x2, y2): return CubicBezier.solve(t, x1, y1, x2, y2)
+        case .bounceOut:
+            let n1 = 7.5625, d1 = 2.75
+            if t < 1 / d1 { return n1 * t * t }
+            if t < 2 / d1 { let u = t - 1.5 / d1; return n1 * u * u + 0.75 }
+            if t < 2.5 / d1 { let u = t - 2.25 / d1; return n1 * u * u + 0.9375 }
+            let u = t - 2.625 / d1; return n1 * u * u + 0.984375
+        case .elasticOut:
+            if t == 0 || t == 1 { return t }
+            return pow(2, -10 * t) * sin((t * 10 - 0.75) * (2 * .pi / 3)) + 1
         }
     }
 }

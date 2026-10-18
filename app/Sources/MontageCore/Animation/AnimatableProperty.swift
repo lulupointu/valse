@@ -23,6 +23,14 @@ public struct ParamKey: Hashable, Sendable, Codable, ExpressibleByStringLiteral,
     public static let cropTop: ParamKey = "crop.top"
     public static let cropRight: ParamKey = "crop.right"
     public static let cropBottom: ParamKey = "crop.bottom"
+    // Text style (W5 — so every text style row can carry ‹◇›; the text team binds them in its inspector)
+    public static let textSize: ParamKey = "text.fontSize"
+    public static let textStrokeColor: ParamKey = "text.strokeColor"
+    public static let textStrokeWidth: ParamKey = "text.strokeWidth"
+    public static let textBackground: ParamKey = "text.backgroundColor"
+    public static let textShadowColor: ParamKey = "text.shadowColor"
+    public static let textLetterSpacing: ParamKey = "text.letterSpacing"
+    public static let textLineSpacing: ParamKey = "text.lineSpacing"
 
     /// Inspector groups (section-level diamonds).
     public static let transformGroup: [ParamKey] = [.scale, .position, .rotation]
@@ -84,7 +92,27 @@ public enum AnimatableProperties {
         .init(key: .textColor, nameKey: "prop.textColor",
               get: { if case .text(let t) = $0.content { return .color(t.color) }; return .color(.white) },
               set: { c, v in if case .text(var t) = c.content, let col = v.color { t.color = col; c.content = .text(t) } }),
+        text(.textSize, "prop.textSize", \.fontSize),
+        textColor(.textStrokeColor, "prop.textStrokeColor", \.strokeColor),
+        text(.textStrokeWidth, "prop.textStrokeWidth", \.strokeWidth),
+        textColor(.textBackground, "prop.textBackground", \.backgroundColor),
+        textColor(.textShadowColor, "prop.textShadowColor", \.shadowColor),
+        text(.textLetterSpacing, "prop.textLetterSpacing", \.letterSpacing),
+        text(.textLineSpacing, "prop.textLineSpacing", \.lineSpacing),
     ]
+
+    /// Scalar text-style property (nil value on non-text clips).
+    static func text(_ key: ParamKey, _ nameKey: String, _ path: WritableKeyPath<TextContent, Double> & Sendable) -> AnimatableProperty {
+        .init(key: key, nameKey: nameKey,
+              get: { if case .text(let t) = $0.content { return .scalar(t[keyPath: path]) }; return .scalar(0) },
+              set: { c, v in if case .text(var t) = c.content, let x = v.scalar { t[keyPath: path] = x; c.content = .text(t) } })
+    }
+
+    static func textColor(_ key: ParamKey, _ nameKey: String, _ path: WritableKeyPath<TextContent, RGBA> & Sendable) -> AnimatableProperty {
+        .init(key: key, nameKey: nameKey,
+              get: { if case .text(let t) = $0.content { return .color(t[keyPath: path]) }; return .color(.clear) },
+              set: { c, v in if case .text(var t) = c.content, let x = v.color { t[keyPath: path] = x; c.content = .text(t) } })
+    }
 
     private static let byKey: [ParamKey: AnimatableProperty] = Dictionary(uniqueKeysWithValues: all.map { ($0.key, $0) })
     public static func property(_ key: ParamKey) -> AnimatableProperty? { byKey[key] }

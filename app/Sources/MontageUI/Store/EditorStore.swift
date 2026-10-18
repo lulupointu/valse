@@ -92,6 +92,8 @@ public final class EditorStore {
     public let playerUI = PlayerUIState()
     /// AI jobs / panels state (W10, MontageUI/AI).
     public let ai = AIUIState()
+    /// Keyframe clipboard / keyframe panel (W5, MontageUI/Keyframes).
+    public let keyframeUI = KeyframeUIState()
     /// Timeline zoom (points per second).
     public var pixelsPerSecond: Double = 40
     public private(set) var packageURL: URL? { didSet { syncProjectSlices() } }

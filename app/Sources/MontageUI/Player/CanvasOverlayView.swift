@@ -173,6 +173,7 @@ final class CanvasOverlayView: NSView {
             ctx.restoreGState()
             return
         }
+        MotionPathDrawing.draw(ctx, viewport: vp, store: store)   // W5: position keyframes path (MontageUI/Keyframes)
 
         let sel = selectedLayers
         let single = sel.count == 1 && store.selection.count == 1

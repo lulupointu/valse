@@ -1,0 +1,23 @@
+/* W5 — keyframe panel, curve presets, keyframe copy/paste/reset. */
+"toast.keyframesCopied" = "Keyframes copied";
+"cmd.pasteKeyframes" = "Paste keyframes";
+"cmd.resetKeyframes" = "Reset keyframes";
+"cmd.keyframeCurve" = "Keyframe curve";
+"shortcut.keyframePanel" = "Show/Hide keyframe panel";
+"shortcut.addKeyframe" = "Add keyframe";
+"keyframes.panel.title" = "Keyframes";
+"keyframes.panel.clip" = "Clip";
+"keyframes.reset" = "Reset keyframes";
+"keyframes.reset.confirm" = "Keyframes of the selected clip will be reset";
+"keyframes.panel.empty" = "This clip has no keyframes yet. Click ◇ next to a property in the inspector, or press ⇧⌥K.";
+"keyframes.panel.noClip" = "Select a clip to see its keyframes.";
+"keyframes.curve.title" = "%@ — speed curve";
+"keyframes.graph.value" = "Value";
+"keyframes.graph.speed" = "Speed";
+"keyframes.curve.last" = "The last keyframe has no segment after it: select an earlier keyframe.";
+"keyframes.curve.applyAll" = "Apply to all segments";
+"keyframes.curve.select" = "Select a keyframe to edit its curve.";
+"easing.expoIn" = "Expo in";
+"easing.expoOut" = "Expo out";
+"easing.bounceOut" = "Bounce";
+"easing.elasticOut" = "Elastic";

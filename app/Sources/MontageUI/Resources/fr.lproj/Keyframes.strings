@@ -1,0 +1,23 @@
+/* W5 — keyframe panel, curve presets, keyframe copy/paste/reset. */
+"toast.keyframesCopied" = "Images clés copiées";
+"cmd.pasteKeyframes" = "Coller les images clés";
+"cmd.resetKeyframes" = "Réinitialiser les images clés";
+"cmd.keyframeCurve" = "Courbe d'image clé";
+"shortcut.keyframePanel" = "Afficher/masquer le panneau des images clés";
+"shortcut.addKeyframe" = "Ajouter une image clé";
+"keyframes.panel.title" = "Images clés";
+"keyframes.panel.clip" = "Clip";
+"keyframes.reset" = "Réinitialiser les images clés";
+"keyframes.reset.confirm" = "Les images clés du clip sélectionné seront réinitialisées";
+"keyframes.panel.empty" = "Ce clip n'a pas encore d'image clé. Cliquez sur ◇ à côté d'une propriété dans l'inspecteur, ou appuyez sur ⇧⌥K.";
+"keyframes.panel.noClip" = "Sélectionnez un clip pour voir ses images clés.";
+"keyframes.curve.title" = "%@ — courbe de vitesse";
+"keyframes.graph.value" = "Valeur";
+"keyframes.graph.speed" = "Vitesse";
+"keyframes.curve.last" = "La dernière image clé n'a pas de segment après elle : sélectionnez une image clé précédente.";
+"keyframes.curve.applyAll" = "Appliquer à tous les segments";
+"keyframes.curve.select" = "Sélectionnez une image clé pour modifier sa courbe.";
+"easing.expoIn" = "Exponentiel (entrée)";
+"easing.expoOut" = "Exponentiel (sortie)";
+"easing.bounceOut" = "Rebond";
+"easing.elasticOut" = "Élastique";

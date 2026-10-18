@@ -100,7 +100,9 @@ extension EditorStore {
     // MARK: Clipboard
 
     public func copySelection() {
+        if let k = ui.selectedKeyframe { copyKeyframes(k); return }   // W5: keyframe copy
         guard !selection.isEmpty else { return }
+        keyframeUI.clipboardActive = false
         let items = TimelineOps.copyItems(selection, from: project.timeline)
         ui.clipboard = items
         let media = Set(items.compactMap(\.clip.mediaID))
@@ -120,6 +122,7 @@ extension EditorStore {
     }
 
     public func paste() {
+        if keyframeUI.clipboardActive, pasteKeyframes() { return }   // W5: keyframes copied last
         var items = ui.clipboard
         var assets: [MediaAsset] = []
         if let data = NSPasteboard.general.data(forType: ClipboardPayload.type),

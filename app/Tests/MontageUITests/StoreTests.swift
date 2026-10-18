@@ -125,6 +125,7 @@ import MontageTestSupport
         keys += PreviewQuality.allCases.map(\.nameKey)
         keys += AnimatableProperties.all.map(\.nameKey)
         keys += TransitionIssue.allCases.map(\.messageKey)
+        keys += EasingPreset.all.map(\.nameKey)
         keys += ["system", "en", "fr"].map { "settings.language.\($0)" }
         keys += ProxyManager.Policy.allCases.map { "details.proxy.\($0.rawValue)" }
         let en = L10n.shared.keys(for: "en"), fr = L10n.shared.keys(for: "fr")
