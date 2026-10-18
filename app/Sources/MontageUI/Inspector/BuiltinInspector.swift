@@ -42,6 +42,7 @@ enum BuiltinInspector {
         InspectorTab(id: "speed", titleKey: "inspector.tab.speed", order: 4, subTabs: [
             InspectorSubTab(id: "normal", titleKey: "inspector.speed.normal", order: 0),
             InspectorSubTab(id: "curve", titleKey: "inspector.speed.curve", order: 1),
+            InspectorSubTab(id: "velocity", titleKey: "inspector.speed.velocity", order: 2) { $0.kind == .video },
         ], appliesTo: any(.video, .audio)),
         InspectorTab(id: "animation", titleKey: "inspector.tab.animation", order: 5, subTabs: [
             InspectorSubTab(id: "in", titleKey: "anim.phase.in", order: 0),
@@ -108,6 +109,9 @@ enum BuiltinInspector {
         InspectorSection(id: "speed.normal", tab: "speed", subTab: "normal", order: 0, titleKey: nil) { AnyView(SpeedNormalSection(ctx: $0)) },
         InspectorSection(id: "speed.curve", tab: "speed", subTab: "curve", order: 0, titleKey: nil,
                          appliesTo: { $0.kind == .video }) { AnyView(SpeedCurveSection(ctx: $0)) },
+
+        InspectorSection(id: "speed.velocity", tab: "speed", subTab: "velocity", order: 0, titleKey: nil,
+                         appliesTo: { $0.kind == .video }) { AnyView(VelocityEffectsSection(ctx: $0)) },
 
         // Animation
         InspectorSection(id: "animation.in", tab: "animation", subTab: "in", order: 0, titleKey: nil) { AnyView(AnimationPickerSection(ctx: $0, phase: .in)) },

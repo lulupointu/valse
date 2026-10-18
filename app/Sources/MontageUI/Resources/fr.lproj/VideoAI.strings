@@ -51,9 +51,9 @@
 
 /* W10 looks couleur (CL-007/008/009, AI-055) */
 "look.auto" = "Ajustement automatique";
-"look.match" = "Ajustement des couleurs";
+"look.match" = "Correspondance des couleurs";
 "look.correct" = "Correction des couleurs";
-"look.applying" = "Ajustement des couleurs…";
+"look.applying" = "Correspondance des couleurs…";
 "look.matching" = "Correspondance des couleurs…";
 "look.failed" = "Impossible d'ajuster les couleurs. Réessaie.";
 "look.match.hint" = "Sélectionne un cadre ou importe une image pour appliquer ses couleurs à ce clip.";

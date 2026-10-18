@@ -356,21 +356,30 @@ enum Bind {
     }
 }
 
+/// Inspector number formats in the UI language (W3-3): "0,00°", "1,00×", "5,0 s", "−6,0 dB" in French;
+/// "0.00°", "1.00×", "5.0s", "−6.0dB" in English (CapCut's English spacing). Typed values are parsed by `NumberParse`.
 enum Fmt {
+    static var isFrench: Bool { L10n.shared.language.hasPrefix("fr") }
+    /// Fixed-decimals number in the UI locale (no grouping), true minus sign, no "−0".
+    static func num(_ v: Double, _ places: Int) -> String {
+        let s = String(format: "%.\(places)f", locale: L10n.shared.locale, v)
+        let isZero = !s.contains { "123456789".contains($0) }
+        return isZero ? s.replacingOccurrences(of: "-", with: "") : s.replacingOccurrences(of: "-", with: "\u{2212}")
+    }
+    /// Value + unit: a narrow no-break space before the unit in French, none in English.
+    static func unit(_ n: String, _ u: String) -> String { isFrench ? n + "\u{202F}" + u : n + u }
     static func percent(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
     static func percentValue(_ v: Double) -> String { "\(Int(v.rounded()))%" }
-    static func degrees(_ v: Double) -> String { String(format: "%.2f°", v) }
-    static func degrees1(_ v: Double) -> String { String(format: "%.1f°", v) }
-    static func seconds(_ v: Double) -> String { String(format: "%.1fs", v) }
-    static func speed(_ v: Double) -> String { String(format: "%.2fx", v) }
-    static func db(_ gain: Double) -> String {
-        let d = AudioProps.decibels(gain)
-        return d.isFinite ? String(format: "%.1fdB", d) : "-∞dB"
-    }
-    static func int(_ v: Double) -> String { "\(Int(v.rounded()))" }
+    static func degrees(_ v: Double) -> String { num(v, 2) + "°" }
+    static func degrees1(_ v: Double) -> String { num(v, 1) + "°" }
+    static func seconds(_ v: Double) -> String { unit(num(v, 1), "s") }
+    static func speed(_ v: Double) -> String { num(v, 2) + "×" }
+    static func decibels(_ d: Double, places: Int = 1) -> String { unit(d.isFinite ? num(d, places) : "\u{2212}∞", "dB") }
+    static func db(_ gain: Double) -> String { decibels(AudioProps.decibels(gain)) }
+    static func int(_ v: Double) -> String { num(v.rounded(), 0) }
     /// "01:00" / "41s" style used by the speed panels.
     static func clock(_ seconds: Double) -> String {
-        if seconds < 60 { return String(format: "%.1fs", seconds) }
+        if seconds < 60 { return Fmt.seconds(seconds) }
         let s = Int(seconds.rounded())
         return String(format: "%02d:%02d", s / 60, s % 60)
     }

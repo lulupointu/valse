@@ -105,6 +105,9 @@ public final class EditorStore {
     public let exports = ExportCenter()
     public var activeAssetTab = "media"
     public var inspectorTab: String?
+    /// Last inspector tab per selection kind (CapCut remembers it per clip type, UX.md §9), and the kind it belongs to.
+    @ObservationIgnored var inspectorTabByKind: [InspectorSelectionKind: String] = [:]
+    @ObservationIgnored var inspectorKind: InspectorSelectionKind = .none
     public var previewQuality: PreviewQuality = .auto { didSet { engine.previewQuality = previewQuality; performancePreferencesChanged() } }
     /// Media hash → proxy generating.
     public var proxyPending: Set<String> = []
@@ -240,7 +243,13 @@ public final class EditorStore {
         if !selection.isEmpty, selectedTransition != nil { selectedTransition = nil }
         syncSelectionSlices()
         if playerUI.loopEnabled { updateLoopRange() }
-        if let t = inspectorTab, !InspectorRegistry.tabs(for: InspectorContext(store: self)).contains(where: { $0.id == t }) {
+        let ctx = InspectorContext(store: self)
+        if ctx.kind != inspectorKind {
+            inspectorTabByKind[inspectorKind] = inspectorTab
+            inspectorKind = ctx.kind
+            inspectorTab = inspectorTabByKind[ctx.kind]
+        }
+        if let t = inspectorTab, !InspectorRegistry.tabs(for: ctx).contains(where: { $0.id == t }) {
             inspectorTab = nil
         }
     }

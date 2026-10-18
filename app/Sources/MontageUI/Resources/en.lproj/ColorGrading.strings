@@ -19,3 +19,5 @@
 "autoAdjust.hint" = "Check to correct exposure, contrast and white balance from the frame under the playhead.";
 "autoAdjust.failed" = "Couldn't analyse this frame.";
 "cmd.autoAdjust" = "Auto adjust";
+
+"inspector.curves.pickHelp" = "Pick a colour in the player to add a point at its level";

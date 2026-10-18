@@ -56,7 +56,7 @@
 "audio.strength" = "Intensité";
 "audio.sync.needTwo" = "Sélectionnez au moins deux clips avec du son";
 "audio.tab.basic" = "Basique";
-"audio.tab.voiceChanger" = "Changeur de voix";
+"audio.tab.voiceChanger" = "Modulateur vocal";
 "audio.tone" = "Hauteur et canaux";
 "audio.voice.all" = "Tout";
 "audio.voice.applyToAll" = "Appliquer à tout";
@@ -70,7 +70,7 @@
 "cmd.record" = "Voix off";
 "cmd.separation" = "Isoler la voix";
 "cmd.syncAudio" = "Synchroniser le son";
-"cmd.voice" = "Changeur de voix";
+"cmd.voice" = "Modulateur vocal";
 "job.beats" = "Détection du rythme";
 "job.extractAudio" = "Extraction du son";
 "job.loudness" = "Mesure du volume";

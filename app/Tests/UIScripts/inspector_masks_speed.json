@@ -1,0 +1,39 @@
+// W3-7 Text + Pen mask shapes, W3-9 Speed ▸ Velocity effects, W3-2 curves editor, W3-5 no Smooth slow-mo on audio.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"click": "id:mask.shape.text"},
+    {"expect": [{"path": "project.timeline.tracks.0.clips.0.mask.shape", "equals": "text"},
+                {"path": "project.timeline.tracks.0.clips.0.mask.text", "equals": "TEXT"}]},
+    {"seek": 1},
+    {"snapshot": "mask-text-player", "element": "id:panel.player", "threshold": 40},
+    {"snapshot": "mask-text-inspector", "element": "id:panel.inspector"},
+    {"click": "id:mask.shape.pen"},
+    {"expect": [{"path": "project.timeline.tracks.0.clips.0.mask.shape", "equals": "pen"},
+                {"path": "project.timeline.tracks.0.clips.0.mask.points", "count": 6}]},
+    {"snapshot": "mask-pen-player", "element": "id:panel.player", "threshold": 40},
+    // Speed ▸ Velocity effects
+    {"click": "id:inspector.tab.speed"},
+    {"expect": {"path": "ui.anchors", "contains": "speed.smoothSlowmo"}},
+    {"click": "id:inspector.sub.velocity"},
+    {"click": "id:velocity.rampUp"},
+    {"expect": [{"path": "selectedClips.0.duration", "lt": 5.5},
+                {"path": "project.timeline.tracks.0.clips.0.speed.curve._0.presetID", "equals": "montage.velocity.rampUp"}]},
+    {"snapshot": "speed-velocity", "element": "id:panel.inspector"},
+    {"click": "id:velocity.none"},
+    {"expect": {"path": "selectedClips.0.duration", "approx": 6, "tolerance": 0.05}},
+    // Adjust ▸ Curves: full-width graphs, endpoints only, eyedropper per channel
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:inspector.sub.curves"},
+    {"expect": {"path": "ui.anchors", "contains": "curves.luma.pick"}},
+    {"snapshot": "adjust-curves", "element": "id:panel.inspector"},
+    // audio clip: Speed has no Smooth slow-mo
+    {"click": "clip:5/0"},
+    {"click": "id:inspector.tab.speed"},
+    {"snapshot": "audio-speed", "element": "id:panel.inspector"}
+  ]
+}

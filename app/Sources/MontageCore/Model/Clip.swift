@@ -157,8 +157,13 @@ public enum BlendMode: String, Codable, Sendable, CaseIterable {
 }
 
 public enum MaskShape: String, Codable, Sendable, CaseIterable {
+    // analytic shapes (shader indices = positions, never reorder) …
     case linear, mirror, circle, rectangle, heart, star
+    // … then rasterized ones (W3-7): glyph outlines of `Mask.text`, closed smooth path through `Mask.points`.
+    case text, pen
     public var nameKey: String { "mask.\(rawValue)" }
+    /// Drawn on the CPU into a mask texture instead of evaluated in the placement shader.
+    public var isRaster: Bool { self == .text || self == .pen }
 }
 
 /// Shape mask in layer-normalized coordinates (0,0 = layer centre, units of layer size).
@@ -173,10 +178,20 @@ public struct Mask: Hashable, Codable, Sendable {
     /// Rectangle corner roundness 0…1.
     public var roundness: Double
     public var inverted: Bool
+    /// Text mask: the string whose glyphs cut the mask (fitted into the mask box).
+    public var text: String?
+    /// Pen mask: closed smooth path through these points, in mask-box units (−0.5…0.5, y down).
+    public var points: [Vec2]?
     public init(shape: MaskShape, center: Vec2 = .zero, size: Vec2 = Vec2(0.5, 0.5), rotation: Double = 0,
                 feather: Double = 0, roundness: Double = 0, inverted: Bool = false) {
         self.shape = shape; self.center = center; self.size = size; self.rotation = rotation
         self.feather = feather; self.roundness = roundness; self.inverted = inverted
+    }
+
+    /// Default pen outline (an organic blob filling the mask box) until the user moves the points.
+    public static let defaultPenPoints: [Vec2] = [0.5, 0.42, 0.48, 0.4, 0.5, 0.44, 0.47].enumerated().map { i, r in
+        let a = Double(i) / 7 * 2 * .pi - .pi / 2
+        return Vec2(cos(a) * r, sin(a) * r)
     }
 }
 

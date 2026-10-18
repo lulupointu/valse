@@ -1,0 +1,15 @@
+// W3-3 / W3-8: French inspector — locale number formats ("0,00°", "1,00×", "6,0 s", "−6,0 dB") and glossary wording
+// ("Modulateur vocal").
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"expect": {"path": "ui.language", "equals": "fr"}},
+    {"snapshot": "fr-video", "element": "id:panel.inspector"},
+    {"click": "id:inspector.tab.speed"},
+    {"snapshot": "fr-speed", "element": "id:panel.inspector"},
+    {"click": "id:inspector.tab.audio"},
+    {"snapshot": "fr-audio", "element": "id:panel.inspector"}
+  ]
+}

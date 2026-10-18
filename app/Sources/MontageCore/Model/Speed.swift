@@ -277,5 +277,25 @@ public struct SpeedCurvePreset: Sendable, Identifiable {
 
     /// In CapCut's tile order (after "None").
     public static let all: [SpeedCurvePreset] = [customized, montage, heroTime, bullet, jumpCut, flashIn, flashOut]
-    public static func preset(_ id: String?) -> SpeedCurvePreset? { all.first { $0.id == id } }
+    public static func preset(_ id: String?) -> SpeedCurvePreset? { (all + velocity).first { $0.id == id } }
+
+    /// Speed ▸ Velocity effects (CapCut's one-tap speed ramps), W3-9. Same curve model, editable in Speed ▸ Curve.
+    public static let velocity: [SpeedCurvePreset] = [
+        SpeedCurvePreset(id: "montage.velocity.rampUp", nameKey: "velocity.rampUp", points: [
+            SpeedPoint(0, 0.6), SpeedPoint(0.5, 1.5), SpeedPoint(1, 4)]),
+        SpeedCurvePreset(id: "montage.velocity.rampDown", nameKey: "velocity.rampDown", points: [
+            SpeedPoint(0, 4), SpeedPoint(0.5, 1.5), SpeedPoint(1, 0.6)]),
+        SpeedCurvePreset(id: "montage.velocity.slowHit", nameKey: "velocity.slowHit", points: [
+            SpeedPoint(0, 2.5), SpeedPoint(0.4, 2.5), SpeedPoint(0.5, 0.3), SpeedPoint(0.6, 2.5), SpeedPoint(1, 2.5)]),
+        SpeedCurvePreset(id: "montage.velocity.burst", nameKey: "velocity.burst", points: [
+            SpeedPoint(0, 1), SpeedPoint(0.35, 1), SpeedPoint(0.5, 6), SpeedPoint(0.65, 1), SpeedPoint(1, 1)]),
+        SpeedCurvePreset(id: "montage.velocity.pulse", nameKey: "velocity.pulse", points: [
+            SpeedPoint(0, 1), SpeedPoint(0.25, 3), SpeedPoint(0.5, 1), SpeedPoint(0.75, 3), SpeedPoint(1, 1)]),
+        SpeedCurvePreset(id: "montage.velocity.slowFastSlow", nameKey: "velocity.slowFastSlow", points: [
+            SpeedPoint(0, 0.5), SpeedPoint(0.5, 3), SpeedPoint(1, 0.5)]),
+        SpeedCurvePreset(id: "montage.velocity.fastSlowFast", nameKey: "velocity.fastSlowFast", points: [
+            SpeedPoint(0, 3), SpeedPoint(0.5, 0.4), SpeedPoint(1, 3)]),
+        SpeedCurvePreset(id: "montage.velocity.stutter", nameKey: "velocity.stutter", points: [
+            SpeedPoint(0, 1), SpeedPoint(0.2, 0.25), SpeedPoint(0.4, 4), SpeedPoint(0.6, 0.25), SpeedPoint(0.8, 4), SpeedPoint(1, 1)]),
+    ]
 }

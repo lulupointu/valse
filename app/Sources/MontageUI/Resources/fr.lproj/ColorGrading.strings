@@ -19,3 +19,5 @@
 "autoAdjust.hint" = "Cochez pour corriger l’exposition, le contraste et la balance des blancs d’après l’image sous la tête de lecture.";
 "autoAdjust.failed" = "Impossible d’analyser cette image.";
 "cmd.autoAdjust" = "Réglage auto";
+
+"inspector.curves.pickHelp" = "Choisissez une couleur dans le lecteur pour ajouter un point à son niveau";

@@ -97,3 +97,19 @@
 "adjust.preset.delete" = "Supprimer le préréglage";
 "toast.presetSaved" = "Enregistré sous « %@ »";
 "cmd.adjust.preset" = "Appliquer le préréglage";
+
+/* Speed ▸ Velocity effects (W3-9) */
+"inspector.speed.velocity" = "Effets de vitesse";
+"velocity.rampUp" = "Accélérer";
+"velocity.rampDown" = "Ralentir";
+"velocity.slowHit" = "Impact";
+"velocity.burst" = "Sursaut";
+"velocity.pulse" = "Pulsation";
+"velocity.slowFastSlow" = "Montée";
+"velocity.fastSlowFast" = "Creux";
+"velocity.stutter" = "Saccades";
+
+/* Text / Pen masks (W3-7) */
+"mask.text.default" = "TEXTE";
+"inspector.mask.text" = "Texte";
+"inspector.mask.penHint" = "Faites glisser le masque dans le lecteur pour le placer ; Taille et Rotation modifient le contour.";

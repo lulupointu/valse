@@ -16,7 +16,7 @@ struct AudioBasicSection: View {
         }, keyframeKeys: [.volume])
     }
 
-    static func dbFormat(_ v: Double) -> String { v <= -59.95 ? "-∞dB" : String(format: "%.1fdB", v) }
+    static func dbFormat(_ v: Double) -> String { Fmt.decibels(v <= -59.95 ? -.infinity : v) }
 
     var body: some View {
         let half = max((ctx.clip?.duration.seconds ?? 2) / 2, 0.1)
@@ -82,8 +82,11 @@ struct SpeedNormalSection: View {
             }
             ToggleLine(label: tr("inspector.changePitch"),
                        isOn: Bind.binding(ctx, "cmd.speed", get: { !$0.audio.preservePitch }, set: { $0.audio.preservePitch = !$1 }, default: false))
-            SmoothSlowMoRow(ctx: ctx)
-                .padding(.top, 6)
+            if ctx.kind == .video {  // smooth slow-mo is a video-frame feature: hidden for audio clips (W3-5)
+                SmoothSlowMoRow(ctx: ctx)
+                    .padding(.top, 6)
+                    .testID("speed.smoothSlowmo")
+            }
         }
     }
 }
@@ -135,6 +138,33 @@ struct SpeedCurveSection: View {
             }
             if let curve, let clip = ctx.clip {
                 SpeedCurveEditor(ctx: ctx, clip: clip, curve: curve)
+            }
+        }
+    }
+
+    func apply(_ p: SpeedCurvePreset?) {
+        guard let id = ctx.clip?.id else { return }
+        InspectorUIState.shared.curvePoint[id] = nil
+        ctx.store.perform(SetSpeed(id, p.map { .curve($0.curve) } ?? .normal))
+    }
+}
+
+/// Speed ▸ Velocity effects (W3-9): one-tap speed-ramp presets (None + `SpeedCurvePreset.velocity`). The result is a
+/// normal speed curve, so Speed ▸ Curve can fine-tune it afterwards.
+struct VelocityEffectsSection: View {
+    let ctx: InspectorContext
+    var body: some View {
+        let selected: String = { if case .curve(let c)? = ctx.clip?.speed { return c.presetID ?? "" }; return "none" }()
+        TileGrid {
+            Tile(title: tr("speed.preset.none"), selected: selected == "none") { apply(nil) } content: {
+                Image(systemName: "nosign").font(.system(size: 26, weight: .light)).foregroundStyle(Color(white: 0.75))
+            }
+            .testID("velocity.none")
+            ForEach(SpeedCurvePreset.velocity) { p in
+                Tile(title: tr(p.nameKey), selected: selected == p.id) { apply(p) } content: {
+                    CurveGlyph(curve: p.curve).padding(.vertical, 8)
+                }
+                .testID("velocity.\(p.id.split(separator: ".").last ?? "")")
             }
         }
     }

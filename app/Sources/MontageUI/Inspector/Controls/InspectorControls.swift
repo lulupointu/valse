@@ -180,7 +180,8 @@ struct StepperButton: View {
 enum NumberParse {
     /// Accepts "12", "-3.5", "1,5" (French decimal comma), with or without unit suffix.
     nonisolated static func number(_ s: String) -> Double? {
-        let cleaned = s.replacingOccurrences(of: ",", with: ".").filter { "0123456789.-".contains($0) }
+        let cleaned = s.replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: "\u{2212}", with: "-")
+            .filter { "0123456789.-".contains($0) }
         return Double(cleaned)
     }
 }

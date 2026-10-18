@@ -301,7 +301,7 @@ public final class FrameRenderer: @unchecked Sendable {
         } else if let t = rgbaSource {
             let (w, h) = rotation % 180 == 0 ? (Double(t.width), Double(t.height)) : (Double(t.height), Double(t.width))
             srcW = min(dispW, w * cropW); srcH = min(dispH, h * cropH)
-        } else if l.effects.isEmpty {
+        } else if l.effects.isEmpty && l.mask?.shape.isRaster != true {
             srcW = min(dispW, 64); srcH = min(dispH, 64)   // flat colour: tiny texture, stretched
         } else {
             srcW = dispW; srcH = dispH                      // generated content (canvas styles): full resolution
@@ -342,15 +342,26 @@ public final class FrameRenderer: @unchecked Sendable {
                 let pre = layerTex
                 let post = applyEffects(l.effects.filter(isAdjust), to: pre, time: l.localTime, cmd: cmd, acquire: acquire)
                 let out = acquire(pre.width, pre.height)
-                var mu = PlaceUniforms(c0: .zero, c1: .zero, c2: .zero, c3: .zero, opacity: 1, blend: 0, maskShape: -1, maskInvert: 0,
-                                       maskCenter: .zero, maskSize: .one, maskRotation: 0, maskFeather: 0, maskRoundness: 0,
-                                       layerAspect: Float(abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)))
-                Self.setMask(am, &mu)
-                fullscreen(ctx.maskMix, target: out, cmd, label: "adjust-mask") { enc in
-                    enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1)
-                    enc.setFragmentBytes(&mu, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
+                if am.shape.isRaster {
+                    if let mt = RasterMasks.shared.texture(am, width: pre.width, height: pre.height) {
+                        var inv: Float = am.inverted ? 1 : 0
+                        fullscreen(FeaturePipelines.shared.maskTexMix, target: out, cmd, label: "adjust-mask-raster") { enc in
+                            enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1); enc.setFragmentTexture(mt, index: 2)
+                            enc.setFragmentBytes(&inv, length: 4, index: 0)
+                        }
+                        layerTex = out
+                    } else { layerTex = post }
+                } else {
+                    var mu = PlaceUniforms(c0: .zero, c1: .zero, c2: .zero, c3: .zero, opacity: 1, blend: 0, maskShape: -1, maskInvert: 0,
+                                           maskCenter: .zero, maskSize: .one, maskRotation: 0, maskFeather: 0, maskRoundness: 0,
+                                           layerAspect: Float(abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)))
+                    Self.setMask(am, &mu)
+                    fullscreen(ctx.maskMix, target: out, cmd, label: "adjust-mask") { enc in
+                        enc.setFragmentTexture(pre, index: 0); enc.setFragmentTexture(post, index: 1)
+                        enc.setFragmentBytes(&mu, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
+                    }
+                    layerTex = out
                 }
-                layerTex = out
                 let rest = l.effects.filter { !isAdjust($0) }
                 if !rest.isEmpty { layerTex = applyEffects(rest, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire) }
             } else {
@@ -367,7 +378,23 @@ public final class FrameRenderer: @unchecked Sendable {
                               maskShape: -1, maskInvert: 0, maskCenter: .zero, maskSize: .one, maskRotation: 0,
                               maskFeather: 0, maskRoundness: 0,
                               layerAspect: Float(abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)))
-        if let m = l.mask { Self.setMask(m, &u) }
+        if let m = l.mask {
+            if m.shape.isRaster {
+                // Text / Pen: multiply the layer alpha by the rasterized coverage; the placement shader sees no mask.
+                if let mt = RasterMasks.shared.texture(m, width: layerTex.width, height: layerTex.height) {
+                    let out = acquire(layerTex.width, layerTex.height)
+                    let src = layerTex
+                    var inv: Float = m.inverted ? 1 : 0
+                    fullscreen(FeaturePipelines.shared.alphaMask, target: out, cmd, label: "mask-raster") { enc in
+                        enc.setFragmentTexture(src, index: 0); enc.setFragmentTexture(mt, index: 1)
+                        enc.setFragmentBytes(&inv, length: 4, index: 0)
+                    }
+                    layerTex = out
+                }
+            } else {
+                Self.setMask(m, &u)
+            }
+        }
         return (layerTex, u)
     }
 

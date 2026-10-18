@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import MontageCore
 import MontageEffects
 import MontageEngine
@@ -153,10 +154,15 @@ struct CurveEditor: View {
     @State private var dragIndex: Int?
     @State private var dragging = false
 
+    /// CapCut starts every curve as the bare diagonal: an untouched (identity) curve shows its two endpoints only.
+    static let endpoints: [ColorCurveMath.Point] = [(0, 0), (1, 1)]
+    static func isIdentity(_ pts: [ColorCurveMath.Point]) -> Bool { pts.allSatisfy { abs($0.x - $0.y) < 1e-6 } }
+    static func displayed(_ pts: [ColorCurveMath.Point]) -> [ColorCurveMath.Point] { isIdentity(pts) ? endpoints : pts }
+
     var points: [ColorCurveMath.Point] {
-        ColorCurveMath.points(ColorGradingInspector.instance(ctx.clip, BuiltinColor.curves)?.params ?? [:], channel: channel)
+        Self.displayed(ColorCurveMath.points(ColorGradingInspector.instance(ctx.clip, BuiltinColor.curves)?.params ?? [:], channel: channel))
     }
-    var isIdentity: Bool { points.count == 5 && zip(points, ColorCurveMath.identity).allSatisfy { abs($0.x - $1.x) + abs($0.y - $1.y) < 1e-6 } }
+    var isIdentity: Bool { Self.isIdentity(points) }
 
     var body: some View {
         let pts = points
@@ -165,7 +171,9 @@ struct CurveEditor: View {
                 Circle().fill(color).frame(width: 8, height: 8)
                 Text(verbatim: tr("curves.\(channel)")).font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                 Spacer()
-                SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"), enabled: !isIdentity, size: 12) { write(ColorCurveMath.identity, live: false) }
+                SmallIconButton(symbol: "eyedropper", help: tr("inspector.curves.pickHelp"), size: 12) { pickColor() }
+                    .testID("curves.\(channel).pick")
+                SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"), enabled: !isIdentity, size: 12) { write(Self.endpoints, live: false) }
             }
             GeometryReader { geo in
                 let side = geo.size.width
@@ -186,8 +194,6 @@ struct CurveEditor: View {
                 .onTapGesture(count: 1, coordinateSpace: .local) { loc in addPoint(at: loc, side: side) }
             }
             .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: 220)
-            .padding(6)
             .frame(maxWidth: .infinity)
         }
     }
@@ -230,6 +236,33 @@ struct CurveEditor: View {
         guard !pts.contains(where: { abs($0.x - u.x) < 0.02 }) else { return }
         pts.append(u)
         write(pts, live: false)
+    }
+
+    /// Channel level of a sampled colour (Rec.709 luma for the Brightness curve).
+    static func level(_ c: RGBA, channel: String) -> Double {
+        switch channel {
+        case "red": return c.r
+        case "green": return c.g
+        case "blue": return c.b
+        default: return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+        }
+    }
+
+    /// Eyedropper: adds a point on the curve at the sampled colour's level (CapCut [38]), ready to drag.
+    static func pointAdding(level x: Double, to pts: [ColorCurveMath.Point]) -> [ColorCurveMath.Point]? {
+        guard pts.count < ColorCurveMath.maxPoints, x > 0.01, x < 0.99, !pts.contains(where: { abs($0.x - x) < 0.02 }) else { return nil }
+        return (pts + [(x, ColorCurveMath.evaluate(pts, x))]).sorted { $0.x < $1.x }
+    }
+
+    func pickColor() {
+        let ch = channel
+        NSColorSampler().show { ns in
+            guard let ns, let c = ns.usingColorSpace(.sRGB) else { return }
+            let rgba = RGBA(Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent), 1)
+            MainActor.assumeIsolated {
+                if let pts = Self.pointAdding(level: Self.level(rgba, channel: ch), to: points) { write(pts, live: false) }
+            }
+        }
     }
 
     func removePoint(near loc: CGPoint, side: CGFloat) {

@@ -97,3 +97,19 @@
 "adjust.preset.delete" = "Delete preset";
 "toast.presetSaved" = "Saved as “%@”";
 "cmd.adjust.preset" = "Apply preset";
+
+/* Speed ▸ Velocity effects (W3-9) */
+"inspector.speed.velocity" = "Velocity effects";
+"velocity.rampUp" = "Ramp up";
+"velocity.rampDown" = "Ramp down";
+"velocity.slowHit" = "Slow hit";
+"velocity.burst" = "Speed burst";
+"velocity.pulse" = "Pulse";
+"velocity.slowFastSlow" = "Surge";
+"velocity.fastSlowFast" = "Dip";
+"velocity.stutter" = "Stutter";
+
+/* Text / Pen masks (W3-7) */
+"mask.text.default" = "TEXT";
+"inspector.mask.text" = "Text";
+"inspector.mask.penHint" = "Drag the mask on the player to place it; Size and Rotate reshape the outline.";

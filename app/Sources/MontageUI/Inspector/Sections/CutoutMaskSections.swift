@@ -243,6 +243,8 @@ struct MaskShapesSection: View {
         case .rectangle: return "rectangle"
         case .heart: return "heart"
         case .star: return "star"
+        case .text: return "textformat"
+        case .pen: return "scribble.variable"
         }
     }
 
@@ -254,6 +256,10 @@ struct MaskShapesSection: View {
         case .rectangle: return Mask(shape: .rectangle, size: Vec2(0.5, 0.5))
         case .heart: return Mask(shape: .heart, size: Vec2(0.5, 0.5))
         case .star: return Mask(shape: .star, size: Vec2(0.5, 0.5))
+        case .text:
+            var m = Mask(shape: .text, size: Vec2(0.7, 0.35)); m.text = tr("mask.text.default"); return m
+        case .pen:
+            var m = Mask(shape: .pen, size: Vec2(0.5, 0.6)); m.points = Mask.defaultPenPoints; return m
         }
     }
 
@@ -297,7 +303,13 @@ struct MaskShapesSection: View {
         let t = target
         ctx.store.perform(UpdateClip(id, nameKey: s == nil ? "cmd.mask.remove" : "cmd.mask") { c in
             if let s {
-                if var m = c[keyPath: t.mask] { m.shape = s; if s == .mirror && m.size.y > 0.9 { m.size.y = 0.4 }; c[keyPath: t.mask] = m }
+                if var m = c[keyPath: t.mask] {
+                    m.shape = s; if s == .mirror && m.size.y > 0.9 { m.size.y = 0.4 }
+                    let d = MaskShapesSection.defaultMask(s)
+                    if m.text == nil { m.text = d.text }
+                    if m.points == nil { m.points = d.points }
+                    c[keyPath: t.mask] = m
+                }
                 else { c[keyPath: t.mask] = MaskShapesSection.defaultMask(s) }
             } else {
                 c[keyPath: t.mask] = nil
@@ -339,6 +351,8 @@ struct MaskSettingsSection: View {
         let shape = ctx.clip?[keyPath: t.mask]?.shape
         let locked = InspectorUIState.shared.maskLock
         VStack(alignment: .leading, spacing: 4) {
+            if shape == .text { MaskTextField(ctx: ctx, target: t) }
+            if shape == .pen { HintText(text: tr("inspector.mask.penHint")) }
             InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [t.center])) {
                 HStack(spacing: 14) {
                     Bind.field(ctx, key: t.center, component: 0, prefix: "X", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
@@ -400,5 +414,30 @@ struct MaskSettingsSection: View {
         guard let src = ctx.asset?.pixelSize, src.width > 0, src.height > 0 else { return canvas }
         let fit = min(canvas.width / src.width, canvas.height / src.height)
         return Size2((src.width * fit).rounded(), (src.height * fit).rounded())
+    }
+}
+
+/// Text mask: the string whose glyphs form the mask (W3-7). Enter / focus loss commits one undo step.
+struct MaskTextField: View {
+    let ctx: InspectorContext
+    let target: MaskTarget
+    @State private var text = ""
+    var body: some View {
+        let current = ctx.clip?[keyPath: target.mask]?.text ?? ""
+        InlineRow(label: tr("inspector.mask.text")) {
+            TextField("", text: $text)
+                .textFieldStyle(.plain).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 8).frame(height: 28)
+                .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                .onSubmit(commit)
+                .onAppear { text = current }
+                .onChange(of: current) { text = current }
+                .testID("mask.text")
+        }
+    }
+    func commit() {
+        guard let id = ctx.clip?.id, text != (ctx.clip?[keyPath: target.mask]?.text ?? "") else { return }
+        let t = target, v = text
+        ctx.store.perform(UpdateClip(id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.text = v })
     }
 }

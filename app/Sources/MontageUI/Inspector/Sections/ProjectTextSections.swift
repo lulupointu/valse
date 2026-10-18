@@ -19,7 +19,7 @@ struct DetailsSection: View {
             Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 8)
             DetailRow(label: tr("details.ratio"), value: ProjectSettingsSheet.ratioTitle(s.aspectPreset))
             DetailRow(label: tr("details.resolution"), value: "\(Int(s.canvasSize.width))×\(Int(s.canvasSize.height))")
-            DetailRow(label: tr("details.frameRate"), value: String(format: "%.2ffps", s.frameRate.fps))
+            DetailRow(label: tr("details.frameRate"), value: Fmt.unit(Fmt.num(s.frameRate.fps, 2), "fps"))
         }
     }
 }

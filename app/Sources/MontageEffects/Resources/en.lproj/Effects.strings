@@ -1,5 +1,5 @@
 /* Params */
-"fx.param.intensity" = "Intensity";
+"fx.param.intensity" = "Strength";
 "fx.param.radius" = "Radius";
 "fx.param.amount" = "Amount";
 "fx.param.speed" = "Speed";

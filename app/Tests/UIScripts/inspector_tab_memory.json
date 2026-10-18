@@ -1,0 +1,20 @@
+// W3-6: the inspector remembers the last tab per clip type (CapCut UX.md §9), not one tab for everything.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:2/0"},
+    {"click": "id:inspector.tab.tracking"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "tracking"}},
+    {"click": "clip:3/0"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "sticker"}},
+    {"click": "clip:main/0"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "video"}},
+    {"click": "id:inspector.tab.speed"},
+    {"click": "clip:main/2"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "speed"}},
+    {"click": "clip:2/0"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "tracking"}},
+    {"click": "clip:main/1"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "speed"}}
+  ]
+}

@@ -1,5 +1,5 @@
 // Filters tab: click a card (selects it, shows ☆/⊕), ☆ adds it to Favorites (shown under the Favorites sub-nav),
-// ⊕ applies it to the selected clip; Adjust tab: the filter Intensity and Brightness fields each make one undo step.
+// ⊕ applies it to the selected clip; Adjust tab: the filter Strength and Brightness fields each make one undo step.
 {
   "project": "demo",
   "steps": [
@@ -15,7 +15,7 @@
     {"expect": [{"path": "selectedClips.0.effects", "contains": "montage.filter.tealOrange"}, {"path": "undo.name", "equals": "cmd.filter"}]},
     {"click": "id:inspector.tab.adjust"},
     {"expect": {"path": "ui.inspectorTab", "equals": "adjust"}},
-    {"click": "id:slider.Intensity.field"},
+    {"click": "id:slider.Strength.field"},
     {"type": "40", "replace": true},
     {"key": "return"},
     {"expect": {"path": "undo.depth", "equals": 2}},

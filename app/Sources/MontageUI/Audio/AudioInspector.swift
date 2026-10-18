@@ -174,7 +174,7 @@ struct DuckingSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(loc: "audio.ducking.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
-            ClipParamRow(ctx: ctx, label: tr("audio.ducking.amount"), spec: RowSpec(range: -30...(-3), step: 1, format: { String(format: "%.0fdB", $0) }),
+            ClipParamRow(ctx: ctx, label: tr("audio.ducking.amount"), spec: RowSpec(range: -30...(-3), step: 1, format: { Fmt.decibels($0, places: 0) }),
                          get: { c, _ in c.audio.ducking?.amountDB ?? -12 }, set: { c, v, _ in c.audio.ducking?.amountDB = v.rounded() },
                          gestureName: "cmd.ducking")
         }
@@ -185,7 +185,7 @@ struct ToneSection: View {
     let ctx: InspectorContext
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ClipParamRow(ctx: ctx, label: tr("audio.pitch"), spec: RowSpec(range: -12...12, origin: 0, step: 0.5, format: { String(format: "%+.1f", $0) }),
+            ClipParamRow(ctx: ctx, label: tr("audio.pitch"), spec: RowSpec(range: -12...12, origin: 0, step: 0.5, format: { ($0 > 0.04 ? "+" : "") + Fmt.num($0, 1) }),
                          get: { c, _ in c.audio.pitch }, set: { c, v, _ in c.audio.pitch = (v * 2).rounded() / 2 }, gestureName: "cmd.pitch")
             HStack {
                 Text(loc: "audio.channels").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)

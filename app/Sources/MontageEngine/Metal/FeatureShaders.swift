@@ -35,6 +35,22 @@ enum FeatureShaders {
         return mix(a.sample(s, in.uv), b.sample(s, in.uv), k);
     }
 
+    // ---- Raster masks (Text / Pen, W3-7): r8 coverage `m`, `inv` = inverted.
+    // alpha_mask: layer alpha *= coverage. mask_tex_mix: mix(original, adjusted, coverage) (Adjust ▸ Mask).
+    fragment float4 alpha_mask_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]], texture2d<float> m [[texture(1)]],
+                                  constant float& inv [[buffer(0)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        float4 c = t.sample(s, in.uv);
+        float k = m.sample(s, in.uv).r;
+        return float4(c.rgb, c.a * (inv > 0.5 ? 1.0 - k : k));
+    }
+    fragment float4 mask_tex_mix_fs(QuadOut in [[stage_in]], texture2d<float> a [[texture(0)]], texture2d<float> b [[texture(1)]],
+                                    texture2d<float> m [[texture(2)]], constant float& inv [[buffer(0)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        float k = m.sample(s, in.uv).r;
+        return mix(a.sample(s, in.uv), b.sample(s, in.uv), inv > 0.5 ? 1.0 - k : k);
+    }
+
     // ---- Separable box/gaussian blur of an r8/r16 mask (pen-mask feather). dir = texel step.
     fragment float4 mask_blur_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]], constant float2& dir [[buffer(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
@@ -56,6 +72,8 @@ final class FeaturePipelines: @unchecked Sendable {
     let matte: MTLRenderPipelineState
     let blendFrames: MTLRenderPipelineState
     let maskBlur: MTLRenderPipelineState
+    let alphaMask: MTLRenderPipelineState
+    let maskTexMix: MTLRenderPipelineState
 
     private init() {
         let ctx = MetalContext.shared
@@ -73,6 +91,8 @@ final class FeaturePipelines: @unchecked Sendable {
         matte = pipe("matte_fs")
         blendFrames = pipe("blend_frames_fs")
         maskBlur = pipe("mask_blur_fs", .r16Float)
+        alphaMask = pipe("alpha_mask_fs")
+        maskTexMix = pipe("mask_tex_mix_fs")
     }
 }
 

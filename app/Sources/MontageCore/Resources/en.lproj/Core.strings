@@ -90,3 +90,6 @@
 "prop.cropTop" = "Top";
 "prop.cropRight" = "Right";
 "prop.cropBottom" = "Bottom";
+
+"mask.text" = "Text";
+"mask.pen" = "Pen";
