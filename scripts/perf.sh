@@ -52,8 +52,11 @@ if [[ $SMOKE == 1 && -f bench/media/.done ]]; then
   echo "▶ 4K perf smoke + audit ($MODE)" >&2
   swift build -c release --build-tests --scratch-path .build/perf -Xswiftc -enable-testing >&2  # incremental; needed even with --no-build
   set +e
+  # typical 1080p project memory: own process (its metric is the lifetime peak footprint)
+  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfMemoryTests' 2>&1 \
+    | tee "$DIR/memory.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
   env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfSmokeTests|PerfAuditTests|canvasBuildScalesTo600Clips|fiftyAnimatedCaptionsRenderFast' 2>&1 \
-    | tee "$DIR/smoke.log" | grep -E '^\{"stack"' > "$DIR/smoke.jsonl"
+    | tee "$DIR/smoke.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
   set -e
 elif [[ $SMOKE == 1 ]]; then
   echo "  (4K perf smoke skipped: run bench/make_media.sh first)" >&2

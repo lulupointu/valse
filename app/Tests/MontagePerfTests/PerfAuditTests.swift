@@ -86,6 +86,57 @@ struct PerfAuditTests {
         #expect(min(info.width, info.height) <= 720)
     }
 
+    /// Round 2 target: 4K footage with 3 effects and an animated title on an 8 GB Air. The engine queues a proxy for the
+    /// (never seen before) 4K clip by itself, switches the preview to it when ready, and then plays a steady 30 fps.
+    @Test func playback4KEffectsTextAutoProxy() async throws {
+        // fresh content hash: no proxy can exist yet (the bench clips' proxies are cached by earlier runs)
+        let fresh = FileManager.default.temporaryDirectory.appendingPathComponent("montage-fresh4k-\(UUID().uuidString).mp4")
+        let seed = UInt8.random(in: 0...200)
+        try await SyntheticMedia.writeVideo(to: fresh, size: CGSize(width: 3840, height: 2160), seconds: 6, fps: 30, codec: .hevc,
+                                            audioHz: nil) { f, n in
+            SyntheticMedia.Paint(background: (seed, UInt8(f * 255 / max(n, 1)), 90),
+                                 box: (CGRect(x: Double(f) / Double(max(n, 1)) * 0.7, y: 0.3, width: 0.3, height: 0.4), (240, 240, 240)))
+        }
+        defer { try? FileManager.default.removeItem(at: fresh) }
+        var p = TestProject(canvas: Size2(3840, 2160))
+        let c1 = try await p.addMedia(fresh, duration: Time(6))
+        let c2 = try await p.addMedia(Self.media.appendingPathComponent("d.mp4"), at: Time(6), duration: Time(6))
+        for c in [c1, c2] {
+            p[c].effects = [EffectInstance(typeID: "montage.effect.blur"), EffectInstance(typeID: "montage.filter.warm"),
+                            EffectInstance(typeID: "montage.effect.vignette")]
+        }
+        let title = try p.addText("4K + 3 effects", at: Time(0.5), duration: Time(10))
+        p[title].animations.inAnim = AnimationInstance(typeID: "montage.anim.in.fade")
+        let asset = try #require(p.project.media.first { $0.url.lastPathComponent == fresh.lastPathComponent })
+        #expect(ProxyManager.shared.shouldGenerate(asset), "auto policy must proxy 4K media")
+        #expect(ProxyManager.shared.readyProxyURL(for: asset) == nil)
+
+        let engine = PlaybackEngine(project: p.project)   // default chooser: proxies when ready
+        try await PlaybackProbe.waitReady(engine)
+        let t0 = Date()
+        while ProxyManager.shared.readyProxyURL(for: asset) == nil, Date().timeIntervalSince(t0) < 90 {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        emit("proxy_auto_kickin_seconds", Date().timeIntervalSince(t0), "s")
+        let proxy = try #require(ProxyManager.shared.readyProxyURL(for: asset), "engine must queue the proxy itself")
+        // the engine rebuilds onto the proxy when it is ready
+        try await Task.sleep(nanoseconds: 300_000_000)
+        try await PlaybackProbe.waitReady(engine)
+        let tracks = engine.player.currentItem?.asset as? AVComposition
+        let files = Set(tracks?.tracks.flatMap { $0.segments.compactMap { $0.sourceURL?.lastPathComponent } } ?? [])
+        #expect(files.contains(proxy.lastPathComponent), "preview must decode the proxy")
+        #expect(!files.contains(fresh.lastPathComponent), "preview must not decode the 4K original")
+
+        let r = try await PlaybackProbe.measure(engine, seconds: 5)
+        let expected = r.itemSeconds * 30
+        let dropped = expected > 0 ? max(0, 1 - Double(r.composed) / expected) * 100 : 100
+        emit("preview_4k_fx_text_composed_fps", r.composedFPS, "fps")
+        emit("preview_4k_fx_text_dropped_pct", dropped, "%")
+        emit("preview_4k_fx_text_compose_p95_ms", r.composeCostP95Ms, "ms")
+        try? FileManager.default.removeItem(at: proxy)
+        ProxyManager.shared.reloadFromDisk()
+    }
+
     /// Paused scrubbing: exact seek → the frame for that time is available from the player's video output.
     func scrubLatencies(_ engine: PlaybackEngine, count: Int, span: Double) async throws -> [Double] {
         var lat: [Double] = []

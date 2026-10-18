@@ -347,17 +347,36 @@ public final class ImageTextureCache: @unchecked Sendable {
     private let lock = NSLock()
     private var cache: [String: MTLTexture] = [:]
     private var order: [String] = []
+    private var bytes = 0
     private let capacity = 32
+    private var _byteBudget = MemoryBudget.imageCacheBytes
+    /// Max bytes of cached image textures (a 4096² still is 64 MB); lowering it evicts least recently used.
+    public var byteBudget: Int {
+        get { lock.withLock { _byteBudget } }
+        set { lock.withLock { _byteBudget = newValue; evictLocked() } }
+    }
 
     public func texture(for asset: MediaAsset) -> MTLTexture? {
         let key = asset.contentHash.isEmpty ? asset.url.path : asset.contentHash
-        if let t = lock.withLock({ cache[key] }) { return t }
+        if let t = lock.withLock({ () -> MTLTexture? in
+            guard let t = cache[key] else { return nil }
+            if let i = order.lastIndex(of: key), i != order.count - 1 { order.remove(at: i); order.append(key) }
+            return t
+        }) { return t }
         guard let t = ImageTextureCache.load(url: asset.url, maxSide: 4096) else { return nil }
         lock.withLock {
-            cache[key] = t; order.append(key)
-            if order.count > capacity { cache[order.removeFirst()] = nil }
+            if let old = cache[key] { bytes -= old.width * old.height * 4; order.removeAll { $0 == key } }
+            cache[key] = t; order.append(key); bytes += t.width * t.height * 4
+            evictLocked()
         }
         return t
+    }
+
+    /// Keeps the newest texture even when it alone exceeds the budget (it is on screen).
+    private func evictLocked() {
+        while order.count > 1 && (order.count > capacity || bytes > _byteBudget) {
+            if let t = cache.removeValue(forKey: order.removeFirst()) { bytes -= t.width * t.height * 4 }
+        }
     }
 
     static func load(url: URL, maxSide: Int) -> MTLTexture? {

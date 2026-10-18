@@ -61,10 +61,6 @@ enum MediaLibraryItems {
     }
 }
 
-extension EditorStore {
-    /// Media used by at least one timeline clip ("Added" badges).
-    var usedMediaIDs: Set<MediaID> { Set(project.timeline.allClips.compactMap(\.mediaID)) }
-}
 
 /// The project bin view (Import entry of the Media tab, and Audio ▸ Yours).
 struct MediaBinView: View {

@@ -79,8 +79,22 @@ public final class RenderState: @unchecked Sendable {
             framesComposed += 1
             guard keepsRecentSources else { return }
             recent.append((time, sources, aux))
-            if recent.count > 12 { recent.removeFirst(recent.count - 12) }
+            // newest frames within the byte budget (holding decoded frames pins decoder surfaces); always ≥ 2
+            let limit = MemoryPressure.shared.level == .normal ? MemoryBudget.recentSourceBytes : 0
+            var total = 0, keep = 0
+            for e in recent.reversed() {
+                total += e.sources.values.reduce(0) { $0 + Self.bytes($1) } + e.aux.values.reduce(0) { $0 + $1.values.reduce(0) { $0 + Self.bytes($1) } }
+                if keep >= 2 && total > limit { break }
+                keep += 1
+                if keep >= 12 { break }
+            }
+            if recent.count > keep { recent.removeFirst(recent.count - keep) }
         }
+    }
+
+    static func bytes(_ pb: CVPixelBuffer) -> Int {
+        guard CVPixelBufferIsPlanar(pb) else { return CVPixelBufferGetBytesPerRow(pb) * CVPixelBufferGetHeight(pb) }
+        return (0..<CVPixelBufferGetPlaneCount(pb)).reduce(0) { $0 + CVPixelBufferGetBytesPerRowOfPlane(pb, $1) * CVPixelBufferGetHeightOfPlane(pb, $1) }
     }
 
     /// Decoded sources of the composed frame closest to `time`.

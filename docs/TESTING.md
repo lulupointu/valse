@@ -215,7 +215,9 @@ way `TimelineView.draw` builds it (CPU: Canvas2D build + encode; GPU: command bu
 `scripts/perf.sh` runs `app/Tests/PerfScripts/timeline_500.json` (release build, 500 clips / 300 media: timeline scroll /
 zoom / zoomed-out scroll, inspector slider drag, ruler scrub, asset grid scroll — main-thread CPU per event —, launch,
 project open, memory peak) plus `PerfAuditTests` (complex 1080p/4K playback with effects: compositor cost + dropped %,
-scrub latency proxy/original, paused live-edit re-render, engine memory peak), the timing unit tests (`unit_*`) and the
+scrub latency proxy/original, paused live-edit re-render, 4K + 3 effects + title with automatic proxies, engine memory
+peak), `PerfMemoryTests` in its own process (typical 1080p project: play, scrub, live edits, 10 s export →
+`engine_memory_1080p_peak_mb`, lifetime peak footprint; `MEMDIAG` lines in `memory.log` break it down), the timing unit tests (`unit_*`) and the
 4K perf smoke tests (`PerfSmokeTests`: playback fps, export, proxy; needs
 `bench/media` from `bench/make_media.sh`, a worktree reuses the main checkout's), writes `build/perf/results.json`
 (`{mode, machine, metrics, violations}`) and exits 1 when a metric breaks its threshold in `bench/perf_thresholds.json`.
@@ -229,3 +231,9 @@ scrub latency proxy/original, paused live-edit re-render, engine memory peak), t
   'Time Profiler' --attach <pid>`; SwiftUI layout of the hosting view usually dominates. Editor panels live in separate
   hosting views (`IsolatedHost`) so one panel's updates don't lay out the window — keep new panels inside one.
   Tighten thresholds when something gets faster; never loosen one to hide a regression without saying why.
+- Asset panels / other always-visible views must read observation slices (`store.mediaBin`, `store.usedMediaIDs`…),
+  never `store.project`: reading it in a body re-renders that view on every edit tick (an inspector drag re-rendered the
+  300-item media bin: 5.6 → 19 ms/event).
+- Engine memory: frame textures come from `FrameScratch` (dead ones are reused within the frame — call
+  `scratch.recycle` when you add a pass whose input is not needed afterwards); caches take their size from
+  `MemoryBudget` and shrink in `MemoryPressure.apply`.

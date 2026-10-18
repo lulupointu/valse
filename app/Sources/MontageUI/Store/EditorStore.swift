@@ -78,6 +78,10 @@ public final class EditorStore {
         set { withMutation(keyPath: \.selectedTrackKindSlice) { selectedTrackKindStorage = newValue } }
     }
     private var projectNameSlice = ""
+    /// Media used by at least one timeline clip ("Added" badges). A slice, so the asset panels don't observe
+    /// `project` (an inspector drag would re-render the 300-item media bin on every tick).
+    public private(set) var usedMediaIDs: Set<MediaID> = []
+    private let usedMediaMemo = TrackMemo<[MediaID]> { $0.compactMap(\.mediaID) }
     public var selection: Set<ClipID> = [] { didSet { if selection != oldValue { selectionDidChange() } } }
     /// Selected transition, identified by the clip that owns it (`transitionOut`). Exclusive with `selection`
     /// (CapCut selects a transition after dropping it and shows its inspector). Stored in `timelineUI`.
@@ -132,8 +136,7 @@ public final class EditorStore {
         engine.onPlayStateChange = { [weak self] playing in self?.transport.isPlaying = playing }
         ProxyManager.shared.onProxyReady = { [weak self] hash in
             guard let self else { return }
-            self.proxyPending.remove(hash)
-            if self.project.media.contains(where: { $0.contentHash == hash }) { self.engine.forceRebuild() }
+            self.proxyPending.remove(hash)   // the engine switches to the proxy itself (ProxyManager.proxyReadyNotification)
         }
         jobsTask = Task { [weak self] in
             for await list in await JobQueue.shared.updates() { self?.jobs = list }
@@ -235,6 +238,8 @@ public final class EditorStore {
         if canRedo != session.canRedo { canRedo = session.canRedo }
         let n = p.name.isEmpty ? (packageURL?.deletingPathExtension().lastPathComponent ?? tr("project.untitled")) : p.name
         if projectNameSlice != n { projectNameSlice = n }
+        let used = Set(usedMediaMemo.values(p.timeline.tracks).joined())
+        if usedMediaIDs != used { usedMediaIDs = used }
         syncSelectionSlices()
     }
 

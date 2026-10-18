@@ -90,6 +90,9 @@ public final class MetalContext: @unchecked Sendable {
     }
 
     /// Releases cached CVMetalTextures (call under memory pressure).
+    /// Drops CVMetalTextures nothing references any more (memory pressure).
+    public func flushCVTextures() { CVMetalTextureCacheFlush(textureCache, 0) }
+
     public func flushCaches() {
         CVMetalTextureCacheFlush(textureCache, 0)
         pool.purge()

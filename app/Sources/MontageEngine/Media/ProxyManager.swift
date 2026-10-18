@@ -21,6 +21,9 @@ public final class ProxyManager: @unchecked Sendable {
     private var pending: [String: JobID] = [:]
     /// Called (on the main actor) when a proxy becomes ready: argument = content hash.
     @MainActor public var onProxyReady: ((String) -> Void)?
+    /// Posted on the main thread when a proxy becomes ready (`userInfo["hash"]` = content hash). Every playback engine
+    /// previewing that media switches to the proxy.
+    public static let proxyReadyNotification = Notification.Name("montage.proxyReady")
 
     init() {
         directory = MontagePaths.cacheDirectory.appendingPathComponent("proxies", isDirectory: true)
@@ -62,7 +65,10 @@ public final class ProxyManager: @unchecked Sendable {
                 self.lock.withLock { self.pending[hash] = nil }
                 if state == .done {
                     self.lock.withLock { _ = self.ready.insert(hash) }
-                    await MainActor.run { self.onProxyReady?(hash) }
+                    await MainActor.run {
+                        self.onProxyReady?(hash)
+                        NotificationCenter.default.post(name: Self.proxyReadyNotification, object: nil, userInfo: ["hash": hash])
+                    }
                 }
             }
         }

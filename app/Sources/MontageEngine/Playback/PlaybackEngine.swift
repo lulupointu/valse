@@ -34,7 +34,13 @@ public final class PlaybackEngine {
 
     public var previewQuality: PreviewQuality = .auto { didSet { if oldValue != previewQuality { forceRebuild() } } }
     /// Chooses original vs proxy files for preview. Replace to plug in proxies; call `forceRebuild()` when it changes.
-    public var sourceChooser: @Sendable (MediaAsset) -> MediaSourceChoice = PlaybackEngine.proxySources
+    public var sourceChooser: @Sendable (MediaAsset) -> MediaSourceChoice = PlaybackEngine.proxySources {
+        didSet { requestsProxies = false }   // a custom chooser (tests, originals) manages its own sources
+    }
+    /// Auto proxies: media the proxy policy wants proxied (4K / high frame rate, more on 8 GB) is queued for proxy
+    /// generation as soon as it is on the timeline, and the preview switches to each proxy when it is ready — no UI
+    /// involvement needed. On while the default proxy chooser is in use.
+    public private(set) var requestsProxies = true
 
     /// Preview uses the proxy when it's ready (default); converted media (GIF, sequences, FFmpeg-only) via PlayableMediaCache.
     public static let proxySources: @Sendable (MediaAsset) -> MediaSourceChoice = { a in
@@ -51,6 +57,7 @@ public final class PlaybackEngine {
         didSet {
             guard oldValue != usesProxies else { return }
             sourceChooser = usesProxies ? Self.proxySources : Self.originalSources
+            requestsProxies = usesProxies
             forceRebuild()
         }
     }
@@ -77,6 +84,7 @@ public final class PlaybackEngine {
     public var loopRange: TimeRange? { didSet { if oldValue != loopRange { installLoopObserver() } } }
     private var loopObserver: Any?
     private var endObserver: (any NSObjectProtocol)?
+    private var proxyObserver: (any NSObjectProtocol)?
     /// Emulated reverse shuttle (when the item can't play backwards): negative rate, driven by a timer.
     public private(set) var reverseShuttleRate: Float = 0
     private var reverseTimer: Timer?
@@ -86,6 +94,7 @@ public final class PlaybackEngine {
     public init(project: Project) {
         self.project = project
         state = RenderState(project: project)
+        MemoryPressure.shared.start()
         player.actionAtItemEnd = .pause
         player.automaticallyWaitsToMinimizeStalling = false
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] t in
@@ -106,6 +115,14 @@ public final class PlaybackEngine {
                 guard let self, item.value === self.player.currentItem, let r = self.loopRange else { return }
                 self.seek(to: r.start)
                 self.player.playImmediately(atRate: 1)
+            }
+        }
+        proxyObserver = NotificationCenter.default.addObserver(forName: ProxyManager.proxyReadyNotification, object: nil,
+                                                               queue: .main) { [weak self] n in
+            let hash = n.userInfo?["hash"] as? String
+            MainActor.assumeIsolated {
+                guard let self, self.requestsProxies, let hash, self.project.media.contains(where: { $0.contentHash == hash }) else { return }
+                self.forceRebuild()
             }
         }
         ReverseManager.shared.onReady = { [weak self] _ in self?.forceRebuild() }
@@ -174,16 +191,21 @@ public final class PlaybackEngine {
         bk.combine(structure); bk.combine(ProxyManager.shared.policy)
         for t in project.timeline.tracks { bk.combine(t.isHidden) }
         let budgetKey = bk.finalize()
-        var heavy: [MediaAsset] = []
+        var heavy: [MediaAsset] = [], wanted: [MediaAsset] = []
         if budgetKey != proxyBudgetKey {
             proxyBudgetKey = budgetKey
             heavy = DecoderBudget.mediaNeedingProxies(project)
+            if requestsProxies {
+                let pm = ProxyManager.shared
+                wanted = project.media.filter { $0.kind == .video && pm.shouldGenerate($0) && pm.readyProxyURL(for: $0) == nil && !pm.isPending($0) }
+            }
         }
-        guard !reverse.isEmpty || !stabilize.isEmpty || !heavy.isEmpty else { return }
+        guard !reverse.isEmpty || !stabilize.isEmpty || !heavy.isEmpty || !wanted.isEmpty else { return }
         Task {
             for (a, c) in reverse { await ReverseManager.shared.request(a, subject: c.description) }
             for (a, c) in stabilize { await StabilizationStore.shared.request(a, subject: c.description) }
             if !heavy.isEmpty { await ProxyManager.shared.request(heavy, force: true) }
+            if !wanted.isEmpty { await ProxyManager.shared.request(wanted) }
         }
     }
 

@@ -59,6 +59,10 @@ public final class FrameRenderer: @unchecked Sendable {
     /// Plain text layers draw their glyphs straight onto the accumulation target (`directText`); tests turn it off to
     /// compare with the layer-texture path.
     var allowsDirectText = true
+    /// Frame textures are reused within the frame once dead (`FrameScratch.recycle`); tests turn it off to compare.
+    var allowsTextureRecycling = true
+    /// Pool textures the last encoded frame used (tests / diagnostics).
+    private(set) var lastFrameTextureCount = 0
 
     init() {
         let d = MTLRenderPipelineDescriptor()
@@ -74,8 +78,39 @@ public final class FrameRenderer: @unchecked Sendable {
 
     /// Per-frame scratch state.
     final class FrameScratch: @unchecked Sendable {
+        /// Pool textures acquired by this frame (returned to the pool when its command buffer completes).
         var textures: [MTLTexture] = []
         var retained: [Any] = []
+        /// Frame textures whose last use is already encoded: later passes of the same frame reuse them instead of
+        /// taking more from the pool (Metal's hazard tracking orders the new writes after the earlier reads). Keeps a
+        /// frame's working set to a few full-size half-float textures however many layers / effect passes it has.
+        private var spare: [Int: [MTLTexture]] = [:]
+        private var owned = Set<ObjectIdentifier>()
+        private var spareIDs = Set<ObjectIdentifier>()
+
+        let recycles: Bool
+        init(recycles: Bool = true) { self.recycles = recycles }
+
+        private static func key(_ w: Int, _ h: Int) -> Int { w << 20 | h }
+
+        func acquire(_ w: Int, _ h: Int, pool: TexturePool) -> MTLTexture {
+            if var list = spare[Self.key(w, h)], let t = list.popLast() {
+                spare[Self.key(w, h)] = list
+                spareIDs.remove(ObjectIdentifier(t))
+                return t
+            }
+            let t = pool.acquire(w, h)
+            textures.append(t); owned.insert(ObjectIdentifier(t))
+            return t
+        }
+
+        /// Marks a texture this frame acquired as dead for the rest of the frame (no-op for anything else).
+        func recycle(_ t: MTLTexture?) {
+            guard recycles, let t else { return }
+            let id = ObjectIdentifier(t)
+            guard owned.contains(id), spareIDs.insert(id).inserted else { return }
+            spare[Self.key(t.width, t.height), default: []].append(t)
+        }
     }
 
     private enum Placement {
@@ -88,16 +123,15 @@ public final class FrameRenderer: @unchecked Sendable {
     /// Encodes the frame into `cmd`, writing `output` (bgra8Unorm, any size; canvas is scaled to fit exactly).
     public func encode(_ frame: FrameDescription, media: [MediaID: MediaAsset], sources: any FrameSourceProvider,
                        output: MTLTexture, commandBuffer cmd: MTLCommandBuffer) {
-        let scratch = FrameScratch()
+        let scratch = FrameScratch(recycles: allowsTextureRecycling)
         let outW = output.width, outH = output.height
         let canvas = frame.canvasSize
         let outScale = Double(outH) / max(canvas.height, 1)
         var frame = frame
         frame.background = ColorMath.color(frame.background, in: frame.colorSpace)
 
-        func acquire(_ w: Int, _ h: Int) -> MTLTexture {
-            let t = ctx.pool.acquire(w, h); scratch.textures.append(t); return t
-        }
+        let pool = ctx.pool
+        func acquire(_ w: Int, _ h: Int) -> MTLTexture { scratch.acquire(w, h, pool: pool) }
 
         /// Composites `items` (bottom → top) onto a fresh premultiplied target cleared to `clearColor`.
         func compose(_ items: [RenderItem], clearTo clearColor: RGBA) -> MTLTexture {
@@ -145,6 +179,12 @@ public final class FrameRenderer: @unchecked Sendable {
                     enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
                 }
                 enc.endEncoding()
+                for p in placements {
+                    switch p {
+                    case .layer(let t, _), .premultipliedFullscreen(let t): scratch.recycle(t)
+                    case .glyphs: break
+                    }
+                }
                 placements.removeAll()
             }
 
@@ -173,6 +213,7 @@ public final class FrameRenderer: @unchecked Sendable {
                         if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
                                                 sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
                             placeSingle(p.0, p.1, onto: t, cmd)
+                            scratch.recycle(p.0)
                         }
                     }
                     let out = acquire(outW, outH)
@@ -187,13 +228,14 @@ public final class FrameRenderer: @unchecked Sendable {
                         enc.setFragmentBytes(&fx, length: MemoryLayout<FXContextU>.stride, index: 1)
                         enc.setFragmentBytes(&pr, length: 4, index: 2)
                     }
+                    scratch.recycle(ta); scratch.recycle(tb)
                     placements.append(.premultipliedFullscreen(out))
                 case .adjustment(_, let effects, let opacity, let local):
                     guard !effects.isEmpty, opacity > 0 else { continue }
                     flush()
                     let straight = acquire(outW, outH)
                     fullscreen(ctx.unpremultiply, target: straight, cmd, label: "unpremultiply") { $0.setFragmentTexture(acc, index: 0) }
-                    let processed = applyEffects(effects, to: straight, time: local, cmd: cmd, acquire: acquire)
+                    let processed = applyEffects(effects, to: straight, time: local, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
                     let premul = acquire(outW, outH)
                     fullscreen(ctx.premultiply, target: premul, cmd, label: "premultiply") { $0.setFragmentTexture(processed, index: 0) }
                     let mixed = acquire(outW, outH)
@@ -203,6 +245,7 @@ public final class FrameRenderer: @unchecked Sendable {
                         enc.setFragmentTexture(premul, index: 1)
                         enc.setFragmentBytes(&k, length: 4, index: 0)
                     }
+                    for t in [straight, processed, premul, acc] { scratch.recycle(t) }
                     acc = mixed
                 case .nested(let container, let inner):
                     // compound clip: composite the nested items on transparent, then place the result as one layer
@@ -214,6 +257,7 @@ public final class FrameRenderer: @unchecked Sendable {
                                             nested: straight) {
                         placements.append(.layer(p.0, p.1))
                     }
+                    scratch.recycle(composite); scratch.recycle(straight)
                 }
             }
             flush()
@@ -237,7 +281,7 @@ public final class FrameRenderer: @unchecked Sendable {
             enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
             enc.endEncoding()
         }
-        let pool = ctx.pool
+        lastFrameTextureCount = scratch.textures.count
         cmd.addCompletedHandler { _ in
             for t in scratch.textures { pool.release(t) }
             scratch.retained.removeAll()
@@ -390,6 +434,7 @@ public final class FrameRenderer: @unchecked Sendable {
                 enc.setFragmentTexture(t, index: 0)
                 enc.setFragmentBytes(&cu, length: MemoryLayout<ConvertUniforms>.stride, index: 0)
             }
+            scratch.recycle(t)   // per-frame text composition target (no-op for media / cached textures)
         } else if case .solid(let color0) = l.source {
             let color = ColorMath.color(color0, in: space)
             var c4 = SIMD4<Float>(Float(color.r), Float(color.g), Float(color.b), Float(color.a))
@@ -405,7 +450,7 @@ public final class FrameRenderer: @unchecked Sendable {
             if let am = l.adjustMask, l.effects.contains(where: isAdjust) {
                 // Adjust ▸ Mask: the Adjust-tab grading applies inside the mask only; other effects follow on the result.
                 let pre = layerTex
-                let post = applyEffects(l.effects.filter(isAdjust), to: pre, time: l.localTime, cmd: cmd, acquire: acquire)
+                let post = applyEffects(l.effects.filter(isAdjust), to: pre, time: l.localTime, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
                 let out = acquire(pre.width, pre.height)
                 if am.shape.isRaster {
                     if let mt = RasterMasks.shared.texture(am, width: pre.width, height: pre.height) {
@@ -427,10 +472,18 @@ public final class FrameRenderer: @unchecked Sendable {
                     }
                     layerTex = out
                 }
+                if layerTex !== pre { scratch.recycle(pre) }
+                if layerTex !== post { scratch.recycle(post) }
                 let rest = l.effects.filter { !isAdjust($0) }
-                if !rest.isEmpty { layerTex = applyEffects(rest, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire) }
+                if !rest.isEmpty {
+                    let before = layerTex
+                    layerTex = applyEffects(rest, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
+                    if layerTex !== before { scratch.recycle(before) }
+                }
             } else {
-                layerTex = applyEffects(l.effects, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire)
+                let before = layerTex
+                layerTex = applyEffects(l.effects, to: layerTex, time: l.localTime, cmd: cmd, acquire: acquire, recycle: scratch.recycle)
+                if layerTex !== before { scratch.recycle(before) }
             }
         }
 
@@ -454,6 +507,7 @@ public final class FrameRenderer: @unchecked Sendable {
                         enc.setFragmentTexture(src, index: 0); enc.setFragmentTexture(mt, index: 1)
                         enc.setFragmentBytes(&inv, length: 4, index: 0)
                     }
+                    scratch.recycle(src)
                     layerTex = out
                 }
             } else {
@@ -495,8 +549,11 @@ public final class FrameRenderer: @unchecked Sendable {
         u.maskRoundness = Float(m.roundness)
     }
 
+    /// `recycle` (frame renderer) receives each intermediate pass texture once nothing later in the chain reads it;
+    /// `input` itself is never recycled.
     func applyEffects(_ effects: [ResolvedEffect], to input: MTLTexture, time: Time, cmd: MTLCommandBuffer,
-                              acquire: (Int, Int) -> MTLTexture) -> MTLTexture {
+                      acquire: (Int, Int) -> MTLTexture, recycle: ((MTLTexture) -> Void)? = nil) -> MTLTexture {
+        let chainInput = input
         var cur = input
         for e in effects {
             guard let d = Registries.effects[e.typeID], let pipe = EffectPipelines.shared.effect(d) else { continue }
@@ -504,6 +561,7 @@ public final class FrameRenderer: @unchecked Sendable {
             let input = cur
             let extra = d.inputs.map { $0 == .original ? input : EffectInputs.texture(for: $0) }
             if extra.contains(where: { $0 == nil }) { continue }
+            let keepsInput = d.inputs.contains(.original)
             var params = d.packParams(e.params)
             for pass in 0..<max(d.passes, 1) {
                 let out = acquire(cur.width, cur.height)
@@ -516,8 +574,10 @@ public final class FrameRenderer: @unchecked Sendable {
                     enc.setFragmentBytes(&params, length: params.count * 4, index: 0)
                     enc.setFragmentBytes(&fx, length: MemoryLayout<FXContextU>.stride, index: 1)
                 }
+                if src !== chainInput && !(keepsInput && src === input) { recycle?(src) }
                 cur = out
             }
+            if keepsInput && input !== chainInput && input !== cur { recycle?(input) }
         }
         return cur
     }

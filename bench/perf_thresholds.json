@@ -1,5 +1,5 @@
 {
-  "_doc": "Regression thresholds for scripts/perf.sh (docs/TESTING.md §3). 'default' = this machine at full speed (release build), 'air' = --air mode (efficiency cores under background QoS, 8 GB policies: pessimistic vs a real Air). Each metric: max and/or min; missing metrics are skipped. Tighten when you make something faster; never loosen to hide a regression without saying why in the commit. '_cpu_' = main-thread CPU per frame/event (robust to load); '_wall_'/'dispatch' = elapsed (includes preemption). unit_* come from unit-suite tests (TimingBudget.metric) run by perf.sh. History (M1 Pro default / air): timeline fit scroll cpu p95 154 ms air before LOD -> 0.44 / 1.7. 2026-10-18 panels in isolated hosting views + engine O(1) lookups: inspector drag main cpu p50 17.7 -> 10.7 / 58 -> 45, ruler scrub 5.2 -> 3.9 / 26 -> 21 (500 clips, 300 media). Round 2: 50 animated captions 8.2 -> 1.4 / 40-58 -> 5-9 ms/frame (glyphs drawn straight onto the frame, byte-budgeted texture pool, O(1) text cache hits).",
+  "_doc": "Regression thresholds for scripts/perf.sh (docs/TESTING.md §3). 'default' = this machine at full speed (release build), 'air' = --air mode (efficiency cores under background QoS, 8 GB policies: pessimistic vs a real Air). Each metric: max and/or min; missing metrics are skipped. Tighten when you make something faster; never loosen to hide a regression without saying why in the commit. '_cpu_' = main-thread CPU per frame/event (robust to load); '_wall_'/'dispatch' = elapsed (includes preemption). unit_* come from unit-suite tests (TimingBudget.metric) run by perf.sh. History (M1 Pro default / air): timeline fit scroll cpu p95 154 ms air before LOD -> 0.44 / 1.7. 2026-10-18 panels in isolated hosting views + engine O(1) lookups: inspector drag main cpu p50 17.7 -> 10.7 / 58 -> 45, ruler scrub 5.2 -> 3.9 / 26 -> 21 (500 clips, 300 media). Round 2: 50 animated captions 8.2 -> 1.4 / 40-58 -> 5-9 ms/frame (glyphs drawn straight onto the frame, byte-budgeted texture pool, O(1) text cache hits). Inspector drag after the W13 merge 19.4 / 60 -> 5.7 / 16 (asset panel observed the whole project). Typical 1080p project memory peak (own process, play + scrub + edits + 10 s export) 1122 / 981 -> 803 / 767 MB (in-frame texture recycling, pool/text/image/recent-frame budgets, memory-pressure handling). 4K + 3 effects + title on air: engine queues the proxy itself, 30 fps, 0 % dropped.",
   "default": {
     "timeline_scroll_cpu_p95_ms": {"max": 2},
     "timeline_zoom_cpu_p95_ms": {"max": 3},
@@ -8,7 +8,7 @@
     "timeline_scroll_wall_p95_ms": {"max": 4},
     "timeline_zoom_wall_p95_ms": {"max": 6},
     "timeline_scroll_fit_wall_p95_ms": {"max": 3},
-    "inspector_drag_main_cpu_p50_ms": {"max": 14},
+    "inspector_drag_main_cpu_p50_ms": {"max": 8},
     "scrub_main_cpu_p50_ms": {"max": 6},
     "assets_scroll_main_cpu_p95_ms": {"max": 3},
     "launch_ms": {"max": 1500},
@@ -28,7 +28,11 @@
     "proxy_60s_4k_seconds": {"max": 12},
     "unit_timeline_canvas_600_ms": {"max": 5},
     "unit_timeline_hittest_1000_ms": {"max": 15},
-    "unit_text_50captions_frame_ms": {"max": 4}
+    "unit_text_50captions_frame_ms": {"max": 4},
+    "engine_memory_1080p_peak_mb": {"max": 950},
+    "preview_4k_fx_text_composed_fps": {"min": 29},
+    "preview_4k_fx_text_dropped_pct": {"max": 5},
+    "proxy_auto_kickin_seconds": {"max": 30}
   },
   "air": {
     "timeline_scroll_cpu_p95_ms": {"max": 6},
@@ -38,7 +42,7 @@
     "timeline_scroll_wall_p95_ms": {"max": 25},
     "timeline_zoom_wall_p95_ms": {"max": 25},
     "timeline_scroll_fit_wall_p95_ms": {"max": 25},
-    "inspector_drag_main_cpu_p50_ms": {"max": 70},
+    "inspector_drag_main_cpu_p50_ms": {"max": 22},
     "scrub_main_cpu_p50_ms": {"max": 35},
     "assets_scroll_main_cpu_p95_ms": {"max": 15},
     "launch_ms": {"max": 6000},
@@ -58,6 +62,10 @@
     "proxy_60s_4k_seconds": {"max": 25},
     "unit_timeline_canvas_600_ms": {"max": 10},
     "unit_timeline_hittest_1000_ms": {"max": 60},
-    "unit_text_50captions_frame_ms": {"max": 16}
+    "unit_text_50captions_frame_ms": {"max": 16},
+    "engine_memory_1080p_peak_mb": {"max": 950},
+    "preview_4k_fx_text_composed_fps": {"min": 29},
+    "preview_4k_fx_text_dropped_pct": {"max": 5},
+    "proxy_auto_kickin_seconds": {"max": 60}
   }
 }
