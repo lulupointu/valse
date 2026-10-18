@@ -1,0 +1,12 @@
+// Player (W2-5): an empty project shows no black frame and dimmed transport controls (CapCut screenshot 10); the frame
+// appears as soon as a clip is on the timeline.
+{
+  "project": "demo-bin",
+  "steps": [
+    {"snapshot": "player-empty", "element": "id:panel.player", "baseline": "player_empty", "tolerance": 0.01},
+    {"drop": {"media": 0}, "on": "time:0@main"},
+    {"expect": {"path": "main.clips.count", "equals": 1}},
+    {"wait": 0.5},
+    {"snapshot": "player-with-clip", "element": "id:panel.player"}
+  ]
+}

@@ -81,7 +81,7 @@ final class CanvasOverlayView: NSView {
         _ = (ui.zoom, ui.pan, ui.showRulers, ui.showGuides, ui.guides, ui.safeZone, ui.editingTextClip)
         _ = ui.canvasTool?.revision
         _ = store.project.settings.canvasSize
-        _ = (store.inspectorTab, InspectorUIState.shared.subTab, ui.preview)
+        _ = (store.inspectorTab, InspectorUIState.shared.subTab, ui.preview, store.project.duration)
         if !store.selection.isEmpty {
             _ = store.project.timeline
             _ = store.transport.playhead
@@ -150,6 +150,13 @@ final class CanvasOverlayView: NSView {
         let vp = viewport
         let r = vp.contentRect
         let ui = store.playerUI
+
+        // empty project (CapCut screenshot 10): no black frame, just the panel colour
+        if store.isPlayerEmpty {
+            ctx.setFillColor(NSColor(srgbRed: 0x1B / 255.0, green: 0x1B / 255.0, blue: 0x1C / 255.0, alpha: 1).cgColor)
+            ctx.fill(bounds)
+            return
+        }
 
         drawSafeZone(ui.safeZone, in: r, ctx)
 

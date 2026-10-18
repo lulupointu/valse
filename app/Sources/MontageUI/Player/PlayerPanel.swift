@@ -108,7 +108,14 @@ struct TransportBar: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 36)
+        .opacity(store.isPlayerEmpty ? 0.35 : 1)
+        .disabled(store.isPlayerEmpty)
     }
+}
+
+extension EditorStore {
+    /// Nothing to play: empty timeline and no library preview (dimmed transport, no frame).
+    var isPlayerEmpty: Bool { playerUI.preview == nil && project.duration <= .zero }
 }
 
 /// Small outlined label used by CapCut's "Full" / "Ratio" buttons.
