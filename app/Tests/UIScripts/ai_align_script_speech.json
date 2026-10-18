@@ -1,0 +1,14 @@
+// AI2 (TX-030): runs the Align to speech job end to end with whisper.cpp (background job, then a toast: aligned captions
+// on speech, or the "no speech" / mismatch message on the demo's non-speech audio). SKIPPED without the whisper model.
+{
+  "project": "demo",
+  "requires": {"models": ["whisper.small-q5_1"]},
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.nav.local"},
+    {"click": "id:captions.script.editor"},
+    {"type": "Hello and welcome to the show"},
+    {"click": "id:align.button"},
+    {"waitFor": {"path": "ui.toast", "exists": true, "timeout": 90}}
+  ]
+}

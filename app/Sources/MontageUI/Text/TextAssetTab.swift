@@ -160,6 +160,7 @@ struct LocalCaptionsPanel: View {
                 .font(.system(size: 12)).scrollContentBackground(.hidden).padding(6)
                 .frame(minHeight: 90, maxHeight: 160)
                 .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
+                .testID("captions.script.editor")
             HStack(spacing: 8) {
                 Button(tr("captions.script.split")) { store.addScriptCaptions(script, split: true); script = "" }
                     .buttonStyle(AccentButtonStyle()).disabled(script.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
