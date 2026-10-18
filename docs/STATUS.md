@@ -22,7 +22,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W4 | Effects & filters content | 2 | merged (243 effects, 108 filters, 170 stickers, asset tabs) | main 7b6e923 |
 | W5 | Transitions & animations content | 2 | running | |
 | W7 | Text engine (styles, templates, per-glyph anim, captions styling) | 2 | merged (TX 21 done / 9 partial / 5 blocked) | main 8602b57 |
-| W10 | AI features (captions/STT, cutout matte, denoise, reframe, TTS, translate, …) | 2 | running | |
+| W10 | AI features (wave 1: captions, cutout, stems, TTS, stabilize, tracking, looks, enhance, writer, clipper, LaMa, search) | 2 | merged (AI 18 done / 10 partial / 32 todo, mostly P2/generative) | main 25a02e3 |
 | W11 | Export & interchange | 2 | merged (EX 22 done / 1 partial / 2 todo P2) | main 8fea692 |
 | W12 | Home, project mgmt, settings, shortcut editor | 2 | ready to merge (PM 12 done / 2 partial; SE 6 done / 4 partial) | worktree-agent-ac8ee24bcf15bf705 |
 | W13 | Asset library content (search, favourites, hover preview, stickers, audio lib) | 2 | running | |
@@ -30,6 +30,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | UXR | UX parity review vs CapCut (docs/UX_GAPS.md: 1 P0 / 18 P1 / 36 P2) | 3 | done; gaps dispatched (running teams fix own; POL-A W1/W2/W3, POL-B W7/W8/W11) | main b0d4b1f |
 | POL-A | UX polish timeline/canvas/inspector (UX_GAPS W1–W3) | 3 | running | |
 | POL-B | UX polish text/audio/export (UX_GAPS W7/W8/W11) | 3 | running | |
+| AI2 | AI wave 2: P1 rest (voice clone, s2s voice changer, camera tracking hand, relight, AI movement, EditPilot agent) + local generative (SD image gen/expand/remix via Core ML, music/SFX gen) | 3 | queued (after load fix) | |
 | — | Templates (TP), Retouch/body (RT) | 3 | queued (depend on W7, W10) | |
 
 ## Cross-team requests / blockers (open)
