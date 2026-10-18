@@ -76,6 +76,13 @@ public final class PlayableMediaCache: @unchecked Sendable {
         await AssetCache.shared.evict(dst)
     }
 
+    /// Re-reads which conversions exist (after cache clean-up deleted some files).
+    public func reloadFromDisk() {
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        let r = Set(files.filter { $0.hasSuffix(".mov") }.map { String($0.dropLast(4)) })
+        lock.withLock { ready = r }
+    }
+
     public func deleteAll() {
         lock.withLock { ready.removeAll() }
         try? FileManager.default.removeItem(at: directory)

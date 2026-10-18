@@ -55,7 +55,7 @@ public final class EditorStore {
     public let exports = ExportCenter()
     public var activeAssetTab = "media"
     public var inspectorTab: String?
-    public var previewQuality: PreviewQuality = .auto { didSet { engine.previewQuality = previewQuality } }
+    public var previewQuality: PreviewQuality = .auto { didSet { engine.previewQuality = previewQuality; performancePreferencesChanged() } }
     /// Media hash → proxy generating.
     public var proxyPending: Set<String> = []
     /// Media hash → being converted to a playable file (GIF, image sequence, FFmpeg-only format).
@@ -67,6 +67,8 @@ public final class EditorStore {
     @ObservationIgnored private var jobsTask: Task<Void, Never>?
     @ObservationIgnored public var autosavePolicy = AutosavePolicy()
     @ObservationIgnored public var autosaveEnabled = true
+    /// The app's editor (not a test/preview store): player-menu performance choices are saved to Settings (W12).
+    @ObservationIgnored public var persistsPreferences = false
 
     public init(project: Project = Project(), packageURL: URL? = nil) {
         MontageBootstrap.registerResources()
@@ -364,6 +366,7 @@ public final class EditorStore {
             let rev = self.session.revision
             let ok = await Task.detached { (try? ProjectPackage.save(snapshot, to: url)) != nil }.value
             if ok && self.session.revision == rev { self.session.markSaved(); self.lastAutosave = Date(); self.firstUnsavedEdit = nil }
+            if ok { self.didAutosave(snapshot, to: url) }
         }
     }
 

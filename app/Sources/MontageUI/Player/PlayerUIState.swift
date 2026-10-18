@@ -104,6 +104,7 @@ extension EditorStore {
     public func setUsesProxies(_ on: Bool) {
         playerUI.usesProxies = on
         engine.usesProxies = on
+        performancePreferencesChanged()
     }
 
     // MARK: Loop (PB-009)

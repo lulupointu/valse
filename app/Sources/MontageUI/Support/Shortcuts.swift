@@ -48,7 +48,7 @@ public struct Shortcut: Identifiable {
 @MainActor
 public enum ShortcutRegistry {
     public private(set) static var all: [Shortcut] = builtins
-    public static func register(_ s: Shortcut) { all.removeAll { $0.id == s.id }; all.append(s) }
+    public static func register(_ s: Shortcut) { all.removeAll { $0.id == s.id }; all.append(s); Keymap.shared.registryChanged() }
 
     static let builtins: [Shortcut] = [
         Shortcut("playPause", "shortcut.playPause", .space) { $0.togglePlay() },
@@ -112,9 +112,12 @@ public enum ShortcutRegistry {
     /// Returns true if the event was handled.
     public static func handle(_ e: NSEvent, store: EditorStore) -> Bool {
         if let responder = e.window?.firstResponder, responder is NSText || responder is NSTextView { return false }
+        if Keymap.isRecording { return false }
         guard let k = key(for: e) else { return false }
         let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
-        guard let s = all.first(where: { $0.key == k && $0.modifiers == mods && $0.isEnabled(store) }) else { return false }
+        // effective bindings come from the user keymap (Settings ▸ Shortcuts; defaults = the entries below)
+        let b = KeyBinding(k, mods)
+        guard let s = all.first(where: { Keymap.shared.matches($0, b) && $0.isEnabled(store) }) else { return false }
         s.action(store)
         return true
     }
