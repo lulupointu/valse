@@ -176,3 +176,5 @@
 "remove.done" = "Objets supprimés";
 "remove.failed" = "Impossible de supprimer les objets. Réessaie.";
 "remove.cancelled" = "Suppression IA annulée";
+"media.smartSearch" = "Rechercher par contenu ou dialogue";
+"media.indexing" = "Indexation des médias…";

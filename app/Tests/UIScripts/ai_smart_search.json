@@ -1,0 +1,11 @@
+// W10: Media ▸ smart search: typing filters the media grid by content / dialogue / name (indexing runs in background).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:media.search"},
+    {"type": "forest"},
+    {"wait": 1.5},
+    {"snapshot": "smart-search", "element": "id:panel.assets"},
+    {"expect": [{"path": "ui.anchors", "contains": "media.card.0"}, {"path": "ui.anchors", "contains": "media.search"}]}
+  ]
+}

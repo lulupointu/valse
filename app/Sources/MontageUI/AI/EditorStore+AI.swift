@@ -46,6 +46,11 @@ public final class AIUIState {
     /// AI remove: brush session and inpainting jobs.
     public var removeTool: RemoveBrushTool?
     public var removeJobs: [ClipID: JobID] = [:]
+    /// Smart media search.
+    public var mediaQuery = ""
+    public var mediaQueryEN: String?
+    public var mediaIndexing = false
+    public var mediaIndexRevision = 0
     public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false

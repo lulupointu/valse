@@ -176,3 +176,5 @@
 "remove.done" = "Objects removed";
 "remove.failed" = "Couldn't remove the objects. Try again.";
 "remove.cancelled" = "AI remove canceled";
+"media.smartSearch" = "Search by content or dialogue";
+"media.indexing" = "Indexing media...";
