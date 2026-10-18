@@ -162,10 +162,21 @@ public struct TransitionDescriptor: Sendable, Identifiable {
 public struct AnimatedLayerState: Sendable {
     public var transform: Transform
     public var opacity: Double
-    /// Extra blur in canvas-height fractions (0 = none) — honoured by the renderer.
+    /// Extra gaussian blur (sigma in canvas-height fractions, 0 = none, ≈ 0.03 max) — honoured by the renderer.
     public var blur: Double
-    public init(transform: Transform, opacity: Double, blur: Double = 0) {
-        self.transform = transform; self.opacity = opacity; self.blur = blur
+    /// Reveal insets (wipe-in/out): fractions of the layer's *visible* extent hidden on each side, composed with the
+    /// layer's own crop by the renderer (`CropRect.revealing`). The visible part stays in place.
+    public var reveal: CropRect
+    public init(transform: Transform, opacity: Double, blur: Double = 0, reveal: CropRect = CropRect()) {
+        self.transform = transform; self.opacity = opacity; self.blur = blur; self.reveal = reveal
+    }
+}
+
+extension CropRect {
+    /// This crop with `reveal` insets applied inside the remaining visible area.
+    public func revealing(_ r: CropRect) -> CropRect {
+        let w = max(0, 1 - left - right), h = max(0, 1 - top - bottom)
+        return CropRect(left: left + w * r.left, top: top + h * r.top, right: right + w * r.right, bottom: bottom + h * r.bottom)
     }
 }
 

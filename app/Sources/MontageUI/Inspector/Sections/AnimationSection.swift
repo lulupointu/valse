@@ -76,8 +76,11 @@ struct AnimationPickerSection: View {
     func apply(_ d: AnimationDescriptor?) {
         guard let clip = ctx.clip else { return }
         let phase = self.phase
+        // Video combos span the whole clip (CapCut default); sticker/text loops repeat with the preset's period.
+        let wholeClip = phase == .combo && target == .video
         ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.animation") { c in
-            let inst = d.map { AnimationInstance(typeID: $0.id, duration: phase == .combo ? min($0.defaultDuration, c.duration)
+            let inst = d.map { AnimationInstance(typeID: $0.id, duration: wholeClip ? c.duration
+                                                    : phase == .combo ? min($0.defaultDuration, c.duration)
                                                     : min($0.defaultDuration, c.duration * 0.5)) }
             switch phase {
             case .in: c.animations.inAnim = inst; if inst != nil { c.animations.combo = nil }
@@ -91,7 +94,8 @@ struct AnimationPickerSection: View {
     /// Plays the animated part of the clip once in the player (CapCut previews right after applying).
     func preview(_ clip: Clip, _ d: AnimationDescriptor) {
         let store = ctx.store
-        let dur = min(d.defaultDuration, phase == .combo ? clip.duration : clip.duration * 0.5)
+        let dur = phase == .combo && target == .video ? clip.duration
+            : min(d.defaultDuration, phase == .combo ? clip.duration : clip.duration * 0.5)
         let start = phase == .out ? clip.end - dur : clip.start
         store.seek(to: start)
         if !store.transport.isPlaying { store.togglePlay() }
@@ -123,6 +127,14 @@ struct AnimationTile: View {
                     RoundedRectangle(cornerRadius: 4).fill(Color(hex: 0x57BECB).opacity(0.85))
                         .frame(width: 30, height: 22)
                         .overlay(Image(systemName: descriptor.symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white))
+                        .mask(alignment: .topLeading) {
+                            GeometryReader { g in
+                                let r = state.reveal
+                                Rectangle().frame(width: g.size.width * max(0, 1 - r.left - r.right),
+                                                  height: g.size.height * max(0, 1 - r.top - r.bottom))
+                                    .offset(x: g.size.width * r.left, y: g.size.height * r.top)
+                            }
+                        }
                         .scaleEffect(x: state.transform.scale.x, y: state.transform.scale.y)
                         .rotationEffect(.degrees(state.transform.rotation))
                         .offset(x: state.transform.position.x * 62, y: state.transform.position.y * 62)

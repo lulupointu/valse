@@ -16,6 +16,7 @@ public struct ActiveAnimation: Hashable, Sendable {
     public var typeID: String
     public var phase: Phase
     public var progress: Double
+    public init(typeID: String, phase: Phase, progress: Double) { self.typeID = typeID; self.phase = phase; self.progress = progress }
 }
 
 /// Effect with its parameters resolved (keyframes applied) for this frame.

@@ -231,6 +231,8 @@ public final class FrameRenderer: @unchecked Sendable {
             var st = AnimatedLayerState(transform: l.transform, opacity: l.opacity)
             for a in l.animations { Registries.animations[a.typeID]?.apply(a.progress, &st) }
             l.transform = st.transform; l.opacity = st.opacity
+            if !st.reveal.isIdentity { l.crop = l.crop.revealing(st.reveal) }
+            if st.blur > 1e-4 { l.effects += Self.animationBlur(st.blur, layer: l, canvas: canvas) }
         }
         guard l.opacity > 0.001 else { return nil }
 
@@ -356,6 +358,27 @@ public final class FrameRenderer: @unchecked Sendable {
             u.maskRoundness = Float(m.roundness)
         }
         return (layerTex, u)
+    }
+
+    /// Fixed instance ids of the blur passes animations add (stable `FrameDescription` hashes).
+    static let animationBlurIDs: [EffectInstanceID] = (1...6).map {
+        EffectInstanceID(UUID(uuidString: String(format: "00000000-0000-0000-0000-0000000AB%03d", $0))!)
+    }
+
+    /// Animation blur (gaussian sigma in canvas heights, up to ≈ 0.03) as stacked `montage.effect.blur` passes
+    /// (radius 1 ≈ sigma of 1 % of the layer texture height; variances add, ≤ 1.2 per pass to avoid tap gaps).
+    static func animationBlur(_ amount: Double, layer l: LayerDescription, canvas: Size2) -> [ResolvedEffect] {
+        let layerH = l.fitsCanvas ? min(canvas.height, canvas.width * l.sourceSize.height / max(l.sourceSize.width, 1))
+            * abs(l.transform.scale.y)
+            : (l.sourceSize.height > 0 ? l.sourceSize.height : canvas.height * 0.15) * abs(l.transform.scale.y)  // text: measured later
+        var r = amount * canvas.height / max(0.01 * max(layerH, 1), 1e-6)
+        var out: [ResolvedEffect] = []
+        for id in animationBlurIDs where r > 0.01 {
+            let k = min(r, 1.2)
+            out.append(ResolvedEffect(instanceID: id, typeID: CanvasBackground.blurEffectID, params: ["radius": .scalar(k)]))
+            r = (r * r - k * k).squareRoot()   // gaussian variances add
+        }
+        return out
     }
 
     func applyEffects(_ effects: [ResolvedEffect], to input: MTLTexture, time: Time, cmd: MTLCommandBuffer,
