@@ -1,13 +1,4 @@
 /* Fonctions de rendu W6 dans l'inspecteur */
-"inspector.chroma" = "Clé chroma";
-"inspector.chroma.enable" = "Clé chroma";
-"inspector.chroma.color" = "Pipette";
-"inspector.chroma.picker" = "Choisir une couleur à l'écran";
-"inspector.chroma.intensity" = "Intensité";
-"inspector.chroma.shadow" = "Ombre";
-"inspector.chroma.feather" = "Adoucir les bords";
-"inspector.chroma.cleanup" = "Nettoyer les bords";
-"inspector.chroma.spill" = "Suppression du débordement";
 "inspector.stabilize" = "Stabiliser";
 "inspector.stabilize.enable" = "Stabiliser";
 "inspector.stabilize.level" = "Niveau de stabilisation";
@@ -16,10 +7,7 @@
 "inspector.motionBlur.enable" = "Flou de mouvement";
 "inspector.motionBlur.amount" = "Flou";
 "inspector.motionBlur.times" = "Fois";
-"inspector.slowmo" = "Ralenti fluide";
-"inspector.slowmo.enable" = "Ralenti fluide";
 "inspector.slowmo.method" = "Méthode";
-"cmd.chroma" = "Clé chroma";
 "cmd.stabilize" = "Stabiliser";
 "cmd.motionBlur" = "Flou de mouvement";
 "cmd.slowmo" = "Ralenti fluide";

@@ -9,6 +9,10 @@ public enum EffectCategory: String, Sendable, CaseIterable {
     case effect
     /// "Adjustment" tab: colour/light controls.
     case adjustment
+    /// Keyers (chroma key) — inspector Cutout tab only, never listed in the asset panel.
+    case key
+    /// Canvas background styles — inspector Canvas section only, never listed in the asset panel.
+    case canvas
 }
 
 /// Declares one parameter. The inspector builds its controls from these, keyframes key off `key`,

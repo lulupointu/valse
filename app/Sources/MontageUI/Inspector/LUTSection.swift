@@ -28,8 +28,9 @@ struct LUTSection: View {
                 Button(tr("inspector.lut.import")) { importLUT() }.buttonStyle(SecondaryButtonStyle())
             }
             if let current {
-                Bind.slider(ctx, tr("fx.param.strength"), key: .effect(current.id, "intensity"), range: 0...1,
-                            display: { Fmt.int($0 * 100) }, gestureName: "cmd.effect")
+                Bind.row(ctx, tr("fx.param.strength"), key: ParamKey.effect(current.id, "intensity"),
+                         spec: RowSpec(range: 0...100, format: Fmt.percentValue), toUI: { $0 * 100 }, fromUI: { $0 / 100 },
+                         gestureName: "cmd.effect")
             }
         }
     }

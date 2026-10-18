@@ -2,18 +2,26 @@ import Testing
 import Foundation
 import CoreGraphics
 import MontageCore
+import MontageEffects
 import MontageEngine
 import MontageTestSupport
 
 /// Chroma key, AI matte input, stabilization (W6) through the real compositor.
 @Suite(.serialized) struct LayerFeatureTests {
+    static func key(_ c: RGBA, intensity: Double = 0.2, shadow: Double = 0, cleanup: Double = 0) -> EffectInstance {
+        var k = BuiltinKeying.chromaKey.makeInstance()
+        k.params["color"] = .color(RGBA(c.r, c.g, c.b, 1))
+        k.params["intensity"] = .scalar(intensity); k.params["shadow"] = .scalar(shadow); k.params["cleanup"] = .scalar(cleanup)
+        return k
+    }
+
     @Test func chromaKeyRemovesKeyColourAndKeepsOthers() async throws {
         var p = TestProject()
         try await p.addVideo(.solid(.blue))
         let o = try await p.addVideo(.split(RGBA(0, 1, 0), .red), target: .newTrack)
         let before = try await p.render(at: 0.5)
         #expect(before[0.25, 0.5].isClose(to: RGBA(0, 1, 0)))
-        p[o].chromaKey = ChromaKey(color: RGBA(0, 1, 0))
+        p[o].effects = [Self.key(RGBA(0, 1, 0))]
         let img = try await p.render(at: 0.5)
         #expect(img[0.25, 0.5].isClose(to: .blue), "\(img[0.25, 0.5])")     // keyed → base shows through
         #expect(img[0.75, 0.5].isClose(to: .red))                          // other colours untouched
@@ -22,10 +30,9 @@ import MontageTestSupport
     @Test func chromaSpillSuppressionNeutralisesGreenCast() async throws {
         var p = TestProject()
         let id = try await p.addVideo(.solid(RGBA(0.8, 0.95, 0.8)))
-        p[id].chromaKey = ChromaKey(color: RGBA(0, 1, 0), spill: 0)
         let raw = try await p.render(at: 0.5)[0.5, 0.5]
         #expect(raw.g - raw.r > 0.08)
-        p[id].chromaKey = ChromaKey(color: RGBA(0, 1, 0), spill: 1)
+        p[id].effects = [Self.key(RGBA(0, 1, 0), cleanup: 1)]
         let fixed = try await p.render(at: 0.5)[0.5, 0.5]
         #expect(abs(fixed.g - fixed.r) < 0.05, "\(fixed)")
         #expect(fixed.luma > 0.7)
@@ -34,9 +41,9 @@ import MontageTestSupport
     @Test func chromaShadowKeepsDarkenedKeyPartiallyOpaque() async throws {
         var p = TestProject(background: .white)
         let id = try await p.addVideo(.solid(RGBA(0, 0.4, 0)))         // shadowed green screen
-        p[id].chromaKey = ChromaKey(color: RGBA(0, 1, 0), intensity: 0.5, shadow: 0)
+        p[id].effects = [Self.key(RGBA(0, 1, 0), intensity: 0.5)]
         let none = try await p.render(at: 0.5)[0.5, 0.5].luma
-        p[id].chromaKey = ChromaKey(color: RGBA(0, 1, 0), intensity: 0.5, shadow: 1)
+        p[id].effects = [Self.key(RGBA(0, 1, 0), intensity: 0.5, shadow: 1)]
         let kept = try await p.render(at: 0.5)[0.5, 0.5].luma
         #expect(none > 0.9)
         #expect(kept < none - 0.15)

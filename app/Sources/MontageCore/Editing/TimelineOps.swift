@@ -461,6 +461,6 @@ extension SpeedCurve {
         var pts: [SpeedPoint] = [SpeedPoint(0, value(at: a))]
         for p in points where p.x > a && p.x < b { pts.append(SpeedPoint((p.x - a) / (b - a), p.v)) }
         pts.append(SpeedPoint(1, value(at: b)))
-        return SpeedCurve(points: pts, presetID: presetID)
+        return SpeedCurve(points: pts, presetID: presetID, interpolation: interpolation)
     }
 }

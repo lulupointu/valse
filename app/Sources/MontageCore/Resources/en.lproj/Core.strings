@@ -84,5 +84,9 @@
 "blend.lighterColor" = "Lighter color";
 "mask.heart" = "Heart";
 "mask.star" = "Stars";
-"prop.chromaIntensity" = "Chroma key strength";
-"prop.chromaShadow" = "Chroma key shadow";
+/* Inspector properties (W3) */
+"prop.maskRoundness" = "Round corners";
+"prop.cropLeft" = "Left";
+"prop.cropTop" = "Top";
+"prop.cropRight" = "Right";
+"prop.cropBottom" = "Bottom";

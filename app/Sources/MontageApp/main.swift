@@ -21,6 +21,8 @@ struct Options {
     var windowIDFile: URL?
     var snapshot: URL?
     var quitAfter: Double?
+    /// --player-state "seek=7,select=text,rulers,guide=h:0.33,safe=tiktok,zoom=1.5" (screenshots, see PlayerDebugState)
+    var playerState: String?
     var size = CGSize(width: 1687, height: 983)
 
     init(_ args: [String]) {
@@ -35,6 +37,7 @@ struct Options {
             case "--window-id-file": windowIDFile = next().map { URL(fileURLWithPath: $0) }
             case "--snapshot": snapshot = next().map { URL(fileURLWithPath: $0) }
             case "--quit-after": quitAfter = next().flatMap(Double.init)
+            case "--player-state": playerState = next()
             case "--size":
                 if let s = next() {
                     let p = s.split(separator: "x").compactMap { Double($0) }
@@ -82,11 +85,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 store.autosaveEnabled = false
                 store.load(project: p)
                 store.seek(to: Time(2.5))
-                store.selection = [p.timeline.mainTrack!.clips[1].id]
-            }
+                store.selection = [p.timeline.mainTrack!.clips[1].id]            }
         } catch {
             store.showToast(String(describing: error), error: true)
         }
+        if let spec = options.playerState { PlayerDebugState.apply(spec, to: store) }
         if let snap = options.snapshot {
             // give the compositor, thumbnails and SwiftUI layout time to settle
             try? await Task.sleep(for: .seconds(3))
@@ -184,6 +187,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu("menu.view", [
             item("menu.zoomIn", "") { [weak self] in self?.store.zoom(by: 1.25) },
             item("menu.zoomOut", "") { [weak self] in self?.store.zoom(by: 0.8) },
+            .separator(),
+            item("shortcut.playerZoomIn", "") { [weak self] in self?.store.zoomPlayer(by: 1.25) },
+            item("shortcut.playerZoomOut", "") { [weak self] in self?.store.zoomPlayer(by: 0.8) },
+            item("shortcut.playerZoomFit", "") { [weak self] in self?.store.resetPlayerZoom() },
+            item("shortcut.rulers", "") { [weak self] in self?.store.playerUI.showRulers.toggle() },
+            item("shortcut.guides", "") { [weak self] in self?.store.playerUI.showGuides.toggle() },
+            item("player.loop", "") { [weak self] in self?.store.toggleLoop() },
+            item("shortcut.playerFullscreen", "") { [weak self] in self?.store.togglePlayerFullscreen() },
             .separator(),
             item("menu.language.en", "") { L10n.shared.setLanguagePreference("en") },
             item("menu.language.fr", "") { L10n.shared.setLanguagePreference("fr") },

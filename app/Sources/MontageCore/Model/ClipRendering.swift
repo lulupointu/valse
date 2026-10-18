@@ -1,28 +1,7 @@
 import Foundation
 
-// Per-clip render-engine features (W6/W9): chroma key, AI matte, smooth slow-mo, motion blur, stabilization.
+// Per-clip render-engine features (W6/W9): AI matte, smooth slow-mo, motion blur, stabilization.
 // All are optional `Clip` fields (nil = off), so old project files decode unchanged.
-
-/// Chroma key ("Cutout ▸ Chroma key"). Colours are straight sRGB like everything in the model.
-public struct ChromaKey: Hashable, Codable, Sendable {
-    /// Key colour picked on the canvas.
-    public var color: RGBA
-    /// CapCut "Strength" 0…1 (default 0.2): how far from the key colour pixels are still removed.
-    public var intensity: Double
-    /// CapCut "Shadow" 0…1: keeps darkening (shadows cast on the screen) as partial opacity.
-    public var shadow: Double
-    /// Edge feather 0…1: softness of the matte transition.
-    public var edgeFeather: Double
-    /// Edge clean-up 0…1: chokes the semi-transparent fringe.
-    public var edgeCleanup: Double
-    /// Spill suppression 0…1: removes the key colour cast from the kept pixels.
-    public var spill: Double
-    public init(color: RGBA = RGBA(0, 1, 0), intensity: Double = 0.2, shadow: Double = 0, edgeFeather: Double = 0.1,
-                edgeCleanup: Double = 0, spill: Double = 0.5) {
-        self.color = color; self.intensity = intensity; self.shadow = shadow; self.edgeFeather = edgeFeather
-        self.edgeCleanup = edgeCleanup; self.spill = spill
-    }
-}
 
 /// AI cutout matte applied by the compositor ("Cutout ▸ Auto cutout / Customized"). The matte pixels come from
 /// MontageAI through the engine's `MatteStore` (a grey matte video aligned with the media, or a still for images);

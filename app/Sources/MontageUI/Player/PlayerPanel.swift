@@ -1,8 +1,10 @@
 import SwiftUI
+import AppKit
 import MontageCore
 import MontageEngine
 
-/// Top-centre player: header ("Player"), Metal preview, transport bar (timecode · play · ratio / quality).
+/// Top-centre player (UX.md §4.1): header ("Player" + ☰ menu), Metal preview with the canvas overlay, transport bar
+/// (timecode · play · quality · zoom · ratio · full screen).
 public struct PlayerPanel: View {
     @Bindable var store: EditorStore
     public init(store: EditorStore) { self.store = store }
@@ -12,26 +14,59 @@ public struct PlayerPanel: View {
             HStack {
                 Text(loc: "panel.player").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Menu {
-                    Picker(tr("player.quality"), selection: $store.previewQuality) {
-                        ForEach(PreviewQuality.allCases, id: \.self) { q in Text(loc: q.nameKey).tag(q) }
-                    }
-                } label: { Image(systemName: "line.3.horizontal").font(.system(size: 13)) }
-                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                PlayerMenuButton(store: store)
             }
             .padding(.horizontal, 12)
         } content: {
             VStack(spacing: 0) {
-                PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
-                TransportBar(store: store, transport: store.transport)
+                PlayerCanvasArea(store: store)
+                TransportBar(store: store, transport: store.transport, ui: store.playerUI)
             }
         }
+    }
+}
+
+/// Preview + overlay + floating zoom bar.
+struct PlayerCanvasArea: View {
+    @Bindable var store: EditorStore
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
+            if store.playerUI.isZoomBarVisible {
+                ZoomBar(ui: store.playerUI, store: store).padding(.bottom, 10)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// ⊖ ──●── ⊕ 100 % [fit] (UX.md §4.1, screenshot 105). Logarithmic slider over `PlayerViewport.zoomRange`.
+struct ZoomBar: View {
+    @Bindable var ui: PlayerUIState
+    let store: EditorStore
+    var body: some View {
+        HStack(spacing: 8) {
+            IconButton("minus.magnifyingglass", help: tr("shortcut.playerZoomOut")) { store.zoomPlayer(by: 0.8) }
+            Slider(value: Binding(get: { log2(ui.zoom) }, set: { v in
+                ui.zoom = pow(2, v)
+                if ui.zoom <= 1 { ui.pan = .zero }
+            }), in: log2(PlayerViewport.zoomRange.lowerBound)...log2(PlayerViewport.zoomRange.upperBound))
+            .controlSize(.mini).frame(width: 120)
+            IconButton("plus.magnifyingglass", help: tr("shortcut.playerZoomIn")) { store.zoomPlayer(by: 1.25) }
+            Text(verbatim: "\(Int((ui.zoom * 100).rounded()))%").font(.system(size: 11).monospacedDigit())
+                .foregroundStyle(Theme.textSecondary).frame(width: 40)
+            Button(tr("player.zoom.fit")) { store.resetPlayerZoom() }.buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 4)
+        .background(Theme.menu, in: RoundedRectangle(cornerRadius: 8))
+        .shadow(color: .black.opacity(0.4), radius: 8)
     }
 }
 
 struct TransportBar: View {
     @Bindable var store: EditorStore
     @Bindable var transport: TransportState
+    @Bindable var ui: PlayerUIState
 
     var body: some View {
         let rate = store.project.settings.frameRate
@@ -41,50 +76,217 @@ struct TransportBar: View {
                 Text(verbatim: "/").foregroundStyle(Theme.textTertiary)
                 Text(verbatim: Timecode.string(store.project.duration, rate: rate)).foregroundStyle(Theme.textSecondary)
                 Spacer()
-                qualityMenu
-                ratioMenu
-                IconButton("arrow.up.left.and.arrow.down.right", help: tr("player.fullscreen")) {
-                    NSApp.keyWindow?.toggleFullScreen(nil)
+                PopupButton(help: tr("player.quality")) { BoxLabel(text: tr(PlayerMenus.qualityShortKey(store.previewQuality))) }
+                    menu: { PlayerMenus.quality(store) }
+                IconButton("plus.magnifyingglass", help: tr("player.zoom"), active: ui.isZoomBarVisible || ui.isZoomed) {
+                    ui.isZoomBarVisible.toggle()
+                }
+                PopupButton(help: tr("player.ratio")) { BoxLabel(text: tr("player.ratio")) } menu: { PlayerMenus.ratio(store) }
+                Rectangle().fill(Theme.separator).frame(width: 1, height: 14).padding(.horizontal, 2)
+                IconButton(ui.isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                           help: tr(ui.isFullscreen ? "player.exitFullscreen" : "player.fullscreen")) {
+                    store.togglePlayerFullscreen()
                 }
             }
             .font(.system(size: 11).monospacedDigit())
-            IconButton(transport.isPlaying ? "pause.fill" : "play.fill", help: tr("player.playPause")) { store.togglePlay() }
+            HStack(spacing: 2) {
+                IconButton(transport.isPlaying ? "pause.fill" : "play.fill", help: tr("player.playPause")) { store.togglePlay() }
+                if ui.loopEnabled {
+                    IconButton("repeat", help: tr("player.loop"), active: true) { store.toggleLoop() }
+                }
+            }
         }
         .padding(.horizontal, 10)
         .frame(height: 36)
     }
+}
 
-    var qualityMenu: some View {
-        Picker(selection: $store.previewQuality) {
-            ForEach(PreviewQuality.allCases, id: \.self) { q in Text(loc: q.nameKey).tag(q) }
-        } label: { EmptyView() }
-            .pickerStyle(.menu).labelsHidden().fixedSize().controlSize(.small)
-            .help(tr("player.quality"))
-    }
-
-    var ratioMenu: some View {
-        Menu {
-            ForEach(ProjectSettings.aspectPresets, id: \.id) { preset in
-                Button(preset.id) {
-                    store.perform(UpdateSettings { s in s.canvasSize = preset.size; s.aspectPreset = preset.id })
-                }
-            }
-        } label: {
-            Text(verbatim: store.project.settings.aspectPreset == "original" ? tr("player.ratio.original") : store.project.settings.aspectPreset)
-                .font(.system(size: 11))
-        }
-        .menuStyle(.borderlessButton).fixedSize()
-        .help(tr("player.ratio"))
+/// Small outlined label used by CapCut's "Full" / "Ratio" buttons.
+struct BoxLabel: View {
+    let text: String
+    var body: some View {
+        Text(verbatim: text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 3).frame(height: 15)
+            .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.textPrimary.opacity(0.85), lineWidth: 1))
+            .padding(.horizontal, 4)
     }
 }
 
-/// Bridges the AppKit/Metal PlayerView into SwiftUI.
+/// A button that pops up an AppKit menu (two-line items, custom images, checkmarks — like CapCut's player menus).
+struct PopupButton<Label: View>: View {
+    let help: String
+    @ViewBuilder let label: () -> Label
+    let menu: () -> NSMenu
+    var body: some View {
+        Button {
+            let m = menu()
+            m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        } label: { label().contentShape(Rectangle()) }
+            .buttonStyle(.plain)
+            .help(help)
+    }
+}
+
+/// Header ☰ menu: guides & rulers, safe zones, loop, proxies, export still frame (UX.md §4.1, screenshot 107).
+struct PlayerMenuButton: View {
+    let store: EditorStore
+    var body: some View {
+        PopupButton(help: tr("player.menu")) {
+            Image(systemName: "line.3.horizontal").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
+                .frame(width: 24, height: 24)
+        } menu: { PlayerMenus.main(store) }
+    }
+}
+
+@MainActor
+enum PlayerMenus {
+    static func qualityShortKey(_ q: PreviewQuality) -> String { "player.quality.\(q.rawValue).short" }
+    /// Menu order: Full, High (auto), Medium (1/2), Low (1/4).
+    static let qualities: [PreviewQuality] = [.full, .auto, .half, .quarter]
+
+    static func item(_ title: String, checked: Bool = false, enabled: Bool = true, key: String = "",
+                     mods: NSEvent.ModifierFlags = [], _ action: @escaping () -> Void) -> NSMenuItem {
+        let i = PlayerMenuAction.item(title, action)
+        i.state = checked ? .on : .off
+        i.isEnabled = enabled
+        if !key.isEmpty { i.keyEquivalent = key; i.keyEquivalentModifierMask = mods }
+        return i
+    }
+
+    static func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
+        let i = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let m = NSMenu(title: title)
+        m.autoenablesItems = false
+        items.forEach(m.addItem)
+        i.submenu = m
+        return i
+    }
+
+    static func quality(_ store: EditorStore) -> NSMenu {
+        let m = NSMenu()
+        m.autoenablesItems = false
+        for q in qualities {
+            let i = item("", checked: store.previewQuality == q) { store.previewQuality = q }
+            let title = NSMutableAttributedString(string: tr("player.quality.\(q.rawValue).title") + "\n",
+                                                  attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .medium)])
+            title.append(NSAttributedString(string: tr("player.quality.\(q.rawValue).detail"),
+                                            attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]))
+            i.attributedTitle = title
+            m.addItem(i)
+        }
+        m.addItem(.separator())
+        m.addItem(item(tr("player.proxy"), checked: store.playerUI.usesProxies) { store.setUsesProxies(!store.playerUI.usesProxies) })
+        return m
+    }
+
+    static func ratio(_ store: EditorStore) -> NSMenu {
+        let m = NSMenu()
+        m.autoenablesItems = false
+        let current = store.project.settings.aspectPreset
+        m.addItem(item(tr("player.ratio.original"), checked: current == "original") { store.setRatio("original") })
+        m.addItem(item(tr("player.ratio.custom"), checked: current == "custom") { CustomCanvasPanel.run(store) })
+        m.addItem(.separator())
+        for id in ProjectSettings.ratioMenu {
+            guard let id, let size = ProjectSettings.presetSize(id) else { m.addItem(.separator()); continue }
+            let i = item(tr("player.ratio.\(id)"), checked: current == id) { store.setRatio(id) }
+            i.image = ratioIcon(size)
+            m.addItem(i)
+        }
+        return m
+    }
+
+    /// Outline rectangle of the ratio (shown at the right of each Ratio row in CapCut; AppKit shows it at the left).
+    static func ratioIcon(_ size: Size2) -> NSImage {
+        let box = NSSize(width: 18, height: 16)
+        return NSImage(size: box, flipped: false) { _ in
+            let k = min(16 / size.width, 13 / size.height)
+            let w = size.width * k, h = size.height * k
+            let r = NSRect(x: (box.width - w) / 2, y: (box.height - h) / 2, width: w, height: h).insetBy(dx: 0.5, dy: 0.5)
+            NSColor.labelColor.withAlphaComponent(0.8).setStroke()
+            let p = NSBezierPath(rect: r); p.lineWidth = 1; p.stroke()
+            return true
+        }
+    }
+
+    static func main(_ store: EditorStore) -> NSMenu {
+        let ui = store.playerUI
+        let m = NSMenu()
+        m.autoenablesItems = false
+        m.addItem(submenu(tr("player.guidesRulers"), [
+            item(tr("player.guide.addH")) { ui.guides.append(CanvasGuide(axis: .horizontal, position: 0.5)); ui.showGuides = true },
+            item(tr("player.guide.addV")) { ui.guides.append(CanvasGuide(axis: .vertical, position: 0.5)); ui.showGuides = true },
+            item(tr("player.guide.lock"), checked: ui.guidesLocked, enabled: !ui.guides.isEmpty) { ui.guidesLocked.toggle() },
+            item(tr("player.guide.show"), checked: ui.showGuides, enabled: !ui.guides.isEmpty, key: ";", mods: .command) { ui.showGuides.toggle() },
+            item(tr("player.guide.clear"), enabled: !ui.guides.isEmpty) { ui.guides.removeAll() },
+            .separator(),
+            item(tr("player.rulers"), checked: ui.showRulers, key: "r", mods: [.command, .option]) { ui.showRulers.toggle() },
+        ]))
+        m.addItem(submenu(tr("player.safe"), SafeZone.allCases.map { z in
+            item(tr(z.titleKey), checked: ui.safeZone == z) { ui.safeZone = z }
+        }))
+        m.addItem(.separator())
+        m.addItem(item(tr("player.loop"), checked: ui.loopEnabled) { store.toggleLoop() })
+        m.addItem(item(tr("player.fullscreen"), key: "f", mods: [.command, .shift]) { store.togglePlayerFullscreen() })
+        m.addItem(.separator())
+        m.addItem(item(tr("player.exportStill"), enabled: store.project.duration > .zero) { store.exportStillFrame() })
+        return m
+    }
+}
+
+/// "Customized" ratio: width × height in pixels.
+@MainActor
+enum CustomCanvasPanel {
+    static func run(_ store: EditorStore) {
+        let s = store.project.settings.canvasSize
+        let alert = NSAlert()
+        alert.messageText = tr("player.ratio.custom.title")
+        alert.informativeText = tr("player.ratio.custom.detail")
+        let w = NSTextField(string: "\(Int(s.width))"), h = NSTextField(string: "\(Int(s.height))")
+        for f in [w, h] { f.frame.size.width = 80; f.alignment = .right }
+        let x = NSTextField(labelWithString: "×")
+        let stack = NSStackView(views: [w, x, h])
+        stack.frame = NSRect(x: 0, y: 0, width: 200, height: 24)
+        alert.accessoryView = stack
+        alert.addButton(withTitle: tr("player.ok"))
+        alert.addButton(withTitle: tr("common.cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn, let wv = Double(w.stringValue), let hv = Double(h.stringValue),
+              wv > 0, hv > 0 else { return }
+        store.setCustomCanvas(width: wv, height: hv)
+    }
+}
+
+/// Bridges the AppKit/Metal player (preview + canvas overlay) into SwiftUI.
 struct PlayerHost: NSViewRepresentable {
     let store: EditorStore
-    func makeNSView(context: Context) -> PlayerView {
-        let v = PlayerView(engine: store.engine)
-        SnapshotRegistry.shared.player = v
+    func makeNSView(context: Context) -> PlayerContainerView {
+        let v = PlayerContainerView(store: store)
+        SnapshotRegistry.shared.player = v.player
+        SnapshotRegistry.shared.playerOverlay = v.overlay
         return v
     }
-    func updateNSView(_ v: PlayerView, context: Context) { v.requestRedraw() }
+    func updateNSView(_ v: PlayerContainerView, context: Context) { v.player.requestRedraw() }
+}
+
+/// Metal preview with the transparent canvas overlay on top.
+final class PlayerContainerView: NSView {
+    let player: PlayerView
+    let overlay: CanvasOverlayView
+
+    init(store: EditorStore) {
+        player = PlayerView(engine: store.engine)
+        overlay = CanvasOverlayView(store: store)
+        super.init(frame: .zero)
+        addSubview(player)
+        addSubview(overlay)
+        overlay.onContentRectChange = { [weak player] r in player?.contentRect = r }
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        super.layout()
+        player.frame = bounds
+        overlay.frame = bounds
+    }
 }

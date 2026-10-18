@@ -23,8 +23,8 @@ public enum FrameInterpolation {
 }
 
 extension FrameRenderer {
-    /// Chroma key, AI matte, smooth slow-mo and motion blur, in that order... except time-domain passes go first
-    /// (they mix source frames), then keying/matting (which only change alpha).
+    /// Smooth slow-mo and motion blur (time-domain: they mix source frames), then the AI matte (alpha only).
+    /// Chroma key is an ordinary effect (`BuiltinKeying`, first in the stack).
     func applyLayerFeatures(_ l: LayerDescription, to input: MTLTexture, uv cu: ConvertUniforms, media: [MediaID: MediaAsset],
                             sources: any FrameSourceProvider, cmd: MTLCommandBuffer, scratch: FrameScratch,
                             acquire: (Int, Int) -> MTLTexture) -> MTLTexture {
@@ -67,20 +67,6 @@ extension FrameRenderer {
                     cur = mixInto(cur, prev, w / total)
                 }
             }
-        }
-
-        // Chroma key
-        if let ck = l.chromaKey {
-            let out = acquire(cur.width, cur.height)
-            var u = ChromaUniforms(key: SIMD4(Float(ck.color.r), Float(ck.color.g), Float(ck.color.b), 1),
-                                   intensity: Float(ck.intensity), shadow: Float(ck.shadow), feather: Float(ck.edgeFeather),
-                                   cleanup: Float(ck.edgeCleanup), spill: Float(ck.spill))
-            let src = cur
-            fullscreen(fp.chroma, target: out, cmd, label: "chroma-key") { enc in
-                enc.setFragmentTexture(src, index: 0)
-                enc.setFragmentBytes(&u, length: MemoryLayout<ChromaUniforms>.stride, index: 0)
-            }
-            cur = out
         }
 
         // AI matte (video: aux lane Y plane; image: still texture)

@@ -84,5 +84,9 @@
 "blend.lighterColor" = "Couleur plus claire";
 "mask.heart" = "Cœur";
 "mask.star" = "Étoiles";
-"prop.chromaIntensity" = "Intensité de la clé chroma";
-"prop.chromaShadow" = "Ombre de la clé chroma";
+/* Inspector properties (W3) */
+"prop.maskRoundness" = "Bords arrondis";
+"prop.cropLeft" = "Gauche";
+"prop.cropTop" = "Haut";
+"prop.cropRight" = "Droite";
+"prop.cropBottom" = "Bas";

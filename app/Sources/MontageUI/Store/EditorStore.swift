@@ -38,9 +38,17 @@ public final class EditorStore {
     public private(set) var session: EditSession
     public var project: Project { session.project }
     public var selection: Set<ClipID> = [] { didSet { if selection != oldValue { selectionDidChange() } } }
+    /// Selected transition, identified by the clip that owns it (`transitionOut`). Exclusive with `selection`
+    /// (CapCut selects a transition after dropping it and shows its inspector). Stored in `timelineUI`.
+    public var selectedTransition: ClipID? {
+        get { timelineUI.selectedTransition }
+        set { timelineUI.selectedTransition = newValue }
+    }
     public let transport = TransportState()
     /// Timeline view state: tool mode, scroll, clipboard, selected transition/marker (W1, MontageUI/Timeline).
     public let timelineUI = TimelineUIState()
+    /// Player viewport / overlays / modes (MontageUI/Player).
+    public let playerUI = PlayerUIState()
     /// Timeline zoom (points per second).
     public var pixelsPerSecond: Double = 40
     public private(set) var packageURL: URL?
@@ -135,10 +143,14 @@ public final class EditorStore {
     private func didChangeProject() {
         engine.update(project: session.project)
         selection = selection.filter { session.project.timeline.clip($0) != nil }
+        if let t = selectedTransition, session.project.timeline.clip(t)?.transitionOut == nil { selectedTransition = nil }
+        if playerUI.loopEnabled { updateLoopRange() }
         scheduleAutosave()
     }
 
     private func selectionDidChange() {
+        if !selection.isEmpty, selectedTransition != nil { selectedTransition = nil }
+        if playerUI.loopEnabled { updateLoopRange() }
         if let t = inspectorTab, !InspectorRegistry.tabs(for: InspectorContext(store: self)).contains(where: { $0.id == t }) {
             inspectorTab = nil
         }
@@ -226,7 +238,10 @@ public final class EditorStore {
         let sel = selectedClips.first { c in main.clips.contains { $0.id == c.id } }
         let target = sel ?? main.clips.dropLast().min { abs(($0.end - transport.playhead).ticks) < abs(($1.end - transport.playhead).ticks) }
         guard let target, target.id != main.clips.last?.id else { return }
-        perform(SetTransition(target.id, d.makeInstance()))
+        if perform(SetTransition(target.id, d.makeInstance())) {
+            selection = []
+            selectedTransition = target.id
+        }
     }
 
     // MARK: Timeline commands
@@ -266,8 +281,8 @@ public final class EditorStore {
     public func shuttle(_ key: Character) {
         switch key {
         case "k": engine.pause()
-        case "l": engine.setRate(engine.player.rate > 0 ? min(engine.player.rate * 2, 8) : 1)
-        case "j": engine.setRate(engine.player.rate < 0 ? max(engine.player.rate * 2, -8) : -1)
+        case "l": engine.setRate(engine.shuttleRate > 0 ? min(engine.shuttleRate * 2, 8) : 1)
+        case "j": engine.setRate(engine.shuttleRate < 0 ? max(engine.shuttleRate * 2, -8) : -1)
         default: break
         }
     }

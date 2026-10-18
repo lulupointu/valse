@@ -295,8 +295,10 @@ public final class FrameRenderer: @unchecked Sendable {
         } else if let t = rgbaSource {
             let (w, h) = rotation % 180 == 0 ? (Double(t.width), Double(t.height)) : (Double(t.height), Double(t.width))
             srcW = min(dispW, w * cropW); srcH = min(dispH, h * cropH)
+        } else if l.effects.isEmpty {
+            srcW = min(dispW, 64); srcH = min(dispH, 64)   // flat colour: tiny texture, stretched
         } else {
-            srcW = min(dispW, 64); srcH = min(dispH, 64)
+            srcW = dispW; srcH = dispH                      // generated content (canvas styles): full resolution
         }
         let tw = Self.quantize(srcW), th = Self.quantize(srcH)
 

@@ -1,0 +1,87 @@
+/* Player canvas & playback (W2). */
+"player.menu" = "Player menu";
+"player.exitFullscreen" = "Exit full screen (esc)";
+"player.ok" = "OK";
+"player.zoom" = "Zoom";
+"player.zoom.fit" = "Fit";
+"player.loop" = "Loop playback";
+"player.proxy" = "Use proxies for preview";
+"player.exportStill" = "Export still frame";
+"player.stillSaved" = "Frame exported";
+"player.stillFailed" = "Couldn't export the frame";
+
+/* Preview quality */
+"player.quality.full.title" = "Full quality";
+"player.quality.full.detail" = "Original video resolution";
+"player.quality.full.short" = "Full";
+"player.quality.auto.title" = "High quality";
+"player.quality.auto.detail" = "Smooth playback, no impact on exported video";
+"player.quality.auto.short" = "High";
+"player.quality.half.title" = "Medium quality";
+"player.quality.half.detail" = "Smoother playback, no impact on exported video";
+"player.quality.half.short" = "Med";
+"player.quality.quarter.title" = "Low quality";
+"player.quality.quarter.detail" = "Smoothest playback, no impact on exported video";
+"player.quality.quarter.short" = "Low";
+
+/* Ratio */
+"player.ratio.custom" = "Customized";
+"player.ratio.custom.title" = "Custom canvas size";
+"player.ratio.custom.detail" = "Width × height in pixels.";
+"player.ratio.16:9" = "16:9";
+"player.ratio.4:3" = "4:3";
+"player.ratio.2.35:1" = "2.35:1";
+"player.ratio.2:1" = "2:1";
+"player.ratio.1.85:1" = "1.85:1";
+"player.ratio.9:16" = "9:16";
+"player.ratio.3:4" = "3:4";
+"player.ratio.5.8-inch" = "5.8-inch";
+"player.ratio.1:1" = "1:1";
+"player.ratio.21:9" = "21:9";
+"player.ratio.4:5" = "4:5";
+
+/* Guides & rulers */
+"player.guidesRulers" = "Guides and rulers";
+"player.guide.addH" = "Add horizontal guide";
+"player.guide.addV" = "Add vertical guide";
+"player.guide.lock" = "Lock guides";
+"player.guide.show" = "Show guides";
+"player.guide.clear" = "Clear guides";
+"player.rulers" = "Show rulers";
+
+/* Safe zones */
+"player.safe" = "Social media preview";
+"player.safe.none" = "Off";
+"player.safe.tiktok" = "TikTok";
+"player.safe.reels" = "Instagram Reels";
+"player.safe.shorts" = "YouTube Shorts";
+"player.safe.broadcast" = "Title and action safe";
+
+/* Canvas context menu */
+"player.align" = "Align";
+"player.align.left" = "Align left";
+"player.align.centerH" = "Align centre";
+"player.align.right" = "Align right";
+"player.align.top" = "Align top";
+"player.align.centerV" = "Align middle";
+"player.align.bottom" = "Align bottom";
+"player.fit.fit" = "Fit to canvas";
+"player.fit.fill" = "Fill canvas";
+"player.fit.stretch" = "Stretch to canvas";
+"player.rotate90" = "Rotate 90°";
+"player.editText" = "Edit text";
+
+/* Undo names */
+"cmd.scale" = "Scale";
+"cmd.textEdit" = "Edit text";
+
+/* Shortcuts */
+"shortcut.nudgeUp" = "Nudge up";
+"shortcut.nudgeDown" = "Nudge down";
+"shortcut.playerFullscreen" = "Enter/Exit full screen";
+"shortcut.exitFullscreen" = "Exit full screen";
+"shortcut.playerZoomIn" = "Zoom in player";
+"shortcut.playerZoomOut" = "Zoom out player";
+"shortcut.playerZoomFit" = "Zoom to fit player";
+"shortcut.rulers" = "Show/hide rulers";
+"shortcut.guides" = "Show/hide guides";

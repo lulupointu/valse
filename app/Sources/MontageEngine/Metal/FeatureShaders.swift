@@ -2,7 +2,7 @@
 import Foundation
 import simd
 
-/// Per-layer feature passes (W6): chroma key, AI matte, frame blending / motion-blur accumulation, pen-mask feather.
+/// Per-layer feature passes (W6): AI matte, frame blending / motion-blur accumulation, pen-mask feather.
 /// Compiled as a separate library (vertex stage = `fullscreen_vs` from the core library) so these features stay out
 /// of the core compositor source. All passes take and return straight RGBA (rgba16Float working format).
 enum FeatureShaders {
@@ -10,37 +10,6 @@ enum FeatureShaders {
     #include <metal_stdlib>
     using namespace metal;
     struct QuadOut { float4 pos [[position]]; float2 uv; };
-
-    // ---- Chroma key: soft matte from the CbCr distance to the key colour, shadow retention, choke, despill.
-    struct ChromaU { float4 key; float intensity; float shadow; float feather; float cleanup; float spill; float3 pad; };
-
-    inline float3 rgb2ycc(float3 c) {
-        float y = dot(c, float3(0.2126, 0.7152, 0.0722));
-        return float3(y, (c.b - y) / 1.8556, (c.r - y) / 1.5748);
-    }
-
-    fragment float4 chroma_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]], constant ChromaU& u [[buffer(0)]]) {
-        constexpr sampler s(filter::linear, address::clamp_to_edge);
-        float4 c = t.sample(s, in.uv);
-        float3 k = rgb2ycc(u.key.rgb), p = rgb2ycc(c.rgb);
-        // chroma relative to luma (hue + saturation, independent of how lit the screen is), normalised by the key's
-        float2 kc = k.yz / max(k.x, 0.1), pc = p.yz / max(p.x, 0.1);
-        float d = length(pc - kc) / max(length(kc), 0.08);
-        float thr = mix(0.05, 0.9, u.intensity);
-        float soft = max(u.feather * 0.6, 0.01);
-        float a = smoothstep(thr, thr + soft, d);
-        // shadow: keyed pixels darker than the key keep some opacity (the shadow cast on the screen)
-        float darker = saturate((k.x - p.x) / max(k.x, 0.05));
-        a = max(a, (1.0 - a) * u.shadow * darker);
-        // edge clean-up: choke the fringe
-        a = saturate((a - u.cleanup * 0.5) / max(1.0 - u.cleanup * 0.5, 0.001));
-        // despill: remove the component of the pixel's chroma along the key direction
-        float2 kd = normalize(k.yz + float2(1e-5));
-        float along = dot(p.yz, kd);
-        if (along > 0.0) { p.yz -= kd * along * u.spill; }
-        float3 rgb = float3(p.x + 1.5748 * p.z, p.x - 0.1873 * p.y - 0.4681 * p.z, p.x + 1.8556 * p.y);
-        return float4(saturate(rgb), c.a * a);
-    }
 
     // ---- AI matte: alpha *= matte (Y plane of a matte video, or an r8 still), with expand/feather/invert.
     struct MatteU { float3x2 uvXform; float fullRange; float expand; float feather; float invert; float isVideo; float pad; };
@@ -84,7 +53,6 @@ enum FeatureShaders {
 final class FeaturePipelines: @unchecked Sendable {
     static let shared = FeaturePipelines()
 
-    let chroma: MTLRenderPipelineState
     let matte: MTLRenderPipelineState
     let blendFrames: MTLRenderPipelineState
     let maskBlur: MTLRenderPipelineState
@@ -102,18 +70,10 @@ final class FeaturePipelines: @unchecked Sendable {
             d.colorAttachments[0].pixelFormat = fmt
             do { return try ctx.device.makeRenderPipelineState(descriptor: d) } catch { fatalError("pipeline \(fs): \(error)") }
         }
-        chroma = pipe("chroma_fs")
         matte = pipe("matte_fs")
         blendFrames = pipe("blend_frames_fs")
         maskBlur = pipe("mask_blur_fs", .r16Float)
     }
-}
-
-/// Matches `ChromaU`.
-struct ChromaUniforms {
-    var key: SIMD4<Float>
-    var intensity: Float, shadow: Float, feather: Float, cleanup: Float, spill: Float
-    var pad: SIMD3<Float> = .zero
 }
 
 /// Matches `MatteU`.

@@ -77,6 +77,18 @@ final class PlayerView: NSView {
 
     func requestRedraw() { needsRerender = true }
 
+    /// Where the frame is drawn (view points, origin top-left), set by the canvas overlay (zoom / pan / padding).
+    /// nil = aspect-fit to the whole view.
+    var contentRect: CGRect? {
+        didSet {
+            if contentRect != oldValue { needsRerender = true }  // paused: re-render at the new place next refresh
+        }
+    }
+
+    private func pixelRect(scale s: CGFloat) -> CGRect? {
+        contentRect.map { CGRect(x: $0.minX * s, y: $0.minY * s, width: $0.width * s, height: $0.height * s) }
+    }
+
     @objc private func tick(_ l: CADisplayLink) {
         if let (pb, _) = engine.pixelBuffer(forHostTime: l.targetTimestamp) {
             lastPixelBuffer = pb
@@ -113,6 +125,7 @@ final class PlayerView: NSView {
         lastFrame = tex
         guard let drawable = metalLayer.nextDrawable(), let cmd = ctx.queue.makeCommandBuffer() else { return }
         Presenter.encode(tex, to: drawable.texture, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: letterbox,
+                         contentRect: pixelRect(scale: metalLayer.contentsScale),
                          commandBuffer: cmd)
         cmd.present(drawable)
         let hold = UncheckedSendable(retain)
@@ -131,7 +144,8 @@ final class PlayerView: NSView {
         d.usage = [.renderTarget, .shaderRead]; d.storageMode = .shared
         guard let out = ctx.device.makeTexture(descriptor: d), let cmd = ctx.queue.makeCommandBuffer() else { return nil }
         if let frame = lastFrame {
-            Presenter.encode(frame, to: out, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: letterbox, commandBuffer: cmd)
+            Presenter.encode(frame, to: out, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: letterbox,
+                             contentRect: pixelRect(scale: s), commandBuffer: cmd)
         }
         cmd.commit(); cmd.waitUntilCompleted()
         return TextureReadback.cgImage(out)

@@ -1,0 +1,17 @@
+/* Keying (inspector W3: chroma key, canvas styles) */
+"key.chroma" = "Chroma key";
+"key.group.cutout" = "Cutout";
+"key.chroma.color" = "Color picker";
+"key.chroma.intensity" = "Strength";
+"key.chroma.shadow" = "Shadow";
+"key.chroma.feather" = "Feather edge";
+"key.chroma.cleanup" = "Clean up edge";
+"canvas.group.style" = "Style";
+"canvas.style.sunset" = "Sunset";
+"canvas.style.ocean" = "Ocean";
+"canvas.style.mint" = "Mint";
+"canvas.style.stripes" = "Stripes";
+"canvas.style.dots" = "Dots";
+"canvas.style.grid" = "Grid";
+"canvas.style.checker" = "Checker";
+"canvas.style.waves" = "Waves";

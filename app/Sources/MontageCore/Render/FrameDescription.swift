@@ -42,13 +42,14 @@ public struct LayerDescription: Hashable, Sendable {
     /// Clip-local time (for time-based effects such as glitch/shake).
     public var localTime: Time
     // W6/W9 per-layer features (defaults = off).
-    public var chromaKey: ChromaKey? = nil
     public var matte: ClipMatte? = nil
     /// Smooth slow-mo: weight 0…1 of the NEXT source frame (aux lane `.nextFrame`) at this instant; nil = off.
     public var frameBlend: Double? = nil
     public var slowMoMethod: SlowMotionMethod? = nil
     public var motionBlur: MotionBlur? = nil
     public var stabilization: Stabilization? = nil
+    /// Canvas background fill (blurred copy / image) of a main-track clip, not the clip itself: not hit-testable.
+    public var isCanvasBackground = false
 
     /// Media/images/solids are aspect-fitted to the canvas at scale 1; text and stickers use their own
     /// size in canvas pixels (`sourceSize`).
@@ -106,11 +107,14 @@ public struct FrameDescription: Hashable, Sendable {
 public enum FrameEvaluator {
     public static func evaluate(_ project: Project, at t: Time) -> FrameDescription {
         let canvas = project.settings.canvasSize
-        return FrameDescription(time: t, canvasSize: canvas, background: project.settings.backgroundColor,
-                                items: items(project, at: t, depth: 0), colorSpace: project.settings.colorSpace)
+        var background = project.settings.backgroundColor
+        let items = items(project, at: t, depth: 0, background: &background)
+        return FrameDescription(time: t, canvasSize: canvas, background: background, items: items,
+                                colorSpace: project.settings.colorSpace)
     }
 
-    static func items(_ project: Project, at t: Time, depth: Int) -> [RenderItem] {
+    static func items(_ project: Project, at t: Time, depth: Int, background: inout RGBA) -> [RenderItem] {
+        let canvas = project.settings.canvasSize
         var items: [RenderItem] = []
         for track in project.timeline.tracks where track.kind.isVisual && !track.isHidden {
             let active = track.clips(at: t).filter(\.isEnabled)
@@ -122,6 +126,10 @@ public enum FrameEvaluator {
                       let lb = layer(b, track: track, project: project, at: t) else { continue }
                 let d = max(tr.duration.ticks, 1)
                 let p = min(max(Double((t - b.start).ticks) / Double(d), 0), 1)
+                let dominant = p < 0.5 ? (a, la) : (b, lb)
+                if let cv = dominant.0.canvas {
+                    items += canvasItems(cv, for: dominant.1, canvasSize: canvas, background: &background)
+                }
                 items.append(.transition(from: la, to: lb, typeID: tr.typeID, progress: p, params: tr.params))
                 continue
             }
@@ -133,6 +141,9 @@ public enum FrameEvaluator {
                 } else if case .compound(let cid) = c.content {
                     if let n = nestedItem(c, cid, track: track, project: project, at: t, depth: depth) { items.append(n) }
                 } else if let l = layer(c, track: track, project: project, at: t) {
+                    if track.isMain, let cv = c.canvas {
+                        items += canvasItems(cv, for: l, canvasSize: canvas, background: &background)
+                    }
                     items.append(.layer(l))
                 }
             }
@@ -144,7 +155,8 @@ public enum FrameEvaluator {
     static func nestedItem(_ c: Clip, _ cid: CompoundID, track: Track, project: Project, at t: Time, depth: Int) -> RenderItem? {
         guard depth < Project.maxCompoundDepth, let comp = project.compound(cid) else { return nil }
         let tau = c.sourceTime(at: t)
-        let inner = items(project.nested(comp), at: tau, depth: depth + 1).map { rewriteIDs($0, container: c.id) }
+        var nestedBackground = RGBA.clear
+        let inner = items(project.nested(comp), at: tau, depth: depth + 1, background: &nestedBackground).map { rewriteIDs($0, container: c.id) }
         guard !inner.isEmpty else { return nil }
         let local = c.localTime(t)
         let r = c.resolved(at: local)
@@ -162,6 +174,44 @@ public enum FrameEvaluator {
         case .transition(let a, let b, let id, let p, let params): return .transition(from: fix(a), to: fix(b), typeID: id, progress: p, params: params)
         case .adjustment(let id, let e, let o, let lt): return .adjustment(clipID: nestedClipID(container, id), effects: e, opacity: o, localTime: lt)
         case .nested(let cont, let inner): return .nested(container: fix(cont), items: inner.map { rewriteIDs($0, container: container) })
+        }
+    }
+
+    /// Fixed instance ids for the synthetic canvas effects (stable `FrameDescription` hashes across frames).
+    static let canvasEffectIDs: [EffectInstanceID] = (1...4).map {
+        EffectInstanceID(UUID(uuidString: String(format: "00000000-0000-0000-0000-0000000CA%03d", $0))!)
+    }
+
+    /// Render items drawn *below* main-track layer `l` for its canvas setting (see `CanvasBackground`).
+    public static func canvasItems(_ canvas: CanvasBackground, for l: LayerDescription, canvasSize: Size2,
+                                   background: inout RGBA) -> [RenderItem] {
+        switch canvas {
+        case .color(let c):
+            background = RGBA(c.r, c.g, c.b, 1)
+            return []
+        case .blur(let level):
+            let s = l.sourceSize
+            guard l.fitsCanvas, s.width > 0, s.height > 0 else { return [] }
+            let fit = min(canvasSize.width / s.width, canvasSize.height / s.height)
+            let fill = max(canvasSize.width / s.width, canvasSize.height / s.height)
+            let k = fill / max(fit, 1e-9)
+            var b = l
+            b.transform = Transform(position: .zero, scale: Vec2(k, k), rotation: 0,
+                                    flipH: l.transform.flipH, flipV: l.transform.flipV)
+            b.opacity = 1; b.blendMode = .normal; b.crop = CropRect(); b.mask = nil; b.animations = []
+            b.effects = l.effects + CanvasBackground.blurStack(level: level).enumerated().map { i, r in
+                ResolvedEffect(instanceID: canvasEffectIDs[i], typeID: CanvasBackground.blurEffectID, params: ["radius": .scalar(r)])
+            }
+            b.isCanvasBackground = true
+            return [.layer(b)]
+        case .style(let id):
+            var fillLayer = LayerDescription(
+                clipID: l.clipID, trackID: l.trackID, source: .solid(.black), sourceSize: canvasSize, transform: .identity,
+                opacity: 1, blendMode: .normal, crop: CropRect(), mask: nil,
+                effects: [ResolvedEffect(instanceID: canvasEffectIDs[3], typeID: id, params: [:])], animations: [],
+                localTime: l.localTime)
+            fillLayer.isCanvasBackground = true
+            return [.layer(fillLayer)]
         }
     }
 
@@ -190,7 +240,6 @@ public enum FrameEvaluator {
                                  transform: r.transform, opacity: r.opacity, blendMode: r.blendMode, crop: r.crop,
                                  mask: r.mask, effects: resolveEffects(r), animations: animations(c, local: local),
                                  localTime: local)
-        l.chromaKey = r.chromaKey
         l.matte = r.matte
         l.stabilization = r.stabilization
         if case .media(let id) = c.content, let a = project.asset(id), a.kind == .video {

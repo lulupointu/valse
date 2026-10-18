@@ -1,13 +1,4 @@
 /* W6 render features in the inspector */
-"inspector.chroma" = "Chroma key";
-"inspector.chroma.enable" = "Chroma key";
-"inspector.chroma.color" = "Color picker";
-"inspector.chroma.picker" = "Pick a color on the screen";
-"inspector.chroma.intensity" = "Strength";
-"inspector.chroma.shadow" = "Shadow";
-"inspector.chroma.feather" = "Edge feather";
-"inspector.chroma.cleanup" = "Clean up edge";
-"inspector.chroma.spill" = "Spill suppression";
 "inspector.stabilize" = "Stabilize";
 "inspector.stabilize.enable" = "Stabilize";
 "inspector.stabilize.level" = "Stabilization level";
@@ -16,10 +7,7 @@
 "inspector.motionBlur.enable" = "Motion blur";
 "inspector.motionBlur.amount" = "Blur";
 "inspector.motionBlur.times" = "Times";
-"inspector.slowmo" = "Smooth slow-mo";
-"inspector.slowmo.enable" = "Smooth slow-mo";
 "inspector.slowmo.method" = "Method";
-"cmd.chroma" = "Chroma key";
 "cmd.stabilize" = "Stabilize";
 "cmd.motionBlur" = "Motion blur";
 "cmd.slowmo" = "Smooth slow-mo";

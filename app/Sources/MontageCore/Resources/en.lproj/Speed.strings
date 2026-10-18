@@ -1,0 +1,8 @@
+/* Inspector (W3) */
+"speed.preset.bullet" = "Bullet";
+"speed.preset.custom" = "Customized";
+"speed.preset.flashin" = "Flash in";
+"speed.preset.flashout" = "Flash out";
+"speed.preset.hero" = "Hero time";
+"speed.preset.jumpcut" = "Jump Cut";
+"speed.preset.montage" = "Montage";

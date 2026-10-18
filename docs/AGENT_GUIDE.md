@@ -36,3 +36,8 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
 ## Final reply to the orchestrator (UNDER 200 words)
 Features done / partial / blocked (counts + IDs of partial/blocked), how verified, merged to main yes/no (commit hash), notable
 issues for other teams. Do not paste code.
+
+## Project tracker
+docs/STATUS.md tracks workstreams, open cross-team requests and decisions. When you depend on another team, add a row to
+"Cross-team requests" (keep it one line). When you resolve someone's request, move it to "Done cross-team items".
+`scripts/feature_status.py` summarises FEATURES.md (`--list partial --area TL` for details).

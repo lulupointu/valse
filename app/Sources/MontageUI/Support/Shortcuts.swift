@@ -5,15 +5,21 @@ import MontageCore
 /// app menu; everything else is dispatched here by an app-level key monitor (skipped while a text field has focus).
 /// Add a shortcut: append one entry to `ShortcutRegistry.builtins` (it also appears in the shortcut list).
 public struct Shortcut: Identifiable {
-    public enum Key: Equatable { case char(Character), space, left, right, up, down, delete, home, end }
+    public enum Key: Equatable { case char(Character), space, left, right, up, down, delete, home, end, escape }
     public let id: String
     public let titleKey: String
     public let key: Key
     public let modifiers: NSEvent.ModifierFlags
     public let action: @MainActor (EditorStore) -> Void
+    /// When false the key falls through to the next shortcut with the same binding (or to the responder chain),
+    /// e.g. arrows nudge on the canvas only while it has focus.
+    public let isEnabled: @MainActor (EditorStore) -> Bool
 
-    public init(_ id: String, _ titleKey: String, _ key: Key, _ modifiers: NSEvent.ModifierFlags = [], action: @escaping @MainActor (EditorStore) -> Void) {
+    public init(_ id: String, _ titleKey: String, _ key: Key, _ modifiers: NSEvent.ModifierFlags = [],
+                isEnabled: @escaping @MainActor (EditorStore) -> Bool = { _ in true },
+                action: @escaping @MainActor (EditorStore) -> Void) {
         self.id = id; self.titleKey = titleKey; self.key = key; self.modifiers = modifiers; self.action = action
+        self.isEnabled = isEnabled
     }
 
     /// Display string, e.g. "⌘B".
@@ -33,6 +39,7 @@ public struct Shortcut: Identifiable {
         case .delete: s += "⌫"
         case .home: s += "Home"
         case .end: s += "End"
+        case .escape: s += "esc"
         }
         return s
     }
@@ -52,10 +59,25 @@ public enum ShortcutRegistry {
         Shortcut("delete", "shortcut.delete", .delete) { $0.deleteSmart() },
         Shortcut("deleteLeft", "shortcut.deleteLeft", .char("q")) { $0.deleteLeftRight(.head) },
         Shortcut("deleteRight", "shortcut.deleteRight", .char("w")) { $0.deleteLeftRight(.tail) },
-        Shortcut("prevFrame", "shortcut.prevFrame", .left) { $0.step(frames: -1) },
-        Shortcut("nextFrame", "shortcut.nextFrame", .right) { $0.step(frames: 1) },
-        Shortcut("prevFrames", "shortcut.prevFrames", .left, .shift) { $0.step(frames: -10) },
-        Shortcut("nextFrames", "shortcut.nextFrames", .right, .shift) { $0.step(frames: 10) },
+        // ←/→ step frames; on the focused canvas with a selection they nudge the layer (1 px, ⇧ 10 px) like ↑/↓.
+        Shortcut("prevFrame", "shortcut.prevFrame", .left) { $0.arrow(dx: -1, dy: 0, big: false) },
+        Shortcut("nextFrame", "shortcut.nextFrame", .right) { $0.arrow(dx: 1, dy: 0, big: false) },
+        Shortcut("prevFrames", "shortcut.prevFrames", .left, .shift) { $0.arrow(dx: -1, dy: 0, big: true) },
+        Shortcut("nextFrames", "shortcut.nextFrames", .right, .shift) { $0.arrow(dx: 1, dy: 0, big: true) },
+        Shortcut("nudgeUp", "shortcut.nudgeUp", .up, isEnabled: { $0.canvasNudgeEnabled }) { $0.arrow(dx: 0, dy: -1, big: false) },
+        Shortcut("nudgeDown", "shortcut.nudgeDown", .down, isEnabled: { $0.canvasNudgeEnabled }) { $0.arrow(dx: 0, dy: 1, big: false) },
+        Shortcut("nudgeUpMany", "shortcut.nudgeUp", .up, .shift, isEnabled: { $0.canvasNudgeEnabled }) { $0.arrow(dx: 0, dy: -1, big: true) },
+        Shortcut("nudgeDownMany", "shortcut.nudgeDown", .down, .shift, isEnabled: { $0.canvasNudgeEnabled }) { $0.arrow(dx: 0, dy: 1, big: true) },
+        // Player (UX.md §8.2 "Player")
+        Shortcut("playerFullscreen", "shortcut.playerFullscreen", .char("f"), [.shift, .command]) { $0.togglePlayerFullscreen() },
+        Shortcut("exitPlayerFullscreen", "shortcut.exitFullscreen", .escape, isEnabled: { $0.playerUI.isFullscreen }) { $0.setPlayerFullscreen(false) },
+        Shortcut("playerZoomIn", "shortcut.playerZoomIn", .char("+"), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
+        Shortcut("playerZoomInEq", "shortcut.playerZoomIn", .char("="), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
+        Shortcut("playerZoomOut", "shortcut.playerZoomOut", .char("_"), [.option, .shift]) { $0.zoomPlayer(by: 0.8) },
+        Shortcut("playerZoomOutMinus", "shortcut.playerZoomOut", .char("-"), [.option, .shift]) { $0.zoomPlayer(by: 0.8) },
+        Shortcut("playerZoomFit", "shortcut.playerZoomFit", .char("z"), [.option, .shift]) { $0.resetPlayerZoom() },
+        Shortcut("rulers", "shortcut.rulers", .char("r"), [.option, .command]) { $0.playerUI.showRulers.toggle() },
+        Shortcut("guides", "shortcut.guides", .char(";"), .command) { $0.playerUI.showGuides.toggle() },
         Shortcut("home", "shortcut.home", .home) { $0.seek(to: .zero) },
         Shortcut("end", "shortcut.end", .end) { $0.seek(to: $0.project.duration) },
         Shortcut("zoomIn", "shortcut.zoomIn", .char("="), .command) { $0.zoomTimeline(by: 1.25) },
@@ -80,6 +102,7 @@ public enum ShortcutRegistry {
         case 51, 117: return .delete
         case 115: return .home
         case 119: return .end
+        case 53: return .escape
         default:
             guard let c = e.charactersIgnoringModifiers?.lowercased().first else { return nil }
             return .char(c)
@@ -91,7 +114,7 @@ public enum ShortcutRegistry {
         if let responder = e.window?.firstResponder, responder is NSText || responder is NSTextView { return false }
         guard let k = key(for: e) else { return false }
         let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
-        guard let s = all.first(where: { $0.key == k && $0.modifiers == mods }) else { return false }
+        guard let s = all.first(where: { $0.key == k && $0.modifiers == mods && $0.isEnabled(store) }) else { return false }
         s.action(store)
         return true
     }
