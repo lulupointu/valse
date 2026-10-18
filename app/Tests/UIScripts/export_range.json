@@ -1,0 +1,19 @@
+// W11 / TL-028: I at 2 s, O at 5 s, File ▸ Export in/out range opens the dialog on the range scope (3 s); the export
+// finishes with one 3 s .mov.
+{
+  "project": "demo",
+  "steps": [
+    {"seek": 2},
+    {"key": "i"},
+    {"seek": 5},
+    {"key": "o"},
+    {"menu": "menu.file/export.menu.range"},
+    {"waitFor": {"path": "ui.exportSheet", "equals": true, "timeout": 5}},
+    {"expect": [{"path": "ui.export.dialog.scope", "equals": "inOut"}, {"path": "ui.export.dialog.duration", "approx": 3, "tolerance": 0.05},
+                {"path": "ui.export.dialog.outputs", "equals": ["Demo.mov"]}]},
+    {"snapshot": "dialog-range", "element": "id:export.dialog"},
+    {"click": "id:export.confirm"},
+    {"waitFor": {"path": "ui.export.shown.0.state", "equals": "done", "timeout": 60}},
+    {"expect": {"path": "ui.export.shown.0.written.count", "equals": 1}}
+  ]
+}

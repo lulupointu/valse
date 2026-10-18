@@ -54,6 +54,18 @@ struct PerfSmokeTests {
         #expect(r.probe.width == 1920)
     }
 
+    /// W11: 4K HEVC 10 s from 4×4K layers (hardware encoder, GPU compositor 3 frames ahead of the encoder).
+    @Test func export10s4KHEVC() async throws {
+        let p = try await project(layers: 4)
+        var s = ExportSettings(); s.codec = .hevc; s.resolution = .p2160
+        let t0 = Date()
+        let r = try await exportProject(p.project, seconds: 10, settings: s)
+        let secs = Date().timeIntervalSince(t0)
+        emit("export_10s_4k_hevc_seconds", secs, "s")
+        #expect(r.probe.width == 3840 && r.probe.videoCodec == "hevc")
+        #expect(secs < 30)
+    }
+
     @Test func proxyGeneration() async throws {
         let src = Self.media.appendingPathComponent("a.mp4")
         let dst = FileManager.default.temporaryDirectory.appendingPathComponent("perf-proxy.mp4")

@@ -1,0 +1,21 @@
+// W11 / EX-013 / EX-015: two clips selected → File ▸ Export selected clips plans one file per clip; Export queues
+// them, Stop cancels what is still running / queued (no partial file left), Close keeps the queue indicator.
+{
+  "project": "demo",
+  "steps": [
+    {"select": ["clip:main/0", "clip:main/1"]},
+    {"menu": "menu.file/export.menu.selected"},
+    {"waitFor": {"path": "ui.exportSheet", "equals": true, "timeout": 5}},
+    {"expect": [{"path": "ui.export.dialog.scope", "equals": "selectedClips"},
+                {"path": "ui.export.dialog.outputs", "equals": ["Demo 1.mov", "Demo 2.mov"]}]},
+    {"click": "id:export.confirm"},
+    {"expect": [{"path": "ui.export.shown.count", "equals": 2}, {"path": "ui.export.shown.1.state", "equals": "queued"}]},
+    {"click": "id:export.stop"},
+    // the first clip may already be done (short demo clip); everything still pending is cancelled, nothing written
+    {"waitFor": {"path": "ui.export.jobs.0.state", "notEquals": "running", "timeout": 20}},
+    {"expect": [{"path": "ui.export.shown.1.state", "equals": "cancelled"}, {"path": "ui.export.shown.1.written.count", "equals": 0}]},
+    {"snapshot": "dialog-stopped", "element": "id:export.dialog"},
+    {"click": "id:export.close"},
+    {"expect": {"path": "ui.exportSheet", "equals": false}}
+  ]
+}

@@ -35,21 +35,20 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | W6 | W1 | Double-click enter/edit inside compound clips (nested render done) | TL-021 |
 | W6 | W12 | Proxy settings UI; render cache auto-render + green bar | MI-008, PB-005 |
 | W8 | W1 | Menu entry for AU-016; waveform drawing polish; track volume ±0.1 dB shortcuts | AU-016, AU-019, AU-004 |
-| W8 | W11 | Audio-only export dialog (engine done: WAV/AAC/FLAC/ALAC; add MP3) | AU-022, EX-009 |
-| W1 | W11 | Export range (in/out) | TL-028 |
 | W3 | W1/W2/W5/W8 | Timeline/canvas/content/audio-render parts of inspector-partial rows | CV-003/004/006/012, KF-001/003/008, SP-002, AU-004/005, CL-002, TR-002, MK-001 |
 | W14 | W1/W2/W3/W6/W7/W8 | Driver landed (73ea621, docs/TESTING.md): merged teams still lack interaction tests → hardening pass | — |
 | W14 | W14 | SwiftUI onTapGesture/DragGesture views don't receive synthetic events yet (custom inspector sliders) | — |
 | W7 | W2 | Canvas edge pills / ⌥-drag set `TextContent.boxWidth` (fraction of canvas width; engine wraps) | TX-011 |
-| W7 | W11 | Export dialog "Captions" option: `CaptionOps.segments(of:)` + `CaptionFiles.serialize(_:format:)` | TX-025 |
 | W2 | W1 | Timeline preview axis: call `store.hoverPreview(t)` / `hoverPreview(nil)` on hover so the player shows the hovered frame | TL preview axis |
 | W2 | W9 | Decoder downscale + preview render cache for Low/Med quality; real reverse decode (J shuttle is emulated with seeks, no audio) | PB-002/005/008 |
 | W2 | W12 | Settings ▸ Performance: persist preview quality + proxy toggle (`store.previewQuality`, `store.setUsesProxies`) | PB-002, SE-001 |
+| W11 | W12 | Settings toggles: "Speed up hardware encoding" → UserDefaults `montage.export.hardwareEncoding`; "Sound for export" → `ExportQueue.soundDefaultsKey` | EX-016, EX-015 |
 | W1 | — | Cover editor (TL-045), group double-click enter (TL-020), clip markers (TL-025), track volume (TL-018) | TL-045/020/025/018 |
 
 ## Done cross-team items
 - W10 for W7: auto captions/lyrics through `CaptionOps.addCaptionTrack` with word timings (karaoke), translations in `caption.translation`, LLM keywords + translate menu in W7's Captions tab; Text to speech tab (TX-016).
 - W10 for W8: ML voice stems (AUSoundIsolation) feed Isolate voice / Reduce noise / Enhance voice in the rendered stage; HTDemucs instrument stems (AU-010) via the demucs.cpp sidecar.
+- W11 did W8's audio-only export dialog (+ MP3 via the LGPL FFmpeg sidecar), W1's in/out range export (TL-028), W7's export-dialog captions (CaptionOps.segments + CaptionFiles.serialize).
 - W7 did W2's request: `TextContent.boxWidth` in the model; `TextMetrics` now backed by the text engine layout (handles hug rendered text).
 
 - W10 wrote person/subject/custom mattes through W6's `MatteVideoWriter`, flipped `CutoutAvailability.matteCompositingAvailable` (W3 cutout sections now live) and installed the optical-flow `FrameInterpolation.provider`.

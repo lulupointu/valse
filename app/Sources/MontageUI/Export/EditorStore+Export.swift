@@ -94,7 +94,7 @@ enum ExportStateDump {
         if let m = c.dialog {
             let r = m.remembered
             d["dialog"] = [
-                "title": m.title, "folder": m.folder.path, "scope": m.scope.rawValue,
+                "title": m.title, "folder": m.folder.path, "scope": m.scope.rawValue, "duration": m.duration.seconds,
                 "video": r.videoEnabled, "audio": r.audioEnabled, "gif": r.gifEnabled, "captions": r.captionsEnabled,
                 "codec": r.video.codec.rawValue, "resolution": r.video.resolution.rawValue, "fps": r.video.frameRate.fps,
                 "container": r.video.effectiveContainer.rawValue, "audioFormat": r.audio.format.rawValue,

@@ -252,6 +252,11 @@ public enum Exporter {
             if s.codec == .hevc && !hevcAlpha {
                 props[AVVideoProfileLevelKey] = (bitDepth == 10 ? kVTProfileLevel_HEVC_Main10_AutoLevel : kVTProfileLevel_HEVC_Main_AutoLevel) as String
             }
+            if s.codec == .hevc && space == .hdrPQ {
+                // HDR10 static metadata (SMPTE ST 2086 mastering display + CTA-861.3 content light level).
+                props[kVTCompressionPropertyKey_MasteringDisplayColorVolume as String] = HDR10Metadata.masteringDisplay()
+                props[kVTCompressionPropertyKey_ContentLightLevelInfo as String] = HDR10Metadata.contentLightLevel()
+            }
             if hevcAlpha {
                 props[kVTCompressionPropertyKey_TargetQualityForAlpha as String] = 0.9
                 props[kVTCompressionPropertyKey_AlphaChannelMode as String] = kVTAlphaChannelMode_StraightAlpha
@@ -273,6 +278,25 @@ public enum Exporter {
             }
         }
         return out
+    }
+
+    /// HDR10 static metadata blobs as VideoToolbox wants them (big-endian, ST 2086 / CTA-861.3 units).
+    enum HDR10Metadata {
+        /// Display P3 D65 mastering display, 1000 cd/m² peak, 0.005 cd/m² black (the common grading monitor setup).
+        static func masteringDisplay(peakNits: Double = 1000, minNits: Double = 0.005) -> Data {
+            var d = Data()
+            func u16(_ v: Double) { var x = UInt16(v.rounded()).bigEndian; d.append(Data(bytes: &x, count: 2)) }
+            func u32(_ v: Double) { var x = UInt32(v.rounded()).bigEndian; d.append(Data(bytes: &x, count: 4)) }
+            // primaries G, B, R then white point, in 0.00002 units
+            for (x, y) in [(0.265, 0.690), (0.150, 0.060), (0.680, 0.320), (0.3127, 0.3290)] { u16(x / 0.00002); u16(y / 0.00002) }
+            u32(peakNits * 10000); u32(minNits * 10000)
+            return d
+        }
+        /// MaxCLL / MaxFALL (cd/m²).
+        static func contentLightLevel(maxCLL: Int = 1000, maxFALL: Int = 400) -> Data {
+            var a = UInt16(maxCLL).bigEndian, b = UInt16(maxFALL).bigEndian
+            return Data(bytes: &a, count: 2) + Data(bytes: &b, count: 2)
+        }
     }
 
     static func retimed(_ sb: CMSampleBuffer, pts: CMTime, duration: CMTime? = nil) -> CMSampleBuffer? {

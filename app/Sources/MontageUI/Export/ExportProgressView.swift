@@ -50,12 +50,13 @@ struct ExportProgressView: View {
             }
             .padding(.horizontal, 16).frame(height: 60)
         }
-        .onChange(of: allDone) { if allDone, let u = firstVideo { player = AVPlayer(url: u); player?.play() } }
+        // finished (or stopped with some files written): play the first exported video
+        .onChange(of: running) { if !running, let u = firstVideo { player = AVPlayer(url: u); if allDone { player?.play() } } }
     }
 
     var preview: some View {
         ZStack {
-            if let player, allDone {
+            if let player, !running {
                 PlayerLayerView(player: player)
                 Button { player.timeControlStatus == .playing ? player.pause() : player.play() } label: {
                     Image(systemName: "playpause.fill").font(.system(size: 12)).foregroundStyle(.white).padding(6)
@@ -65,9 +66,11 @@ struct ExportProgressView: View {
             } else {
                 Group { if let cover { Image(nsImage: cover).resizable().aspectRatio(contentMode: .fit) } else { Color.black } }
                 Color.black.opacity(0.55)
-                VStack(spacing: 8) {
-                    Text(verbatim: tr("export.generating", Int((progress * 100).rounded(.down)))).font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
-                    ProgressView(value: progress).tint(Theme.accent).frame(width: 200)
+                if running {
+                    VStack(spacing: 8) {
+                        Text(verbatim: tr("export.generating", Int((progress * 100).rounded(.down)))).font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
+                        ProgressView(value: progress).tint(Theme.accent).frame(width: 200)
+                    }
                 }
             }
         }

@@ -134,6 +134,13 @@ import MontageTestSupport
         let expected = Self.code10(ColorMath.convert([0.5, 0.5, 0.5], from: .sdr, wide: false, to: .pq, wide: true)[1])
         let y = try await Self.lumaCode(r.url)
         #expect(abs(y - expected) < 20, "luma code \(y) expected \(expected)")
+        if let ff = MediaInfo.ffprobePath {
+            // HDR10 static metadata on the first frame
+            let side = try Self.shell(ff, ["-v", "error", "-select_streams", "v:0", "-read_intervals", "%+#1", "-show_frames",
+                                            "-show_entries", "frame=side_data_list", "-of", "json", r.url.path])
+            #expect(side.contains("Mastering display metadata") && side.contains("\"max_luminance\": \"10000000/10000\""), "\(side)")
+            #expect(side.contains("Content light level metadata") && side.contains("\"max_content\": 1000"))
+        }
         s.codec = .proRes422
         let pr = try await p.export(seconds: 0.5, settings: s)
         #expect(pr.probe.videoCodec == "prores")
@@ -148,5 +155,14 @@ import MontageTestSupport
         let r = try await p.export(seconds: 0.5, settings: s)
         #expect(r.probe.videoCodec == "h264" && r.probe.pixelFormat == "yuv420p")
         #expect(r.probe.colorTransfer == "bt709" && r.probe.colorPrimaries == "bt709")
+    }
+
+    static func shell(_ exe: String, _ args: [String]) throws -> String {
+        let p = Process(); p.executableURL = URL(fileURLWithPath: exe); p.arguments = args
+        let out = Pipe(); p.standardOutput = out; p.standardError = FileHandle.nullDevice
+        try p.run()
+        let d = out.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return String(decoding: d, as: UTF8.self)
     }
 }

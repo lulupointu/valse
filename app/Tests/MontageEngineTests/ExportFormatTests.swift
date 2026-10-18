@@ -40,6 +40,17 @@ import MontageTestSupport
         #expect((r.probe.videoStartTime ?? 1) < 0.001)
     }
 
+    /// EX-016: "Speed up hardware encoding" off → the software VideoToolbox encoders give the same format.
+    @Test(arguments: [ExportSettings.Codec.h264, .hevc])
+    func softwareEncoderWhenHardwareIsOff(_ codec: ExportSettings.Codec) async throws {
+        let r = try await project(audio: false).export(seconds: 0.5, settings: settings { $0.codec = codec; $0.preferHardware = false })
+        #expect(r.probe.videoCodec == (codec == .h264 ? "h264" : "hevc"))
+        #expect(r.probe.width == 854 && r.probe.height == 480)
+        guard Self.hasFFprobe else { return }
+        #expect(r.probe.frameCount == 15)
+        #expect(r.probe.colorPrimaries == "bt709")
+    }
+
     @Test func mp4Container() async throws {
         let r = try await project(audio: false).export(seconds: 0.5, settings: settings { $0.container = .mp4 })
         #expect(r.url.pathExtension == "mp4")
@@ -341,13 +352,18 @@ import MontageTestSupport
         try await p.addVideo(.solid(.black), seconds: 4)
         try CaptionFile.insert([CaptionCue(start: Time(0.5), end: Time(1.5), text: "Bonjour"),
                                 CaptionCue(start: Time(2), end: Time(3.25), text: "le monde")], into: &p.project)
-        #expect(CaptionExport.serialize(CaptionExport.cues(p.project), format: .srt) ==
+        #expect(CaptionExport.serialize(p.project, format: .srt) ==
                 "1\n00:00:00,500 --> 00:00:01,500\nBonjour\n\n2\n00:00:02,000 --> 00:00:03,250\nle monde\n")
-        #expect(CaptionExport.serialize(CaptionExport.cues(p.project), format: .txt) == "Bonjour\nle monde\n")
-        #expect(CaptionExport.serialize(CaptionExport.cues(p.project), format: .vtt).hasPrefix("WEBVTT\n\n00:00:00.500 --> 00:00:01.500\nBonjour"))
+        #expect(CaptionExport.serialize(p.project, format: .txt) == "Bonjour\nle monde\n")
+        #expect(CaptionExport.serialize(p.project, format: .vtt).hasPrefix("WEBVTT\n\n1\n00:00:00.500 --> 00:00:01.500\nBonjour"))
+        #expect(CaptionExport.serialize(p.project, format: .ass).contains("Dialogue: "))
+        #expect(CaptionExport.serialize(p.project, format: .lrc).contains("[00:00.50]Bonjour"))
+        // round trip through the text engine's parser
+        let back = try CaptionFiles.parse(CaptionExport.serialize(p.project, format: .srt), format: .srt)
+        #expect(back.map(\.text) == ["Bonjour", "le monde"] && back[1].end == 3.25)
         // range-relative
-        let ranged = CaptionExport.cues(p.project, range: TimeRange(start: Time(1), duration: Time(2)))
-        #expect(ranged.count == 2 && ranged[0].start == .zero && ranged[0].end == Time(0.5) && ranged[1].end == Time(2))
+        let ranged = CaptionExport.segments(p.project, range: TimeRange(start: Time(1), duration: Time(2)))
+        #expect(ranged.count == 2 && ranged[0].start == 0 && ranged[0].end == 0.5 && ranged[1].end == 2)
         // burn-in off hides caption tracks only in the export copy
         var s = ExportSettings(); s.burnCaptions = false
         let prepared = Exporter.prepare(p.project, for: s)
@@ -357,6 +373,26 @@ import MontageTestSupport
         let clean = try await renderFrame(prepared, at: 1)
         let area = (x: 0.2, y: 0.8, w: 0.6, h: 0.15)
         #expect(burnt.average(x: area.x, y: area.y, w: area.w, h: area.h).luma > clean.average(x: area.x, y: area.y, w: area.w, h: area.h).luma + 0.01)
+    }
+
+    @Test func autoCaptionTrackExportsWithWordTimingsAndOtherTextIgnored() async throws {
+        var p = TestProject(canvas: Size2(320, 180))
+        try await p.addVideo(.solid(.black), seconds: 4)
+        // a plain title on its own text track must not end up in the caption file once a caption track exists
+        _ = try p.addText("Title", duration: Time(4))
+        let seg = CaptionSegment(text: "hello world", start: 1, end: 2, words: [("hello", 1, 1.4), ("world", 1.5, 2)])
+        #expect(CaptionOps.addCaptionTrack([seg], to: &p.project, origin: .auto) != nil)
+        #expect(CaptionExport.segments(p.project).map(\.text) == ["hello world"])
+        let ranged = CaptionExport.segments(p.project, range: TimeRange(start: Time(1.2), duration: Time(2)))
+        #expect(ranged.count == 1 && ranged[0].start == 0 && abs(ranged[0].words[0].start) < 1e-9 && abs(ranged[0].words[1].start - 0.3) < 1e-9)
+        #expect(CaptionExport.serialize(p.project, format: .ass).contains("\\k"))
+        // sidecar written by the job next to the video
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("cap-\(UUID().uuidString)")
+        var spec = ExportJobSpec(project: p.project, title: "Caps", folder: dir)
+        spec.captions = .srt
+        let urls = try await ExportRunner.run(spec)
+        #expect(try String(contentsOf: urls[0], encoding: .utf8).contains("00:00:01,000 --> 00:00:02,000\nhello world"))
+        try? FileManager.default.removeItem(at: dir)
     }
 
     // MARK: Interchange
