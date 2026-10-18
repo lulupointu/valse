@@ -74,6 +74,7 @@ public enum CompositionBuilder {
     public static func build(project: Project, purpose: RenderPurpose, renderSize: CGSize? = nil,
                              frameRate: FrameRate? = nil, state existingState: RenderState? = nil,
                              audioState existingAudioState: AudioMixState? = nil,
+                             highPrecision: Bool = false,
                              sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
@@ -204,7 +205,8 @@ public enum CompositionBuilder {
 
         let vc = AVMutableVideoComposition()
         let space = project.settings.colorSpace
-        vc.customVideoCompositorClass = space.isHDR ? MontageHDRCompositor.self : MontageCompositor.self
+        // `highPrecision`: 16-bit compositor buffers for SDR too (10-bit HEVC / ProRes export).
+        vc.customVideoCompositorClass = (space.isHDR || highPrecision) ? MontageHDRCompositor.self : MontageCompositor.self
         vc.frameDuration = CMTime(value: CMTimeValue(fr.denominator), timescale: fr.numerator)
         vc.renderSize = renderSize ?? CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
         let tags = ColorTags(space)

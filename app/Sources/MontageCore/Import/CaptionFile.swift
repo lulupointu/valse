@@ -144,6 +144,7 @@ public enum CaptionFile {
     public static func insert(_ cues: [CaptionCue], at offset: Time = .zero, style: TextContent = TextContent(string: "", fontSize: 0.05),
                               into p: inout Project) throws -> TrackID {
         let trackID = TimelineOps.addTrack(.text, to: &p.timeline)
+        if let i = p.timeline.tracks.firstIndex(where: { $0.id == trackID }) { p.timeline.tracks[i].isCaptions = true }
         var lastEnd = Time.zero
         for c in cues {
             let start = max(c.start + offset, lastEnd)

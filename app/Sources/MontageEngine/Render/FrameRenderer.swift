@@ -196,7 +196,8 @@ public final class FrameRenderer: @unchecked Sendable {
 
         let acc = compose(frame.items, clearTo: frame.background)
 
-        var bg = SIMD4<Float>(Float(frame.background.r), Float(frame.background.g), Float(frame.background.b), 1)
+        // w = 0 only for a fully transparent background (alpha export): the output pass then keeps alpha.
+        var bg = SIMD4<Float>(Float(frame.background.r), Float(frame.background.g), Float(frame.background.b), frame.background.a <= 0 ? 0 : 1)
         let finalAcc = acc
         let rp = MTLRenderPassDescriptor()
         rp.colorAttachments[0].texture = output

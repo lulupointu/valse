@@ -16,6 +16,20 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
     public var pixelFormat: String? = nil
     public var colorTransfer: String? = nil
     public var colorPrimaries: String? = nil
+    /// ffprobe only (export format tests): codec profile ("High", "Main 10", "4444 XQ"…), YCbCr matrix, first PTS,
+    /// audio stream facts, container brand / bit rate.
+    public var profile: String? = nil
+    public var colorMatrix: String? = nil
+    public var videoStartTime: Double? = nil
+    public var audioStreamCount: Int = 0
+    public var audioSampleRate: Int? = nil
+    public var audioChannels: Int? = nil
+    public var formatBitRate: Int? = nil
+    public var videoBitRate: Int? = nil
+    public var majorBrand: String? = nil
+    public var formatName: String? = nil
+    /// ffprobe `r_frame_rate` (exact nominal rate, e.g. 24000/1001).
+    public var nominalFPS: Double? = nil
 
     public var description: String {
         "\(videoCodec ?? "-") \(width)x\(height) @\(fps) frames=\(frameCount.map(String.init) ?? "?") dur=\(duration) audio=\(audioCodec ?? "none")"
@@ -52,7 +66,7 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: path)
         p.arguments = ["-v", "error", "-count_packets", "-show_entries",
-                       "stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_packets,pix_fmt,color_transfer,color_primaries:format=duration", "-of", "json", url.path]
+                       "stream=codec_type,codec_name,profile,width,height,avg_frame_rate,r_frame_rate,nb_read_packets,pix_fmt,color_transfer,color_primaries,color_space,start_time,sample_rate,channels,bit_rate:format=duration,bit_rate,format_name:format_tags=major_brand", "-of", "json", url.path]
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
         guard (try? p.run()) != nil else { return nil }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -71,6 +85,15 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
                          fps: rate(v?["avg_frame_rate"] as? String), frameCount: Int(v?["nb_read_packets"] as? String ?? ""),
                          duration: dur, hasAudio: a != nil, audioCodec: a?["codec_name"] as? String,
                          pixelFormat: v?["pix_fmt"] as? String, colorTransfer: v?["color_transfer"] as? String,
-                         colorPrimaries: v?["color_primaries"] as? String)
+                         colorPrimaries: v?["color_primaries"] as? String,
+                         profile: v?["profile"] as? String, colorMatrix: v?["color_space"] as? String,
+                         videoStartTime: Double(v?["start_time"] as? String ?? ""),
+                         audioStreamCount: streams.filter { $0["codec_type"] as? String == "audio" }.count,
+                         audioSampleRate: Int(a?["sample_rate"] as? String ?? ""), audioChannels: a?["channels"] as? Int,
+                         formatBitRate: Int((obj["format"] as? [String: Any])?["bit_rate"] as? String ?? ""),
+                         videoBitRate: Int(v?["bit_rate"] as? String ?? ""),
+                         majorBrand: ((obj["format"] as? [String: Any])?["tags"] as? [String: Any])?["major_brand"] as? String,
+                         formatName: (obj["format"] as? [String: Any])?["format_name"] as? String,
+                         nominalFPS: v.map { rate($0["r_frame_rate"] as? String) })
     }
 }

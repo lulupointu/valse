@@ -94,7 +94,7 @@ public struct ExportResult: Sendable {
 
 /// Exports `project` (optionally only the first `seconds`) to a temp file and probes it.
 public func exportProject(_ project: Project, seconds: Double? = nil, settings: ExportSettings = ExportSettings()) async throws -> ExportResult {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("montage-export-\(UUID().uuidString).\(settings.codec.fileExtension)")
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("montage-export-\(UUID().uuidString).\(settings.fileExtension)")
     let range = seconds.map { TimeRange(start: .zero, duration: Time($0)) }
     try await Exporter.export(project: project, settings: settings, to: url, range: range)
     return ExportResult(url: url, probe: try await MediaInfo.probe(url))

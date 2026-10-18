@@ -263,6 +263,8 @@ enum CoreShaders {
     fragment float4 output_fs(QuadOut in [[stage_in]], texture2d<float> a [[texture(0)]], constant float4& bg [[buffer(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
         float4 c = a.sample(s, in.uv);
+        // bg.a == 0: transparent export (alpha codecs) → straight colour + alpha.
+        if (bg.a < 0.5) { return c.a > 0.0 ? float4(saturate(c.rgb / c.a), saturate(c.a)) : float4(0.0); }
         return float4(saturate(c.rgb + bg.rgb * (1.0 - c.a)), 1.0);
     }
 
@@ -270,6 +272,7 @@ enum CoreShaders {
     fragment half4 output_half_fs(QuadOut in [[stage_in]], texture2d<float> a [[texture(0)]], constant float4& bg [[buffer(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
         float4 c = a.sample(s, in.uv);
+        if (bg.a < 0.5) { return c.a > 0.0 ? half4(half3(saturate(c.rgb / c.a)), half(saturate(c.a))) : half4(0.0h); }
         return half4(half3(saturate(c.rgb + bg.rgb * (1.0 - c.a))), 1.0h);
     }
 

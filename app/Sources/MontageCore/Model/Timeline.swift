@@ -43,6 +43,9 @@ public struct Track: Codable, Sendable, Equatable, Identifiable {
     public var heightPreset: TrackHeight?
     /// Audio waveform size (0.3 / 0.6 / 1.0). nil = 0.3 (CapCut default 30 %).
     public var waveformScale: Double?
+    /// Caption track (imported subtitles / auto captions): exported as SRT/TXT and optionally not burnt in (W11).
+    /// nil = false (older files).
+    public var isCaptions: Bool?
 
     public init(kind: TrackKind, isMain: Bool = false, clips: [Clip] = []) {
         id = TrackID(); self.kind = kind; self.isMain = isMain
