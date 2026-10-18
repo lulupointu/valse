@@ -15,3 +15,4 @@ models/
 dist/
 out/
 release/
+.claude/
