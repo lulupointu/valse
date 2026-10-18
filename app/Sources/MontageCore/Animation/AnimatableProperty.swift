@@ -18,6 +18,8 @@ public struct ParamKey: Hashable, Sendable, Codable, ExpressibleByStringLiteral,
     public static let maskFeather: ParamKey = "mask.feather"
     public static let maskRotation: ParamKey = "mask.rotation"
     public static let textColor: ParamKey = "text.color"
+    public static let chromaIntensity: ParamKey = "chroma.intensity"
+    public static let chromaShadow: ParamKey = "chroma.shadow"
 
     public static func effect(_ id: EffectInstanceID, _ param: String) -> ParamKey { ParamKey("effect.\(id.raw.uuidString).\(param)") }
 
@@ -61,6 +63,10 @@ public enum AnimatableProperties {
               set: { c, v in if let v = v.scalar { c.mask?.feather = v } }),
         .init(key: .maskRotation, nameKey: "prop.maskRotation", get: { .scalar($0.mask?.rotation ?? 0) },
               set: { c, v in if let v = v.scalar { c.mask?.rotation = v } }),
+        .init(key: .chromaIntensity, nameKey: "prop.chromaIntensity", get: { .scalar($0.chromaKey?.intensity ?? 0.2) },
+              set: { c, v in if let v = v.scalar { c.chromaKey?.intensity = v } }),
+        .init(key: .chromaShadow, nameKey: "prop.chromaShadow", get: { .scalar($0.chromaKey?.shadow ?? 0) },
+              set: { c, v in if let v = v.scalar { c.chromaKey?.shadow = v } }),
         .init(key: .textColor, nameKey: "prop.textColor",
               get: { if case .text(let t) = $0.content { return .color(t.color) }; return .color(.white) },
               set: { c, v in if case .text(var t) = c.content, let col = v.color { t.color = col; c.content = .text(t) } }),

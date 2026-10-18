@@ -84,3 +84,5 @@
 "blend.lighterColor" = "Lighter color";
 "mask.heart" = "Heart";
 "mask.star" = "Stars";
+"prop.chromaIntensity" = "Chroma key strength";
+"prop.chromaShadow" = "Chroma key shadow";

@@ -84,3 +84,5 @@
 "blend.lighterColor" = "Couleur plus claire";
 "mask.heart" = "Cœur";
 "mask.star" = "Étoiles";
+"prop.chromaIntensity" = "Intensité de la clé chroma";
+"prop.chromaShadow" = "Ombre de la clé chroma";

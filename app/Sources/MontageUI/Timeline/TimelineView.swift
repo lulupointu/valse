@@ -547,6 +547,15 @@ final class TimelineView: NSView {
                 }
             }
         }
+        // Background processing on this clip (reverse render, stabilization, AI…): CapCut shows progress on the clip.
+        if let job = store.jobs.first(where: { $0.subject == clip.id.description && ($0.state == .running || $0.state == .queued) }) {
+            c.rect(r, RGBA(0, 0, 0, 0.55), radius: 4)
+            let bar = CGRect(x: r.minX + 6, y: r.maxY - 8, width: max(0, (r.width - 12) * job.progress), height: 3)
+            c.rect(CGRect(x: r.minX + 6, y: r.maxY - 8, width: max(0, r.width - 12), height: 3), RGBA(1, 1, 1, 0.25), radius: 1.5)
+            c.rect(bar, Self.accent, radius: 1.5)
+            c.text("\(tr(job.titleKey)) \(Int(job.progress * 100)) %", at: CGPoint(x: r.minX + 6, y: r.midY - 6), size: 10.5,
+                   color: .white, maxWidth: max(0, r.width - 12))
+        }
     }
 
     func fadeHandleRect(_ clip: Clip, rect r: CGRect, fadeIn: Bool, layout l: TimelineLayout) -> CGRect {

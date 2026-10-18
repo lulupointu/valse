@@ -33,7 +33,7 @@ enum BuiltinInspector {
         InspectorSection(id: "animation.pick", tab: "animation", order: 0, titleKey: nil) { AnyView(AnimationSection(ctx: $0)) },
         InspectorSection(id: "adjust.lut", tab: "adjust", order: -1, titleKey: "inspector.lut") { AnyView(LUTSection(ctx: $0)) },
         InspectorSection(id: "adjust.stack", tab: "adjust", order: 0, titleKey: nil) { AnyView(EffectStackSection(ctx: $0)) },
-    ]
+    ] + RenderFeatureInspector.sections
 }
 
 // MARK: Sections
