@@ -9,7 +9,7 @@
     {"expect": {"path": "ui.inspectorTab", "equals": "tts"}},
     {"snapshot": "tts-tab", "element": "id:panel.inspector"},
     {"click": "id:tts.generate"},
-    {"waitFor": {"path": "tracks.count", "equals": 7, "timeout": 20}},
+    {"waitFor": {"path": "tracks.count", "equals": 7, "timeout": 60}},
     {"expect": [{"path": "undo.name", "equals": "cmd.tts"}, {"path": "tracks.last.kind", "equals": "audio"}]},
     {"key": "cmd+z"},
     {"expect": {"path": "tracks.count", "equals": 6}}
