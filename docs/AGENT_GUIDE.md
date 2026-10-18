@@ -27,8 +27,9 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
 ## Integrating (you do it yourself, at least once at the end; earlier for big milestones)
 1. `git fetch` is not needed (same repo). In your worktree: `git rebase main` (main = the main repo's branch), resolve conflicts
    preserving BOTH sides' intent, run `scripts/test.sh` (must be green).
-2. Fast-forward main to your branch: `git -C /Users/lulupointu/Development/local-capcut merge --ff-only <your-branch>`.
+2. Try to fast-forward main to your branch: `git -C /Users/lulupointu/Development/local-capcut merge --ff-only <your-branch>`.
    If it fails because main moved, repeat from 1. Never force-push, never reset main, never merge with failing tests.
+   If the ff-merge is blocked by a permission check, don't retry or work around it: just report "ready to merge: <branch> @ <hash>, rebased on <main hash>, tests green" and the orchestrator merges it.
    If the main checkout has uncommitted changes blocking the ff merge, use `git -C <repo> update-ref` ONLY if the working tree
    files involved are untouched; otherwise report it.
 
