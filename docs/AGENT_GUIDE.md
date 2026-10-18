@@ -44,3 +44,8 @@ issues for other teams. Do not paste code.
 docs/STATUS.md tracks workstreams, open cross-team requests and decisions. When you depend on another team, add a row to
 "Cross-team requests" (keep it one line). When you resolve someone's request, move it to "Done cross-team items".
 `scripts/feature_status.py` summarises FEATURES.md (`--list partial --area TL` for details).
+
+## AI models in tests
+The owner allows installing any AI models needed to run tests (2026-10-19). Install via the app's model manager paths
+(Application Support) or scripts; never commit model files. Model-gated UI scripts (`requires.models`) should be run, not skipped,
+when your work touches AI features.
