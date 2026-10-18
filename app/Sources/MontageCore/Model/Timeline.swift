@@ -52,7 +52,12 @@ public struct Track: Codable, Sendable, Equatable, Identifiable {
         isMuted = false; isHidden = false; isLocked = false; self.clips = clips
     }
 
-    public var end: Time { clips.map(\.end).max() ?? .zero }
+    /// End of the last clip (a plain loop: called per frame by the timeline/scrollbar, no temporary array).
+    public var end: Time {
+        var m = Time.zero
+        for i in clips.indices { let e = clips[i].end; if e > m { m = e } }
+        return m
+    }
 
     public func clipIndex(_ id: ClipID) -> Int? { clips.firstIndex { $0.id == id } }
 
@@ -106,7 +111,11 @@ public struct Timeline: Codable, Sendable, Equatable {
         markers = []
     }
 
-    public var duration: Time { tracks.map(\.end).max() ?? .zero }
+    public var duration: Time {
+        var m = Time.zero
+        for i in tracks.indices { let e = tracks[i].end; if e > m { m = e } }
+        return m
+    }
 
     public var mainTrackIndex: Int? { tracks.firstIndex { $0.isMain } }
     public var mainTrack: Track? { mainTrackIndex.map { tracks[$0] } }

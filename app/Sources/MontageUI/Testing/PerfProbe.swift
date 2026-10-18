@@ -34,8 +34,10 @@ final class TimelineFrameProbe {
     private let renderer = Canvas2DRenderer()
     private var target: MTLTexture?
 
-    /// (cpu ms, gpu ms)
-    func measure(_ view: TimelineView) -> (Double, Double) {
+    /// (cpu ms, gpu ms, wall ms). cpu = this thread's CPU time (`CLOCK_THREAD_CPUTIME_ID`): the work the frame costs,
+    /// insensitive to preemption when other processes load the machine (perf runs share it with parallel builds);
+    /// wall = elapsed time (what a user sees on an idle machine; includes preemption and any blocking wait).
+    func measure(_ view: TimelineView) -> (Double, Double, Double) {
         let s = view.window?.backingScaleFactor ?? 2
         let w = max(1, Int(view.bounds.width * s)), h = max(1, Int(view.bounds.height * s))
         if target?.width != w || target?.height != h {
@@ -44,13 +46,21 @@ final class TimelineFrameProbe {
             target = MetalContext.shared.device.makeTexture(descriptor: d)
         }
         let t0 = DispatchTime.now().uptimeNanoseconds
+        let c0 = ThreadCPU.nanoseconds()
         let canvas = view.buildCanvas()
-        guard let target, let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return (0, 0) }
+        guard let target, let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return (0, 0, 0) }
         renderer.encode(canvas, into: target, scale: s, clear: RGBA(hex: 0x1B1B1C), commandBuffer: cmd)
         cmd.commit()
-        let cpu = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6
+        let wall = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6
+        let cpu = Double(ThreadCPU.nanoseconds() - c0) / 1e6
+        view.recycle(canvas)
         cmd.waitUntilCompleted()  // tests only (ARCHITECTURE §13 exception)
         let gpu = max(0, (cmd.gpuEndTime - cmd.gpuStartTime) * 1000)
-        return (cpu, gpu)
+        return (cpu, gpu, wall)
     }
+}
+
+/// CPU time consumed by the calling thread (ns).
+nonisolated public enum ThreadCPU {
+    public static func nanoseconds() -> UInt64 { clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) }
 }

@@ -699,23 +699,25 @@ public final class UITestDriver {
         let mods = SyntheticEvents.modifiers((step["modifiers"] as? [String]) ?? [])
         let alternate = (step["alternate"] as? Bool) ?? false
         let period = max(1, (step["period"] as? Int) ?? 60)
-        var cpu: [Double] = [], gpu: [Double] = []
+        var cpu: [Double] = [], gpu: [Double] = [], wall: [Double] = []
         _ = probe.measure(tl)  // warm-up
         for i in 0..<frames {
             let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
             if dx != 0 || dy != 0, let e = SyntheticEvents.scroll(at: p, in: window, dx: dx * sign, dy: dy * sign, modifiers: mods) {
                 tl.scrollWheel(with: e)
             }
-            let (c, g) = probe.measure(tl)
-            cpu.append(c); gpu.append(g)
+            let (c, g, w) = probe.measure(tl)
+            cpu.append(c); gpu.append(g); wall.append(w)
             if i % 30 == 29 { await Task.yield() }
         }
-        let c = Percentiles(cpu), g = Percentiles(gpu)
+        let c = Percentiles(cpu), g = Percentiles(gpu), w = Percentiles(wall)
         metrics["\(name)_cpu_p50_ms"] = c.p50
         metrics["\(name)_cpu_p95_ms"] = c.p95
         metrics["\(name)_cpu_max_ms"] = c.max
         metrics["\(name)_gpu_p95_ms"] = g.p95
-        log(String(format: "      %@: cpu p50 %.2f ms, p95 %.2f ms, max %.2f ms; gpu p95 %.2f ms (%d frames)", name, c.p50, c.p95, c.max, g.p95, frames))
+        metrics["\(name)_wall_p50_ms"] = w.p50
+        metrics["\(name)_wall_p95_ms"] = w.p95
+        log(String(format: "      %@: cpu p50 %.2f ms, p95 %.2f ms, max %.2f ms; wall p95 %.2f ms; gpu p95 %.2f ms (%d frames)", name, c.p50, c.p95, c.max, w.p95, g.p95, frames))
         try await idle(settle: 0.1)
     }
 

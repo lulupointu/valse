@@ -1,10 +1,13 @@
 {
-  "_doc": "Regression thresholds for scripts/perf.sh (docs/TESTING.md §3). 'default' = this machine at full speed (release build), 'air' = --air mode (efficiency cores, 8 GB policies). Each metric: max and/or min. Missing metrics are skipped. Tighten when you make something faster; never loosen to hide a regression without saying why in the commit. Baseline (M1 Pro, 2026-10): scroll p95 0.6 ms, zoom p95 2.0 ms, fit p95 1.9 ms; air: scroll 9.7, zoom 9.5, fit 154.",
+  "_doc": "Regression thresholds for scripts/perf.sh (docs/TESTING.md §3). 'default' = this machine at full speed (release build), 'air' = --air mode (efficiency cores, 8 GB policies). Each metric: max and/or min. Missing metrics are skipped. Tighten when you make something faster; never loosen to hide a regression without saying why in the commit. Timeline '_cpu_' metrics = main-thread CPU time per frame (robust to machine load); '_wall_' = elapsed time (includes preemption by other processes, hence looser). History (M1 Pro): before W14 LOD (wall clock) scroll p95 0.6 ms, zoom 2.0, fit 1.9; air fit 154. After LOD/caches: scroll 0.36, zoom 0.24, fit 0.26; air cpu scroll 1.6-2.1, zoom 3.7-6, fit 0.9-1.7 (wall 7-15 under load 15-30).",
   "default": {
     "timeline_scroll_cpu_p95_ms": {"max": 4},
     "timeline_zoom_cpu_p95_ms": {"max": 8},
-    "timeline_scroll_fit_cpu_p95_ms": {"max": 6},
+    "timeline_scroll_fit_cpu_p95_ms": {"max": 2},
     "timeline_scroll_gpu_p95_ms": {"max": 3},
+    "timeline_scroll_wall_p95_ms": {"max": 8},
+    "timeline_zoom_wall_p95_ms": {"max": 12},
+    "timeline_scroll_fit_wall_p95_ms": {"max": 6},
     "memory_peak_mb": {"max": 1200},
     "preview4k_composed_fps": {"min": 27},
     "export_10s_1080p_seconds": {"max": 3.5},
@@ -13,8 +16,11 @@
   "air": {
     "timeline_scroll_cpu_p95_ms": {"max": 16},
     "timeline_zoom_cpu_p95_ms": {"max": 16},
-    "timeline_scroll_fit_cpu_p95_ms": {"max": 250, "note": "known issue: zoomed-out timeline with 500 clips is slow on E-cores; lower to 40 when fixed"},
+    "timeline_scroll_fit_cpu_p95_ms": {"max": 16},
     "timeline_scroll_gpu_p95_ms": {"max": 8},
+    "timeline_scroll_wall_p95_ms": {"max": 40},
+    "timeline_zoom_wall_p95_ms": {"max": 40},
+    "timeline_scroll_fit_wall_p95_ms": {"max": 40},
     "memory_peak_mb": {"max": 1200},
     "preview4k_composed_fps": {"min": 20},
     "export_10s_1080p_seconds": {"max": 8},

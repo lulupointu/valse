@@ -15,6 +15,13 @@ struct Canvas2D {
     var images: [ObjectIdentifier: CGImage] = [:]
     var clip: CGRect?
 
+    /// Empties the list but keeps its storage (views reuse one `Canvas2D` across frames: no per-frame allocation).
+    mutating func reset() {
+        items.removeAll(keepingCapacity: true)
+        images.removeAll(keepingCapacity: true)
+        clip = nil
+    }
+
     mutating func rect(_ r: CGRect, _ c: RGBA, radius: CGFloat = 0, border: CGFloat = 0) {
         guard let r = clipped(r) else { return }
         items.append((Inst(rect: v4(r), color: c.simd, uv: .zero, misc: SIMD4(0, Float(radius), Float(border), 0)), .none))
