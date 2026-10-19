@@ -7,3 +7,8 @@
 "shortcut.volumeDown" = "Volume −0,1 dB";
 "audio.volume.toast" = "Volume : %@";
 "audio.sync.done" = "%d clip(s) synchronisé(s) sur le son du premier clip";
+"tlmenu.audioStream" = "Piste audio";
+"tlmenu.audioStream.n" = "Piste %d";
+"tlmenu.audioStream.separate" = "Séparer les pistes audio";
+"cmd.audioStream" = "Piste audio";
+"cmd.separateStreams" = "Séparer les pistes audio";

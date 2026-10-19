@@ -73,6 +73,18 @@ extension TimelineView {
         let visual = clips.contains { s.trackKind(of: $0)?.isVisual == true }
         let hasExtract = single.map { c in s.project.timeline.allClips.contains { $0.extractedFrom == c.id } } ?? false
         let enabledAll = clips.allSatisfy(\.isEnabled)
+        let streams = single.map { TimelineOps.audioStreamCount($0, in: s.project) } ?? 0
+        let current = single?.audioStreamIndex ?? 0
+        var streamItems: [NSMenuItem] = []
+        for k in 0..<max(1, streams) {
+            streamItems.append(MenuAction.item(tr("tlmenu.audioStream.n", k + 1), key: "", [], enabled: streams > 1, checked: current == k) {
+                s.setAudioStream(k)
+            })
+        }
+        let canSeparate: Bool = streams > 1 && isVideo && single?.audio.isMuted == false
+        streamItems.append(.separator())
+        streamItems.append(item("tlmenu.audioStream.separate", enabled: canSeparate) { s.separateAudioStreams() })
+        let streamMenu: NSMenuItem = sub("tlmenu.audioStream", streamItems)
         let overlay = single.map { c in kind?.isVisual == true && !(s.project.timeline.locate(c.id).map { s.project.timeline.tracks[$0.track].isMain } ?? true) } ?? false
 
         var items: [NSMenuItem] = [
@@ -114,6 +126,8 @@ extension TimelineView {
                  : StemSeparator.availableStems.map { st in
                     item(st.nameKey, enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, part: .stem(st)) } }
                  })),
+            // MI-014 (F3): files with several audio streams — pick the one the clip plays, or split them onto tracks
+            streamMenu,
             item(hasExtract ? "tlmenu.restoreAudio" : "tlmenu.extractAudio", "s", [.control, .shift],
                  enabled: hasExtract || (isVideo && asset?.hasAudio == true && single?.audio.isMuted == false)) { s.extractOrRestoreAudio() },
             item("tlmenu.syncAudio", enabled: s.audioClips.count >= 2) { s.syncSelectedAudio() },   // AU-016 (F3)

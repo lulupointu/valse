@@ -588,6 +588,7 @@ extension TimelineOps {
         var x = Clip(content: c.content, start: c.start, duration: c.duration, sourceStart: c.sourceStart)
         x.name = c.name ?? a.name
         x.speed = c.speed; x.reversed = c.reversed; x.audio = c.audio
+        x.audioStreamIndex = c.audioStreamIndex   // MI-014: keep the chosen stream
         x.keyframes = c.keyframes.filter { $0.key == ParamKey.volume.raw }
         x.extractedFrom = c.id
         x.linkedTo = tl.tracks[loc.track].isMain ? c.id : nil

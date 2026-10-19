@@ -1,0 +1,19 @@
+// MI-001: a file dropped from Finder straight onto the empty timeline is imported and placed on the main track.
+// MI-014: the file has 2 audio streams — right-click ▸ Audio track ▸ Track 2 picks the second one; ▸ Separate audio tracks
+// puts each stream on its own audio track (video muted), one undo step each.
+{
+  "project": "demo-bin",
+  "steps": [
+    {"drop": {"files": ["fixtures/two_streams.mov"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 20}},
+    {"expect": {"path": "media.count", "equals": 6}},
+    {"click": "clip:main/0"},
+    {"rightClick": "clip:main/0", "menuItem": "tlmenu.audioStream/Track 2"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.audioStream"}, {"path": "project.timeline.tracks.0.clips.0.audioStreamIndex", "equals": 1}]},
+    {"rightClick": "clip:main/0", "menuItem": "tlmenu.audioStream/tlmenu.audioStream.separate"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.separateStreams"}, {"path": "tracks.count", "equals": 3}]},
+    {"snapshot": "separated", "element": "id:panel.timeline"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "tracks.count", "equals": 1}}
+  ]
+}

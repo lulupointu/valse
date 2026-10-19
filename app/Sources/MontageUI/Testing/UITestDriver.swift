@@ -742,7 +742,7 @@ public final class UITestDriver {
         }
         else if let raw = d["string"] as? String { pb.setString(raw, forType: .string) }   // any payload, e.g. montage-stock:<id>
         else if let files = d["files"] as? [String] {
-            pb.writeObjects(files.map { URL(fileURLWithPath: $0, relativeTo: config.script.deletingLastPathComponent()).absoluteURL as NSURL })
+            pb.writeObjects(files.map { URL(fileURLWithPath: $0, relativeTo: config.script.deletingLastPathComponent()).absoluteURL as NSURL })   // absolute: a relative NSURL loses its base on the pasteboard
         } else { throw Failure("unknown drop payload \(d)") }
 
         guard let host = window.contentView, var v = host.hitTest(host.superview?.convert(p, from: nil) ?? p) else { throw Failure("no view at drop point") }
