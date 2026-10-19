@@ -1,0 +1,15 @@
+// AU-007: Audio ▸ ☑ Reduce noise (default strength 60 %) renders the cleaned-up audio stage in the background; the
+// Strength row is shown; one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:5/0"},
+    {"click": "id:inspector.check.audioBasic.denoise"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.audioEffect"}, {"path": "ui.audioStage.identity", "equals": false},
+                {"path": "project.timeline.tracks.5.clips.0.audio.noiseReduction", "approx": 0.6}]},
+    {"snapshot": "reduce-noise", "element": "id:panel.inspector"},
+    {"waitFor": {"path": "ui.audioStage.ready", "equals": true, "timeout": 120}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "ui.audioStage.identity", "equals": true}}
+  ]
+}
