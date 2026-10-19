@@ -180,7 +180,20 @@ public final class AudioRenderCache: @unchecked Sendable {
             if let t = inflight[k] { return t }
             let t = Task.detached(priority: .userInitiated) { [weak self] () throws -> URL in
                 let owner = self
-                if spec.mlVoice == true, let stems = AudioML.voiceStems {
+                if spec.musicVocals == true, let stems = AudioML.musicStems {
+                    // AU-009 (F3): singing voice vs accompaniment from HTDemucs, then the rest of the chain
+                    try await stems(a) { p in owner?.setProgress(k, 0.7 * p) }
+                    let sep = spec.separation
+                    let mixed = dst.deletingLastPathComponent().appendingPathComponent("ml-\(UUID().uuidString).caf")
+                    defer { try? FileManager.default.removeItem(at: mixed) }
+                    try AudioML.mix(a, voiceGain: sep == .removeVocals ? 0 : 1, restGain: sep == .keepVocals ? 0 : 1, to: mixed,
+                                    voiceKind: "demucs-vocals", restKind: "demucs-novocals")
+                    var rest = spec
+                    rest.separation = nil; rest.musicVocals = nil
+                    try await Self.renderFile(source: mixed, spec: rest, to: dst, duration: a.duration) { p in
+                        owner?.setProgress(k, 0.7 + 0.3 * p)
+                    }
+                } else if spec.mlVoice == true, let stems = AudioML.voiceStems {
                     // W10 ML pre-pass: voice / remaining stems, mixed per setting, then the rest of the DSP chain
                     try await stems(a) { p in owner?.setProgress(k, 0.6 * p) }
                     let sep = spec.separation

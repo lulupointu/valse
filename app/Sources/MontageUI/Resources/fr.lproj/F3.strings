@@ -34,3 +34,8 @@
 "crop.rotate" = "Rotation";
 "crop.reset" = "Réinitialiser";
 "crop.confirm" = "Confirmer";
+"audio.isolate.source" = "Type d'audio";
+"audio.isolate.speech" = "Parole";
+"audio.isolate.music" = "Musique (chant)";
+"audio.isolate.music.needsModel" = "Les voix chantées sont séparées avec le modèle de pistes musicales (HTDemucs).";
+"audio.isolate.music.getModel" = "Obtenir le modèle";

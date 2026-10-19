@@ -151,6 +151,9 @@ public enum AIEngineHooks {
     /// processes don't (unless `MONTAGE_AUDIO_ML=1`) so the DSP tests keep exercising the DSP path.
     public static func installAudioML(force: Bool = false) {
         let isApp = Bundle.main.bundlePath.hasSuffix(".app") || ProcessInfo.processInfo.environment["MONTAGE_AUDIO_ML"] == "1"
+        if AudioML.musicStems == nil {   // AU-009 (F3): singing voice via HTDemucs (fails with "model missing" until installed)
+            AudioML.musicStems = { asset, progress in try await StemSeparator.separateVocals(asset, progress: progress) }
+        }
         guard force || isApp, VoiceIsolator.isAvailable, AudioML.voiceStems == nil else { return }
         AudioML.voiceStems = { asset, progress in try await VoiceIsolator.separate(asset, progress: progress) }
         AudioML.usedByPlans = true

@@ -354,6 +354,8 @@ public struct AudioProps: Hashable, Codable, Sendable {
     public var enhanceVoice: Double?
     /// "Isolate voice" keep/remove vocals, nil = off.
     public var separation: VocalSeparation?
+    /// What "Isolate voice" separates (AU-009): speech (default, nil) or singing over music (HTDemucs vocals stem).
+    public var isolateSource: IsolateSource?
     public var loudness: LoudnessNormalization?
     public var eq: AudioEQ?
     public var channels: ChannelMode
@@ -379,6 +381,7 @@ public struct AudioProps: Hashable, Codable, Sendable {
         noiseReduction = try c.decodeIfPresent(Double.self, forKey: .noiseReduction)
         enhanceVoice = try c.decodeIfPresent(Double.self, forKey: .enhanceVoice)
         separation = try c.decodeIfPresent(VocalSeparation.self, forKey: .separation)
+        isolateSource = try c.decodeIfPresent(IsolateSource.self, forKey: .isolateSource)
         loudness = try c.decodeIfPresent(LoudnessNormalization.self, forKey: .loudness)
         eq = try c.decodeIfPresent(AudioEQ.self, forKey: .eq)
         channels = try c.decodeIfPresent(ChannelMode.self, forKey: .channels) ?? .stereo

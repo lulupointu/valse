@@ -137,6 +137,12 @@ public enum StateDump {
         ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
         ui["crop"] = CropDialogState.shared.dump   // CV-006 (F3)
+        // AU-009 (F3): offline audio stage of the selected clip (isolate voice / noise reduction …)
+        if let c = store.singleSelectedClip, let a = c.mediaID.flatMap(p.asset) {
+            let spec = ClipAudioPlan.make(c.audio).render
+            ui["audioStage"] = ["busy": AudioRenderCache.shared.isBusy, "identity": spec.isIdentity, "musicVocals": spec.musicVocals == true,
+                                "ready": AudioRenderCache.shared.readyURL(for: a, spec: spec) != nil] as [String: Any]
+        }
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)

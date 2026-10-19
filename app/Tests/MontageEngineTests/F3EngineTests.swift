@@ -2,6 +2,7 @@ import Testing
 import Foundation
 import CoreGraphics
 @preconcurrency import Metal
+@preconcurrency import AVFoundation
 import MontageCore
 import MontageEffects
 @testable import MontageEngine
@@ -70,6 +71,63 @@ import MontageTestSupport
             let c = r30[x, y]
             #expect(c.r + c.b > 0.7, "corner \(x),\(y) = \(c)")
         }
+    }
+}
+
+/// AU-009 "Isolate voice ▸ Music": routed through the HTDemucs vocals / accompaniment stems (fake provider here).
+@Suite(.serialized) struct F3MusicIsolationTests {
+    /// 48 kHz stereo float CAF of a sine (amplitude `amp`), written on a GCD queue (no blocking AV work on the pool).
+    static func writeSine(_ url: URL, hz: Double, amp: Float, seconds: Double) async {
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let fmt = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!
+                let n = AVAudioFrameCount(seconds * 48_000)
+                let b = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: n)!
+                b.frameLength = n
+                for ch in 0..<2 { for i in 0..<Int(n) { b.floatChannelData![ch][i] = amp * Float(sin(2 * .pi * hz * Double(i) / 48_000)) } }
+                let f = try! AVAudioFile(forWriting: url, settings: fmt.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+                try! f.write(from: b)
+                c.resume()
+            }
+        }
+    }
+
+    static func rms(_ url: URL) async -> Float {
+        await withCheckedContinuation { (c: CheckedContinuation<Float, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let f = try! AVAudioFile(forReading: url)
+                let b = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(f.length))!
+                try! f.read(into: b)
+                var s: Float = 0
+                let n = Int(b.frameLength)
+                for i in 0..<n { let v = b.floatChannelData![0][i]; s += v * v }
+                c.resume(returning: (s / Float(max(n, 1))).squareRoot())
+            }
+        }
+    }
+
+    @Test func keepAndRemoveUseTheMusicStems() async throws {
+        let a = MediaAsset(name: "song", kind: .audio, url: URL(fileURLWithPath: "/tmp/song-\(UUID().uuidString).m4a"), duration: 1,
+                           pixelSize: Size2(0, 0), frameRate: nil, hasVideo: false, hasAudio: true, contentHash: "f3-song-\(UUID().uuidString)")
+        let store = AudioStemStore.shared
+        await Self.writeSine(store.stemURL(media: a, kind: "demucs-vocals"), hz: 440, amp: 0.5, seconds: 1)
+        await Self.writeSine(store.stemURL(media: a, kind: "demucs-novocals"), hz: 110, amp: 0.2, seconds: 1)
+        let previous = AudioML.musicStems
+        AudioML.musicStems = { _, p in p(1) }
+        defer { AudioML.musicStems = previous }
+        var props = AudioProps(); props.separation = .keepVocals; props.isolateSource = .music
+        let plan = ClipAudioPlan.make(props)
+        #expect(plan.render.musicVocals == true && plan.render.mlVoice == nil)
+        props.isolateSource = nil
+        #expect(ClipAudioPlan.make(props).render.musicVocals == nil)   // speech keeps the voice-isolation path
+
+        let cache = AudioRenderCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent("f3-audio-\(UUID().uuidString)"))
+        let keep = try await cache.render(a, spec: plan.render)
+        var removeSpec = plan.render; removeSpec.separation = .removeVocals
+        let remove = try await cache.render(a, spec: removeSpec)
+        let k = await Self.rms(keep), r = await Self.rms(remove)
+        #expect(abs(Double(k) - 0.5 / 2.0.squareRoot()) < 0.05, "keep rms \(k)")    // vocals only
+        #expect(abs(Double(r) - 0.2 / 2.0.squareRoot()) < 0.03, "remove rms \(r)")  // accompaniment only
     }
 }
 

@@ -34,3 +34,8 @@
 "crop.rotate" = "Rotate";
 "crop.reset" = "Reset";
 "crop.confirm" = "Confirm";
+"audio.isolate.source" = "Audio type";
+"audio.isolate.speech" = "Speech";
+"audio.isolate.music" = "Music (singing)";
+"audio.isolate.music.needsModel" = "Singing voices are separated with the music stems model (HTDemucs).";
+"audio.isolate.music.getModel" = "Get model";

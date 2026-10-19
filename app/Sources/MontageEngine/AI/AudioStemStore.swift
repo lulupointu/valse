@@ -65,10 +65,18 @@ public enum AudioML {
         return powf(10, -maxReductionDB * s / 20)
     }
 
+    nonisolated(unsafe) private static var _musicStems: (@Sendable (MediaAsset, @escaping @Sendable (Double) -> Void) async throws -> Void)?
+    /// AU-009 (F3): makes the `demucs-vocals` / `demucs-novocals` stems of a media item (HTDemucs; installed by MontageAI).
+    public static var musicStems: (@Sendable (MediaAsset, @escaping @Sendable (Double) -> Void) async throws -> Void)? {
+        get { lock.withLock { _musicStems } }
+        set { lock.withLock { _musicStems = newValue } }
+    }
+
     /// Writes `voiceGain·voice + restGain·novoice` (48 kHz stereo float CAF) for the rendered stage.
-    static func mix(_ a: MediaAsset, voiceGain: Float, restGain: Float, to dst: URL) throws {
+    static func mix(_ a: MediaAsset, voiceGain: Float, restGain: Float, to dst: URL,
+                    voiceKind: String = "voice", restKind: String = "novoice") throws {
         let s = AudioStemStore.shared
-        guard let vu = s.readyStem(media: a, kind: "voice"), let ru = s.readyStem(media: a, kind: "novoice") else {
+        guard let vu = s.readyStem(media: a, kind: voiceKind), let ru = s.readyStem(media: a, kind: restKind) else {
             throw NSError(domain: "Montage.AudioML", code: 1)
         }
         let v = try AVAudioFile(forReading: vu), r = try AVAudioFile(forReading: ru)

@@ -1,0 +1,19 @@
+// AU-009: Audio ▸ ☑ Isolate voice ▸ Audio type: Music (singing) separates the voice with the HTDemucs vocals stem
+// (keep vocals / remove vocals = the accompaniment) in the background; the clip then plays the rendered stage.
+// SKIPPED when the demucs model isn't installed.
+{
+  "project": "demo",
+  "requires": {"models": ["demucs.htdemucs-4s"]},
+  "steps": [
+    {"click": "clip:5/0"},
+    {"click": "id:inspector.check.audioBasic.separation"},
+    {"expect": {"path": "undo.name", "equals": "cmd.separation"}},
+    {"click": "id:audio.isolate.source", "at": [0.75, 0.5]},
+    {"expect": [{"path": "project.timeline.tracks.5.clips.0.audio.isolateSource", "equals": "music"},
+                {"path": "ui.audioStage.musicVocals", "equals": true}]},
+    {"snapshot": "isolate-music", "element": "id:panel.inspector"},
+    {"waitFor": {"path": "ui.audioStage.ready", "equals": true, "timeout": 240}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "ui.audioStage.musicVocals", "equals": false}}
+  ]
+}

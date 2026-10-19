@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageEngine
+import MontageAI
 
 /// Observable bridge for background audio renders (voice changer, noise reduction…): drives "Processing…" rows.
 @MainActor @Observable
@@ -153,6 +154,22 @@ struct SeparationSection: View {
             SegmentedTabs(VocalSeparation.allCases.map { ($0.rawValue, tr($0.nameKey)) },
                           selection: AudioInspector.clipBinding(ctx, "cmd.separation", get: { $0.audio.separation?.rawValue ?? "keepVocals" },
                                                                 set: { c, v in c.audio.separation = VocalSeparation(rawValue: v) }))
+            // AU-009 (F3): speech (Apple voice isolation) or singing over music (HTDemucs vocals)
+            InlineRow(label: tr("audio.isolate.source")) {
+                SegmentedTabs(IsolateSource.allCases.map { ($0.rawValue, tr($0.nameKey)) },
+                              selection: AudioInspector.clipBinding(ctx, "cmd.separation", get: { ($0.audio.isolateSource ?? .speech).rawValue },
+                                                                    set: { c, v in let s = IsolateSource(rawValue: v); c.audio.isolateSource = s == .music ? .music : nil }))
+                .testID("audio.isolate.source")
+            }
+            if ctx.clip?.audio.isolateSource == .music, !DemucsRuntime.isAvailable {
+                HStack(spacing: 8) {
+                    Text(loc: "audio.isolate.music.needsModel").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button(tr("audio.isolate.music.getModel")) { ctx.store.ai.isModelSheetPresented = true }
+                        .buttonStyle(SecondaryButtonStyle()).testID("audio.isolate.getModel")
+                }
+            }
         }
     }
 }

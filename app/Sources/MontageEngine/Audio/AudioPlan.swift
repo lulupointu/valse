@@ -20,6 +20,8 @@ public struct RenderStageSpec: Hashable, Codable, Sendable {
     /// W10: separation / denoise / enhance start from the ML voice stem (`AudioML`, AUSoundIsolation) instead of the
     /// DSP separation + denoiser. nil (absent from the cache key) = DSP only.
     public var mlVoice: Bool?
+    /// AU-009 (F3): keep / remove the singing voice with the HTDemucs vocals stem (`AudioML.musicStems`).
+    public var musicVocals: Bool?
 
     public init() {}
 
@@ -67,6 +69,7 @@ public struct ClipAudioPlan: Hashable, Sendable {
         }
         r.pitch = pow(2, semis / 12)
         if AudioML.isAvailable, r.separation != nil || a.noiseReduction != nil || a.enhanceVoice != nil { r.mlVoice = true }
+        if r.separation != nil, a.isolateSource == .music, AudioML.musicStems != nil { r.musicVocals = true; r.mlVoice = nil }
         if let eq = a.eq, !eq.isFlat { live.insert(.eq(eq.gains), at: a.channels != .stereo ? 1 : 0) }
         return ClipAudioPlan(render: r, live: live, staticGain: a.loudness?.gain ?? 1)
     }
