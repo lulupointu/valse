@@ -38,7 +38,7 @@ import MontageTestSupport
         let textTab = InspectorRegistry.allTabs.first { $0.id == "text" }!
         #expect(InspectorRegistry.subTabs(of: textTab, ctx: ctx).map(\.id) == ["basic", "bubble", "effects"])
         let basic = InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: ctx).map(\.id)
-        #expect(basic == ["text.content", "text.transform", "text.opacity", "text.stroke", "text.background", "text.glow", "text.shadow", "text.curve"])
+        #expect(basic == ["text.content", "text.counter", "text.transform", "text.opacity", "text.stroke", "text.background", "text.glow", "text.shadow", "text.curve"])
         let (c, ids) = captionStore()
         c.selection = [ids[0]]
         #expect(tabs(c) == ["text", "captions", "animation", "tts"])
