@@ -102,6 +102,8 @@ public enum StateDump {
         if let k = store.timelineUI.selectedKeyframe { ui["selectedKeyframe"] = ["key": k.key, "time": k.time.seconds] as [String: Any] }
         ui["keyframePanel"] = store.keyframeUI.showsPanel
         ui["assets"] = AssetStateDump.make(store)   // W13 asset panel
+        ui["guides"] = store.playerUI.guides.map { ["axis": $0.axis == .vertical ? "v" : "h", "position": $0.position] }   // PB-011
+        ui["editingGuide"] = store.playerUI.editingGuide != nil
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}

@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import CoreGraphics
 import MontageCore
 import MontageEngine
 @testable import MontageUI
@@ -115,5 +116,31 @@ import MontageTestSupport
         #expect(main.count == 3)
         #expect(main[1].isFreezeFrame && main[1].duration == s.project.settings.frameRate.frameDuration)
         #expect(abs(s.project.duration.seconds - (2 + s.project.settings.frameRate.frameDuration.seconds)) < 0.001)
+    }
+}
+
+/// PB-011 guides: typed positions, saved with the project, restored on load, never undoable.
+@MainActor @Suite struct FinisherGuideTests {
+    @Test func parsePixelsAndPercent() {
+        #expect(GuidePositionMath.parse("540", length: 1080, percent: false) == 0.5)
+        #expect(GuidePositionMath.parse("25 %", length: 1080, percent: false) == 0.25)
+        #expect(GuidePositionMath.parse("12,5", length: 1080, percent: true) == 0.125)
+        #expect(GuidePositionMath.parse("270px", length: 1080, percent: true) == 0.25)
+        #expect(GuidePositionMath.parse("2000", length: 1080, percent: false) == nil)
+        #expect(GuidePositionMath.parse("abc", length: 1080, percent: false) == nil)
+    }
+
+    @Test func guidesPersistWithTheProject() throws {
+        let s = EditorStore()
+        s.playerUI.guides.append(CanvasGuide(axis: .vertical, position: 0.3))
+        #expect(s.project.guides == [ProjectGuide(vertical: true, position: 0.3)])
+        #expect(s.session.undoStack.isEmpty)
+        let data = try JSONEncoder().encode(s.projectForSave)
+        let back = try JSONDecoder().decode(Project.self, from: data)
+        let t = EditorStore()
+        t.load(project: back)
+        #expect(t.playerUI.guides.count == 1 && t.playerUI.guides[0].axis == .vertical && t.playerUI.guides[0].position == 0.3)
+        t.load(project: Project())
+        #expect(t.playerUI.guides.isEmpty)
     }
 }

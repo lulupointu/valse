@@ -142,3 +142,7 @@
 "layout.custom.3" = "Disposition personnalisée 3";
 "layout.saveCustom" = "Enregistrer la disposition actuelle sous";
 "layout.reset" = "Réinitialiser la disposition actuelle";
+/* PB-011 guide position */
+"player.guide.edit" = "Modifier la position du repère…";
+"player.guide.vertical" = "Repère vertical";
+"player.guide.horizontal" = "Repère horizontal";

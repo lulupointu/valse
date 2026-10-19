@@ -19,6 +19,8 @@ public struct Project: Codable, Sendable, Equatable {
     public var compounds: [CompoundClip]?
     /// Project cover (TL-045, main-track "Cover" button): nil = the first frame. Optional so older files decode.
     public var cover: ProjectCover?
+    /// Player guides (PB-011), saved with the project. Optional so older files decode.
+    public var guides: [ProjectGuide]?
 
     /// Diarized caption speakers (names + colours, AI-005 / TX-038). Optional so older files decode.
     public var speakers: [CaptionSpeaker]?
@@ -204,4 +206,11 @@ public struct MediaLookup: Sendable {
     }
     /// Id → asset dictionary (for code that wants one).
     public var dictionary: [MediaID: MediaAsset] { index.mapValues { media[$0] } }
+}
+
+/// A player guide line (PB-011): `vertical` guides sit at `position` × canvas width, horizontal ones × height.
+public struct ProjectGuide: Codable, Sendable, Equatable {
+    public var vertical: Bool
+    public var position: Double
+    public init(vertical: Bool, position: Double) { self.vertical = vertical; self.position = position }
 }

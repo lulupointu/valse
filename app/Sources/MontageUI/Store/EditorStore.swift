@@ -146,6 +146,23 @@ public final class EditorStore {
         installAIHooks()
         installExportHooks()
         syncProjectSlices()
+        playerUI.loadGuides(project.guides)
+        playerUI.onGuidesChanged = { [weak self] in self?.persistGuides() }
+    }
+
+    /// PB-011: guides live in the project (not undoable): written without a history entry, marks the project dirty.
+    func persistGuides() {
+        let g = playerUI.projectGuides
+        guard project.guides != g, !session.isInGesture else { return }
+        session.updateGestureIncrementally { $0.guides = g }
+        didChangeProject()
+    }
+
+    /// The project as written to disk (current guides even after an undo restored an older snapshot).
+    var projectForSave: Project {
+        var p = project
+        p.guides = playerUI.projectGuides
+        return p
     }
 
     // MARK: Editing
@@ -460,7 +477,7 @@ public final class EditorStore {
 
     private func write(to url: URL) {
         do {
-            try ProjectPackage.save(project, to: url)
+            try ProjectPackage.save(projectForSave, to: url)
             session.markSaved()
             lastAutosave = Date()
             firstUnsavedEdit = nil
@@ -477,6 +494,7 @@ public final class EditorStore {
         session.reset(p)
         selection = []
         syncProjectSlices()
+        playerUI.loadGuides(p.guides)
         engine.update(project: p, force: true)
         engine.seek(to: .zero)
         Task { await ProxyManager.shared.request(p.media) }
@@ -492,6 +510,7 @@ public final class EditorStore {
         session.reset(p)
         selection = []
         syncProjectSlices()
+        playerUI.loadGuides(p.guides)
         lastAutosave = nil
         engine.update(project: p, force: true)
         engine.seek(to: .zero)
@@ -514,7 +533,7 @@ public final class EditorStore {
         autosaveTask = Task { [weak self] in
             if !overdue { try? await Task.sleep(for: policy.idleDelay) }
             guard !Task.isCancelled, let self, !self.session.isInGesture else { return }
-            let snapshot = self.project
+            let snapshot = self.projectForSave
             let url = self.packageURL ?? MontagePaths.newProjectURL(baseName: self.projectName)
             if self.packageURL == nil { self.packageURL = url; SessionLock.acquire(url) }
             let rev = self.session.revision

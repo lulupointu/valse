@@ -41,6 +41,7 @@ struct PlayerCanvasArea: View {
         ZStack(alignment: .bottom) {
             PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottomLeading) { KeystrokeOverlay() }
+                .overlay(alignment: .top) { GuidePositionPopover(store: store, ui: store.playerUI).padding(.top, 40) }
             if store.playerUI.isZoomBarVisible {
                 ZoomBar(ui: store.playerUI, store: store).padding(.bottom, 10)
             } else {
@@ -287,6 +288,7 @@ enum PlayerMenus {
         m.addItem(submenu(tr("player.guidesRulers"), [
             item(tr("player.guide.addH")) { ui.guides.append(CanvasGuide(axis: .horizontal, position: 0.5)); ui.showGuides = true },
             item(tr("player.guide.addV")) { ui.guides.append(CanvasGuide(axis: .vertical, position: 0.5)); ui.showGuides = true },
+            item(tr("player.guide.edit"), enabled: !ui.guides.isEmpty) { ui.editingGuide = ui.guides.last?.id; ui.showGuides = true },
             item(tr("player.guide.lock"), checked: ui.guidesLocked, enabled: !ui.guides.isEmpty) { ui.guidesLocked.toggle() },
             item(tr("player.guide.show"), checked: ui.showGuides, enabled: !ui.guides.isEmpty, key: ";", mods: .command) { ui.showGuides.toggle() },
             item(tr("player.guide.clear"), enabled: !ui.guides.isEmpty) { ui.guides.removeAll() },

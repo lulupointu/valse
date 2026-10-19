@@ -142,3 +142,7 @@
 "layout.custom.3" = "Custom layout 3";
 "layout.saveCustom" = "Save current layout as";
 "layout.reset" = "Reset current layout";
+/* PB-011 guide position */
+"player.guide.edit" = "Edit guide position…";
+"player.guide.vertical" = "Vertical guide";
+"player.guide.horizontal" = "Horizontal guide";

@@ -1,0 +1,19 @@
+// Finisher PB-011: drag a guide out of the ruler, double-click it, type an exact position (25 %), Return; the guide is
+// stored in the project. (Vectorscope / histogram scopes are unit-tested; their menu is an NSMenu popup.)
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"key": "opt+cmd+r"},
+    {"drag": "player:0.5,0.012", "to": "player:0.5,0.5", "steps": 8},
+    {"expect": [{"path": "ui.guides.count", "equals": 1}, {"path": "ui.guides.0.axis", "equals": "h"},
+                {"path": "project.guides.count", "equals": 1}]},
+    {"doubleClick": "player:0.5,0.5"},
+    {"expect": {"path": "ui.editingGuide", "equals": true}},
+    {"click": "id:guide.position"},
+    {"type": "25%", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "ui.guides.0.position", "approx": 0.25, "tolerance": 0.001}, {"path": "ui.editingGuide", "equals": false},
+                {"path": "project.guides.0.position", "approx": 0.25, "tolerance": 0.001}, {"path": "undo.depth", "equals": 0}]}
+  ]
+}

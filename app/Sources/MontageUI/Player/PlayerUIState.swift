@@ -29,7 +29,24 @@ public final class PlayerUIState {
     public var showRulers = false
     public var showGuides = true
     public var guidesLocked = false
-    public var guides: [CanvasGuide] = []
+    public var guides: [CanvasGuide] = [] { didSet { if !loadingGuides { onGuidesChanged?() } } }
+    /// Called when the guides change (the store keeps them in the project, PB-011).
+    @ObservationIgnored var onGuidesChanged: (() -> Void)?
+    /// Guide whose position dialog is open (double-click a guide, PB-011).
+    public var editingGuide: UUID?
+    @ObservationIgnored private var loadingGuides = false
+
+    /// Guides as saved in the project.
+    public var projectGuides: [ProjectGuide]? {
+        guides.isEmpty ? nil : guides.map { ProjectGuide(vertical: $0.axis == .vertical, position: $0.position) }
+    }
+
+    /// Replaces the guides from a project without echoing back.
+    func loadGuides(_ g: [ProjectGuide]?) {
+        loadingGuides = true
+        guides = (g ?? []).map { CanvasGuide(axis: $0.vertical ? .vertical : .horizontal, position: $0.position) }
+        loadingGuides = false
+    }
     // Social-media safe zones (PB-010)
     public var safeZone: SafeZone = .none
     /// Preview proxies on/off (mirrors `PlaybackEngine.usesProxies`).
