@@ -161,4 +161,14 @@ struct MaskHandlesTests {
         #expect(r.points.allSatisfy { $0.x >= ShapeDrawing.margin - 1e-9 && $0.x <= 1 - ShapeDrawing.margin + 1e-9 })
         #expect(ShapeDrawing.fit(Array(pts.prefix(2)), layer: g, position: .zero, scale: Vec2(1, 1), canvas: Size2(1000, 600)) == nil)
     }
+
+    @Test func brushPointsMapIntoTheMaskBox() {
+        let g = geometry(rotation: .pi / 2)   // 1920×1080 layer rotated 90° at the canvas centre
+        let m = Mask(shape: .brush, center: Vec2(0.1, 0), size: Vec2(0.5, 1))
+        // the canvas point of mask-box point (0.25, -0.5): layer units (0.1 + 0.125, -0.5) → pixels → rotated
+        let layerPx = Vec2((0.1 + 0.25 * 0.5) * 1920, -0.5 * 1080)
+        let p = g.center + MaskFrame.rotate(layerPx, g.rotation)
+        let b = MaskBrushMapping.boxPoint(p, layer: g, mask: m)
+        #expect(abs(b.x - 0.25) < 1e-9 && abs(b.y + 0.5) < 1e-9)
+    }
 }

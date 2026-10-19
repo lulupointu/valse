@@ -49,6 +49,7 @@ public enum StateDump {
                                         "sizeY": m.size.y, "rotation": m.rotation, "feather": m.feather, "roundness": m.roundness]
                 if let t = m.text { s["text"] = t }
                 if m.shape == .pen { s["points"] = (m.points ?? Mask.defaultPenPoints).map { [$0.x, $0.y] } }
+                if m.shape == .brush { s["strokes"] = (m.strokes ?? []).map { ["points": $0.points.count, "erase": $0.erase] as [String: Any] } }
                 return s
             }
             if let m = c.mask { d["mask"] = maskSummary(m) }

@@ -117,3 +117,12 @@
 "mask.pen.draw" = "Dessiner sur le canevas";
 "mask.pen.cancel" = "Annuler le dessin";
 "mask.pen.hint" = "Cliquez pour ajouter des points, cliquez sur le premier point pour fermer le masque";
+"mask.brush.paint" = "Pinceau rapide";
+"mask.brush.erase" = "Gomme rapide";
+"mask.brush.size" = "Taille du pinceau";
+"mask.brush.start" = "Peindre sur le canevas";
+"mask.brush.done" = "Terminé";
+"mask.brush.clear" = "Effacer tout";
+"mask.brush.hint" = "Peignez la zone à ajuster sur le lecteur";
+"cmd.maskBrush" = "Masque au pinceau";
+"cmd.maskErase" = "Gommer le masque";

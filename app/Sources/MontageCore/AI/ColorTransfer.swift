@@ -85,8 +85,12 @@ public enum ColorTransfer {
     /// Auto adjust / Color correction: gray-world white balance (removes 80 % of the average cast), a levels stretch
     /// of L between the 1st / 99th percentiles towards 3…97 (60 % of the way) with mid-grey re-centring, and a mild
     /// chroma lift for flat footage.
-    public static func autoAdjustLUT(_ s: ColorStats, size: Int = 33, title: String = "Auto adjust") -> LUT {
-        let cast = SIMD2(s.mean.y, s.mean.z) * 0.8
+    /// `skin`: Lab mean of face skin pixels (CL-008 face-aware Color correction) — the white balance then mostly comes
+    /// from the skin (see `skinCast`) instead of the gray-world average, so a dominant scene colour (green lawn, blue
+    /// sea) doesn't tint faces.
+    public static func autoAdjustLUT(_ s: ColorStats, size: Int = 33, title: String = "Auto adjust", skin: SIMD3<Double>? = nil) -> LUT {
+        let gray = SIMD2(s.mean.y, s.mean.z) * 0.8
+        let cast = skin.flatMap { skinCast(SIMD2($0.y, $0.z)) }.map { $0 * 0.8 + gray * 0.2 } ?? gray
         let lo = s.lLow, hi = max(s.lHigh, s.lLow + 10)
         let stretch = 1 + ((94 / (hi - lo)) - 1) * 0.6
         let target = 50 + (s.mean.x - 50) * 0.5   // pull the mean halfway towards mid-grey
@@ -99,5 +103,34 @@ public enum ColorTransfer {
         }
         l.title = title
         return l
+    }
+
+    // MARK: Face-aware white balance (CL-008)
+
+    /// Typical skin hue in CIELAB (degrees of atan2(b, a)) — fairly constant across skin tones, only the chroma and
+    /// lightness vary.
+    public static let skinHue = 55.0
+
+    /// Colour cast (a, b) measured on skin of mean chroma `skin`: the skin keeps its chroma (clamped to a plausible
+    /// 10…32) and should sit on `skinHue`; the cast is what's off (at most 30 Lab units). nil for no skin sample.
+    public static func skinCast(_ skin: SIMD2<Double>) -> SIMD2<Double>? {
+        guard skin.x.isFinite, skin.y.isFinite else { return nil }
+        let c = min(max((skin.x * skin.x + skin.y * skin.y).squareRoot(), 10), 32)
+        let h = skinHue * .pi / 180
+        var cast = skin - SIMD2(cos(h), sin(h)) * c
+        let m = (cast.x * cast.x + cast.y * cast.y).squareRoot()
+        if m > 30 { cast *= 30 / m }
+        return cast
+    }
+
+    /// Lab mean of plausible skin pixels (L 20…95, not saturated beyond skin chroma); nil when too few.
+    public static func skinMean(_ pixels: [SIMD3<Float>]) -> SIMD3<Double>? {
+        var sum = SIMD3<Double>.zero, n = 0.0
+        for p in pixels {
+            let v = lab(p)
+            guard v.x > 20, v.x < 95, (v.y * v.y + v.z * v.z) < 60 * 60 else { continue }
+            sum += v; n += 1
+        }
+        return n >= 20 ? sum / n : nil
     }
 }

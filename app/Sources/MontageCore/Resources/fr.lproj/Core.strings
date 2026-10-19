@@ -96,3 +96,4 @@
 "prop.shapeFill" = "Remplissage";
 "prop.shapeStroke" = "Couleur du contour";
 "prop.shapeStrokeWidth" = "Épaisseur du contour";
+"mask.brush" = "Pinceau";

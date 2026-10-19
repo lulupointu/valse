@@ -261,6 +261,7 @@ struct MaskShapesSection: View {
         case .star: return "star"
         case .text: return "textformat"
         case .pen: return "scribble.variable"
+        case .brush: return "paintbrush.pointed"
         }
     }
 
@@ -276,6 +277,8 @@ struct MaskShapesSection: View {
             var m = Mask(shape: .text, size: Vec2(0.7, 0.35)); m.text = tr("mask.text.default"); return m
         case .pen:
             var m = Mask(shape: .pen, size: Vec2(0.5, 0.6)); m.points = Mask.defaultPenPoints; return m
+        case .brush:
+            var m = Mask(shape: .brush, size: Vec2(1, 1)); m.strokes = []; return m
         }
     }
 
@@ -323,6 +326,9 @@ struct MaskShapesSection: View {
                 .buttonStyle(.plain)
                 .testID("mask.add")
             }
+            if let mask, mask.shape == .brush, let clip = ctx.clip {
+                MaskBrushControls(ctx: ctx, clip: clip, target: target, strokes: mask.strokes?.count ?? 0)
+            }
             if let mask, mask.shape == .pen, let clip = ctx.clip {
                 // MK-002: draw the outline point by point on the canvas (click the first point to close)
                 let drawing = ctx.store.penMaskTool?.clipID == clip.id
@@ -340,7 +346,8 @@ struct MaskShapesSection: View {
                 .testID("mask.pen.draw")
             }
             TileGrid {
-                ForEach(MaskShape.allCases, id: \.self) { s in
+                // Brush (CL-012 Quick brush / eraser) is an Adjust / effect-layer mask shape
+                ForEach(MaskShape.allCases.filter { $0 != .brush || target.index == 0 }, id: \.self) { s in
                     Tile(title: tr(s.nameKey), selected: mask?.shape == s) { setShape(s) } content: {
                         Image(systemName: Self.symbol(s)).font(.system(size: 24, weight: .light)).foregroundStyle(Color(white: 0.85))
                     }
@@ -349,7 +356,7 @@ struct MaskShapesSection: View {
                 }
             }
         }
-        .onDisappear { ctx.store.endPenMask() }
+        .onDisappear { ctx.store.endPenMask(); ctx.store.endMaskBrush() }
     }
 
     /// ＋: a new rectangle mask after the last one, selected for editing.
@@ -375,6 +382,7 @@ struct MaskShapesSection: View {
                     let d = MaskShapesSection.defaultMask(s)
                     if m.text == nil { m.text = d.text }
                     if m.points == nil { m.points = d.points }
+                    if s == .brush { m.center = .zero; m.size = d.size; m.rotation = 0; if m.strokes == nil { m.strokes = [] } }
                     c[keyPath: t.mask] = m
                 }
                 else { c[keyPath: t.mask] = MaskShapesSection.defaultMask(s) }

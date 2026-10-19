@@ -80,4 +80,27 @@ import MontageTestSupport
         #expect(img[0.03, 0.05].isClose(to: .black) && img[0.97, 0.95].isClose(to: .black), "outside the box")
         #expect(img[0.45, 0.32].r < 0.5, "inside the H, above its crossbar")
     }
+
+    /// CL-012 Quick brush / Quick eraser: a painted stroke across the left half grades only there; an erase stroke
+    /// over part of it removes the grade again.
+    @Test func brushMaskGradesThePaintedArea() async throws {
+        var p = TestProject(canvas: Size2(320, 180), background: .black)
+        let id = try p.addSolid(RGBA(0.3, 0.3, 0.3))
+        Self.brightened(&p, id)
+        var m = Mask(shape: .brush, size: Vec2(1, 1))
+        m.strokes = [MaskStroke(points: [Vec2(-0.4, 0), Vec2(-0.05, 0)], radius: 0.15)]
+        p[id].adjustMask = m
+        var img = try await p.render(at: 0.5)
+        #expect(img[0.25, 0.5].g > 0.4, "painted: graded")
+        #expect(img[0.75, 0.5].isClose(to: RGBA(0.3, 0.3, 0.3), tolerance: 0.03), "unpainted: original")
+        #expect(img[0.25, 0.1].isClose(to: RGBA(0.3, 0.3, 0.3), tolerance: 0.03), "above the stroke: original")
+        p[id].adjustMask?.strokes?.append(MaskStroke(points: [Vec2(-0.4, 0)], radius: 0.12, erase: true))
+        img = try await p.render(at: 0.5)
+        #expect(img[0.1, 0.5].isClose(to: RGBA(0.3, 0.3, 0.3), tolerance: 0.04), "erased")
+        #expect(img[0.4, 0.5].g > 0.4, "still painted")
+        // no strokes = nothing graded
+        p[id].adjustMask?.strokes = []
+        img = try await p.render(at: 0.5)
+        #expect(img[0.25, 0.5].isClose(to: RGBA(0.3, 0.3, 0.3), tolerance: 0.03))
+    }
 }

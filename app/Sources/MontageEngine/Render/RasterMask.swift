@@ -51,6 +51,17 @@ public final class RasterMasks: @unchecked Sendable {
             let pts = (m.points ?? Mask.defaultPenPoints).map { CGPoint(x: CGFloat($0.x) * bw, y: CGFloat($0.y) * bh) }
             guard pts.count >= 3 else { return nil }
             ctx.addPath(smoothClosedPath(pts)); ctx.fillPath()
+        case .brush:
+            // painted region: strokes in order, erase strokes paint black (round caps / joins)
+            ctx.setLineCap(.round); ctx.setLineJoin(.round)
+            for st in m.strokes ?? [] where !st.points.isEmpty {
+                ctx.setStrokeColor(gray: st.erase ? 0 : 1, alpha: 1)
+                ctx.setLineWidth(CGFloat(max(st.radius, 0.001) * 2 * Double(h)))
+                let pts = st.points.map { CGPoint(x: CGFloat($0.x) * bw, y: CGFloat($0.y) * bh) }
+                ctx.move(to: pts[0])
+                if pts.count == 1 { ctx.addLine(to: pts[0]) } else { for p in pts.dropFirst() { ctx.addLine(to: p) } }
+                ctx.strokePath()
+            }
         case .text:
             let s = (m.text?.isEmpty == false ? m.text! : "TEXT")
             drawText(s, in: CGRect(x: -bw / 2, y: -bh / 2, width: bw, height: bh), ctx)

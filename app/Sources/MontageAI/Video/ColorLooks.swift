@@ -3,6 +3,7 @@ import CoreGraphics
 import ImageIO
 import CryptoKit
 import Foundation
+import Vision
 import MontageCore
 import MontageEffects
 import MontageEngine
@@ -54,16 +55,21 @@ public enum ColorLooks {
 
     /// Pixels of `count` frames spread over a clip's source range (≤ 160 px decodes), or of an image.
     public static func pixels(_ asset: MediaAsset, range: TimeRange?, count: Int = 8) async throws -> [SIMD3<Float>] {
+        try await frames(asset, range: range, count: count).flatMap(rgb)
+    }
+
+    /// `count` frames spread over a clip's source range (≤ `maxSize` px decodes), or the image.
+    public static func frames(_ asset: MediaAsset, range: TimeRange?, count: Int = 8, maxSize: Int = 160) async throws -> [CGImage] {
         var images: [CGImage] = []
         if asset.kind == .image {
             guard let src = CGImageSourceCreateWithURL(asset.url as CFURL, nil),
-                  let img = CGImageSourceCreateThumbnailAtIndex(src, 0, [kCGImageSourceThumbnailMaxPixelSize: 160,
+                  let img = CGImageSourceCreateThumbnailAtIndex(src, 0, [kCGImageSourceThumbnailMaxPixelSize: maxSize,
                                                                          kCGImageSourceCreateThumbnailFromImageAlways: true] as CFDictionary)
             else { throw AIToolError.noInput }
             images = [img]
         } else {
             let g = AVAssetImageGenerator(asset: AVURLAsset(url: asset.url))
-            g.maximumSize = CGSize(width: 160, height: 160)
+            g.maximumSize = CGSize(width: maxSize, height: maxSize)
             g.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 10); g.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 10)
             let r = range ?? TimeRange(start: .zero, duration: asset.duration)
             for i in 0..<count {
@@ -72,7 +78,7 @@ public enum ColorLooks {
                 if let img = try? await g.image(at: CMTime(seconds: t, preferredTimescale: 600)).image { images.append(img) }
             }
         }
-        return images.flatMap(rgb)
+        return images
     }
 
     public static func pixels(of image: CGImage) -> [SIMD3<Float>] {
@@ -96,13 +102,36 @@ public enum ColorLooks {
         return out
     }
 
+    /// Pixels of the inner cheek / nose area of every face Vision finds in `img` (empty without faces).
+    public static func skinPixels(_ img: CGImage) -> [SIMD3<Float>] {
+        let req = VNDetectFaceRectanglesRequest()
+        guard (try? VNImageRequestHandler(cgImage: img).perform([req])) != nil else { return [] }
+        let faces = (req.results ?? []).filter { $0.confidence > 0.4 }
+        guard !faces.isEmpty else { return [] }
+        let px = rgb(img), w = img.width, h = img.height
+        var out: [SIMD3<Float>] = []
+        for f in faces {
+            let b = f.boundingBox   // normalized, origin bottom-left
+            let x0 = Int((b.minX + b.width * 0.25) * Double(w)), x1 = Int((b.maxX - b.width * 0.25) * Double(w))
+            let yTop = 1 - (b.minY + b.height * 0.7), yBot = 1 - (b.minY + b.height * 0.15)   // eyes … mouth, y down
+            let y0 = Int(yTop * Double(h)), y1 = Int(yBot * Double(h))
+            for y in max(0, y0)..<min(h, max(y0 + 1, y1)) {
+                for x in max(0, x0)..<min(w, max(x0 + 1, x1)) { out.append(px[y * w + x]) }
+            }
+        }
+        return out
+    }
+
     // MARK: Jobs → one undoable edit each
 
     /// Auto adjust / Color correction on a clip.
     public static func autoAdjust(project p: Project, clipID: ClipID, kind: Kind = .auto, strength: Double = 0.8) async throws -> any EditCommand {
         guard let c = p.timeline.clip(clipID), let a = c.mediaID.flatMap(p.asset) else { throw AIToolError.noInput }
-        let stats = ColorStats.of(try await pixels(a, range: c.sourceRange))
-        let id = try register(ColorTransfer.autoAdjustLUT(stats, title: kind.title), kind: kind)
+        let imgs = try await frames(a, range: c.sourceRange, maxSize: kind == .correct ? 360 : 160)
+        let stats = ColorStats.of(imgs.flatMap(rgb))
+        // Color correction (CL-008): white balance from the faces' skin when there are faces
+        let skin = kind == .correct ? ColorTransfer.skinMean(imgs.flatMap(skinPixels)) : nil
+        let id = try register(ColorTransfer.autoAdjustLUT(stats, title: kind.title, skin: skin), kind: kind)
         return Edit(kind == .auto ? "cmd.autoAdjust" : "cmd.colorCorrect") { p in try set(id, kind: kind, strength: strength, on: clipID, in: &p) }
     }
 

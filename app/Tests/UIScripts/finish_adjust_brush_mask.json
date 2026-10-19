@@ -1,0 +1,28 @@
+// CL-012: Adjust ▸ Mask ▸ Brush — "Paint on canvas", a drag on the player paints the adjusted area (one undo step per
+// stroke), Quick eraser strokes remove it, Clear empties it.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"click": "id:mask.shape.brush"},
+    {"expect": [{"path": "selectedClips.0.adjustMask.shape", "equals": "brush"}, {"path": "selectedClips.0.adjustMask.strokes", "count": 0}]},
+    {"click": "id:mask.brush.start"},
+    {"drag": "player:0.3,0.4", "to": "player:0.6,0.5", "steps": 10},
+    {"expect": [{"path": "selectedClips.0.adjustMask.strokes", "count": 1}, {"path": "selectedClips.0.adjustMask.strokes.0.points", "gt": 3},
+                {"path": "undo.name", "equals": "cmd.maskBrush"}]},
+    {"click": "id:mask.brush.mode", "at": [0.75, 0.5]},
+    {"drag": "player:0.5,0.45", "to": "player:0.55,0.45", "steps": 4},
+    {"expect": [{"path": "selectedClips.0.adjustMask.strokes", "count": 2}, {"path": "selectedClips.0.adjustMask.strokes.1.erase", "equals": true}]},
+    {"snapshot": "brush-inspector", "element": "id:panel.inspector"},
+    {"click": "id:mask.brush.clear"},
+    {"expect": {"path": "selectedClips.0.adjustMask.strokes", "count": 0}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.adjustMask.strokes", "count": 2}},
+    {"click": "id:mask.brush.start"},
+    {"expect": {"path": "ui.anchors", "contains": "mask.brush.start"}}
+  ]
+}

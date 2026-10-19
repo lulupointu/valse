@@ -297,7 +297,7 @@ final class CanvasOverlayView: NSView {
         case .rectangle:
             let r = min(mask.roundness * min(hx, hy), min(hx, hy))
             ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil)); ctx.strokePath()
-        case .heart, .star, .text:
+        case .heart, .star, .text, .brush:
             ctx.stroke(box)
         case .pen:
             // the outline itself (same Catmull-Rom path as the raster mask) inside a faint box
@@ -747,6 +747,7 @@ final class CanvasOverlayView: NSView {
         if let eye = store.canvasEyedropper { eye.hover(at: p); NSCursor.crosshair.set(); return }
         if let pen = store.penMaskTool { pen.hover(at: p); NSCursor.crosshair.set(); return }
         if let sd = store.shapeDrawTool { sd.hover(at: p); NSCursor.crosshair.set(); return }
+        if let br = store.maskBrushTool { br.hover(at: p); NSCursor.crosshair.set(); return }
         if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) {
             (g.axis == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set(); return
         }

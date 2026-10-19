@@ -195,9 +195,11 @@ public enum MaskShape: String, Codable, Sendable, CaseIterable {
     case linear, mirror, circle, rectangle, heart, star
     // … then rasterized ones (W3-7): glyph outlines of `Mask.text`, closed smooth path through `Mask.points`.
     case text, pen
+    /// Painted region (CL-012 Adjust mask "Quick brush" / "Quick eraser"): `Mask.strokes`, rasterized too.
+    case brush
     public var nameKey: String { "mask.\(rawValue)" }
     /// Drawn on the CPU into a mask texture instead of evaluated in the placement shader.
-    public var isRaster: Bool { self == .text || self == .pen }
+    public var isRaster: Bool { self == .text || self == .pen || self == .brush }
 }
 
 /// Shape mask in layer-normalized coordinates (0,0 = layer centre, units of layer size).
@@ -216,6 +218,8 @@ public struct Mask: Hashable, Codable, Sendable {
     public var text: String?
     /// Pen mask: closed smooth path through these points, in mask-box units (−0.5…0.5, y down).
     public var points: [Vec2]?
+    /// Brush mask: painted / erased strokes in paint order (mask-box units).
+    public var strokes: [MaskStroke]?
     public init(shape: MaskShape, center: Vec2 = .zero, size: Vec2 = Vec2(0.5, 0.5), rotation: Double = 0,
                 feather: Double = 0, roundness: Double = 0, inverted: Bool = false) {
         self.shape = shape; self.center = center; self.size = size; self.rotation = rotation
@@ -227,6 +231,15 @@ public struct Mask: Hashable, Codable, Sendable {
         let a = Double(i) / 7 * 2 * .pi - .pi / 2
         return Vec2(cos(a) * r, sin(a) * r)
     }
+}
+
+/// One brush stroke of a brush mask (CL-012): a round-capped polyline through `points` (mask-box units, y down) of
+/// radius `radius` (fraction of the layer height); `erase` strokes remove coverage.
+public struct MaskStroke: Hashable, Codable, Sendable {
+    public var points: [Vec2]
+    public var radius: Double
+    public var erase: Bool
+    public init(points: [Vec2], radius: Double, erase: Bool = false) { self.points = points; self.radius = radius; self.erase = erase }
 }
 
 /// Parameter value of an effect / transition / animation.

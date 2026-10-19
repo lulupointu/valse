@@ -117,3 +117,12 @@
 "mask.pen.draw" = "Draw on canvas";
 "mask.pen.cancel" = "Cancel drawing";
 "mask.pen.hint" = "Click to add points, click the first point to close the mask";
+"mask.brush.paint" = "Quick brush";
+"mask.brush.erase" = "Quick eraser";
+"mask.brush.size" = "Brush size";
+"mask.brush.start" = "Paint on canvas";
+"mask.brush.done" = "Done";
+"mask.brush.clear" = "Clear";
+"mask.brush.hint" = "Paint the area to adjust on the player";
+"cmd.maskBrush" = "Brush mask";
+"cmd.maskErase" = "Erase mask";
