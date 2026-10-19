@@ -410,7 +410,8 @@ extension TimelineView {
 
     override func mouseExited(with event: NSEvent) {
         hoverTime = nil; hoverPoint = nil; hoverClip = nil; hoverVolumeClip = nil
-        if let a = previewAnchor { previewAnchor = nil; store.seek(to: a) }
+        // preview axis: back to the playhead — unless playback started meanwhile (it would jump mid-play, C3-5)
+        if let a = previewAnchor { previewAnchor = nil; if !store.transport.isPlaying { store.seek(to: a) } }
         dirty = true
     }
 

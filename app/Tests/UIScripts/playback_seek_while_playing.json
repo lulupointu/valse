@@ -1,0 +1,38 @@
+// C3-5 playback freeze: play, click the ruler while playing (exact seeks), scrub while playing, seek storm (arrow
+// keys), pause / play. After each action the preview must deliver new frames again (`ui.playback.framesSinceSeek`
+// counts frames handed to the player view since the last seek; a frozen preview stays at 0 while the clock runs)
+// and playback must still be on. The engine-level stress on 10-bit B-frame HEVC is PlaybackStressTests.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"key": "space"},
+    {"wait": 1},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.playback.framesSinceSeek", "gte": 2}]},
+    {"click": "time:8@ruler"},
+    {"wait": 1.2},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.playback.framesSinceSeek", "gte": 2},
+                {"path": "ui.playback.lastFrameTime", "gt": 8}, {"path": "playhead", "gt": 8}]},
+    {"click": "time:2@ruler"},
+    {"wait": 1.2},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.playback.framesSinceSeek", "gte": 2},
+                {"path": "ui.playback.lastFrameTime", "gt": 2}, {"path": "playhead", "lt": 6}]},
+    // scrub on the ruler while playing (keyframe-tolerant seeks, exact on mouse-up)
+    {"drag": "time:3@ruler", "by": [160, 0], "steps": 16},
+    {"wait": 1.2},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.playback.framesSinceSeek", "gte": 2}]},
+    // rapid clicks in a row
+    {"click": "time:10@ruler"}, {"click": "time:4@ruler"}, {"click": "time:12@ruler"}, {"click": "time:6@ruler"},
+    {"wait": 1.2},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.playback.framesSinceSeek", "gte": 2},
+                {"path": "ui.playback.lastFrameTime", "gt": 6}, {"path": "playhead", "lt": 9}]},
+    // pause / play right after a seek
+    {"click": "time:5@ruler"}, {"key": "space"}, {"key": "space"},
+    {"wait": 1.2},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.playback.framesSinceSeek", "gte": 2},
+                {"path": "ui.playback.rate", "equals": 1}]},
+    {"key": "space"},
+    {"expect": {"path": "isPlaying", "equals": false}},
+    {"snapshot": "after-stress", "element": "id:panel.player"}
+  ]
+}

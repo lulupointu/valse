@@ -109,8 +109,9 @@ public final class PlaybackEngine {
             Task { @MainActor in
                 guard let self else { return }
                 // stopped by itself (end of item): the playhead is where the player stopped
-                if !playing, !self.seekInFlight, self.reverseShuttleRate == 0 { self.requestedTime = Time(cmTime: self.player.currentTime()) }
-                self.onPlayStateChange?(playing || self.reverseShuttleRate != 0)
+                if !playing, !self.seekInFlight, self.reverseShuttleRate == 0, self.resumeRate == nil { self.requestedTime = Time(cmTime: self.player.currentTime()) }
+                // a seek while playing holds the rate at 0 for a moment: still "playing" for the UI
+                self.onPlayStateChange?(self.isPlaying)
             }
         }
         endObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: nil,
@@ -119,7 +120,7 @@ public final class PlaybackEngine {
             MainActor.assumeIsolated {
                 guard let self, item.value === self.player.currentItem, let r = self.loopRange else { return }
                 self.seek(to: r.start)
-                self.player.playImmediately(atRate: 1)
+                self.resume(atRate: 1)
             }
         }
         proxyObserver = NotificationCenter.default.addObserver(forName: ProxyManager.proxyReadyNotification, object: nil,
@@ -250,22 +251,25 @@ public final class PlaybackEngine {
         state.clearRecent()
         onItemReplaced?()
         seekInFlight = false
+        pendingSeek = nil
+        let rate = resumeRate ?? (player.rate != 0 ? player.rate : 1)
+        resumeRate = nil
         performSeek(min(t, max(.zero, project.duration)), exact: true)
-        if wasPlaying && reverseShuttleRate == 0 { player.play() }
+        if wasPlaying && reverseShuttleRate == 0 { resume(atRate: rate) }
         installLoopObserver()
     }
 
     // MARK: Transport
 
-    public var isPlaying: Bool { player.rate != 0 || reverseShuttleRate != 0 }
+    public var isPlaying: Bool { player.rate != 0 || reverseShuttleRate != 0 || resumeRate != nil }
 
-    public var currentTime: Time { isPlaying ? Time(cmTime: player.currentTime()) : requestedTime }
+    public var currentTime: Time { player.rate != 0 ? Time(cmTime: player.currentTime()) : requestedTime }
 
     public func play() {
         stopReverseShuttle()
         if let r = loopRange, !r.contains(currentTime) { seek(to: r.start) }
         else if currentTime >= duration - project.settings.frameRate.frameDuration { seek(to: .zero) }
-        player.playImmediately(atRate: 1)
+        resume(atRate: 1)
     }
 
     public func pause() {
@@ -273,7 +277,10 @@ public final class PlaybackEngine {
         // Only a playing player's clock is news: when already paused, `requestedTime` is authoritative and the player
         // may still be mid-seek (reading it back raced the seek and moved the playhead — flaky library preview test).
         if player.rate != 0 { requestedTime = Time(cmTime: player.currentTime()) }
+        let held = resumeRate != nil
+        resumeRate = nil
         player.pause()
+        if held { onPlayStateChange?(false) }   // rate was already 0 (seek in flight): no KVO change
         onTimeUpdate?(requestedTime)
     }
 
@@ -286,11 +293,12 @@ public final class PlaybackEngine {
         guard rate != 0 else { pause(); return }
         if rate < 0, player.currentItem?.canPlayReverse != true {
             if player.rate != 0 { player.pause(); requestedTime = Time(cmTime: player.currentTime()) }
+            resumeRate = nil   // a seek in flight must not restart forward playback
             startReverseShuttle(rate)
             return
         }
         stopReverseShuttle()
-        player.rate = rate
+        if seekInFlight { resume(atRate: rate) } else { player.rate = rate }
     }
 
     /// Current shuttle rate (negative = backwards), including the emulated reverse.
@@ -344,9 +352,7 @@ public final class PlaybackEngine {
         loopObserver = player.addBoundaryTimeObserver(forTimes: [NSValue(time: end.cmTime)], queue: .main) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, self.player.rate > 0, let r = self.loopRange else { return }
-                let rate = self.player.rate
-                self.seek(to: r.start)
-                self.player.rate = rate
+                self.seek(to: r.start)   // keeps playing at the same rate once the seek lands
             }
         }
     }
@@ -366,6 +372,7 @@ public final class PlaybackEngine {
     public func seek(to t: Time, exact: Bool = true) {
         if reverseShuttleRate != 0 { stopReverseShuttle() }
         hoverTime = nil
+        framesSinceSeek = 0
         let target = t.clamped(.zero, max(project.duration, .zero))
         requestedTime = target
         onTimeUpdate?(target)
@@ -384,20 +391,49 @@ public final class PlaybackEngine {
     private func performSeek(_ t: Time, exact: Bool) {
         guard player.currentItem != nil else { return }
         seekInFlight = true
+        // Seeking while playing: hold the clock for the seek and resume when the last coalesced seek lands. Seeking with
+        // the timebase running (rate 1, `automaticallyWaitsToMinimizeStalling` off) sometimes left the custom-compositor
+        // video pipeline without a preroll: AVPlayer stopped requesting frames for seconds while audio and the clock ran
+        // on (frozen preview, C3-5; `PlaybackStressTests`).
+        if player.rate != 0 { resumeRate = player.rate; player.rate = 0 }
+        seekGeneration &+= 1
+        let gen = seekGeneration
         let tol = exact ? CMTime.zero : CMTime(value: 1, timescale: 10)
         player.seek(to: t.cmTime, toleranceBefore: tol, toleranceAfter: tol) { [weak self] _ in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, gen == self.seekGeneration else { return }   // superseded (item replaced)
                 self.seekInFlight = false
                 if let (pt, pe) = self.pendingSeek {
                     self.pendingSeek = nil
                     self.performSeek(pt, exact: pe)
+                } else if let r = self.resumeRate {
+                    self.resumeRate = nil
+                    self.player.playImmediately(atRate: r)
                 }
             }
         }
     }
+    /// Rate to resume once the in-flight seek(s) complete (seek requested while playing); nil = stay paused.
+    private var resumeRate: Float?
+    private var seekGeneration = 0
+
+    /// Starts playback at `rate`, after the in-flight seek when there is one (see `performSeek`).
+    private func resume(atRate rate: Float) {
+        if seekInFlight {
+            let was = isPlaying
+            resumeRate = rate
+            if !was { onPlayStateChange?(true) }
+        } else {
+            player.playImmediately(atRate: rate)
+        }
+    }
 
     // MARK: Frames for the view
+
+    /// Frames handed to the view since the last `seek` request, and the item time of the latest one (UI tests:
+    /// `ui.playback` — a frozen preview keeps `framesSinceSeek` at 0 while the clock runs).
+    public private(set) var framesSinceSeek = 0
+    public private(set) var lastFrameTime: Time = .zero
 
     /// Frame to show at a display host time (CACurrentMediaTime base). Returns nil if no new frame.
     public func pixelBuffer(forHostTime host: CFTimeInterval) -> (CVPixelBuffer, Time)? {
@@ -406,7 +442,9 @@ public final class PlaybackEngine {
         guard out.hasNewPixelBuffer(forItemTime: itemTime) else { return nil }
         var shown = CMTime.invalid
         guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { return nil }
-        return (pb, Time(cmTime: shown))
+        framesSinceSeek += 1
+        lastFrameTime = Time(cmTime: shown)
+        return (pb, lastFrameTime)
     }
 
     /// Re-renders the frame at the playhead from the last decoded sources with the LATEST project (paused edits).
