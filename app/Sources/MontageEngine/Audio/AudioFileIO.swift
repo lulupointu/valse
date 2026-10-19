@@ -15,51 +15,54 @@ public enum AudioFileIO {
                               _ body: (AudioBlock) throws -> Void) async throws -> Int {
         let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { return 0 }
-        let reader = try AVAssetReader(asset: asset)
-        if let range { reader.timeRange = range.cmTimeRange }
-        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: sampleRate, AVNumberOfChannelsKey: channels,
-            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false])
-        out.alwaysCopiesSampleData = false
-        reader.add(out)
-        guard reader.startReading() else { throw reader.error ?? NSError(domain: "Montage.audio", code: 1) }
-        defer { if reader.status == .reading { reader.cancelReading() } }
+        // the read loop blocks in copyNextSampleBuffer: keep it off the cooperative pool (OffPool)
+        return try await OffPool.run { ctx in
+            let reader = try AVAssetReader(asset: asset)
+            if let range { reader.timeRange = range.cmTimeRange }
+            let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: sampleRate, AVNumberOfChannelsKey: channels,
+                AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false])
+            out.alwaysCopiesSampleData = false
+            reader.add(out)
+            guard reader.startReading() else { throw reader.error ?? NSError(domain: "Montage.audio", code: 1) }
+            defer { if reader.status == .reading { reader.cancelReading() } }
 
-        let pending = AudioBuffer(channels: channels, frames: chunk, sampleRate: sampleRate)
-        let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: channels)
-        defer { table.deallocate() }
-        var fill = 0, total = 0
-        func flush(_ n: Int) throws {
-            guard n > 0 else { return }
-            for c in 0..<channels { table[c] = pending.pointer(c) }
-            try body(AudioBlock(channels: channels, frames: n, pointers: table))
-            total += n
+            let pending = AudioBuffer(channels: channels, frames: chunk, sampleRate: sampleRate)
+            let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: channels)
+            defer { table.deallocate() }
+            var fill = 0, total = 0
+            func flush(_ n: Int) throws {
+                guard n > 0 else { return }
+                for c in 0..<channels { table[c] = pending.pointer(c) }
+                try body(AudioBlock(channels: channels, frames: n, pointers: table))
+                total += n
+            }
+            func push(_ value: (Int) -> Float) throws {
+                for c in 0..<channels { pending[c, fill] = value(c) }
+                fill += 1
+                if fill == chunk { try flush(fill); fill = 0 }
+            }
+            let origin = range?.start ?? .zero
+            var expected = 0
+            var scratch: [Float] = []
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
+                let pts = Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb))
+                let at = Int(((pts - origin).seconds * sampleRate).rounded())
+                while expected < at { try push { _ in 0 }; expected += 1 }   // leading / gap silence
+                let len = CMBlockBufferGetDataLength(bb)
+                let count = len / 4
+                if scratch.count < count { scratch = [Float](repeating: 0, count: count) }
+                _ = scratch.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(bb, atOffset: 0, dataLength: len, destination: $0.baseAddress!) }
+                let frames = count / channels
+                for i in 0..<frames { try push { scratch[i * channels + $0] } }
+                expected += frames
+            }
+            if reader.status == .failed { throw reader.error ?? NSError(domain: "Montage.audio", code: 2) }
+            try flush(fill)
+            return total
         }
-        func push(_ value: (Int) -> Float) throws {
-            for c in 0..<channels { pending[c, fill] = value(c) }
-            fill += 1
-            if fill == chunk { try flush(fill); fill = 0 }
-        }
-        let origin = range?.start ?? .zero
-        var expected = 0
-        var scratch: [Float] = []
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
-            let pts = Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb))
-            let at = Int(((pts - origin).seconds * sampleRate).rounded())
-            while expected < at { try push { _ in 0 }; expected += 1 }   // leading / gap silence
-            let len = CMBlockBufferGetDataLength(bb)
-            let count = len / 4
-            if scratch.count < count { scratch = [Float](repeating: 0, count: count) }
-            _ = scratch.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(bb, atOffset: 0, dataLength: len, destination: $0.baseAddress!) }
-            let frames = count / channels
-            for i in 0..<frames { try push { scratch[i * channels + $0] } }
-            expected += frames
-        }
-        if reader.status == .failed { throw reader.error ?? NSError(domain: "Montage.audio", code: 2) }
-        try flush(fill)
-        return total
     }
 
     /// Whole file (or range) in memory. For analysis of bounded material and tests.

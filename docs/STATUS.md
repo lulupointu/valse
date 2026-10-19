@@ -200,7 +200,8 @@ projects processed before this fix (face covers refresh themselves when the proj
 - Blocking AVFoundation reads (`copyNextSampleBuffer`, `AudioFileIO.read`, semaphores around async loads) inside `async`
   tests run on Swift's cooperative pool (≈ core count threads): when ~10 such tests overlap the pool is exhausted and
   AVFoundation deadlocks (whole suite hangs at 0 % CPU). New tests must do blocking media work on a GCD queue
-  (`withCheckedContinuation` + `DispatchQueue.global().async`, see `FinisherAudioTests.grain`); avoid in-process
+  (`withCheckedContinuation` + `DispatchQueue.global().async`, see `FinisherAudioTests.grain`); engine read loops use
+  `OffPool.run` (AudioFileIO.stream, AudioMixdown.stream, WaveformCache.compute already do; F3 hang); avoid in-process
   `OSLogStore` enumeration (SupportPackage shells out to `/usr/bin/log`).
 - Quit / end of a UI test: `AppShutdown.stopBackgroundWork()` cancels exports + every `JobQueue` job and waits for them (exiting under live Core ML/Metal work crashed in MPSGraph teardown). The `ai_remove_inference` exit-139 segfault (clean-check) was the same teardown crash (inference still running at `exit`, MPSGraph logging); also LaMa is now one shared model with serialized predictions and owned pixel copies (stress test `concurrentInpaintingUnderLoadAndCancel`). New background work must go through `JobQueue` (or check `Task.isCancelled`) so quit can stop it.
 

@@ -171,7 +171,7 @@ import MontageTestSupport
 @Suite struct F3WaveformTests {
     @Test func sineHasRmsAboutPeakOverRootTwo() async throws {
         let url = try await TestMedia.video(.solid(.black), seconds: 1, size: CGSize(width: 64, height: 36), audioHz: 440)
-        let w = try await Task.detached { try await WaveformCache.compute(url) }.value
+        let w = try await WaveformCache.compute(url)   // reads off the cooperative pool (OffPool)
         #expect(w.rms.count == w.peaks.count && w.peaks.count >= 95)
         let pk = w.peak(from: 0.2, to: 0.8), rm = w.rmsLevel(from: 0.2, to: 0.8)
         #expect(pk > 0.05)

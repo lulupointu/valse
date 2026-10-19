@@ -11,48 +11,51 @@ public enum AudioMixdown {
                               _ body: (AudioBlock) throws -> Void) async throws -> Int {
         let built = try await CompositionBuilder.build(project: project, purpose: .export)
         let tracks = try await built.composition.loadTracks(withMediaType: .audio)
-        let full = TimeRange(start: .zero, duration: project.duration)
-        let r = range.flatMap { $0.intersection(full) } ?? full
-        let sr = AudioFileIO.sampleRate
-        let totalFrames = Int((r.duration.seconds * sr).rounded())
-        let out = AudioBuffer(channels: 2, frames: chunk, sampleRate: sr)
-        let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 2)
-        defer { table.deallocate() }
-        table[0] = out.pointer(0); table[1] = out.pointer(1)
-        var fill = 0, delivered = 0
-        func push(_ l: Float, _ rr: Float) throws {
-            guard delivered + fill < totalFrames else { return }
-            out[0, fill] = l; out[1, fill] = rr; fill += 1
-            if fill == chunk { try body(AudioBlock(channels: 2, frames: fill, pointers: table)); delivered += fill; fill = 0 }
-        }
-        var expected = 0
-        if !tracks.isEmpty {
-            let reader = try AVAssetReader(asset: built.composition)
-            reader.timeRange = r.cmTimeRange
-            let o = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: Exporter.mixPCMSettings)
-            o.audioMix = built.audioMix
-            o.audioTimePitchAlgorithm = .spectral
-            reader.add(o)
-            guard reader.startReading() else { throw reader.error ?? NSError(domain: "Montage.audio", code: 3) }
-            var scratch: [Float] = []
-            while let sb = o.copyNextSampleBuffer() {
-                try Task.checkCancellation()
-                guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
-                let at = Int(((Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb)) - r.start).seconds * sr).rounded())
-                while expected < at { try push(0, 0); expected += 1 }
-                let len = CMBlockBufferGetDataLength(bb)
-                if scratch.count < len / 4 { scratch = [Float](repeating: 0, count: len / 4) }
-                _ = scratch.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(bb, atOffset: 0, dataLength: len, destination: $0.baseAddress!) }
-                let n = len / 8
-                for i in 0..<n { try push(scratch[2 * i], scratch[2 * i + 1]) }
-                expected += n
+        // the read loop blocks in copyNextSampleBuffer: keep it off the cooperative pool (OffPool)
+        return try await OffPool.run { ctx in
+            let full = TimeRange(start: .zero, duration: project.duration)
+            let r = range.flatMap { $0.intersection(full) } ?? full
+            let sr = AudioFileIO.sampleRate
+            let totalFrames = Int((r.duration.seconds * sr).rounded())
+            let out = AudioBuffer(channels: 2, frames: chunk, sampleRate: sr)
+            let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 2)
+            defer { table.deallocate() }
+            table[0] = out.pointer(0); table[1] = out.pointer(1)
+            var fill = 0, delivered = 0
+            func push(_ l: Float, _ rr: Float) throws {
+                guard delivered + fill < totalFrames else { return }
+                out[0, fill] = l; out[1, fill] = rr; fill += 1
+                if fill == chunk { try body(AudioBlock(channels: 2, frames: fill, pointers: table)); delivered += fill; fill = 0 }
             }
-            if reader.status == .failed { throw reader.error ?? NSError(domain: "Montage.audio", code: 4) }
+            var expected = 0
+            if !tracks.isEmpty {
+                let reader = try AVAssetReader(asset: built.composition)
+                reader.timeRange = r.cmTimeRange
+                let o = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: Exporter.mixPCMSettings)
+                o.audioMix = built.audioMix
+                o.audioTimePitchAlgorithm = .spectral
+                reader.add(o)
+                guard reader.startReading() else { throw reader.error ?? NSError(domain: "Montage.audio", code: 3) }
+                var scratch: [Float] = []
+                while let sb = o.copyNextSampleBuffer() {
+                    try ctx.checkCancellation()
+                    guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
+                    let at = Int(((Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb)) - r.start).seconds * sr).rounded())
+                    while expected < at { try push(0, 0); expected += 1 }
+                    let len = CMBlockBufferGetDataLength(bb)
+                    if scratch.count < len / 4 { scratch = [Float](repeating: 0, count: len / 4) }
+                    _ = scratch.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(bb, atOffset: 0, dataLength: len, destination: $0.baseAddress!) }
+                    let n = len / 8
+                    for i in 0..<n { try push(scratch[2 * i], scratch[2 * i + 1]) }
+                    expected += n
+                }
+                if reader.status == .failed { throw reader.error ?? NSError(domain: "Montage.audio", code: 4) }
+            }
+            // pad to the exact range length (silent tail / no audio)
+            while delivered + fill < totalFrames { try push(0, 0) }
+            if fill > 0 { try body(AudioBlock(channels: 2, frames: fill, pointers: table)); delivered += fill }
+            return delivered
         }
-        // pad to the exact range length (silent tail / no audio)
-        while delivered + fill < totalFrames { try push(0, 0) }
-        if fill > 0 { try body(AudioBlock(channels: 2, frames: fill, pointers: table)); delivered += fill }
-        return delivered
     }
 
     /// Whole mix in memory (tests, short projects).
