@@ -12,6 +12,8 @@ public final class TimelineUIState {
     public var tool: Tool = .select
     /// "Change frame rate for this project?" banner (SP-009): the first video's rate when it differs from the project.
     public var frameRatePrompt: FrameRate?
+    /// "Your media may cause playback lag" banner (MI-009): the imported videos it is about.
+    public var lagPrompt: [MediaID]?
     /// Leftmost visible time in seconds.
     public var scrollTime: Double = 0
     /// Vertical scroll in points.

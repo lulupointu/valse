@@ -1,5 +1,5 @@
 // Finisher PB-015 / PB-003 / PB-004 / SE-016 / SE-014 / SE-015: View ▸ Show keystrokes overlays pressed keys on the
-// player; Settings ▸ Performance playback priority + auto optimization, Edit ▸ mouse; About ▸ Environment test report.
+// player; Settings ▸ Performance playback priority + auto optimization, Edit ▸ mouse; About ▸ Environment test report, Package logs & drafts (SE-018).
 {
   "project": "demo",
   "steps": [
@@ -26,6 +26,8 @@
     {"click": "id:about.environment"},
     {"waitFor": {"path": "ui.anchors", "contains": "env.report", "timeout": 15}},
     {"snapshot": "settings-about-env", "element": "id:settings", "mask": ["id:env.report"]},
+    {"click": "id:about.packageLogs"},
+    {"waitFor": {"path": "ui.anchors", "contains": "support.saved", "timeout": 40}},
     {"click": "id:dialog.ok"},
     {"expect": {"path": "app.settings.playbackPriority", "equals": "performance"}}
   ]

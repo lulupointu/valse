@@ -156,3 +156,18 @@
 "tlmenu.editCompound" = "Modifier le clip composé";
 /* TL-031 preview axis audio */
 "previewAxis.audio" = "Axe de prévisualisation avec audio";
+/* SE-018 support package */
+"support.package" = "Regrouper les journaux et brouillons";
+"support.packaging" = "Création du paquet…";
+"support.saved" = "%@ enregistré (reste sur votre Mac tant que vous ne le partagez pas)";
+"support.reveal" = "Afficher dans le Finder";
+/* MI-009 playback lag */
+"lag.prompt" = "Vos médias risquent de ralentir la lecture : %d vidéo(s)";
+"lag.transcode" = "Transcoder";
+"lag.ignore" = "Ignorer";
+"lag.transcodeMenu" = "Transcoder pour une lecture fluide";
+"lag.transcoding" = "Transcodage de %d vidéo(s) pour une lecture fluide — l’export utilise toujours les originaux";
+"lag.reason.variableFrameRate" = "fréquence d’images variable";
+"lag.reason.highBitrate" = "débit très élevé";
+"lag.reason.highFrameRate" = "haute résolution à fréquence élevée";
+"lag.reason.hdr4K" = "10 bits / HDR au-delà de 1080p";

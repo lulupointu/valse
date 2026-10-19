@@ -106,3 +106,31 @@ import MontageTestSupport
         #expect(AudioDevices.id(forUID: nil, in: outs) == nil)
     }
 }
+
+/// SE-018 support package.
+@Suite struct FinisherSupportPackageTests {
+    @Test func zipHasEnvironmentLogSettingsAndProject() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("fin-support-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: root) }
+        let settings = root.appendingPathComponent("settings.json")
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: settings)
+        let crashes = root.appendingPathComponent("reports")
+        try fm.createDirectory(at: crashes, withIntermediateDirectories: true)
+        try Data("crash".utf8).write(to: crashes.appendingPathComponent("Montage-2026-10-19.ips"))
+        try Data("other".utf8).write(to: crashes.appendingPathComponent("Safari-2026-10-19.ips"))
+        var c = SupportPackage.Contents(projectJSON: Data("{\"name\":\"x\"}".utf8), projectName: "x")
+        c.settingsURL = settings; c.crashReportsDirectory = crashes
+        let zip = try SupportPackage.build(c, into: root.appendingPathComponent("out"), date: Date(timeIntervalSince1970: 0))
+        #expect(zip.pathExtension == "zip" && fm.fileExists(atPath: zip.path))
+        let p = Process(); let pipe = Pipe()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/unzip"); p.arguments = ["-l", zip.path]; p.standardOutput = pipe
+        try p.run(); p.waitUntilExit()
+        let list = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        for f in ["environment.txt", "montage.log", "settings.json", "project/project.json", "crashes/Montage-2026-10-19.ips"] {
+            #expect(list.contains(f), "missing \(f)")
+        }
+        #expect(!list.contains("Safari"))
+    }
+}

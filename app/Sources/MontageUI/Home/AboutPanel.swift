@@ -197,6 +197,9 @@ struct ContentLibraryCredits: View {
 struct UpdatesAndEnvironment: View {
     @State private var report: EnvironmentProbe.Report?
     @State private var running = false
+    @State private var packaging = false
+    /// Last support package written (SE-018), shown with "Show in Finder".
+    @State private var packageURL: URL?
 
     static var releasesURL: URL? {
         (Bundle.main.infoDictionary?["MontageReleasesURL"] as? String).flatMap { URL(string: $0) }
@@ -210,8 +213,19 @@ struct UpdatesAndEnvironment: View {
                     .disabled(Self.releasesURL == nil).testID("about.checkUpdates")
                 Button(tr(running ? "env.running" : "env.run")) { run() }
                     .buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(running).testID("about.environment")
+                Button(tr(packaging ? "support.packaging" : "support.package")) { packageLogs() }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(packaging).testID("about.packageLogs")
             }
             Text(loc: Self.releasesURL == nil ? "about.updates.manual" : "about.updates.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+            if let packageURL {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.zipper").foregroundStyle(Theme.accent)
+                    Text(verbatim: tr("support.saved", packageURL.lastPathComponent)).font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1).truncationMode(.middle).testID("support.saved")
+                    Button(tr("support.reveal")) { NSWorkspace.shared.activateFileViewerSelecting([packageURL]) }
+                        .buttonStyle(.plain).font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
+                }
+            }
             if let report {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
@@ -239,6 +253,24 @@ struct UpdatesAndEnvironment: View {
                 .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
                 .testID("env.report")
             }
+        }
+    }
+
+    /// SE-018: zip logs + environment + settings + crash reports + the open project's project.json into ~/Desktop
+    /// (a temp folder in UI tests), never uploaded.
+    func packageLogs() {
+        packaging = true
+        let store = AppShutdown.store
+        let json = store.flatMap { try? JSONEncoder().encode($0.rootProject) }
+        let name = store?.projectName
+        let dir = TestAnchors.isEnabled ? FileManager.default.temporaryDirectory.appendingPathComponent("montage-uitest-support")
+            : FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
+        Task {
+            let url = await Task.detached(priority: .userInitiated) {
+                try? SupportPackage.build(SupportPackage.Contents(projectJSON: json, projectName: name), into: dir)
+            }.value
+            packaging = false
+            packageURL = url
         }
     }
 

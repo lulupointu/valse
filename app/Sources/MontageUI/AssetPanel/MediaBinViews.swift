@@ -116,6 +116,9 @@ struct MediaCardMenu: View {
             Button(tr("media.link")) { LinkMediaPanel.run(store, asset) }
             Button(tr("media.linkFolder")) { LinkMediaPanel.runFolder(store) }
         }
+        if asset.kind == .video {
+            Button(tr("lag.transcodeMenu")) { store.transcodeForPlayback([asset.id]) }   // MI-009
+        }
         Button(tr("media.info")) { showInfo = true }
         Button(tr("media.showInFinder")) { NSWorkspace.shared.activateFileViewerSelecting([asset.url]) }
         Divider()

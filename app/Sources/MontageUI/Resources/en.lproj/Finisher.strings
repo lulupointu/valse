@@ -156,3 +156,18 @@
 "tlmenu.editCompound" = "Edit compound clip";
 /* TL-031 preview axis audio */
 "previewAxis.audio" = "Preview axis with audio";
+/* SE-018 support package */
+"support.package" = "Package logs & drafts";
+"support.packaging" = "Packaging…";
+"support.saved" = "Saved %@ (stays on your Mac until you share it)";
+"support.reveal" = "Show in Finder";
+/* MI-009 playback lag */
+"lag.prompt" = "Your media may cause playback lag: %d video(s)";
+"lag.transcode" = "Transcode";
+"lag.ignore" = "Ignore";
+"lag.transcodeMenu" = "Transcode for smooth playback";
+"lag.transcoding" = "Transcoding %d video(s) for smooth playback — export still uses the originals";
+"lag.reason.variableFrameRate" = "variable frame rate";
+"lag.reason.highBitrate" = "very high bitrate";
+"lag.reason.highFrameRate" = "high resolution at high frame rate";
+"lag.reason.hdr4K" = "10-bit / HDR above 1080p";

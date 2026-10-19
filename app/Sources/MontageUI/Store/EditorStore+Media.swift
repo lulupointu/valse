@@ -40,6 +40,7 @@ extension EditorStore {
             convertPending.formUnion(all.filter { PlayableMediaCache.shared.isPending($0) }.map(\.contentHash))
             await ProxyManager.shared.request(all)
             proxyPending.formUnion(all.filter { ProxyManager.shared.isPending($0) }.map(\.contentHash))
+            offerTranscode(fresh)   // MI-009
             if let time {
                 var t = time
                 for a in all {
@@ -214,3 +215,51 @@ extension EditorStore {
 }
 
 nonisolated final class MapBox: @unchecked Sendable { var map: [MediaID: URL] = [:] }
+
+// MARK: Playback lag → transcode (MI-009)
+
+extension EditorStore {
+    /// Imported videos likely to lag that get no proxy on their own: show "Your media may cause playback lag".
+    func offerTranscode(_ assets: [MediaAsset]) {
+        let heavy = assets.filter { !PlaybackLagAdvisor.reasons($0).isEmpty && ProxyManager.shared.readyProxyURL(for: $0) == nil
+            && !ProxyManager.shared.isPending($0) }
+        guard !heavy.isEmpty else { return }
+        timelineUI.lagPrompt = heavy.map(\.id)
+    }
+
+    /// [Transcode]: make edit proxies now (preview switches to them when ready; export keeps the originals).
+    public func transcodeForPlayback(_ ids: [MediaID]) {
+        timelineUI.lagPrompt = nil
+        let assets = project.media.filter { ids.contains($0.id) }
+        guard !assets.isEmpty else { return }
+        if !playerUI.usesProxies { setUsesProxies(true) }
+        Task {
+            await ProxyManager.shared.request(assets, force: true)
+            proxyPending.formUnion(assets.filter { ProxyManager.shared.isPending($0) }.map(\.contentHash))
+        }
+        showToast(tr("lag.transcoding", assets.count))
+    }
+}
+
+/// "Your media may cause playback lag" banner above the timeline (MI-009): reasons, [Transcode] [Ignore].
+struct PlaybackLagPrompt: View {
+    let store: EditorStore
+    let ids: [MediaID]
+    var body: some View {
+        let assets = store.project.media.filter { ids.contains($0.id) }
+        let reasons = Array(Set(assets.flatMap(PlaybackLagAdvisor.reasons))).sorted { $0.rawValue < $1.rawValue }
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(red: 0.91, green: 0.70, blue: 0.23))
+            Text(verbatim: tr("lag.prompt", assets.count) + " (" + reasons.map { tr($0.nameKey) }.joined(separator: ", ") + ")")
+                .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.tail)
+            Spacer()
+            Button(tr("lag.transcode")) { store.transcodeForPlayback(ids) }
+                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("lag.transcode")
+            Button(tr("lag.ignore")) { store.timelineUI.lagPrompt = nil }
+                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("lag.ignore")
+        }
+        .padding(.horizontal, 12).frame(height: 34)
+        .background(Color(red: 0.91, green: 0.70, blue: 0.23).opacity(0.12))
+        .testID("lag.prompt")
+    }
+}

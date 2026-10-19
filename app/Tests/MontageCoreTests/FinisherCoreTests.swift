@@ -290,3 +290,23 @@ import Foundation
         #expect(!p.isInsideCompound && p.timeline.clip(cid) != nil)
     }
 }
+
+/// MI-009 playback-lag heuristics.
+@Suite struct FinisherLagTests {
+    @Test func flagsHeavyVideosOnly() {
+        var a = Fx.video("v", seconds: 10)
+        a.pixelSize = Size2(1920, 1080); a.frameRate = .fps30
+        a.techInfo = MediaTechInfo(); a.techInfo?.bitrate = 12_000_000
+        #expect(PlaybackLagAdvisor.reasons(a).isEmpty)
+        a.techInfo?.bitrate = 120_000_000
+        #expect(PlaybackLagAdvisor.reasons(a) == [.highBitrate])
+        a.techInfo?.bitrate = 12_000_000; a.techInfo?.isVariableFrameRate = true
+        #expect(PlaybackLagAdvisor.reasons(a) == [.variableFrameRate])
+        a.techInfo?.isVariableFrameRate = nil
+        a.pixelSize = Size2(3840, 2160); a.frameRate = .fps60
+        #expect(PlaybackLagAdvisor.reasons(a) == [.highFrameRate])
+        a.frameRate = .fps30; a.bitDepth = 10
+        #expect(PlaybackLagAdvisor.reasons(a) == [.hdr4K])
+        #expect(PlaybackLagAdvisor.reasons(Fx.audio("a", seconds: 3)).isEmpty)
+    }
+}

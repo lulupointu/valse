@@ -144,3 +144,20 @@ import MontageTestSupport
         #expect(t.playerUI.guides.isEmpty)
     }
 }
+
+/// MI-009 lag prompt flow.
+@MainActor @Suite struct FinisherLagPromptTests {
+    @Test func heavyImportOffersTranscode() {
+        let s = EditorStore()
+        var a = MediaAsset(name: "v", kind: .video, url: URL(fileURLWithPath: "/tmp/fin-lag.mp4"), duration: Time(5),
+                           pixelSize: Size2(3840, 2160), frameRate: .fps60, hasVideo: true, hasAudio: false, contentHash: UUID().uuidString)
+        s.perform(AddMedia([a]))
+        s.offerTranscode([a])
+        #expect(s.timelineUI.lagPrompt == [a.id])
+        s.transcodeForPlayback([a.id])
+        #expect(s.timelineUI.lagPrompt == nil && s.playerUI.usesProxies)
+        a.pixelSize = Size2(1280, 720); a.frameRate = .fps30
+        s.offerTranscode([a])
+        #expect(s.timelineUI.lagPrompt == nil)
+    }
+}
