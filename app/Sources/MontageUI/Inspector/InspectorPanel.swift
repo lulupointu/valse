@@ -209,7 +209,7 @@ struct SectionHeaderBar: View {
                 CapCheckbox(isOn: Binding(get: { b.wrappedValue }, set: { v in
                     b.wrappedValue = v
                     onCheck?(v)
-                }), enabled: chrome?.disabledReason == nil)
+                }), enabled: chrome?.disabledReason == nil, label: title)
             }
             HStack(spacing: 6) {
                 Text(verbatim: title).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary).lineLimit(1)
@@ -219,8 +219,13 @@ struct SectionHeaderBar: View {
             }
             .contentShape(Rectangle())
             .onTapGesture(perform: toggle)
+            // SE-017: the title expands / collapses the section with VoiceOver too
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(Text(verbatim: tr(expanded ? "ax.expanded" : "ax.collapsed")))
+            .accessibilityAction { toggle() }
             Spacer(minLength: 4)
-            if let a = chrome?.accessory { a }
+            if let a = chrome?.accessory { a.accessibilityLabel(Text(verbatim: title)) }   // SE-017: header switch speaks the section
             if let reset = chrome?.reset {
                 SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"), enabled: chrome?.disabledReason == nil,
                                 size: 13, action: reset)

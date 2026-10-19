@@ -37,7 +37,7 @@ struct VoiceoverPanel: View {
                 HStack {
                     Text(loc: "record.input").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker("", selection: $device) {
+                    Picker(tr("record.input"), selection: $device) {
                         Text(loc: "record.input.default").tag(UInt32(0))
                         ForEach(devices) { Text(verbatim: $0.name).tag($0.id) }
                     }

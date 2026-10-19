@@ -13,7 +13,7 @@ struct MusicSettings: View {
         @Bindable var st = state
         VStack(alignment: .leading, spacing: 0) {
             SettingsRow(tr("settings.music.online"), hint: tr("settings.music.online.hint")) {
-                SwitchButton(isOn: $st.enabled, id: "onlineAudio")
+                SwitchButton(isOn: $st.enabled, id: "onlineAudio", label: tr("settings.music.online"))
             }
             SettingsDivider()
             ForEach(state.providers, id: \.id) { p in

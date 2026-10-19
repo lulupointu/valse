@@ -1,0 +1,23 @@
+// F4 SE-017: keyboard navigation between panels — ⌥⌘] / ⌥⌘[ (View ▸ Next / Previous panel) cycle Media → Player →
+// Editing panel → Timeline with an accent focus ring; the timeline takes the keyboard; a click hides the ring.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"key": "cmd+opt+]"},
+    {"expect": [{"path": "ui.focusedPanel", "equals": "assets"}, {"path": "ui.anchors", "contains": "focusRing.assets"}]},
+    {"key": "cmd+opt+]"},
+    {"expect": {"path": "ui.focusedPanel", "equals": "player"}},
+    {"key": "cmd+opt+]"},
+    {"expect": {"path": "ui.focusedPanel", "equals": "inspector"}},
+    {"snapshot": "f4-focus-ring-inspector"},
+    {"key": "cmd+opt+]"},
+    {"expect": [{"path": "ui.focusedPanel", "equals": "timeline"}, {"path": "ui.firstResponder", "equals": "TimelineView"}]},
+    {"key": "cmd+opt+]"},
+    {"expect": {"path": "ui.focusedPanel", "equals": "assets"}},
+    {"key": "cmd+opt+["},
+    {"expect": {"path": "ui.focusedPanel", "equals": "timeline"}},
+    {"click": "clip:main/1"},
+    {"expect": {"path": "ui.focusedPanel", "equals": ""}}
+  ]
+}

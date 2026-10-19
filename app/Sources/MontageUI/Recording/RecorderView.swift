@@ -283,10 +283,10 @@ struct RecorderModal: View {
                         .frame(width: 300)
                     }
                 }
-                row(tr("record.cursor")) { SwitchButton(isOn: $model.showsCursor, id: "record.cursor") }
+                row(tr("record.cursor")) { SwitchButton(isOn: $model.showsCursor, id: "record.cursor", label: tr("record.cursor")) }
                 row(tr("record.camera")) {
                     HStack(spacing: 10) {
-                        SwitchButton(isOn: $model.camera, id: "record.camera")
+                        SwitchButton(isOn: $model.camera, id: "record.camera", label: tr("record.camera"))
                         if model.camera { deviceMenu(model.cameras, selection: $model.cameraID) }
                     }
                 }
@@ -303,7 +303,7 @@ struct RecorderModal: View {
             }
             row(tr("record.microphone")) {
                 HStack(spacing: 10) {
-                    SwitchButton(isOn: $model.microphone, id: "record.microphone")
+                    SwitchButton(isOn: $model.microphone, id: "record.microphone", label: tr("record.microphone"))
                     if model.microphone { deviceMenu(model.microphones, selection: $model.microphoneID) }
                 }
             }

@@ -587,6 +587,9 @@ struct CoverView: View {
                 }
             }
             .clipped()
+            .accessibilityElement()
+            .accessibilityLabel(Text(verbatim: tr("ax.cover", entry.name)))   // SE-017
+            .accessibilityAddTraits(.isImage)
         .task(id: "\(entry.id)|\(entry.modifiedAt.timeIntervalSince1970)") { image = await CoverCache.shared.image(for: entry) }
     }
 }

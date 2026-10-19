@@ -114,7 +114,7 @@ struct LoudnessSection: View {
             HStack {
                 Text(loc: "audio.loudness.targetLabel").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                 Spacer()
-                Picker("", selection: Binding(get: { l?.targetLUFS ?? -23 }, set: { ctx.store.setLoudnessTarget($0) })) {
+                Picker(tr("audio.loudness.targetLabel"), selection: Binding(get: { l?.targetLUFS ?? -23 }, set: { ctx.store.setLoudnessTarget($0) })) {
                     ForEach(LoudnessNormalization.targets, id: \.self) { t in Text(loc: "audio.loudness.target.\(Int(-t))").tag(t) }
                 }
                 .labelsHidden().frame(width: 180)
@@ -194,7 +194,7 @@ struct ToneSection: View {
             HStack {
                 Text(loc: "audio.channels").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                 Spacer()
-                Picker("", selection: AudioInspector.clipBinding(ctx, "cmd.channels", get: { $0.audio.channels }, set: { c, v in c.audio.channels = v })) {
+                Picker(tr("audio.channels"), selection: AudioInspector.clipBinding(ctx, "cmd.channels", get: { $0.audio.channels }, set: { c, v in c.audio.channels = v })) {
                     ForEach(ChannelMode.allCases, id: \.self) { Text(loc: $0.nameKey).tag($0) }
                 }
                 .labelsHidden().frame(width: 180)
@@ -222,7 +222,7 @@ struct EQEditor: View {
             HStack {
                 Text(loc: "audio.eq.preset").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                 Spacer()
-                Picker("", selection: Binding(get: { eq.presetID ?? "custom" }, set: { id in
+                Picker(tr("audio.eq.preset"), selection: Binding(get: { eq.presetID ?? "custom" }, set: { id in
                     guard let p = Self.presets.first(where: { $0.id == id }), let cid = ctx.clip?.id else { return }
                     Bind.apply(store, cid, "cmd.eq") { $0.audio.eq = AudioEQ(gains: p.gains, presetID: p.id) }
                 })) {

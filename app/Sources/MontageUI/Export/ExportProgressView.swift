@@ -64,7 +64,7 @@ struct ExportProgressView: View {
                 }
                 .buttonStyle(.plain).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading).padding(8)
             } else {
-                Group { if let cover { Image(nsImage: cover).resizable().aspectRatio(contentMode: .fit) } else { Color.black } }
+                Group { if let cover { Image(nsImage: cover).resizable().aspectRatio(contentMode: .fit).accessibilityLabel(Text(verbatim: tr("ax.exportPreview"))) } else { Color.black } }
                 Color.black.opacity(0.55)
                 if running {
                     VStack(spacing: 8) {

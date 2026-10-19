@@ -280,6 +280,8 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             reg("playerFullscreen"),
             detachMenu(),
             layoutMenu(),
+            item("view.nextPanel", id: "view.nextPanel", enabled: { [unowned self] in self.inEditor }) { PanelFocus.shared.move(1) },   // SE-017
+            item("view.prevPanel", id: "view.prevPanel", enabled: { [unowned self] in self.inEditor }) { PanelFocus.shared.move(-1) },
             item("view.showKeystrokes", checked: { KeystrokeFeed.shared.enabled }) { KeystrokeFeed.shared.setEnabled(!KeystrokeFeed.shared.enabled) },
             .separator(),
             item("menu.language.system", checked: { L10n.shared.languagePreference == "system" }) { L10n.shared.setLanguagePreference("system") },

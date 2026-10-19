@@ -351,7 +351,7 @@ public final class UITestDriver {
     // MARK: Steps
 
     static let actions = ["click", "press", "doubleClick", "rightClick", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit", "wait",
-                          "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log"]
+                          "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log", "a11yAudit"]
 
     static func describe(_ step: [String: Any]) -> String {
         guard let a = actions.first(where: { step[$0] != nil }) else { return "?" }
@@ -480,6 +480,22 @@ public final class UITestDriver {
             if m == "open_project" { try await measureOpenProject() } else { try recordMetric(m) }
         } else if let s = step["log"] as? String {
             log("      \(s)")
+        } else if let name = step["a11yAudit"] as? String {
+            // SE-017: VoiceOver audit of what is on screen; fails when more than `max` (default 0) elements have no name
+            AccessibilityAudit.enableTree()
+            try await idle(settle: 0.5)
+            // the real AX API (what VoiceOver uses) from a background thread while the main thread serves it
+            let ax = AccessibilityAuditAX.run()   // in-process AX requests are served on the calling (main) thread
+            var d: [String: Any]
+            if ax.error == nil, ax.checked > 0 {
+                d = ["checked": ax.checked, "unlabeled": ax.unlabeled, "roles": ax.roles, "source": "AXUIElement"]
+            } else {
+                d = AccessibilityAudit.dump(window); d["source"] = "in-process"; d["axError"] = ax.error ?? "empty"
+            }
+            StateDump.write(d, to: out.appendingPathComponent("\(name).a11y.json"))
+            let bad = (d["unlabeled"] as? [String]) ?? []
+            log("      a11y \(name): \(d["checked"] ?? 0) elements checked, \(bad.count) unlabeled")
+            if bad.count > ((step["max"] as? Int) ?? 0) { throw Failure("unlabeled accessibility elements: \(bad.prefix(30).joined(separator: ", "))") }
         } else {
             throw Failure("unknown step (actions: \(Self.actions.joined(separator: ", ")))")
         }

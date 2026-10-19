@@ -1,0 +1,34 @@
+// F4 SE-017: VoiceOver audit, part 2 — text / sticker / adjustment / audio clip inspectors, adjust sub-tabs, the
+// keyframe panel, the export dialog, EditPilot; nothing on screen without a spoken name.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:2/0"},
+    {"a11yAudit": "text-inspector", "max": 0},
+    {"click": "clip:3/0"},
+    {"a11yAudit": "sticker-inspector", "max": 0},
+    {"click": "clip:4/0"},
+    {"a11yAudit": "adjustment-inspector", "max": 0},
+    {"click": "clip:5/0"},
+    {"a11yAudit": "audio-inspector", "max": 0},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:inspector.sub.hsl"},
+    {"a11yAudit": "adjust-hsl", "max": 0},
+    {"click": "id:inspector.sub.curves"},
+    {"a11yAudit": "adjust-curves", "max": 0},
+    {"click": "id:inspector.sub.wheels"},
+    {"a11yAudit": "adjust-wheels", "max": 0},
+    {"key": "opt+k"},
+    {"a11yAudit": "keyframe-panel", "max": 0},
+    {"key": "opt+k"},
+    {"click": "id:titlebar.export"},
+    {"waitFor": {"path": "ui.exportSheet", "equals": true, "timeout": 5}},
+    {"a11yAudit": "export-dialog", "max": 0},
+    {"snapshot": "f4-a11y-export", "element": "id:export.dialog"},
+    {"click": "id:export.cancel"},
+    {"click": "id:titlebar.pilot"},
+    {"a11yAudit": "pilot", "max": 0}
+  ]
+}

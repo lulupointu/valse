@@ -154,6 +154,7 @@ struct ExportCheckboxBox: View {
 struct ExportToggle: View {
     @Binding var isOn: Bool
     var enabled = true
+    var label = ""   // SE-017
     var body: some View {
         Button { withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() } } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
@@ -163,5 +164,7 @@ struct ExportToggle: View {
             .frame(width: 36, height: 20).contentShape(Capsule())
         }
         .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.4)
+        .accessibilityLabel(Text(verbatim: label.isEmpty ? tr("ax.switch") : label))
+        .accessibilityValue(Text(verbatim: tr(isOn ? "ax.on" : "ax.off")))
     }
 }

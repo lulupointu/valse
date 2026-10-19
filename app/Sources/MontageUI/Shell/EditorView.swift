@@ -8,6 +8,7 @@ public struct EditorView: View {
     @Bindable var store: EditorStore
     @Bindable private var layout = EditorLayout.shared
     @Bindable private var onboarding = Onboarding.shared
+    @Bindable private var panelFocus = PanelFocus.shared   // SE-017
     private let locale = LocaleState.shared
 
     public init(store: EditorStore) { self.store = store }
@@ -103,7 +104,7 @@ public struct EditorView: View {
             if layout.detached.contains(p) {
                 DetachedPanelPlaceholder(store: store, panel: p)
             } else {
-                IsolatedHost { DetachedPanelsController.content(p, store) }.testID(id)
+                IsolatedHost(panel: p) { DetachedPanelsController.content(p, store) }.testID(id)
             }
         }
         .overlay(alignment: p == .timeline ? .top : .center) {
@@ -111,6 +112,13 @@ public struct EditorView: View {
             if let s = onboarding.step, s.panel == p {
                 CoachCard(step: s).padding(.top, p == .timeline ? 60 : 0)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.accent, lineWidth: 0))
+            }
+        }
+        .overlay {
+            // SE-017: keyboard focus ring (View ▸ Next panel)
+            if panelFocus.current == p {
+                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).stroke(Theme.accent, lineWidth: 2).allowsHitTesting(false)
+                    .testID("focusRing.\(p.rawValue)")
             }
         }
         .overlay {

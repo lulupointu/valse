@@ -248,6 +248,7 @@ struct KeyframeTripletButtons: View, Equatable {
             }
             .disabled(m.prev == nil)
             .foregroundStyle(m.prev == nil ? IStyle.iconDim.opacity(0.6) : IStyle.icon)
+            .accessibilityLabel(Text(verbatim: tr("ax.keyframe.previous")))   // SE-017
             Button {
                 guard let clip = ctx.clip else { return }
                 let keys = self.keys, local = ctx.localTime, tol = ctx.keyframeTolerance
@@ -263,11 +264,13 @@ struct KeyframeTripletButtons: View, Equatable {
             }
             .disabled(!m.active)
             .help(tr(m.on ? "inspector.keyframe.remove" : "inspector.keyframe.add"))
+            .accessibilityLabel(Text(verbatim: tr(m.on ? "inspector.keyframe.remove" : "inspector.keyframe.add")))
             Button { if let next = m.next, let clip = ctx.clip { store.seek(to: clip.start + next) } } label: {
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .medium)).frame(width: 12, height: 20).contentShape(Rectangle())
             }
             .disabled(m.next == nil)
             .foregroundStyle(m.next == nil ? IStyle.iconDim.opacity(0.6) : IStyle.icon)
+            .accessibilityLabel(Text(verbatim: tr("ax.keyframe.next")))
         }
         .buttonStyle(.plain)
         .frame(width: IStyle.tripletWidth)
@@ -379,6 +382,9 @@ struct HintText: View {
 struct CapToggle: View {
     @Binding var isOn: Bool
     var enabled = true
+    /// SE-017: what VoiceOver says (section headers pass their title through `SectionHeaderBar`).
+    var label = ""
+
     var body: some View {
         ZStack(alignment: isOn ? .trailing : .leading) {
             Capsule().fill(isOn ? Theme.accent : Theme.stepper).frame(width: 36, height: 20)
@@ -388,8 +394,11 @@ struct CapToggle: View {
         .contentShape(Capsule())
         .onTapGesture { if enabled { withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() } } }
         .opacity(enabled ? 1 : 0.4)
+        .accessibilityElement()
+        .accessibilityLabel(Text(verbatim: label.isEmpty ? tr("ax.switch") : label))
         .accessibilityAddTraits(.isButton)
         .accessibilityValue(Text(verbatim: isOn ? "1" : "0"))
+        .accessibilityAction { if enabled { withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() } } }
     }
 }
 
@@ -416,6 +425,9 @@ struct ToggleLine: View {
 struct CapCheckbox: View {
     @Binding var isOn: Bool
     var enabled = true
+    /// SE-017: what VoiceOver says (the section / option it switches on).
+    var label = ""
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
@@ -425,7 +437,11 @@ struct CapCheckbox: View {
         .contentShape(Rectangle())
         .onTapGesture { if enabled { isOn.toggle() } }
         .opacity(enabled ? 1 : 0.4)
+        .accessibilityElement()
+        .accessibilityLabel(Text(verbatim: label.isEmpty ? tr("ax.checkbox") : label))
+        .accessibilityValue(Text(verbatim: tr(isOn ? "ax.on" : "ax.off")))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { if enabled { isOn.toggle() } }
     }
 }
 
@@ -464,6 +480,7 @@ struct Dropdown<ID: Hashable>: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .opacity(0.011)
+            .accessibilityLabel(Text(verbatim: items.first { $0.id == selection }?.title ?? tr("ax.menu")))   // SE-017
         }
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.4)
@@ -631,7 +648,7 @@ struct ColorSwatchButton: View {
                 }
                 .testID("\(testID).eyedropper")
             }
-            ColorPicker("", selection: Binding(get: { Color(color) }, set: { c in
+            ColorPicker(tr("ax.color"), selection: Binding(get: { Color(color) }, set: { c in
                 if let ns = NSColor(c).usingColorSpace(.sRGB) {
                     onChange(RGBA(Double(ns.redComponent), Double(ns.greenComponent), Double(ns.blueComponent), Double(ns.alphaComponent)))
                 }

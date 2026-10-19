@@ -98,6 +98,7 @@ struct ExportSheet: View {
             Group {
                 if let img = model.coverPreview {
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
+                        .accessibilityLabel(Text(verbatim: tr("ax.exportPreview")))   // SE-017
                 } else { Color.black }
             }
             .frame(width: 320, height: 180)
@@ -273,7 +274,7 @@ struct ExportSheet: View {
                 if let detail { Text(verbatim: detail).font(.system(size: 10.5)).foregroundStyle(Theme.textTertiary) }
             }
             Spacer()
-            ExportToggle(isOn: isOn, enabled: enabled)
+            ExportToggle(isOn: isOn, enabled: enabled, label: label)
         }
         .frame(minHeight: ExportStyle.rowHeight)
     }
@@ -407,7 +408,7 @@ struct CoverEditor: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(loc: "export.cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
             Group {
-                if let img = model.coverPreview { Image(nsImage: img).resizable().aspectRatio(contentMode: .fit) } else { Color.black }
+                if let img = model.coverPreview { Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).accessibilityLabel(Text(verbatim: tr("ax.cover", model.title))) } else { Color.black }
             }
             .frame(width: 288, height: 162).background(Color.black).clipShape(RoundedRectangle(cornerRadius: 6))
             Slider(value: $seconds, in: 0...max(0.01, model.project.duration.seconds)) { editing in

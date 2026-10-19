@@ -187,6 +187,8 @@ struct CheckLine: View {
 struct SwitchButton: View {
     @Binding var isOn: Bool
     var id: String
+    /// SE-017: what VoiceOver says (the row's label).
+    var label = ""
     var body: some View {
         Button { withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() } } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
@@ -197,6 +199,8 @@ struct SwitchButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: label.isEmpty ? tr("ax.switch") : label))
+        .accessibilityValue(Text(verbatim: tr(isOn ? "ax.on" : "ax.off")))
         .testID("settings.switch.\(id)")
         .accessibilityValue(Text(verbatim: isOn ? "1" : "0"))
     }
@@ -452,7 +456,7 @@ struct EditSettings: View {
             }
         }
         SettingsRow(tr("settings.scrubAudio"), hint: tr("settings.scrubAudio.hint")) {
-            SwitchButton(isOn: $draft.scrubAudio, id: "scrubAudio")
+            SwitchButton(isOn: $draft.scrubAudio, id: "scrubAudio", label: tr("settings.scrubAudio"))
         }
         SettingsDivider()
         SettingsRow(tr("settings.mouse.wheel")) {
@@ -511,7 +515,7 @@ struct AudioSettings: View {
                           range: 0...100, unit: "%", id: "monitorVolume")
         }
         SettingsRow(tr("settings.scrubAudio"), hint: tr("settings.scrubAudio.hint")) {
-            SwitchButton(isOn: $draft.scrubAudio, id: "scrubAudioAudio")
+            SwitchButton(isOn: $draft.scrubAudio, id: "scrubAudioAudio", label: tr("settings.scrubAudio"))
         }
         SettingsRow(tr("settings.notifications")) {
             CheckLine(label: tr("settings.exportSound"), isOn: $draft.exportSound, id: "exportSoundAudio")
@@ -590,7 +594,7 @@ struct PerformanceSettings: View {
             NumberSetting(value: $draft.renderCacheLimitGB, range: 1...500, unit: "GB", id: "renderLimit")
         }
         SettingsRow(tr("settings.autoRender"), hint: tr("settings.autoRender.hint")) {
-            SwitchButton(isOn: $draft.autoRender, id: "autoRender")
+            SwitchButton(isOn: $draft.autoRender, id: "autoRender", label: tr("settings.autoRender"))
         }
         SettingsDivider()
         SettingsRow(tr("settings.cacheLocation"), hint: tr("settings.cacheLocation.hint")) {

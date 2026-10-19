@@ -1,0 +1,30 @@
+// F4 SE-017: VoiceOver audit of Home (grid + list), every Settings tab and the shortcut editor.
+{
+  "project": "home:6",
+  "steps": [
+    {"a11yAudit": "home-grid", "max": 0},
+    {"click": "id:home.view.list"},
+    {"a11yAudit": "home-list", "max": 0},
+    {"click": "id:home.top.settings"},
+    {"a11yAudit": "settings-general", "max": 0},
+    {"click": "id:settings.tab.project"},
+    {"a11yAudit": "settings-project", "max": 0},
+    {"click": "id:settings.tab.edit"},
+    {"a11yAudit": "settings-edit", "max": 0},
+    {"click": "id:settings.tab.audio"},
+    {"a11yAudit": "settings-audio", "max": 0},
+    {"click": "id:settings.tab.performance"},
+    {"a11yAudit": "settings-performance", "max": 0},
+    {"click": "id:settings.tab.export"},
+    {"a11yAudit": "settings-export", "max": 0},
+    {"click": "id:settings.tab.music"},
+    {"a11yAudit": "settings-music", "max": 0},
+    {"click": "id:settings.tab.shortcuts"},
+    {"a11yAudit": "settings-shortcuts", "max": 0},
+    {"click": "id:settings.tab.about"},
+    {"a11yAudit": "settings-about", "max": 0},
+    {"click": "id:dialog.cancel"},
+    {"click": "id:home.top.shortcuts"},
+    {"a11yAudit": "shortcut-editor", "max": 0}
+  ]
+}

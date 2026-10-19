@@ -9,11 +9,14 @@ import AppKit
 /// (`.global`) stay in window coordinates in a nested hosting view, so the UI test driver needs nothing special.
 struct IsolatedHost<Content: View>: NSViewRepresentable {
     let content: Content
+    /// SE-017: the editor panel this host shows (keyboard focus navigation between panels).
+    var panel: DetachablePanel?
 
-    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    init(panel: DetachablePanel? = nil, @ViewBuilder content: () -> Content) { self.panel = panel; self.content = content() }
 
     func makeNSView(context: Context) -> NSHostingView<AnyView> {
         let h = NSHostingView(rootView: wrapped)
+        if let panel { PanelFocus.shared.register(h, for: panel) }
         h.sizingOptions = []
         h.safeAreaRegions = []
         return h

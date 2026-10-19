@@ -1,0 +1,33 @@
+// F4 SE-017: VoiceOver audit of the editor — every button / checkbox / slider / image / field on screen has a spoken
+// name, on the main panels, each inspector tab of a video clip, a text clip, and the asset tabs.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"a11yAudit": "editor-idle", "max": 0},
+    {"click": "clip:main/1"},
+    {"a11yAudit": "video-basic", "max": 0},
+    {"click": "id:inspector.tab.audio"},
+    {"a11yAudit": "video-audio", "max": 0},
+    {"click": "id:inspector.tab.speed"},
+    {"a11yAudit": "video-speed", "max": 0},
+    {"click": "id:inspector.tab.animation"},
+    {"a11yAudit": "video-animation", "max": 0},
+    {"click": "id:inspector.tab.adjust"},
+    {"a11yAudit": "video-adjust", "max": 0},
+    {"click": "id:asset.tab.audio"},
+    {"a11yAudit": "asset-audio", "max": 0},
+    {"click": "id:asset.tab.text"},
+    {"a11yAudit": "asset-text", "max": 0},
+    {"click": "id:asset.tab.stickers"},
+    {"a11yAudit": "asset-stickers", "max": 0},
+    {"click": "id:asset.tab.effects"},
+    {"a11yAudit": "asset-effects", "max": 0},
+    {"click": "id:asset.tab.transitions"},
+    {"a11yAudit": "asset-transitions", "max": 0},
+    {"click": "id:asset.tab.filters"},
+    {"a11yAudit": "asset-filters", "max": 0},
+    {"click": "id:asset.tab.adjustment"},
+    {"a11yAudit": "asset-adjustment", "max": 0}
+  ]
+}
