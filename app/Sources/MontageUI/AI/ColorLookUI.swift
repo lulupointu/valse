@@ -148,7 +148,7 @@ extension EditorStore {
         }
     }
 
-    private func runLookJob(_ clipID: ClipID, _ kind: ColorLooks.Kind, _ work: @escaping @Sendable () async throws -> any EditCommand) {
+    func runLookJob(_ clipID: ClipID, _ kind: ColorLooks.Kind, _ work: @escaping @Sendable () async throws -> any EditCommand) {
         let key = ColorLookUI.key(clipID, kind)
         if let j = ai.lookJobs[key] { Task { await JobQueue.shared.cancel(j) } }
         let box = CommandBox()
@@ -164,6 +164,7 @@ extension EditorStore {
             switch st {
             case .done:
                 if let cmd = box.command, perform(cmd), kind == .match { ColorLookUI.shared.matchOpen = nil }
+            case .failed(let e) where kind == .card: showToast(tr(e.contains("notFound") ? "colorCard.notFound" : "look.failed"), error: true)
             case .failed: showToast(tr("look.failed"), error: true)
             default: break
             }
@@ -174,7 +175,7 @@ extension EditorStore {
         let key = ColorLookUI.key(clipID, kind)
         if let j = ai.lookJobs[key] { ai.lookJobs[key] = nil; Task { await JobQueue.shared.cancel(j) } }
         guard ColorLookInspector.look(project.timeline.clip(clipID), kind) != nil else { return }
-        perform(Edit(kind == .match ? "cmd.colorMatch" : (kind == .auto ? "cmd.autoAdjust" : "cmd.colorCorrect")) { p in
+        perform(Edit(kind == .card ? "cmd.colorCard" : kind == .match ? "cmd.colorMatch" : (kind == .auto ? "cmd.autoAdjust" : "cmd.colorCorrect")) { p in
             ColorLooks.remove(kind, from: clipID, in: &p)
         })
     }

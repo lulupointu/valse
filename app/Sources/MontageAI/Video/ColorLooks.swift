@@ -15,8 +15,10 @@ import MontageEngine
 public enum ColorLooks {
     public enum Kind: String, Sendable, CaseIterable {
         case auto, match, correct
+        /// CL-028 Color card calibration (`ColorCard`).
+        case card
         public var prefix: String { "ai.look.\(rawValue)." }
-        var title: String { switch self { case .auto: return "Auto adjust"; case .match: return "Color match"; case .correct: return "Color correction" } }
+        var title: String { switch self { case .auto: return "Auto adjust"; case .match: return "Color match"; case .correct: return "Color correction"; case .card: return "Color card" } }
     }
 
     public static var directory: URL { MontagePaths.supportDirectory.appendingPathComponent("Generated/looks", isDirectory: true) }

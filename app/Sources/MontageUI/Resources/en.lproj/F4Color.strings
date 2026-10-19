@@ -8,3 +8,8 @@
 "mask.propagated" = "Tracked through the clip (%d shapes)";
 "mask.propagated.remove" = "Remove tracking";
 "maskTrack.brushHint" = "The painted area is followed frame by frame: its shape follows the object.";
+"colorCard.title" = "Color card";
+"colorCard.hint" = "Film a ColorChecker 24 card in the light of the shot, put the playhead on a frame where it's visible, then tick Color card: its 24 patches calibrate the clip's colours.";
+"colorCard.recalibrate" = "Calibrate at playhead";
+"colorCard.notFound" = "No color card found in this frame. Move the playhead to a frame where the whole chart is visible.";
+"cmd.colorCard" = "Color card";

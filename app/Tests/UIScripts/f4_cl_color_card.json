@@ -1,0 +1,22 @@
+// F4 CL-028: a photo of a ColorChecker 24 under a warm cast on the timeline → Adjust ▸ Basic ▸ ☐ Color card finds the chart,
+// fits the 24 patches and applies the correction look (one undo step "Color card"); ⌘Z removes it.
+{
+  "project": "empty",
+  "steps": [
+    {"drop": {"files": ["fixtures/colorcard.png"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 10}},
+    {"click": "clip:main/0"},
+    {"seek": 1},
+    {"click": "id:inspector.tab.adjust"},
+    {"expect": {"path": "ui.anchors", "contains": "inspector.section.adjust.colorCard"}},
+    {"snapshot": "color-card-player-before", "element": "id:panel.player"},
+    {"click": "id:inspector.section.adjust.colorCard", "at": [0.035, 0.5]},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.colorCard", "timeout": 30}},
+    {"expect": {"path": "selectedClips.0.effects", "count": 1}},
+    {"idle": 1},
+    {"snapshot": "color-card-player", "element": "id:panel.player"},
+    {"snapshot": "color-card-inspector", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.effects", "count": 0}}
+  ]
+}

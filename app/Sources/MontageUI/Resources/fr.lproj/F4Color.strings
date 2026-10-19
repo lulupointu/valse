@@ -8,3 +8,8 @@
 "mask.propagated" = "Suivi sur tout le clip (%d formes)";
 "mask.propagated.remove" = "Supprimer le suivi";
 "maskTrack.brushHint" = "La zone peinte est suivie image par image : sa forme suit l'objet.";
+"colorCard.title" = "Charte de couleurs";
+"colorCard.hint" = "Filmez une charte ColorChecker 24 sous l'éclairage du plan, placez la tête de lecture sur une image où elle est visible, puis cochez Charte de couleurs : ses 24 pastilles calibrent les couleurs du clip.";
+"colorCard.recalibrate" = "Calibrer à la tête de lecture";
+"colorCard.notFound" = "Aucune charte de couleurs trouvée sur cette image. Placez la tête de lecture sur une image où toute la charte est visible.";
+"cmd.colorCard" = "Charte de couleurs";
