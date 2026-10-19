@@ -82,3 +82,42 @@ public enum Subprojects {
         return rootID
     }
 }
+
+/// Compound clip presets (TL-021 "Save preset", up to 99): a compound's nested timeline with the compounds and media
+/// it uses, saved outside the project so any project can add it (media referenced by file, merged by content hash).
+public struct CompoundPreset: Codable, Sendable, Equatable, Identifiable {
+    public static let maxCount = 99
+    public var id: UUID
+    public var name: String
+    public var created: Date
+    public var compound: CompoundClip
+    public var nested: [CompoundClip]
+    public var media: [MediaAsset]
+
+    /// Preset of compound `cid` of `p` (with every compound and media it uses, recursively).
+    public static func make(_ cid: CompoundID, from p: Project, name: String? = nil, date: Date = Date()) -> CompoundPreset? {
+        guard let c = p.compound(cid) else { return nil }
+        var comps: [CompoundClip] = [], mediaIDs = Set<MediaID>(), seen: Set<CompoundID> = [cid]
+        var queue = [c.timeline]
+        while let tl = queue.popLast() {
+            for clip in tl.allClips {
+                if let m = clip.mediaID { mediaIDs.insert(m) }
+                if case .compound(let k) = clip.content, !seen.contains(k), let kc = p.compound(k) {
+                    seen.insert(k); comps.append(kc); queue.append(kc.timeline)
+                }
+            }
+        }
+        return CompoundPreset(id: UUID(), name: name ?? c.name, created: date, compound: c, nested: comps,
+                              media: p.media.filter { mediaIDs.contains($0.id) })
+    }
+
+    /// The preset as a small project (for `Subprojects.importProject`).
+    public var asProject: Project {
+        var p = Project()
+        p.name = name
+        p.media = media
+        p.compounds = nested
+        p.timeline = compound.timeline
+        return p
+    }
+}

@@ -1,0 +1,27 @@
+// Finisher TL-024 / PB-016: three main clips → multi-camera clip (Clip ▸ Create multi-camera clip = sync by timeline
+// position); the angle grid shows over the player; a click on angle 2 (and key 1 back to angle 1) cut at the
+// playhead; undo.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:main/0"},
+    {"click": "clip:main/1", "modifiers": ["shift"]},
+    {"click": "clip:main/2", "modifiers": ["shift"]},
+    {"menu": "menu.clip/multicam.menu"},
+    {"expect": [{"path": "main.clips.count", "equals": 1}, {"path": "main.clips.0.kind", "equals": "compound"},
+                {"path": "ui.anchors", "contains": "multicam.grid"}]},
+    {"seek": 1},
+    {"idle": 1},
+    {"snapshot": "multicam-grid", "element": "id:panel.player"},
+    {"click": "id:multicam.angle.1"},
+    {"expect": {"path": "undo.name", "equals": "cmd.switchAngle"}},
+    {"seek": 2},
+    {"key": "1"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.switchAngle"}, {"path": "undo.depth", "equals": 3}]},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "main.clips.count", "equals": 3}}
+  ]
+}

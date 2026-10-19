@@ -11,6 +11,8 @@ public struct CompoundClip: Codable, Sendable, Equatable, Identifiable {
     public var id: CompoundID
     public var name: String
     public var timeline: Timeline
+    /// Multi-camera clip (TL-024): one angle per track, one enabled at a time (`Multicam`). nil = plain compound.
+    public var multicam: Bool?
     public init(id: CompoundID = CompoundID(), name: String, timeline: Timeline) {
         self.id = id; self.name = name; self.timeline = timeline
     }

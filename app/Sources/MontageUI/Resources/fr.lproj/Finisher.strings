@@ -222,3 +222,72 @@
 "settings.subprojectMedia" = "Sous-projets";
 "settings.subprojectMedia.label" = "Afficher les médias des sous-projets";
 "settings.subprojectMedia.hint" = "Désactivé, l’onglet Médias masque les fichiers utilisés uniquement dans des clips composés / projets importés.";
+/* PB-014 HDR display notice */
+"player.hdr.unsupported" = "Cet écran ne prend pas en charge le HDR — aperçu converti en SDR";
+/* TL-040 rename / hover */
+"tlmenu.rename" = "Renommer";
+"tlmenu.clip" = "Clip";
+"cmd.renameClip" = "Renommer le clip";
+/* PM-016 onboarding */
+"tips.menu" = "Afficher les astuces de l’éditeur";
+"tips.skip" = "Passer";
+"tips.next" = "Suivant";
+"tips.done" = "Compris";
+"tips.replay" = "Afficher les astuces de l’éditeur";
+"tips.importMedia.title" = "1. Importez vos médias";
+"tips.importMedia.body" = "Cliquez sur Importer ou déposez des fichiers ici. Glissez un clip sur la chronologie, ou cliquez sur ⊕ pour l’ajouter à la tête de lecture.";
+"tips.player.title" = "2. Prévisualisez";
+"tips.player.body" = "Espace lance et met en pause, ←/→ avance d’une image. Faites glisser sur l’aperçu pour déplacer, redimensionner ou faire pivoter l’élément sélectionné.";
+"tips.inspector.title" = "3. Modifiez la sélection";
+"tips.inspector.body" = "Sélectionnez un clip : ses réglages apparaissent ici (Vidéo, Audio, Vitesse, Animation, Ajuster…). ◇ ajoute une image clé.";
+"tips.timeline.title" = "4. Coupez sur la chronologie";
+"tips.timeline.body" = "⌘B divise à la tête de lecture, Q/W suppriment à gauche/droite, faites glisser les bords pour rogner. Effets, textes et autocollants vont sur leurs propres pistes.";
+"tips.export.title" = "5. Exportez";
+"tips.export.body" = "Quand vous avez fini, Exporter crée la vidéo sur votre Mac — rien n’est envoyé en ligne. Aide ▸ Afficher les astuces de l’éditeur relance cette visite.";
+"whatsnew.menu" = "Nouveautés";
+"whatsnew.title" = "Nouveautés de Montage";
+"whatsnew.layouts" = "Dispositions : Affichage ▸ Disposition (Médias d’abord, Lecteur d’abord, Vertical pour le 9:16…) et dispositions personnalisées.";
+"whatsnew.subprojects" = "Sous-projets : les clips composés sont listés dans Médias ▸ Sous-projets ; importez un autre projet comme sous-projet.";
+"whatsnew.beatSync" = "Vitesse ▸ Effets de vélocité ▸ Synchroniser sur les temps, avec un flash, une secousse ou un zoom à chaque temps.";
+"whatsnew.recorder" = "Fichier ▸ Enregistrer l’écran (⇧⌘R) et Enregistrer la caméra, directement sur la chronologie.";
+"whatsnew.detach" = "Affichage ▸ Fenêtres séparées : placez le lecteur ou n’importe quel panneau sur un second écran.";
+/* TL-021 compound presets / pre-process */
+"tlmenu.preprocess" = "Prétraiter le clip composé";
+"preset.section" = "Préréglages enregistrés";
+"preset.saved" = "Préréglage « %@ » enregistré — retrouvez-le dans Médias ▸ Sous-projets";
+"preset.full" = "Vous pouvez enregistrer jusqu’à %d préréglages — supprimez-en un d’abord";
+"preset.delete" = "Supprimer le préréglage";
+"cmd.addPreset" = "Ajouter un préréglage composé";
+/* SE-017 accessibility */
+"ax.timeline" = "Chronologie";
+"ax.timeline.value" = "%d clips, tête de lecture à %@";
+"ax.selected" = "sélectionné";
+"ax.disabled" = "désactivé";
+"ax.kind.video" = "vidéo";
+"ax.kind.audio" = "audio";
+"ax.kind.text" = "texte";
+"ax.kind.sticker" = "autocollant";
+"ax.kind.effect" = "effet";
+"ax.kind.filter" = "filtre";
+"ax.kind.adjustment" = "ajustement";
+"ax.player" = "Lecteur";
+/* TL-024 / PB-016 multicam */
+"multicam.syncAudio" = "Synchroniser par l’audio";
+"multicam.syncTimeline" = "Synchroniser par la position";
+"multicam.grid" = "Afficher les angles de caméra";
+"multicam.name" = "Clip multicaméra";
+"multicam.needTwo" = "Sélectionnez au moins deux clips vidéo";
+"multicam.tooMany" = "Un clip multicaméra a au plus %d angles";
+"multicam.created" = "Clip multicaméra à %d angles — cliquez sur un angle (ou 1–9) pendant la lecture pour couper";
+"cmd.multicam" = "Créer un clip multicaméra";
+"cmd.switchAngle" = "Changer d’angle de caméra";
+"multicam.angleShortcut.1" = "Multicaméra : angle 1";
+"multicam.angleShortcut.2" = "Multicaméra : angle 2";
+"multicam.angleShortcut.3" = "Multicaméra : angle 3";
+"multicam.angleShortcut.4" = "Multicaméra : angle 4";
+"multicam.angleShortcut.5" = "Multicaméra : angle 5";
+"multicam.angleShortcut.6" = "Multicaméra : angle 6";
+"multicam.angleShortcut.7" = "Multicaméra : angle 7";
+"multicam.angleShortcut.8" = "Multicaméra : angle 8";
+"multicam.angleShortcut.9" = "Multicaméra : angle 9";
+"multicam.menu" = "Créer un clip multicaméra";

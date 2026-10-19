@@ -196,6 +196,8 @@ public struct IconButton: View {
         .buttonStyle(.plain)
         .disabled(!enabled)
         .help(help)
+        .accessibilityLabel(Text(verbatim: help))   // SE-017: icon-only buttons speak their tooltip
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 }
 

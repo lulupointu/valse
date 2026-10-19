@@ -107,6 +107,7 @@ public enum StateDump {
         ui["keystrokes"] = ["enabled": KeystrokeFeed.shared.enabled, "items": KeystrokeFeed.shared.items.map(\.text)]   // PB-015
         ui["previewAxis"] = ["on": store.timelineUI.previewAxis, "audio": store.timelineUI.previewAxisAudio]   // TL-031
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
+        ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}

@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 import CoreGraphics
+import AppKit
 import MontageCore
 import MontageEngine
 @testable import MontageUI
@@ -188,5 +189,38 @@ import MontageTestSupport
         // the missing media is skipped; the title (anchored at 2 s inside a clip starting at source 1 s) is at 1 s
         let text = s.project.timeline.allClips.first { if case .text = $0.content { return true }; return false }
         #expect(text?.start == Time(1))
+    }
+}
+
+/// TL-040 rename clip.
+@MainActor @Suite struct FinisherRenameTests {
+    @Test func renameAndClear() {
+        let s = EditorStore()
+        let c = Clip(content: .solid(.white), start: 0, duration: 3)
+        s.perform(Edit("x") { p in p.timeline.tracks[p.timeline.mainTrackIndex!].clips = [c] })
+        s.renameClip(c.id, to: "  Intro ")
+        #expect(s.project.timeline.clip(c.id)?.name == "Intro" && s.session.undoNameKey == "cmd.renameClip")
+        s.renameClip(c.id, to: "")
+        #expect(s.project.timeline.clip(c.id)?.name == nil)
+    }
+}
+
+/// SE-017 timeline accessibility children.
+@MainActor @Suite struct FinisherAccessibilityTests {
+    @Test func timelineExposesClipsToVoiceOver() throws {
+        var p = Project()
+        let a = Clip(content: .solid(.white), start: 0, duration: 3)
+        var b = Clip(content: .solid(.black), start: 3, duration: 2); b.name = "Outro"
+        p.timeline.tracks[p.timeline.mainTrackIndex!].clips = [a, b]
+        let s = EditorStore(project: p)
+        s.autosaveEnabled = false
+        let v = TimelineView(store: s)
+        v.frame = CGRect(x: 0, y: 0, width: 1600, height: 420)
+        let kids = try #require(v.accessibilityChildren() as? [NSAccessibilityElement])
+        #expect(kids.count == 2)
+        let outro = try #require(kids.first { ($0.accessibilityLabel() ?? "").hasPrefix("Outro") })
+        #expect(outro.accessibilityRole() == .button)
+        #expect(outro.accessibilityPerformPress() && s.selection == [b.id])
+        #expect(v.accessibilityLabel() == tr("ax.timeline"))
     }
 }

@@ -42,6 +42,8 @@ struct PlayerCanvasArea: View {
             PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottomLeading) { KeystrokeOverlay() }
                 .overlay(alignment: .top) { GuidePositionPopover(store: store, ui: store.playerUI).padding(.top, 40) }
+                .overlay(alignment: .topTrailing) { HDRDisplayNotice(store: store) }
+                .overlay { MulticamGrid(store: store, ui: store.playerUI) }   // PB-016
             if store.playerUI.isZoomBarVisible {
                 ZoomBar(ui: store.playerUI, store: store).padding(.bottom, 10)
             } else {
@@ -338,6 +340,8 @@ struct PlayerHost: NSViewRepresentable {
     func makeNSView(context: Context) -> PlayerContainerView {
         let v = PlayerContainerView(store: store)
         v.player.setAccessibilityIdentifier("player")
+        v.player.setAccessibilityLabel(tr("ax.player"))   // SE-017
+        v.player.setAccessibilityRole(.image)
         SnapshotRegistry.shared.player = v.player
         SnapshotRegistry.shared.playerOverlay = v.overlay
         return v
@@ -372,5 +376,26 @@ final class PlayerContainerView: NSView {
         super.layout()
         player.frame = bounds
         overlay.frame = bounds
+    }
+}
+
+/// PB-014: an HDR project on a display without EDR headroom gets "Device does not support HDR — preview tone-mapped"
+/// (CapCut's "Devices not supporting HDR"); EDR displays show HDR directly (PlayerView.configureColor).
+struct HDRDisplayNotice: View {
+    let store: EditorStore
+    var body: some View {
+        if store.projectSettings.colorSpace.isHDR,
+           (NSApp.mainWindow?.screen ?? NSScreen.main)?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1 <= 1 {
+            HStack(spacing: 4) {
+                Image(systemName: "sun.max.trianglebadge.exclamationmark").font(.system(size: 10))
+                Text(loc: "player.hdr.unsupported").font(.system(size: 10.5))
+            }
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(Color.black.opacity(0.55), in: Capsule())
+            .padding(8)
+            .allowsHitTesting(false)
+            .testID("player.hdrUnsupported")
+        }
     }
 }

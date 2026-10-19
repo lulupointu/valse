@@ -222,3 +222,72 @@
 "settings.subprojectMedia" = "Subprojects";
 "settings.subprojectMedia.label" = "Show media from subprojects";
 "settings.subprojectMedia.hint" = "When off, the Media tab hides files used only inside compound clips / imported projects.";
+/* PB-014 HDR display notice */
+"player.hdr.unsupported" = "This display doesn't support HDR — preview is tone-mapped";
+/* TL-040 rename / hover */
+"tlmenu.rename" = "Rename";
+"tlmenu.clip" = "Clip";
+"cmd.renameClip" = "Rename clip";
+/* PM-016 onboarding */
+"tips.menu" = "Show editor tips";
+"tips.skip" = "Skip";
+"tips.next" = "Next";
+"tips.done" = "Got it";
+"tips.replay" = "Show editor tips";
+"tips.importMedia.title" = "1. Import your media";
+"tips.importMedia.body" = "Click Import or drop files here. Drag a clip to the timeline, or click ⊕ to add it at the playhead.";
+"tips.player.title" = "2. Preview";
+"tips.player.body" = "Space plays and pauses, ←/→ step one frame. Drag on the preview to move, resize or rotate the selected item.";
+"tips.inspector.title" = "3. Edit the selection";
+"tips.inspector.body" = "Select a clip: its settings appear here (Video, Audio, Speed, Animation, Adjust…). ◇ adds a keyframe.";
+"tips.timeline.title" = "4. Cut on the timeline";
+"tips.timeline.body" = "⌘B splits at the playhead, Q/W delete left/right, drag edges to trim. Effects, text and stickers go on their own tracks.";
+"tips.export.title" = "5. Export";
+"tips.export.body" = "When you're done, Export renders the video on your Mac — nothing is uploaded. Help ▸ Show editor tips replays this tour.";
+"whatsnew.menu" = "What's new";
+"whatsnew.title" = "What's new in Montage";
+"whatsnew.layouts" = "Layouts: View ▸ Layout (Media first, Player first, Vertical for 9:16…) and custom layouts.";
+"whatsnew.subprojects" = "Subprojects: compound clips are listed in Media ▸ Subprojects; import another project as a subproject.";
+"whatsnew.beatSync" = "Speed ▸ Velocity effects ▸ Sync to beats, with a flash, shake or zoom on every beat.";
+"whatsnew.recorder" = "File ▸ Record screen (⇧⌘R) and Record camera, straight onto the timeline.";
+"whatsnew.detach" = "View ▸ Separate windows: put the player or any panel on a second display.";
+/* TL-021 compound presets / pre-process */
+"tlmenu.preprocess" = "Pre-process compound clip";
+"preset.section" = "Saved presets";
+"preset.saved" = "Preset “%@” saved — find it in Media ▸ Subprojects";
+"preset.full" = "You can save up to %d presets — delete one first";
+"preset.delete" = "Delete preset";
+"cmd.addPreset" = "Add compound preset";
+/* SE-017 accessibility */
+"ax.timeline" = "Timeline";
+"ax.timeline.value" = "%d clips, playhead at %@";
+"ax.selected" = "selected";
+"ax.disabled" = "deactivated";
+"ax.kind.video" = "video";
+"ax.kind.audio" = "audio";
+"ax.kind.text" = "text";
+"ax.kind.sticker" = "sticker";
+"ax.kind.effect" = "effect";
+"ax.kind.filter" = "filter";
+"ax.kind.adjustment" = "adjustment";
+"ax.player" = "Player";
+/* TL-024 / PB-016 multicam */
+"multicam.syncAudio" = "Sync by audio";
+"multicam.syncTimeline" = "Sync by timeline position";
+"multicam.grid" = "Show camera angles";
+"multicam.name" = "Multi-camera clip";
+"multicam.needTwo" = "Select at least two video clips";
+"multicam.tooMany" = "A multi-camera clip has at most %d angles";
+"multicam.created" = "Multi-camera clip with %d angles — click an angle (or press 1–9) while playing to cut";
+"cmd.multicam" = "Create multi-camera clip";
+"cmd.switchAngle" = "Switch camera angle";
+"multicam.angleShortcut.1" = "Multi-camera: angle 1";
+"multicam.angleShortcut.2" = "Multi-camera: angle 2";
+"multicam.angleShortcut.3" = "Multi-camera: angle 3";
+"multicam.angleShortcut.4" = "Multi-camera: angle 4";
+"multicam.angleShortcut.5" = "Multi-camera: angle 5";
+"multicam.angleShortcut.6" = "Multi-camera: angle 6";
+"multicam.angleShortcut.7" = "Multi-camera: angle 7";
+"multicam.angleShortcut.8" = "Multi-camera: angle 8";
+"multicam.angleShortcut.9" = "Multi-camera: angle 9";
+"multicam.menu" = "Create multi-camera clip";

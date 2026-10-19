@@ -375,3 +375,51 @@ import Foundation
         #expect(TimelineOps.validate(dst.timeline).isEmpty)
     }
 }
+
+/// TL-021 compound presets.
+@Suite struct FinisherCompoundPresetTests {
+    @Test func presetCarriesNestedCompoundsAndMedia() throws {
+        var (p, ids) = Fx.project(mainClips: 3)
+        let inner = try TimelineOps.createCompound([ids[0]], name: "Inner", in: &p)
+        let outer = try TimelineOps.createCompound([inner, ids[1]], name: "Outer", in: &p)
+        guard case .compound(let ocid) = p.timeline.clip(outer)!.content else { Issue.record("not compound"); return }
+        let preset = try #require(CompoundPreset.make(ocid, from: p))
+        #expect(preset.name == "Outer" && preset.nested.count == 1 && preset.media.count == 2)
+        let back = try JSONDecoder().decode(CompoundPreset.self, from: JSONEncoder().encode(preset))
+        #expect(back == preset)
+        // into a fresh project: becomes a subproject (+ its nested one), media come along
+        var q = Project()
+        let cid = try Subprojects.importProject(preset.asProject, name: preset.name, into: &q)
+        _ = try Subprojects.insert(cid, at: .zero, in: &q)
+        #expect(q.compounds?.count == 2 && q.media.count == 2 && q.timeline.allClips.count == 1)
+    }
+}
+
+/// TL-024 multi-camera clips.
+@Suite struct FinisherMulticamTests {
+    @Test func createSyncAndSwitchAngles() throws {
+        var (p, ids) = Fx.project(mainClips: 3)   // 3 video clips on the main track
+        let starts: [ClipID: Time] = [ids[0]: Time(1), ids[1]: Time(0), ids[2]: Time(2)]
+        let mc = try Multicam.create([ids[0], ids[1], ids[2]], starts: starts, name: "Multicam", in: &p)
+        let comp = try #require(Multicam.compound(of: mc, in: p))
+        #expect(comp.multicam == true && Multicam.angleTracks(comp.timeline).count == 3)
+        #expect(comp.timeline.allClips.map(\.start).sorted() == [Time(0), Time(1), Time(2)])
+        #expect(Multicam.activeAngle(mc, at: p.timeline.clip(mc)!.start + Time(1.5), in: p) == 0)
+        let s = p.timeline.clip(mc)!.start
+        // switch to angle 1 at 2.5 s, then to angle 2 at 3.5 s; back at 2.5 → angle 1 until 3.5
+        try Multicam.switchAngle(mc, to: 1, at: s + Time(2.5), in: &p)
+        try Multicam.switchAngle(mc, to: 2, at: s + Time(3.5), in: &p)
+        #expect(Multicam.activeAngle(mc, at: s + Time(2), in: p) == 0)
+        #expect(Multicam.activeAngle(mc, at: s + Time(3), in: p) == 1)
+        #expect(Multicam.activeAngle(mc, at: s + Time(4), in: p) == 2)
+        // exactly one angle enabled at any time
+        let c2 = try #require(Multicam.compound(of: mc, in: p))
+        for x in stride(from: 0.1, to: c2.duration.seconds, by: 0.25) {
+            let n = c2.timeline.allClips.filter { $0.isEnabled && $0.range.contains(Time(x)) }.count
+            #expect(n <= 1, "at \(x): \(n) angles")
+        }
+        #expect(Multicam.angleSource(mc, angle: 2, at: s + Time(4), in: p) != nil)
+        #expect(throws: EditError.self) { try Multicam.switchAngle(mc, to: 7, at: s + Time(1), in: &p) }
+        #expect(TimelineOps.validate(p.timeline).isEmpty)
+    }
+}

@@ -32,10 +32,39 @@ struct SubprojectsView: View {
                         card(c, index: i, uses: uses[c.id] ?? 0).testID("subprojects.card.\(i)")
                     }
                 }
+                let presets = CompoundPresetLibrary.shared.presets
+                if !presets.isEmpty {
+                    Text(loc: "preset.section").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 14)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
+                        ForEach(Array(presets.enumerated()), id: \.element.id) { i, pr in
+                            presetCard(pr).testID("preset.card.\(i)")
+                        }
+                    }
+                }
             }
         }
         .padding(12)
         .testID("subprojects")
+    }
+
+    func presetCard(_ pr: CompoundPreset) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            RoundedRectangle(cornerRadius: 6).fill(Theme.inset)
+                .overlay(Image(systemName: "square.stack.3d.down.right").font(.system(size: 22)).foregroundStyle(Theme.accent.opacity(0.7)))
+                .frame(height: 60)
+                .overlay(alignment: .bottomTrailing) {
+                    Button { store.addCompoundPreset(pr) } label: {
+                        Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundStyle(Theme.accent)
+                    }
+                    .buttonStyle(.plain).padding(4).testID("preset.add")
+                }
+            Text(verbatim: pr.name).font(.system(size: 11.5)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+        }
+        .contextMenu {
+            Button(tr("asset.addToTrack")) { store.addCompoundPreset(pr) }
+            Button(tr("preset.delete")) { CompoundPresetLibrary.shared.delete(pr.id) }
+        }
     }
 
     func card(_ c: CompoundClip, index: Int, uses: Int) -> some View {

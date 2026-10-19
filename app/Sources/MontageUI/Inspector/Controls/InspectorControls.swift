@@ -585,6 +585,7 @@ struct SmallIconButton: View {
         .buttonStyle(.plain)
         .disabled(!enabled)
         .help(help)
+        .accessibilityLabel(Text(verbatim: help))   // SE-017
     }
 }
 

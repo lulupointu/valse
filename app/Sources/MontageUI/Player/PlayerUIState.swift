@@ -57,6 +57,8 @@ public final class PlayerUIState {
     public var isFullscreen = false
     /// Player in its own window (PB-006 "Detach player").
     public var isDetached = false
+    /// Multi-camera angle grid over the preview while a multicam clip is selected (PB-016).
+    public var multicamGrid = true
     /// Clip whose text is being edited in place on the canvas.
     public var editingTextClip: ClipID?
     /// The canvas was the last thing clicked: arrow keys nudge the selected layer instead of stepping frames.

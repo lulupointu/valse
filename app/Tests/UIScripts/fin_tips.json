@@ -1,0 +1,25 @@
+// Finisher PM-016: Help ▸ Show editor tips walks through the panels (coach card + highlighted panel), Next ×5 ends
+// it; Help ▸ What's new shows the feature list.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"menu": "menu.help/tips.menu"},
+    {"expect": [{"path": "ui.tips.step", "equals": "importMedia"}, {"path": "ui.anchors", "contains": "tips.card"}]},
+    {"snapshot": "tips-import"},
+    {"click": "id:tips.next"},
+    {"expect": {"path": "ui.tips.step", "equals": "player"}},
+    {"click": "id:tips.next"},
+    {"click": "id:tips.next"},
+    {"expect": {"path": "ui.tips.step", "equals": "timeline"}},
+    {"click": "id:tips.next"},
+    {"expect": {"path": "ui.tips.step", "equals": "export"}},
+    {"click": "id:tips.next"},
+    {"expect": [{"path": "ui.tips.step", "equals": ""}, {"path": "ui.anchors", "notContains": "tips.card"}]},
+    {"menu": "menu.help/whatsnew.menu"},
+    {"expect": {"path": "ui.tips.whatsNew", "equals": true}},
+    {"snapshot": "whats-new", "element": "id:whatsnew"},
+    {"click": "id:whatsnew.ok"},
+    {"expect": {"path": "ui.tips.whatsNew", "equals": false}}
+  ]
+}

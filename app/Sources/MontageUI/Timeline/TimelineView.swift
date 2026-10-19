@@ -298,6 +298,16 @@ final class TimelineView: NSView {
         if ui.tool == .split, let hp = hoverPoint, hp.x > headerW, case .none = drag {
             c.rect(CGRect(x: hp.x - 0.5, y: TimelineLayout.rulerHeight, width: 1, height: H), accent)
         }
+        // TL-040 hover badge: name · duration over the hovered clip (CapCut's clip info on hover)
+        if trimLabel == nil, case .none = drag, let hid = hoverClip, let hp = hoverPoint, let loc = tl.locate(hid),
+           let row = l.rows.first(where: { $0.trackIndex == loc.track }) {
+            let clip = tl.tracks[loc.track].clips[loc.clip]
+            let text = "\(clipDisplayName(clip)) · \(Self.durationLabel(clip.duration))"
+            let w = min(c.measure(text, size: 10) + 12, 320)
+            let r = CGRect(x: min(max(hp.x - w / 2, headerW + 2), W - w - 2), y: max(TimelineLayout.rulerHeight + 2, row.y - 18), width: w, height: 16)
+            c.rect(r, RGBA(0, 0, 0, 0.85), radius: 4)
+            c.text(text, at: CGPoint(x: r.minX + 6, y: r.minY + 1.5), size: 10, color: .white, maxWidth: w - 12)
+        }
         if let t = trimLabel {
             let w = c.measure(t.text, size: 10) + 10
             let r = CGRect(x: min(max(t.x - w / 2, headerW), W - w - 2), y: max(TimelineLayout.rulerHeight + 2, t.y - 20), width: w, height: 16)
@@ -492,6 +502,17 @@ final class TimelineView: NSView {
         if cats.contains(.effect) { out.append(typeSymbol(.effect)) }
         if cats.contains(.filter) { out.append(typeSymbol(.filter)) }
         return out
+    }
+
+    /// Name shown for a clip (its own name, else the media / text / kind).
+    func clipDisplayName(_ clip: Clip) -> String {
+        if let n = clip.name, !n.isEmpty { return n }
+        switch clip.content {
+        case .media: return drawCache.asset(clip.mediaID)?.asset.name ?? tr("tlmenu.clip")
+        case .text(let t): return String(t.string.prefix(40))
+        case .compound(let id): return store.project.compound(id)?.name ?? tr("tlmenu.clip")
+        default: return tr("tlmenu.clip")
+        }
     }
 
     /// Clip duration chip ("4.0s" / "4,0 s" in French).

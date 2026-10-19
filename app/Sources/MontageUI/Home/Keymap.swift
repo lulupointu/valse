@@ -207,8 +207,9 @@ public final class Keymap {
 
     /// Context-dependent bindings that deliberately share a key with another command and fall through when disabled
     /// (arrows nudge only while the canvas has focus, esc exits full screen only in full screen). Not rebindable.
-    static let contextualIDs: Set<String> = ["nudgeUp", "nudgeDown", "nudgeUpMany", "nudgeDownMany", "exitPlayerFullscreen",
-                                              "cancelEyedropper", "exitPreview", "closeRecorder", "exitCompound"]
+    static let contextualIDs: Set<String> = Set<String>(["nudgeUp", "nudgeDown", "nudgeUpMany", "nudgeDownMany", "exitPlayerFullscreen",
+                                              "cancelEyedropper", "exitPreview", "closeRecorder", "exitCompound"])
+        .union((1...9).map { "multicamAngle\($0)" })
 
     static let playerIDs: Set<String> = ["playPause", "playerFullscreen", "exitPlayerFullscreen", "playerZoomIn", "playerZoomOut",
                                          "playerZoomFit", "rulers", "guides", "shuttleBack", "shuttleStop", "shuttleForward",

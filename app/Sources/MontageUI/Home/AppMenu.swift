@@ -204,6 +204,7 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         main.addItem(menu("menu.clip", [
             ed("menu.freeze") { $0.freezeFrame() },
             ed("tlmenu.duplicateFrame") { $0.duplicateFrame() },
+            ed("multicam.menu") { $0.createMulticam(syncByAudio: false) },   // TL-024 (sync by timeline position)
             ed("menu.reverse") { $0.reverseSelection() },
             ed("menu.mirror") { $0.mirrorSelection() },
             ed("menu.rotate") { $0.rotateSelection() },
@@ -289,6 +290,8 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         ]))
         main.addItem(menu("menu.help", [
             item("menu.shortcuts", id: "menu.shortcuts") { [unowned self] in self.app.modal = .shortcuts },
+            item("tips.menu", enabled: { [unowned self] in self.inEditor }) { Onboarding.shared.start() },   // PM-016
+            item("whatsnew.menu", enabled: { [unowned self] in self.inEditor }) { Onboarding.shared.showsWhatsNew = true },
             item("menu.licenses") { [unowned self] in self.app.modal = .settings(.about) },
         ]))
         return main

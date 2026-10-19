@@ -7,6 +7,7 @@ import MontageEngine
 public struct EditorView: View {
     @Bindable var store: EditorStore
     @Bindable private var layout = EditorLayout.shared
+    @Bindable private var onboarding = Onboarding.shared
     private let locale = LocaleState.shared
 
     public init(store: EditorStore) { self.store = store }
@@ -56,6 +57,16 @@ public struct EditorView: View {
                     .testID("panel.\(p.rawValue).detached").padding(20)
             }
         }
+        .overlay(alignment: .topTrailing) {
+            // PM-016: the last tip points at Export (title bar)
+            if onboarding.step == .export { CoachCard(step: .export).padding(.top, 44).padding(.trailing, 12) }
+        }
+        .overlay {
+            if onboarding.showsWhatsNew {
+                ZStack { Color.black.opacity(0.4).ignoresSafeArea(); WhatsNewCard() }
+            }
+        }
+        .onAppear { onboarding.editorDidAppear() }
         .overlay {
             // MI-015 / MI-017 screen & camera recorder: in-window modal like Export
             if let m = RecordingUI.shared.model { RecorderModal(store: store, model: m) }
@@ -88,10 +99,24 @@ public struct EditorView: View {
     // Each panel lives in its own hosting view (perf, W14 — see IsolatedHost): a slider tick, playhead move or asset
     // scroll lays out only its panel, not the whole window. A detached panel (PB-006 / SE-006) shows a placeholder.
     @ViewBuilder private func slot(_ p: DetachablePanel, id: String) -> some View {
-        if layout.detached.contains(p) {
-            DetachedPanelPlaceholder(store: store, panel: p)
-        } else {
-            IsolatedHost { DetachedPanelsController.content(p, store) }.testID(id)
+        Group {
+            if layout.detached.contains(p) {
+                DetachedPanelPlaceholder(store: store, panel: p)
+            } else {
+                IsolatedHost { DetachedPanelsController.content(p, store) }.testID(id)
+            }
+        }
+        .overlay(alignment: p == .timeline ? .top : .center) {
+            // PM-016 editor walkthrough: the tip of this panel
+            if let s = onboarding.step, s.panel == p {
+                CoachCard(step: s).padding(.top, p == .timeline ? 60 : 0)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.accent, lineWidth: 0))
+            }
+        }
+        .overlay {
+            if let s = onboarding.step, s.panel == p {
+                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).stroke(Theme.accent, lineWidth: 2).allowsHitTesting(false)
+            }
         }
     }
     private var assets: some View { slot(.assets, id: "panel.assets") }

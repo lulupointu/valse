@@ -125,8 +125,17 @@ extension TimelineView {
             item("tlmenu.editCompound", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
                 if let id = single?.id { s.enterCompound(id) }
             },
-            item("tlmenu.multicam", enabled: false) {},
-            item("tlmenu.savePreset", enabled: false) {},
+            sub("tlmenu.multicam", [   // TL-024
+                item("multicam.syncAudio", enabled: clips.count >= 2) { s.createMulticam(syncByAudio: true) },
+                item("multicam.syncTimeline", enabled: clips.count >= 2) { s.createMulticam(syncByAudio: false) },
+            ]),
+            item("multicam.grid", enabled: s.selectedMulticam != nil, checked: s.playerUI.multicamGrid) { s.playerUI.multicamGrid.toggle() },
+            item("tlmenu.savePreset", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                if let id = single?.id { s.saveCompoundPreset(id) }   // TL-021 compound presets
+            },
+            item("tlmenu.preprocess", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                if let c = single { s.renderPreview(range: c.range) }   // TL-021 pre-process = render cache of its range
+            },
             item("tlmenu.group", "g", .command, enabled: clips.count >= 2) { s.groupSelection() },
             item("tlmenu.ungroup", "g", [.command, .shift], enabled: s.selectionIsGrouped) { s.ungroupSelection() },
             .separator(),
@@ -140,6 +149,7 @@ extension TimelineView {
             item("keyframes.reset", enabled: clips.contains { !$0.keyframes.isEmpty }) { KeyframePanel.confirmReset(s) },
             item("tlmenu.speed", "r", .command, enabled: isMedia && asset?.kind != .image) { s.inspectorTab = "speed" },
             sub("tlmenu.arrange", LayerArrangement.allCases.map { a in item(a.nameKey, enabled: overlay) { s.arrange(a) } }),
+            item("tlmenu.rename", enabled: single != nil) { if let id = single?.id { s.timelineUI.renamingClip = id } },   // TL-040
             sub("tlmenu.colorLabel", [item("tlmenu.colorLabel.none") { s.setColorLabel(nil) }] +
                 Self.labelColors.indices.map { i in item("tlmenu.colorLabel.\(i)") { s.setColorLabel(i) } }),
             sub("tlmenu.range", [
@@ -349,6 +359,12 @@ extension TimelineView {
 }
 
 extension EditorStore {
+    /// TL-040 Rename clip (empty = back to the media / text name).
+    public func renameClip(_ id: ClipID, to name: String) {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        edit("cmd.renameClip") { p in p.timeline[clip: id]?.name = n.isEmpty ? nil : n }
+    }
+
     /// TL-040 colour label for the selected clips (nil = default kind colour).
     public func setColorLabel(_ i: Int?) {
         let ids = selection
