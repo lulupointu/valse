@@ -1,0 +1,25 @@
+// CL-012: Adjust ▸ Mask ▸ Brush ▸ Smart brush — a short stroke on the player selects the whole object under it (Vision
+// foreground instances / people) as one filled region stroke; one undo step "Smart brush".
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"click": "id:mask.shape.brush"},
+    {"click": "id:mask.brush.mode", "at": [0.5, 0.5]},
+    {"snapshot": "smart-brush-player-before", "element": "id:panel.player"},
+    {"click": "id:mask.brush.start"},
+    {"drag": "player:0.24,0.5", "to": "player:0.27,0.5", "steps": 4},
+    {"waitFor": {"path": "selectedClips.0.adjustMask.strokes.count", "equals": 1, "timeout": 20}},
+    {"expect": [{"path": "selectedClips.0.adjustMask.strokes.0.region", "gt": 0}, {"path": "undo.name", "equals": "cmd.maskSmartBrush"}]},
+    {"snapshot": "smart-brush-player", "element": "id:panel.player"},
+    {"click": "id:mask.brush.start"},
+    {"snapshot": "smart-brush-inspector", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.adjustMask.strokes", "count": 0}}
+  ]
+}

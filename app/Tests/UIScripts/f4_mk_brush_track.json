@@ -1,0 +1,30 @@
+// MK-004: Video ▸ Mask ▸ Brush — paint a region, then Track mask: the region is segmented and propagated frame by
+// frame (shape follows the object), one undo step; "Tracked through the clip" + Remove tracking.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"click": "id:mask.shape.brush"},
+    {"expect": {"path": "selectedClips.0.mask.shape", "equals": "brush"}},
+    {"click": "id:mask.brush.start"},
+    {"drag": "player:0.2,0.45", "to": "player:0.3,0.55", "steps": 8},
+    {"expect": {"path": "selectedClips.0.mask.strokes", "count": 1}},
+    {"click": "id:maskTrack.start.clip"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.maskTrack", "timeout": 60}},
+    {"expect": {"path": "selectedClips.0.mask.propagation", "gt": 5}},
+    {"seek": 3},
+    {"snapshot": "brush-track-inspector", "element": "id:panel.inspector"},
+    {"snapshot": "brush-track-player", "element": "id:panel.player"},
+    {"click": "id:mask.brush.start"},
+    {"snapshot": "brush-track-player-result", "element": "id:panel.player"},
+    {"click": "id:mask.propagated.remove"},
+    {"expect": [{"path": "selectedClips.0.mask.propagation", "equals": 0}, {"path": "undo.name", "equals": "cmd.maskTrackRemove"}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.mask.propagation", "gt": 5}}
+  ]
+}

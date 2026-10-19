@@ -112,6 +112,43 @@ final class MaskBrushTool: CanvasTool {
     }
     func hover(at p: Vec2?) { hover = p; revision += 1 }
 
+    /// Mask-box point → canvas pixel (inverse of `MaskBrushMapping.boxPoint` for brush masks: rotation 0).
+    static func canvasPoint(_ p: Vec2, layer g: LayerGeometry, mask m: Mask) -> Vec2 {
+        let w = max(abs(g.halfSize.x) * 2, 1), h = max(abs(g.halfSize.y) * 2, 1)
+        let l = Vec2((m.center.x + p.x * m.size.x) * w, (m.center.y + p.y * m.size.y) * h)
+        return g.center + MaskFrame.rotate(l, g.rotation)
+    }
+
+    /// The painted area so far (translucent accent): strokes and smart-brush regions; erasing in black.
+    func drawMask(in ctx: CGContext, toView: (Vec2) -> CGPoint, layer g: LayerGeometry, scale: Double) {
+        guard let store, let c = store.project.timeline.clip(clipID),
+              let m0 = c.resolved(at: Bind.local(store, c))[keyPath: target.mask], m0.shape == .brush else { return }
+        let m = m0.atSource(c.sourceTime(at: store.transport.playhead.clamped(c.start, c.end - Time(ticks: 1))).seconds)
+        let accent = NSColor(srgbRed: 0x57 / 255.0, green: 0xBE / 255.0, blue: 0xCB / 255.0, alpha: 0.35).cgColor
+        let hole = NSColor.black.withAlphaComponent(0.35).cgColor
+        let layerH = abs(g.halfSize.y) * 2
+        ctx.saveGState()
+        ctx.setLineCap(.round); ctx.setLineJoin(.round)
+        for st in m.strokes ?? [] {
+            if let region = st.region {
+                let path = CGMutablePath()
+                for cs in region where cs.count >= 3 { path.addLines(between: cs.map { toView(Self.canvasPoint($0, layer: g, mask: m)) }); path.closeSubpath() }
+                ctx.setFillColor(st.erase ? hole : accent); ctx.addPath(path); ctx.fillPath(using: .evenOdd)
+                ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.8).cgColor); ctx.setLineWidth(1)
+                ctx.addPath(path); ctx.strokePath()
+                continue
+            }
+            guard let first = st.points.first else { continue }
+            ctx.setStrokeColor(st.erase ? hole : accent)
+            ctx.setLineWidth(CGFloat(st.radius * 2 * layerH * scale))
+            ctx.move(to: toView(Self.canvasPoint(first, layer: g, mask: m)))
+            if st.points.count == 1 { ctx.addLine(to: toView(Self.canvasPoint(first, layer: g, mask: m))) }
+            for q in st.points.dropFirst() { ctx.addLine(to: toView(Self.canvasPoint(q, layer: g, mask: m))) }
+            ctx.strokePath()
+        }
+        ctx.restoreGState()
+    }
+
     /// Brush ring at the cursor (dashed when erasing) and the stroke being painted (translucent).
     func draw(in ctx: CGContext, toView: (Vec2) -> CGPoint, scale: Double) {
         viewScale = scale
@@ -119,6 +156,7 @@ final class MaskBrushTool: CanvasTool {
         let r = CGFloat(MaskBrushState.shared.radius * abs(g.halfSize.y) * 2 * scale)
         let erase = MaskBrushState.shared.erase
         ctx.saveGState()
+        drawMask(in: ctx, toView: toView, layer: g, scale: scale)
         if current.count >= 1 {
             let v = current.map(toView)
             ctx.setStrokeColor((erase ? NSColor.black : NSColor(srgbRed: 0x57 / 255.0, green: 0xBE / 255.0, blue: 0xCB / 255.0, alpha: 1))
