@@ -33,7 +33,7 @@ enum AssetStateDump {
                         "item": store.playerUI.preview?.itemID ?? "",
                         "time": store.playerUI.preview.map { (store.playerUI.previewTime - $0.range.start).seconds } ?? 0,
                         "duration": store.playerUI.preview?.range.duration.seconds ?? 0] as [String: Any],
-            "media": ["layout": p.layout.rawValue, "sort": p.sort.rawValue, "ascending": p.ascending, "filter": p.filter.rawValue] as [String: Any],
+            "media": ["layout": p.layout.rawValue, "columns": s.layout["media"].map { $0.1 } ?? 0, "sort": p.sort.rawValue, "ascending": p.ascending, "filter": p.filter.rawValue] as [String: Any],
         ]
     }
 }

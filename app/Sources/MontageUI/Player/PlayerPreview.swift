@@ -32,9 +32,19 @@ extension EditorStore {
     public var isPreviewing: Bool { playerUI.preview != nil }
 
     /// Previews a media item from the bin in the player (single click on a media card).
-    public func previewMedia(_ id: MediaID) {
+    /// `hoverTime` (C6): the source time under the mouse on the card. When this media is already in the preview, the
+    /// click moves the preview there; a media not in the preview still opens at its beginning.
+    public func previewMedia(_ id: MediaID, hoverTime: Time? = nil) {
         guard let asset = project.asset(id) else { return }
-        if playerUI.preview?.itemID == id.description { return }
+        if let pv = playerUI.preview, pv.itemID == id.description {
+            if let t = hoverTime, pv.kind == .video || pv.kind == .audio {
+                let end = pv.range.end - Time(1.0 / 60)   // stay on the last frame, not past it
+                let target = max(pv.range.start, min(end, pv.range.start + t))
+                playerUI.previewTime = target
+                engine.seek(to: target)
+            }
+            return
+        }
         var p = Project()
         p.media = [asset]
         p.settings = project.settings

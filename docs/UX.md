@@ -227,6 +227,9 @@ toast. Montage should do the same (debounced autosave about 2 s after the last e
   left and right edges**: you can set an in/out range on the source before adding it. **Hover: the thumbnail scrubs through the video
   following the mouse X position**, and the ⊕ button appears bottom-right. Click = preview in the player ("Previewing — video", playable
   with Space). "Added" chip once used on the timeline.
+- Montage (owner, C6): bigger tiles, about 3 per row at the default panel width. **List view** = one wide rounded filmstrip
+  per media across the panel (frames, duration top right, name below, screenshot 27). Hover shows a white time bar; clicking
+  the media already in the preview moves the preview to that time, another media opens at its start.
 - Empty state: see §2.3. Drag files from Finder anywhere on the panel or the timeline.
 
 ### 3.4 Audio tab ([60](ux/60_assets_audio.png))
@@ -678,6 +681,7 @@ undo, redo, split, delete-left/right (disabled), delete and marker.
   `#3A3A3A` highlight; sub-nav items brighten. The cursor changes to ⟷ on clip edges, a blade in split mode, ✥ on canvas layers, and a
   rotation cursor on the rotate handle.
 - **Tooltips**: dark pills (`#000` at 85 %, 12 pt white, radius 4) after about 1.5 s hover, naming the action and its shortcut ("Split(⌘+B)").
+  Montage (owner, C6): 0.2 s every time, gone the moment the mouse leaves or clicks.
 - **Toasts**: centred white pill with black text ("Saved to project") that fades after about 2 s. Undo/redo is silent in 9.6 (no toast seen).
   Montage should add "Undo: <action>" toasts (FEATURES.md trait #9).
 - **Coach marks**: one-time yellow cards with an arrow ("Right-click the keyframe to create variable speed animations" [OK]). They appear the

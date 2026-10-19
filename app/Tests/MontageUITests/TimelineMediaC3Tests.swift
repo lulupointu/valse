@@ -199,8 +199,8 @@ import MontageCore
         let d = try #require(UserDefaults(suiteName: "montage.c3.tooltips.\(UUID().uuidString)"))
         #expect(Tooltips.currentDelayMilliseconds(d) == 1000)
         Tooltips.install(d)
-        #expect(Tooltips.currentDelayMilliseconds(d) == 400)
-        #expect((300...500).contains(Tooltips.initialDelayMilliseconds))
+        #expect(Tooltips.currentDelayMilliseconds(d) == Tooltips.initialDelayMilliseconds)
+        #expect((150...250).contains(Tooltips.initialDelayMilliseconds))   // C6: CapCut ≈ 0.2 s (MediaLibraryC6Tests)
     }
 
     @Test func mediaPostersAreRetinaSized() {

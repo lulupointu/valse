@@ -139,10 +139,11 @@ struct MediaBinView: View {
                         }
                         .padding(.horizontal, 12).padding(.bottom, 12)
                     } else {
-                        LazyVStack(spacing: 4) {
+                        LazyVStack(spacing: MediaRow.spacing) {
                             ForEach(folders) { f in FolderCard(store: store, folder: f, current: $folder).frame(height: 60) }
                             ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
-                                MediaRow(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id))
+                                MediaRow(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id),
+                                         stripWidth: max(1, width - 24))
                                     .testID("media.card.\(i)")
                             }
                         }
@@ -164,7 +165,7 @@ struct MediaBinView: View {
         .onChange(of: columns) { register(list) }
     }
 
-    var columns: Int { prefs.layout == .list || !showsFolders ? 1 : max(1, Int((width - 24 + 10) / (96 + 10))) }
+    var columns: Int { prefs.layout == .list || !showsFolders ? 1 : MediaGrid.columns(width: width) }
     var cardWidth: CGFloat { max(1, (width - 24 - CGFloat(columns - 1) * 10) / CGFloat(columns)) }
 
     func audioRowItem(_ a: MediaAsset, used: Bool) -> LibraryItem {
@@ -291,6 +292,21 @@ enum MediaSorting {
     static func kindOrder(_ k: MediaKind) -> Int { k == .video ? 0 : (k == .image ? 1 : 2) }
 }
 
+/// Media grid geometry (C6-1): big CapCut-like tiles, about 3 per row at the default panel width (≈ 450 pt of grid),
+/// the count following the panel width (rounded to the nearest count of ~140 pt tiles, so tiles stay ≈ 115–170 pt).
+enum MediaGrid {
+    static let targetTileWidth: CGFloat = 140
+    static let spacing: CGFloat = 10
+    static let inset: CGFloat = 12
+    static func columns(width: CGFloat) -> Int {
+        max(1, Int(((width - 2 * inset + spacing) / (targetTileWidth + spacing)).rounded()))
+    }
+    static func tileWidth(width: CGFloat) -> CGFloat {
+        let n = CGFloat(columns(width: width))
+        return max(1, (width - 2 * inset - (n - 1) * spacing) / n)
+    }
+}
+
 /// Poster / filmstrip thumbnails of bin media (ThumbnailCache, waveform picture for audio).
 @MainActor
 enum MediaThumbs {
@@ -298,8 +314,28 @@ enum MediaThumbs {
     /// frame height is the tile height: tiles are ≤ ~140 pt tall, × 2 on Retina ⇒ 288 px stays sharp (C3-3; was 96 px
     /// shown cropped-to-fill in a ~200 pt tile, i.e. upscaled ×4 and blurry).
     static let height = 288
-    /// Small list-row thumbnails (54×36 pt).
-    static let rowHeight = 96
+    /// List-view filmstrip frames (C6-2): minimum pixel height of a strip frame (56 pt strip at 2×).
+    static let rowHeight = 112
+
+    /// Pixel height of strip frames: tiles are `MediaRow.stripHeight` tall and `stripTileAspect` wide, filled (cropped),
+    /// at 2× (Retina); portrait sources cropped to squares need more source pixels. Rounded up to 16 px.
+    static func stripFrameHeight(_ a: MediaAsset) -> Int {
+        let px = 2 * MediaRow.stripHeight * max(1, stripTileAspect(a) / sourceAspect(a))
+        return min(height, max(rowHeight, Int((px / 16).rounded(.up)) * 16))
+    }
+    static func sourceAspect(_ a: MediaAsset) -> CGFloat {
+        a.pixelSize.width > 0 && a.pixelSize.height > 0 ? CGFloat(a.pixelSize.width / a.pixelSize.height) : 16 / 9
+    }
+    /// Width / height of one strip tile: the source aspect, portrait shown as squares (CapCut list view, screenshot 27).
+    static func stripTileAspect(_ a: MediaAsset) -> CGFloat { min(16 / 9, max(1, sourceAspect(a))) }
+
+    /// Source times of an n-tile strip: the middle of each tile's share of the duration.
+    static func stripTimes(_ a: MediaAsset, count: Int) -> [Time] {
+        let d = a.duration.seconds
+        guard count > 0 else { return [] }
+        guard a.kind == .video, d > 0 else { return Array(repeating: .zero, count: count) }
+        return (0..<count).map { i in Time(min(max(0, d - 0.05), (Double(i) + 0.5) / Double(count) * d)) }
+    }
 
     static func posterKey(_ a: MediaAsset, height: Int = height) -> String { "media.\(a.contentHash).\(height)" }
 
@@ -440,11 +476,7 @@ struct MediaCard: View {
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    if let f = scrubFraction, asset.kind == .video {
-                        GeometryReader { g in
-                            Rectangle().fill(.white).frame(width: 1.5).offset(x: g.size.width * f)
-                        }
-                    }
+                    if let f = scrubFraction, asset.kind != .image { HoverTimeBar(fraction: f) }
                 }
                 .overlay {
                     if missing {
@@ -468,9 +500,9 @@ struct MediaCard: View {
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let p):
-                        guard asset.kind == .video else { return }
-                        let w = max(1, cardWidth)
-                        updateScrub(min(1, max(0, Double(p.x / w))))
+                        guard asset.kind != .image else { return }
+                        let f = min(1, max(0, Double(p.x / max(1, cardWidth))))
+                        if asset.kind == .video { updateScrub(f) } else { scrubFraction = f }
                     case .ended:
                         scrubFraction = nil; scrub = nil
                     }
@@ -482,8 +514,7 @@ struct MediaCard: View {
         .onHover { hover = $0 }
         .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
         .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
-        .assetTap(asset.id.description, single: { MediaSelection.click(asset, order: order, tab: tab); if AssetPanelFocus.lastClickModifiers.isEmpty { store.previewMedia(asset.id) } },
-                  double: { store.addToTimeline(asset.id) })
+        .mediaTap(asset, store: store, order: order, tab: tab, width: cardWidth)
         .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
         .task(id: asset.contentHash) {
             poster = LibraryArtCache.shared.get(MediaThumbs.posterKey(asset))
@@ -540,61 +571,205 @@ struct MediaCard: View {
     }
 }
 
-/// List-view row: thumbnail · name · kind · duration · resolution · size.
+/// White vertical bar at the hovered time of a media card / strip (C6-3): a click there moves the preview to it.
+struct HoverTimeBar: View {
+    let fraction: Double
+    var body: some View {
+        GeometryReader { g in
+            Rectangle().fill(.white).frame(width: 1.5)
+                .shadow(color: .black.opacity(0.5), radius: 1)
+                .offset(x: min(g.size.width - 1.5, max(0, g.size.width * fraction - 0.75)))
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+extension View {
+    /// Media card / row click (C6-3): select, then preview. A media already in the preview jumps to the clicked
+    /// (= hovered) time; another media opens at its beginning. Double-click adds it to the timeline.
+    func mediaTap(_ a: MediaAsset, store: EditorStore, order: [MediaAsset], tab: String, width: CGFloat) -> some View {
+        let id = a.id.description
+        return onTapGesture(coordinateSpace: .local) { p in
+            let now = Date.timeIntervalSinceReferenceDate
+            let isDouble = AssetTapTracker.lastID == id && now - AssetTapTracker.lastTime < NSEvent.doubleClickInterval
+            AssetTapTracker.lastID = isDouble ? nil : id
+            AssetTapTracker.lastTime = now
+            MediaSelection.click(a, order: order, tab: tab)
+            if AssetPanelFocus.lastClickModifiers.isEmpty {
+                store.previewMedia(a.id, hoverTime: MediaRow.hoverTime(a, x: p.x, width: width))
+            }
+            if isDouble { store.addToTimeline(a.id) }
+        }
+    }
+}
+
+/// List-view row (C6-2, CapCut screenshot 27): a rounded filmstrip of frames across the panel width, duration top
+/// right, file name below. Frames come lazily from `ThumbnailCache` (cached ones show at once, others fill in).
 struct MediaRow: View {
+    static let stripHeight: CGFloat = 56
+    static let spacing: CGFloat = 12
+
     let store: EditorStore
     let asset: MediaAsset
     let tab: String
     let order: [MediaAsset]
     let used: Bool
     let missing: Bool
+    /// Strip width from the list layout (no per-row geometry observer).
+    let stripWidth: CGFloat
+    @State private var frames: [Int: CGImage] = [:]
+    @State private var hoverFraction: Double?
     @State private var hover = false
     @State private var showInfo = false
     private var state: AssetPanelState { AssetPanelState.shared }
+    private var lib: AssetLibraryStore { AssetLibraryStore.shared }
     var selected: Bool { state.mediaSelection.contains(asset.id) }
+    var isCursor: Bool { state.cursor[tab] == asset.id.description && state.keyboardTab == tab }
+
+    /// Source time under x on a strip / card `width` wide (nil for still images).
+    static func hoverTime(_ a: MediaAsset, x: CGFloat, width: CGFloat) -> Time? {
+        guard a.kind != .image, a.duration.seconds > 0, width > 0 else { return nil }
+        return Time(Double(min(1, max(0, x / width))) * a.duration.seconds)
+    }
+
+    /// Tiles across a strip: as many source-aspect tiles as fit, the last one cut by the rounded corner (CapCut).
+    static func tileCount(_ a: MediaAsset, width: CGFloat) -> Int {
+        a.kind == .audio ? 1 : max(1, Int((width / (stripHeight * MediaThumbs.stripTileAspect(a))).rounded(.up)))
+    }
+
+    var count: Int { Self.tileCount(asset, width: stripWidth) }
+    var frameHeight: Int { MediaThumbs.stripFrameHeight(asset) }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Color.clear.frame(width: 54, height: 36)
+        VStack(alignment: .leading, spacing: 5) {
+            strip
+                .frame(width: stripWidth, height: Self.stripHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(alignment: .topTrailing) {
+                    if asset.kind != .image { DurationBadge(text: Timecode.shortDuration(asset.duration)) }
+                }
+                .overlay(alignment: .topLeading) {
+                    if used { AddedChip() }
+                }
+                .overlay(alignment: .bottomTrailing) { if hover || isCursor { buttons } }
+                .overlay(alignment: .bottom) {
+                    if let f = hoverFraction { HoverTimeBar(fraction: f) }
+                }
                 .overlay {
-                    AsyncArt(key: MediaThumbs.posterKey(asset, height: MediaThumbs.rowHeight),
-                             load: { await MediaThumbs.poster(asset, height: MediaThumbs.rowHeight) },
-                             placeholder: asset.kind == .audio ? "waveform" : "film", letterbox: asset.kind != .audio)
+                    if missing {
+                        ZStack {
+                            Color.black.opacity(0.6)
+                            Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .onTapGesture { LinkMediaPanel.run(store, asset) }
+                        .help(tr("media.link"))
+                    }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Text(verbatim: asset.name).font(.system(size: 12)).foregroundStyle(missing ? .orange : Theme.textPrimary).lineLimit(1).truncationMode(.middle)
-                    if used { AddedChip(inline: true) }
+                .overlay {
+                    if selected {
+                        RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2)
+                            .overlay(alignment: .leading) { handle }.overlay(alignment: .trailing) { handle }
+                    } else if hover {
+                        RoundedRectangle(cornerRadius: 6).stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
+                    }
                 }
-                Text(verbatim: details).font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textTertiary).lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            if hover {
-                Button { store.addToTimeline(asset.id) } label: {
-                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let p): hoverFraction = asset.kind == .image ? nil : min(1, max(0, Double(p.x / stripWidth)))
+                    case .ended: hoverFraction = nil
+                    }
                 }
-                .buttonStyle(.plain).help(tr("asset.addToTrack"))
-            }
+            Text(verbatim: asset.name).font(.system(size: 12)).foregroundStyle(missing ? .orange : (selected ? Theme.textPrimary : Theme.textSecondary))
+                .lineLimit(1).truncationMode(.middle)
         }
-        .padding(.horizontal, 6).frame(height: 46)
-        .background(selected ? Theme.accentDim.opacity(0.35) : (hover ? Color(white: 0.16) : .clear), in: RoundedRectangle(cornerRadius: 4))
         .contentShape(Rectangle())
         .onHover { hover = $0 }
         .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
         .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
-        .assetTap(asset.id.description, single: { MediaSelection.click(asset, order: order, tab: tab); if AssetPanelFocus.lastClickModifiers.isEmpty { store.previewMedia(asset.id) } },
-                  double: { store.addToTimeline(asset.id) })
+        .mediaTap(asset, store: store, order: order, tab: tab, width: stripWidth)
         .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
+        .task(id: "\(asset.contentHash).\(count)") { await loadFrames() }
     }
 
-    var details: String {
-        var parts = [tr("media.filter.\(asset.kind.rawValue)")]
-        if asset.kind != .image { parts.append(Timecode.shortDuration(asset.duration)) }
-        if asset.pixelSize.width > 0 { parts.append("\(Int(asset.pixelSize.width))×\(Int(asset.pixelSize.height))") }
-        parts.append(ByteCountFormatter.string(fromByteCount: asset.fileSize, countStyle: .file))
-        return parts.joined(separator: " · ")
+    @ViewBuilder var strip: some View {
+        if asset.kind == .audio {
+            ZStack {
+                Theme.inset
+                if let img = frames[0] { Image(decorative: img, scale: 2).resizable().interpolation(.high) }
+                else { Image(systemName: "waveform").font(.system(size: 18)).foregroundStyle(Theme.textTertiary) }
+            }
+        } else {
+            let tileW = Self.stripHeight * MediaThumbs.stripTileAspect(asset)
+            HStack(spacing: 0) {
+                ForEach(0..<count, id: \.self) { i in
+                    ZStack {
+                        Color.black
+                        if let img = frames[i] ?? frames[asset.kind == .image ? 0 : -1] {
+                            Image(decorative: img, scale: 2).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
+                        }
+                    }
+                    .frame(width: tileW, height: Self.stripHeight).clipped()
+                    .overlay(alignment: .trailing) { Rectangle().fill(.black.opacity(0.35)).frame(width: 0.5) }
+                }
+            }
+            .frame(width: stripWidth, alignment: .leading)
+            .clipped()
+        }
+    }
+
+    var buttons: some View {
+        HStack(spacing: 4) {
+            let fid = MediaLibraryItems.favoriteID(asset)
+            let fav = lib.isFavorite("media", fid)
+            Button { lib.toggleFavorite("media", fid) } label: {
+                Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
+                    .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
+            }
+            .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
+            .testID("media.card.favorite")
+            Button { store.addToTimeline(asset.id) } label: {
+                Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
+            }
+            .buttonStyle(.plain).help(tr("asset.addToTrack"))
+            .testID("media.card.add")
+        }
+        .padding(4)
+    }
+
+    var handle: some View { Capsule().fill(.white).frame(width: 4, height: 18).padding(.horizontal, 1) }
+
+    /// Fills the strip: cached frames at once, the rest one by one (a fast scroll cancels the task).
+    func loadFrames() async {
+        let a = asset
+        if a.kind == .audio {
+            let key = "media.strip.\(a.contentHash).\(Int(stripWidth))"
+            if let c = LibraryArtCache.shared.get(key) { frames = [0: c]; return }
+            try? await Task.sleep(for: .milliseconds(40))
+            guard !Task.isCancelled, let w = await WaveformCache.shared.waveform(a) else { return }
+            let d = a.duration.seconds
+            let bars = max(8, Int(stripWidth / 4))
+            let peaks = (0..<bars).map { i in Float(w.peak(from: d * Double(i) / Double(bars), to: d * Double(i + 1) / Double(bars))) }
+            guard let img = WaveformArt.image(peaks: peaks, size: CGSize(width: stripWidth * 2, height: Self.stripHeight * 2),
+                                              background: RGBA(hex: 0x16314D), bar: RGBA(hex: 0x4FA3E0)) else { return }
+            LibraryArtCache.shared.set(key, img)
+            frames = [0: img]
+            return
+        }
+        let times = a.kind == .image ? [Time.zero] : MediaThumbs.stripTimes(a, count: count)
+        let h = frameHeight
+        var got: [Int: CGImage] = [:]
+        for (i, t) in times.enumerated() { if let c = ThumbnailCache.shared.cached(a, at: t, height: h) { got[i] = c } }
+        if let poster = LibraryArtCache.shared.get(MediaThumbs.posterKey(a)) { got[-1] = poster }   // placeholder for missing tiles
+        frames = got
+        if got.count >= times.count { return }
+        try? await Task.sleep(for: .milliseconds(40))     // skip rows flying past in a fast scroll
+        for (i, t) in times.enumerated() where frames[i] == nil {
+            guard !Task.isCancelled else { return }
+            if let img = await ThumbnailCache.shared.thumbnail(a, at: t, height: h) { frames[i] = img }
+        }
     }
 }
 

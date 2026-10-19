@@ -1,0 +1,42 @@
+// C6-1/2/3: media library. Grid: big tiles, 3 per row at the default panel width. A click on a media that is not in
+// the preview opens it at its beginning; a click on the media already in the preview moves the preview to the clicked
+// (hovered) time. List view: CapCut filmstrip rows (frames across the panel width, duration top right, name below),
+// same click behaviour.
+{
+  "project": "demo-bin",
+  "settle": 2.5,
+  "steps": [
+    {"expect": [{"path": "media.count", "equals": 5}, {"path": "ui.assets.media.columns", "equals": 3}]},
+    {"wait": 1.5},
+    {"snapshot": "grid", "element": "id:panel.assets"},
+    {"hover": "id:media.card.0", "at": [0.5, 0.3]},
+    {"wait": 0.3},
+    {"snapshot": "grid-hover", "element": "id:media.card.0"},
+    {"dump": "grid"},
+    // not in the preview: opens at the beginning, wherever the click lands
+    {"click": "id:media.card.0", "at": [0.5, 0.3]},
+    {"wait": 0.8},
+    {"expect": [{"path": "ui.preview.kind", "equals": "video"}, {"path": "ui.assets.preview.time", "approx": 0, "tolerance": 0.05}]},
+    // already in the preview: jumps to the clicked time (x = 0.75 of the 6 s Ocean tile → 4.5 s)
+    {"click": "id:media.card.0", "at": [0.75, 0.3]},
+    {"wait": 0.8},
+    {"expect": [{"path": "ui.assets.preview.time", "approx": 4.5, "tolerance": 0.05}, {"path": "main.clips.count", "equals": 0}]},
+    {"dump": "grid-seek"},
+    // another media: back to its beginning
+    {"click": "id:media.card.1", "at": [0.8, 0.3]},
+    {"wait": 0.8},
+    {"expect": [{"path": "ui.assets.preview.time", "approx": 0, "tolerance": 0.05}]},
+    // list view
+    {"click": "id:media.layout"},
+    {"expect": {"path": "ui.assets.media.layout", "equals": "list"}},
+    {"wait": 2},
+    {"snapshot": "list", "element": "id:panel.assets"},
+    {"click": "id:media.card.1", "at": [0.25, 0.3]},
+    {"wait": 0.8},
+    // Sunset (5 s) is already in the preview: x = 0.25 of the strip → 1.25 s
+    {"expect": [{"path": "ui.assets.preview.time", "approx": 1.25, "tolerance": 0.05}, {"path": "main.clips.count", "equals": 0}]},
+    {"dump": "list-seek"},
+    {"click": "id:media.layout"},
+    {"expect": {"path": "ui.assets.media.layout", "equals": "grid"}}
+  ]
+}

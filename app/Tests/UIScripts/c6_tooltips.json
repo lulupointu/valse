@@ -1,0 +1,36 @@
+// C6-4: custom tooltips. A hovered element shows its tooltip after 0.2 s, every time (moving to the next element
+// restarts the delay: no AppKit "already visible" instant mode), it goes away the moment the mouse leaves, and a click
+// hides it until the mouse enters another element.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"hover": "id:toolbar.split", "settle": 0},
+    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "equals": "Split (⌘B)"}]},
+    {"wait": 0.35},
+    {"expect": {"path": "ui.tooltip", "equals": "Split (⌘B)"}},
+    // next element: hidden at once, shown again only after the delay
+    {"hover": "id:toolbar.undo", "settle": 0},
+    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "equals": "Undo (⌘Z)"}]},
+    {"wait": 0.35},
+    {"expect": {"path": "ui.tooltip", "equals": "Undo (⌘Z)"}},
+    // leaving: gone immediately
+    {"hover": "player:0.5,0.5", "settle": 0},
+    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "exists": false}]},
+    {"wait": 0.35},
+    {"expect": {"path": "ui.tooltip", "exists": false}},
+    // a click hides it; it stays hidden while the mouse stays on the element
+    {"hover": "id:toolbar.split"},
+    {"wait": 0.3},
+    {"expect": {"path": "ui.tooltip", "equals": "Split (⌘B)"}},
+    {"click": "id:toolbar.split"},
+    {"expect": {"path": "ui.tooltip", "exists": false}},
+    {"hover": "id:toolbar.split", "offset": [2, 0]},
+    {"wait": 0.3},
+    {"expect": {"path": "ui.tooltip", "exists": false}},
+    // entering another element brings tooltips back
+    {"hover": "id:toolbar.undo"},
+    {"wait": 0.3},
+    {"expect": {"path": "ui.tooltip", "equals": "Undo (⌘Z)"}}
+  ]
+}

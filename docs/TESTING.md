@@ -153,7 +153,8 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   Settings `settings.tab.<tab>`, `settings.{check,switch,field,radio,button,language}.<id>`; shortcuts `keymap.binding.<cmd>`,
   `keymap.preset.<preset>`, `keymap.conflict(.override|.cancel)`, `keymap.reset`. State: `app.{screen, modal, scope, projects,
   selected, settings, keymap.bindings, renderedRanges…}` (StateDump.appHook).
-- asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>`, `media.import`
+- asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>` (grid tile or list filmstrip row; `"at": [fx, fy]` clicks at a source time, C6), `media.import`, `media.layout`; state `ui.assets.media.{layout, columns}`, `ui.assets.preview.{kind, time}`
+- tooltips (C6, custom: `Support/Tooltips.swift`): `{"hover": "id:toolbar.split", "settle": 0}` then `ui.tooltipPending` (waiting for the 0.2 s delay) / `ui.tooltip` (visible text, null when none) — see `c6_tooltips.json`. The driver resolves the hovered `.help()` element itself (tracking areas only fire for real moves)
 - animation search field: `anim.search`
 - inspector sub-tabs: `inspector.sub.<subTabID>` (e.g. `inspector.sub.out`); asset sub-nav: `asset.nav.<itemID>`
 - transitions (W5): `transitions.search`, `transition.tile.<id>` / `transition.add.<id>` (id without `montage.transition.`),

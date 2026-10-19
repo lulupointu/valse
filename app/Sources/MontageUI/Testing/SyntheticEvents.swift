@@ -109,6 +109,7 @@ enum SyntheticEvents {
             windowLocation = e.locationInWindow
             screenLocation = w.convertPoint(toScreen: e.locationInWindow)
             if e.type == .leftMouseUp || e.type == .rightMouseUp { buttonsDown = 0 }
+            if e.type == .mouseMoved { TooltipCenter.shared.mouseMoved(to: e.locationInWindow, in: w) }   // C6: tracking areas need real moves
         default: break
         }
     }

@@ -106,6 +106,8 @@ public enum StateDump {
         ui["editingGuide"] = store.playerUI.editingGuide != nil
         ui["rulers"] = store.playerUI.showRulers
         ui["tooltipDelayMs"] = Tooltips.currentDelayMilliseconds()   // C3: hover tooltip delay app-wide
+        ui["tooltip"] = TooltipCenter.shared.shownText ?? NSNull()          // C6: visible tooltip text
+        ui["tooltipPending"] = TooltipCenter.shared.pendingText ?? NSNull()
         if let plan = timeline?.dropPlan {   // C3-1 media drag placeholder
             var d: [String: Any] = ["start": plan.start.seconds, "duration": plan.duration.seconds]
             switch plan.placement {
