@@ -196,6 +196,18 @@ import Foundation
         #expect(p == expected)
     }
 
+    @Test func multiSelectedCaptionEditStillRestylesTheWholeTrack() {
+        // C2 multi-select fans the edit out to the selected captions; the others still follow (C4 apply to all)
+        var p = captionProject(4)
+        let ids = SpeechCaptions.captions(in: p.timeline).map(\.id)
+        let before = p
+        for id in ids.prefix(2) {
+            if case .text(var t) = p.timeline.clip(id)!.content { t.fontSize = 0.08; p.timeline[clip: id]?.content = .text(t) }
+        }
+        CaptionStyleSync.propagate(from: ids[0], coEdited: Set(ids.prefix(2)), before: before, after: &p)
+        #expect(ids.allSatisfy { CaptionOps.text(p.timeline.clip($0)!)?.fontSize == 0.08 })
+    }
+
     @Test func sessionHookMakesItOneUndoStepAlsoDuringGestures() throws {
         let p = captionProject()
         let ids = SpeechCaptions.captions(in: p.timeline).map(\.id)

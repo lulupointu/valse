@@ -197,7 +197,7 @@ extension EditorStore {
 
     // MARK: Caption style sync ("Apply to all main captions")
 
-    /// The caption whose style edits are replayed on its track (the single selected caption).
+    /// The caption whose style edits are replayed on its track (the single selected caption; used by the UI).
     var captionStyleSource: ClipID? {
         guard let c = singleSelectedClip, CaptionOps.isCaption(c) else { return nil }
         return c.id
@@ -208,9 +208,11 @@ extension EditorStore {
         setSessionPostProcess { before, after in
             MainActor.assumeIsolated {
                 // never read `s.project` here: the session is being mutated (exclusive access) — only the selection
-                guard TextUIState.shared.applyToAllCaptions, let s = me.value.store, s.selection.count == 1, let id = s.selection.first,
-                      before.timeline.clip(id).map(CaptionOps.isCaption) == true else { return }
-                CaptionStyleSync.propagate(from: id, before: before, after: &after)
+                // C2 multi-select: several selected captions are edited together; the first (timeline order) is the source
+                guard TextUIState.shared.applyToAllCaptions, let s = me.value.store, !s.selection.isEmpty else { return }
+                let caps = s.selection.compactMap { id in before.timeline.clip(id).flatMap { CaptionOps.isCaption($0) ? $0 : nil } }
+                guard caps.count == s.selection.count, let first = caps.min(by: { $0.start < $1.start }) else { return }
+                CaptionStyleSync.propagate(from: first.id, coEdited: s.selection, before: before, after: &after)
             }
         }
     }

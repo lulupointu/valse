@@ -13,7 +13,9 @@ public enum CaptionStyleSync {
 
     /// Replays on the siblings of `source` (same caption track) the look changes `source` received between `before`
     /// and `after`. No-op when `source` isn't a caption, its look didn't change, or the edit already restyled others.
-    public static func propagate(from source: ClipID, before: Project, after: inout Project) {
+    /// `coEdited` = other clips the same edit was fanned out to (C2 multi-select): their change doesn't count as
+    /// "already restyled", so editing several selected captions still restyles the whole track.
+    public static func propagate(from source: ClipID, coEdited: Set<ClipID> = [], before: Project, after: inout Project) {
         guard let old = before.timeline.clip(source), let new = after.timeline.clip(source),
               let t0 = CaptionOps.text(old), let t1 = CaptionOps.text(new), t1.caption != nil,
               let loc = after.timeline.locate(source), CaptionOps.isCaptionTrack(after.timeline.tracks[loc.track]) else { return }
@@ -27,6 +29,7 @@ public enum CaptionStyleSync {
             let beforeByID = Dictionary(before.timeline.tracks[bt].clips.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             for i in siblings {
                 let c = after.timeline.tracks[ti].clips[i]
+                if coEdited.contains(c.id) { continue }
                 if let b = beforeByID[c.id], let tb = CaptionOps.text(b), let tc = CaptionOps.text(c), !tb.sameLook(as: tc) { return }
             }
         }
