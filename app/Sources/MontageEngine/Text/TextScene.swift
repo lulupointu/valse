@@ -62,8 +62,7 @@ enum TextSceneBuilder {
     /// Effect extent of a style beyond the glyph box, em.
     static func padEm(_ t: TextContent) -> CGFloat {
         var p: Double = 0.06
-        let strokes = ([t.strokeWidth] + t.extraStrokes.map(\.width)).max() ?? 0
-        p += strokes
+        p += t.strokeExtentEm
         if let g = t.glow { p += g.radius * 1.6 }
         if t.shadowColor.a > 0 { p += t.shadow.distance + t.shadow.blur * 1.5 }
         return CGFloat(p)
@@ -314,7 +313,7 @@ enum TextSceneBuilder {
                                            char: unit.char, word: unit.word, line: unit.line, variantOf: base))
                     }
                 }
-                let fr = clusterRect(c, em * 0.08 + (st.glow?.mode != .outer && st.glow != nil ? CGFloat(st.glow!.radius) * em : 0), M)
+                let fr = clusterRect(c, em * 0.08 + (st.strokePosition == .center ? CGFloat(st.strokeWidth) * em / 2 : 0) + (st.glow?.mode != .outer && st.glow != nil ? CGFloat(st.glow!.radius) * em : 0), M)
                 fronts.append(.init(kind: .glyphFront(cluster: ci, variant: .base), block: bi, transform: M, rect: fr,
                                     char: unit.char, word: unit.word, line: unit.line))
                 if hiStyle != nil {

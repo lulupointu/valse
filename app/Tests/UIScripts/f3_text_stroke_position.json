@@ -1,0 +1,19 @@
+// TX-005: Text ▸ Basic ▸ Stroke ▸ Position — Outside (default) / Center / Inside, one undo step each; look at the player.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "montage.text.default"}, "on": "time:1@2"},
+    {"seek": 1.5},
+    {"click": "id:inspector.check.text.stroke"},
+    {"expect": [{"path": "selectedClips.0.strokeWidth", "gt": 0}, {"path": "selectedClips.0.strokePosition", "equals": "outside"}]},
+    {"click": "id:text.stroke.position", "at": [0.5, 0.5]},
+    {"expect": [{"path": "selectedClips.0.strokePosition", "equals": "center"}, {"path": "undo.name", "equals": "cmd.text"}]},
+    {"click": "id:text.stroke.position", "at": [0.85, 0.5]},
+    {"expect": {"path": "selectedClips.0.strokePosition", "equals": "inside"}},
+    {"snapshot": "stroke-inspector", "element": "id:inspector.section.text.stroke"},
+    {"snapshot": "stroke-inside-player", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.strokePosition", "equals": "center"}}
+  ]
+}

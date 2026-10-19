@@ -36,7 +36,10 @@ public enum StateDump {
             ]
             if let n = c.name { d["name"] = n }
             if tl.tracks.indices.contains(track) { d["lane"] = tl.tracks[track].kind.rawValue }
-            if case .text(let t) = c.content { d["text"] = t.string; if let w = t.boxWidth { d["boxWidth"] = w } }
+            if case .text(let t) = c.content {
+                d["text"] = t.string; if let w = t.boxWidth { d["boxWidth"] = w }
+                d["strokeWidth"] = t.strokeWidth; d["strokePosition"] = t.strokePosition.rawValue   // F3 TX-005
+            }
             if let t = c.transitionOut { d["transition"] = t.typeID; d["transitionDuration"] = t.duration.seconds }
             // W5: animations and keyframe counts per property
             d["animIn"] = c.animations.inAnim?.typeID ?? ""

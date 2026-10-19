@@ -22,6 +22,16 @@ public struct TextStrokeLayer: Hashable, Codable, Sendable {
     public init(color: RGBA, width: Double) { self.color = color; self.width = width }
 }
 
+/// Where the primary stroke sits relative to the glyph edge (CapCut Stroke ▸ Position, TX-005).
+public enum TextStrokePosition: String, Codable, Sendable, CaseIterable {
+    /// Whole width outside the edge, under the fill (default, CapCut "Outside").
+    case outside
+    /// Half inside, half outside, drawn over the fill.
+    case center
+    /// Whole width inside the edge (clipped to the glyph), drawn over the fill.
+    case inside
+}
+
 public enum TextBackgroundMode: String, Codable, Sendable, CaseIterable {
     /// One box around the whole text.
     case block
@@ -180,6 +190,8 @@ public struct TextContent: Hashable, Codable, Sendable {
     /// Primary outline (`strokeWidth` em, 0 = off). Drawn outside the glyph edge (the fill is painted on top).
     public var strokeColor: RGBA
     public var strokeWidth: Double
+    /// Position of the primary stroke (extra stroke layers are always outside).
+    public var strokePosition: TextStrokePosition
     /// Background / label colour (alpha 0 = off); shape in `background`.
     public var backgroundColor: RGBA
     /// Shadow colour (alpha 0 = off; alpha = opacity); geometry in `shadow`.
@@ -223,7 +235,7 @@ public struct TextContent: Hashable, Codable, Sendable {
                 alignment: TextAlignment = .center) {
         self.string = string; self.fontName = fontName; self.fontSize = fontSize; self.color = color
         self.alignment = alignment; bold = false; italic = false
-        strokeColor = .black; strokeWidth = 0; backgroundColor = .clear; shadowColor = .clear
+        strokeColor = .black; strokeWidth = 0; strokePosition = .outside; backgroundColor = .clear; shadowColor = .clear
         lineSpacing = 0; letterSpacing = 0; styleID = nil
         underline = false; textCase = .none; orientation = .horizontal; extraStrokes = []
         background = TextBackgroundStyle(); shadow = TextShadowStyle(); glow = nil; fill = nil
@@ -238,6 +250,7 @@ public struct TextContent: Hashable, Codable, Sendable {
         fontName = try v(.fontName, fontName); fontSize = try v(.fontSize, fontSize); color = try v(.color, color)
         alignment = try v(.alignment, alignment); bold = try v(.bold, bold); italic = try v(.italic, italic)
         strokeColor = try v(.strokeColor, strokeColor); strokeWidth = try v(.strokeWidth, strokeWidth)
+        strokePosition = try v(.strokePosition, strokePosition)
         backgroundColor = try v(.backgroundColor, backgroundColor); shadowColor = try v(.shadowColor, shadowColor)
         lineSpacing = try v(.lineSpacing, lineSpacing); letterSpacing = try v(.letterSpacing, letterSpacing)
         styleID = try c.decodeIfPresent(String.self, forKey: .styleID)
@@ -254,6 +267,17 @@ public struct TextContent: Hashable, Codable, Sendable {
         karaoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .karaoke)
         template = try c.decodeIfPresent(TextTemplateInstance.self, forKey: .template)
         counter = try c.decodeIfPresent(TextCounter.self, forKey: .counter)
+    }
+
+    /// How far the outlines reach outside the glyph edge, em (primary stroke by position + extra layers).
+    public var strokeExtentEm: Double {
+        let primary: Double
+        switch strokePosition {
+        case .outside: primary = strokeWidth
+        case .center: primary = strokeWidth / 2
+        case .inside: primary = 0
+        }
+        return ([primary] + extraStrokes.map(\.width)).max() ?? 0
     }
 
     /// The string as displayed (case transform applied). Same UTF-16 length as `string` for every `TextCase` except

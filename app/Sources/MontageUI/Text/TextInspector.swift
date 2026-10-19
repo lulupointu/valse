@@ -324,6 +324,14 @@ struct TextStrokeSection: View {
         VStack(alignment: .leading, spacing: 4) {
             TextInspector.colorRow(ctx, tr("inspector.color"), get: { $0.strokeColor }, set: { $0.strokeColor = $1 })
             TextInspector.row(ctx, tr("text.stroke.width"), range: 0...100, get: { $0.strokeWidth / 0.3 * 100 }, set: { t, v in t.strokeWidth = v / 100 * 0.3 })
+            InlineRow(label: tr("text.stroke.position")) {
+                SegmentedTabs(TextStrokePosition.allCases.map { ($0.rawValue, tr("text.stroke.position.\($0.rawValue)")) },
+                              selection: Binding(get: { (TextInspector.text(ctx)?.strokePosition ?? .outside).rawValue }, set: { v in
+                                  guard let id = ctx.clip?.id, let p = TextStrokePosition(rawValue: v) else { return }
+                                  ctx.store.updateText(id) { $0.strokePosition = p }
+                              }))
+                .testID("text.stroke.position")
+            }
             if let t = TextInspector.text(ctx) {
                 ForEach(Array(t.extraStrokes.enumerated()), id: \.offset) { i, s in
                     HStack(spacing: 8) {

@@ -173,7 +173,7 @@ struct InspectorSectionView: View {
         let id = section.id, ui = self.ui
         VStack(alignment: .leading, spacing: 10) {
             if let title = section.titleKey {
-                SectionHeaderBar(title: tr(title), chrome: chrome, expanded: expanded, ctx: ctx,
+                SectionHeaderBar(title: tr(title), chrome: chrome, expanded: expanded, ctx: ctx, checkID: "inspector.check.\(section.id)",
                                  toggle: { withAnimation(.easeOut(duration: 0.15)) { ui.expanded[id] = !expanded } },
                                  onCheck: { on in if on, ui.expanded[id] == false { ui.expanded[id] = true } })
             }
@@ -199,6 +199,8 @@ struct SectionHeaderBar: View {
     let chrome: InspectorSectionChrome?
     let expanded: Bool
     let ctx: InspectorContext
+    /// Test ID of the enable checkbox (F3: UI scripts tick optional sections directly).
+    var checkID: String? = nil
     let toggle: () -> Void
     /// Called after the checkbox changes (the panel re-expands a section the user collapsed when it gets ticked).
     var onCheck: ((Bool) -> Void)? = nil
@@ -210,6 +212,7 @@ struct SectionHeaderBar: View {
                     b.wrappedValue = v
                     onCheck?(v)
                 }), enabled: chrome?.disabledReason == nil, label: title)
+                .testID(checkID ?? "inspector.check")
             }
             HStack(spacing: 6) {
                 Text(verbatim: title).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary).lineLimit(1)

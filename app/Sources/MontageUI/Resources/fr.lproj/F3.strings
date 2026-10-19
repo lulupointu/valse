@@ -1,0 +1,5 @@
+/* Finisher F3 (médias, canevas, texte, audio) */
+"text.stroke.position" = "Position";
+"text.stroke.position.outside" = "Extérieur";
+"text.stroke.position.center" = "Centre";
+"text.stroke.position.inside" = "Intérieur";

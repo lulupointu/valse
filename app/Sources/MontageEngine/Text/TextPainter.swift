@@ -84,8 +84,7 @@ enum TextPainter {
             if c.isColorGlyph, st.shadowColor.a > 0 { drawColorGlyphShadow(c, st, em, M, ctx) }
             return
         }
-        let strokes = ([st.strokeWidth] + st.extraStrokes.map(\.width)).max() ?? 0
-        let outer = CGFloat(strokes) * em
+        let outer = CGFloat(st.strokeExtentEm) * em
         // shadow
         if st.shadowColor.a > 0 {
             let ang = st.shadow.angle * .pi / 180
@@ -133,10 +132,27 @@ enum TextPainter {
         for s in st.extraStrokes.sorted(by: { $0.width > $1.width }) where s.width > 0 {
             ctx.addPath(path); ctx.setStrokeColor(cg(s.color)); ctx.setLineWidth(CGFloat(s.width) * em * 2); ctx.strokePath()
         }
-        if st.strokeWidth > 0 {
+        if st.strokeWidth > 0, st.strokePosition == .outside {
             ctx.addPath(path); ctx.setStrokeColor(cg(c.style.strokeColor ?? st.strokeColor))
             ctx.setLineWidth(CGFloat(st.strokeWidth) * em * 2); ctx.strokePath()
         }
+    }
+
+    /// Centre / inside primary stroke (TX-005): painted over the fill. Centre straddles the edge (width w), inside is
+    /// a 2w line clipped to the glyph so exactly w shows inside the edge.
+    static func drawInnerStroke(_ path: CGPath, _ c: LaidCluster, style st: TextContent, em: CGFloat, in ctx: CGContext) {
+        guard st.strokeWidth > 0, st.strokePosition != .outside else { return }
+        ctx.saveGState()
+        ctx.setLineJoin(.round)
+        ctx.setStrokeColor(cg(c.style.strokeColor ?? st.strokeColor))
+        if st.strokePosition == .inside {
+            ctx.addPath(path); ctx.clip()
+            ctx.setLineWidth(CGFloat(st.strokeWidth) * em * 2)
+        } else {
+            ctx.setLineWidth(CGFloat(st.strokeWidth) * em)
+        }
+        ctx.addPath(path); ctx.strokePath()
+        ctx.restoreGState()
     }
 
     static func drawColorGlyphShadow(_ c: LaidCluster, _ st: TextContent, _ em: CGFloat, _ M: CGAffineTransform, _ ctx: CGContext) {
@@ -188,6 +204,7 @@ enum TextPainter {
         default:
             ctx.addPath(path); ctx.setFillColor(cg(color)); ctx.fillPath()
         }
+        drawInnerStroke(path, c, style: st, em: em, in: ctx)
         // inner glow
         if let g = st.glow, g.mode != .outer, g.intensity > 0 {
             ctx.saveGState()
