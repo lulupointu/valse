@@ -41,7 +41,11 @@ import MontageTestSupport
         #expect(basic == ["text.content", "text.counter", "text.transform", "text.opacity", "text.stroke", "text.background", "text.glow", "text.shadow", "text.curve"])
         let (c, ids) = captionStore()
         c.selection = [ids[0]]
-        #expect(tabs(c) == ["text", "captions", "animation", "tts"])
+        #expect(tabs(c) == ["captions", "text", "animation", "tts"])   // C4: Captions first, like CapCut
+        // C4: captions get Text ▸ Basic | Templates | Bubble | Effects and the "Apply to all main captions" row
+        let cctx = InspectorContext(store: c)
+        #expect(InspectorRegistry.subTabs(of: textTab, ctx: cctx).map(\.id) == ["basic", "templates", "bubble", "effects"])
+        #expect(InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: cctx).first?.id == "text.applyAllCaptions")
     }
 
     @Test func addTextAndStyles() throws {
