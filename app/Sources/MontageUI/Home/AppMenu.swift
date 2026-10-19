@@ -96,6 +96,22 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         return i
     }
 
+    /// View ▸ Layout (SE-005).
+    private func layoutMenu() -> NSMenuItem {
+        var items: [NSMenuItem] = EditorLayoutPreset.allCases.map { p in
+            item(p.nameKey, checked: { EditorLayout.shared.preset == p && EditorLayout.shared.activeCustom == nil }) { EditorLayout.shared.apply(p) }
+        }
+        items.append(.separator())
+        for i in 1...3 {
+            items.append(item("layout.custom.\(i)", enabled: { EditorLayout.shared.custom[i] != nil },
+                              checked: { EditorLayout.shared.activeCustom == i }) { EditorLayout.shared.applyCustom(i) })
+        }
+        let save: [NSMenuItem] = (1...3).map { i in item("layout.custom.\(i)") { EditorLayout.shared.saveCustom(i) } }
+        items.append(sub("layout.saveCustom", save))
+        items.append(item("layout.reset") { EditorLayout.shared.reset() })
+        return sub("layout.title", items)
+    }
+
     // MARK: Build
 
     public func build() -> NSMenu {
@@ -243,6 +259,7 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
                 self.store.toggleLoop()
             },
             reg("playerFullscreen"),
+            layoutMenu(),
             item("view.showKeystrokes", checked: { KeystrokeFeed.shared.enabled }) { KeystrokeFeed.shared.setEnabled(!KeystrokeFeed.shared.enabled) },
             .separator(),
             item("menu.language.system", checked: { L10n.shared.languagePreference == "system" }) { L10n.shared.setLanguagePreference("system") },

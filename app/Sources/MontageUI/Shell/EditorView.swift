@@ -6,9 +6,7 @@ import MontageEngine
 /// on top and the full-width timeline below, separated by draggable 6 pt gutters.
 public struct EditorView: View {
     @Bindable var store: EditorStore
-    @State private var topFraction: CGFloat = 0.54
-    @State private var leftFraction: CGFloat = 0.34
-    @State private var rightFraction: CGFloat = 0.31
+    @Bindable private var layout = EditorLayout.shared
     private let locale = LocaleState.shared
 
     public init(store: EditorStore) { self.store = store }
@@ -28,28 +26,10 @@ public struct EditorView: View {
         VStack(spacing: 0) {
             TitleBar(store: store)
             GeometryReader { geo in
-                let g = Theme.Metrics.gutter
                 let inner = CGSize(width: geo.size.width - 2 * Theme.Metrics.outerGutter,
                                    height: geo.size.height - Theme.Metrics.outerGutter)
-                let topH = max(220, min(inner.height - 160, inner.height * topFraction))
-                let leftW = max(Theme.Metrics.minAssetWidth * 0.7, inner.width * leftFraction)
-                let rightW = max(Theme.Metrics.minInspectorWidth * 0.8, inner.width * rightFraction)
-                // Each panel in its own hosting view (perf, W14 — see IsolatedHost): a slider tick, playhead move or
-                // asset scroll lays out only its panel, not the whole window.
-                VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        IsolatedHost { AssetPanel(store: store) }.testID("panel.assets").frame(width: leftW)
-                        Splitter(axis: .vertical) { dx in leftFraction = clamp((leftW + dx) / inner.width, 0.2, 0.45) }
-                            .frame(width: g)
-                        IsolatedHost { PlayerPanel(store: store) }.testID("panel.player").frame(maxWidth: .infinity)
-                        Splitter(axis: .vertical) { dx in rightFraction = clamp((rightW - dx) / inner.width, 0.2, 0.45) }
-                            .frame(width: g)
-                        IsolatedHost { InspectorPanel(store: store) }.testID("panel.inspector").frame(width: rightW)
-                    }
-                    .frame(height: topH)
-                    Splitter(axis: .horizontal) { dy in topFraction = clamp((topH + dy) / inner.height, 0.3, 0.75) }
-                        .frame(height: g)
-                    IsolatedHost { TimelinePanel(store: store) }.testID("panel.timeline")
+                Group {
+                    if layout.preset == .vertical { verticalPanels(inner) } else { standardPanels(inner) }
                 }
                 .padding(.horizontal, Theme.Metrics.outerGutter)
                 .padding(.bottom, Theme.Metrics.outerGutter)
@@ -97,6 +77,64 @@ public struct EditorView: View {
     }
 
     private func clamp(_ v: CGFloat, _ lo: CGFloat, _ hi: CGFloat) -> CGFloat { min(max(v, lo), hi) }
+
+    // Each panel lives in its own hosting view (perf, W14 — see IsolatedHost): a slider tick, playhead move or asset
+    // scroll lays out only its panel, not the whole window.
+    private var assets: some View { IsolatedHost { AssetPanel(store: store) }.testID("panel.assets") }
+    private var player: some View { IsolatedHost { PlayerPanel(store: store) }.testID("panel.player") }
+    private var inspector: some View { IsolatedHost { InspectorPanel(store: store) }.testID("panel.inspector") }
+    private var timeline: some View { IsolatedHost { TimelinePanel(store: store) }.testID("panel.timeline") }
+
+    /// Default family (UX.md §1.1): asset panel / player / inspector on top, full-width timeline below.
+    @ViewBuilder private func standardPanels(_ inner: CGSize) -> some View {
+        let g = Theme.Metrics.gutter
+        let f = layout.fractions
+        let topH = max(220, min(inner.height - 160, inner.height * f.top))
+        let leftW = max(Theme.Metrics.minAssetWidth * 0.7, inner.width * f.left)
+        let rightW = max(Theme.Metrics.minInspectorWidth * 0.8, inner.width * f.right)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                assets.frame(width: leftW)
+                Splitter(axis: .vertical) { dx in layout.fractions.left = clamp((leftW + dx) / inner.width, 0.18, 0.5) }
+                    .frame(width: g)
+                player.frame(maxWidth: .infinity)
+                Splitter(axis: .vertical) { dx in layout.fractions.right = clamp((rightW - dx) / inner.width, 0.18, 0.5) }
+                    .frame(width: g)
+                inspector.frame(width: rightW)
+            }
+            .frame(height: topH)
+            Splitter(axis: .horizontal) { dy in layout.fractions.top = clamp((topH + dy) / inner.height, 0.3, 0.75) }
+                .frame(height: g)
+            timeline
+        }
+    }
+
+    /// Vertical (9:16): a full-height player column on the right; assets + inspector over the timeline on the left.
+    @ViewBuilder private func verticalPanels(_ inner: CGSize) -> some View {
+        let g = Theme.Metrics.gutter
+        let f = layout.fractions
+        let playerW = max(320, inner.width * f.right)
+        let leftColumn = inner.width - playerW - g
+        let topH = max(220, min(inner.height - 160, inner.height * f.top))
+        let assetW = max(Theme.Metrics.minAssetWidth * 0.7, leftColumn * f.left)
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    assets.frame(width: assetW)
+                    Splitter(axis: .vertical) { dx in layout.fractions.left = clamp((assetW + dx) / leftColumn, 0.3, 0.7) }
+                        .frame(width: g)
+                    inspector.frame(maxWidth: .infinity)
+                }
+                .frame(height: topH)
+                Splitter(axis: .horizontal) { dy in layout.fractions.top = clamp((topH + dy) / inner.height, 0.3, 0.75) }
+                    .frame(height: g)
+                timeline
+            }
+            Splitter(axis: .vertical) { dx in layout.fractions.right = clamp((playerW - dx) / inner.width, 0.22, 0.5) }
+                .frame(width: g)
+            player.frame(width: playerW)
+        }
+    }
 }
 
 /// Draggable gutter between panels.
@@ -142,6 +180,7 @@ struct TitleBar: View {
                 .buttonStyle(.plain).foregroundStyle(store.ai.pilot.isOpen ? Theme.accent : Theme.textSecondary)
                 .help(tr("pilot.help"))
                 .testID("titlebar.pilot")
+                LayoutMenuButton()   // SE-005
                 // CapCut: ⌨ opens the shortcut window (language lives in Settings ▸ General)
                 if let show = TitleBar.showShortcuts {
                     Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)) }

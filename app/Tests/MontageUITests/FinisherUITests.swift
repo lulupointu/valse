@@ -96,7 +96,7 @@ import MontageTestSupport
 
     @Test func keystrokeFeedCollapsesRepeats() {
         let f = KeystrokeFeed()
-        f.lifetime = 60
+        f.lifetimeOverride = 60
         f.push("⌘B"); f.push("⌘B"); f.push("Space")
         #expect(f.items.map(\.text) == ["⌘B", "Space"] && f.items[0].count == 2)
         for k in ["A", "B", "C", "D"] { f.push(k) }

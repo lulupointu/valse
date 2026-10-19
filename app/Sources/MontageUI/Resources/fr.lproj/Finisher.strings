@@ -128,3 +128,17 @@
 "settings.linkFreeze.hint" = "Les filtres, effets, ajustements, la position et le recadrage modifiés sur l’original s’appliquent aussi à ses arrêts sur image.";
 "tlmenu.unlinkFreeze" = "Délier de la vidéo d’origine";
 "cmd.unlinkFreeze" = "Délier l’arrêt sur image";
+/* SE-005 layouts */
+"layout.title" = "Disposition";
+"layout.standard" = "Par défaut";
+"layout.media" = "Médias d’abord";
+"layout.player" = "Lecteur d’abord";
+"layout.timeline" = "Chronologie d’abord";
+"layout.attributes" = "Attributs d’abord";
+"layout.vertical" = "Vertical";
+"layout.custom" = "Disposition personnalisée %d";
+"layout.custom.1" = "Disposition personnalisée 1";
+"layout.custom.2" = "Disposition personnalisée 2";
+"layout.custom.3" = "Disposition personnalisée 3";
+"layout.saveCustom" = "Enregistrer la disposition actuelle sous";
+"layout.reset" = "Réinitialiser la disposition actuelle";

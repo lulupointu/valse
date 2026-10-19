@@ -14,8 +14,9 @@ public final class KeystrokeFeed {
     public private(set) var items: [Item] = []
     public private(set) var enabled = false
     @ObservationIgnored private var monitor: Any?
-    /// Seconds a pill stays (long in UI tests so a loaded machine can't expire them before the assertion).
-    @ObservationIgnored var lifetime: TimeInterval = TestAnchors.isEnabled ? 30 : 2
+    /// Seconds a pill stays; nil = 2 s, or 30 s in UI tests (read at push time: the feed may exist before the driver).
+    @ObservationIgnored var lifetimeOverride: TimeInterval?
+    var lifetime: TimeInterval { lifetimeOverride ?? (TestAnchors.isEnabled ? 30 : 2) }
 
     init() {
         if !HomeSandbox.isActive, UserDefaults.standard.bool(forKey: Self.defaultsKey) { setEnabled(true) }

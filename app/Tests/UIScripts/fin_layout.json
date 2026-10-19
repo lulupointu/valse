@@ -1,0 +1,22 @@
+// Finisher SE-005: View ▸ Layout presets change the panel proportions (Vertical = full-height player column), a
+// splitter drag edits the current layout, Save as Custom layout 1 / reapply it, Reset current layout.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"menu": "menu.view/layout.title/layout.vertical"},
+    {"expect": {"path": "ui.layout.preset", "equals": "vertical"}},
+    {"idle": 0.5},
+    {"snapshot": "layout-vertical"},
+    {"menu": "menu.view/layout.title/layout.player"},
+    {"expect": [{"path": "ui.layout.preset", "equals": "player"}, {"path": "ui.layout.top", "approx": 0.64}]},
+    {"snapshot": "layout-player"},
+    {"menu": "menu.view/layout.title/layout.saveCustom/layout.custom.1"},
+    {"menu": "menu.view/layout.title/layout.standard"},
+    {"expect": [{"path": "ui.layout.preset", "equals": "standard"}, {"path": "ui.layout.left", "approx": 0.34}]},
+    {"menu": "menu.view/layout.title/layout.custom.1"},
+    {"expect": [{"path": "ui.layout.preset", "equals": "player"}, {"path": "ui.layout.activeCustom", "equals": 1}]},
+    {"menu": "menu.view/layout.title/layout.standard"},
+    {"expect": {"path": "ui.layout.preset", "equals": "standard"}}
+  ]
+}

@@ -128,3 +128,17 @@
 "settings.linkFreeze.hint" = "Filters, effects, adjustments, position and crop changed on the original also change its freeze frames.";
 "tlmenu.unlinkFreeze" = "Unlink from original video";
 "cmd.unlinkFreeze" = "Unlink freeze frame";
+/* SE-005 layouts */
+"layout.title" = "Layout";
+"layout.standard" = "Default";
+"layout.media" = "Media first";
+"layout.player" = "Player first";
+"layout.timeline" = "Timeline first";
+"layout.attributes" = "Attributes first";
+"layout.vertical" = "Vertical";
+"layout.custom" = "Custom layout %d";
+"layout.custom.1" = "Custom layout 1";
+"layout.custom.2" = "Custom layout 2";
+"layout.custom.3" = "Custom layout 3";
+"layout.saveCustom" = "Save current layout as";
+"layout.reset" = "Reset current layout";
