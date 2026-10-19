@@ -131,6 +131,42 @@ import MontageTestSupport
     }
 }
 
+/// CV-014 motion blur direction (frame accumulation over previous / next / both frames).
+@Suite(.serialized) struct F3MotionBlurTests {
+    @Test func offsetsPerDirection() {
+        #expect(MotionBlur(samples: 4).frameOffsets == [-1, -2, -3])
+        #expect(MotionBlur(samples: 4, direction: .forward).frameOffsets == [1, 2, 3])
+        #expect(MotionBlur(samples: 6, direction: .both).frameOffsets == [-1, 1, -2, 2, -3])
+        let old = try? JSONDecoder().decode(MotionBlur.self, from: Data(#"{"amount":0.5,"samples":2}"#.utf8))
+        #expect(old?.direction == nil && old?.frameOffsets == [-1])
+    }
+
+    /// White box moving right on blue: a trailing blur smears it to the left, a leading one to the right.
+    @Test func trailingAndLeadingSmearOppositeWays() async throws {
+        var p = TestProject()
+        let id = try await p.addVideo(.movingBox(.blue, .white), seconds: 2)
+        func centroid(_ b: Bitmap) -> Double {
+            var sw = 0.0, sx = 0.0
+            for i in 0..<320 {
+                let x = (Double(i) + 0.5) / 320
+                let w = b[x, 0.5].r   // white box: r≈1, blue background: r≈0
+                sw += w; sx += w * x
+            }
+            return sx / max(sw, 1e-6)
+        }
+        let sharp = centroid(try await p.render(at: 1))
+        p[id].motionBlur = MotionBlur(amount: 1, samples: 6)
+        let trailing = centroid(try await p.render(at: 1))
+        p[id].motionBlur = MotionBlur(amount: 1, samples: 6, direction: .forward)
+        let leading = centroid(try await p.render(at: 1))
+        p[id].motionBlur = MotionBlur(amount: 1, samples: 6, direction: .both)
+        let both = centroid(try await p.render(at: 1))
+        #expect(trailing < sharp - 0.005, "trailing \(trailing) sharp \(sharp)")
+        #expect(leading > sharp + 0.005, "leading \(leading) sharp \(sharp)")
+        #expect(abs(both - sharp) < abs(trailing - sharp), "both \(both)")
+    }
+}
+
 /// AU-019 peak + RMS waveform cache.
 @Suite struct F3WaveformTests {
     @Test func sineHasRmsAboutPeakOverRootTwo() async throws {

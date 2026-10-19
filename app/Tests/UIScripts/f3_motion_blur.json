@@ -1,0 +1,17 @@
+// CV-014: Video ▸ Basic ▸ ☑ Motion blur ▸ Direction Trailing / Leading / Both ways (+ amount, Times), one undo step each.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.check.video.motionBlur"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.motionBlur"}, {"path": "project.timeline.tracks.0.clips.0.motionBlur.amount", "gt": 0}]},
+    {"click": "id:motionBlur.direction", "at": [0.85, 0.5]},
+    {"expect": {"path": "project.timeline.tracks.0.clips.0.motionBlur.direction", "equals": "both"}},
+    {"click": "id:motionBlur.direction", "at": [0.5, 0.5]},
+    {"expect": {"path": "project.timeline.tracks.0.clips.0.motionBlur.direction", "equals": "forward"}},
+    {"snapshot": "motion-blur", "element": "id:inspector.section.video.motionBlur"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "project.timeline.tracks.0.clips.0.motionBlur.direction", "equals": "both"}}
+  ]
+}

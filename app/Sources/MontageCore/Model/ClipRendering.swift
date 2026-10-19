@@ -69,8 +69,28 @@ public struct MotionBlur: Hashable, Codable, Sendable {
     public var amount: Double
     /// Number of frames accumulated (CapCut "Times" 2× / 4× / 6×), clamped to 2…6.
     public var samples: Int
-    public init(amount: Double = 0.5, samples: Int = 2) { self.amount = amount; self.samples = samples }
+    /// Which neighbouring frames are blended (CapCut "Direction", CV-014); nil = backward (trailing, as before).
+    public var direction: MotionBlurDirection?
+    public init(amount: Double = 0.5, samples: Int = 2, direction: MotionBlurDirection? = nil) {
+        self.amount = amount; self.samples = samples; self.direction = direction
+    }
     public var clampedSamples: Int { min(max(samples, 2), 6) }
+
+    /// Source-frame offsets of the extra frames, nearest first (−1 = previous frame, +1 = next frame).
+    public var frameOffsets: [Int] {
+        let n = clampedSamples - 1
+        switch direction ?? .backward {
+        case .backward: return (1...n).map { -$0 }
+        case .forward: return (1...n).map { $0 }
+        case .both: return (0..<n).map { i in (i % 2 == 0 ? -1 : 1) * (i / 2 + 1) }
+        }
+    }
+}
+
+/// Motion blur direction: trailing (previous frames), leading (next frames) or both ways (centred).
+public enum MotionBlurDirection: String, Codable, Sendable, CaseIterable {
+    case backward, forward, both
+    public var nameKey: String { "inspector.motionBlur.direction.\(rawValue)" }
 }
 
 public enum StabilizationLevel: String, Codable, Sendable, CaseIterable {

@@ -235,7 +235,8 @@ public enum CompositionBuilder {
             out.append((.nextFrame, videoURL, sfd))
         }
         if let mb = clip.motionBlur, mb.amount > 0 {
-            for k in 1..<mb.clampedSamples { out.append((.previousFrame(k), videoURL, Time(ticks: -sfd.ticks * Int64(k)))) }
+            // CV-014: .previousFrame(k) holds source frame −k (negative k = a following frame for forward / both ways)
+            for off in mb.frameOffsets { out.append((.previousFrame(-off), videoURL, Time(ticks: sfd.ticks * Int64(off)))) }
         }
         if let m = clip.matte, clip.usesMatteLane, let matte = MatteStore.shared.readyMatteVideo(media: asset, kind: m.kind) {
             if reversed {
@@ -365,7 +366,7 @@ public enum CompositionBuilder {
                 AudioPipeline.combineStructure(c, asset: a, into: &h)
                 h.combine(c.keyframes[ParamKey.volume.raw])
                 h.combine(sources(a))
-                h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind); h.combine(c.usesMatteLane)
+                h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.motionBlur?.direction); h.combine(c.matte?.kind); h.combine(c.usesMatteLane)
                 if c.reversed { h.combine(ReverseManager.shared.readyURL(for: a) != nil) }
                 if let m = c.matte { h.combine(MatteStore.shared.readyMatteVideo(media: a, kind: m.kind) != nil) }
                 if let rl = c.relight {
@@ -450,7 +451,7 @@ public final class StructureKeyCache: @unchecked Sendable {
             let spec = ClipAudioPlan.make(c).render
             h.combine(spec)
             h.combine(c.keyframes[ParamKey.volume.raw])
-            h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind)
+            h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.motionBlur?.direction); h.combine(c.matte?.kind)
             if seen.insert(id).inserted { media.append(id) }
             if c.reversed || c.matte != nil || !spec.isIdentity { external.append((c, a)) }
         }

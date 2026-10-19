@@ -45,6 +45,14 @@ struct MotionBlurSection: View {
                          get: { c, _ in (c.motionBlur ?? MotionBlur()).amount * 100 },
                          set: { c, v, _ in var m = c.motionBlur ?? MotionBlur(); m.amount = v / 100; c.motionBlur = m },   // edit while off = on
                          keyframeKeys: [], gestureName: "cmd.motionBlur")
+            InlineRow(label: tr("inspector.motionBlur.direction")) {   // CV-014 (F3)
+                SegmentedTabs(MotionBlurDirection.allCases.map { ($0.rawValue, tr($0.nameKey)) },
+                              selection: Binding(get: { (ctx.clip?.motionBlur?.direction ?? .backward).rawValue }, set: { v in
+                                  guard let id = ctx.clip?.id, let d = MotionBlurDirection(rawValue: v) else { return }
+                                  Bind.apply(ctx.store, id, "cmd.motionBlur") { $0.motionBlur?.direction = d == .backward ? nil : d }
+                              }))
+                .testID("motionBlur.direction")
+            }
             InlineRow(label: tr("inspector.motionBlur.times")) {
                 Dropdown(items: [2, 4, 6].map { ($0, "\($0)x") }, selection: ctx.clip?.motionBlur?.clampedSamples ?? 2) { n in
                     if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.motionBlur") { c in

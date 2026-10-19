@@ -57,8 +57,9 @@ extension FrameRenderer {
             if let mb = l.motionBlur, mb.amount > 0 {
                 let n = mb.clampedSamples
                 var total: Float = 1
-                for k in 1..<n {
-                    guard let pb = sources.auxPixelBuffer(for: l.clipID, role: .previousFrame(k)),
+                for (i, off) in mb.frameOffsets.enumerated() {
+                    let k = i + 1   // weight rank (nearest frames weigh most)
+                    guard let pb = sources.auxPixelBuffer(for: l.clipID, role: .previousFrame(-off)),
                           let prev = convertAux(pb, width: cur.width, height: cur.height, uv: cu, cmd: cmd, scratch: scratch, acquire: acquire)
                     else { continue }
                     let w = Float(min(max(mb.amount, 0), 1)) * (1 - Float(k - 1) / Float(n))

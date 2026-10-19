@@ -42,3 +42,7 @@
 "player.distribute.horizontal" = "Distribute horizontally";
 "player.distribute.vertical" = "Distribute vertically";
 "cmd.distribute" = "Distribute";
+"inspector.motionBlur.direction" = "Direction";
+"inspector.motionBlur.direction.backward" = "Trailing";
+"inspector.motionBlur.direction.forward" = "Leading";
+"inspector.motionBlur.direction.both" = "Both ways";

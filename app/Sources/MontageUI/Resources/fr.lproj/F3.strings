@@ -42,3 +42,7 @@
 "player.distribute.horizontal" = "Répartir horizontalement";
 "player.distribute.vertical" = "Répartir verticalement";
 "cmd.distribute" = "Répartir";
+"inspector.motionBlur.direction" = "Direction";
+"inspector.motionBlur.direction.backward" = "Arrière";
+"inspector.motionBlur.direction.forward" = "Avant";
+"inspector.motionBlur.direction.both" = "Les deux";
