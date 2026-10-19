@@ -60,7 +60,7 @@ struct MaskTrackingSection: View {
         let project = store.project
         let source = clip.sourceTime(at: store.transport.playhead.clamped(clip.start, clip.end - Time(ticks: 1)))
         let dir = MaskTrackUI.shared.direction
-        let t = target, id = clip.id
+        let t = target.resolved(clip), id = clip.id
         let box = CommandBox()
         Task {
             let job = await JobQueue.shared.enqueue(titleKey: "maskTrack.job", priority: 1, subject: id.description) { progress in

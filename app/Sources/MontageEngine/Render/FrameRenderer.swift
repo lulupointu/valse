@@ -497,7 +497,22 @@ public final class FrameRenderer: @unchecked Sendable {
             let pc = geo.projectedCorners
             u.cornerW = SIMD4(Float(pc[0].w), Float(pc[1].w), Float(pc[2].w), Float(pc[3].w))
         }
-        if let m = l.mask {
+        if let m = l.mask, !l.extraMasks.isEmpty {
+            // Multiple masks (MK-005): union of every mask's coverage, then one alpha pass (placement sees no mask).
+            let aspect = abs(geo.halfSize.x) / max(abs(geo.halfSize.y), 1e-6)
+            if let cov = maskUnion([m] + l.extraMasks, width: layerTex.width, height: layerTex.height, aspect: aspect,
+                                   cmd: cmd, acquire: acquire, recycle: scratch.recycle) {
+                let out = acquire(layerTex.width, layerTex.height)
+                let src = layerTex
+                var inv: Float = 0
+                fullscreen(FeaturePipelines.shared.alphaMask, target: out, cmd, label: "mask-union") { enc in
+                    enc.setFragmentTexture(src, index: 0); enc.setFragmentTexture(cov, index: 1)
+                    enc.setFragmentBytes(&inv, length: 4, index: 0)
+                }
+                scratch.recycle(src); scratch.recycle(cov)
+                layerTex = out
+            }
+        } else if let m = l.mask {
             if m.shape.isRaster {
                 // Text / Pen: multiply the layer alpha by the rasterized coverage; the placement shader sees no mask.
                 if let mt = RasterMasks.shared.texture(m, width: layerTex.width, height: layerTex.height) {
@@ -537,6 +552,42 @@ public final class FrameRenderer: @unchecked Sendable {
             r = (r * r - k * k).squareRoot()   // gaussian variances add
         }
         return out
+    }
+
+    /// Union coverage (red channel) of several masks in layer uv space: each mask's coverage (analytic shapes through
+    /// the core `mask_mix` pass between black and white, text / pen rasterized) max-combined.
+    func maskUnion(_ masks: [Mask], width: Int, height: Int, aspect: Double, cmd: MTLCommandBuffer,
+                   acquire: (Int, Int) -> MTLTexture, recycle: (MTLTexture) -> Void) -> MTLTexture? {
+        let fp = FinishPipelines.shared
+        var acc: MTLTexture?
+        for m in masks {
+            var cov: MTLTexture
+            var inv: Float = 0
+            if m.shape.isRaster {
+                guard let mt = RasterMasks.shared.texture(m, width: width, height: height) else { continue }
+                cov = mt; inv = m.inverted ? 1 : 0
+            } else {
+                cov = acquire(width, height)
+                var mu = PlaceUniforms(c0: .zero, c1: .zero, c2: .zero, c3: .zero, opacity: 1, blend: 0, maskShape: -1, maskInvert: 0,
+                                       maskCenter: .zero, maskSize: .one, maskRotation: 0, maskFeather: 0, maskRoundness: 0,
+                                       layerAspect: Float(aspect))
+                Self.setMask(m, &mu)
+                fullscreen(ctx.maskMix, target: cov, cmd, label: "mask-coverage") { enc in
+                    enc.setFragmentTexture(fp.black, index: 0); enc.setFragmentTexture(fp.white, index: 1)
+                    enc.setFragmentBytes(&mu, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
+                }
+            }
+            let out = acquire(width, height)
+            let prev = acc ?? fp.black
+            fullscreen(fp.maskUnion, target: out, cmd, label: "mask-union-step") { enc in
+                enc.setFragmentTexture(prev, index: 0); enc.setFragmentTexture(cov, index: 1)
+                enc.setFragmentBytes(&inv, length: 4, index: 0)
+            }
+            if !m.shape.isRaster { recycle(cov) }
+            if let a = acc { recycle(a) }
+            acc = out
+        }
+        return acc
     }
 
     /// Skin tone protection (CL-010): `post` (graded) pulled back to `pre` on skin-coloured pixels.

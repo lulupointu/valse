@@ -147,7 +147,7 @@ final class CanvasOverlayView: NSView {
         guard !l.isLocked, let clip = store.project.timeline.clip(l.clipID) else { return nil }
         let tab = store.inspectorTab ?? InspectorRegistry.tabs(for: InspectorContext(store: store)).first?.id
         guard let tab, InspectorUIState.shared.subTab[tab] == "mask" else { return nil }
-        let target: MaskTarget = ["adjust", "specialEffects", "filter"].contains(tab) ? .adjust : .clip
+        let target: MaskTarget = ["adjust", "specialEffects", "filter"].contains(tab) ? .adjust : MaskTarget.clip.resolved(clip)
         guard clip[keyPath: target.mask] != nil, let m = clip.resolved(at: localTime(clip))[keyPath: target.mask] else { return nil }
         return (l, clip, m, target)
     }

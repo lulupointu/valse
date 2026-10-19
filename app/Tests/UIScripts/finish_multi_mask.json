@@ -1,0 +1,25 @@
+// MK-005: Video ▸ Mask ▸ "+" adds Mask 2 (up to 4); the chip row selects which mask the settings / canvas handles edit;
+// the trash removes the selected mask and renumbers the rest.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"click": "id:mask.addAnother"},
+    {"expect": [{"path": "selectedClips.0.id", "exists": true},
+                {"path": "ui.anchors", "contains": "mask.chip.2"},
+                {"path": "undo.name", "equals": "cmd.mask"}]},
+    {"click": "id:mask.addAnother"},
+    {"expect": {"path": "ui.anchors", "contains": "mask.chip.3"}},
+    {"snapshot": "multi-mask", "element": "id:panel.inspector"},
+    {"snapshot": "multi-mask-player", "element": "id:panel.player"},
+    {"click": "id:mask.chip.2"},
+    {"click": "id:mask.remove"},
+    {"expect": [{"path": "ui.anchors", "notContains": "mask.chip.3"}, {"path": "undo.name", "equals": "cmd.mask.remove"}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "ui.anchors", "contains": "mask.chip.3"}}
+  ]
+}

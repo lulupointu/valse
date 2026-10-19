@@ -223,10 +223,26 @@ nonisolated struct MaskTarget: Sendable {
     nonisolated(unsafe) let mask: WritableKeyPath<Clip, Mask?>
     let center: ParamKey, size: ParamKey, feather: ParamKey, rotation: ParamKey, roundness: ParamKey
     let group: [ParamKey]
+    /// Clip mask number (1…4, MK-005); 0 = the Adjust mask.
+    var index = 1
     static let clip = MaskTarget(mask: \.mask, center: .maskCenter, size: .maskSize, feather: .maskFeather, rotation: .maskRotation,
                                  roundness: .maskRoundness, group: ParamKey.maskGroup)
     static let adjust = MaskTarget(mask: \.adjustMask, center: .adjustMaskCenter, size: .adjustMaskSize, feather: .adjustMaskFeather,
-                                   rotation: .adjustMaskRotation, roundness: .adjustMaskRoundness, group: ParamKey.adjustMaskGroup)
+                                   rotation: .adjustMaskRotation, roundness: .adjustMaskRoundness, group: ParamKey.adjustMaskGroup, index: 0)
+
+    /// Clip mask `n` (1 = `mask`, 2…4 = `extraMasks`).
+    static func clip(_ n: Int) -> MaskTarget {
+        n <= 1 ? .clip : MaskTarget(mask: Clip.maskKeyPath(n), center: .maskParam(n, "center"), size: .maskParam(n, "size"),
+                                    feather: .maskParam(n, "feather"), rotation: .maskParam(n, "rotation"),
+                                    roundness: .maskParam(n, "roundness"), group: ParamKey.maskGroup(n), index: n)
+    }
+
+    /// The clip mask selected in the inspector (MK-005 chips) for a clip-mask target; the Adjust mask stays as is.
+    @MainActor func resolved(_ clip: Clip?) -> MaskTarget {
+        guard index >= 1, let clip else { return self }
+        let n = min(max(InspectorUIState.shared.maskIndex[clip.id] ?? 1, 1), max(clip.maskCount, 1))
+        return .clip(n)
+    }
 }
 
 /// Video ▸ Mask ▸ ☑ Mask: "+ Add mask" pill (dimmed shape grid until a mask exists), then a "Mask 1 · Shape" chip and
@@ -264,15 +280,36 @@ struct MaskShapesSection: View {
     }
 
     var body: some View {
+        let target = self.target.resolved(ctx.clip)
         let mask = ctx.clip?[keyPath: target.mask]
         VStack(alignment: .leading, spacing: 12) {
-            if let mask {
-                HStack(spacing: 8) {
-                    Text(verbatim: tr("inspector.mask.chip", 1, tr(mask.shape.nameKey)))
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                        .padding(.horizontal, 12).frame(height: 26)
-                        .background(Theme.buttonSecondary, in: Capsule())
-                    SmallIconButton(symbol: "trash", help: tr("inspector.mask.remove"), size: 12) { setShape(nil) }
+            if let mask, let clip = ctx.clip {
+                // one chip per mask ("Mask 2 · Circle"), the edited one highlighted; ＋ adds another (up to 4, MK-005)
+                let count = target.index >= 1 ? clip.maskCount : 1
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(1...max(count, 1), id: \.self) { n in
+                            let m = target.index >= 1 ? clip.mask(n) : mask
+                            let selected = target.index == 0 || n == target.index
+                            Button {
+                                if target.index >= 1 { InspectorUIState.shared.maskIndex[clip.id] = n }
+                            } label: {
+                                Text(verbatim: tr("inspector.mask.chip", n, tr((m ?? mask).shape.nameKey)))
+                                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                    .padding(.horizontal, 12).frame(height: 26)
+                                    .background(selected ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                                    .overlay(Capsule().strokeBorder(selected && count > 1 ? Theme.accent : .clear, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .testID("mask.chip.\(n)")
+                        }
+                        if target.index >= 1 && count < Clip.maxMasks {
+                            SmallIconButton(symbol: "plus", help: tr("inspector.mask.addAnother"), size: 12) { addMask(clip) }
+                                .testID("mask.addAnother")
+                        }
+                        SmallIconButton(symbol: "trash", help: tr("inspector.mask.remove"), size: 12) { setShape(nil) }
+                            .testID("mask.remove")
+                    }
                 }
             } else {
                 Button { setShape(.rectangle) } label: {
@@ -298,9 +335,22 @@ struct MaskShapesSection: View {
         }
     }
 
+    /// ＋: a new rectangle mask after the last one, selected for editing.
+    func addMask(_ clip: Clip) {
+        let n = clip.maskCount + 1
+        guard n <= Clip.maxMasks else { return }
+        ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.mask") { c in c.setMask(n, MaskShapesSection.defaultMask(.rectangle)) })
+        InspectorUIState.shared.maskIndex[clip.id] = n
+    }
+
     func setShape(_ s: MaskShape?) {
         guard let id = ctx.clip?.id else { return }
-        let t = target
+        let t = target.resolved(ctx.clip)
+        if s == nil && t.index >= 1 {
+            ctx.store.perform(UpdateClip(id, nameKey: "cmd.mask.remove") { c in c.removeMask(t.index) })
+            InspectorUIState.shared.maskIndex[id] = max(1, t.index - 1)
+            return
+        }
         ctx.store.perform(UpdateClip(id, nameKey: s == nil ? "cmd.mask.remove" : "cmd.mask") { c in
             if let s {
                 if var m = c[keyPath: t.mask] {
@@ -326,7 +376,8 @@ struct MaskSettingsSection: View {
 
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome { chrome(ctx, target: .clip) }
 
-    static func chrome(_ ctx: InspectorContext, target t: MaskTarget) -> InspectorSectionChrome {
+    static func chrome(_ ctx: InspectorContext, target t0: MaskTarget) -> InspectorSectionChrome {
+        let t = t0.resolved(ctx.clip)
         let store = ctx.store
         let inverted = ctx.clip?[keyPath: t.mask]?.inverted ?? false
         return InspectorSectionChrome(
@@ -347,7 +398,7 @@ struct MaskSettingsSection: View {
 
     var body: some View {
         let layer = layerSize()
-        let t = target
+        let t = target.resolved(ctx.clip)
         let shape = ctx.clip?[keyPath: t.mask]?.shape
         let locked = InspectorUIState.shared.maskLock
         VStack(alignment: .leading, spacing: 4) {
@@ -394,8 +445,8 @@ struct MaskSettingsSection: View {
         let dim = i == 0 ? layer.width : layer.height
         return ClipNumberField(ctx: ctx, prefixSymbol: i == 0 ? "arrow.left.and.right" : "arrow.up.and.down", width: 64,
                                spec: RowSpec(range: 1...100_000, step: 1, format: Fmt.int),
-                               get: { [key = target.size] c, t in (c.value(key, at: t)?.component(i) ?? 0.5) * dim },
-                               set: { [key = target.size] c, v, t in
+                               get: { [key = target.resolved(ctx.clip).size] c, t in (c.value(key, at: t)?.component(i) ?? 0.5) * dim },
+                               set: { [key = target.resolved(ctx.clip).size] c, v, t in
                                    c.modifyValue(key, at: t) { val in
                                        guard var s = val.vec2 else { return }
                                        let nv = v / max(dim, 1)
@@ -405,7 +456,7 @@ struct MaskSettingsSection: View {
                                        val = .vec2(s)
                                    }
                                },
-                               dependsOnTime: { [key = target.size] in $0.hasKeyframes(key) }, gestureName: "cmd.mask")
+                               dependsOnTime: { [key = target.resolved(ctx.clip).size] in $0.hasKeyframes(key) }, gestureName: "cmd.mask")
     }
 
     /// Layer size in canvas pixels at scale 1 (mask coordinates are layer-relative).

@@ -98,6 +98,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var skinToneProtection: Bool?
     /// Face cover sticker (ST-006): this sticker clip follows a face of that clip (MontageAI `FaceStickers`).
     public var faceCoverOf: ClipID?
+    /// Masks 2…4 (MK-005, see MultiMask.swift); the layer shows the union of `mask` and these.
+    public var extraMasks: [Mask]?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

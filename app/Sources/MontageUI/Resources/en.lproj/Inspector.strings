@@ -58,6 +58,7 @@
 "inspector.mask.chip" = "Mask%d %@";
 "inspector.mask.lockRatio" = "Lock aspect ratio";
 "inspector.mask.remove" = "Remove mask";
+"inspector.mask.addAnother" = "Add another mask";
 "inspector.mask.settings" = "Mask settings";
 "inspector.multi.hint" = "Changes apply to every selected clip.";
 "inspector.name" = "Name";

@@ -23,6 +23,8 @@ final class InspectorUIState {
     var animationSearch = ""
     /// Mask size aspect-lock chain.
     var maskLock = false
+    /// Mask being edited per clip (MK-005: 1…4, Video ▸ Mask chips).
+    var maskIndex: [ClipID: Int] = [:]
     func isExpanded(_ id: String, default d: Bool) -> Bool { expanded[id] ?? d }
 }
 

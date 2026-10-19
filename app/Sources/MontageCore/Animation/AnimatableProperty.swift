@@ -120,7 +120,7 @@ public enum AnimatableProperties {
         textColor(.textShadowColor, "prop.textShadowColor", \.shadowColor),
         text(.textLetterSpacing, "prop.textLetterSpacing", \.letterSpacing),
         text(.textLineSpacing, "prop.textLineSpacing", \.lineSpacing),
-    ]
+    ] + ParamKey.extraMaskProperties   // MK-005 masks 2…4
 
     /// Scalar text-style property (nil value on non-text clips).
     static func text(_ key: ParamKey, _ nameKey: String, _ path: WritableKeyPath<TextContent, Double> & Sendable) -> AnimatableProperty {

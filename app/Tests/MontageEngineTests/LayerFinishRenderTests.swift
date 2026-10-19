@@ -53,4 +53,23 @@ import MontageTestSupport
         p[c.id].blendMode = .multiply   // yellow × black = black
         #expect(try await p.render(at: 0.5)[0.5, 0.5].luma < 0.05)
     }
+
+    @Test func multipleMasksShowTheUnion() async throws {
+        var p = TestProject(background: .black)
+        let id = try await p.addVideo(.solid(.white))
+        p[id].mask = Mask(shape: .circle, center: Vec2(-0.3, 0), size: Vec2(0.15, 0.3))
+        p[id].extraMasks = [Mask(shape: .rectangle, center: Vec2(0.3, 0), size: Vec2(0.15, 0.3))]
+        var img = try await p.render(at: 0.5)
+        #expect(img[0.2, 0.5].luma > 0.9 && img[0.8, 0.5].luma > 0.9)   // inside either mask
+        #expect(img[0.5, 0.5].luma < 0.05 && img[0.5, 0.1].luma < 0.05)  // outside both
+        // keyframes of mask 2 animate it; removing mask 1 renumbers mask 2 → mask 1
+        p[id].keyframes[ParamKey.maskParam(2, "center").raw] = KeyframeTrack([Keyframe(time: 0, value: .vec2(Vec2(0.3, 0))),
+                                                                             Keyframe(time: 1, value: .vec2(Vec2(0, 0)))])
+        img = try await p.render(at: 1.0)
+        #expect(img[0.5, 0.5].luma > 0.9)
+        var c = p[id]
+        c.removeMask(1)
+        #expect(c.maskCount == 1 && c.mask?.shape == .rectangle && c.keyframes[ParamKey.maskCenter.raw] != nil)
+        #expect(c.keyframes[ParamKey.maskParam(2, "center").raw] == nil)
+    }
 }

@@ -51,6 +51,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var adjustMask: Mask? = nil
     /// Skin tone protection (CL-010) for the adjustment-category effects.
     public var skinProtect = false
+    /// Masks 2…4 (MK-005): the layer shows the union of `mask` and these.
+    public var extraMasks: [Mask] = []
     /// Smooth slow-mo: weight 0…1 of the NEXT source frame (aux lane `.nextFrame`) at this instant; nil = off.
     public var frameBlend: Double? = nil
     public var slowMoMethod: SlowMotionMethod? = nil
@@ -261,6 +263,7 @@ public enum FrameEvaluator {
         l.matte = r.matte
         l.adjustMask = r.adjustMask
         l.skinProtect = c.skinToneProtection ?? false
+        if r.mask != nil, let extra = r.extraMasks { l.extraMasks = extra }
         l.stabilization = r.stabilization
         if let rl = c.relight, c.mediaID != nil { l.relight = rl.resolved(at: local.seconds) }
         l.duration = c.duration

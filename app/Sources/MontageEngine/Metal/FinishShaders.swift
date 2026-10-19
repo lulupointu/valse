@@ -28,6 +28,16 @@ enum FinishShaders {
         return float4(mix(g.rgb, o.rgb, k), g.a);
     }
 
+    // MK-005: running union of mask coverages (red channel); `inv` flips a rasterized (text / pen) coverage.
+    fragment float4 mask_union_fs(QuadOut in [[stage_in]], texture2d<float> acc [[texture(0)]], texture2d<float> cov [[texture(1)]],
+                                  constant float& inv [[buffer(0)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        float c = cov.sample(s, in.uv).r;
+        if (inv > 0.5) c = 1.0 - c;
+        float k = max(acc.sample(s, in.uv).r, c);
+        return float4(k, k, k, 1.0);
+    }
+
     // CK-008 matting blend: refines a cut-out edge on the matted layer (straight RGBA: rgb = source colour everywhere,
     // alpha = matte). In the edge band, the local foreground F (mean colour of nearby opaque pixels) and background B
     // (nearby transparent pixels) are estimated; alpha is re-estimated by projecting the pixel colour on the B→F line
@@ -67,6 +77,10 @@ final class FinishPipelines: @unchecked Sendable {
     static let shared = FinishPipelines()
     let skinProtect: MTLRenderPipelineState
     let mattingBlend: MTLRenderPipelineState
+    let maskUnion: MTLRenderPipelineState
+    /// 1×1 black / white textures (coverage sources).
+    let black: MTLTexture
+    let white: MTLTexture
 
     private init() {
         let ctx = MetalContext.shared
@@ -83,6 +97,16 @@ final class FinishPipelines: @unchecked Sendable {
         }
         skinProtect = pipe("skin_protect_fs")
         mattingBlend = pipe("matting_blend_fs")
+        maskUnion = pipe("mask_union_fs")
+        func pixel(_ v: Float) -> MTLTexture {
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba32Float, width: 1, height: 1, mipmapped: false)
+            d.usage = .shaderRead
+            let t = ctx.device.makeTexture(descriptor: d)!
+            var px: [Float] = [v, v, v, 1]
+            t.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0, withBytes: &px, bytesPerRow: 16)
+            return t
+        }
+        black = pixel(0); white = pixel(1)
     }
 }
 
