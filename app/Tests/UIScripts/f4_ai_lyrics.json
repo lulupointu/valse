@@ -1,0 +1,24 @@
+// F4 AI-002: Text ▸ Auto captions ▸ Auto lyrics on a "song" (French voice under a band ≈ 10 dB louder): the vocals
+// are separated first (Apple voice isolation, "Separating vocals…"), then whisper writes the lyric captions.
+{
+  "project": "empty",
+  "requires": {"models": ["whisper.large-v3-turbo-q5_0"]},
+  "steps": [
+    {"drop": {"files": ["fixtures/lyrics/song.m4a"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "media.count", "equals": 1, "timeout": 20}},
+    {"waitFor": {"path": "tracks.count", "gte": 1, "timeout": 20}},
+    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.nav.auto"},
+    {"click": "id:captions.autoLyrics"},
+    {"wait": 0.3},
+    {"snapshot": "lyrics-progress", "element": "id:panel.assets"},
+    {"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 300}},
+    {"wait": 1.0},
+    {"dump": "after"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.lyrics"}, {"path": "ui.toast", "contains": "3"}, {"path": "tracks.1.clips.0.text", "contains": "soleil"}, {"path": "tracks.1.clips.2.text", "contains": "oiseaux"}]},
+    {"seek": 2.0},
+    {"wait": 1.0},
+    {"snapshot": "lyrics-added", "element": "id:panel.timeline"},
+    {"snapshot": "lyrics-player", "element": "id:panel.player"}
+  ]
+}

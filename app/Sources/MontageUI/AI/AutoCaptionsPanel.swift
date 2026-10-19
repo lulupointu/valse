@@ -58,7 +58,7 @@ struct AutoCaptionsPanel: View {
                     HStack {
                         Spacer()
                         Button(tr("captions.autoLyrics")) { store.generateCaptions(lyrics: true) }
-                            .buttonStyle(SecondaryButtonStyle()).disabled(ai.captionJob != nil || !hasAudio)
+                            .buttonStyle(SecondaryButtonStyle()).disabled(ai.captionJob != nil || !hasAudio).testID("captions.autoLyrics")
                     }
                 }
                 .padding(16)
