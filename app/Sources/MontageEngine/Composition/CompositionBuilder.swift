@@ -237,7 +237,7 @@ public enum CompositionBuilder {
         if let mb = clip.motionBlur, mb.amount > 0 {
             for k in 1..<mb.clampedSamples { out.append((.previousFrame(k), videoURL, Time(ticks: -sfd.ticks * Int64(k)))) }
         }
-        if let m = clip.matte, let matte = MatteStore.shared.readyMatteVideo(media: asset, kind: m.kind) {
+        if let m = clip.matte, clip.usesMatteLane, let matte = MatteStore.shared.readyMatteVideo(media: asset, kind: m.kind) {
             if reversed {
                 let key = MatteStore.shared.reverseKey(media: asset, kind: m.kind)
                 let r = purpose == .export ? try await ReverseManager.shared.ensure(source: matte, key: key)
@@ -365,7 +365,7 @@ public enum CompositionBuilder {
                 AudioPipeline.combineStructure(c, asset: a, into: &h)
                 h.combine(c.keyframes[ParamKey.volume.raw])
                 h.combine(sources(a))
-                h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind)
+                h.combine(c.smoothSlowMo); h.combine(c.motionBlur?.clampedSamples); h.combine(c.matte?.kind); h.combine(c.usesMatteLane)
                 if c.reversed { h.combine(ReverseManager.shared.readyURL(for: a) != nil) }
                 if let m = c.matte { h.combine(MatteStore.shared.readyMatteVideo(media: a, kind: m.kind) != nil) }
                 if let rl = c.relight {

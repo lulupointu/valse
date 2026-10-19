@@ -34,3 +34,12 @@ extension FrameRenderer {
         return out
     }
 }
+
+extension Clip {
+    /// The clip decodes its AI matte as an aux lane: a cutout, or a body-effects-only matte (FX-002) while the clip
+    /// still has a body effect (removing the last body effect frees the decoder).
+    public var usesMatteLane: Bool {
+        guard let m = matte else { return false }
+        return !m.isBodyOnly || effects.contains { Registries.effects[$0.typeID]?.groupKey == FrameRenderer.bodyGroupKey }
+    }
+}

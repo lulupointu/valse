@@ -63,6 +63,17 @@ import MontageTestSupport
         #expect(img[0.85, 0.5].g < 0.6 && img[0.85, 0.5].g > 0.1, "\(img[0.85, 0.5])")
     }
 
+    @Test func bodyOnlyMatteDecodesOnlyWhileABodyEffectRemains() {
+        var c = Clip(content: .adjustment, start: .zero, duration: Time(1))
+        c.matte = ClipMatte(kind: "person", bodyOnly: true)
+        c.effects = [Registries.effects["montage.effect.outline"]!.makeInstance()]
+        #expect(c.usesMatteLane)
+        c.effects = [Registries.effects["montage.effect.vhs"]!.makeInstance()]
+        #expect(!c.usesMatteLane)
+        c.matte = ClipMatte(kind: "person")   // a real cutout always decodes its matte
+        #expect(c.usesMatteLane)
+    }
+
     @Test func magicEffectsAreBodyEffectsInTheLibrary() {
         for n in ["magicCutout", "magicSpotlight", "magicColorPop"] {
             let d = Registries.effects["montage.effect.\(n)"]
