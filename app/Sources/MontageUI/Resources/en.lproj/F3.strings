@@ -15,3 +15,16 @@
 "settings.proxyResolution" = "Proxy resolution";
 "settings.proxyResolution.hint" = "Applies to proxies created from now on. Clear the proxies to rebuild them at the new size.";
 "settings.proxyOnlyAbove" = "Only convert material above proxy resolution";
+"captions.encoding" = "Character encoding";
+"captions.encoding.auto" = "Auto-detect";
+"captions.encoding.utf8" = "UTF-8";
+"captions.encoding.utf16" = "UTF-16";
+"captions.encoding.windows1252" = "Western (Windows-1252)";
+"captions.encoding.isoLatin1" = "Western (ISO 8859-1)";
+"captions.encoding.windows1250" = "Central European (Windows-1250)";
+"captions.encoding.windows1251" = "Cyrillic (Windows-1251)";
+"captions.encoding.macRoman" = "Mac Roman";
+"captions.encoding.shiftJIS" = "Japanese (Shift JIS)";
+"captions.encoding.gb18030" = "Simplified Chinese (GB 18030)";
+"captions.encoding.big5" = "Traditional Chinese (Big 5)";
+"captions.encoding.eucKR" = "Korean (EUC-KR)";

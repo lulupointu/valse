@@ -20,6 +20,29 @@ struct F3CoreTests {
         #expect(abs(VolumeNudge.db(g) - 1) < 1e-9)
     }
 
+    // MI-020
+    @Test func captionEncodingOverride() throws {
+        let srt = "1\n00:00:01,000 --> 00:00:02,000\nПривет мир\n"
+        let cp1251 = srt.data(using: .windowsCP1251)!
+        // auto reads legacy bytes as Windows-1252 (wrong letters) — the override fixes it
+        #expect(CaptionEncoding.auto.decode(cp1251)?.contains("Привет") == false)
+        let fixed = try #require(CaptionEncoding.windows1251.decode(cp1251))
+        #expect(CaptionFile.parse(fixed, format: .srt).first?.text == "Привет мир")
+        let jp = "こんにちは"
+        #expect(CaptionEncoding.shiftJIS.decode(jp.data(using: .shiftJIS)!) == jp)
+        let zh = "你好，世界"
+        let gb = CaptionEncoding.gb18030.stringEncoding!
+        #expect(CaptionEncoding.gb18030.decode(zh.data(using: gb)!) == zh)
+        // BOM handling: forced UTF-8 drops the BOM; auto still detects it
+        let bom = Data([0xEF, 0xBB, 0xBF]) + Data("abc".utf8)
+        #expect(CaptionEncoding.utf8.decode(bom) == "abc" && CaptionEncoding.auto.decode(bom) == "abc")
+        // files on disk go through the chosen encoding
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("f3-\(UUID().uuidString).srt")
+        try cp1251.write(to: url); defer { try? FileManager.default.removeItem(at: url) }
+        #expect(try CaptionFile.load(url, encoding: .windows1251).first?.text == "Привет мир")
+        #expect(CaptionEncoding.allCases.count == 12)
+    }
+
     // MI-014
     func multiStreamProject(streams: Int) throws -> (Project, ClipID) {
         var p = Project()

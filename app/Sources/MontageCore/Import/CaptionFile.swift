@@ -26,8 +26,8 @@ public enum CaptionFile {
         }
     }
 
-    public static func load(_ url: URL) throws -> [CaptionCue] {
-        guard let data = try? Data(contentsOf: url), let text = decode(data) else { throw ParseError.unreadable }
+    public static func load(_ url: URL, encoding: CaptionEncoding = .current) throws -> [CaptionCue] {
+        guard let data = try? Data(contentsOf: url), let text = encoding.decode(data) else { throw ParseError.unreadable }
         let fmt = format(forExtension: url.pathExtension) ?? sniff(text)
         let cues = parse(text, format: fmt)
         if cues.isEmpty { throw ParseError.empty }

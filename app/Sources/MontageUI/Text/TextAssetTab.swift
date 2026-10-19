@@ -144,12 +144,20 @@ struct TextAssetTile<Preview: View>: View {
 struct LocalCaptionsPanel: View {
     let store: EditorStore
     @State private var script = ""
+    @State private var encoding = CaptionEncoding.current
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(loc: "text.nav.local").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
             Text(loc: "captions.import.desc").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
             Button(tr("captions.import")) { store.chooseCaptionFileToImport() }.buttonStyle(AccentButtonStyle())
+            HStack(spacing: 10) {   // MI-020 (F3)
+                Text(loc: "captions.encoding").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                Dropdown(items: CaptionEncoding.allCases.map { ($0, tr($0.nameKey)) }, selection: encoding) { e in
+                    encoding = e; CaptionEncoding.current = e
+                }
+                .frame(width: 220).testID("captions.encoding")
+            }
             Rectangle().fill(Theme.separator).frame(height: 1)
             Text(loc: "captions.script").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
             Text(loc: "captions.script.desc").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)

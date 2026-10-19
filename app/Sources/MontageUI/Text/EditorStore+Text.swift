@@ -337,7 +337,7 @@ extension EditorStore {
         let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         guard size <= CaptionFiles.maxImportBytes else { showToast(tr("captions.import.tooLarge"), error: true); return }
         guard let data = try? Data(contentsOf: url),
-              let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1),
+              let text = CaptionEncoding.current.decode(data),   // MI-020: Character encoding (auto = BOM / UTF-8 / CP1252)
               let fmt = CaptionFormat.detect(fileExtension: url.pathExtension, content: text),
               let segs = try? CaptionFiles.parse(text, format: fmt) else {
             showToast(tr("captions.import.failed"), error: true); return

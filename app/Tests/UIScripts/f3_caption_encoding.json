@@ -1,0 +1,14 @@
+// MI-020: Text ▸ Local captions shows "Character encoding [Auto-detect ▾]" under Import file (12 charsets; the choice is
+// used by Import file and by caption files dropped on the app). Dropping an SRT imports it as a caption track.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.nav.local"},
+    {"expect": {"path": "ui.anchors", "contains": "captions.encoding"}},
+    {"snapshot": "local-captions", "element": "id:panel.assets"},
+    {"drop": {"files": ["fixtures/f3_captions.srt"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.importCaptions", "timeout": 10}},
+    {"expect": {"path": "ui.toast", "exists": true}}
+  ]
+}
