@@ -29,6 +29,14 @@ public enum SessionLock {
         return pid != getpid() && isAlive(pid)
     }
 
+    /// PM-014: pid of the other live Montage process holding the project (to bring its window forward), else nil.
+    public static func holderPID(_ packageURL: URL) -> Int32? {
+        let url = packageURL.appendingPathComponent(fileName)
+        guard let s = try? String(contentsOf: url, encoding: .utf8), let pid = Int32(s.trimmingCharacters(in: .whitespacesAndNewlines)),
+              pid != getpid(), isAlive(pid) else { return nil }
+        return pid
+    }
+
     static func isAlive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 || errno == EPERM }
 }
 

@@ -39,6 +39,10 @@ extension AppModel {
             p.media.append(a)
             try? ProjectPackage.save(p, to: url)
         }
+        if parts.contains("heldelsewhere"), let url = visibleEntries.first?.url {
+            // PM-014: the newest project is open in another (live) Montage window — pid 1 (launchd) is always alive
+            try? "1".write(to: url.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)
+        }
         if parts.contains("crash"), let url = visibleEntries.first?.url {
             // a pid that can't be alive: the session "crashed"
             try? "99999999".write(to: url.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)
@@ -181,6 +185,7 @@ extension AppModel {
             "folders": folders.map(\.name),
             "trashCount": trashCount,
             "projectName": store.projectName,
+            "launchedWindows": ProjectWindows.launched,
             "renderedRanges": store.renderedPreviewRanges().map { [$0.start.seconds, $0.end.seconds] },
             "settings": {
                 // every AppSettings field (encoded), plus the language preference

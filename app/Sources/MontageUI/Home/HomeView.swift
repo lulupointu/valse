@@ -483,6 +483,7 @@ struct ProjectMenuItems: View {
             Button(tr("home.deleteForever")) { app.deletePermanently(items) }
         } else {
             Button(tr("home.open")) { app.open(entry.url) }
+            Button(tr("pm.window.openInNew")) { app.openInNewWindow(entry.url) }.disabled(items.count > 1)   // PM-014
             Button(tr("home.rename")) { app.renamingID = entry.id }.disabled(items.count > 1)
             Button(tr("home.duplicate")) { app.duplicate(items) }
             Menu(tr("home.moveTo")) { MoveToFolderItems(app: app, items: items) }

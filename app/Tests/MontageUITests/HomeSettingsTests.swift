@@ -189,6 +189,31 @@ import MontageEngine
         #expect(app.entries.count == 1)
     }
 
+    /// F4 PM-014: Open in new window launches another instance with `--open`; a project open in another window is
+    /// brought forward instead of opened twice.
+    @Test func openInNewWindowLaunchesOrFocuses() async throws {
+        let (app, lib) = appModel()
+        let a = try lib.create(Project(name: "A")), b = try lib.create(Project(name: "B"))
+        await app.refresh()
+        var launched: [URL?] = []
+        let saved = ProjectWindows.launcher
+        defer { ProjectWindows.launcher = saved }
+        ProjectWindows.launcher = { launched.append($0); return true }
+        #expect(ProjectWindows.arguments(for: a) == ["--open", a.path])
+        #expect(ProjectWindows.arguments(for: nil).isEmpty)
+        app.openInNewWindow(a)
+        app.newWindow()
+        #expect(launched.count == 2 && launched[0] == a && launched[1] == nil)
+        try "1".write(to: b.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)   // pid 1: alive
+        #expect(SessionLock.holderPID(b) == 1)
+        app.openInNewWindow(b)
+        #expect(launched.count == 2)                       // focused, not launched
+        app.open(b)
+        #expect(app.screen == .home)                       // not opened twice
+        SessionLock.release(b)
+        #expect(SessionLock.holderPID(b) == nil)
+    }
+
     @Test func trashUndoAndFolders() async throws {
         let (app, lib) = appModel()
         for n in ["A", "B", "C"] { _ = try lib.create(Project(name: n)) }

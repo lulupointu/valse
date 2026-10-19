@@ -165,6 +165,8 @@ public final class AppModel {
     /// Opens a project package in the editor (Home card, File ▸ Open, Finder, recovery).
     public func open(_ url: URL) {
         if store.packageURL?.standardizedFileURL == url.standardizedFileURL, screen == .editor { return }
+        // PM-014: open in another window → bring that window forward
+        if ProjectWindows.focusHolder(of: url) { store.showToast(tr("pm.window.alreadyOpen")); return }
         if SessionLock.isHeldByOtherProcess(url) { store.showToast(tr("error.openElsewhere"), error: true); return }
         // PM-009: a project on a drive that isn't connected
         if case .unavailable(let drive) = StorageLocation.of(url) { store.showToast(tr("pm.drive.projectOffline", drive), error: true); return }
@@ -182,6 +184,20 @@ public final class AppModel {
                 store.showToast(tr("error.unreadable"), error: true)
             }
         }
+    }
+
+    /// PM-014: File ▸ Open in New Window / Home ▸ … ▸ Open in new window. The project already open here stays put;
+    /// one open in another window is brought forward.
+    public func openInNewWindow(_ url: URL) {
+        if store.packageURL?.standardizedFileURL == url.standardizedFileURL, screen == .editor { return }
+        if ProjectWindows.focusHolder(of: url) { store.showToast(tr("pm.window.alreadyOpen")); return }
+        if case .unavailable(let drive) = StorageLocation.of(url) { store.showToast(tr("pm.drive.projectOffline", drive), error: true); return }
+        if !ProjectWindows.open(url) { store.showToast(tr("pm.window.failed"), error: true) }
+    }
+
+    /// PM-014: File ▸ New Window (another window on Home).
+    public func newWindow() {
+        if !ProjectWindows.open(nil) { store.showToast(tr("pm.window.failed"), error: true) }
     }
 
     /// Shows an already loaded project (demo, tests).
@@ -377,13 +393,13 @@ public final class AppModel {
 
     // MARK: Open panels
 
-    public func openPanel() {
+    public func openPanel(newWindow: Bool = false) {
         let p = NSOpenPanel()
         p.allowedContentTypes = [UTType(filenameExtension: ProjectPackage.fileExtension) ?? .package]
         p.treatsFilePackagesAsDirectories = false
         p.canChooseDirectories = true
         if p.runModal() == .OK, let u = p.url {
-            if u.pathExtension == ProjectPackage.fileExtension { open(u) } else { store.showToast(tr("error.notAPackage"), error: true) }
+            if u.pathExtension == ProjectPackage.fileExtension { if newWindow { openInNewWindow(u) } else { open(u) } } else { store.showToast(tr("error.notAPackage"), error: true) }
         }
     }
 }

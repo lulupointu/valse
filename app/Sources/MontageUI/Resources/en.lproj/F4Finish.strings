@@ -9,3 +9,8 @@
 "ex.hw.fastExport" = "Faster exporting, but may have color differences";
 "ex.hw.fastExport.help" = "The hardware encoder favours speed over quality. Gradients and dark areas can look slightly different.";
 "ex.hw.decode" = "Speed up hardware decoding";
+"pm.window.openInNew" = "Open in new window";
+"pm.window.openInNewMenu" = "Open in New Window…";
+"pm.window.new" = "New Window";
+"pm.window.alreadyOpen" = "This project is already open in another window — switched to it.";
+"pm.window.failed" = "Couldn't open a new window.";

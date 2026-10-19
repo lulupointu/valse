@@ -150,6 +150,8 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
                 if self.app.screen == .editor { Task { await self.store.closeProject(); self.app.newProject() } } else { self.app.newProject() }
             },
             item("menu.open", id: "menu.open") { [unowned self] in self.app.openPanel() },
+            item("pm.window.openInNewMenu", id: "menu.openInNewWindow") { [unowned self] in self.app.openPanel(newWindow: true) },   // PM-014
+            item("pm.window.new", id: "menu.newWindow") { [unowned self] in self.app.newWindow() },
             sub("menu.openRecent", recents.isEmpty ? [item("menu.openRecent.none", enabled: { false }) {}] : recents),
             .separator(),
             item("menu.import", id: "menu.import", enabled: { [unowned self] in self.inEditor }) { [unowned self] in self.importMedia() },

@@ -9,3 +9,8 @@
 "ex.hw.fastExport" = "Exportation plus rapide, mais les couleurs peuvent différer";
 "ex.hw.fastExport.help" = "L'encodeur matériel privilégie la vitesse à la qualité. Les dégradés et les zones sombres peuvent légèrement différer.";
 "ex.hw.decode" = "Accélérer le décodage matériel";
+"pm.window.openInNew" = "Ouvrir dans une nouvelle fenêtre";
+"pm.window.openInNewMenu" = "Ouvrir dans une nouvelle fenêtre…";
+"pm.window.new" = "Nouvelle fenêtre";
+"pm.window.alreadyOpen" = "Ce projet est déjà ouvert dans une autre fenêtre : elle est passée au premier plan.";
+"pm.window.failed" = "Impossible d'ouvrir une nouvelle fenêtre.";
