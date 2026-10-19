@@ -56,3 +56,6 @@
 "fontbook.removed" = "%@ removed";
 "fontbook.removeFailed" = "Couldn't remove %@";
 "text.favorites.empty" = "Star text effects, templates or fonts to find them here.";
+"tlmenu.applyLivePhoto" = "Apply as a LIVE photo";
+"tlmenu.applyPhoto" = "Apply as a photo";
+"cmd.livePhoto" = "LIVE photo";

@@ -75,6 +75,31 @@ extension EditorStore {
         })
     }
 
+    // MARK: MI-012 Live Photo switch on the clip
+
+    /// The still a Live Photo motion clip came from (nil when the clip isn't one).
+    func livePhotoStill(of c: Clip) -> MediaAsset? {
+        guard let a = c.mediaID.flatMap(project.asset), a.kind == .video else { return nil }
+        return project.media.first { $0.livePhotoVideoURL?.standardizedFileURL == a.url.standardizedFileURL }
+    }
+
+    /// Right-click ▸ "Apply as a LIVE photo" (still → its motion video) / "Apply as a photo" (motion → the still), keeping
+    /// the clip's place, length (shortened if the video is shorter) and look. One undo step.
+    public func toggleLivePhoto(_ id: ClipID) {
+        guard let c = project.timeline.clip(id), let a = c.mediaID.flatMap(project.asset) else { return }
+        if let still = livePhotoStill(of: c) {
+            edit("cmd.livePhoto") { p in try TimelineOps.replaceMedia(id, with: still, in: &p) }
+            return
+        }
+        guard let video = a.livePhotoVideoURL else { return }
+        Task {
+            guard var v = try? await MediaProbe.probe(video) else { showToast(tr("toast.importFailed", 1), error: true); return }
+            if let e = project.media.first(where: { $0.contentHash == v.contentHash }) { v = e } else { v.folderID = a.folderID }
+            let asset = v
+            edit("cmd.livePhoto") { p in try TimelineOps.replaceMedia(id, with: asset, in: &p) }
+        }
+    }
+
     // MARK: MI-006 auto-relink at open
 
     /// Looks for missing media in the project's folder, previously used relink folders and near their old location;

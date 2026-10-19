@@ -557,6 +557,8 @@ extension TimelineView {
         let target = plan?.target ?? (insertionSlot != nil ? InsertTarget.newTrack : insertTarget(hit, l))
         let pb = sender.draggingPasteboard
         if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            // MI-001 (F3): files dropped anywhere on an empty timeline start the main track (CapCut), not an overlay lane
+            if store.project.timeline.allClips.isEmpty { store.importFiles(urls, thenInsertAt: .zero, target: .automatic); return true }
             store.importFiles(urls, thenInsertAt: time, target: target)
             return true
         }

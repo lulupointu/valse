@@ -1,0 +1,12 @@
+// MI-001: Finder files dropped anywhere on the EMPTY timeline start the main track; later drops on the main row append.
+{
+  "project": "empty",
+  "steps": [
+    {"drop": {"files": ["fixtures/live.mov"]}, "on": "id:timeline"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 20}},
+    {"expect": {"path": "media.count", "equals": 1}},
+    {"drop": {"files": ["fixtures/live.jpg"]}, "on": "time:20@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 2, "timeout": 20}},
+    {"snapshot": "dropped", "element": "id:panel.timeline"}
+  ]
+}

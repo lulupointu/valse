@@ -1,0 +1,18 @@
+// MI-012: a Live Photo (live.jpg + live.mov) imports as one still; on the timeline, right-click ▸ Apply as a LIVE photo
+// swaps the clip to the motion video (shortened to its 1.5 s), ▸ Apply as a photo swaps it back. One undo step each.
+{
+  "project": "demo-bin",
+  "steps": [
+    {"drop": {"files": ["fixtures/live.jpg", "fixtures/live.mov"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 20}},
+    {"expect": [{"path": "media.count", "equals": 6}, {"path": "main.clips.0.duration", "approx": 5, "tolerance": 0.05}]},
+    {"click": "clip:main/0"},
+    {"rightClick": "clip:main/0", "menuItem": "tlmenu.applyLivePhoto"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.livePhoto", "timeout": 10}},
+    {"expect": [{"path": "media.count", "equals": 7}, {"path": "main.clips.0.duration", "approx": 1.5, "tolerance": 0.05},
+                {"path": "main.clips.0.mediaKind", "equals": "video"}]},
+    {"snapshot": "live-video", "element": "id:panel.timeline"},
+    {"rightClick": "clip:main/0", "menuItem": "tlmenu.applyPhoto"},
+    {"expect": [{"path": "undo.depth", "gte": 3}, {"path": "main.clips.0.mediaKind", "equals": "image"}]}
+  ]
+}

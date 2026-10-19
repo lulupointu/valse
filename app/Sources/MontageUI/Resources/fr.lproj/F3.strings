@@ -56,3 +56,6 @@
 "fontbook.removed" = "%@ retirée";
 "fontbook.removeFailed" = "Impossible de retirer %@";
 "text.favorites.empty" = "Ajoutez des effets, modèles ou polices aux favoris pour les retrouver ici.";
+"tlmenu.applyLivePhoto" = "Appliquer comme photo LIVE";
+"tlmenu.applyPhoto" = "Appliquer comme photo";
+"cmd.livePhoto" = "Photo LIVE";

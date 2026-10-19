@@ -85,6 +85,10 @@ extension TimelineView {
         streamItems.append(.separator())
         streamItems.append(item("tlmenu.audioStream.separate", enabled: canSeparate) { s.separateAudioStreams() })
         let streamMenu: NSMenuItem = sub("tlmenu.audioStream", streamItems)
+        // MI-012 (F3): Live Photo clips switch between the still and its motion video
+        let liveStill = single.flatMap { s.livePhotoStill(of: $0) }
+        let liveItem: NSMenuItem = item(liveStill != nil ? "tlmenu.applyPhoto" : "tlmenu.applyLivePhoto",
+                                        enabled: liveStill != nil || asset?.livePhotoVideoURL != nil) { if let c = single { s.toggleLivePhoto(c.id) } }
         let overlay = single.map { c in kind?.isVisual == true && !(s.project.timeline.locate(c.id).map { s.project.timeline.tracks[$0.track].isMain } ?? true) } ?? false
 
         var items: [NSMenuItem] = [
@@ -128,6 +132,7 @@ extension TimelineView {
                  })),
             // MI-014 (F3): files with several audio streams — pick the one the clip plays, or split them onto tracks
             streamMenu,
+            liveItem,
             item(hasExtract ? "tlmenu.restoreAudio" : "tlmenu.extractAudio", "s", [.control, .shift],
                  enabled: hasExtract || (isVideo && asset?.hasAudio == true && single?.audio.isMuted == false)) { s.extractOrRestoreAudio() },
             item("tlmenu.syncAudio", enabled: s.audioClips.count >= 2) { s.syncSelectedAudio() },   // AU-016 (F3)
