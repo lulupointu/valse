@@ -103,6 +103,29 @@ import MontageTestSupport
         }
     }
 
+    /// The UI script's photos (puppy / car / pizza JPEGs): each free-text query finds only its picture.
+    @Test func fixturePhotosFoundByDescription() async throws {
+        try await HeavyWorkGate.run {
+            guard ClipEmbedder.isInstalled else { print("skip: CLIP model not installed"); return }
+            let dir = TestMedia.repoRoot().appendingPathComponent("app/Tests/UIScripts/fixtures/clip")
+            var assets: [MediaAsset] = []
+            for n in ["puppy", "car", "pizza"] {
+                var a = try await MediaProbe.probe(dir.appendingPathComponent("\(n).jpg"))
+                a.contentHash = "f4clipfx-\(n)-\(UUID().uuidString.prefix(6))"
+                try await MediaIndex.shared.index(a)
+                assets.append(a)
+            }
+            for (q, want) in [("a dog playing on the grass", 0), ("something to eat", 2), ("a car", 1)] {
+                let r = await MediaIndex.shared.find(assets, query: q, english: nil)
+                if let qv = MediaIndex.shared.clipQuery(q) {
+                    let n = MediaIndex.shared.clipNeutral
+                    print("metric clip_fixture '\(q)' sims=\(assets.map { a in MediaIndex.shared.entry(a)?.clipFrames?.map { ClipEmbedder.cosine(qv, $0) }.max() ?? -1 }) neutral=\(assets.map { a in n.map { nv in MediaIndex.shared.entry(a)?.clipFrames?.map { ClipEmbedder.cosine(nv, $0) }.max() ?? -1 } ?? -1 })")
+                }
+                #expect(r.map(\.contentHash) == [assets[want].contentHash], "\(q)")
+            }
+        }
+    }
+
     // MARK: AI-002 lyrics vocal pre-separation
 
     static func readMono16k(_ url: URL, seconds: Double) throws -> [Float] {

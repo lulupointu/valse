@@ -8,13 +8,14 @@
     {"waitFor": {"path": "media.count", "equals": 3, "timeout": 20}},
     {"click": "id:asset.search"},
     {"type": "a dog playing on the grass"},
-    {"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 60}},
-    {"wait": 1.5},
+    {"waitFor": {"path": "ui.assets.count.media", "equals": 1, "timeout": 90}},
+    {"wait": 1.0},
     {"dump": "dog"},
     {"snapshot": "clip-dog", "element": "id:panel.assets"},
     {"expect": [{"path": "ui.assets.count.media", "equals": 1}, {"path": "ui.anchors", "notContains": "media.clipOffer"}]},
     {"type": "something to eat", "replace": true},
-    {"wait": 2.0},
+    {"waitFor": {"path": "ui.assets.count.media", "equals": 1, "timeout": 30}},
+    {"wait": 1.0},
     {"snapshot": "clip-food", "element": "id:panel.assets"},
     {"expect": {"path": "ui.assets.count.media", "equals": 1}}
   ]

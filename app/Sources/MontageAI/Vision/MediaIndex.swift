@@ -89,19 +89,35 @@ public final class MediaIndex: @unchecked Sendable {
 
     // MARK: Search
 
-    /// CLIP relevance of each media (its best frame) for a query embedding: 0 unless the similarity is both
-    /// plausible in absolute terms (≥ `minSimilarity`) and close to the best media of the set (CLIP similarities are
-    /// only meaningful relative to each other). Maps a typical match (cos ≈ 0.26) to ≈ 1.
-    public static let minSimilarity: Float = 0.18
-    public static let relativeMargin: Float = 0.035
-    public static func clipRelevance(query: [Float], embeddings: [[[Float]]?]) -> [Double] {
-        let sims: [Float?] = embeddings.map { frames in frames.flatMap { $0.map { ClipEmbedder.cosine(query, $0) }.max() } }
-        let best = sims.compactMap { $0 }.max() ?? 0
-        return sims.map { s in
-            guard let s, s >= minSimilarity, s >= best - relativeMargin else { return 0 }
-            return Double(s - 0.14) * 8
+    /// CLIP relevance of each media (its best frame) for a query embedding. Raw CLIP similarities aren't comparable
+    /// between pictures (a drawing scores lower than a photo for every text), so each picture is calibrated against
+    /// a "neutral" caption ("a photo" / "an image" / "a picture", `neutral`): lift = query similarity − neutral
+    /// similarity. A media matches when its lift is ≥ `minLift` (a specific description of a picture scores about as
+    /// well as the generic caption, unrelated ones 0.06–0.15 lower; measured on the UI fixtures and bench cards), the
+    /// raw similarity is plausible (≥ `minSimilarity`) and the lift is close to the best media of the set
+    /// (`relativeMargin`).
+    public static let minSimilarity: Float = 0.10
+    public static let minLift: Float = -0.045
+    public static let relativeMargin: Float = 0.03
+    public static func clipRelevance(query: [Float], neutral: [Float]? = nil, embeddings: [[[Float]]?]) -> [Double] {
+        let pairs: [(s: Float, lift: Float)?] = embeddings.map { frames in
+            frames.flatMap { fs in
+                fs.map { f -> (Float, Float) in
+                    let s = ClipEmbedder.cosine(query, f)
+                    return (s, neutral.map { s - ClipEmbedder.cosine($0, f) } ?? s - 0.17)
+                }.max { $0.1 < $1.1 }
+            }
+        }
+        let bestLift = pairs.compactMap { $0?.lift }.max() ?? 0
+        return pairs.map { p in
+            guard let p, p.s >= minSimilarity, p.lift >= minLift, p.lift >= bestLift - relativeMargin else { return 0 }
+            return min(1.2, 0.4 + Double(p.lift - minLift) * 6)
         }
     }
+
+    static let neutralPrompts = ["a photo", "an image", "a picture"]
+    private var neutralEmbedding: [Float]?
+    public var clipNeutral: [Float]? { lock.withLock { neutralEmbedding } }
 
     private var clipQueries: [String: [Float]] = [:]
 
@@ -122,18 +138,25 @@ public final class MediaIndex: @unchecked Sendable {
         if clipQuery(q) != nil { return true }
         // prompt ensemble: the raw words + the zero-shot template (footage is photos, graphics / screenshots aren't)
         let prompts = Array(Set([q, Self.clipPrompt(q)]))
-        let v: [Float]? = await withCheckedContinuation { c in
+        let needNeutral = clipNeutral == nil
+        let (v, n): ([Float]?, [Float]?) = await withCheckedContinuation { c in
             DispatchQueue.global(qos: .userInitiated).async {
-                let es = prompts.compactMap { try? ClipEmbedder.shared.embed(text: $0) }
-                guard !es.isEmpty else { c.resume(returning: nil); return }
-                var m = [Float](repeating: 0, count: es[0].count)
-                for e in es { for i in m.indices { m[i] += e[i] } }
-                let len = max(m.reduce(0) { $0 + $1 * $1 }.squareRoot(), 1e-9)
-                c.resume(returning: m.map { $0 / len })
+                func mean(_ ps: [String]) -> [Float]? {
+                    let es = ps.compactMap { try? ClipEmbedder.shared.embed(text: $0) }
+                    guard !es.isEmpty else { return nil }
+                    var m = [Float](repeating: 0, count: es[0].count)
+                    for e in es { for i in m.indices { m[i] += e[i] } }
+                    let len = max(m.reduce(0) { $0 + $1 * $1 }.squareRoot(), 1e-9)
+                    return m.map { $0 / len }
+                }
+                c.resume(returning: (mean(prompts), needNeutral ? mean(Self.neutralPrompts) : nil))
             }
         }
         guard let v else { return false }
-        lock.withLock { clipQueries[q.lowercased()] = v }
+        lock.withLock {
+            clipQueries[q.lowercased()] = v
+            if let n { neutralEmbedding = n }
+        }
         return true
     }
 
@@ -145,7 +168,7 @@ public final class MediaIndex: @unchecked Sendable {
         let base = items.map { score($0, query: query, english: english) }
         var clip = [Double](repeating: 0, count: items.count)
         if let qv = clipQuery(english ?? query) ?? clipQuery(query) {
-            clip = Self.clipRelevance(query: qv, embeddings: items.map { $0.kind == .audio ? nil : entry($0)?.clipFrames })
+            clip = Self.clipRelevance(query: qv, neutral: clipNeutral, embeddings: items.map { $0.kind == .audio ? nil : entry($0)?.clipFrames })
         }
         return items.indices.map { (items[$0], max(base[$0], clip[$0])) }
             .filter { $0.1 > 0.3 }.sorted { $0.1 > $1.1 }.map(\.0)
