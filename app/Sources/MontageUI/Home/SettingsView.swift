@@ -359,6 +359,9 @@ struct ProjectSettingsTab: View {
                 RadioLine(label: tr("details.importMaterial.keep"), selected: !draft.copyMediaOnImport, id: "importKeep") { draft.copyMediaOnImport = false }
             }
         }
+        SettingsRow(tr("settings.subprojectMedia"), hint: tr("settings.subprojectMedia.hint")) {
+            CheckLine(label: tr("settings.subprojectMedia.label"), isOn: $draft.showSubprojectMedia, id: "subprojectMedia")
+        }
         SettingsDivider()
         SettingsRow(tr("settings.cacheManagement")) {
             RadioLine(label: tr("settings.cache.keep"), selected: draft.cacheAutoDeleteDays == nil, id: "keep") { draft.cacheAutoDeleteDays = nil }

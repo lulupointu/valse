@@ -171,3 +171,54 @@
 "lag.reason.highBitrate" = "very high bitrate";
 "lag.reason.highFrameRate" = "high resolution at high frame rate";
 "lag.reason.hdr4K" = "10-bit / HDR above 1080p";
+/* SP-006 beat sync */
+"velocity.beatSync" = "Sync to beats";
+"velocity.beatSync.every" = "Beat frequency";
+"velocity.beatSync.every1" = "Every beat";
+"velocity.beatSync.every2" = "Every 2 beats";
+"velocity.punch" = "Beat effect";
+"velocity.punch.none" = "None";
+"velocity.punch.shake" = "Blur shake";
+"velocity.punch.flash" = "Flash";
+"velocity.punch.zoomBlur" = "Fade blur";
+"velocity.punch.punchZoom" = "Retro zoom";
+"velocity.beatSync.apply" = "Apply";
+"velocity.beatSync.hint" = "Uses the beats marked on the music (Audio ▸ Beats or M on the audio clip). The clip keeps its length.";
+"velocity.beatSync.noBeats" = "No music beats under this clip — mark beats on the music first";
+"velocity.beatSync.done" = "Speed synced to %d beats";
+"cmd.beatSync" = "Sync speed to beats";
+/* PB-006 / SE-006 detachable panels */
+"panel.detachMenu" = "Separate windows";
+"panel.detach.player" = "Detach player";
+"panel.detach.assets" = "Detach media panel";
+"panel.detach.inspector" = "Detach editing panel";
+"panel.detach.timeline" = "Detach timeline";
+"panel.detached.player" = "Montage — Player";
+"panel.detached.assets" = "Montage — Media";
+"panel.detached.inspector" = "Montage — Editing panel";
+"panel.detached.timeline" = "Montage — Timeline";
+"panel.detached.placeholder" = "This panel is in a separate window";
+"panel.attach" = "Attach";
+/* TL-022 / MI-019 subprojects */
+"subprojects.nav" = "Subprojects";
+"subprojects.import" = "Import project…";
+"subprojects.empty" = "Compound clips (⌥G) and imported projects appear here as subprojects you can reuse.";
+"subprojects.uses.one" = "Used %d time";
+"subprojects.uses.other" = "Used %d times";
+"subprojects.rename" = "Rename";
+"subprojects.imported" = "“%@” imported as a subproject";
+"subprojects.importFailed" = "This project could not be imported";
+"cmd.addSubproject" = "Add subproject";
+"cmd.renameSubproject" = "Rename subproject";
+"cmd.importSubproject" = "Import subproject";
+"menu.importSubproject" = "Import project as subproject…";
+/* MI-018 import timeline */
+"menu.importTimeline" = "Import timeline (FCPXML / XML)…";
+"importTimeline.failed" = "This file is not an FCPXML / XML timeline Montage can read";
+"importTimeline.done" = "“%@” imported as a new timeline";
+"importTimeline.missing" = "“%@” imported — %d media file(s) not found (shown as gaps)";
+"cmd.importTimeline" = "Import timeline";
+/* SE-010 subproject media */
+"settings.subprojectMedia" = "Subprojects";
+"settings.subprojectMedia.label" = "Show media from subprojects";
+"settings.subprojectMedia.hint" = "When off, the Media tab hides files used only inside compound clips / imported projects.";

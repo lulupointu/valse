@@ -49,6 +49,13 @@ public struct EditorView: View {
             // Export window: an in-window modal (dimmed editor, centred 720×663 dialog), like CapCut's modal window.
             if store.isExportSheetPresented { ExportModal(store: store) }
         }
+        .overlay(alignment: .bottomTrailing) {
+            // PB-006 during UI tests: the "detached" player is hosted here (no real window may appear on screen)
+            if TestAnchors.isEnabled, let p = layout.detached.sorted(by: { $0.rawValue < $1.rawValue }).first {
+                IsolatedHost { DetachedPanelsController.content(p, store) }.frame(width: 480, height: 300)
+                    .testID("panel.\(p.rawValue).detached").padding(20)
+            }
+        }
         .overlay {
             // MI-015 / MI-017 screen & camera recorder: in-window modal like Export
             if let m = RecordingUI.shared.model { RecorderModal(store: store, model: m) }
@@ -79,11 +86,18 @@ public struct EditorView: View {
     private func clamp(_ v: CGFloat, _ lo: CGFloat, _ hi: CGFloat) -> CGFloat { min(max(v, lo), hi) }
 
     // Each panel lives in its own hosting view (perf, W14 — see IsolatedHost): a slider tick, playhead move or asset
-    // scroll lays out only its panel, not the whole window.
-    private var assets: some View { IsolatedHost { AssetPanel(store: store) }.testID("panel.assets") }
-    private var player: some View { IsolatedHost { PlayerPanel(store: store) }.testID("panel.player") }
-    private var inspector: some View { IsolatedHost { InspectorPanel(store: store) }.testID("panel.inspector") }
-    private var timeline: some View { IsolatedHost { TimelinePanel(store: store) }.testID("panel.timeline") }
+    // scroll lays out only its panel, not the whole window. A detached panel (PB-006 / SE-006) shows a placeholder.
+    @ViewBuilder private func slot(_ p: DetachablePanel, id: String) -> some View {
+        if layout.detached.contains(p) {
+            DetachedPanelPlaceholder(store: store, panel: p)
+        } else {
+            IsolatedHost { DetachedPanelsController.content(p, store) }.testID(id)
+        }
+    }
+    private var assets: some View { slot(.assets, id: "panel.assets") }
+    private var player: some View { slot(.player, id: "panel.player") }
+    private var inspector: some View { slot(.inspector, id: "panel.inspector") }
+    private var timeline: some View { slot(.timeline, id: "panel.timeline") }
 
     /// Default family (UX.md §1.1): asset panel / player / inspector on top, full-width timeline below.
     @ViewBuilder private func standardPanels(_ inner: CGSize) -> some View {

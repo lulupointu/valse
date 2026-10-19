@@ -55,6 +55,8 @@ public final class PlayerUIState {
     public var loopEnabled = false
     /// Player-only full screen (PB-006).
     public var isFullscreen = false
+    /// Player in its own window (PB-006 "Detach player").
+    public var isDetached = false
     /// Clip whose text is being edited in place on the canvas.
     public var editingTextClip: ClipID?
     /// The canvas was the last thing clicked: arrow keys nudge the selected layer instead of stepping frames.

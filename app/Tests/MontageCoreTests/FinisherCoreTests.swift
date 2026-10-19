@@ -310,3 +310,68 @@ import Foundation
         #expect(PlaybackLagAdvisor.reasons(Fx.audio("a", seconds: 3)).isEmpty)
     }
 }
+
+/// SP-006 beat-synced velocity.
+@Suite struct FinisherBeatSyncTests {
+    @Test func rampSlowsOnBeatsAndKeepsTheLength() throws {
+        var tl = Timeline()
+        let v = Clip(content: .solid(.white), start: 0, duration: 6)
+        tl.tracks[0].clips = [v]
+        var music = Track(kind: .audio)
+        var m = Clip(content: .solid(.black), start: 0, duration: 10)
+        m.beats = [Time(1.5), Time(3), Time(4.5)]
+        music.clips = [m]
+        tl.tracks.append(music)
+        #expect(VelocitySync.beats(for: v.id, in: tl).count == 3)
+        #expect(VelocitySync.beats(for: v.id, in: tl, every: 2) == [Time(1.5), Time(4.5)])
+        let beats = try VelocitySync.apply(v.id, in: &tl)
+        let c = try #require(tl.clip(v.id))
+        guard case .curve(let curve) = c.speed else { Issue.record("no curve"); return }
+        #expect(curve.presetID == VelocitySync.presetID)
+        #expect(abs(c.duration.seconds - 6) < 0.05)   // average 1× → same length, beats stay aligned
+        for b in beats { #expect(curve.value(at: b / c.duration) < 0.6) }
+        #expect(curve.value(at: 0.375) > 1.2)          // between beats 1.5 and 3 s
+        let k = VelocitySync.punchKeyframes(beats: beats, peak: 1, duration: c.duration)
+        #expect(k.value(at: beats[0])?.scalar == 1 && k.value(at: beats[0] + Time(0.5))?.scalar == 0)
+        // no music beats → nothing to do
+        var lone = Timeline(); lone.tracks[0].clips = [v]
+        #expect(throws: EditError.self) { try VelocitySync.apply(v.id, in: &lone) }
+    }
+}
+
+/// TL-022 / MI-019 subprojects.
+@Suite struct FinisherSubprojectTests {
+    @Test func importAnotherProjectAsSubproject() throws {
+        var (dst, _) = Fx.project(mainClips: 1)
+        var (src, sids) = Fx.project(mainClips: 2)
+        // one asset shared by both projects (same content hash) → reused, not duplicated
+        src.media[0].contentHash = dst.media[0].contentHash
+        let inner = try TimelineOps.createCompound([sids[1]], name: "Inner", in: &src)
+        _ = inner
+        let before = dst.media.count
+        let root = try Subprojects.importProject(src, name: "Other", into: &dst)
+        #expect(dst.media.count == before + src.media.count - 1)
+        #expect(dst.compounds?.count == 2)
+        let rootComp = try #require(dst.compound(root))
+        #expect(rootComp.name == "Other" && rootComp.timeline.allClips.count == 2)
+        // references inside point at this project's media / compounds
+        let ids = Set(dst.media.map(\.id)), cids = Set((dst.compounds ?? []).map(\.id))
+        for c in rootComp.timeline.allClips {
+            switch c.content {
+            case .media(let m): #expect(ids.contains(m))
+            case .compound(let k): #expect(cids.contains(k))
+            default: break
+            }
+        }
+        // SE-010: the newly imported files are used only inside subprojects; the shared one is on the main timeline
+        let only = Subprojects.mediaOnlyInSubprojects(dst)
+        #expect(only.count == src.media.count - 1 && !only.contains(dst.media[0].id))
+        let clip = try Subprojects.insert(root, at: .zero, in: &dst)
+        #expect(dst.timeline.clip(clip)?.duration == rootComp.duration)
+        #expect(Subprojects.useCounts(dst)[root] == 1)
+        try Subprojects.rename(root, to: "  Renamed ", in: &dst)
+        #expect(dst.compound(root)?.name == "Renamed")
+        #expect(throws: EditError.self) { try Subprojects.rename(root, to: "  ", in: &dst) }
+        #expect(TimelineOps.validate(dst.timeline).isEmpty)
+    }
+}

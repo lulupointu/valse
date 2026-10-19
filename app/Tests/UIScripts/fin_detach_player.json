@@ -1,0 +1,22 @@
+// Finisher PB-006 / SE-006: View ▸ Separate windows ▸ Detach player moves the player into its own window (hosted in the
+// test window during UI tests); the editor shows a placeholder with [Attach]; frame stepping still works; Attach brings
+// it back. Same for the timeline.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"menu": "menu.view/panel.detachMenu/panel.detach.player"},
+    {"expect": [{"path": "ui.playerDetached", "equals": true}, {"path": "ui.anchors", "contains": "player.detachedPlaceholder"},
+                {"path": "ui.anchors", "contains": "panel.player.detached"}]},
+    {"snapshot": "player-detached"},
+    {"key": "right", "repeat": 3},
+    {"expect": {"path": "playhead", "approx": 0.1, "tolerance": 0.02}},
+    {"click": "id:player.attach"},
+    {"expect": [{"path": "ui.playerDetached", "equals": false}, {"path": "ui.anchors", "contains": "panel.player"},
+                {"path": "ui.anchors", "notContains": "player.detachedPlaceholder"}]},
+    {"menu": "menu.view/panel.detachMenu/panel.detach.inspector"},
+    {"expect": [{"path": "ui.layout.detached", "contains": "inspector"}, {"path": "ui.anchors", "contains": "inspector.detachedPlaceholder"}]},
+    {"menu": "menu.view/panel.detachMenu/panel.detach.inspector"},
+    {"expect": {"path": "ui.layout.detached.count", "equals": 0}}
+  ]
+}

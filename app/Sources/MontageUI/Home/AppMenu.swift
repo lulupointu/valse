@@ -96,6 +96,16 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         return i
     }
 
+    /// View ▸ Separate windows (PB-006 / SE-006): one checkable item per panel.
+    private func detachMenu() -> NSMenuItem {
+        sub("panel.detachMenu", DetachablePanel.allCases.map { p in
+            item("panel.detach.\(p.rawValue)", enabled: { [unowned self] in self.inEditor },
+                 checked: { [unowned self] in self.store.detachedPanels.contains(p) }) { [unowned self] in
+                self.store.setPanel(p, detached: !self.store.detachedPanels.contains(p))
+            }
+        })
+    }
+
     /// View ▸ Layout (SE-005).
     private func layoutMenu() -> NSMenuItem {
         var items: [NSMenuItem] = EditorLayoutPreset.allCases.map { p in
@@ -144,6 +154,8 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             .separator(),
             item("menu.import", id: "menu.import", enabled: { [unowned self] in self.inEditor }) { [unowned self] in self.importMedia() },
             item("menu.importProject", id: "menu.importProject") { [unowned self] in self.app.importProjectPanel() },
+            ed("menu.importSubproject") { $0.importSubprojectPanel() },   // MI-019
+            ed("menu.importTimeline") { $0.importTimelinePanel() },       // MI-018
             reg("recordScreen"),
             ed("record.menu.camera") { $0.openRecorder(.camera) },
             .separator(),
@@ -263,6 +275,7 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
                 self.store.toggleLoop()
             },
             reg("playerFullscreen"),
+            detachMenu(),
             layoutMenu(),
             item("view.showKeystrokes", checked: { KeystrokeFeed.shared.enabled }) { KeystrokeFeed.shared.setEnabled(!KeystrokeFeed.shared.enabled) },
             .separator(),

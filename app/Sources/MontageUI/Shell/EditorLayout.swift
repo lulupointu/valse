@@ -38,6 +38,8 @@ public final class EditorLayout {
     public var fractions = EditorLayoutPreset.standard.defaults { didSet { save() } }
     /// Custom layouts 1–3 (nil = empty slot).
     private(set) var custom: [Int: Stored.Slot] = [:]
+    /// Panels in their own window (SE-006); the player's flag mirrors `PlayerUIState.isDetached`. Session only.
+    public var detached: Set<DetachablePanel> = []
     /// Index of the custom slot last applied (checkmark in the menu).
     public private(set) var activeCustom: Int?
 
@@ -74,7 +76,8 @@ public final class EditorLayout {
     /// Test/state dump.
     var dump: [String: Any] {
         ["preset": preset.rawValue, "top": fractions.top, "left": fractions.left, "right": fractions.right,
-         "custom": custom.keys.sorted(), "activeCustom": activeCustom as Any]
+         "custom": custom.keys.sorted(), "activeCustom": activeCustom as Any,
+         "detached": detached.map(\.rawValue).sorted()]
     }
 }
 

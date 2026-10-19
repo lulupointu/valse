@@ -19,8 +19,11 @@ struct MediaTab: View {
         if isFullTab {
             LibraryBrowser(tab: tabID, namespace: "media", sections: sections, style: .wide(1.5),
                            searchPlaceholder: tr("media.search"),
-                           customNav: [("import", tr("media.nav.import"))],
-                           customContent: { _ in AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID)) },
+                           customNav: [("import", tr("media.nav.import")), ("subprojects", tr("subprojects.nav"))],
+                           customContent: { id in
+                               id == "subprojects" ? AnyView(SubprojectsView(store: store))   // TL-022
+                                   : AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID))
+                           },
                            yoursGroup: tr("asset.nav.yours"))
             // The library search also drives the AI smart search (AI-028): content / on-screen text / dialogue matches.
             .onChange(of: AssetPanelState.shared.query[tabID] ?? "") { _, q in store.setMediaQuery(q) }
@@ -90,7 +93,11 @@ struct MediaBinView: View {
     var items: [MediaAsset] {
         let k = effectiveKinds
         let base = store.mediaBin.media.filter { k.contains($0.kind) && (!showsFolders || $0.folderID == currentFolder) }
-        let filtered = base
+        // SE-010: Settings ▸ Project ▸ "Show media from subprojects" off hides media used only inside compounds
+        let filtered = AppPreferences.shared.settings.showSubprojectMedia ? base : {
+            let only = Subprojects.mediaOnlyInSubprojects(store.project)
+            return base.filter { !only.contains($0.id) }
+        }()
         return MediaSorting.sorted(filtered, by: prefs.sort, ascending: prefs.ascending)
     }
     var folders: [MediaFolder] { showsFolders && prefs.filter == .all ? BinOps.children(of: currentFolder, in: store.mediaBin) : [] }

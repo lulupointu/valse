@@ -1,5 +1,6 @@
 import SwiftUI
 import MontageCore
+import MontageEffects
 
 // MARK: - Audio
 
@@ -167,12 +168,96 @@ struct VelocityEffectsSection: View {
                 .testID("velocity.\(p.id.split(separator: ".").last ?? "")")
             }
         }
+        BeatSyncCard(ctx: ctx, active: selected == VelocitySync.presetID)
     }
 
     func apply(_ p: SpeedCurvePreset?) {
         guard let id = ctx.clip?.id else { return }
         InspectorUIState.shared.curvePoint[id] = nil
         ctx.store.perform(SetSpeed(id, p.map { .curve($0.curve) } ?? .normal))
+    }
+}
+
+/// SP-006 "Sync to beats": speed ramps that slow down on the music beats (+ an optional visual punch on each beat).
+struct BeatSyncCard: View {
+    let ctx: InspectorContext
+    let active: Bool
+    @State private var every = 1
+    @State private var punch: BeatPunch = .none
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "metronome").foregroundStyle(IStyle.curve)
+                Text(loc: "velocity.beatSync").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                Spacer()
+                if active { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
+            }
+            HStack(spacing: 8) {
+                Text(loc: "velocity.beatSync.every").font(.system(size: 11.5)).foregroundStyle(IStyle.caption).frame(width: 90, alignment: .leading)
+                SubTabBar(items: [("1", tr("velocity.beatSync.every1")), ("2", tr("velocity.beatSync.every2"))], selection: String(every)) {
+                    every = Int($0) ?? 1
+                }
+                .testID("velocity.beatSync.every")
+            }
+            HStack(spacing: 8) {
+                Text(loc: "velocity.punch").font(.system(size: 11.5)).foregroundStyle(IStyle.caption).frame(width: 90, alignment: .leading)
+                Dropdown(items: BeatPunch.allCases.map { ($0, tr($0.nameKey)) }, selection: punch) { punch = $0 }
+                    .frame(width: 170).testID("velocity.punch")
+            }
+            HStack {
+                Spacer()
+                Button(tr("velocity.beatSync.apply")) { ctx.store.syncSpeedToBeats(every: every, punch: punch) }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("velocity.beatSync.apply")
+            }
+            Text(loc: "velocity.beatSync.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+        }
+        .padding(10)
+        .background(IStyle.graph, in: RoundedRectangle(cornerRadius: 6))
+        .padding(.top, 10)
+        .testID("velocity.beatSync")
+    }
+}
+
+/// Visual punch on each beat (CapCut Velocity: Blur shake, Flash, Fade blur, Retro zoom).
+nonisolated enum BeatPunch: String, CaseIterable, Hashable, Sendable {
+    case none, shake, flash, zoomBlur, punchZoom
+    var nameKey: String { "velocity.punch.\(rawValue)" }
+    /// (effect id, keyframed parameter, peak value)
+    var effect: (String, String, Double)? {
+        switch self {
+        case .none: return nil
+        case .shake: return ("montage.effect.shake", "intensity", 1)
+        case .flash: return ("montage.effect.flash", "intensity", 0.9)
+        case .zoomBlur: return ("montage.effect.zoomBlur", "amount", 0.8)
+        case .punchZoom: return ("montage.effect.punchZoom", "intensity", 1)
+        }
+    }
+}
+
+extension EditorStore {
+    /// SP-006: beat-synced ramp on the selected video (+ punch effect keyframed on the beats). One undo step.
+    func syncSpeedToBeats(every: Int, punch: BeatPunch) {
+        guard let c = singleSelectedClip else { return }
+        guard !VelocitySync.beats(for: c.id, in: project.timeline, every: every).isEmpty else { showToast(tr("velocity.beatSync.noBeats")); return }
+        let fx = punch.effect.flatMap { e in Registries.effects[e.0].map { ($0.makeInstance(), e.1, e.2) } }
+        let id = c.id
+        let punchIDs = Set(BeatPunch.allCases.compactMap { $0.effect?.0 })
+        let box = ResultBox(0)
+        if edit("cmd.beatSync", { p in
+            let beats = try VelocitySync.apply(id, every: every, in: &p.timeline)
+            box.value = beats.count
+            guard var clip = p.timeline.clip(id) else { return }
+            // a previous beat punch (punch effect whose strength is keyframed) is replaced
+            let old = clip.effects.filter { inst in punchIDs.contains(inst.typeID) && clip.keyframes.keys.contains { $0.hasPrefix("effect.\(inst.id.raw.uuidString)") } }
+            for inst in old { clip.effects.removeAll { $0.id == inst.id }; clip.keyframes = clip.keyframes.filter { !$0.key.hasPrefix("effect.\(inst.id.raw.uuidString)") } }
+            if let (inst, param, peak) = fx {
+                clip.effects.append(inst)
+                clip.keyframes[ParamKey.effect(inst.id, param).raw] = VelocitySync.punchKeyframes(beats: beats, peak: peak, duration: clip.duration)
+            }
+            p.timeline[clip: id] = clip
+        }) {
+            showToast(tr("velocity.beatSync.done", box.value))
+        }
     }
 }
 

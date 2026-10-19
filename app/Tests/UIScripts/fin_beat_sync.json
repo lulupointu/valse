@@ -1,0 +1,17 @@
+// Finisher SP-006: Speed ▸ Velocity effects ▸ Sync to beats with a Flash on each beat, on the first demo clip (the
+// demo music has marked beats): one undo step, the clip gets a beat-synced curve + a keyframed flash.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.speed"},
+    {"click": "id:inspector.sub.velocity"},
+    {"expect": {"path": "ui.anchors", "contains": "velocity.beatSync"}},
+    {"snapshot": "beat-sync", "element": "id:panel.inspector"},
+    {"click": "id:velocity.beatSync.apply"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.beatSync"}, {"path": "selectedClips.0.duration", "approx": 6, "tolerance": 0.1}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 0}}
+  ]
+}

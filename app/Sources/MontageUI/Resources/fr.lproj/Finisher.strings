@@ -171,3 +171,54 @@
 "lag.reason.highBitrate" = "débit très élevé";
 "lag.reason.highFrameRate" = "haute résolution à fréquence élevée";
 "lag.reason.hdr4K" = "10 bits / HDR au-delà de 1080p";
+/* SP-006 beat sync */
+"velocity.beatSync" = "Synchroniser sur les temps";
+"velocity.beatSync.every" = "Fréquence";
+"velocity.beatSync.every1" = "Chaque temps";
+"velocity.beatSync.every2" = "Un temps sur deux";
+"velocity.punch" = "Effet sur le temps";
+"velocity.punch.none" = "Aucun";
+"velocity.punch.shake" = "Secousse floue";
+"velocity.punch.flash" = "Flash";
+"velocity.punch.zoomBlur" = "Flou fondu";
+"velocity.punch.punchZoom" = "Zoom rétro";
+"velocity.beatSync.apply" = "Appliquer";
+"velocity.beatSync.hint" = "Utilise les temps marqués sur la musique (Audio ▸ Temps ou M sur le clip audio). Le clip garde sa durée.";
+"velocity.beatSync.noBeats" = "Aucun temps de musique sous ce clip — marquez d’abord les temps de la musique";
+"velocity.beatSync.done" = "Vitesse synchronisée sur %d temps";
+"cmd.beatSync" = "Synchroniser la vitesse sur les temps";
+/* PB-006 / SE-006 detachable panels */
+"panel.detachMenu" = "Fenêtres séparées";
+"panel.detach.player" = "Détacher le lecteur";
+"panel.detach.assets" = "Détacher le panneau Médias";
+"panel.detach.inspector" = "Détacher le panneau de modification";
+"panel.detach.timeline" = "Détacher la chronologie";
+"panel.detached.player" = "Montage — Lecteur";
+"panel.detached.assets" = "Montage — Médias";
+"panel.detached.inspector" = "Montage — Panneau de modification";
+"panel.detached.timeline" = "Montage — Chronologie";
+"panel.detached.placeholder" = "Ce panneau est dans une fenêtre séparée";
+"panel.attach" = "Rattacher";
+/* TL-022 / MI-019 subprojects */
+"subprojects.nav" = "Sous-projets";
+"subprojects.import" = "Importer un projet…";
+"subprojects.empty" = "Les clips composés (⌥G) et les projets importés apparaissent ici comme sous-projets réutilisables.";
+"subprojects.uses.one" = "Utilisé %d fois";
+"subprojects.uses.other" = "Utilisé %d fois";
+"subprojects.rename" = "Renommer";
+"subprojects.imported" = "« %@ » importé comme sous-projet";
+"subprojects.importFailed" = "Impossible d’importer ce projet";
+"cmd.addSubproject" = "Ajouter un sous-projet";
+"cmd.renameSubproject" = "Renommer le sous-projet";
+"cmd.importSubproject" = "Importer un sous-projet";
+"menu.importSubproject" = "Importer un projet comme sous-projet…";
+/* MI-018 import timeline */
+"menu.importTimeline" = "Importer une chronologie (FCPXML / XML)…";
+"importTimeline.failed" = "Ce fichier n’est pas une chronologie FCPXML / XML lisible par Montage";
+"importTimeline.done" = "« %@ » importée comme nouvelle chronologie";
+"importTimeline.missing" = "« %@ » importée — %d fichier(s) média introuvable(s) (affichés comme des espaces)";
+"cmd.importTimeline" = "Importer une chronologie";
+/* SE-010 subproject media */
+"settings.subprojectMedia" = "Sous-projets";
+"settings.subprojectMedia.label" = "Afficher les médias des sous-projets";
+"settings.subprojectMedia.hint" = "Désactivé, l’onglet Médias masque les fichiers utilisés uniquement dans des clips composés / projets importés.";

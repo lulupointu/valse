@@ -33,6 +33,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var freezeDuration = 3.0
     /// "Link freeze frame clips to original video" (TL-013): looks edited on the original follow its freeze frames.
     public var linkFreezeFrames = true
+    /// Media bin lists media used only inside subprojects (SE-010 "Show media from subprojects").
+    public var showSubprojectMedia = true
     /// "Step forward or back many frames" (⇧← / ⇧→). CapCut: 10.
     public var stepFrames = 10
     /// "Adjust value many units" (⇧ + arrows in numeric fields). CapCut: 10.

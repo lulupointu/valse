@@ -161,3 +161,32 @@ import MontageTestSupport
         #expect(s.timelineUI.lagPrompt == nil)
     }
 }
+
+/// MI-018 store flow: an FCPXML opens as a new timeline tab (missing media reported).
+@MainActor @Suite struct FinisherImportTimelineTests {
+    @Test func fcpxmlBecomesANewTimeline() async throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <fcpxml version="1.10"><resources>
+        <format id="r1" frameDuration="1/25s" width="1080" height="1920"/>
+        <asset id="r2" name="Gone" start="0s" duration="10s" hasVideo="1"><media-rep kind="original-media" src="file:///tmp/fin-no-such-file.mov"/></asset>
+        <effect id="r3" name="Basic Title" uid=".../Titles.localized/Basic Title.moti"/>
+        </resources><library><event name="E"><project name="Imported cut"><sequence format="r1" duration="6s"><spine>
+        <asset-clip ref="r2" offset="0s" start="1s" duration="3s"><title ref="r3" lane="1" offset="2s" start="0s" duration="1s"><text><text-style ref="t">Hi</text-style></text></title></asset-clip>
+        <gap offset="3s" start="0s" duration="3s"/>
+        </spine></sequence></project></event></library></fcpxml>
+        """
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("fin-import-\(UUID().uuidString).fcpxml")
+        try Data(xml.utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let s = EditorStore()
+        s.importTimeline(from: url)
+        for _ in 0..<200 where s.timelineSlots.count < 2 { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(s.timelineSlots.count == 2)
+        #expect(s.timelineSlots.first { $0.id == s.project.activeTimelineID }?.name == "Imported cut")
+        #expect(s.project.settings.frameRate == .fps25 && s.project.settings.canvasSize == Size2(1080, 1920))
+        // the missing media is skipped; the title (anchored at 2 s inside a clip starting at source 1 s) is at 1 s
+        let text = s.project.timeline.allClips.first { if case .text = $0.content { return true }; return false }
+        #expect(text?.start == Time(1))
+    }
+}

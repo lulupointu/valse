@@ -519,6 +519,7 @@ public final class EditorStore {
     }
 
     public func close() {
+        attachAllPanels()   // PB-006 / SE-006: detached panel windows go with the project
         autosaveTask?.cancel()
         if session.isDirty, packageURL != nil { save() }
         if let u = packageURL { SessionLock.release(u) }

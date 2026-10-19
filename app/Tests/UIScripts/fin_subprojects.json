@@ -1,0 +1,18 @@
+// Finisher TL-022: a compound clip (⌥G) is listed in Media ▸ Subprojects; ⊕ adds another use of it at the playhead
+// (same nested timeline, one undo step).
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:main/0"},
+    {"click": "clip:main/1", "modifiers": ["shift"]},
+    {"key": "opt+g"},
+    {"click": "id:asset.nav.subprojects"},
+    {"expect": [{"path": "ui.anchors", "contains": "subprojects.card.0"}, {"path": "project.compounds.count", "equals": 1}]},
+    {"snapshot": "subprojects", "element": "id:panel.assets"},
+    {"seek": 0},
+    {"click": "id:subprojects.add.0"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.addSubproject"}, {"path": "main.clips.0.kind", "equals": "compound"},
+                {"path": "main.clips.1.kind", "equals": "compound"}]}
+  ]
+}
