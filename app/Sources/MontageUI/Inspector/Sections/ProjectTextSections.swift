@@ -285,6 +285,24 @@ struct MultiTransformSection: View {
                                  step: { nudge(dx: 0, dy: -Double($0) / canvas.height) })
                 }
             }
+            // CV-009 (F3): align the selected layers to their common bounds, distribute them with equal gaps
+            let live = store.canDistribute
+            HStack(spacing: 0) {
+                ForEach(Array(zip(CanvasAlign.allCases, ["align.horizontal.left", "align.horizontal.center", "align.horizontal.right",
+                                                         "align.vertical.top", "align.vertical.center", "align.vertical.bottom"])), id: \.0) { a, sym in
+                    SmallIconButton(symbol: sym, help: tr(a.titleKey), enabled: live, size: 13) { store.alignSelection(a) }
+                        .frame(width: 30).testID("align.multi.\(a.rawValue)")
+                }
+                Rectangle().fill(Color.black.opacity(0.45)).frame(width: 1, height: 16).padding(.horizontal, 4)
+                SmallIconButton(symbol: "distribute.horizontal.center", help: tr("player.distribute.horizontal"), enabled: live, size: 13) {
+                    store.distributeSelection(.horizontal)
+                }.frame(width: 30).testID("align.distributeH")
+                SmallIconButton(symbol: "distribute.vertical.center", help: tr("player.distribute.vertical"), enabled: live, size: 13) {
+                    store.distributeSelection(.vertical)
+                }.frame(width: 30).testID("align.distributeV")
+            }
+            .padding(.horizontal, 4).frame(height: 26)
+            .background(IStyle.strip, in: RoundedRectangle(cornerRadius: 4))
             HintText(text: tr("inspector.multi.hint"))
         }
     }

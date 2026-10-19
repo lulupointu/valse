@@ -1,0 +1,23 @@
+// CV-009: with several layers selected (video overlay, text, main video at 3 s) the inspector's distribute buttons are live;
+// Distribute horizontally spaces them with equal gaps in one undo step (also in the canvas right-click ▸ Align menu);
+// Align top lines them up on the selection's top edge.
+{
+  "project": "demo",
+  "steps": [
+    {"seek": 3.0},
+    {"click": "clip:1/0"},
+    {"expect": {"path": "ui.anchors", "contains": "align.distributeH"}},
+    {"select": ["clip:1/0", "clip:2/0", "clip:main/0"]},
+    {"wait": 0.3},
+    {"dump": "before"},
+    {"click": "id:align.distributeH"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.distribute"}, {"path": "selection.count", "equals": 3}]},
+    {"dump": "after"},
+    {"click": "id:align.multi.top"},
+    {"expect": {"path": "undo.name", "equals": "cmd.align"}},
+    {"snapshot": "distributed", "element": "id:panel.player"},
+    {"snapshot": "multi-inspector", "element": "id:panel.inspector"},
+    {"key": "cmd+z", "repeat": 2},
+    {"expect": {"path": "undo.depth", "equals": 0}}
+  ]
+}

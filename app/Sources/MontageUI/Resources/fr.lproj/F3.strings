@@ -39,3 +39,6 @@
 "audio.isolate.music" = "Musique (chant)";
 "audio.isolate.music.needsModel" = "Les voix chantées sont séparées avec le modèle de pistes musicales (HTDemucs).";
 "audio.isolate.music.getModel" = "Obtenir le modèle";
+"player.distribute.horizontal" = "Répartir horizontalement";
+"player.distribute.vertical" = "Répartir verticalement";
+"cmd.distribute" = "Répartir";

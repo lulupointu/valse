@@ -8,6 +8,20 @@ import MontageTestSupport
 
 /// Finisher F3 UI-layer logic.
 @MainActor struct F3UITests {
+    // CV-009
+    @Test func distributeEqualisesGaps() {
+        let canvas = Size2(1000, 500)
+        // three boxes, widths 100 / 50 / 100 at x 0, 600, 900 → outer ones stay, middle centred in the free space
+        let b: [(minX: Double, minY: Double, maxX: Double, maxY: Double)] = [(0, 0, 100, 10), (900, 0, 1000, 10), (600, 0, 650, 10)]
+        let d = CanvasDistribute.horizontal.deltas(b, canvas: canvas)
+        #expect(d[0] == .zero && d[1] == .zero)
+        #expect(abs(d[2].x - (475 - 600)) < 1e-9 && d[2].y == 0)   // gap = (1000 − 250) / 2 = 375 → middle starts at 475
+        // two boxes: spread across the canvas with equal margins and gap
+        let two = CanvasDistribute.vertical.deltas([(0, 0, 10, 100), (0, 50, 10, 150)], canvas: canvas)
+        #expect(abs(two[0].y - 100) < 1e-9 && abs(two[1].y - (300 - 50)) < 1e-9)   // gap = (500 − 200) / 3 = 100
+        #expect(CanvasDistribute.horizontal.deltas([(0, 0, 1, 1)], canvas: canvas) == [.zero])
+    }
+
     // TX-011
     @Test func textBoxResizeOneSideKeepsTheOppositeEdge() {
         let canvas = Size2(1000, 500)

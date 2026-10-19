@@ -125,10 +125,16 @@ struct AlignmentStrip: View {
                 button("align.vertical.center", "inspector.align.vCenter", .vCenter, canAlign)
                 button("align.vertical.bottom", "inspector.align.bottom", .bottom, canAlign)
                 Rectangle().fill(Color.black.opacity(0.45)).frame(width: 1, height: 16).padding(.horizontal, 4)
-                SmallIconButton(symbol: "distribute.horizontal.center", help: tr("inspector.align.distributeH"), enabled: false, size: 13) {}
-                    .frame(width: 30)
-                SmallIconButton(symbol: "distribute.vertical.center", help: tr("inspector.align.distributeV"), enabled: false, size: 13) {}
-                    .frame(width: 30)
+                // CV-009 (F3): live once several layers are selected
+                let canDistribute = ctx.store.selection.count >= 2 && ctx.store.canDistribute
+                SmallIconButton(symbol: "distribute.horizontal.center", help: tr("inspector.align.distributeH"), enabled: canDistribute, size: 13) {
+                    ctx.store.distributeSelection(.horizontal)
+                }
+                .frame(width: 30).testID("align.distributeH")
+                SmallIconButton(symbol: "distribute.vertical.center", help: tr("inspector.align.distributeV"), enabled: canDistribute, size: 13) {
+                    ctx.store.distributeSelection(.vertical)
+                }
+                .frame(width: 30).testID("align.distributeV")
             }
             .padding(.horizontal, 4)
             .frame(height: 26)

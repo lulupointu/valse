@@ -287,6 +287,39 @@ nonisolated enum CanvasAlign: String, CaseIterable {
     }
 }
 
+/// CV-009 (F3): distribute several layers horizontally / vertically with equal gaps between their bounds. Three or more
+/// layers keep the two outermost in place; two layers spread across the canvas (equal margins and gap).
+nonisolated enum CanvasDistribute: String, CaseIterable {
+    case horizontal, vertical
+    var titleKey: String { "player.distribute.\(rawValue)" }
+
+    /// Position corrections (canvas px), same order as `bounds`.
+    func deltas(_ bounds: [(minX: Double, minY: Double, maxX: Double, maxY: Double)], canvas: Size2) -> [Vec2] {
+        guard bounds.count >= 2 else { return bounds.map { _ in .zero } }
+        let h = self == .horizontal
+        let lo = bounds.map { h ? $0.minX : $0.minY }, hi = bounds.map { h ? $0.maxX : $0.maxY }
+        let order = bounds.indices.sorted { (lo[$0] + hi[$0]) < (lo[$1] + hi[$1]) }
+        let sizes = order.map { hi[$0] - lo[$0] }
+        let total = sizes.reduce(0, +)
+        var start: Double, gap: Double
+        if bounds.count == 2 {
+            let extent = h ? canvas.width : canvas.height
+            gap = (extent - total) / 3; start = gap
+        } else {
+            start = lo[order.first!]
+            gap = (hi[order.last!] - start - total) / Double(bounds.count - 1)
+        }
+        var out = [Vec2](repeating: .zero, count: bounds.count)
+        var cursor = start
+        for (k, i) in order.enumerated() {
+            let d = cursor - lo[i]
+            out[i] = h ? Vec2(d, 0) : Vec2(0, d)
+            cursor += sizes[k] + gap
+        }
+        return out
+    }
+}
+
 extension LayerGeometry {
     /// Uniform scale that turns an aspect-fit layer (scale 1) into an aspect-fill one.
     nonisolated static func fillScale(sourceSize: Size2, canvasSize: Size2, crop: CropRect = CropRect()) -> Double {

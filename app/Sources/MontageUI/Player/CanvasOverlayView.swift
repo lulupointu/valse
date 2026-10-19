@@ -859,6 +859,13 @@ final class CanvasOverlayView: NSView {
         let alignItem = NSMenuItem(title: tr("player.align"), action: nil, keyEquivalent: "")
         alignItem.submenu = alignMenu
         m.addItem(alignItem)
+        if store.selection.count >= 2 {   // CV-009 (F3)
+            for d in CanvasDistribute.allCases {
+                let it = PlayerMenuAction.item(tr(d.titleKey)) { [weak self] in self?.store.distributeSelection(d) }
+                it.isEnabled = store.canDistribute
+                alignMenu.addItem(it)
+            }
+        }
         if case .media(let mid) = clip.content, let asset = store.project.asset(mid) {
             m.addItem(.separator())
             for f in CanvasFit.allCases {

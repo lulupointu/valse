@@ -39,3 +39,6 @@
 "audio.isolate.music" = "Music (singing)";
 "audio.isolate.music.needsModel" = "Singing voices are separated with the music stems model (HTDemucs).";
 "audio.isolate.music.getModel" = "Get model";
+"player.distribute.horizontal" = "Distribute horizontally";
+"player.distribute.vertical" = "Distribute vertically";
+"cmd.distribute" = "Distribute";
