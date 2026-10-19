@@ -7,6 +7,50 @@ import MontageEffects
 @testable import MontageEngine
 import MontageTestSupport
 
+/// MI-006 auto-relink at open.
+@Suite struct F3AutoRelinkTests {
+    func file(_ u: URL, seed: UInt8) throws -> MediaAsset {
+        try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data((0..<5000).map { UInt8(truncatingIfNeeded: Int($0) &* Int(seed)) }).write(to: u)
+        let size = Int64(try FileManager.default.attributesOfItem(atPath: u.path)[.size] as! Int)
+        return MediaAsset(name: u.lastPathComponent, kind: .video, url: u, duration: 5, pixelSize: .hd1080, frameRate: .fps30,
+                          hasVideo: true, hasAudio: false, contentHash: MediaProbe.contentHash(u, size: size, mtime: nil), fileSize: size)
+    }
+
+    @Test func findsMovedMediaNearTheProjectAndInRememberedFolders() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("f3-relink-\(UUID().uuidString)/work")
+        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        let pkg = root.appendingPathComponent("Trip.montage")
+        try FileManager.default.createDirectory(at: pkg, withIntermediateDirectories: true)
+        // 1. renamed folder next to the project
+        var a = try file(root.appendingPathComponent("Old shoot/a.mov"), seed: 7)
+        try FileManager.default.moveItem(at: root.appendingPathComponent("Old shoot"), to: root.appendingPathComponent("Footage"))
+        // 2. same name, different content in the project folder must NOT match; the real one lives in a remembered folder
+        let elsewhere = root.deletingLastPathComponent().appendingPathComponent("Archive")
+        var b = try file(elsewhere.appendingPathComponent("b.mov"), seed: 13)
+        let bOld = root.appendingPathComponent("gone/b.mov")
+        _ = try file(root.appendingPathComponent("decoy/b.mov"), seed: 99)
+        a.url = root.appendingPathComponent("Old shoot/a.mov"); b.url = bOld
+        #expect(MediaRelinker.isMissing(a) && MediaRelinker.isMissing(b))
+        let folders = MediaAutoRelink.candidateFolders(missing: [a, b], packageURL: pkg, remembered: [elsewhere])
+        #expect(folders.first?.path == root.standardizedFileURL.path)
+        let found = MediaAutoRelink.search(missing: [a, b], packageURL: pkg, remembered: [elsewhere])
+        #expect(found[a.id]?.standardizedFileURL.path == root.appendingPathComponent("Footage/a.mov").standardizedFileURL.path)
+        #expect(found[b.id]?.standardizedFileURL.path == elsewhere.appendingPathComponent("b.mov").standardizedFileURL.path)
+        // without the remembered folder only a is found: the decoy has the same name and size but another fingerprint
+        let partial = MediaAutoRelink.search(missing: [a, b], packageURL: pkg, remembered: [])
+        #expect(partial[a.id] != nil)
+        #expect(partial[b.id] == nil)
+    }
+
+    @Test func broadRootsAreNeverScanned() {
+        #expect(MediaAutoRelink.isBroad(URL(fileURLWithPath: "/")))
+        #expect(MediaAutoRelink.isBroad(FileManager.default.homeDirectoryForCurrentUser))
+        #expect(MediaAutoRelink.isBroad(URL(fileURLWithPath: "/Volumes/Drive")))
+        #expect(!MediaAutoRelink.isBroad(URL(fileURLWithPath: "/Volumes/Drive/Footage")))
+    }
+}
+
 /// MI-008 proxy creation rules.
 @Suite struct F3ProxyTests {
     func video(_ w: Double, _ h: Double) -> MediaAsset {

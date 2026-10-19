@@ -183,6 +183,7 @@ public final class AppModel {
                 try store.open(url)
                 lib.noteOpened(url)
                 enterEditor { _ in }
+                if !store.missingMedia.isEmpty { await store.autoRelinkMissing() }   // MI-006 (F3): search likely folders first
                 if !store.missingMedia.isEmpty { modal = .relink }
             } catch let e as PersistenceError {
                 store.showToast(tr(e.messageKey), error: true)

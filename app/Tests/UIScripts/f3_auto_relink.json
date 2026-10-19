@@ -1,0 +1,13 @@
+// MI-006: the newest project's media folder was renamed ("Old shoot" → "Footage"). Opening the project finds the file by
+// its fingerprint next to the projects and relinks it automatically (toast, one undo step) — no "Media lost" dialog.
+{
+  "project": "home:3:moved",
+  "steps": [
+    {"click": "id:home.card.0"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 5}},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.autoRelink", "timeout": 10}},
+    {"expect": [{"path": "app.modal", "equals": ""}, {"path": "ui.toast", "contains": "automatically"},
+                {"path": "project.media.-1.url", "contains": "Footage/Interview.mov"}]},
+    {"snapshot": "auto-relinked"}
+  ]
+}

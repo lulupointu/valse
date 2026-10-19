@@ -112,6 +112,7 @@ extension EditorStore {
             let probed = try? await MediaProbe.probe(url)
             let others = MediaRelinker.missing(in: project).filter { $0.id != id }
             let folder = url.deletingLastPathComponent()
+            MediaAutoRelink.remember(folder)
             let found = await Task.detached { MediaRelinker.search(folder, for: others) }.value
             let ok = perform(Edit("cmd.relink") { p in
                 if let i = p.media.firstIndex(where: { $0.id == id }) {
@@ -134,6 +135,7 @@ extension EditorStore {
     public func relinkMissing(searching folder: URL) {
         let missing = MediaRelinker.missing(in: project)
         guard !missing.isEmpty else { return }
+        MediaAutoRelink.remember(folder)
         Task {
             let found = await Task.detached { MediaRelinker.search(folder, for: missing) }.value
             if found.isEmpty { showToast(tr("toast.relinkNone"), error: true); return }

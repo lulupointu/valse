@@ -28,3 +28,5 @@
 "captions.encoding.gb18030" = "Chinois simplifié (GB 18030)";
 "captions.encoding.big5" = "Chinois traditionnel (Big 5)";
 "captions.encoding.eucKR" = "Coréen (EUC-KR)";
+"cmd.autoRelink" = "Relier les médias manquants";
+"toast.autoRelinked" = "%d fichier(s) manquant(s) retrouvé(s) automatiquement";

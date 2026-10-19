@@ -3,6 +3,7 @@ import AppKit
 import ImageIO
 import UniformTypeIdentifiers
 import MontageCore
+import MontageEngine
 
 /// Isolation for UI tests and `--home-demo` screenshots: the project library, settings, keymap and recents go to a
 /// temporary folder through the volatile argument domain (never persisted, the user's real ones are untouched).
@@ -42,6 +43,20 @@ extension AppModel {
         if parts.contains("heldelsewhere"), let url = visibleEntries.first?.url {
             // PM-014: the newest project is open in another (live) Montage window — pid 1 (launchd) is always alive
             try? "1".write(to: url.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)
+        }
+        // F3 (MI-006) `"home:3:moved"`: the media's folder was renamed — the file now sits in "Footage/" next to the projects
+        if parts.contains("moved"), let url = visibleEntries.first?.url, var p = try? ProjectPackage.load(from: url) {
+            let dir = url.deletingLastPathComponent()
+            let file = dir.appendingPathComponent("Footage/Interview.mov")
+            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? Data((0..<4096).map { UInt8(truncatingIfNeeded: $0 &* 31) }).write(to: file)
+            let size = Int64((try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? Int) ?? 0)
+            var a = MediaAsset(name: "Interview.mov", kind: .video, url: dir.appendingPathComponent("Old shoot/Interview.mov"),
+                               duration: Time(8), pixelSize: .hd1080, frameRate: .fps30, hasVideo: true, hasAudio: true,
+                               contentHash: MediaProbe.contentHash(file, size: size, mtime: nil), fileSize: size)
+            a.relativePath = nil
+            p.media.append(a)
+            try? ProjectPackage.save(p, to: url)
         }
         if parts.contains("crash"), let url = visibleEntries.first?.url {
             // a pid that can't be alive: the session "crashed"

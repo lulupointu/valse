@@ -21,7 +21,8 @@ public enum MediaRelinker {
     }
 
     /// Searches `folder` recursively for the given assets. Returns asset id → new URL. Never touches the project.
-    public static func search(_ folder: URL, for assets: [MediaAsset], maxFiles: Int = 50_000) -> [MediaID: URL] {
+    /// `requireFingerprint` (auto-relink without the user, MI-006): files with a known size match on the content hash only.
+    public static func search(_ folder: URL, for assets: [MediaAsset], maxFiles: Int = 50_000, requireFingerprint: Bool = false) -> [MediaID: URL] {
         guard !assets.isEmpty else { return [:] }
         let fm = FileManager.default
         let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey]
@@ -44,7 +45,7 @@ public enum MediaRelinker {
                 for c in bySize[a.fileSize] ?? [] where !used.contains(c) {
                     if MediaProbe.contentHash(c, size: a.fileSize, mtime: nil) == a.contentHash { out[a.id] = c; used.insert(c); break }
                 }
-                if out[a.id] != nil { continue }
+                if out[a.id] != nil || requireFingerprint { continue }
             }
             // 2. name (+ size when known)
             let named = (byName[name] ?? []).filter { !used.contains($0) }
