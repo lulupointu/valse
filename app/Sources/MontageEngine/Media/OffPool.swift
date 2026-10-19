@@ -14,17 +14,29 @@ public enum OffPool {
         public func checkCancellation() throws { if isCancelled { throw CancellationError() } }
     }
 
-    private struct Unchecked<V>: @unchecked Sendable { let value: V }
+    /// Holds the body for the GCD block; emptied before the caller resumes (`withoutActuallyEscaping` traps if the
+    /// closure is still referenced when it returns — the dispatch block itself is released only later).
+    private final class Slot<V>: @unchecked Sendable {
+        var value: V?
+        init(_ v: V) { value = v }
+    }
 
     public static func run<T: Sendable>(qos: DispatchQoS.QoSClass = .userInitiated,
                                         _ body: (Context) throws -> T) async throws -> T {
         try await withoutActuallyEscaping(body) { body in
             // the caller is suspended until the GCD block resumes it, so `body` (and what it captures) is never shared
-            let work = Unchecked(value: body)
+            let slot = Slot(body)
             let ctx = Context()
             return try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { (c: CheckedContinuation<T, Error>) in
-                    DispatchQueue.global(qos: qos).async { c.resume(with: Result { try work.value(ctx) }) }
+                    DispatchQueue.global(qos: qos).async {
+                        let r = { () -> Result<T, Error> in
+                            let f = slot.value!
+                            slot.value = nil
+                            return Result { try f(ctx) }
+                        }()
+                        c.resume(with: r)
+                    }
                 }
             } onCancel: { ctx.cancel() }
         }

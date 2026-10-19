@@ -271,3 +271,30 @@ import MontageTestSupport
         #expect(abs(t.strokeExtentEm - 0.05) < 1e-9)
     }
 }
+
+/// OffPool (F3 suite-deadlock fix): blocking reads run on GCD while the task waits; the non-escaping body must be
+/// released before the caller resumes (withoutActuallyEscaping traps otherwise), also under heavy concurrency.
+@Suite struct F3OffPoolTests {
+    @Test func manyConcurrentRunsReturnAndReleaseTheBody() async throws {
+        let sums = try await withThrowingTaskGroup(of: Int.self) { g in
+            for i in 0..<10_000 {
+                g.addTask {
+                    var local = 0   // captured by the non-escaping body
+                    return try await OffPool.run { _ in for k in 0...i % 50 { local += k }; return local }
+                }
+            }
+            return try await g.reduce(0, +)
+        }
+        #expect(sums == (0..<10_000).reduce(0) { $0 + ($1 % 50) * ($1 % 50 + 1) / 2 })
+    }
+
+    @Test func cancellationReachesTheBody() async {
+        let t = Task { try await OffPool.run { ctx in
+            while !ctx.isCancelled { usleep(1000) }
+            try ctx.checkCancellation()
+            return 0
+        } }
+        t.cancel()
+        await #expect(throws: CancellationError.self) { try await t.value }
+    }
+}
