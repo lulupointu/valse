@@ -32,7 +32,7 @@ public enum StateDump {
                 "effects": c.effects.map(\.typeID), "selected": store.selection.contains(c.id),
                 "scale": c.transform.scale.x, "rotation": c.transform.rotation, "tiltX": c.transform.tilt.x, "tiltY": c.transform.tilt.y,
                 "positionX": c.transform.position.x, "positionY": c.transform.position.y,
-                "volume": c.audio.volume, "keyframes": Array(c.keyframes.keys).sorted(),
+                "volume": c.audio.volume, "keyframes": Array(c.keyframes.keys).sorted(), "markers": (c.markers ?? []).map(\.time.seconds),
             ]
             if let n = c.name { d["name"] = n }
             if tl.tracks.indices.contains(track) { d["lane"] = tl.tracks[track].kind.rawValue }
@@ -62,7 +62,7 @@ public enum StateDump {
         }
         func trackSummary(_ t: Track, _ i: Int) -> [String: Any] {
             ["index": i, "id": t.id.description, "kind": t.kind.rawValue, "isMain": t.isMain, "locked": t.isLocked,
-             "hidden": t.isHidden, "muted": t.isMuted, "solo": t.isSolo == true, "audible": tl.isAudible(t),
+             "hidden": t.isHidden, "muted": t.isMuted, "solo": t.isSolo == true, "audible": tl.isAudible(t), "volume": t.gain,
              "clips": t.clips.enumerated().map { clipSummary($1, track: i, index: $0) }]
         }
         let tracks = tl.tracks.enumerated().map { trackSummary($1, $0) }

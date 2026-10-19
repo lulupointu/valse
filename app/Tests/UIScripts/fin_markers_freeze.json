@@ -1,0 +1,28 @@
+// Finisher TL-025 / TL-013: M with a clip selected adds a clip marker (drawn on the clip, ⇧M reaches it, it moves with
+// the clip); Freeze links the freeze frame to its original: opacity typed on the original also changes the freeze frame.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:main/1"},
+    {"seek": 8},
+    {"key": "m"},
+    {"expect": [{"path": "selectedClips.0.markers.count", "equals": 1}, {"path": "undo.name", "equals": "cmd.clipMarker"}]},
+    {"seek": 0},
+    {"key": "shift+m"},
+    {"expect": {"path": "playhead", "approx": 8, "tolerance": 0.01}},
+    {"snapshot": "clip-marker", "element": "id:timeline"},
+    {"seek": 9},
+    {"menu": "menu.clip/menu.freeze"},
+    {"expect": [{"path": "main.clips.count", "equals": 5}, {"path": "undo.name", "equals": "cmd.freeze"}]},
+    {"dump": "after-freeze"},
+    {"click": "clip:main/1"},
+    {"click": "id:slider.opacity.field"},
+    {"type": "40", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "main.clips.1.opacity", "approx": 0.4, "tolerance": 0.01},
+                {"path": "main.clips.2.opacity", "approx": 0.4, "tolerance": 0.01}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "main.clips.2.opacity", "approx": 1, "tolerance": 0.01}}
+  ]
+}

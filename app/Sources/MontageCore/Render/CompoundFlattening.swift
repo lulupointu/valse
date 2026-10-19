@@ -12,6 +12,8 @@ public enum CompoundFlattening {
         // Solo (AU-029): when any track is soloed, every other track is silenced (applied before nesting, so a
         // compound on a silenced track is silenced too).
         if project.timeline.hasSolo { for i in out.indices { out[i].isMuted = !project.timeline.isAudible(out[i]) } }
+        // Track volume (TL-018) is baked into the clips' gains, so composition, mixdown, scrub and ducking all follow.
+        for i in out.indices where abs(out[i].gain - 1) > 1e-9 { applyGain(out[i].gain, to: &out[i]) }
         guard depth < Project.maxCompoundDepth, !(project.compounds ?? []).isEmpty else { return out }
         for parent in out.prefix(project.timeline.tracks.count) {
             for c in parent.clips where c.isEnabled {
@@ -27,6 +29,21 @@ public enum CompoundFlattening {
             }
         }
         return out
+    }
+
+    /// Multiplies every clip's volume (and volume keyframes) of a track by `g`.
+    static func applyGain(_ g: Double, to t: inout Track) {
+        for ci in t.clips.indices {
+            t.clips[ci].audio.volume *= g
+            if let k = t.clips[ci].keyframes[ParamKey.volume.raw] {
+                t.clips[ci].keyframes[ParamKey.volume.raw] = KeyframeTrack(k.keyframes.map { kf in
+                    var kf = kf
+                    if let v = kf.value.scalar { kf.value = .scalar(v * g) }
+                    return kf
+                })
+            }
+        }
+        t.volume = nil
     }
 
     /// Nested clip `n` as seen through compound clip `c` on the parent timeline (nil when outside what `c` shows).

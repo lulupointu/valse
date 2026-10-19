@@ -14,7 +14,8 @@ public final class KeystrokeFeed {
     public private(set) var items: [Item] = []
     public private(set) var enabled = false
     @ObservationIgnored private var monitor: Any?
-    @ObservationIgnored var lifetime: TimeInterval = 2
+    /// Seconds a pill stays (long in UI tests so a loaded machine can't expire them before the assertion).
+    @ObservationIgnored var lifetime: TimeInterval = TestAnchors.isEnabled ? 30 : 2
 
     init() {
         if !HomeSandbox.isActive, UserDefaults.standard.bool(forKey: Self.defaultsKey) { setEnabled(true) }

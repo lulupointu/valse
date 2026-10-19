@@ -308,6 +308,10 @@ import Foundation
         let r1 = m.directory(.render).appendingPathComponent("r1.mov")
         try FileManager.default.setAttributes([.modificationDate: old], ofItemAtPath: r1.path)
         try (r1 as NSURL).setResourceValue(old, forKey: .contentAccessDateKey)
+        // r2 explicitly recent (a clean checkout / loaded volume can leave equal or stale timestamps)
+        let r2 = m.directory(.render).appendingPathComponent("r2.mov")
+        try FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: r2.path)
+        try (r2 as NSURL).setResourceValue(Date(), forKey: .contentAccessDateKey)
         let removed = m.enforceLimit(60_000, category: .render)
         #expect(removed == ["r1.mov"])  // least recently used goes first
         #expect(m.purge(olderThan: 30, categories: [.proxies]).isEmpty)

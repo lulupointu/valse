@@ -81,6 +81,24 @@ import MontageTestSupport
         }
     }
 
+    /// TL-018: the track volume scales the exported mix and the scrub grains.
+    @Test func trackVolumeScalesTheMix() async throws {
+        var p = try await Self.toneProject()
+        func peak(_ b: MontageEngine.AudioBuffer) -> Float {
+            var m: Float = 0
+            for i in 0..<b.frames { m = max(m, abs(b[0, i])) }
+            return m
+        }
+        let range = TimeRange(start: Time(seconds: 0.5), duration: Time(seconds: 1))
+        let full = peak(try await AudioMixdown.render(p, range: range))
+        let ti = p.timeline.tracks.firstIndex { !$0.clips.isEmpty }!
+        p.timeline.tracks[ti].volume = 0.5
+        let half = peak(try await AudioMixdown.render(p, range: range))
+        #expect(full > 0.05)
+        #expect(abs(half / full - 0.5) < 0.05, "full \(full) half \(half)")
+        #expect(abs(ScrubAudio.sources(in: p, at: Time(1))[0].gain - 0.5) < 1e-6)
+    }
+
     @Test func deviceListsHaveUniqueUIDs() {
         let outs = AudioDevices.outputs()
         #expect(Set(outs.map(\.uid)).count == outs.count)

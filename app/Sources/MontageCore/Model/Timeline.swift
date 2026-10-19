@@ -48,6 +48,9 @@ public struct Track: Codable, Sendable, Equatable, Identifiable {
     public var isCaptions: Bool?
     /// Solo (AU-029, not in CapCut): while any track is soloed only soloed tracks are heard. nil = false.
     public var isSolo: Bool?
+    /// Track volume (TL-018), linear gain applied on top of every clip's own volume (1 = 0 dB, max 2 ≈ +6 dB). nil = 1.
+    public var volume: Double?
+    public var gain: Double { volume ?? 1 }
 
     public init(kind: TrackKind, isMain: Bool = false, clips: [Clip] = []) {
         id = TrackID(); self.kind = kind; self.isMain = isMain

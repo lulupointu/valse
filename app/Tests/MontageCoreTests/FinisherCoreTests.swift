@@ -194,3 +194,69 @@ import Foundation
         #expect(throws: EditError.self) { try TimelineOps.splitAudioChannels(c.id, in: &tl) }   // already split
     }
 }
+
+/// TL-018 track volume, TL-025 clip markers, TL-013 freeze link.
+@Suite struct FinisherTrackTests {
+    @Test func trackVolumeIsBakedIntoDecodedClips() throws {
+        var p = Project()
+        var a = Track(kind: .audio)
+        var c = Clip(content: .media(MediaID()), start: 0, duration: 4)
+        c.audio.volume = 0.8
+        c.keyframes[ParamKey.volume.raw] = KeyframeTrack([Keyframe(time: 1, value: .scalar(1)), Keyframe(time: 2, value: .scalar(0.5))])
+        a.clips = [c]
+        a.volume = 0.5
+        p.timeline.tracks.append(a)
+        let d = try #require(CompoundFlattening.decodeTracks(p).first { $0.id == a.id })
+        #expect(abs(d.clips[0].audio.volume - 0.4) < 1e-9)
+        #expect(d.clips[0].keyframes[ParamKey.volume.raw]!.keyframes.compactMap(\.value.scalar) == [0.5, 0.25])
+        #expect(d.volume == nil)
+        // the model itself is untouched; nil volume = unity
+        #expect(p.timeline.tracks.last!.clips[0].audio.volume == 0.8)
+        #expect(Track(kind: .audio).gain == 1)
+        let back = try JSONDecoder().decode(Track.self, from: JSONEncoder().encode(a))
+        #expect(back.volume == 0.5)
+    }
+
+    @Test func clipMarkersFollowSplitTrimAndSpeed() throws {
+        var tl = Timeline()
+        let v = Clip(content: .solid(.white), start: 2, duration: 6)
+        tl.tracks[0].clips = [v]
+        try TimelineOps.addClipMarker(v.id, at: 3, in: &tl)
+        try TimelineOps.addClipMarker(v.id, at: 6, in: &tl)
+        #expect(throws: EditError.self) { try TimelineOps.addClipMarker(v.id, at: 6, in: &tl) }   // duplicate
+        #expect(throws: EditError.self) { try TimelineOps.addClipMarker(v.id, at: 9, in: &tl) }   // outside
+        #expect(tl.clip(v.id)!.markers!.map(\.time) == [Time(1), Time(4)])
+        let r = try TimelineOps.split(v.id, at: 5, in: &tl)
+        #expect(tl.clip(v.id)!.markers!.map(\.time) == [Time(1)])
+        #expect(tl.clip(r)!.markers!.map(\.time) == [Time(1)])
+        #expect(TimelineOps.allMarkerTimes(tl) == [Time(3), Time(6)])
+        try TimelineOps.setSpeed(r, .constant(2), in: &tl)   // 3 s → 1.5 s: marker at 0.5
+        #expect(tl.clip(r)!.markers!.map(\.time) == [Time(0.5)])
+        try TimelineOps.removeClipMarkers([v.id, r], in: &tl)
+        #expect(tl.clip(v.id)!.markers == nil && TimelineOps.allMarkerTimes(tl).isEmpty)
+    }
+
+    @Test func linkedFreezeFollowsTheOriginalsLook() throws {
+        var (p, ids0) = Fx.project(mainClips: 2)
+        let ids = ids0
+        let f = try TimelineOps.freezeFrame(ids[0], at: 1, in: &p)
+        var s = EditSession(project: p)
+        #expect(s.project.timeline.clip(f)?.freezeSource == ids[0])
+        try s.perform(Edit("x") { p in p.timeline[clip: ids[0]]?.opacity = 0.4; p.timeline[clip: ids[0]]?.transform.scale = Vec2(2, 2) })
+        #expect(s.project.timeline.clip(f)?.opacity == 0.4 && s.project.timeline.clip(f)?.transform.scale == Vec2(2, 2))
+        // gestures too
+        s.beginGesture("g")
+        s.updateGesture { p in p.timeline[clip: ids[0]]?.opacity = 0.7 }
+        #expect(s.project.timeline.clip(f)?.opacity == 0.7)
+        s.endGesture()
+        // original deleted → link dropped, look kept
+        try s.perform(Edit("d") { p in p.timeline[clip: ids[0]] = nil })
+        #expect(s.project.timeline.clip(f)?.freezeSource == nil && s.project.timeline.clip(f)?.opacity == 0.7)
+        // unlinked freeze frames when the setting is off
+        p = s.project
+        var d = EditDefaults.current; let saved = d; d.linkFreeze = false; EditDefaults.current = d
+        defer { EditDefaults.current = saved }
+        let g = try TimelineOps.freezeFrame(ids[1], at: p.timeline.clip(ids[1])!.start + 1, in: &p)
+        #expect(p.timeline.clip(g)?.freezeSource == nil)
+    }
+}

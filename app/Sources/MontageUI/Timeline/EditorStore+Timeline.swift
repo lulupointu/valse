@@ -189,6 +189,16 @@ extension EditorStore {
         }
     }
 
+    /// Freeze frames stop following their original clip (TL-013).
+    public func unlinkFreezeSelection() {
+        let ids = selection
+        edit("cmd.unlinkFreeze") { p in
+            var did = false
+            for id in ids where p.timeline.clip(id)?.freezeSource != nil { p.timeline[clip: id]?.freezeSource = nil; did = true }
+            if !did { throw EditError.nothingToDo }
+        }
+    }
+
     /// "Match cut" (TL-036): split the selected clips on the marked beats of the music.
     public func matchCut() {
         let ids = selection.isEmpty ? Set(targetClip.map { [$0.id] } ?? []) : selection
@@ -280,6 +290,10 @@ extension EditorStore {
         if let c = singleSelectedClip, trackKind(of: c) == .audio, t >= c.start, t <= c.end {
             edit("cmd.beat") { p in try TimelineOps.toggleBeat(c.id, at: t, in: &p.timeline) }; return
         }
+        // Any other clip selected: M marks the clip (CapCut clip markers, TL-025); they move with the clip.
+        if let c = singleSelectedClip, t >= c.start, t <= c.end {
+            edit("cmd.clipMarker") { p in try TimelineOps.addClipMarker(c.id, at: t, color: color, in: &p.timeline) }; return
+        }
         let box = ResultBox<MarkerID?>(nil)
         if edit("cmd.marker", { p in box.value = try TimelineOps.addMarker(at: t, color: color, in: &p.timeline) }) {
             ui.selectedMarker = box.value
@@ -287,8 +301,9 @@ extension EditorStore {
     }
 
     public func goToMarker(next: Bool) {
-        let tl = project.timeline
-        if let m = next ? TimelineOps.nextMarker(after: playhead, in: tl) : TimelineOps.previousMarker(before: playhead, in: tl) { seek(to: m.time) }
+        let times = TimelineOps.allMarkerTimes(project.timeline)   // timeline + clip markers
+        let eps = Time(ticks: 1)
+        if let t = next ? times.first(where: { $0 > playhead + eps }) : times.last(where: { $0 < playhead - eps }) { seek(to: t) }
     }
 
     public func goToCut(next: Bool) {
@@ -300,6 +315,12 @@ extension EditorStore {
     public func removeAllMarkers() {
         let ids = Set(project.timeline.markers.map(\.id))
         edit("cmd.marker.delete") { p in try TimelineOps.removeMarkers(ids, in: &p.timeline) }
+    }
+
+    /// "Delete all markers in clip" (TL-025).
+    public func removeClipMarkersSelection() {
+        let ids = selection
+        edit("cmd.marker.delete") { p in try TimelineOps.removeClipMarkers(ids, in: &p.timeline) }
     }
 
     public func clearBeatsSelection() {
@@ -332,6 +353,15 @@ extension EditorStore {
             let on = p.timeline.tracks[i].isSolo != true
             p.timeline.tracks[i].isSolo = on ? true : nil
             if on { p.timeline.tracks[i].isMuted = false }
+        }
+    }
+
+    /// Track volume (TL-018): linear gain 0…2 on top of the clips' own volume (nil = 0 dB). One undo step.
+    public func setTrackVolume(_ id: TrackID, _ gain: Double) {
+        let g = min(max(gain, 0), 2)
+        edit("cmd.trackVolume") { p in
+            guard let i = p.timeline.trackIndex(id) else { return }
+            p.timeline.tracks[i].volume = abs(g - 1) < 1e-6 ? nil : g
         }
     }
 

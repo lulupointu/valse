@@ -20,7 +20,6 @@ struct DetailsSection: View {
             DetailRow(label: tr("details.ratio"), value: ProjectSettingsSheet.ratioTitle(s.aspectPreset))
             DetailRow(label: tr("details.resolution"), value: "\(Int(s.canvasSize.width))×\(Int(s.canvasSize.height))")
             DetailRow(label: tr("details.frameRate"), value: Fmt.unit(Fmt.num(s.frameRate.fps, 2), "fps"))
-            DetailRow(label: tr("details.colorSpace"), value: tr(s.colorSpace.nameKey))
         }
     }
 }

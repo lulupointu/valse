@@ -69,8 +69,14 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var groupID: ClipGroupID?
     /// Freeze-frame clip (CapCut "Freeze"): holds one source frame; trimming keeps the one-frame source extent.
     public var freezeFrame: Bool?
+    /// Freeze frame linked to its original clip (TL-013 "Link freeze frame clips to original video"): the original's
+    /// look (transform, opacity, blend, crop, mask, canvas, effects, enhance, relight) is copied onto it after every edit
+    /// (`FreezeLinks.sync`). nil = independent.
+    public var freezeSource: ClipID?
     /// Beat markers in clip-local time (CapCut "Mark beats" on audio clips). Clips snap to them.
     public var beats: [Time]?
+    /// Clip markers (TL-025) in clip-local time: added with M while the clip is selected, move with the clip. nil = none.
+    public var markers: [Marker]?
     /// Audio clip extracted from this video clip ("Extract audio"): id of the source clip.
     public var extractedFrom: ClipID?
     /// Clip colour label index (TL-040), nil = default kind colour.

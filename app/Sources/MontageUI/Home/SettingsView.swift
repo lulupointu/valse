@@ -423,6 +423,9 @@ struct EditSettings: View {
         SettingsRow(tr("settings.freezeDuration")) {
             NumberSetting(value: $draft.freezeDuration, range: 0.1...60, step: 0.1, decimals: 1, unit: tr("settings.unit.seconds"), id: "freezeDuration")
         }
+        SettingsRow(tr("settings.linkFreeze"), hint: tr("settings.linkFreeze.hint")) {
+            CheckLine(label: tr("settings.linkFreeze.label"), isOn: $draft.linkFreezeFrames, id: "linkFreeze")
+        }
         SettingsRow(tr("settings.transitionDuration"), hint: draft.transitionDuration == nil ? tr("settings.transitionDuration.hint") : nil) {
             HStack(spacing: 10) {
                 CheckLine(label: tr("settings.transitionDuration.custom"), isOn: Binding(get: { draft.transitionDuration != nil },

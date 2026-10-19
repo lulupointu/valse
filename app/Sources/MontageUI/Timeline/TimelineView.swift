@@ -358,6 +358,11 @@ final class TimelineView: NSView {
                     c.image(img, in: item.rect, alpha: item.on ? 1 : 0.55, fill: false)
                 }
             }
+            // TL-018: a non-default track volume shows under the controls ("−6.0 dB")
+            if track.volume != nil, !row.isMain || row.height > 50, let last = headerItems(track, row: row).last {
+                c.text(TrackVolumeMath.label(TrackVolumeMath.db(track.gain)), at: CGPoint(x: 8, y: last.rect.maxY + 1), size: 9,
+                       color: RGBA(1, 1, 1, 0.55), mono: true)
+            }
             if row.isMain {
                 // "Cover" button in the gap right of the header controls (UX.md §6.3): shows the cover once one is set.
                 let b = coverButtonRect(row)
@@ -659,6 +664,15 @@ final class TimelineView: NSView {
                 let x = l.x(clip.start + b)
                 guard x > visL - 3, x < r.maxX + 3 else { continue }
                 c.rect(CGRect(x: x - 2.5, y: r.maxY - 6, width: 5, height: 5), RGBA(hex: 0xF2C230), radius: 2.5)
+            }
+        }
+        // Clip markers (TL-025): a small flag in the marker colour on the top edge of the clip
+        if let ms = clip.markers {
+            for m in ms where m.time >= .zero && m.time <= clip.duration {
+                let x = l.x(clip.start + m.time)
+                guard x > visL - 4, x < r.maxX + 4 else { continue }
+                c.rect(CGRect(x: x - 0.5, y: r.minY, width: 1.5, height: min(14, r.height)), m.color)
+                c.rect(CGRect(x: x - 0.5, y: r.minY, width: 7, height: 5), m.color, radius: 1)
             }
         }
         // Hover trim handles

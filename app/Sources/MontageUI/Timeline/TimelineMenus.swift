@@ -88,12 +88,14 @@ extension TimelineView {
             sub("tlmenu.edit", [
                 item("tlmenu.freeze", enabled: isVideo) { s.freezeFrame() },
                 item("tlmenu.duplicateFrame", enabled: isVideo) { s.duplicateFrame() },
+                item("tlmenu.unlinkFreeze", enabled: single?.freezeSource != nil) { s.unlinkFreezeSelection() },
                 item("tlmenu.reverse", enabled: isMedia && !(single?.isFreezeFrame ?? true), checked: single?.reversed ?? false) { s.reverseSelection() },
                 item("tlmenu.mirror", enabled: visual) { s.mirrorSelection() },
                 item("tlmenu.rotate", enabled: visual) { s.rotateSelection() },
                 item("tlmenu.crop", enabled: visual && single != nil) { s.inspectorTab = "video" },
             ]),
             item("tlmenu.matchCut", enabled: !clips.isEmpty) { s.matchCut() },
+            item("tlmenu.deleteClipMarkers", enabled: clips.contains { !($0.markers ?? []).isEmpty }) { s.removeClipMarkersSelection() },
             // W10 AI entries
             sub("tlmenu.splitScenes", [
                 item("tlmenu.splitScenes.scene", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id, mode: .scene) } },
@@ -288,6 +290,26 @@ extension TimelineView {
         ])
     }
 
+    // MARK: Track volume (TL-018)
+
+    /// "Track volume ▸" submenu: a dB slider (−30…+6 dB, release = one undo step) plus quick presets.
+    func trackVolumeMenu(_ t: Track) -> NSMenuItem {
+        let s = store, id = t.id
+        let current = TrackVolumeMath.db(t.gain)
+        let slider = TrackVolumeSliderView(db: current) { db in s.setTrackVolume(id, TrackVolumeMath.gain(db)) }
+        let sliderItem = NSMenuItem(); sliderItem.view = slider
+        var items: [NSMenuItem] = [sliderItem, .separator()]
+        for db in [-12.0, -6.0, 0.0, 3.0, 6.0] {
+            items.append(MenuAction.item(TrackVolumeMath.label(db), key: "", [], checked: abs(current - db) < 0.05) {
+                s.setTrackVolume(id, TrackVolumeMath.gain(db))
+            })
+        }
+        items.append(MenuAction.item(tr("track.volume.mute"), key: "", [], checked: t.gain == 0) { s.setTrackVolume(id, 0) })
+        let i = sub("track.volume", items)
+        i.title = tr("track.volume.title", TrackVolumeMath.label(current))
+        return i
+    }
+
     // MARK: Track header ⋯ (UX.md §6.3, [90])
 
     func trackMenu(_ t: Track) -> NSMenu {
@@ -306,6 +328,7 @@ extension TimelineView {
             item(h.nameKey, checked: (t.heightPreset ?? .standard) == h) { s.setTrackHeight(id, h) }
         }))
         if t.kind == .audio || t.kind == .video {
+            items.append(trackVolumeMenu(t))
             items.append(sub("track.waveform", [0.3, 0.6, 1.0].map { v in
                 MenuAction.item("\(Int(v * 100)) %", key: "", [], checked: abs((t.waveformScale ?? 0.3) - v) < 0.01) { s.setWaveformScale(id, v) }
             }))
@@ -327,5 +350,49 @@ extension EditorStore {
     public func setColorLabel(_ i: Int?) {
         let ids = selection
         edit("cmd.colorLabel") { p in for id in ids { p.timeline[clip: id]?.colorLabel = i } }
+    }
+}
+
+/// dB ↔ linear gain for the track volume (−∞ dB = 0).
+enum TrackVolumeMath {
+    static let minDB = -30.0, maxDB = 6.0
+    static func db(_ g: Double) -> Double { g <= 0 ? -.infinity : 20 * log10(g) }
+    static func gain(_ db: Double) -> Double { db <= minDB - 0.01 || db == -.infinity ? 0 : pow(10, min(db, maxDB) / 20) }
+    static func label(_ db: Double) -> String {
+        guard db.isFinite else { return "−∞ dB" }
+        let r = (db * 10).rounded() / 10
+        let v = r == 0 ? "0" : String(format: r > 0 ? "+%.1f" : "%.1f", r).replacingOccurrences(of: "-", with: "−")
+        return L10n.shared.language.hasPrefix("fr") ? v.replacingOccurrences(of: ".", with: ",") + "\u{202F}dB" : v + " dB"
+    }
+}
+
+/// The slider row inside the "Track volume" submenu.
+final class TrackVolumeSliderView: NSView {
+    private let slider: NSSlider
+    private let value = NSTextField(labelWithString: "")
+    private let onChange: (Double) -> Void
+
+    init(db: Double, onChange: @escaping (Double) -> Void) {
+        self.onChange = onChange
+        slider = NSSlider(value: db.isFinite ? max(db, TrackVolumeMath.minDB) : TrackVolumeMath.minDB,
+                          minValue: TrackVolumeMath.minDB, maxValue: TrackVolumeMath.maxDB, target: nil, action: nil)
+        super.init(frame: NSRect(x: 0, y: 0, width: 240, height: 30))
+        slider.frame = NSRect(x: 16, y: 5, width: 150, height: 20)
+        slider.isContinuous = true
+        slider.target = self; slider.action = #selector(changed)
+        slider.setAccessibilityIdentifier("track.volume.slider")
+        value.frame = NSRect(x: 172, y: 7, width: 64, height: 16)
+        value.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        value.textColor = .secondaryLabelColor
+        value.stringValue = TrackVolumeMath.label(db)
+        addSubview(slider); addSubview(value)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func changed() {
+        let db = slider.doubleValue <= TrackVolumeMath.minDB + 0.05 ? -Double.infinity : slider.doubleValue
+        value.stringValue = TrackVolumeMath.label(db)
+        // one undo step per release: commit when the mouse goes up
+        if NSApp.currentEvent?.type == .leftMouseUp || NSApp.currentEvent == nil { onChange(db) }
     }
 }

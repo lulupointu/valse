@@ -78,10 +78,10 @@ public final class ScrubAudio {
         var out: [Source] = []
         let lookup = project.mediaLookup
         for track in project.timeline.tracks where project.timeline.isAudible(track) && track.kind != .text {
-            for c in track.clips(at: t) where c.isEnabled && c.audio.isAudible && c.audio.volume > 0.001 {
+            for c in track.clips(at: t) where c.isEnabled && c.audio.isAudible && c.audio.volume * track.gain > 0.001 {
                 guard let id = c.mediaID, let a = lookup[id], a.hasAudio else { continue }
                 let url = PlayableMediaCache.shared.resolvedURL(for: a)
-                out.append(Source(url: url, sourceTime: c.sourceTime(at: t), gain: Float(min(c.audio.volume, 4)),
+                out.append(Source(url: url, sourceTime: c.sourceTime(at: t), gain: Float(min(c.audio.volume * track.gain, 4)),
                                   stream: c.audioStreamIndex ?? 0))
             }
         }

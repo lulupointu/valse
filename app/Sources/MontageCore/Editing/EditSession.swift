@@ -40,6 +40,7 @@ public struct EditSession: Sendable {
         if gestureBase != nil { endGesture() }
         var p = project
         try command.apply(to: &p)
+        FreezeLinks.sync(&p)
         guard p != project else { return }
         commit(nameKey: command.nameKey, before: project, after: p)
     }
@@ -58,6 +59,7 @@ public struct EditSession: Sendable {
         }
         var p = base
         try body(&p)
+        FreezeLinks.sync(&p)
         project = p
         revision += 1
     }

@@ -348,6 +348,7 @@ extension TimelineOps {
         f.duration = duration
         f.speed = .constant(frame / duration)
         f.freezeFrame = true
+        f.freezeSource = EditDefaults.current.linkFreeze ? c.id : nil
         f.audio.isMuted = true
         f.transitionOut = nil
         f.animations = ClipAnimations()

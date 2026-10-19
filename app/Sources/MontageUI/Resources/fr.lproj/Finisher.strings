@@ -114,3 +114,17 @@
 
 "tlmenu.splitAudioTrack" = "Séparer la piste audio (G / D)";
 "cmd.splitAudioTrack" = "Séparer la piste audio";
+/* TL-018 track volume */
+"track.volume" = "Volume de la piste";
+"track.volume.title" = "Volume de la piste (%@)";
+"track.volume.mute" = "Silence (−∞ dB)";
+"cmd.trackVolume" = "Volume de la piste";
+/* TL-025 clip markers */
+"cmd.clipMarker" = "Ajouter un repère au clip";
+"tlmenu.deleteClipMarkers" = "Supprimer tous les repères du clip";
+/* TL-013 freeze link */
+"settings.linkFreeze" = "Arrêt sur image";
+"settings.linkFreeze.label" = "Lier les arrêts sur image à la vidéo d’origine";
+"settings.linkFreeze.hint" = "Les filtres, effets, ajustements, la position et le recadrage modifiés sur l’original s’appliquent aussi à ses arrêts sur image.";
+"tlmenu.unlinkFreeze" = "Délier de la vidéo d’origine";
+"cmd.unlinkFreeze" = "Délier l’arrêt sur image";

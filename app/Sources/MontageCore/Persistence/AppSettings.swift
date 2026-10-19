@@ -31,6 +31,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var transitionDuration: Double?
     /// Default length of a freeze frame (s). CapCut: 3.
     public var freezeDuration = 3.0
+    /// "Link freeze frame clips to original video" (TL-013): looks edited on the original follow its freeze frames.
+    public var linkFreezeFrames = true
     /// "Step forward or back many frames" (⇧← / ⇧→). CapCut: 10.
     public var stepFrames = 10
     /// "Adjust value many units" (⇧ + arrows in numeric fields). CapCut: 10.
@@ -108,7 +110,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
     /// Edit defaults the model layer reads (`EditDefaults.current`).
     public var editDefaults: EditDefaults {
         EditDefaults(imageDuration: Time(max(0.1, imageDuration)), transitionDuration: transitionDuration.map { Time(max(0.1, $0)) },
-                     freezeDuration: Time(max(0.1, freezeDuration)), stepFrames: max(1, stepFrames))
+                     freezeDuration: Time(max(0.1, freezeDuration)), stepFrames: max(1, stepFrames), linkFreeze: linkFreezeFrames)
     }
 
     // MARK: Persistence
@@ -163,10 +165,13 @@ public struct EditDefaults: Sendable, Equatable {
     public var transitionDuration: Time?
     public var freezeDuration: Time = Time(3)
     public var stepFrames: Int = 10
+    /// New freeze frames are linked to their original clip (TL-013).
+    public var linkFreeze = true
 
-    public init(imageDuration: Time = Time(5), transitionDuration: Time? = nil, freezeDuration: Time = Time(3), stepFrames: Int = 10) {
+    public init(imageDuration: Time = Time(5), transitionDuration: Time? = nil, freezeDuration: Time = Time(3), stepFrames: Int = 10,
+                linkFreeze: Bool = true) {
         self.imageDuration = imageDuration; self.transitionDuration = transitionDuration
-        self.freezeDuration = freezeDuration; self.stepFrames = stepFrames
+        self.freezeDuration = freezeDuration; self.stepFrames = stepFrames; self.linkFreeze = linkFreeze
     }
 
     private static let lock = NSLock()

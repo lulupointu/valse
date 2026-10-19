@@ -204,6 +204,7 @@ public enum TimelineOps {
             c.start = newStart
             c.duration -= delta
             for k in c.keyframes.keys { c.keyframes[k]?.shift(by: -delta) }
+            c.shiftMarkers(by: -delta)
         case .tail:
             var newEnd = max(time, c.start + minimumClipDuration)
             if let md = mediaDuration, md != .indefinite {
@@ -263,6 +264,11 @@ public enum TimelineOps {
             r.shift(by: -local)
             left.keyframes[k] = l
             right.keyframes[k] = r
+        }
+        if let ms = c.markers {
+            let l = ms.filter { $0.time < local }, r = ms.filter { $0.time >= local }.map { var m = $0; m.time = m.time - local; return m }
+            left.markers = l.isEmpty ? nil : l
+            right.markers = r.isEmpty ? nil : r
         }
         left.transitionOut = nil
         left.animations.outAnim = nil
@@ -329,6 +335,7 @@ public enum TimelineOps {
         for key in c.keyframes.keys {
             c.keyframes[key] = KeyframeTrack(c.keyframes[key]!.keyframes.map { var f = $0; f.time = f.time * k; return f })
         }
+        if let ms = c.markers { c.markers = ms.map { var m = $0; m.time = m.time * k; return m } }
         tl.tracks[loc.track].clips[loc.clip] = c
         if !(tl.tracks[loc.track].isMain && tl.mainTrackMagnet) {
             let others = tl.tracks[loc.track].clips.enumerated().filter { $0.offset != loc.clip }.map(\.element)

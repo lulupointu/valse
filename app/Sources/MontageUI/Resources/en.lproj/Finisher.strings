@@ -114,3 +114,17 @@
 
 "tlmenu.splitAudioTrack" = "Split audio track (L / R)";
 "cmd.splitAudioTrack" = "Split audio track";
+/* TL-018 track volume */
+"track.volume" = "Track volume";
+"track.volume.title" = "Track volume (%@)";
+"track.volume.mute" = "Silent (−∞ dB)";
+"cmd.trackVolume" = "Track volume";
+/* TL-025 clip markers */
+"cmd.clipMarker" = "Add clip marker";
+"tlmenu.deleteClipMarkers" = "Delete all markers in clip";
+/* TL-013 freeze link */
+"settings.linkFreeze" = "Freeze frame";
+"settings.linkFreeze.label" = "Link freeze frame clips to original video";
+"settings.linkFreeze.hint" = "Filters, effects, adjustments, position and crop changed on the original also change its freeze frames.";
+"tlmenu.unlinkFreeze" = "Unlink from original video";
+"cmd.unlinkFreeze" = "Unlink freeze frame";
