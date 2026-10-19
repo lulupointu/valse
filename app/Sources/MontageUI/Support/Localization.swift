@@ -33,6 +33,11 @@ public enum MontageBootstrap {
         UIResources.register()
         LUTLibrary.shared.loadAll()   // imported LUTs → effect registry
         UserStickerLibrary.shared.loadAll()   // imported custom stickers → sticker registry (ST-003)
+        CustomEffectLibrary.shared.loadAll()  // FX-018 custom effect packages → effect registry
+        // custom effect names are per language (manifest name / name_fr): re-register on a language switch
+        NotificationCenter.default.addObserver(forName: L10n.didChange, object: nil, queue: .main) { _ in
+            CustomEffectLibrary.shared.loadAll()
+        }
     }
 }
 

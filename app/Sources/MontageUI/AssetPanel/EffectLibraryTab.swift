@@ -35,6 +35,8 @@ enum EffectLibraryCatalog {
     static func groups(_ category: EffectCategory) -> [String] {
         var seen: [String] = []
         for d in items(category) where !seen.contains(d.groupKey) { seen.append(d.groupKey) }
+        // FX-018: Effects ▸ Custom is always there (import / new effect), even before the first custom effect
+        if category == .effect, !seen.contains(CustomEffectLibrary.groupKey) { seen.append(CustomEffectLibrary.groupKey) }
         let pref = groupOrder[category] ?? []
         return pref.filter(seen.contains) + seen.filter { !pref.contains($0) }
     }
@@ -140,7 +142,9 @@ final class EffectThumbnails {
         let t = Self.stillTime(d), n = Self.pixels
         Self.queue.async {
             // W13 (UX_GAPS W13-4): disk cache keyed by descriptor id + size, so cards are instant on later launches.
-            let img = EffectThumbDiskCache.load(d.id, n) ?? EffectPreviewRenderer.shared.image(d, time: t, width: n, height: n).map { EffectThumbDiskCache.save($0, d.id, n); return $0 }
+            // FX-018: custom effects can be edited + reloaded under the same id → never disk-cached
+            let custom = d.id.hasPrefix(CustomEffectLibrary.idPrefix)
+            let img = (custom ? nil : EffectThumbDiskCache.load(d.id, n)) ?? EffectPreviewRenderer.shared.image(d, time: t, width: n, height: n).map { if !custom { EffectThumbDiskCache.save($0, d.id, n) }; return $0 }
             let box = Box(images: img.map { [$0] } ?? [])
             Task { @MainActor in EffectThumbnails.shared.storeStill(d.id, box) }
         }
@@ -159,6 +163,12 @@ final class EffectThumbnails {
             Task { @MainActor in EffectThumbnails.shared.storeLoop(d.id, box) }
         }
         return nil
+    }
+
+    /// FX-018: drop a custom effect's cached still / loop after an import, reload or delete.
+    func forget(_ id: String) {
+        stills[id] = nil; loops[id] = nil
+        stillOrder.removeAll { $0 == id }; loopOrder.removeAll { $0 == id }
     }
 
     private func storeStill(_ id: String, _ box: Box) {
@@ -207,6 +217,9 @@ struct EffectLibraryTab: View {
             VStack(alignment: .leading, spacing: 8) {
                 searchField
                 Text(verbatim: title).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
+                if current == CustomEffectLibrary.groupKey && !searching {
+                    CustomEffectsHeader(store: store, isEmpty: items.isEmpty)   // FX-018
+                }
                 if current == EffectLibraryCatalog.customAdjustNav && !searching {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
@@ -217,6 +230,8 @@ struct EffectLibraryTab: View {
                         }
                         .padding(.horizontal, 12).padding(.bottom, 12)
                     }
+                } else if items.isEmpty && current == CustomEffectLibrary.groupKey && !searching {
+                    Spacer()
                 } else if items.isEmpty {
                     EmptyState(symbol: current == EffectLibraryCatalog.favoritesNav && !searching ? "star" : "magnifyingglass",
                                title: tr(searching ? "fxlib.noResults" : (current == EffectLibraryCatalog.favoritesNav ? "fxlib.favorites.empty" : "fxlib.noResults")))
@@ -224,6 +239,7 @@ struct EffectLibraryTab: View {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
                             let used = store.usedEffectIDs
+                            let _ = CustomEffectsState.shared.revision   // FX-018: re-list after import / reload / delete
                             ForEach(items) { d in
                                 EffectCard(descriptor: d, selected: selected == d.id, added: used.contains(d.id),
                                            select: { selected = d.id; store.previewEffect(d) }, add: { selected = d.id; store.applyEffect(d) })
@@ -356,6 +372,7 @@ struct EffectCard: View {
         .contextMenu {
             Button(tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(descriptor.id) }
             Button(tr("asset.addToTrack"), action: add)
+            if descriptor.groupKey == CustomEffectLibrary.groupKey { CustomEffectMenuItems(effectID: descriptor.id) }   // FX-018
         }
         .help(tr(descriptor.nameKey))
     }

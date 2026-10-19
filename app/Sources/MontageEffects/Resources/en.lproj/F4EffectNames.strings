@@ -2,3 +2,6 @@
 "effect.magicCutout" = "Magic cutout";
 "effect.magicSpotlight" = "Magic spotlight";
 "effect.magicColorPop" = "Magic colour pop";
+
+/* FX-018 custom effects group */
+"effect.group.custom" = "Custom";

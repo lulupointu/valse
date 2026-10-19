@@ -17,6 +17,11 @@ public final class Registry<Item: Identifiable & Sendable>: @unchecked Sendable 
         }
     }
 
+    /// Removes an item (user content deleted from its library, e.g. custom effects FX-018).
+    public func unregister(_ id: String) {
+        lock.withLock { items[id] = nil; order.removeAll { $0 == id } }
+    }
+
     public subscript(id: String) -> Item? { lock.withLock { items[id] } }
 
     public var all: [Item] { lock.withLock { order.compactMap { items[$0] } } }

@@ -13,3 +13,18 @@
 /* FX-002 effets corporels sur vidéo */
 "fx.body.job" = "Détection de la personne pour les effets corporels";
 "fx.body.failed" = "Aucune personne trouvée pour l'effet corporel.";
+
+/* FX-018 effets personnalisés */
+"fx.custom.import" = "Importer";
+"fx.custom.import.message" = "Choisissez un paquet d'effet (dossier .montagefx ou ZIP)";
+"fx.custom.new" = "Nouvel effet";
+"fx.custom.reload" = "Recharger";
+"fx.custom.folder" = "Afficher le dossier des effets";
+"fx.custom.empty" = "Créez vos propres effets : « Nouvel effet » crée un paquet (manifest.json + un shader Metal avec curseurs) et l'affiche dans le Finder. Modifiez le shader, puis Recharger. Importer ajoute des paquets partagés par d'autres (dossier ou ZIP).";
+"fx.custom.imported" = "« %@ » importé";
+"fx.custom.importFailed" = "L'effet n'a pas pu être chargé. Voir le message sous les boutons.";
+"fx.custom.created" = "Nouvel effet créé. Modifiez effect.metal, puis Recharger.";
+"fx.custom.reloaded" = "Effets personnalisés rechargés";
+"fx.custom.showInFinder" = "Afficher dans le Finder";
+"fx.custom.export" = "Exporter en ZIP…";
+"fx.custom.delete" = "Supprimer l'effet";

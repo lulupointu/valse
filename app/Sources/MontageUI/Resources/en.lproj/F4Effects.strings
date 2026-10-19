@@ -13,3 +13,18 @@
 /* FX-002 body effects on plain video */
 "fx.body.job" = "Finding the person for body effects";
 "fx.body.failed" = "No person found for the body effect.";
+
+/* FX-018 custom effects */
+"fx.custom.import" = "Import";
+"fx.custom.import.message" = "Choose an effect package (.montagefx folder or ZIP)";
+"fx.custom.new" = "New effect";
+"fx.custom.reload" = "Reload";
+"fx.custom.folder" = "Show the effects folder";
+"fx.custom.empty" = "Make your own effects: “New effect” creates a package (manifest.json + a Metal shader with sliders) and shows it in Finder. Edit the shader, then Reload. Import adds packages others shared (folder or ZIP).";
+"fx.custom.imported" = "Imported “%@”";
+"fx.custom.importFailed" = "The effect couldn't be loaded. See the message under the buttons.";
+"fx.custom.created" = "New effect created. Edit effect.metal, then Reload.";
+"fx.custom.reloaded" = "Custom effects reloaded";
+"fx.custom.showInFinder" = "Show in Finder";
+"fx.custom.export" = "Export as ZIP…";
+"fx.custom.delete" = "Delete effect";

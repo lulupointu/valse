@@ -2,3 +2,6 @@
 "effect.magicCutout" = "Détourage magique";
 "effect.magicSpotlight" = "Projecteur magique";
 "effect.magicColorPop" = "Couleur magique";
+
+/* FX-018 groupe des effets personnalisés */
+"effect.group.custom" = "Personnalisés";

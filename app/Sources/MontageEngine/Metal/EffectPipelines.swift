@@ -67,6 +67,20 @@ public final class EffectPipelines: @unchecked Sendable {
         return p
     }
 
+    /// FX-018: forget a (custom) effect's compiled pipeline and error so an edited shader is compiled again.
+    public func invalidate(effect id: String) {
+        lock.withLock { effects[id] = nil; errors[id] = nil }
+    }
+
+    /// Compiles `d` now; returns the Metal compiler message when it fails (custom effect import / reload).
+    public func compileError(_ d: EffectDescriptor) -> String? {
+        invalidate(effect: d.id)
+        if effect(d) != nil { return nil }
+        let message = lock.withLock { errors[d.id] } ?? "compile failed"
+        invalidate(effect: d.id)   // a rejected package isn't registered: keep `validateAll` about registered effects
+        return message
+    }
+
     public func transition(_ d: TransitionDescriptor) -> MTLRenderPipelineState? {
         if let cached = lock.withLock({ transitions[d.id] }) { return cached }
         let p = compile(id: d.id, source: ShaderPrelude.source + "\n" + d.shader + EffectPipelines.transitionWrapper, fn: "tr_main")

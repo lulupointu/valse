@@ -26,7 +26,10 @@ import MontageTestSupport
         let trending = EffectLibraryCatalog.entries(.effect, nav: EffectLibraryCatalog.curatedNav, favorites: [])
         #expect(trending.count == BuiltinEffects.trending.count)
         #expect(EffectLibraryCatalog.entries(.filter, nav: EffectLibraryCatalog.curatedNav, favorites: []).count == BuiltinFilters.featured.count)
-        #expect(EffectLibraryCatalog.groups(.effect).filter { $0.hasPrefix("effect.group.") }.last == "effect.group.body")
+        // built-in groups end with Body effects; FX-018 Custom (import / new effect) always comes last
+        let fxGroups = EffectLibraryCatalog.groups(.effect).filter { $0.hasPrefix("effect.group.") }
+        #expect(fxGroups.last == "effect.group.custom")
+        #expect(fxGroups.dropLast().last == "effect.group.body")
     }
 
     @Test func searchMatchesNamesTagsAndFrenchWithoutAccents() {

@@ -1,0 +1,29 @@
+// FX-018: Effects ▸ Custom — empty state with Import / New effect / Reload; "New effect" creates a template package
+// (manifest + Metal shader, two sliders) that appears as a card, renders, and is applied to the selected clip with
+// its sliders in the inspector.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:main/1"},
+    {"click": "id:asset.tab.effects"},
+    {"click": "id:asset.nav.effect.group.custom"},
+    {"expect": [{"path": "ui.anchors", "contains": "fx.custom.new"}, {"path": "ui.anchors", "contains": "fx.custom.empty"}]},
+    {"snapshot": "f4-fx-custom-empty", "element": "id:panel.assets"},
+    {"click": "id:fx.custom.new"},
+    {"expect": [{"path": "ui.anchors", "contains": "asset.tile.user.effect.myEffect"}, {"path": "ui.anchors", "notContains": "fx.custom.empty"}]},
+    {"wait": 1},
+    {"snapshot": "f4-fx-custom-card", "element": "id:panel.assets"},
+    {"hover": "id:asset.tile.user.effect.myEffect"},
+    {"click": "id:asset.tile.user.effect.myEffect"},
+    {"click": "id:asset.tile.user.effect.myEffect.add"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.effect"}, {"path": "selectedClips.0.effects", "contains": "user.effect.myEffect"}]},
+    {"seek": 7},
+    {"click": "id:inspector.tab.effects"},
+    {"idle": 1},
+    {"snapshot": "f4-fx-custom-inspector", "element": "id:panel.inspector"},
+    {"snapshot": "f4-fx-custom-player", "element": "id:panel.player"},
+    {"click": "id:fx.custom.reload"},
+    {"expect": {"path": "ui.anchors", "notContains": "fx.custom.problem"}}
+  ]
+}
