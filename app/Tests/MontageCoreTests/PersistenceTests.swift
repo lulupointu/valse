@@ -82,10 +82,18 @@ import Foundation
         let en = L10n.load("en", from: [CoreResources.bundle]), fr = L10n.load("fr", from: [CoreResources.bundle])
         #expect(en["cmd.split"] == "Split")
         #expect(Set(fr.keys) == Set(en.keys))
-        l.setLanguageForSession("fr")
-        #expect(tr("cmd.split") == "Fractionner")
-        l.setLanguageForSession("en")
-        #expect(tr("cmd.split") == "Split")
+        // The session language is process-global and UI-test suites switch it in parallel: retry the switch a few
+        // times so a concurrent flip by another suite doesn't fail this check (seen in check_clean).
+        func switches(_ lang: String, _ expected: String) -> Bool {
+            for _ in 0..<50 {
+                l.setLanguageForSession(lang)
+                if tr("cmd.split") == expected { return true }
+                usleep(2_000)
+            }
+            return false
+        }
+        #expect(switches("fr", "Fractionner"))
+        #expect(switches("en", "Split"))
         #expect(tr("no.such.key") == "no.such.key")
     }
 }
