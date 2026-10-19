@@ -113,6 +113,7 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 | wait for async work | `{"waitFor": {"path": "media.count", "equals": 2, "timeout": 10}}` · `{"wait": 0.5}` · `{"idle": 1}` |
 | snapshot / screenshot test | `{"snapshot": "name", "element": "id:panel.inspector", "baseline": true, "tolerance": 0.01, "mask": ["id:clock"]}` |
 | dump state | `{"dump": "before-drop"}` → `build/uitest/<name>/before-drop.json` |
+| VoiceOver label audit (SE-017) | `{"a11yAudit": "inspector", "max": 0}` — walks the real AX tree; fails when more than `max` buttons / checkboxes / sliders / images / fields have no spoken name; writes `<name>.a11y.json` |
 | setup shortcuts (not UI) | `{"seek": 2.5}` · `{"select": ["clip:main/0", "clip:1/0"]}` |
 | perf / metric | see §3 |
 
