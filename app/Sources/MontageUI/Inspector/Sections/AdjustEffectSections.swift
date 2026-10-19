@@ -25,16 +25,20 @@ struct AdjustBasicSection: View {
         let inst = instance(ctx.clip)
         return InspectorSectionChrome(
             isEnabled: Binding(get: { inst?.isEnabled ?? true }, set: { v in
-                guard let id = ctx.clip?.id, let iid = inst?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.adjust") { c in
-                    if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].isEnabled = v }
+                guard let id = ctx.clip?.id, inst != nil else { return }
+                let tid = descriptor.id   // by type: the same panel on every selected clip (C2)
+                store.performInspector(UpdateClip(id, nameKey: "cmd.adjust") { c in
+                    if let i = c.effects.firstIndex(where: { $0.typeID == tid }) { c.effects[i].isEnabled = v }
                 })
             }),
             reset: {
-                guard let id = ctx.clip?.id, let iid = inst?.id else { return }
+                guard let id = ctx.clip?.id, inst != nil else { return }
                 let defaults = descriptor.makeInstance().params
-                store.perform(UpdateClip(id, nameKey: "cmd.adjust") { c in
-                    if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].params = defaults }
+                let tid = descriptor.id
+                store.performInspector(UpdateClip(id, nameKey: "cmd.adjust") { c in
+                    guard let i = c.effects.firstIndex(where: { $0.typeID == tid }) else { return }
+                    let iid = c.effects[i].id
+                    c.effects[i].params = defaults
                     c.clearKeyframes(c.effectParamKeys(iid))
                 })
             },

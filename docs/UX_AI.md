@@ -175,7 +175,7 @@ Buttons: **Split and add / Diviser et ajouter**, **Add without split / Ajouter s
 
 ---
 
-## 3. Cutout / background removal (Video ▸ Cutout), [L] location, [R] labels
+## 3. Cutout / background removal (Video ▸ Remove BG), [L] location, [R] labels
 
 Inspector ▸ Video ▸ sub-tab **Cutout / Découpage** (newer builds label the section **Remove BG / Supprimer l'arrière-plan**). It has three
 checkbox sections, and they're mutually exclusive (ticking one unticks the others) [L][I].
@@ -569,8 +569,8 @@ A newer panel (it analyzes locally: "CapCut will process your projects directly 
 |---|---|---|---|---|
 | Auto captions | Text ▸ Auto captions | 2–3 | modal progress (generate → split → add) | new caption track, linked |
 | Transcript editing | toolbar Transcript | 2 + edits | panel progress % | ripple cuts on the main track |
-| Auto cutout | Video ▸ Cutout ☐ | 3 | % on the clip | same clip (matte) |
-| Custom cutout | Video ▸ Cutout ☐ + brush + Apply | 5+ | % on the clip | same clip |
+| Auto cutout | Video ▸ Remove BG ☐ | 3 | % on the clip | same clip (matte) |
+| Custom cutout | Video ▸ Remove BG ☐ + brush + Apply | 5+ | % on the clip | same clip |
 | Stabilize | Video ▸ Basic ☐ + level | 3–4 | % on the clip | same clip |
 | Enhance quality / denoise / deflicker / optical flow | Video ▸ Basic ☐ | 3 | % on the clip | same clip (cached render) |
 | Smooth slow-mo | Speed ▸ ☐ (speed < 1×) | 4 | % on the clip | same clip |

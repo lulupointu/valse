@@ -47,8 +47,8 @@
 "inspector.crop.ratio" = "Format";
 "inspector.curve.addPoint" = "Ajouter un point à la tête de lecture";
 "inspector.curve.removePoint" = "Supprimer le point sélectionné";
-"inspector.cutout.auto" = "Découpage automatique";
-"inspector.cutout.custom" = "Personnalisé";
+"inspector.cutout.auto" = "Suppression automatique";
+"inspector.cutout.custom" = "Suppression personnalisée";
 "inspector.cutout.unavailable" = "La suppression d'arrière-plan sur l'appareil n'est pas encore disponible dans l'aperçu.";
 "inspector.details" = "Détails";
 "inspector.filter" = "Filtre";
@@ -72,7 +72,7 @@
 "inspector.smoothSlowmo.unavailable" = "L'interpolation d'images n'est pas encore disponible.";
 "inspector.speed.curve" = "Courbe";
 "inspector.sub.basic" = "Basique";
-"inspector.sub.cutout" = "Découpage";
+"inspector.sub.cutout" = "Supprimer l'arrière-plan";
 "inspector.sub.mask" = "Masque";
 "inspector.tab.effects" = "Effets";
 "inspector.tab.filter" = "Filtre";

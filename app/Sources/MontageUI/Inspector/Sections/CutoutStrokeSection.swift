@@ -23,7 +23,7 @@ struct CutoutStrokeSection: View {
         return InspectorSectionChrome(
             isEnabled: Binding(get: { inst != nil }, set: { on in
                 guard let id = ctx.clip?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.cutoutStroke") { c in
+                store.performInspector(UpdateClip(id, nameKey: "cmd.cutoutStroke") { c in
                     if on {
                         if !c.effects.contains(where: { $0.typeID == BuiltinCutoutStroke.id }) { c.effects.append(BuiltinCutoutStroke.stroke.makeInstance()) }
                     } else {
@@ -35,7 +35,7 @@ struct CutoutStrokeSection: View {
             reset: {
                 guard let id = ctx.clip?.id, let iid = inst?.id else { return }
                 let defaults = BuiltinCutoutStroke.stroke.makeInstance().params
-                store.perform(UpdateClip(id, nameKey: "cmd.cutoutStroke") { c in
+                store.performInspector(UpdateClip(id, nameKey: "cmd.cutoutStroke") { c in
                     if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].params = defaults }
                     c.clearKeyframes(c.effectParamKeys(iid))
                 })
@@ -69,7 +69,7 @@ struct CutoutStrokeSection: View {
 
     func setColor(_ c: RGBA, _ inst: EffectInstance) {
         guard let id = ctx.clip?.id else { return }
-        ctx.store.perform(UpdateClip(id, nameKey: "cmd.cutoutStroke") { clip in
+        ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.cutoutStroke") { clip in
             if let i = clip.effects.firstIndex(where: { $0.id == inst.id }) { clip.effects[i].params["color"] = .color(c) }
         })
     }

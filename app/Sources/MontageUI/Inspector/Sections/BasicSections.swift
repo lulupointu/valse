@@ -16,14 +16,14 @@ struct BlendSection: View {
                                    guard let id = ctx.clip?.id else { return }
                                    if on { InspectorUIState.shared.blendOff.remove(id) } else {
                                        InspectorUIState.shared.blendOff.insert(id)
-                                       ctx.store.perform(UpdateClip(id, nameKey: "cmd.blend") { c in
+                                       ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.blend") { c in
                                            c.blendMode = .normal; c.opacity = 1; c.clearKeyframes([.opacity])
                                        })
                                    }
                                }),
             reset: {
                 guard let id = ctx.clip?.id else { return }
-                ctx.store.perform(UpdateClip(id, nameKey: "cmd.blend") { c in c.blendMode = .normal; c.opacity = 1; c.clearKeyframes([.opacity]) })
+                ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.blend") { c in c.blendMode = .normal; c.opacity = 1; c.clearKeyframes([.opacity]) })
             },
             keyframeKeys: [.opacity])
     }
@@ -33,7 +33,7 @@ struct BlendSection: View {
             InlineRow(label: tr("inspector.blendMode")) {
                 Dropdown(items: BlendMode.allCases.map { ($0, tr($0.nameKey)) }, selection: ctx.clip?.blendMode ?? .normal) { m in
                     guard let id = ctx.clip?.id else { return }
-                    ctx.store.perform(UpdateClip(id, nameKey: "cmd.blend") { $0.blendMode = m })
+                    ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.blend") { $0.blendMode = m })
                 }
             }
             OpacityRow(ctx: ctx)
@@ -64,7 +64,7 @@ struct CropSection: View {
         InspectorSectionChrome(reset: {
             guard let id = ctx.clip?.id else { return }
             InspectorUIState.shared.cropRatio[id] = nil
-            ctx.store.perform(UpdateClip(id, nameKey: "cmd.crop") { c in c.crop = CropRect(); c.clearKeyframes(ParamKey.cropGroup) })
+            ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.crop") { c in c.crop = CropRect(); c.clearKeyframes(ParamKey.cropGroup) })
         }, keyframeKeys: ParamKey.cropGroup, startsCollapsed: true)
     }
 
@@ -96,7 +96,7 @@ struct CropSection: View {
         guard src.width > 0, src.height > 0 else { return }
         let target = r.w < 0 ? 0 : r.w / r.h
         let local = ctx.localTime
-        ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.crop") { c in
+        ctx.store.performInspector(UpdateClip(clip.id, nameKey: "cmd.crop") { c in
             var crop = CropRect()
             if target > 0 {
                 let a = src.width / src.height
@@ -127,7 +127,7 @@ struct CanvasSection: View {
                                    guard let id = ctx.clip?.id else { return }
                                    if on { InspectorUIState.shared.canvasOff.remove(id) } else {
                                        InspectorUIState.shared.canvasOff.insert(id)
-                                       ctx.store.perform(UpdateClip(id, nameKey: "cmd.canvas") { $0.canvas = nil })
+                                       ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.canvas") { $0.canvas = nil })
                                    }
                                }),
             accessory: AnyView(PillButton(title: tr("inspector.applyToAll")) { applyToAll(ctx) }))
@@ -166,7 +166,7 @@ struct CanvasSection: View {
 
     func set(_ c: CanvasBackground?) {
         guard let id = ctx.clip?.id else { return }
-        ctx.store.perform(UpdateClip(id, nameKey: "cmd.canvas") { $0.canvas = c })
+        ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.canvas") { $0.canvas = c })
     }
 
     func blurSwatches(_ level: Int) -> some View {

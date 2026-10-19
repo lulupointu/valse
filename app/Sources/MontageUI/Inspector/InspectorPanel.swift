@@ -166,19 +166,23 @@ struct InspectorSectionView: View {
     @ViewBuilder private var content: some View {
         let chrome = section.chrome?(ctx)
         let isOn = chrome?.isEnabled?.wrappedValue ?? true
-        let expanded = ui.isExpanded(section.id, default: !(chrome?.startsCollapsed ?? false))
+        // C2: ▼ always expands, also while the option is off (CapCut shows its settings; ticking applies it). An
+        // unticked option starts collapsed; ticking it expands it unless the user collapsed it.
+        let expanded = ui.isExpanded(section.id, default: isOn && !(chrome?.startsCollapsed ?? false))
         let disabled = chrome?.disabledReason != nil
+        let id = section.id, ui = self.ui
         VStack(alignment: .leading, spacing: 10) {
             if let title = section.titleKey {
-                SectionHeaderBar(title: tr(title), chrome: chrome, expanded: expanded && isOn, ctx: ctx) {
-                    withAnimation(.easeOut(duration: 0.15)) { ui.expanded[section.id] = !expanded }
-                }
+                SectionHeaderBar(title: tr(title), chrome: chrome, expanded: expanded, ctx: ctx,
+                                 toggle: { withAnimation(.easeOut(duration: 0.15)) { ui.expanded[id] = !expanded } },
+                                 onCheck: { on in if on, ui.expanded[id] == false { ui.expanded[id] = true } })
             }
             if let reason = chrome?.disabledReason { HintText(text: reason) }
-            if section.titleKey == nil || (expanded && isOn) {
+            if section.titleKey == nil || expanded {
                 section.content(ctx)
                     .disabled(disabled)
                     .opacity(disabled ? 0.45 : 1)
+                    .testID("inspector.section.\(id).body")
             }
         }
         .padding(.horizontal, Theme.Metrics.inspectorPadding)
@@ -196,12 +200,15 @@ struct SectionHeaderBar: View {
     let expanded: Bool
     let ctx: InspectorContext
     let toggle: () -> Void
+    /// Called after the checkbox changes (the panel re-expands a section the user collapsed when it gets ticked).
+    var onCheck: ((Bool) -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 8) {
             if let b = chrome?.isEnabled {
                 CapCheckbox(isOn: Binding(get: { b.wrappedValue }, set: { v in
                     b.wrappedValue = v
+                    onCheck?(v)
                 }), enabled: chrome?.disabledReason == nil)
             }
             HStack(spacing: 6) {
@@ -272,6 +279,9 @@ struct ClipParamRow: View {
         let clip = ctx.clip
         let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
         let value = live ?? (clip.map { get($0, local) } ?? spec.range.lowerBound)
+        // C2: several clips edited together → "-" when they disagree
+        let mixed = live == nil && ctx.isMulti
+            && InspectorMultiEdit.isMixed(ctx.clips.map { get($0, dependsOnTime($0) ? Bind.local(store, $0) : .zero) })
         let liveBox = $live
         let scale = spec.sliderScale
         let id = clip?.id
@@ -283,7 +293,8 @@ struct ClipParamRow: View {
         return SliderRowView(
             label: label, unit: scale.toUnit(spec.clampSlider(value)),
             originUnit: spec.origin.map { scale.toUnit($0) } ?? 0, gradient: spec.gradient, ticks: spec.ticks,
-            display: spec.format(value), enabled: enabled && clip != nil, labelAccessory: labelAccessory, parse: spec.parse,
+            display: mixed ? InspectorMultiEdit.mixedText : spec.format(value), enabled: enabled && clip != nil,
+            labelAccessory: labelAccessory, parse: spec.parse,
             onBegin: { store.beginInspectorGesture(name) },
             onChange: { u in let v = spec.clampSlider(scale.fromUnit(u)); liveBox.wrappedValue = v; write(v) },
             onEnd: { liveBox.wrappedValue = nil; store.endGesture() },
@@ -311,11 +322,13 @@ struct ClipNumberField: View {
         let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
         let value = clip.map { get($0, local) } ?? 0
         let spec = self.spec, set = self.set, name = gestureName
+        let mixed = ctx.isMulti
+            && InspectorMultiEdit.isMixed(ctx.clips.map { get($0, dependsOnTime($0) ? Bind.local(store, $0) : .zero) })
         func write(_ v: Double) {
             guard let id = clip?.id else { return }
             Bind.apply(store, id, name) { c in set(&c, v, Bind.local(store, c)) }
         }
-        return NumericField(display: spec.format(value), prefix: prefix, prefixSymbol: prefixSymbol, width: width,
+        return NumericField(display: mixed ? InspectorMultiEdit.mixedText : spec.format(value), prefix: prefix, prefixSymbol: prefixSymbol, width: width,
                             enabled: clip != nil, parse: spec.parse,
                             commit: { write(spec.clampField($0)) }, step: { write(spec.clampField(value + Double($0) * spec.step)) })
     }
@@ -351,13 +364,15 @@ enum Bind {
 
     static func triplet(_ ctx: InspectorContext, _ keys: [ParamKey]) -> AnyView { AnyView(KeyframeTriplet(ctx: ctx, keys: keys)) }
 
-    /// Applies an edit to one clip: inside a gesture it updates live, otherwise it is one undoable command.
+    /// Applies an edit to one clip: inside a gesture it updates live, otherwise it is one undoable command. With a
+    /// same-kind multi-selection it applies to every selected clip (C2, `InspectorMultiEdit`).
     static func apply(_ store: EditorStore, _ id: ClipID, _ name: String, _ body: @escaping (inout Clip) -> Void) {
         let box = UncheckedSendable(body)  // runs synchronously on the main actor inside perform/updateGesture
         if store.session.isInGesture {
-            store.updateGesture { p in if var c = p.timeline.clip(id) { box.value(&c); p.timeline[clip: id] = c } }
+            let ids = store.inspectorTargets(id)
+            store.updateGesture { p in for id in ids { if var c = p.timeline.clip(id) { box.value(&c); p.timeline[clip: id] = c } } }
         } else {
-            store.perform(UpdateClip(id, nameKey: name) { box.value(&$0) })
+            store.performInspector(UpdateClip(id, nameKey: name) { box.value(&$0) })
         }
     }
 

@@ -77,6 +77,16 @@ public final class EditorStore {
         get { if EditorStore.trackingSuspended == 0 { access(keyPath: \.selectedTrackKindSlice) }; return selectedTrackKindStorage }
         set { withMutation(keyPath: \.selectedTrackKindSlice) { selectedTrackKindStorage = newValue } }
     }
+    /// C2 multi-select editing: every selected clip (timeline order) when 2+ clips of one inspector kind are selected
+    /// (media/media, text/text, audio/audio…), else empty. `selectedClipSlice` is then the first of them ("primary"):
+    /// the inspector shows its values and inspector edits apply to all of them (InspectorMultiEdit.swift).
+    @ObservationIgnored private var selectedClipsStorage: [Clip] = []
+    public private(set) var selectedClipsSlice: [Clip] {
+        get { if EditorStore.trackingSuspended == 0 { access(keyPath: \.selectedClipsSlice) }; return selectedClipsStorage }
+        set { withMutation(keyPath: \.selectedClipsSlice) { selectedClipsStorage = newValue } }
+    }
+    /// Inspector kind shared by the multi-selection (nil = none / mixed → "Properties").
+    @ObservationIgnored public private(set) var multiEditKind: InspectorSelectionKind?
     private var projectNameSlice = ""
     /// Media used by at least one timeline clip ("Added" badges). A slice, so the asset panels don't observe
     /// `project` (an inspector drag would re-render the 300-item media bin on every tick).
@@ -261,7 +271,8 @@ public final class EditorStore {
     }
 
     func syncSelectionSlices() {
-        let c = selection.count == 1 ? session.project.timeline.clip(selection.first!) : nil
+        let multi = selection.count > 1 ? multiEditSelection() : (clips: [Clip](), kind: nil)
+        let c = selection.count == 1 ? session.project.timeline.clip(selection.first!) : multi.clips.first
         if session.isInGesture, c != nil, c?.id == selectedClipSlice?.id, c != selectedClipSlice {
             // same clip edited by a live gesture: see beginInspectorGesture / gestureInspectorInterval
             if inspectorGestureActive { return }
@@ -280,6 +291,8 @@ public final class EditorStore {
             lastGestureSliceSync = now
         }
         if c != selectedClipSlice { selectedClipSlice = c }
+        multiEditKind = multi.kind
+        if multi.clips != selectedClipsStorage { selectedClipsSlice = multi.clips }
         let k = c.flatMap { trackKind(of: $0) }
         if k != selectedTrackKindSlice { selectedTrackKindSlice = k }
         syncInspectorStructure()

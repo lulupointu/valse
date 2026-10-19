@@ -46,8 +46,8 @@ struct EnhanceProgress: View {
     let ctx: InspectorContext
     var body: some View {
         if let id = ctx.clip?.id, let job = ctx.store.ai.enhanceJobs[id]?.job {
-            let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
-            JobProgressLine(text: tr("enhance.applying", Int(p * 100)), progress: p) { ctx.store.cancelEnhancement(id) }
+            let p = ctx.store.jobProgress(job) ?? 0
+            JobProgressLine(text: tr("enhance.applying", JobInfo.percent(p)), progress: p) { ctx.store.cancelEnhancement(id) }
         }
     }
 }

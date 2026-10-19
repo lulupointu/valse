@@ -11,7 +11,7 @@ struct AudioBasicSection: View {
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         InspectorSectionChrome(reset: {
             guard let id = ctx.clip?.id else { return }
-            ctx.store.perform(UpdateClip(id, nameKey: "cmd.volume") { c in
+            ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.volume") { c in
                 c.audio.volume = 1; c.audio.fadeIn = .zero; c.audio.fadeOut = .zero; c.clearKeyframes([.volume])
             })
         }, keyframeKeys: [.volume])
@@ -50,18 +50,36 @@ struct SpeedNormalSection: View {
         let rate = clip?.speed.averageRate ?? 1
         let source = clip?.sourceDuration.seconds ?? 0
         let id = clip?.id
+        // C2: several clips → one speed for all; "-" when their speeds / durations differ
+        let clips = ctx.clips
+        let mixedRate = InspectorMultiEdit.isMixed(clips.map(\.speed.averageRate))
+        let mixedDuration = InspectorMultiEdit.isMixed(clips.map(\.duration.seconds))
         func setLive(_ v: Double) {
             guard let id else { return }
             let s = Speed.constant((v * 100).rounded() / 100)
-            store.updateGesture { p in try TimelineOps.setSpeed(id, s, in: &p.timeline) }
+            let ids = store.inspectorTargets(id)
+            store.updateGesture { p in for id in ids { try TimelineOps.setSpeed(id, s, in: &p.timeline) } }
         }
         func commit(_ v: Double) {
             guard let id else { return }
-            store.perform(SetSpeed(id, .constant(min(max((v * 100).rounded() / 100, 0.1), 100))))
+            store.performInspector(SetSpeed(id, .constant(min(max((v * 100).rounded() / 100, 0.1), 100))))
+        }
+        /// Typing a duration: each clip gets the speed that gives it that duration.
+        func commitDuration(_ d: Double) {
+            guard let id, d > 0.05 else { return }
+            let targets = store.inspectorTargets(id)
+            guard targets.count > 1 else { commit(source / d); return }
+            store.perform(Edit("cmd.speed") { p in
+                for t in targets {
+                    guard let c = p.timeline.clip(t) else { continue }
+                    let r = min(max((c.sourceDuration.seconds / d * 100).rounded() / 100, 0.1), 100)
+                    try? TimelineOps.setSpeed(t, .constant(r), in: &p.timeline)
+                }
+            })
         }
         return VStack(alignment: .leading, spacing: 10) {
             SliderRowView(label: tr("inspector.speed"), unit: Self.scale.toUnit(rate), ticks: [0, 0.4, 0.6, 0.8, 1],
-                          display: Fmt.speed(rate), enabled: clip != nil, parse: NumberParse.number,
+                          display: mixedRate ? InspectorMultiEdit.mixedText : Fmt.speed(rate), enabled: clip != nil, parse: NumberParse.number,
                           onBegin: { store.beginGesture("cmd.speed") },
                           onChange: { u in setLive(Self.scale.fromUnit(u)) },
                           onEnd: { store.endGesture() },
@@ -70,14 +88,13 @@ struct SpeedNormalSection: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(loc: "inspector.duration").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                 HStack(spacing: 10) {
-                    Text(verbatim: Fmt.seconds(source)).font(Theme.Fonts.numeric).foregroundStyle(IStyle.label)
+                    Text(verbatim: InspectorMultiEdit.isMixed(clips.map(\.sourceDuration.seconds)) ? InspectorMultiEdit.mixedText : Fmt.seconds(source))
+                        .font(Theme.Fonts.numeric).foregroundStyle(IStyle.label)
                     DashedArrow().frame(height: 10)
-                    NumericField(display: Fmt.seconds(clip?.duration.seconds ?? 0), enabled: clip != nil, parse: NumberParse.number,
-                                 commit: { d in if d > 0.05 { commit(source / d) } },
-                                 step: { d in
-                                     let nd = max(0.1, (clip?.duration.seconds ?? 1) + Double(d) * 0.1)
-                                     commit(source / nd)
-                                 })
+                    NumericField(display: mixedDuration ? InspectorMultiEdit.mixedText : Fmt.seconds(clip?.duration.seconds ?? 0),
+                                 enabled: clip != nil, parse: NumberParse.number,
+                                 commit: { d in commitDuration(d) },
+                                 step: { d in commitDuration(max(0.1, (clip?.duration.seconds ?? 1) + Double(d) * 0.1)) })
                     Color.clear.frame(width: IStyle.tripletWidth - 4, height: 1)
                 }
             }
@@ -146,7 +163,7 @@ struct SpeedCurveSection: View {
     func apply(_ p: SpeedCurvePreset?) {
         guard let id = ctx.clip?.id else { return }
         InspectorUIState.shared.curvePoint[id] = nil
-        ctx.store.perform(SetSpeed(id, p.map { .curve($0.curve) } ?? .normal))
+        ctx.store.performInspector(SetSpeed(id, p.map { .curve($0.curve) } ?? .normal))
     }
 }
 
@@ -174,7 +191,7 @@ struct VelocityEffectsSection: View {
     func apply(_ p: SpeedCurvePreset?) {
         guard let id = ctx.clip?.id else { return }
         InspectorUIState.shared.curvePoint[id] = nil
-        ctx.store.perform(SetSpeed(id, p.map { .curve($0.curve) } ?? .normal))
+        ctx.store.performInspector(SetSpeed(id, p.map { .curve($0.curve) } ?? .normal))
     }
 }
 
@@ -371,7 +388,7 @@ struct SpeedCurveEditor: View {
     func reset() {
         let base = SpeedCurvePreset.preset(curve.presetID) ?? SpeedCurvePreset.customized
         InspectorUIState.shared.curvePoint[clip.id] = nil
-        ctx.store.perform(SetSpeed(clip.id, .curve(base.curve)))
+        ctx.store.performInspector(SetSpeed(clip.id, .curve(base.curve)))
     }
 
     /// Adds a beat at the playhead (or the middle of the widest gap when the playhead sits on a beat).
@@ -386,7 +403,7 @@ struct SpeedCurveEditor: View {
         }
         guard let idx = i else { return }
         InspectorUIState.shared.curvePoint[clip.id] = idx
-        ctx.store.perform(SetSpeed(clip.id, .curve(c)))
+        ctx.store.performInspector(SetSpeed(clip.id, .curve(c)))
     }
 
     func removePoint() {
@@ -394,7 +411,7 @@ struct SpeedCurveEditor: View {
         var c = curve
         c.removePoint(at: sel)
         InspectorUIState.shared.curvePoint[clip.id] = nil
-        ctx.store.perform(SetSpeed(clip.id, .curve(c)))
+        ctx.store.performInspector(SetSpeed(clip.id, .curve(c)))
     }
 }
 

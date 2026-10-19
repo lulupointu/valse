@@ -41,8 +41,8 @@ struct AIRemoveSection: View {
                 ModelStateControls(spec: ModelCatalog.lama)
             }
             if let id = ctx.clip?.id, let job = store.ai.removeJobs[id] {
-                let p = store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("remove.applying", Int(p * 100)), progress: p) { store.cancelRemoval(id) }.testID("remove.progress")
+                let p = store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("remove.applying", JobInfo.percent(p)), progress: p) { store.cancelRemoval(id) }.testID("remove.progress")
             }
             if let tool = store.ai.removeTool, tool.clipID == ctx.clip?.id {
                 SliderRowView(label: tr("cutout.size"), unit: (tool.size - 1) / 99, originUnit: 0, gradient: nil, ticks: [],

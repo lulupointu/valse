@@ -36,8 +36,8 @@ struct MaskTrackingSection: View {
         let key = ctx.clip.map { "\($0.id)|\(targetID)" } ?? ""
         VStack(alignment: .leading, spacing: 6) {
             if let job = ui.jobs[key] {
-                let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("maskTrack.applying", Int(p * 100)), progress: p) { cancel(key) }
+                let p = ctx.store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("maskTrack.applying", JobInfo.percent(p)), progress: p) { cancel(key) }
             }
             InlineRow(label: tr("maskTrack.direction")) {
                 HStack(spacing: 8) {

@@ -49,8 +49,8 @@ struct TrackingSection: View {
                 Spacer()
             }
             if let id = clip?.id, let job = store.ai.trackingJobs[id] {
-                let p = store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("tracking.applying", Int(p * 100)), progress: p) { store.cancelTracking(id) }
+                let p = store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("tracking.applying", JobInfo.percent(p)), progress: p) { store.cancelTracking(id) }
             }
             if on {
                 ToggleLine(label: tr("tracking.scale"), isOn: Binding(get: { TrackingUIState.shared.scaleWithObject },

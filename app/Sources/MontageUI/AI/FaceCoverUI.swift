@@ -64,8 +64,8 @@ struct FaceCoverSection: View {
         let active = current != nil
         VStack(alignment: .leading, spacing: 4) {
             if let id = ctx.clip?.id, let job = ctx.store.ai.faceJobs[id] {
-                let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("faceCover.applying", Int(p * 100)), progress: p) { ctx.store.removeFaceCover(id) }
+                let p = ctx.store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("faceCover.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeFaceCover(id) }
             }
             InlineRow(label: tr("faceCover.style")) {
                 Dropdown(items: FaceCoverChoice.allCases.map { ($0, tr($0.nameKey)) }, selection: choice) { s in

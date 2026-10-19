@@ -56,7 +56,7 @@ struct LookStrengthSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
             if let id = ctx.clip?.id, let job = ctx.store.ai.lookJobs[ColorLookUI.key(id, kind)] {
-                let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
+                let p = ctx.store.jobProgress(job) ?? 0
                 JobProgressLine(text: tr(kind == .match ? "look.matching" : "look.applying"), progress: p) { ctx.store.removeLook(id, kind: kind) }
             }
             if let inst = ColorLookInspector.look(ctx.clip, kind) {

@@ -1,0 +1,26 @@
+// C2: two media clips selected → the full Video inspector (not just "Properties"); typing Rotate applies it to both
+// (one undo step); values the clips disagree on read "-".
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:transform.rotate"},
+    {"type": "30", "replace": true},
+    {"key": "return"},
+    {"click": "clip:main/1", "modifiers": ["shift"]},
+    {"expect": [{"path": "selection.count", "equals": 2}, {"path": "ui.inspectorTabs", "contains": "video"},
+                {"path": "ui.inspectorTabs", "notContains": "properties"},
+                {"path": "ui.anchors", "contains": "inspector.section.video.blend"}]},
+    {"snapshot": "multi-video-mixed", "element": "id:panel.inspector"},
+    {"click": "id:transform.rotate"},
+    {"type": "-15", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "undo.depth", "equals": 2},
+                {"path": "selectedClips.0.rotation", "approx": -15}, {"path": "selectedClips.1.rotation", "approx": -15}]},
+    {"snapshot": "multi-video-same", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "selectedClips.0.rotation", "approx": 30}, {"path": "selectedClips.1.rotation", "approx": 0}]}
+  ]
+}

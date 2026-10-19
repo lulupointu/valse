@@ -66,7 +66,9 @@ import MontageTestSupport
         #expect(tabs(s) == ["filter"])
         s.selection = [f.adjustment]
         #expect(tabs(s) == ["adjust"])
-        s.selection = [f.video, f.image]
+        s.selection = [f.video, f.image]   // C2: media + media → the full media inspector (image tabs)
+        #expect(tabs(s) == ["video", "animation", "adjust"])
+        s.selection = [f.video, f.text]
         #expect(tabs(s) == ["properties"])
         s.selection = []
         s.selectedTransition = f.video

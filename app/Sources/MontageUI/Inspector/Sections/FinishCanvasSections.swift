@@ -29,7 +29,7 @@ struct LensCorrectionSection: View {
         return InspectorSectionChrome(
             isEnabled: Binding(get: { inst != nil }, set: { on in
                 guard let id = ctx.clip?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.lensCorrection") { c in
+                store.performInspector(UpdateClip(id, nameKey: "cmd.lensCorrection") { c in
                     if on {
                         if !c.effects.contains(where: { $0.typeID == BuiltinLensCorrection.id }) {
                             c.effects.insert(BuiltinLensCorrection.descriptor.makeInstance(), at: 0)   // geometry before looks
@@ -43,7 +43,7 @@ struct LensCorrectionSection: View {
             reset: {
                 guard let id = ctx.clip?.id, let iid = inst?.id else { return }
                 let defaults = BuiltinLensCorrection.descriptor.makeInstance().params
-                store.perform(UpdateClip(id, nameKey: "cmd.lensCorrection") { c in
+                store.performInspector(UpdateClip(id, nameKey: "cmd.lensCorrection") { c in
                     if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].params = defaults }
                     c.clearKeyframes(c.effectParamKeys(iid))
                 })

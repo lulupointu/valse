@@ -130,7 +130,7 @@
 "cache.reversed" = "Reversed clips";
 "cache.audio" = "Audio renders";
 "cache.stabilization" = "Stabilization";
-"cache.mattes" = "Cutout mattes";
+"cache.mattes" = "Background removal mattes";
 "cache.other" = "Other";
 
 /* Settings */

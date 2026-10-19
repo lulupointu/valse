@@ -24,7 +24,7 @@ struct ShapeStyleSection: View {
 
     /// One undo step on the clip's style (materialized from the sticker's look first).
     static func update(_ store: EditorStore, _ id: ClipID, _ body: @escaping (inout Clip, Time) -> Void) {
-        store.perform(UpdateClip(id, nameKey: "cmd.shapeStyle") { c in
+        store.performInspector(UpdateClip(id, nameKey: "cmd.shapeStyle") { c in
             if c.shapeStyle == nil { c.shapeStyle = style(c) }
             body(&c, Bind.local(store, c))
         })
@@ -33,7 +33,7 @@ struct ShapeStyleSection: View {
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         InspectorSectionChrome(reset: {
             guard let id = ctx.clip?.id else { return }
-            ctx.store.perform(UpdateClip(id, nameKey: "cmd.shapeStyle") { c in
+            ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.shapeStyle") { c in
                 c.shapeStyle = nil
                 c.clearKeyframes([.shapeFill, .shapeStroke, .shapeStrokeWidth])
             })
@@ -209,7 +209,7 @@ final class ShapeDrawTool: CanvasTool {
         let pos = c.value(.position, at: local)?.vec2 ?? c.transform.position
         let sc = c.value(.scale, at: local)?.vec2 ?? c.transform.scale
         guard let r = ShapeDrawing.fit(points, layer: l.geometry(canvasSize: canvas), position: pos, scale: sc, canvas: canvas) else { return }
-        store.perform(UpdateClip(clipID, nameKey: "cmd.shapeStyle") { c in
+        store.performInspector(UpdateClip(clipID, nameKey: "cmd.shapeStyle") { c in
             if c.shapeStyle == nil { c.shapeStyle = ShapeStyleSection.style(c) }
             c.shapeStyle?.points = r.points
             c.shapeStyle?.cornerRadius = nil

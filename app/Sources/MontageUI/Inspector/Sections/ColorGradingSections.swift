@@ -53,15 +53,18 @@ enum ColorGradingInspector {
         let inst = instance(ctx.clip, d)
         return InspectorSectionChrome(
             isEnabled: Binding(get: { inst?.isEnabled ?? true }, set: { v in
-                guard let id = ctx.clip?.id, let iid = inst?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.adjust") { c in
-                    if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].isEnabled = v }
+                guard let id = ctx.clip?.id, inst != nil else { return }
+                let tid = d.id   // by type: the same panel on every selected clip (C2)
+                store.performInspector(UpdateClip(id, nameKey: "cmd.adjust") { c in
+                    if let i = c.effects.firstIndex(where: { $0.typeID == tid }) { c.effects[i].isEnabled = v }
                 })
             }),
             reset: {
-                guard let id = ctx.clip?.id, let iid = inst?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.adjust") { c in
-                    c.clearKeyframes(c.effectParamKeys(iid)); c.effects.removeAll { $0.id == iid }
+                guard let id = ctx.clip?.id, inst != nil else { return }
+                let tid = d.id
+                store.performInspector(UpdateClip(id, nameKey: "cmd.adjust") { c in
+                    for e in c.effects where e.typeID == tid { c.clearKeyframes(c.effectParamKeys(e.id)) }
+                    c.effects.removeAll { $0.typeID == tid }
                 })
             },
             keyframeKeys: keyframes ? inst.map { i in d.params.filter { if case .scalar = $0.kind { return true }; return false }
@@ -430,7 +433,7 @@ struct WheelControl: View {
     func reset() {
         guard let clip = ctx.clip, let inst = ColorGradingInspector.instance(clip, BuiltinColor.colorWheels) else { return }
         let iid = inst.id, w = wheel
-        ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.adjust") { c in
+        ctx.store.performInspector(UpdateClip(clip.id, nameKey: "cmd.adjust") { c in
             let keys = ["hue", "amount", "luma"].map { ParamKey.effect(iid, "\(w).\($0)") }
             c.clearKeyframes(keys)
             if let i = c.effects.firstIndex(where: { $0.id == iid }) {
@@ -474,7 +477,7 @@ struct AutoAdjustSection: View {
                 guard let clip = ctx.clip else { return }
                 if on && inst == nil { run(ctx, clip) }
                 else if let iid = inst?.id {
-                    ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.autoAdjust") { c in
+                    ctx.store.performInspector(UpdateClip(clip.id, nameKey: "cmd.autoAdjust") { c in
                         if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].isEnabled = on }
                     })
                 }
@@ -494,7 +497,7 @@ struct AutoAdjustSection: View {
                 store.showToast(tr("autoAdjust.failed"), error: true); return
             }
             let values = await AutoAdjustAnalyzer.analyze(img)
-            store.perform(UpdateClip(id, nameKey: "cmd.autoAdjust") { c in
+            store.performInspector(UpdateClip(id, nameKey: "cmd.autoAdjust") { c in
                 let d = AutoColor.descriptor
                 var inst = c.effects.first { $0.typeID == d.id } ?? d.makeInstance()
                 for (k, v) in values { inst.params[k] = .scalar(v) }

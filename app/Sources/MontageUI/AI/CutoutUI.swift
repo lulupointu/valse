@@ -45,7 +45,7 @@ struct AutoCutoutSection: View {
         let clip = ctx.clip
         VStack(alignment: .leading, spacing: 4) {
             if let id = clip?.id, let p = ctx.store.cutoutProgress(id) {
-                JobProgressLine(text: tr("cutout.applying", Int(p * 100)), progress: p) { ctx.store.setCutout(id, mode: nil) }
+                JobProgressLine(text: tr("cutout.applying", JobInfo.percent(p)), progress: p) { ctx.store.setCutout(id, mode: nil) }
             }
             InlineRow(label: tr("cutout.detect")) {
                 Dropdown(items: [(false, tr("cutout.detect.people")), (true, tr("cutout.detect.subject"))],
@@ -100,7 +100,7 @@ struct CustomCutoutSection: View {
         let store = ctx.store
         VStack(alignment: .leading, spacing: 10) {
             if let id = ctx.clip?.id, let p = store.cutoutProgress(id) {
-                JobProgressLine(text: tr("cutout.applyingCustom", Int(p * 100)), progress: p) { store.setCutout(id, mode: nil) }
+                JobProgressLine(text: tr("cutout.applyingCustom", JobInfo.percent(p)), progress: p) { store.setCutout(id, mode: nil) }
             }
             if let brush = store.ai.brush, brush.clipID == ctx.clip?.id {
                 HStack(spacing: 10) {

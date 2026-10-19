@@ -66,8 +66,8 @@ struct AIClipperSheet: View {
             ToggleLine(label: tr("clipper.captions"), isOn: Binding(get: { st.addCaptions }, set: { st.addCaptions = $0 }))
             HintText(text: tr(OnDeviceLLM.isAvailable ? "clipper.hint.llm" : "clipper.hint.local"))
             if let job = st.job {
-                let p = store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("clipper.progress", Int(p * 100)), progress: p) { cancel() }
+                let p = store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("clipper.progress", JobInfo.percent(p)), progress: p) { cancel() }
             }
         }
     }

@@ -36,8 +36,8 @@ struct CameraLockSection: View {
         let o = ctx.clip?.cameraLock ?? CameraLockUIState.shared.options
         VStack(alignment: .leading, spacing: 4) {
             if let id = ctx.clip?.id, let job = ctx.store.ai.cameraJobs[id] {
-                let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("cameraLock.applying", Int(p * 100)), progress: p) { ctx.store.removeCameraLock(id) }
+                let p = ctx.store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("cameraLock.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeCameraLock(id) }
             }
             InlineRow(label: tr("cameraLock.target")) {
                 Dropdown(items: CameraLockOptions.Target.allCases.map { ($0, tr($0.nameKey)) }, selection: o.target) { v in update { $0.target = v } }

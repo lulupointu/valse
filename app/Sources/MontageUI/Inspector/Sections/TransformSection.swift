@@ -10,7 +10,7 @@ struct TransformSection: View {
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         InspectorSectionChrome(reset: {
             guard let id = ctx.clip?.id else { return }
-            ctx.store.perform(UpdateClip(id, nameKey: "cmd.transform") { c in
+            ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.transform") { c in
                 let flip = (c.transform.flipH, c.transform.flipV)
                 c.transform = Transform(flipH: flip.0, flipV: flip.1)
                 c.clearKeyframes(ParamKey.transformGroup + [.tilt])
@@ -49,7 +49,7 @@ struct TransformSection: View {
             InlineRow(label: tr(rotateLabelKey), triplet: Bind.triplet(ctx, [.rotation])) {
                 HStack(spacing: 18) {
                     Bind.field(ctx, key: .rotation, spec: RowSpec(range: -360...360, step: 1, format: Fmt.degrees),
-                               gestureName: "cmd.transform")
+                               gestureName: "cmd.transform").testID("transform.rotate")
                     RotationDialBinding(ctx: ctx, key: .rotation)
                 }
             }
@@ -100,7 +100,7 @@ enum UniformScaleState {
         if on {
             InspectorUIState.shared.nonUniform.remove(c.id)
             let local = ctx.localTime
-            ctx.store.perform(UpdateClip(c.id, nameKey: "cmd.transform") { c in
+            ctx.store.performInspector(UpdateClip(c.id, nameKey: "cmd.transform") { c in
                 c.modifyValue(.scale, at: local) { v in if let x = v.vec2?.x { v = .vec2(Vec2(x, x)) } }
             })
         } else {
@@ -155,36 +155,50 @@ struct AlignmentStrip: View {
 
     func flip(h: Bool) {
         guard let id = ctx.clip?.id else { return }
-        ctx.store.perform(UpdateClip(id, nameKey: "cmd.transform") { c in if h { c.transform.flipH.toggle() } else { c.transform.flipV.toggle() } })
+        ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.transform") { c in if h { c.transform.flipH.toggle() } else { c.transform.flipV.toggle() } })
     }
 
-    /// Current on-canvas geometry of the clip (nil when its size is only known after rasterization, e.g. text).
-    func geometry() -> (LayerGeometry, Size2)? {
-        guard let clip = ctx.clip, let track = ctx.track else { return nil }
+    /// Current on-canvas geometry of a clip (nil when its size is only known after rasterization, e.g. text).
+    func geometry(_ clip: Clip? = nil) -> (LayerGeometry, Size2)? {
+        guard let clip = clip ?? ctx.clip else { return nil }
         let p = ctx.store.project
-        let t = clip.start + ctx.localTime
+        guard let loc = p.timeline.locate(clip.id) else { return nil }
+        let track = p.timeline.tracks[loc.track]
+        let t = clip.start + (clip.id == ctx.clip?.id ? ctx.localTime : Bind.local(ctx.store, clip))
         guard let l = FrameEvaluator.layer(clip, track: track, project: p, at: t), l.sourceSize.width > 0 else { return nil }
         return (l.geometry(canvasSize: p.settings.canvasSize), p.settings.canvasSize)
     }
 
+    /// Moves each selected clip (C2: every clip of a multi-selection, by its own geometry) to the edge; one undo step.
     func align(_ edge: Edge) {
-        guard let clip = ctx.clip, let (g, canvas) = geometry() else { return }
-        let xs = g.corners.map(\.x), ys = g.corners.map(\.y)
-        let (minX, maxX, minY, maxY) = (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
-        var dx = 0.0, dy = 0.0
-        switch edge {
-        case .left: dx = -minX
-        case .right: dx = canvas.width - maxX
-        case .hCenter: dx = canvas.width / 2 - (minX + maxX) / 2
-        case .top: dy = -minY
-        case .bottom: dy = canvas.height - maxY
-        case .vCenter: dy = canvas.height / 2 - (minY + maxY) / 2
+        var moves: [(ClipID, Time, Double, Double)] = []
+        var size = Size2(1, 1)
+        for clip in ctx.clips {
+            guard let (g, canvas) = geometry(clip) else { continue }
+            size = canvas
+            let xs = g.corners.map(\.x), ys = g.corners.map(\.y)
+            let (minX, maxX, minY, maxY) = (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
+            var dx = 0.0, dy = 0.0
+            switch edge {
+            case .left: dx = -minX
+            case .right: dx = canvas.width - maxX
+            case .hCenter: dx = canvas.width / 2 - (minX + maxX) / 2
+            case .top: dy = -minY
+            case .bottom: dy = canvas.height - maxY
+            case .vCenter: dy = canvas.height / 2 - (minY + maxY) / 2
+            }
+            let local = clip.id == ctx.clip?.id ? ctx.localTime : Bind.local(ctx.store, clip)
+            moves.append((clip.id, local, dx, dy))
         }
-        let local = ctx.localTime
-        let (fx, fy) = (dx, dy)
-        ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.align") { c in
-            c.modifyValue(.position, at: local) { v in
-                if let p = v.vec2 { v = .vec2(Vec2(p.x + fx / canvas.width, p.y + fy / canvas.height)) }
+        guard !moves.isEmpty else { return }
+        let canvas = size, all = moves
+        ctx.store.perform(Edit("cmd.align") { p in
+            for (id, local, fx, fy) in all {
+                guard var c = p.timeline.clip(id) else { continue }
+                c.modifyValue(.position, at: local) { v in
+                    if let p = v.vec2 { v = .vec2(Vec2(p.x + fx / canvas.width, p.y + fy / canvas.height)) }
+                }
+                p.timeline[clip: id] = c
             }
         })
     }

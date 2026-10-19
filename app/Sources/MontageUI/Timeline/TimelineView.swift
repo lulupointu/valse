@@ -108,6 +108,7 @@ final class TimelineView: NSView {
             _ = self.store.transport.playhead
             _ = self.ui.scrollTime; _ = self.ui.scrollY; _ = self.ui.tool
             _ = self.ui.selectedTransition; _ = self.ui.selectedMarker; _ = self.ui.selectedKeyframe
+            _ = self.store.jobs   // C2: job progress on clips redraws with the inspector's (one source: store.jobs)
             self.dirty = true
             self.followPlayhead()
         }
@@ -746,7 +747,7 @@ final class TimelineView: NSView {
             let bar = CGRect(x: r.minX + 6, y: r.maxY - 8, width: max(0, (r.width - 12) * job.progress), height: 3)
             c.rect(CGRect(x: r.minX + 6, y: r.maxY - 8, width: max(0, r.width - 12), height: 3), RGBA(1, 1, 1, 0.25), radius: 1.5)
             c.rect(bar, Self.accent, radius: 1.5)
-            c.text("\(tr(job.titleKey)) \(Int(job.progress * 100)) %", at: CGPoint(x: r.minX + 6, y: r.midY - 6), size: 10.5,
+            c.text("\(tr(job.titleKey)) \(Fmt.unit(String(job.percent), "%"))", at: CGPoint(x: r.minX + 6, y: r.midY - 6), size: 10.5,
                    color: .white, maxWidth: max(0, r.width - 12))
         }
     }

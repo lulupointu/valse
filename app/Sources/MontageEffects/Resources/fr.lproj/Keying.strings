@@ -1,6 +1,6 @@
 /* Keying (inspector W3: chroma key, canvas styles) */
-"key.chroma" = "Incrustation (fond vert)";
-"key.group.cutout" = "Découpage";
+"key.chroma" = "Clé chroma";
+"key.group.cutout" = "Supprimer l'arrière-plan";
 "key.chroma.color" = "Pipette";
 "key.chroma.intensity" = "Intensité";
 "key.chroma.shadow" = "Ombre";

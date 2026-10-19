@@ -32,6 +32,8 @@ public struct UpdateClip: EditCommand {
         body(&c)
         project.timeline[clip: clipID] = c
     }
+    /// The same edit on another clip (inspector multi-select editing applies one edit to every selected clip).
+    public func retargeted(_ id: ClipID) -> UpdateClip { UpdateClip(id, nameKey: nameKey, body) }
 }
 
 public struct AddMedia: EditCommand {

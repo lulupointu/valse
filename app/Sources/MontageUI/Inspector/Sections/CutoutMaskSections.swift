@@ -39,17 +39,27 @@ struct EffectParamRow: View {
         }
     }
 
+    /// C2: the same effect on another selected clip (its own instance id; matched by type).
+    static func resolve(_ c: Clip, _ iid: EffectInstanceID, _ typeID: String?) -> EffectInstanceID? {
+        if c.effects.contains(where: { $0.id == iid }) { return iid }
+        guard let typeID else { return nil }
+        return c.effects.first { $0.typeID == typeID }?.id
+    }
+
     var body: some View {
         let key = ParamKey.effect(instanceID, spec.key)
+        let iid = instanceID, pk = spec.key
+        let typeID = ctx.clip?.effects.first { $0.id == iid }?.typeID
         switch spec.kind {
-        case .scalar(let lo, let hi, _):
+        case .scalar(let lo, let hi, let def):
             let k = spec.displayScale
             ClipParamRow(ctx: ctx, label: tr(spec.nameKey),
                          spec: RowSpec(range: lo * k...hi * k, origin: lo < 0 ? 0 : nil, gradient: Self.gradient(for: spec.key),
                                        step: 1, format: Fmt.int),
-                         get: { c, t in (c.value(key, at: t)?.scalar ?? 0) * k },
-                         set: { c, v, t in c.setValue(key, .scalar(v / k), at: t) },
-                         dependsOnTime: { $0.hasKeyframes(key) }, keyframeKeys: [key], gestureName: "cmd.effect", enabled: enabled)
+                         get: { c, t in Self.resolve(c, iid, typeID).map { (c.value(.effect($0, pk), at: t)?.scalar ?? 0) * k } ?? def * k },
+                         set: { c, v, t in if let i = Self.resolve(c, iid, typeID) { c.setValue(.effect(i, pk), .scalar(v / k), at: t) } },
+                         dependsOnTime: { c in Self.resolve(c, iid, typeID).map { c.hasKeyframes(.effect($0, pk)) } ?? false },
+                         keyframeKeys: [key], gestureName: "cmd.effect", enabled: enabled)
         case .color(let d):
             let c = ctx.clip?.effects.first { $0.id == instanceID }?.params[spec.key].flatMap { if case .color(let c) = $0 { return c }; return nil } ?? d
             InlineRow(label: tr(spec.nameKey), enabled: enabled, triplet: Bind.triplet(ctx, [key])) {
@@ -72,8 +82,9 @@ struct EffectParamRow: View {
     func setParam(_ v: ParamValue) {
         guard let id = ctx.clip?.id else { return }
         let iid = instanceID, k = spec.key
-        ctx.store.perform(UpdateClip(id, nameKey: "cmd.effect") { c in
-            if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].params[k] = v }
+        let typeID = ctx.clip?.effects.first { $0.id == iid }?.typeID
+        ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.effect") { c in
+            if let r = Self.resolve(c, iid, typeID), let i = c.effects.firstIndex(where: { $0.id == r }) { c.effects[i].params[k] = v }
         })
     }
 }
@@ -84,28 +95,30 @@ enum EffectChrome {
     static func make(_ ctx: InspectorContext, _ instance: EffectInstance, _ d: EffectDescriptor, removable: Bool = true) -> InspectorSectionChrome {
         let store = ctx.store
         let clipID = ctx.clip?.id
-        let iid = instance.id
+        let iid = instance.id, typeID = instance.typeID
         return InspectorSectionChrome(
             isEnabled: Binding(get: { instance.isEnabled }, set: { v in
                 guard let clipID else { return }
-                store.perform(UpdateClip(clipID, nameKey: "cmd.effect") { c in
-                    if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].isEnabled = v }
+                store.performInspector(UpdateClip(clipID, nameKey: "cmd.effect") { c in
+                    if let r = EffectParamRow.resolve(c, iid, typeID), let i = c.effects.firstIndex(where: { $0.id == r }) { c.effects[i].isEnabled = v }
                 })
             }),
             reset: {
                 guard let clipID else { return }
                 let defaults = d.makeInstance().params
-                store.perform(UpdateClip(clipID, nameKey: "cmd.effect") { c in
-                    if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].params = defaults }
-                    c.clearKeyframes(c.effectParamKeys(iid))
+                store.performInspector(UpdateClip(clipID, nameKey: "cmd.effect") { c in
+                    guard let r = EffectParamRow.resolve(c, iid, typeID) else { return }
+                    if let i = c.effects.firstIndex(where: { $0.id == r }) { c.effects[i].params = defaults }
+                    c.clearKeyframes(c.effectParamKeys(r))
                 })
             },
             keyframeKeys: d.params.filter { if case .scalar = $0.kind { return true }; if case .color = $0.kind { return true }; return false }
                 .map { ParamKey.effect(iid, $0.key) },
             accessory: removable ? AnyView(SmallIconButton(symbol: "trash", help: tr("inspector.removeEffect"), size: 12) {
                 guard let clipID else { return }
-                store.perform(UpdateClip(clipID, nameKey: "cmd.effect") { c in
-                    c.clearKeyframes(c.effectParamKeys(iid)); c.effects.removeAll { $0.id == iid }
+                store.performInspector(UpdateClip(clipID, nameKey: "cmd.effect") { c in
+                    guard let r = EffectParamRow.resolve(c, iid, typeID) else { return }
+                    c.clearKeyframes(c.effectParamKeys(r)); c.effects.removeAll { $0.id == r }
                 })
             }) : nil)
     }
@@ -117,14 +130,16 @@ struct EffectBlock: View {
     let instance: EffectInstance
     let descriptor: EffectDescriptor
     var removable = true
-    @State private var expanded = true
+    /// nil = follow the checkbox (C2: ▼ expands a switched-off effect too).
+    @State private var expandedChoice: Bool?
     var body: some View {
         let chrome = EffectChrome.make(ctx, instance, descriptor, removable: removable)
+        let expanded = expandedChoice ?? instance.isEnabled
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeaderBar(title: tr(descriptor.nameKey), chrome: chrome, expanded: expanded && instance.isEnabled, ctx: ctx) {
-                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
-            }
-            if expanded && instance.isEnabled {
+            SectionHeaderBar(title: tr(descriptor.nameKey), chrome: chrome, expanded: expanded, ctx: ctx,
+                             toggle: { withAnimation(.easeOut(duration: 0.15)) { expandedChoice = !expanded } },
+                             onCheck: { on in if on { expandedChoice = nil } })
+            if expanded {
                 EffectParamRows(ctx: ctx, instance: instance, descriptor: descriptor)
             }
         }
@@ -156,7 +171,7 @@ struct ChromaKeySection: View {
         return InspectorSectionChrome(
             isEnabled: Binding(get: { inst != nil }, set: { on in
                 guard let id = ctx.clip?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.chromaKey") { c in
+                store.performInspector(UpdateClip(id, nameKey: "cmd.chromaKey") { c in
                     if on {
                         if !c.effects.contains(where: { $0.typeID == BuiltinKeying.chromaKeyID }) {
                             c.effects.insert(BuiltinKeying.chromaKey.makeInstance(), at: 0)   // key before colour work
@@ -170,7 +185,7 @@ struct ChromaKeySection: View {
             reset: {
                 guard let id = ctx.clip?.id, let iid = inst?.id else { return }
                 let defaults = BuiltinKeying.chromaKey.makeInstance().params
-                store.perform(UpdateClip(id, nameKey: "cmd.chromaKey") { c in
+                store.performInspector(UpdateClip(id, nameKey: "cmd.chromaKey") { c in
                     if let i = c.effects.firstIndex(where: { $0.id == iid }) { c.effects[i].params = defaults }
                     c.clearKeyframes(c.effectParamKeys(iid))
                 })
@@ -197,20 +212,29 @@ struct ChromaKeySection: View {
                 if color == nil { HintText(text: tr("inspector.chroma.hint")) }
             }
             .frame(minHeight: IStyle.rowHeight)
-            if let inst {
-                EffectParamRows(ctx: ctx, instance: inst, descriptor: BuiltinKeying.chromaKey,
-                                only: ["intensity", "shadow", "feather", "cleanup"], enabled: color != nil)
-            }
+            // C2: expanded while unticked → the settings show (greyed until a colour is picked, which turns it on)
+            EffectParamRows(ctx: ctx, instance: inst ?? Self.placeholder, descriptor: BuiltinKeying.chromaKey,
+                            only: ["intensity", "shadow", "feather", "cleanup"], enabled: inst != nil && color != nil)
         }
     }
 
+    static let placeholder = BuiltinKeying.chromaKey.makeInstance()
+
     func pick() {
-        guard let id = ctx.clip?.id, let iid = Self.instance(ctx)?.id else { return }
+        guard let id = ctx.clip?.id else { return }
         let store = ctx.store
+        if Self.instance(ctx) == nil {   // picking the colour of an unticked chroma key ticks it
+            store.performInspector(UpdateClip(id, nameKey: "cmd.chromaKey") { c in
+                if !c.effects.contains(where: { $0.typeID == BuiltinKeying.chromaKeyID }) {
+                    c.effects.insert(BuiltinKeying.chromaKey.makeInstance(), at: 0)
+                }
+            })
+        }
+        guard let iid = store.project.timeline.clip(id)?.effects.first(where: { $0.typeID == BuiltinKeying.chromaKeyID })?.id else { return }
         // canvas eyedropper (loupe over the video, samples the frame with this key switched off) — W2-8
         store.pickCanvasColor(disabling: iid, in: id) { rgba in
-            store.perform(UpdateClip(id, nameKey: "cmd.chromaKey") { clip in
-                if let i = clip.effects.firstIndex(where: { $0.id == iid }) { clip.effects[i].params["color"] = .color(rgba) }
+            store.performInspector(UpdateClip(id, nameKey: "cmd.chromaKey") { clip in
+                if let i = clip.effects.firstIndex(where: { $0.typeID == BuiltinKeying.chromaKeyID }) { clip.effects[i].params["color"] = .color(rgba) }
             })
         }
     }
@@ -363,7 +387,7 @@ struct MaskShapesSection: View {
     func addMask(_ clip: Clip) {
         let n = clip.maskCount + 1
         guard n <= Clip.maxMasks else { return }
-        ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.mask") { c in c.setMask(n, MaskShapesSection.defaultMask(.rectangle)) })
+        ctx.store.performInspector(UpdateClip(clip.id, nameKey: "cmd.mask") { c in c.setMask(n, MaskShapesSection.defaultMask(.rectangle)) })
         InspectorUIState.shared.maskIndex[clip.id] = n
     }
 
@@ -371,11 +395,11 @@ struct MaskShapesSection: View {
         guard let id = ctx.clip?.id else { return }
         let t = target.resolved(ctx.clip)
         if s == nil && t.index >= 1 {
-            ctx.store.perform(UpdateClip(id, nameKey: "cmd.mask.remove") { c in c.removeMask(t.index) })
+            ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.mask.remove") { c in c.removeMask(t.index) })
             InspectorUIState.shared.maskIndex[id] = max(1, t.index - 1)
             return
         }
-        ctx.store.perform(UpdateClip(id, nameKey: s == nil ? "cmd.mask.remove" : "cmd.mask") { c in
+        ctx.store.performInspector(UpdateClip(id, nameKey: s == nil ? "cmd.mask.remove" : "cmd.mask") { c in
             if let s {
                 if var m = c[keyPath: t.mask] {
                     m.shape = s; if s == .mirror && m.size.y > 0.9 { m.size.y = 0.4 }
@@ -408,7 +432,7 @@ struct MaskSettingsSection: View {
         return InspectorSectionChrome(
             reset: {
                 guard let id = ctx.clip?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.mask") { c in
+                store.performInspector(UpdateClip(id, nameKey: "cmd.mask") { c in
                     if let s = c[keyPath: t.mask]?.shape { c[keyPath: t.mask] = MaskShapesSection.defaultMask(s) }
                     c.clearKeyframes(t.group)
                 })
@@ -417,7 +441,7 @@ struct MaskSettingsSection: View {
             accessory: AnyView(SmallIconButton(symbol: "circle.lefthalf.striped.horizontal.inverse", help: tr("inspector.mask.invert"),
                                                active: inverted, size: 14) {
                 guard let id = ctx.clip?.id else { return }
-                store.perform(UpdateClip(id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.inverted.toggle() })
+                store.performInspector(UpdateClip(id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.inverted.toggle() })
             }))
     }
 
@@ -514,6 +538,6 @@ struct MaskTextField: View {
     func commit() {
         guard let id = ctx.clip?.id, text != (ctx.clip?[keyPath: target.mask]?.text ?? "") else { return }
         let t = target, v = text
-        ctx.store.perform(UpdateClip(id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.text = v })
+        ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.text = v })
     }
 }

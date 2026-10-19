@@ -21,7 +21,10 @@ struct StabilizeSection: View {
         InlineRow(label: tr("inspector.stabilize.level")) {
             Dropdown(items: StabilizationLevel.allCases.map { ($0, tr($0.nameKey)) },
                      selection: ctx.clip?.stabilization?.level ?? .recommended) { l in
-                if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.stabilize") { $0.stabilization?.level = l } }
+                // C2: the settings show while unticked; picking a level there turns stabilization on with it
+                if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.stabilize") { c in
+                    var s = c.stabilization ?? Stabilization(); s.level = l; c.stabilization = s
+                } }
             }
         }
     }
@@ -39,11 +42,14 @@ struct MotionBlurSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ClipParamRow(ctx: ctx, label: tr("inspector.motionBlur.amount"), spec: RowSpec(range: 0...100, format: Fmt.percentValue),
-                         get: { c, _ in (c.motionBlur?.amount ?? 0) * 100 }, set: { c, v, _ in c.motionBlur?.amount = v / 100 },
+                         get: { c, _ in (c.motionBlur ?? MotionBlur()).amount * 100 },
+                         set: { c, v, _ in var m = c.motionBlur ?? MotionBlur(); m.amount = v / 100; c.motionBlur = m },   // edit while off = on
                          keyframeKeys: [], gestureName: "cmd.motionBlur")
             InlineRow(label: tr("inspector.motionBlur.times")) {
                 Dropdown(items: [2, 4, 6].map { ($0, "\($0)x") }, selection: ctx.clip?.motionBlur?.clampedSamples ?? 2) { n in
-                    if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.motionBlur") { $0.motionBlur?.samples = n } }
+                    if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.motionBlur") { c in
+                        var m = c.motionBlur ?? MotionBlur(); m.samples = n; c.motionBlur = m
+                    } }
                 }
             }
         }

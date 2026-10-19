@@ -33,8 +33,8 @@ struct ReframeSection: View {
         let current = ctx.clip?.reframe ?? st.options
         VStack(alignment: .leading, spacing: 4) {
             if let id = ctx.clip?.id, let job = ctx.store.ai.reframeJobs[id] {
-                let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("reframe.applying", Int(p * 100)), progress: p) { ctx.store.removeReframe(id) }
+                let p = ctx.store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("reframe.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeReframe(id) }
             }
             InlineRow(label: tr("reframe.ratio")) {
                 Dropdown(items: ["9:16", "16:9", "1:1", "4:3", "3:4", "2.35:1"].map { ($0, $0) }, selection: current.ratio) { r in update { $0.ratio = r } }

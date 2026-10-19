@@ -26,8 +26,13 @@ public struct InspectorContext {
     /// What the inspector is showing (drives tabs, like CapCut's per-type headers).
     public var kind: InspectorSelectionKind {
         if store.selection.isEmpty { return store.selectedTransition != nil ? .transition : .none }
-        if store.selection.count > 1 { return .multiple }
+        if store.selection.count > 1 { return store.multiEditKind ?? .multiple }
         guard let clip else { return .none }
+        return Self.kind(of: clip, asset: asset)
+    }
+
+    /// Inspector kind of one clip (also used to group a multi-selection, C2).
+    public static func kind(of clip: Clip, asset: MediaAsset?) -> InspectorSelectionKind {
         switch clip.content {
         case .text: return .text
         case .sticker: return .sticker
@@ -46,6 +51,11 @@ public struct InspectorContext {
             }
         }
     }
+
+    /// C2: every clip an inspector edit applies to (2+ when several clips of the same kind are selected; `clip` is the first).
+    public var clips: [Clip] { let m = store.selectedClipsSlice; return m.count > 1 ? m : (clip.map { [$0] } ?? []) }
+    /// Several same-kind clips are edited together (mixed values show "-").
+    public var isMulti: Bool { store.selectedClipsSlice.count > 1 }
 
     /// Main-track clip whose `transitionOut` is selected in the timeline.
     public var transitionClip: Clip? { store.selectedTransition.flatMap { store.project.timeline.clip($0) } }
@@ -147,7 +157,7 @@ public enum InspectorRegistry {
 
     /// Every applicable section of a tab, all sub-tabs together.
     public static func sections(tab: String, ctx: InspectorContext) -> [InspectorSection] {
-        sections.filter { $0.tabID == tab && $0.appliesTo(ctx) }.sorted { $0.order < $1.order }
+        sections.filter { $0.tabID == tab && $0.appliesTo(ctx) && InspectorMultiEdit.shows($0, ctx) }.sorted { $0.order < $1.order }
     }
 
     /// Sub-tabs of `tab` that apply and have at least one section.

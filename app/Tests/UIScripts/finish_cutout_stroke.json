@@ -1,4 +1,4 @@
-// CK-005: Video ▸ Cutout ▸ ☐ Stroke appears once the clip is cut out (here a chroma key), adds an outline (colour
+// CK-005: Video ▸ Remove BG ▸ ☐ Stroke appears once the clip is cut out (here a chroma key), adds an outline (colour
 // presets, Size / Opacity / Glow). CL-010: Adjust ▸ Basic ▸ LUT ▸ Skin tone protection toggle (one undo step).
 {
   "project": "demo",

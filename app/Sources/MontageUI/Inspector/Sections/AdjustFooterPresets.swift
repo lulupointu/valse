@@ -56,7 +56,7 @@ enum AdjustTools {
 
     static func apply(_ preset: AdjustPreset, _ ctx: InspectorContext) {
         guard let id = ctx.clip?.id else { return }
-        ctx.store.perform(UpdateClip(id, nameKey: "cmd.adjust.preset") { replaceGrading(&$0, with: preset.effects, mask: preset.mask) })
+        ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.adjust.preset") { replaceGrading(&$0, with: preset.effects, mask: preset.mask) })
     }
 }
 

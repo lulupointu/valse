@@ -80,7 +80,7 @@ extension EditorStore {
 
     /// Applies a style change to the editor's selected range (rich text), or to the whole text when nothing is selected.
     func applyTextRunStyle(_ id: ClipID, _ style: TextRunStyle, nameKey: String = "cmd.text") {
-        let sel = TextUIState.shared.selection[id]
+        let sel = inspectorTargets(id).count > 1 ? nil : TextUIState.shared.selection[id]   // C2: whole texts when several
         updateText(id, nameKey: nameKey) { t in
             let r = sel.flatMap { $0.length > 0 ? $0 : nil } ?? TextSpan(0, t.utf16Count)
             t.applyStyle(style, to: r)

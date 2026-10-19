@@ -130,7 +130,7 @@
 "cache.reversed" = "Clips inversés";
 "cache.audio" = "Rendus audio";
 "cache.stabilization" = "Stabilisation";
-"cache.mattes" = "Masques de découpage";
+"cache.mattes" = "Masques de suppression d'arrière-plan";
 "cache.other" = "Autre";
 
 /* Paramètres */

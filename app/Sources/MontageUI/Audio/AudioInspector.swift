@@ -57,12 +57,12 @@ enum AudioInspector {
         s += both("tone", order: 70, titleKey: "audio.tone", chrome: { ctx in
             InspectorSectionChrome(reset: {
                 guard let id = ctx.clip?.id else { return }
-                ctx.store.perform(UpdateClip(id, nameKey: "cmd.pitch") { $0.audio.pitch = 0; $0.audio.channels = .stereo })
+                ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.pitch") { $0.audio.pitch = 0; $0.audio.channels = .stereo })
             })
         }) { AnyView(ToneSection(ctx: $0)) }
         s += both("eq", order: 80, titleKey: "audio.eq", chrome: { ctx in
             InspectorSectionChrome(isEnabled: clipBinding(ctx, "cmd.eq", get: { $0.audio.eq != nil }, set: { c, v in c.audio.eq = v ? AudioEQ() : nil }),
-                                   reset: { if let id = ctx.clip?.id { ctx.store.perform(UpdateClip(id, nameKey: "cmd.eq") { $0.audio.eq = AudioEQ() }) } },
+                                   reset: { if let id = ctx.clip?.id { ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.eq") { $0.audio.eq = AudioEQ() }) } },
                                    startsCollapsed: true)
         }) { AnyView(EQEditor(ctx: $0)) }
         s.append(InspectorSection(id: "audio.voice", tab: "audio", subTab: "voice", order: 0, titleKey: nil) { AnyView(VoiceChangerView(ctx: $0)) })

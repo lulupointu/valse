@@ -105,6 +105,8 @@ struct TextBasicSection: View {
         let store = ctx.store
         if let clip = ctx.clip, case .text(let t) = clip.content {
             VStack(alignment: .leading, spacing: 6) {
+                // C2: several text clips edited together share the style, not the words (no text box)
+                if !ctx.isMulti {
                 ClipTextEditor(store: store, clipID: clip.id)
                     .id(clip.id)
                     .frame(height: 64)
@@ -115,6 +117,7 @@ struct TextBasicSection: View {
                             .padding(2)
                     }
                     .padding(.bottom, 4)
+                }
                 FontRow(ctx: ctx)
                 TextInspector.row(ctx, tr("text.fontSize"), range: 1...300, get: { $0.fontSize * 250 }, set: { t, v in t.fontSize = v / 250 })
                 InlineRow(label: tr("text.style")) {
@@ -134,7 +137,7 @@ struct TextBasicSection: View {
                     ColorSwatchButton(color: style(t).color ?? t.color, eyedropper: store, testID: "text.color") { col in
                         guard let sel = TextUIState.shared.selection[clip.id], sel.length > 0, sel.length < t.utf16Count else {
                             let local = ctx.localTime
-                            store.perform(UpdateClip(clip.id, nameKey: "cmd.text") { $0.setValue(.textColor, .color(col), at: local) })
+                            store.performInspector(UpdateClip(clip.id, nameKey: "cmd.text") { $0.setValue(.textColor, .color(col), at: local) })
                             return
                         }
                         store.applyTextRunStyle(clip.id, TextRunStyle(color: col))

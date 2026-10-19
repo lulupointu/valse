@@ -1,0 +1,16 @@
+// C2: CapCut wording of the background-removal sub-tab in French: Supprimer l'arrière-plan ▸ Suppression automatique ·
+// Suppression personnalisée · Clé chroma (EN: Remove BG ▸ Auto removal · Custom removal · Chroma key).
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.cutout"},
+    {"expect": [{"path": "ui.anchors", "contains": "inspector.section.cutout.auto"},
+                {"path": "ui.anchors", "contains": "inspector.section.cutout.custom"},
+                {"path": "ui.anchors", "contains": "inspector.section.cutout.chroma"}]},
+    {"snapshot": "remove-bg-fr", "element": "id:panel.inspector"}
+  ]
+}

@@ -42,8 +42,8 @@ struct RelightSection: View {
         VStack(alignment: .leading, spacing: 6) {
             Color.clear.frame(maxWidth: .infinity).frame(height: 1).testID("relight.top")   // UI tests: header is just above
             if let id = ctx.clip?.id, let job = st.jobs[id] {
-                let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("relight.applying", Int(p * 100)), progress: p) { ctx.store.setRelight(id, on: false) }
+                let p = ctx.store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("relight.applying", JobInfo.percent(p)), progress: p) { ctx.store.setRelight(id, on: false) }
                     .testID("relight.progress")
             }
             if !RelightDepth.hasModel {

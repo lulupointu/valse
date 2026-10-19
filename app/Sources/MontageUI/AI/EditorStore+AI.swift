@@ -329,7 +329,7 @@ extension EditorStore {
 
     public func cutoutProgress(_ clipID: ClipID) -> Double? {
         guard let id = ai.cutoutJobs[clipID] else { return nil }
-        return jobs.first { $0.id == id }.map(\.progress) ?? 0
+        return jobProgress(id) ?? 0
     }
 }
 

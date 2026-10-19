@@ -101,7 +101,8 @@ extension TimelineView {
     func frameContext() -> TimelineFrameContext {
         var busy: [String: JobInfo] = [:]
         for j in store.jobs where (j.state == .running || j.state == .queued) {
-            if let s = j.subject, busy[s] == nil { busy[s] = j }
+            // the running job wins over a queued one on the same clip (EditorStore.clipJob, same as the inspector)
+            if let s = j.subject, busy[s] == nil || (busy[s]?.state == .queued && j.state == .running) { busy[s] = j }
         }
         return TimelineFrameContext(project: store.project, selection: store.selection, busy: busy)
     }

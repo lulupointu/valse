@@ -323,7 +323,8 @@ General anatomy (applies to every selection type):
 - **Sub-tabs**: a segmented control under the header (full width minus 12 pt insets, 28 pt high, track `#121212`, selected pill
   `#3A3A3A`).
 - **Sections**: each starts with a header row: `[☐ enable checkbox]` (only for optional effects) + **Title** (13 pt semibold) + ▾/▴
-  disclosure + optional ⓘ help + Pro diamond. On the right are the **reset ↺** icon (resets the whole section) and the **keyframe
+  disclosure + optional ⓘ help + Pro diamond. ▾ always expands, also while the checkbox is off (an unticked option starts
+  collapsed; expanding shows its settings without applying it; ticking applies it). On the right are the **reset ↺** icon (resets the whole section) and the **keyframe
   triplet `‹ ◇ ›`** (go to previous keyframe / add-remove keyframe at playhead / go to next keyframe). Prev/next are greyed out when
   there's no keyframe in that direction. ◇ becomes a filled accent diamond ◆ when the playhead is on a keyframe. Sections are
   separated by 1 pt `#2A2A2A` lines.
@@ -361,7 +362,7 @@ Tabs: **Video · Audio · Speed · Animation · Adjust · AI stylize** (images h
 | ☐ Motion blur | blur amount, blend, direction |
 | ☑ Canvas | dropdown **None / Blur / Color / Style** (blur = 4 blur strength swatches; color = palette + picker; style = image patterns) + `[Apply to all]` |
 
-**Video ▸ Cutout** ([23](ux/23_insp_video_cutout.png)): ☐ **Auto cutout** (one click: person/subject segmentation, with progress shown on the clip) · ☐ **Customized** (brush-select subject: brush / eraser, size) ↺ · ☐ **Chroma key** ↺ ‹◇›. Chroma key contains: colour picker (eyedropper button + swatch; click on the canvas to sample), **Strength** (Intensity) 0–100, **Shadow** 0–100, Edge feather, Edge clean-up.
+**Video ▸ Remove BG** ([23](ux/23_insp_video_cutout.png)): sub-tab **Remove BG / Supprimer l'arrière-plan** (CapCut's current wording): ☐ **Auto removal / Suppression automatique** (one click: person/subject segmentation, with progress shown on the clip) · ☐ **Custom removal / Suppression personnalisée** (brush-select subject: brush / eraser, size) ↺ · ☐ **Chroma key / Clé chroma** ↺ ‹◇›. Chroma key contains: colour picker (eyedropper button + swatch; click on the canvas to sample), **Strength** (Intensity) 0–100, **Shadow** 0–100, Edge feather, Edge clean-up.
 
 **Video ▸ Mask** ([24](ux/24_insp_video_mask.png), [26](ux/26_insp_mask_add.png), [27](ux/27_insp_mask_settings.png)): ☑ Mask section with `[+ Add mask]` pill. Before a mask exists the shape grid shows dimmed. The first click creates **"Mask1 Rectangle"** (a chip, with a `+` next to it for more masks, so multiple masks are supported) and selects the Rectangle tile.
 - Shape grid: 9 tiles of 62×62 pt, radius 6, `#3A3A3A`, with captions: **Split (linear), Filmstrip (mirror/band), Circle, Rectangle, Stars, Heart, Text, Brush, Pen** (Brush and Pen are Pro). The selected tile gets a 2 pt accent border.
@@ -444,7 +445,11 @@ Tabs **Basic · Voice changer · Speed**. Basic = Volume / Fade in / Fade out + 
 noise, Separate audio (vocals/accompaniment), … (see §5.1 Audio). Speed = Normal speed + Change pitch.
 
 ### 5.9 Multi-selection
-Header **"Properties"**, Position & Size (Scale, Uniform scale, Position) applied relatively to all selected clips.
+Several clips of the **same type** (video/image, text/text, audio/audio, sticker/sticker): the inspector shows that type's
+full tabs (Video Basic / Blend / Adjust…, Audio, Speed, Text…) for the first clip; every edit applies to all selected clips
+(one undo step) and a value the clips disagree on reads **"-"** (e.g. Rotate "-", CapCut multi-select). Per-clip tools (AI jobs,
+masks, the text box) are hidden. **Mixed types**: header **"Properties"**, Position & Size (Scale, Uniform scale, Position) applied
+relatively to all selected clips.
 
 ---
 
@@ -531,7 +536,7 @@ after about 1.5 s (see §8.3).
 - **Delete left / right (Q / W)**: trims the selected clip (or the clip under the playhead) from its start up to the playhead / from
   the playhead to its end, rippling on the main track.
 - **Select**: click; ⇧-click or ⌘-click add to the selection; marquee drag on empty space; ⌘A all; [ / ] select everything left/right
-  of the playhead. Multi-selection → the inspector shows **"Properties"** with shared Position & Size controls.
+  of the playhead. Multi-selection → same-type clips get their full inspector (edits apply to all, mixed values "-"); mixed types show **"Properties"** with shared Position & Size controls (§5.9).
 - **Move**: drag clips horizontally and vertically between compatible lanes. Video can go to an overlay track and back to the main track
   (dropping above the main track turns it into an overlay, "picture in picture"). ⌥-drag duplicates ("Drag to duplicate").
 - **Zoom**: ⌘+ / ⌘−, ⌘ + scroll, pinch, slider; ⇧Z fits. Zoom keeps the playhead fixed on screen.
@@ -560,7 +565,7 @@ after about 1.5 s (see §8.3).
 | **Add text + animation** | Text tab → hover "Default text" → ⊕ (adds 3 s at the playhead, centred, selected) → type in the text box (or double-click on the canvas) → Animation tab → In → click a preset (it previews once). | 5 |
 | **Auto captions** | Text tab → Auto captions → Spoken language ▾ → **Generate** (Pro/cloud in CapCut). The result is a caption track of text clips plus a caption list in the inspector where editing a line updates the clip. Montage: on-device speech recognition, same panel. | 3 |
 | **Background removal** | Select clip → Video ▸ **Cutout** → ☑ Auto cutout (progress shown on the clip, non-blocking). Customized: ☑ Customized → brush/eraser on the canvas (size slider) → Apply. | 3 |
-| **Chroma key** | Select clip → Video ▸ Cutout → ☑ Chroma key → click 🖊 color picker → click the green on the canvas (a loupe ring shows the colour under the cursor, [125](ux/125_chroma_picker_hover.png)) → adjust Strength (default 20) / Shadow (0) / Feather edge / Clean up edge. | 5 |
+| **Chroma key** | Select clip → Video ▸ Remove BG → ☑ Chroma key → click 🖊 color picker → click the green on the canvas (a loupe ring shows the colour under the cursor, [125](ux/125_chroma_picker_hover.png)) → adjust Strength (default 20) / Shadow (0) / Feather edge / Clean up edge. | 5 |
 | **Mask** | Select → Video ▸ Mask → **+ Add mask** (creates a rectangle and selects it) → pick a shape tile → adjust on the canvas (move, resize, feather ↕ handle, rotate ⟳, round corners) or with the fields. Invert via the icon. | 3 |
 | **Transition** | Transitions tab → hover to preview → drag onto the cut between two main-track clips (or select the left clip and click ⊕, which adds at the clip's end). Default 0.5 s. Inspector: Duration, **Apply to all**. | 2 |
 | **Filter** | Filters tab → click (preview in player) → ⊕ = new filter clip over the playhead (3 s), or drag onto a clip = clip-only. Strength slider. | 2 |
@@ -737,7 +742,7 @@ the worst option. Some CapCut FR translations are poor (marked ⚠). Prefer the 
 | Brightness / Contrast / Exposure / Highlight / Shadow / Whites / Blacks | Luminosité / Contraste / Exposition / Lumière (Hautes lumières) / Ombre / Nuances de blanc / Nuances de noir | prefer "Hautes lumières", "Ombres", "Blancs", "Noirs" |
 | Sharpen / Clarity / Fade / Particles / Vignette | Affiner / Clarté / Fondu / Particules / Vignette | |
 | Mask / Add mask / Feather / Invert / Round corners / Track mask | Masque / Ajouter un masque / Adoucir / Inverser / Bords arrondis / Suivre le masque | "Contour progressif" is the Photoshop FR term for feather |
-| Cutout / Auto cutout / Customized / Chroma key | Découpage / Découpage automatique / Personnalisé / Clé Chroma | "Incrustation (fond vert)" is the common FR term |
+| Remove BG / Auto removal / Custom removal / Chroma key | Supprimer l'arrière-plan / Suppression automatique / Suppression personnalisée / Clé chroma | CapCut's current wording (older builds: Cutout / Auto cutout / Customized → Découpage…) |
 | Remove background | Supprimer l'arrière-plan | |
 | Enhance / Retouch / Relight | Améliorer / Retouche / Ajout de lumière | |
 | Stabilize / Noise reduction / Reduce noise / Enhance voice | Stabiliser / Réduction du bruit / Réduire le bruit / Améliorer la voix | |

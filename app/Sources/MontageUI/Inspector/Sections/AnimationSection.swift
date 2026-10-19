@@ -78,7 +78,7 @@ struct AnimationPickerSection: View {
         let phase = self.phase
         // Video combos span the whole clip (CapCut default); sticker/text loops repeat with the preset's period.
         let wholeClip = phase == .combo && target == .video
-        ctx.store.perform(UpdateClip(clip.id, nameKey: "cmd.animation") { c in
+        ctx.store.performInspector(UpdateClip(clip.id, nameKey: "cmd.animation") { c in
             let inst = d.map { AnimationInstance(typeID: $0.id, duration: wholeClip ? c.duration
                                                     : phase == .combo ? min($0.defaultDuration, c.duration)
                                                     : min($0.defaultDuration, c.duration * 0.5)) }

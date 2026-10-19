@@ -37,8 +37,8 @@ struct AIMovementSection: View {
         let hasBeats = ctx.clip.map { !AIMovement.beats(for: $0, in: ctx.store.project.timeline).isEmpty } ?? false
         VStack(alignment: .leading, spacing: 6) {
             if let id = ctx.clip?.id, let job = ctx.store.ai.movementJobs[id] {
-                let p = ctx.store.jobs.first { $0.id == job }?.progress ?? 0
-                JobProgressLine(text: tr("aiMovement.applying", Int(p * 100)), progress: p) { ctx.store.removeAIMovement(id) }
+                let p = ctx.store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("aiMovement.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeAIMovement(id) }
                     .testID("aiMovement.progress")
             }
             HStack(spacing: 6) {

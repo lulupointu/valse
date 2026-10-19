@@ -47,8 +47,8 @@
 "inspector.crop.ratio" = "Ratio";
 "inspector.curve.addPoint" = "Add beat at playhead";
 "inspector.curve.removePoint" = "Remove selected beat";
-"inspector.cutout.auto" = "Auto cutout";
-"inspector.cutout.custom" = "Customized";
+"inspector.cutout.auto" = "Auto removal";
+"inspector.cutout.custom" = "Custom removal";
 "inspector.cutout.unavailable" = "On-device background removal isn't available in the preview yet.";
 "inspector.details" = "Details";
 "inspector.filter" = "Filter";
@@ -72,7 +72,7 @@
 "inspector.smoothSlowmo.unavailable" = "Frame interpolation isn't available yet.";
 "inspector.speed.curve" = "Curve";
 "inspector.sub.basic" = "Basic";
-"inspector.sub.cutout" = "Cutout";
+"inspector.sub.cutout" = "Remove BG";
 "inspector.sub.mask" = "Mask";
 "inspector.tab.effects" = "Effects";
 "inspector.tab.filter" = "Filter";

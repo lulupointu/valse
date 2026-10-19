@@ -1,6 +1,6 @@
 /* Keying (inspector W3: chroma key, canvas styles) */
 "key.chroma" = "Chroma key";
-"key.group.cutout" = "Cutout";
+"key.group.cutout" = "Remove BG";
 "key.chroma.color" = "Color picker";
 "key.chroma.intensity" = "Strength";
 "key.chroma.shadow" = "Shadow";
