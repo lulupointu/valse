@@ -353,6 +353,10 @@ struct ProjectSettingsTab: View {
             PathSetting(path: draft.projectsDirectory ?? MontagePaths.defaultDraftsDirectory.path,
                         onChoose: editing ? nil : { if let p = chooseFolder(tr("settings.saveTo"), start: draft.projectsDirectory) { draft.projectsDirectory = p } },
                         onReset: draft.projectsDirectory == nil || editing ? nil : { draft.projectsDirectory = nil }, id: "saveTo")
+            // PM-009: external / network / disconnected drive warning
+            if let p = draft.projectsDirectory, let w = StorageWarningText.settingsLine(StorageLocation.of(URL(fileURLWithPath: p))) {
+                StorageWarningLine(text: w)
+            }
         }
         SettingsRow(tr("details.importMaterial"), hint: tr("settings.importMaterial.hint")) {
             HStack(spacing: 16) {

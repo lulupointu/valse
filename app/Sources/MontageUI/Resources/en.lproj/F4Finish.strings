@@ -1,0 +1,7 @@
+/* F4 finisher: project storage (PM-009), performance settings (EX-016), windows (PM-014), accessibility (SE-017) */
+"pm.drive.external" = "This folder is on the external drive “%@”. Keep it connected while you edit: its projects can't open while it's unplugged.";
+"pm.drive.network" = "This folder is on the network drive “%@”. Editing can be slow and its projects can't open while the server is unreachable.";
+"pm.drive.unavailable" = "The drive “%1$@” isn't connected. New projects are saved to %2$@ until you reconnect it.";
+"pm.drive.banner" = "The drive “%1$@” that holds your Save to folder isn't connected. New projects are saved to %2$@ until you reconnect it.";
+"pm.drive.openSettings" = "Settings";
+"pm.drive.projectOffline" = "This project is on the drive “%@”, which isn't connected. Connect it and try again.";

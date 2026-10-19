@@ -1,0 +1,15 @@
+// F4 PM-009: Save-to folder on a disconnected drive → Home banner (new projects go to the default folder), the banner's
+// Settings button opens Settings ▸ Project with the warning under Save to; a new project still works.
+{
+  "project": "home:2:offlinedrive",
+  "steps": [
+    {"expect": {"path": "ui.anchors", "contains": "home.driveBanner"}},
+    {"snapshot": "f4-home-drive-banner", "element": "id:home.driveBanner"},
+    {"click": "id:home.driveBanner.settings"},
+    {"expect": [{"path": "app.modal", "equals": "settings"}, {"path": "ui.anchors", "contains": "settings.saveTo.warning"}]},
+    {"snapshot": "f4-settings-drive-offline", "element": "id:settings"},
+    {"click": "id:dialog.cancel"},
+    {"click": "id:home.newProject"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 10}}
+  ]
+}

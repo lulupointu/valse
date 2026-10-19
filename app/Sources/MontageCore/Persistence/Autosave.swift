@@ -55,12 +55,24 @@ public enum MontagePaths {
     }
 
     /// ~/Movies/Montage — drafts folder for new projects (CapCut "Drafts"); Settings ▸ Project ▸ Save to overrides it.
+    /// A Save-to folder on a drive that isn't connected falls back to the default folder (PM-009; Home shows a banner).
     public static var draftsDirectory: URL {
-        if let o = override(draftsOverrideKey) { return o }
+        if let o = override(draftsOverrideKey), !StorageLocation.of(o).isUnavailable { return o }
         return defaultDraftsDirectory
     }
 
+    /// The configured Save-to folder's location when it needs a warning (external, network, disconnected), else nil.
+    public static var configuredDraftsWarning: (url: URL, location: StorageLocation)? {
+        guard let o = override(draftsOverrideKey) else { return nil }
+        let l = StorageLocation.of(o)
+        return l.needsWarning ? (o, l) : nil
+    }
+
+    /// Only set in the volatile argument domain (UI-test sandbox): the "default" folder a disconnected Save-to falls back to.
+    public static let defaultDraftsOverrideKey = "MontageDefaultProjectsDirectory"
+
     public static var defaultDraftsDirectory: URL {
+        if let o = override(defaultDraftsOverrideKey) { return o }
         let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Movies")
         return movies.appendingPathComponent("Montage", isDirectory: true)

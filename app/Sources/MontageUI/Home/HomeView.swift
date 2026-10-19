@@ -167,6 +167,7 @@ struct ProjectsColumn: View {
         let list = app.visibleEntries
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                SaveFolderBanner(app: app)   // PM-009
                 if app.scope == .all || app.scope == .recents {
                     NewProjectHero(app: app)
                     HomeFeatureRow(app: app)

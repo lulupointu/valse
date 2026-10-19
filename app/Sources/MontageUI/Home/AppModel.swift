@@ -70,6 +70,9 @@ public final class AppModel {
     public var isTransitioning = false
     /// Last trashed URLs (toast "Undo").
     public private(set) var lastTrashed: [URL] = []
+    /// PM-009: the Save-to folder is on an external / network drive, or its drive isn't connected (Home banner).
+    public private(set) var saveFolderWarning: StorageLocation?
+    @ObservationIgnored private var volumeObservers: [NSObjectProtocol] = []
 
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var checkedRecovery = false
@@ -84,6 +87,13 @@ public final class AppModel {
         OnlineAudioState.openSettings = { [weak self] in self?.modal = .settings(.music) }
         if let v = UserDefaults.standard.string(forKey: "MontageHomeViewMode"), let m = ViewMode(rawValue: v) { viewMode = m }
         if let v = UserDefaults.standard.string(forKey: "MontageHomeSort"), let s = LibrarySort(rawValue: v) { sort = s }
+        // PM-009: plugging / ejecting a drive updates the save-folder banner and the listing
+        let nc = NSWorkspace.shared.notificationCenter
+        for n in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
+            volumeObservers.append(nc.addObserver(forName: n, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshSoon() }
+            })
+        }
     }
 
     /// Entries shown in the main column.
@@ -109,6 +119,7 @@ public final class AppModel {
         entries = list
         folders = f
         hasScanned = true
+        saveFolderWarning = MontagePaths.configuredDraftsWarning?.location
         selectedIDs = selectedIDs.filter { id in list.contains { $0.id == id } }
         if case .folder(let id) = scope, !f.contains(where: { $0.id == id }) { scope = .all }
         if !checkedRecovery { checkedRecovery = true; checkCrashRecovery() }
@@ -155,6 +166,8 @@ public final class AppModel {
     public func open(_ url: URL) {
         if store.packageURL?.standardizedFileURL == url.standardizedFileURL, screen == .editor { return }
         if SessionLock.isHeldByOtherProcess(url) { store.showToast(tr("error.openElsewhere"), error: true); return }
+        // PM-009: a project on a drive that isn't connected
+        if case .unavailable(let drive) = StorageLocation.of(url) { store.showToast(tr("pm.drive.projectOffline", drive), error: true); return }
         let lib = library
         Task {
             if screen == .editor { await store.closeProject() }

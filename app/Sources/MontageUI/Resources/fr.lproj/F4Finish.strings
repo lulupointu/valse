@@ -1,0 +1,7 @@
+/* F4 finisher : stockage des projets (PM-009), performances (EX-016), fenêtres (PM-014), accessibilité (SE-017) */
+"pm.drive.external" = "Ce dossier se trouve sur le disque externe « %@ ». Gardez-le branché pendant le montage : ses projets ne s'ouvrent pas quand il est débranché.";
+"pm.drive.network" = "Ce dossier se trouve sur le disque réseau « %@ ». Le montage peut être lent et ses projets ne s'ouvrent pas si le serveur est inaccessible.";
+"pm.drive.unavailable" = "Le disque « %1$@ » n'est pas connecté. Les nouveaux projets sont enregistrés dans %2$@ jusqu'à ce que vous le rebranchiez.";
+"pm.drive.banner" = "Le disque « %1$@ » qui contient votre dossier d'enregistrement n'est pas connecté. Les nouveaux projets sont enregistrés dans %2$@ jusqu'à ce que vous le rebranchiez.";
+"pm.drive.openSettings" = "Paramètres";
+"pm.drive.projectOffline" = "Ce projet se trouve sur le disque « %@ », qui n'est pas connecté. Branchez-le et réessayez.";

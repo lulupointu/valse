@@ -15,6 +15,7 @@ public enum HomeSandbox {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         var domain = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
         domain[MontagePaths.draftsOverrideKey] = dir.appendingPathComponent("Drafts").path
+        domain[MontagePaths.defaultDraftsOverrideKey] = dir.appendingPathComponent("Drafts").path
         domain[MontagePaths.supportOverrideKey] = dir.appendingPathComponent("Support").path
         UserDefaults.standard.setVolatileDomain(domain, forName: UserDefaults.argumentDomain)
         isActive = true
@@ -41,6 +42,19 @@ extension AppModel {
         if parts.contains("crash"), let url = visibleEntries.first?.url {
             // a pid that can't be alive: the session "crashed"
             try? "99999999".write(to: url.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)
+        }
+        // PM-009: `extdrive` = the Save-to folder is on an external drive; `offlinedrive` = its drive isn't connected
+        if parts.contains("extdrive") {
+            let ext = MontagePaths.draftsDirectory.deletingLastPathComponent().appendingPathComponent("External SSD")
+            StorageLocation.testOverrides[ext.standardizedFileURL.path] = .external(name: "Montage SSD")
+            preferences.edit { $0.projectsDirectory = ext.path }
+        }
+        if parts.contains("offlinedrive") {
+            let off = "/Volumes/Montage Test Drive/Montage"
+            var domain = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
+            domain[MontagePaths.draftsOverrideKey] = off
+            UserDefaults.standard.setVolatileDomain(domain, forName: UserDefaults.argumentDomain)
+            preferences.edit { $0.projectsDirectory = off }
         }
         await refresh()
         if parts.contains("crash") { checkCrashRecovery() }

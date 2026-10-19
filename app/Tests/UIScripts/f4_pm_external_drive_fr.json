@@ -1,0 +1,12 @@
+// F4 PM-009 (fr): Save-to folder on an external drive → warning under Settings ▸ Project ▸ Enregistrer dans; no Home banner.
+{
+  "project": "home:2:extdrive",
+  "lang": "fr",
+  "steps": [
+    {"expect": {"path": "ui.anchors", "notContains": "home.driveBanner"}},
+    {"click": "id:home.top.settings"},
+    {"click": "id:settings.tab.project"},
+    {"expect": {"path": "ui.anchors", "contains": "settings.saveTo.warning"}},
+    {"snapshot": "f4-settings-drive-external-fr", "element": "id:settings"}
+  ]
+}
