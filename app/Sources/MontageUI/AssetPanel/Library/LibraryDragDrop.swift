@@ -63,13 +63,46 @@ extension EditorStore {
         return nil
     }
 
+    /// Track kind of the clip(s) a dragged media payload creates (`.audio` / `.video`), nil = not a media payload
+    /// (effects, stickers, text… keep the plain drop indicator). Drives the timeline placeholder (C3-1).
+    public func dropPreviewKind(_ payload: String) -> TrackKind? {
+        if let ids = DragPayload.parseMediaList(payload) {
+            let kinds = ids.compactMap { project.asset($0)?.kind }
+            if kinds.isEmpty { return nil }
+            return kinds.allSatisfy { $0 == .audio } ? .audio : .video
+        }
+        if case .media(let id)? = DragPayload.parse(payload) {
+            return project.asset(id).map { $0.kind == .audio ? .audio : .video }
+        }
+        if DragPayload.parseStock(payload) != nil { return .video }
+        if AudioLibraryPayload.dropDuration(payload, self) != nil { return .audio }
+        return nil
+    }
+
+    /// Name shown on the drop placeholder (first media's name), nil = none.
+    public func dropPreviewTitle(_ payload: String) -> String? {
+        let ids = DragPayload.parseMediaList(payload) ?? {
+            if case .media(let id)? = DragPayload.parse(payload) { return [id] }
+            return []
+        }()
+        guard let first = ids.first.flatMap({ project.asset($0) }) else { return nil }
+        return ids.count > 1 ? "\(first.name) +\(ids.count - 1)" : first.name
+    }
+
     /// Adds several bin media one after another starting at `time` (default: playhead), as one selection.
+    /// A "new track" target creates one lane for all of them (the next clips follow on it).
     public func addMediaToTimeline(_ ids: [MediaID], at time: Time? = nil, target: InsertTarget = .automatic) {
         var t = time ?? transport.playhead
         var added: Set<ClipID> = []
+        let createsLane: Bool = { if case .newTrack = target { return true }; if case .newTrackAbove = target { return true }; return false }()
+        var lane: [Bool: TrackID] = [:]   // audio? → lane created by this drop
         for id in ids {
-            guard let a = project.asset(id), let c = addToTimeline(id, at: t, target: target) else { continue }
+            guard let a = project.asset(id) else { continue }
+            let isAudio = a.kind == .audio
+            let tgt = createsLane ? (lane[isAudio].map { InsertTarget.track($0) } ?? target) : target
+            guard let c = addToTimeline(id, at: t, target: tgt) else { continue }
             added.insert(c)
+            if createsLane, lane[isAudio] == nil, let loc = project.timeline.locate(c) { lane[isAudio] = project.timeline.tracks[loc.track].id }
             t = (project.timeline.clip(c)?.end) ?? (t + a.defaultClipDuration)
         }
         if !added.isEmpty { selection = added }

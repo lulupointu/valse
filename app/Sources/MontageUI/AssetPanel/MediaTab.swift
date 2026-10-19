@@ -56,8 +56,10 @@ enum MediaLibraryItems {
     static func item(_ a: MediaAsset, store: EditorStore, used: Bool) -> LibraryItem {
         LibraryItem(id: favoriteID(a), title: a.name, keywords: [a.kind.rawValue, a.url.pathExtension],
                     badge: a.kind == .image ? nil : Timecode.shortDuration(a.duration),
-                    art: .async(key: "media.\(a.contentHash)", load: { await MediaThumbs.poster(a) },
-                                placeholder: a.kind == .audio ? "waveform" : "film"),
+                    art: a.kind == .audio
+                        ? .async(key: MediaThumbs.posterKey(a), load: { await MediaThumbs.poster(a) }, placeholder: "waveform")
+                        : .letterboxed(key: MediaThumbs.posterKey(a), load: { await MediaThumbs.poster(a) },
+                                       placeholder: a.kind == .image ? "photo" : "film"),
                     hoverFrames: a.kind == .video ? { await MediaThumbs.filmstrip(a, count: 10) } : nil,
                     payload: DragPayload.media(a.id), added: used,
                     add: { [weak store] in store?.addToTimeline(a.id) })
@@ -169,7 +171,7 @@ struct MediaBinView: View {
         let id = "media.\(a.id)"
         let url = a.url
         return LibraryItem(id: id, title: a.name, subtitle: "\(a.url.pathExtension.uppercased()) · \(Timecode.shortDuration(a.duration))",
-                           art: .async(key: "media.\(a.contentHash)", load: { await MediaThumbs.poster(a) }, placeholder: "waveform"),
+                           art: .async(key: MediaThumbs.posterKey(a), load: { await MediaThumbs.poster(a) }, placeholder: "waveform"),
                            payload: DragPayload.media(a.id), added: used, playing: LibraryAudioPreview.shared.playingID == id,
                            add: { [store] in store.addToTimeline(a.id) },
                            click: { LibraryAudioPreview.shared.toggle(id) { url } })
@@ -292,11 +294,20 @@ enum MediaSorting {
 /// Poster / filmstrip thumbnails of bin media (ThumbnailCache, waveform picture for audio).
 @MainActor
 enum MediaThumbs {
-    static let height = 96
+    /// Pixel height of media card pictures (poster + hover frames). Cards are drawn aspect-fit (letterboxed), so the
+    /// frame height is the tile height: tiles are ≤ ~140 pt tall, × 2 on Retina ⇒ 288 px stays sharp (C3-3; was 96 px
+    /// shown cropped-to-fill in a ~200 pt tile, i.e. upscaled ×4 and blurry).
+    static let height = 288
+    /// Small list-row thumbnails (54×36 pt).
+    static let rowHeight = 96
 
-    static func poster(_ a: MediaAsset) async -> CGImage? {
+    static func posterKey(_ a: MediaAsset, height: Int = height) -> String { "media.\(a.contentHash).\(height)" }
+
+    static func posterTime(_ a: MediaAsset) -> Time { a.kind == .video ? Time(min(1, a.duration.seconds * 0.1)) : .zero }
+
+    static func poster(_ a: MediaAsset, height: Int = height) async -> CGImage? {
         if a.kind == .audio { return await waveformImage(a) }
-        let t = a.kind == .video ? Time(min(1, a.duration.seconds * 0.1)) : .zero
+        let t = posterTime(a)
         if let c = ThumbnailCache.shared.cached(a, at: t, height: height) { return c }
         return await ThumbnailCache.shared.thumbnail(a, at: t, height: height)
     }
@@ -475,11 +486,11 @@ struct MediaCard: View {
                   double: { store.addToTimeline(asset.id) })
         .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
         .task(id: asset.contentHash) {
-            poster = LibraryArtCache.shared.get("media.\(asset.contentHash)")
+            poster = LibraryArtCache.shared.get(MediaThumbs.posterKey(asset))
             if poster != nil { return }
             try? await Task.sleep(for: .milliseconds(40))     // skip cards flying past in a fast scroll
             guard !Task.isCancelled, let img = await MediaThumbs.poster(asset) else { return }
-            LibraryArtCache.shared.set("media.\(asset.contentHash)", img)
+            LibraryArtCache.shared.set(MediaThumbs.posterKey(asset), img)
             poster = img
         }
     }
@@ -487,9 +498,11 @@ struct MediaCard: View {
 
     @ViewBuilder var picture: some View {
         ZStack {
-            Theme.inset
+            if asset.kind == .audio { Theme.inset } else { Color.black }   // letterbox (C3-3)
             if let img = scrub ?? poster {
-                Image(decorative: img, scale: 2).resizable().aspectRatio(contentMode: .fill)
+                // Whole frame visible (aspect-fit) like CapCut; audio waveform art still fills.
+                Image(decorative: img, scale: 2).resizable().interpolation(.high)
+                    .aspectRatio(contentMode: asset.kind == .audio ? .fill : .fit)
             } else {
                 Image(systemName: asset.kind == .audio ? "waveform" : (asset.kind == .image ? "photo" : "film"))
                     .font(.system(size: 20)).foregroundStyle(Theme.textTertiary)
@@ -544,8 +557,9 @@ struct MediaRow: View {
         HStack(spacing: 8) {
             Color.clear.frame(width: 54, height: 36)
                 .overlay {
-                    AsyncArt(key: "media.\(asset.contentHash)", load: { await MediaThumbs.poster(asset) },
-                             placeholder: asset.kind == .audio ? "waveform" : "film")
+                    AsyncArt(key: MediaThumbs.posterKey(asset, height: MediaThumbs.rowHeight),
+                             load: { await MediaThumbs.poster(asset, height: MediaThumbs.rowHeight) },
+                             placeholder: asset.kind == .audio ? "waveform" : "film", letterbox: asset.kind != .audio)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             VStack(alignment: .leading, spacing: 2) {

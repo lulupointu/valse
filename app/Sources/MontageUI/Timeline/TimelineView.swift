@@ -55,6 +55,8 @@ final class TimelineView: NSView {
         case fade(ClipID, fadeIn: Bool)
         case trackReorder(TrackID, y: CGFloat)
         case scrollbar(grab: CGFloat)
+        /// Clip volume line drag (C3-2): pointer y at mouse-down, the clip then.
+        case volume(ClipID, grabY: CGFloat, origin: Clip)
     }
     var drag: Drag = .none
     var snapIndex: SnapIndex?
@@ -63,8 +65,13 @@ final class TimelineView: NSView {
     var insertionSlot: Int?
     /// Length of the clip a library drag would create (drop ghost, W13).
     var dropGhost: Time?
+    /// Media drag placeholder + main-track ripple preview (C3-1).
+    var dropPlan: TimelineDropPlan?
+    var dropTitle: String?
     var hoverPoint: CGPoint?
     var hoverClip: ClipID?
+    /// Clip whose volume line is hovered (↕ cursor, brighter line).
+    var hoverVolumeClip: ClipID?
     var hoverTime: Time?
     /// Preview axis: playhead to restore when the mouse leaves.
     var previewAnchor: Time?
@@ -212,8 +219,9 @@ final class TimelineView: NSView {
             c.clip = CGRect(x: 0, y: 0, width: W, height: H)
             c.rect(CGRect(x: 0, y: 0, width: W, height: H), RGBA(hex: 0x1B1B1C))
             let r = Self.emptyLaneRect(viewSize: bounds.size)
-            c.rect(r, RGBA(1, 1, 1, dropIndicator != nil ? 0.07 : 0.025), radius: 6)
-            Self.dashedBorder(&c, r, color: dropIndicator != nil ? accent : RGBA(1, 1, 1, 0.2))
+            let dropping = dropIndicator != nil || dropPlan != nil
+            c.rect(r, RGBA(1, 1, 1, dropping ? 0.07 : 0.025), radius: 6)
+            Self.dashedBorder(&c, r, color: dropping ? accent : RGBA(1, 1, 1, 0.2))
             if let img = SymbolImages.image("film") {
                 c.image(img, in: CGRect(x: r.minX + 18, y: r.midY - 9, width: 18, height: 18), alpha: 0.75, fill: false)
             }
@@ -227,11 +235,13 @@ final class TimelineView: NSView {
         for row in l.rows {
             let track = tl.tracks[row.trackIndex]
             let dim: Double = track.isHidden ? 0.4 : 1
-            drawClips(&c, row: row, track: track, layout: l, dim: dim, ctx: ctx)
+            let ripple = row.isMain ? dropPlan?.rippleIndex : nil
+            if let ripple, let plan = dropPlan { drawRipplePreview(&c, row: row, track: track, layout: l, dim: dim, ctx: ctx, index: ripple, shift: plan.duration) }
+            else { drawClips(&c, row: row, track: track, layout: l, dim: dim, ctx: ctx) }
             // transitions straddling cuts
             let vis = track.clips(in: visible).indices
             track.clips.withUnsafeBufferPointer { clips in
-            for k in vis where clips[k].transitionOut != nil {
+            for k in vis where clips[k].transitionOut != nil && ripple == nil {
                 guard let r = l.transitionRect(clips[k], row: row) else { continue }
                 // Translucent block with a ⋈ bow-tie (UX.md §6.5, [96]); brighter on hover, outlined when selected.
                 let sel = ui.selectedTransition == clips[k].id
@@ -265,6 +275,7 @@ final class TimelineView: NSView {
         }
 
         // Drop indicator / snap line / insertion line / marquee
+        if let plan = dropPlan { drawDropPlaceholder(&c, plan, layout: l) }
         if let d = dropIndicator {
             let x = l.x(d.time)
             c.rect(CGRect(x: x - 1, y: TimelineLayout.rulerHeight, width: 2, height: H), accent)
@@ -597,6 +608,7 @@ final class TimelineView: NSView {
                 let sr = CGRect(x: r.minX, y: r.maxY - audioStrip, width: r.width, height: audioStrip)
                 c.rect(sr, RGBA(hex: 0x163A3F, alpha: alpha), radius: 0)
                 if !clip.audio.isMuted && store.project.timeline.isAudible(track) { drawWaveform(&c, clip, asset: asset, in: sr, layout: l, color: Theme.waveformOnVideo, scale: 0.9) }
+                if let va = volumeArea(clip, row: row, track: track, layout: l) { drawVolumeLine(&c, clip, area: va, layout: l, dim: dim) }   // C3-2
             }
         }
         // Waveform (audio clips)
@@ -604,9 +616,8 @@ final class TimelineView: NSView {
             let wr = CGRect(x: r.minX, y: r.minY + 16, width: r.width, height: r.height - 18)
             let scale = track.waveformScale ?? 0.3
             drawWaveform(&c, clip, asset: asset, in: wr, layout: l, color: Theme.waveform, scale: 0.7 * max(0.3, scale) / 0.3)
-            // volume line
-            let vy = wr.maxY - CGFloat(min(clip.audio.volume, 2) / 2) * wr.height
-            c.rect(CGRect(x: visL, y: vy, width: r.maxX - visL, height: 1), RGBA(1, 1, 1, 0.35))
+            // volume line (draggable, C3-2)
+            if let va = volumeArea(clip, row: row, track: track, layout: l) { drawVolumeLine(&c, clip, area: va, layout: l, dim: dim) }
             // fades
             if clip.audio.fadeIn > .zero {
                 let w = CGFloat(clip.audio.fadeIn.seconds * l.pixelsPerSecond)

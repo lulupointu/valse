@@ -164,6 +164,8 @@ public final class UITestDriver {
     private var metrics: [String: Double] = [:]
     private var report: [[String: Any]] = []
     private var warnings: [String] = []
+    /// Destination of a `"hold": true` drop (hovering, not dropped yet).
+    private var heldDropView: NSView?
     private let probe = TimelineFrameProbe()
     private var launchMs: Double = 0
 
@@ -346,7 +348,7 @@ public final class UITestDriver {
 
     // MARK: Steps
 
-    static let actions = ["click", "press", "doubleClick", "rightClick", "drag", "scroll", "hover", "key", "type", "menu", "drop", "wait",
+    static let actions = ["click", "press", "doubleClick", "rightClick", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit", "wait",
                           "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log"]
 
     static func describe(_ step: [String: Any]) -> String {
@@ -435,8 +437,14 @@ public final class UITestDriver {
             try performMenu(path)
             try await idle(settle: max(settle, 0.4))
         } else if let payload = step["drop"] {
-            try await drop(payload, on: try resolve(step["on"] ?? "id:timeline", step))
+            try await drop(payload, on: try resolve(step["on"] ?? "id:timeline", step), hold: (step["hold"] as? Bool) == true)
             try await idle(settle: max(settle, 0.4))
+        } else if step["dragExit"] != nil {
+            // the held drag (`"hold": true`) leaves the destination: cancels it
+            guard let v = heldDropView else { throw Failure("dragExit without a held drop") }
+            v.draggingExited(nil)
+            heldDropView = nil
+            try await idle(settle: settle)
         } else if let w = step["wait"] as? NSNumber {
             try await Task.sleep(for: .seconds(w.doubleValue))
         } else if step["idle"] != nil {
@@ -694,7 +702,9 @@ public final class UITestDriver {
 
     /// Simulated drag & drop: `{"media": 0 | "name"}`, `{"mediaList": [0, 1]}`, `{"effect": id}`, `{"transition": id}`,
     /// `{"sticker": id}`, `{"text": styleID}`, `{"string": "<raw payload>"}` or `{"files": [paths]}` dropped at a point.
-    private func drop(_ payload: Any, on p: CGPoint) async throws {
+    /// `"hold": true` stops after draggingEntered/Updated (the drag hovers there: state dump `ui.dropPreview`); a later
+    /// `drop` completes it elsewhere, `{"dragExit": true}` cancels it.
+    private func drop(_ payload: Any, on p: CGPoint, hold: Bool = false) async throws {
         guard let d = payload as? [String: Any] else { throw Failure("drop payload must be an object") }
         let pb = NSPasteboard(name: NSPasteboard.Name("com.montage.uitest.\(UUID().uuidString)"))
         defer { pb.releaseGlobally() }
@@ -724,6 +734,8 @@ public final class UITestDriver {
         let op = v.draggingEntered(info)
         _ = v.draggingUpdated(info)
         guard !op.isEmpty else { throw Failure("destination refused the drag") }
+        if hold { heldDropView = v; return }
+        heldDropView = nil
         guard v.prepareForDragOperation(info), v.performDragOperation(info) else { throw Failure("drop was not accepted") }
         v.concludeDragOperation(info)
     }

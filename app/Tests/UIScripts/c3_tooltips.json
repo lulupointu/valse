@@ -1,0 +1,7 @@
+// C3-4: hover tooltips appear after 0.4 s app-wide (AppKit's default is ~1 s), like CapCut.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": {"path": "ui.tooltipDelayMs", "equals": 400}}
+  ]
+}

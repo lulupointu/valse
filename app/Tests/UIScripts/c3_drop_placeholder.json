@@ -1,0 +1,46 @@
+// C3-1: dragging bin media over the timeline shows a grey placeholder of the clip's length where it will land (CapCut
+// [6]/[7]); on the main track the following clips are pushed aside live; at a lane boundary above main a new lane is
+// shown; leaving the timeline cancels; dropping commits exactly what was previewed. Video, audio and several media.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": [{"path": "main.clips.count", "equals": 3}, {"path": "media.count", "equals": 5}]},
+    // hover over the main track at 7 s: ripple insert before clip 1 (the nearest boundary)
+    {"drop": {"media": 0}, "on": "time:7@main", "hold": true},
+    {"expect": [{"path": "ui.dropPreview.placement", "equals": "main"}, {"path": "ui.dropPreview.index", "equals": 1},
+                {"path": "ui.dropPreview.duration", "approx": 6.0}, {"path": "main.clips.count", "equals": 3}]},
+    {"snapshot": "placeholder-main", "element": "id:panel.timeline"},
+    // just above the main track (lane boundary): a new overlay lane right above main
+    {"drop": {"media": 0}, "on": "time:3@main", "offset": [0, -40], "hold": true},
+    {"expect": [{"path": "ui.dropPreview.placement", "equals": "newLane"}]},
+    {"snapshot": "placeholder-new-lane", "element": "id:panel.timeline"},
+    // leaving the timeline cancels: nothing changed
+    {"dragExit": true},
+    {"expect": [{"path": "ui.dropPreview", "exists": false}, {"path": "main.clips.count", "equals": 3}, {"path": "tracks.count", "equals": 6}]},
+    // drop on the main track at 7 s: inserted at index 1, the rest rippled by 6 s
+    {"drop": {"media": 0}, "on": "time:7@main"},
+    {"expect": [{"path": "main.clips.count", "equals": 4}, {"path": "main.clips.1.duration", "approx": 6.0},
+                {"path": "selectedClips.0.index", "equals": 1}, {"path": "ui.dropPreview", "exists": false}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "main.clips.count", "equals": 3}},
+    // drop at the lane boundary above main: one new track
+    {"drop": {"media": 1}, "on": "time:3@main", "offset": [0, -40]},
+    {"expect": [{"path": "tracks.count", "equals": 7}, {"path": "main.clips.count", "equals": 3},
+                {"path": "selectedClips.0.start", "approx": 3.0, "tolerance": 0.2}]},
+    {"key": "cmd+z"},
+    // audio: the music lane is busy at 7 s → a new audio lane below
+    {"drop": {"media": 4}, "on": "time:7@main", "hold": true},
+    {"expect": [{"path": "ui.dropPreview.placement", "equals": "newLane"}, {"path": "ui.dropPreview.duration", "approx": 12.0}]},
+    {"snapshot": "placeholder-audio", "element": "id:panel.timeline"},
+    {"drop": {"media": 4}, "on": "time:7@main"},
+    {"expect": [{"path": "tracks.count", "equals": 7}, {"path": "tracks.-1.kind", "equals": "audio"}, {"path": "tracks.-1.clips.count", "equals": 1}]},
+    {"key": "cmd+z"},
+    // several media at once: one placeholder of the total length, both inserted in order on the main track
+    {"drop": {"mediaList": [0, 1]}, "on": "time:1@main", "hold": true},
+    {"expect": [{"path": "ui.dropPreview.placement", "equals": "main"}, {"path": "ui.dropPreview.index", "equals": 0},
+                {"path": "ui.dropPreview.duration", "approx": 11.0}]},
+    {"snapshot": "placeholder-multi", "element": "id:panel.timeline"},
+    {"drop": {"mediaList": [0, 1]}, "on": "time:1@main"},
+    {"expect": [{"path": "main.clips.count", "equals": 5}, {"path": "selectedClips.count", "equals": 2}, {"path": "main.clips.2.start", "approx": 11.0}]}
+  ]
+}

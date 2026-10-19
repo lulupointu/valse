@@ -46,6 +46,9 @@ extension TimelineView {
             }
         }
 
+        // clip volume line (C3-2), split tool excluded
+        if ui.tool != .split, !mods.contains(.command), beginVolumeDrag(pt, layout: l) { return }
+
         let hit = l.hitTest(pt, timeline: tl, selection: store.selection)
         switch hit {
         case .ruler:
@@ -232,6 +235,8 @@ extension TimelineView {
                 if fadeIn { p.timeline[clip: id]?.audio.fadeIn = v } else { p.timeline[clip: id]?.audio.fadeOut = v }
             }
             trimLabel = (pt.x, pt.y, Timecode.shortDuration(v))
+        case .volume(let id, let grabY, let origin):
+            updateVolumeDrag(id, grabY: grabY, origin: origin, at: pt, layout: l)
         case .trackReorder(let id, _):
             drag = .trackReorder(id, y: pt.y)
             insertionSlot = l.rowIndex(atY: pt.y).map { ri in
@@ -351,7 +356,7 @@ extension TimelineView {
         case .move(let m):
             store.endGesture()
             if m.duplicate, !duplicatedIDs.isEmpty { store.selection = Set(duplicatedIDs) }
-        case .trim, .roll, .slip, .transition, .keyframe, .marker, .fade:
+        case .trim, .roll, .slip, .transition, .keyframe, .marker, .fade, .volume:
             store.endGesture()
         case .trackReorder(let id, let y):
             guard let ri = l.rowIndex(atY: y) else { break }
@@ -380,10 +385,12 @@ extension TimelineView {
         hoverTime = pt.x > TimelineLayout.headerWidth && pt.y > TimelineLayout.rulerHeight ? l.time(atX: pt.x) : nil
         let hit = l.hitTest(pt, timeline: store.project.timeline, selection: store.selection)
         hoverClip = nil
+        hoverVolumeClip = ui.tool == .split ? nil : volumeLineHit(pt, layout: l)?.id
         switch hit {
         case .clip(let id, let region, _):
             hoverClip = id
             if ui.tool == .split { Self.bladeCursor.set() }
+            else if hoverVolumeClip != nil { NSCursor.resizeUpDown.set() }
             else if region != .body { NSCursor.resizeLeftRight.set() }
             else { NSCursor.arrow.set() }
         case .transition(_, let edge, _): (edge != nil ? NSCursor.resizeLeftRight : NSCursor.pointingHand).set()
@@ -402,7 +409,7 @@ extension TimelineView {
     }
 
     override func mouseExited(with event: NSEvent) {
-        hoverTime = nil; hoverPoint = nil; hoverClip = nil
+        hoverTime = nil; hoverPoint = nil; hoverClip = nil; hoverVolumeClip = nil
         if let a = previewAnchor { previewAnchor = nil; store.seek(to: a) }
         dirty = true
     }
@@ -496,8 +503,17 @@ extension TimelineView {
             if let cut { t = cut.end - (cut.transitionOut?.duration ?? .zero) / 2.0 }
             dropIndicator = (t, row ?? l.mainRowIndex)
         } else {
-            let s = l.snap(t, timeline: store.project.timeline, playhead: store.transport.playhead)
-            t = s.0
+            if snappingOn { t = l.snap(t, timeline: store.project.timeline, playhead: store.transport.playhead).0 }
+            // C3-1: media (video / image / audio, one or several): grey placeholder where it lands, main-track ripple.
+            if let s = sender.draggingPasteboard.string(forType: .string), let kind = store.dropPreviewKind(s),
+               let d = store.dropPreviewDuration(s), d > .zero {
+                dropPlan = TimelineDropPlan.plan(layout: l, timeline: store.project.timeline, point: pt, time: t, duration: d, kind: kind)
+                dropTitle = store.dropPreviewTitle(s)
+                dropIndicator = nil; insertionSlot = nil; dropGhost = nil
+                dirty = true
+                return .copy
+            }
+            dropPlan = nil
             insertionSlot = l.insertionSlot(atY: pt.y)
             dropIndicator = (t, insertionSlot == nil ? l.rowIndex(atY: pt.y) : nil)
         }
@@ -507,7 +523,11 @@ extension TimelineView {
         return .copy
     }
 
-    override func draggingExited(_ sender: (any NSDraggingInfo)?) { dropIndicator = nil; insertionSlot = nil; dropGhost = nil; dirty = true }
+    /// Leaving the timeline cancels the placeholder (C3-1).
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) { clearDropFeedback() }
+    override func draggingEnded(_ sender: any NSDraggingInfo) { clearDropFeedback() }
+
+    func clearDropFeedback() { dropIndicator = nil; insertionSlot = nil; dropGhost = nil; dropPlan = nil; dropTitle = nil; dirty = true }
 
     /// Cut a transition dragged at `pt` attaches to: a continuous cut on the hovered overlay video track (PiP, TR-004)
     /// within 40 pt, else the main-track cut nearest the cursor. Returns the left clip and its row.
@@ -527,12 +547,13 @@ extension TimelineView {
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        defer { dropIndicator = nil; insertionSlot = nil; dropGhost = nil; dirty = true }
+        let plan = dropPlan
+        defer { clearDropFeedback() }
         let pt = convert(sender.draggingLocation, from: nil)
         let l = layoutNow
-        let time = dropIndicator?.time ?? l.time(atX: pt.x)
+        let time = plan?.start ?? dropIndicator?.time ?? l.time(atX: pt.x)
         let hit = l.hitTest(pt, timeline: store.project.timeline)
-        let target = insertionSlot != nil ? InsertTarget.newTrack : insertTarget(hit, l)
+        let target = plan?.target ?? (insertionSlot != nil ? InsertTarget.newTrack : insertTarget(hit, l))
         let pb = sender.draggingPasteboard
         if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
             store.importFiles(urls, thenInsertAt: time, target: target)

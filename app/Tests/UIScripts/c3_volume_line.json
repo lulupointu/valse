@@ -1,0 +1,21 @@
+// C3-2: the volume line on a clip's audio area (CapCut [10]): drag it vertically to change the clip volume (dB
+// tooltip, ↕ cursor), one undo step, the inspector shows the new value.
+{
+  "project": "demo",
+  "steps": [
+    // music clip (track 5) at −6 dB: its line sits ~1 pt below the clip's centre
+    {"expect": {"path": "tracks.5.clips.0.volume", "approx": 0.5}},
+    {"drag": "clip:5/0:0.3", "offset": [0, 1], "by": [0, 4]},
+    {"expect": [{"path": "tracks.5.clips.0.volume", "approx": 0.1995, "tolerance": 0.01}, {"path": "undo.name", "equals": "cmd.volume"},
+                {"path": "tracks.5.clips.0.start", "approx": 0.0}, {"path": "selectedClips.0.track", "equals": 5}]},
+    {"snapshot": "volume-audio", "element": "id:panel.timeline"},
+    {"click": "id:inspector.tab.audioBasic"},
+    {"snapshot": "volume-inspector", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "tracks.5.clips.0.volume", "approx": 0.5}},
+    // main-track video: the line is in the audio strip under the filmstrip (0 dB = 12 pt above the clip bottom)
+    {"drag": "clip:main/1:0.5", "offset": [0, 26], "by": [0, 10]},
+    {"expect": [{"path": "main.clips.1.volume", "approx": 0.1, "tolerance": 0.01}, {"path": "undo.name", "equals": "cmd.volume"}]},
+    {"snapshot": "volume-main", "element": "id:panel.timeline"}
+  ]
+}

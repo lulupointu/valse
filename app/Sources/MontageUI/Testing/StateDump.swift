@@ -105,6 +105,17 @@ public enum StateDump {
         ui["guides"] = store.playerUI.guides.map { ["axis": $0.axis == .vertical ? "v" : "h", "position": $0.position] }   // PB-011
         ui["editingGuide"] = store.playerUI.editingGuide != nil
         ui["rulers"] = store.playerUI.showRulers
+        ui["tooltipDelayMs"] = Tooltips.currentDelayMilliseconds()   // C3: hover tooltip delay app-wide
+        if let plan = timeline?.dropPlan {   // C3-1 media drag placeholder
+            var d: [String: Any] = ["start": plan.start.seconds, "duration": plan.duration.seconds]
+            switch plan.placement {
+            case .main(let i): d["placement"] = "main"; d["index"] = i
+            case .lane(let r): d["placement"] = "lane"; d["row"] = r
+            case .newLane(let s): d["placement"] = "newLane"; d["slot"] = s
+            }
+            if let r = timeline.flatMap({ $0.placeholderRect(plan, layout: $0.layoutNow) }) { d["x"] = Double(r.minX); d["width"] = Double(r.width) }
+            ui["dropPreview"] = d
+        }
         ui["keystrokes"] = ["enabled": KeystrokeFeed.shared.enabled, "items": KeystrokeFeed.shared.items.map(\.text)]   // PB-015
         ui["previewAxis"] = ["on": store.timelineUI.previewAxis, "audio": store.timelineUI.previewAxisAudio]   // TL-031
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)

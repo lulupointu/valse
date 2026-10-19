@@ -8,7 +8,8 @@
     {"expect": {"path": "ui.inspectorTab", "equals": "audioBasic"}},
     {"click": "time:1@ruler"},
     {"click": "clip:5/0"},
-    {"drag": "clip:5/0", "by": [40, 0]},
+    // grab below the volume line (C3-2), which sits near the clip's centre
+    {"drag": "clip:5/0", "offset": [0, 14], "by": [40, 0]},
     {"expect": {"path": "selection.count", "equals": 1}},
     {"key": "delete"},
     {"expect": [{"path": "selection.count", "equals": 0}, {"path": "undo.name", "equals": "cmd.delete"}]},

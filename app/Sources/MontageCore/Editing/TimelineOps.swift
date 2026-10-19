@@ -52,6 +52,9 @@ public enum InsertTarget: Equatable, Sendable {
     case track(TrackID)
     /// Create a new track of the clip's kind above every existing visual track (or below audio).
     case newTrack
+    /// Create a new track of the clip's kind directly above this track's lane (audio: appended below). Timeline drops
+    /// at a lane boundary (C3).
+    case newTrackAbove(TrackID)
 }
 
 /// Pure timeline editing operations on `Timeline` (and `Project` where media is needed).
@@ -111,6 +114,8 @@ public enum TimelineOps {
             }
         case .newTrack:
             tid = addTrack(kind, to: &tl)
+        case .newTrackAbove(let ref):
+            tid = addTrack(kind, to: &tl, above: kind == .audio ? nil : tl.trackIndex(ref))
         }
         let ti = tl.trackIndex(tid)!
         var c = clip
@@ -410,7 +415,7 @@ public enum TimelineOps {
     }
 
     /// Index at which a clip dropped at time `t` goes on a magnetic track (nearest cut).
-    static func magneticIndex(for t: Time, in track: Track, excluding: ClipID? = nil) -> Int {
+    public static func magneticIndex(for t: Time, in track: Track, excluding: ClipID? = nil) -> Int {
         var idx = 0
         for c in track.clips where c.id != excluding {
             if c.start + c.duration / 2.0 <= t { idx += 1 }

@@ -1,0 +1,10 @@
+// C3-3: media cards show the whole frame (aspect-fit, letterboxed on black) at Retina resolution.
+{
+  "project": "demo-bin",
+  "settle": 2.5,
+  "steps": [
+    {"expect": {"path": "media.count", "equals": 5}},
+    {"wait": 1.5},
+    {"snapshot": "media-cards", "element": "id:panel.assets"}
+  ]
+}

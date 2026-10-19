@@ -62,6 +62,8 @@ enum LibraryArt {
     case cover([RGBA], symbol: String)
     /// Loaded lazily (cached by key) when the card scrolls into view.
     case async(key: String, load: () async -> CGImage?, placeholder: String = "photo", fit: Bool = false)
+    /// Video / photo frame: whole frame visible, letterboxed on black in the tile (CapCut media cards, C3-3).
+    case letterboxed(key: String, load: () async -> CGImage?, placeholder: String = "film")
 }
 
 struct LibrarySection: Identifiable {
@@ -534,7 +536,8 @@ struct LibraryArtView: View {
             if hoverFrames != nil, !frames.isEmpty {
                 SwiftUI.TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
                     let i = Int(ctx.date.timeIntervalSinceReferenceDate * 10) % frames.count
-                    Image(decorative: frames[i], scale: 2).resizable().aspectRatio(contentMode: .fill)
+                    Image(decorative: frames[i], scale: 2).resizable().interpolation(.high)
+                        .aspectRatio(contentMode: letterboxed ? .fit : .fill)
                 }
             }
         }
@@ -544,6 +547,8 @@ struct LibraryArtView: View {
             if !Task.isCancelled { frames = f }
         }
     }
+
+    var letterboxed: Bool { if case .letterboxed = art { return true }; return false }
 
     @ViewBuilder var base: some View {
         switch art {
@@ -564,6 +569,8 @@ struct LibraryArtView: View {
             }
         case .async(let key, let load, let placeholder, let fit):
             AsyncArt(key: key, load: load, placeholder: placeholder, fit: fit)
+        case .letterboxed(let key, let load, let placeholder):
+            AsyncArt(key: key, load: load, placeholder: placeholder, letterbox: true)
         }
     }
 }
@@ -574,13 +581,16 @@ struct AsyncArt: View {
     let load: () async -> CGImage?
     let placeholder: String
     var fit = false
+    /// Aspect-fit on black, no inset (media frames).
+    var letterbox = false
     @State private var image: CGImage?
 
     var body: some View {
         ZStack {
-            Theme.inset
+            if letterbox { Color.black } else { Theme.inset }
             if let img = image ?? LibraryArtCache.shared.get(key) {
-                Image(decorative: img, scale: 2).resizable().aspectRatio(contentMode: fit ? .fit : .fill).padding(fit ? 6 : 0)
+                Image(decorative: img, scale: 2).resizable().interpolation(.high)
+                    .aspectRatio(contentMode: fit || letterbox ? .fit : .fill).padding(fit ? 6 : 0)
             } else {
                 Image(systemName: placeholder).font(.system(size: 18)).foregroundStyle(Theme.textTertiary)
             }
