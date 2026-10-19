@@ -128,6 +128,8 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             .separator(),
             item("menu.import", id: "menu.import", enabled: { [unowned self] in self.inEditor }) { [unowned self] in self.importMedia() },
             item("menu.importProject", id: "menu.importProject") { [unowned self] in self.app.importProjectPanel() },
+            reg("recordScreen"),
+            ed("record.menu.camera") { $0.openRecorder(.camera) },
             .separator(),
             item("menu.save", id: "menu.save", enabled: { [unowned self] in self.inEditor }) { [unowned self] in
                 self.store.save(); self.store.showToast(tr("toast.saved"))

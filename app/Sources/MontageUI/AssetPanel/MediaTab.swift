@@ -256,6 +256,7 @@ struct MediaBinView: View {
         .contentShape(Rectangle())
         .onTapGesture { ImportPanel.run(store) }
         .testID("media.dropzone")
+        .safeAreaInset(edge: .bottom) { if kinds.contains(.video) { RecordTools(store: store) } }
     }
 }
 

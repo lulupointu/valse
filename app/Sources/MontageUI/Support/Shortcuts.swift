@@ -92,7 +92,7 @@ public enum ShortcutRegistry {
         Shortcut("snapping", "shortcut.snapping", .char("n")) { $0.setOption(.snapping(!$0.project.timeline.snapping)) },
         Shortcut("selectAll", "shortcut.selectAll", .char("a"), .command) { $0.selectAll() },
         Shortcut("deselect", "shortcut.deselect", .char("x"), .option) { $0.deselectAll() },
-    ] + TimelineShortcuts.all + KeyframeShortcuts.all + AIShortcuts.all
+    ] + TimelineShortcuts.all + KeyframeShortcuts.all + AIShortcuts.all + RecordingShortcuts.all
 
     static func key(for e: NSEvent) -> Shortcut.Key? {
         switch e.keyCode {

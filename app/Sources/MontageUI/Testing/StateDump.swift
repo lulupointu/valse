@@ -102,6 +102,7 @@ public enum StateDump {
         if let k = store.timelineUI.selectedKeyframe { ui["selectedKeyframe"] = ["key": k.key, "time": k.time.seconds] as [String: Any] }
         ui["keyframePanel"] = store.keyframeUI.showsPanel
         ui["assets"] = AssetStateDump.make(store)   // W13 asset panel
+        ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)
         // background jobs (AI, proxies…): `{"waitFor": {"path": "ui.activeJobs", "equals": 0}}` waits for them

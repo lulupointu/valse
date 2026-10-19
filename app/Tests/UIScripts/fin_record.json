@@ -1,0 +1,34 @@
+// Finisher MI-015 / MI-017: Record screen from the empty Media tab and ⇧⌘R; permissions are sandboxed ("not
+// determined", never a real prompt): Allow → denied flow with Open System Settings; options (cursor, camera + track
+// layout, microphone); camera mode; Record camera from the File menu; Start stays disabled without permission.
+{
+  "project": "empty",
+  "steps": [
+    {"idle": 1},
+    {"snapshot": "media-record-tools", "element": "id:panel.assets"},
+    {"click": "id:media.record.screen"},
+    {"expect": [{"path": "ui.recorder.open", "equals": true}, {"path": "ui.recorder.mode", "equals": "screen"},
+                {"path": "ui.recorder.missing", "equals": "screen"}, {"path": "ui.recorder.canStart", "equals": false},
+                {"path": "ui.anchors", "contains": "record.allow"}]},
+    {"click": "id:settings.switch.record.camera"},
+    {"click": "id:settings.radio.record.single"},
+    {"expect": [{"path": "ui.recorder.camera", "equals": true}, {"path": "ui.recorder.layout", "equals": "single"}]},
+    {"snapshot": "record-setup", "element": "id:record.dialog"},
+    {"click": "id:record.allow"},
+    {"waitFor": {"path": "ui.recorder.permissions.screen", "equals": "denied", "timeout": 3}},
+    {"expect": {"path": "ui.anchors", "contains": "record.openSettings"}},
+    {"snapshot": "record-denied", "element": "id:record.dialog"},
+    {"click": "id:dialog.ok"},
+    {"expect": {"path": "ui.recorder.phase", "equals": "setup"}},
+    {"click": "id:dialog.cancel"},
+    {"expect": {"path": "ui.recorder.open", "equals": false}},
+    {"key": "cmd+shift+r"},
+    {"expect": [{"path": "ui.recorder.open", "equals": true}, {"path": "ui.recorder.mode", "equals": "screen"}]},
+    {"click": "id:dialog.close"},
+    {"menu": "menu.file/record.menu.camera"},
+    {"expect": [{"path": "ui.recorder.mode", "equals": "camera"}, {"path": "ui.recorder.missing", "equals": "camera"}]},
+    {"snapshot": "record-camera", "element": "id:record.dialog"},
+    {"key": "escape"},
+    {"expect": {"path": "ui.recorder.open", "equals": false}}
+  ]
+}

@@ -70,6 +70,10 @@ public struct EditorView: View {
             if store.isExportSheetPresented { ExportModal(store: store) }
         }
         .overlay {
+            // MI-015 / MI-017 screen & camera recorder: in-window modal like Export
+            if let m = RecordingUI.shared.model { RecorderModal(store: store, model: m) }
+        }
+        .overlay {
             // W1 cover editor (main-track "Cover" button, TL-045): in-window modal like Export
             if let m = store.timelineUI.coverEditor { CoverEditorModal(store: store, model: m) }
         }
