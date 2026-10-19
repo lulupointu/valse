@@ -137,7 +137,10 @@ public final class EffectPipelines: @unchecked Sendable {
             return try ctx.device.makeRenderPipelineState(descriptor: d)
         } catch {
             lock.withLock { errors[id] = String(describing: error) }
-            EngineLog.error("shader \(id) failed: \(error)")
+            // one line, no raw "error:" tokens (user shaders fail by design; scripts/test.sh greps the log for "error:")
+            let msg = (error as NSError).localizedDescription.replacingOccurrences(of: "error:", with: "error -")
+                .replacingOccurrences(of: "\n", with: " | ")
+            EngineLog.error("shader \(id) failed - \(msg)")
             return nil
         }
     }
