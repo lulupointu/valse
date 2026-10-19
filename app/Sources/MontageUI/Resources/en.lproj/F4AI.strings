@@ -1,0 +1,5 @@
+/* F4 finisher — AI rows (AI-028 CLIP search, AI-002 lyrics, AI-006 TTS styles). */
+"model.clip" = "CLIP (smart search)";
+"model.clip.desc" = "Finds media from a description of what is in the picture, like \"a dog on the beach\".";
+"f4ai.clip.offer" = "Describe a scene to find it (\"sunset over the sea\"): download the smart search model.";
+"captions.phase.separating" = "Separating vocals…";

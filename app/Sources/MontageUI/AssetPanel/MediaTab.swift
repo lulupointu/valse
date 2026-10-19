@@ -24,7 +24,8 @@ struct MediaTab: View {
                                id == "subprojects" ? AnyView(SubprojectsView(store: store))   // TL-022
                                    : AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID))
                            },
-                           yoursGroup: tr("asset.nav.yours"))
+                           yoursGroup: tr("asset.nav.yours"),
+                           header: { ClipSearchBanner(store: store) })   // AI-028: free-text search model offer
             // The library search also drives the AI smart search (AI-028): content / on-screen text / dialogue matches.
             .onChange(of: AssetPanelState.shared.query[tabID] ?? "") { _, q in store.setMediaQuery(q) }
         } else {

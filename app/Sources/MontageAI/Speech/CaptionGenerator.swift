@@ -32,7 +32,7 @@ public struct CaptionOptions: Sendable, Equatable {
 
 /// Progress phases shown by the captions sheet ("Generating captions…" → "Splitting captions…" → "Adding caption clips").
 public enum CaptionPhase: String, Sendable {
-    case extracting, transcribing, splitting, speakers, adding
+    case extracting, separating, transcribing, splitting, speakers, adding
     public var titleKey: String { "captions.phase.\(rawValue)" }
 }
 
@@ -80,23 +80,35 @@ public enum CaptionGenerator {
         let keepFillers = o.settings.identifyFillers || o.settings.removeFillers
         for (asset, range) in jobs {
             try Task.checkCancellation()
-            let key = TranscriptStore.key(hash: asset.contentHash, range: range, language: o.language, engine: o.engine, fillers: keepFillers)
+            // Auto lyrics (AI-002): recognise the separated vocals, not the band
+            let lyricsMethod = o.lyrics ? LyricsVocals.preferred : nil
+            var key = TranscriptStore.key(hash: asset.contentHash, range: range, language: o.language, engine: o.engine, fillers: keepFillers)
+            if let m = lyricsMethod { key += LyricsVocals.cacheSuffix(m) }
             let frac = range.duration.seconds / max(total, 0.001)
             let t: Transcript
             if let cached = TranscriptStore.shared.get(key) {
                 t = cached
             } else {
                 phase?(.extracting)
-                let wav = try await AudioExtractor.wav16k(PlayableURL.resolve(asset), range: range)
+                var source = PlayableURL.resolve(asset)
+                if let m = lyricsMethod, m != .none {
+                    phase?(.separating)   // AI-002 "Separating vocals…"
+                    let base = done
+                    let v = try await LyricsVocals.vocals(asset, method: m) { f in progress?(0.05 + 0.85 * (base + 0.5 * f * frac)) }
+                    if let u = v.url { source = u }
+                }
+                let wav = try await AudioExtractor.wav16k(source, range: range)
                 defer { try? FileManager.default.removeItem(at: wav) }
                 if AudioExtractor.isSilent(wav) {
                     t = Transcript(engine: "silence", language: o.language ?? "", words: [])
                 } else {
                     phase?(.transcribing)
-                    let base = done
+                    // with vocal separation the transcription is the second half of this range's progress
+                    let sep = (lyricsMethod ?? .none) == .none ? 0.0 : 0.5
+                    let base = done + sep * frac
                     let r = try await Transcriber.transcribe(
                         wav: wav, request: .init(language: o.language, engine: o.engine, keepFillers: keepFillers)) { f in
-                            progress?(0.05 + 0.85 * (base + f * frac))
+                            progress?(0.05 + 0.85 * (base + (1 - sep) * f * frac))
                         }
                     t = r.shifted(by: range.start.seconds)
                 }

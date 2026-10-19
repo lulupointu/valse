@@ -17,6 +17,21 @@ public final class MediaIndex: @unchecked Sendable {
     public struct Entry: Codable, Sendable {
         public var labels: [String: Float]
         public var text: String
+        /// CLIP image embeddings of the sampled frames (Float32, `ClipEmbedder.dimension` each), when the CLIP model
+        /// was installed at indexing time (AI-028 free-text search).
+        public var clipData: Data?
+
+        public var clipFrames: [[Float]]? {
+            guard let d = clipData, !d.isEmpty else { return nil }
+            let all: [Float] = d.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+            let n = ClipEmbedder.dimension
+            guard all.count >= n else { return nil }
+            return stride(from: 0, to: all.count - n + 1, by: n).map { Array(all[$0..<$0 + n]) }
+        }
+
+        static func pack(_ frames: [[Float]]) -> Data? {
+            frames.isEmpty ? nil : frames.flatMap { $0 }.withUnsafeBufferPointer { Data(buffer: $0) }
+        }
     }
 
     let directory = MontagePaths.cacheDirectory.appendingPathComponent("mediaindex", isDirectory: true)
@@ -32,11 +47,16 @@ public final class MediaIndex: @unchecked Sendable {
         return e
     }
 
-    public func isIndexed(_ a: MediaAsset) -> Bool { a.kind == .audio || entry(a) != nil }
+    public func isIndexed(_ a: MediaAsset) -> Bool {
+        guard a.kind != .audio, let e = entry(a) else { return a.kind == .audio }
+        // entries made before the CLIP model was installed get their embeddings added
+        return e.clipData != nil || !ClipEmbedder.isInstalled
+    }
 
     /// Analyses one media (no-op when cached).
     public func index(_ a: MediaAsset) async throws {
-        guard a.kind != .audio, entry(a) == nil else { return }
+        guard a.kind != .audio, !isIndexed(a) else { return }
+        let existing = entry(a)
         var images: [CGImage] = []
         if a.kind == .image {
             if let s = CGImageSourceCreateWithURL(a.url as CFURL, nil),
@@ -48,22 +68,94 @@ public final class MediaIndex: @unchecked Sendable {
                 if let i = try? await g.image(at: CMTime(seconds: a.duration.seconds * f, preferredTimescale: 600)).image { images.append(i) }
             }
         }
-        var labels: [String: Float] = [:], texts: [String] = []
+        var labels: [String: Float] = [:], texts: [String] = [], clips: [[Float]] = []
         for img in images {
             try Task.checkCancellation()
-            let cls = VNClassifyImageRequest()
-            let txt = VNRecognizeTextRequest(); txt.recognitionLanguages = ["fr-FR", "en-US"]; txt.recognitionLevel = .fast
-            try VNImageRequestHandler(cgImage: img).perform([cls, txt])
-            for o in cls.results ?? [] where o.confidence > 0.2 { labels[o.identifier] = max(labels[o.identifier] ?? 0, o.confidence) }
-            texts += (txt.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+            if existing == nil {
+                let cls = VNClassifyImageRequest()
+                let txt = VNRecognizeTextRequest(); txt.recognitionLanguages = ["fr-FR", "en-US"]; txt.recognitionLevel = .fast
+                try VNImageRequestHandler(cgImage: img).perform([cls, txt])
+                for o in cls.results ?? [] where o.confidence > 0.2 { labels[o.identifier] = max(labels[o.identifier] ?? 0, o.confidence) }
+                texts += (txt.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+            }
+            if ClipEmbedder.isInstalled, let v = try? ClipEmbedder.shared.embed(image: img) { clips.append(v) }
         }
-        let e = Entry(labels: labels, text: texts.joined(separator: " "))
+        var e = existing ?? Entry(labels: labels, text: texts.joined(separator: " "))
+        e.clipData = Entry.pack(clips)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try JSONEncoder().encode(e).write(to: url(a.contentHash), options: .atomic)
         lock.withLock { entries[a.contentHash] = e }
     }
 
     // MARK: Search
+
+    /// CLIP relevance of each media (its best frame) for a query embedding: 0 unless the similarity is both
+    /// plausible in absolute terms (≥ `minSimilarity`) and close to the best media of the set (CLIP similarities are
+    /// only meaningful relative to each other). Maps a typical match (cos ≈ 0.26) to ≈ 1.
+    public static let minSimilarity: Float = 0.18
+    public static let relativeMargin: Float = 0.035
+    public static func clipRelevance(query: [Float], embeddings: [[[Float]]?]) -> [Double] {
+        let sims: [Float?] = embeddings.map { frames in frames.flatMap { $0.map { ClipEmbedder.cosine(query, $0) }.max() } }
+        let best = sims.compactMap { $0 }.max() ?? 0
+        return sims.map { s in
+            guard let s, s >= minSimilarity, s >= best - relativeMargin else { return 0 }
+            return Double(s - 0.14) * 8
+        }
+    }
+
+    private var clipQueries: [String: [Float]] = [:]
+
+    /// CLIP's zero-shot prompt template ("a photo of …") — it lifts matching similarities by ≈ 0.02–0.05.
+    static func clipPrompt(_ q: String) -> String {
+        let t = q.trimmingCharacters(in: .whitespacesAndNewlines)
+        let l = t.lowercased()
+        return l.hasPrefix("a photo") || l.hasPrefix("a picture") || l.hasPrefix("an image") ? t : "a photo of \(t)"
+    }
+
+    /// Cached CLIP embedding of a query (nil until `prepareClipQuery` ran, or when CLIP isn't installed).
+    public func clipQuery(_ q: String) -> [Float]? { lock.withLock { clipQueries[q.lowercased()] } }
+
+    /// Embeds a query off the main thread (first call loads the CLIP models, ~1 s). True when an embedding is ready.
+    @discardableResult
+    public func prepareClipQuery(_ q: String) async -> Bool {
+        guard ClipEmbedder.isInstalled, !q.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        if clipQuery(q) != nil { return true }
+        // prompt ensemble: the raw words + the zero-shot template (footage is photos, graphics / screenshots aren't)
+        let prompts = Array(Set([q, Self.clipPrompt(q)]))
+        let v: [Float]? = await withCheckedContinuation { c in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let es = prompts.compactMap { try? ClipEmbedder.shared.embed(text: $0) }
+                guard !es.isEmpty else { c.resume(returning: nil); return }
+                var m = [Float](repeating: 0, count: es[0].count)
+                for e in es { for i in m.indices { m[i] += e[i] } }
+                let len = max(m.reduce(0) { $0 + $1 * $1 }.squareRoot(), 1e-9)
+                c.resume(returning: m.map { $0 / len })
+            }
+        }
+        guard let v else { return false }
+        lock.withLock { clipQueries[q.lowercased()] = v }
+        return true
+    }
+
+    /// Media matching a smart search, best first: Vision labels / on-screen text / dialogue / names (`score`) plus
+    /// CLIP free-text similarity when the model is installed. `english` = the query translated to English (CLIP's
+    /// language); the CLIP query must have been prepared (`prepareClipQuery`) — synchronous callers (the UI) never
+    /// run the model.
+    public func search(_ items: [MediaAsset], query: String, english: String?) -> [MediaAsset] {
+        let base = items.map { score($0, query: query, english: english) }
+        var clip = [Double](repeating: 0, count: items.count)
+        if let qv = clipQuery(english ?? query) ?? clipQuery(query) {
+            clip = Self.clipRelevance(query: qv, embeddings: items.map { $0.kind == .audio ? nil : entry($0)?.clipFrames })
+        }
+        return items.indices.map { (items[$0], max(base[$0], clip[$0])) }
+            .filter { $0.1 > 0.3 }.sorted { $0.1 > $1.1 }.map(\.0)
+    }
+
+    /// Async convenience (tests, EditPilot): prepares the CLIP query, then searches.
+    public func find(_ items: [MediaAsset], query: String, english: String?) async -> [MediaAsset] {
+        await prepareClipQuery(english ?? query)
+        return search(items, query: query, english: english)
+    }
 
     static func norm(_ s: String) -> String {
         s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).replacingOccurrences(of: "_", with: " ")

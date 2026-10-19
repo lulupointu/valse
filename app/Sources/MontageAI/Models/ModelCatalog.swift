@@ -132,12 +132,41 @@ public enum ModelCatalog {
         return s
     }()
 
+    /// CLIP ViT-B/32 (OpenCLIP, DataComp-1B, MIT) as two compiled Core ML models + the CLIP BPE vocabulary, ~300 MB:
+    /// free-text smart media search (AI-028) — "a dog on the beach", "sunset over the sea". Images are embedded once
+    /// per media (3 frames, cached in the media index); a query costs one text-encoder pass (~10 ms).
+    public static let clip: AIModelSpec = {
+        let rev = "https://huggingface.co/InspiratioNULL/CLIP-VIT-B-32-DataComp.XL-CoreML/resolve/b2f82c6a9d42abae0c6e2211332037bbd5122c55/"
+        func part(_ p: String, _ bytes: Int64, _ sha: String) -> AIModelSpec.Part {
+            AIModelSpec.Part(path: p, url: URL(string: rev + p)!, bytes: bytes, sha256: sha)
+        }
+        let parts = [
+            part("CLIP_ImageEncoder.mlmodelc/weights/weight.bin", 175_709_312, "aa215c95d527ea6508f368b70329299ffd387d23a193adc891dd971f1d268b56"),
+            part("CLIP_ImageEncoder.mlmodelc/model.mil", 201_781, "06c6dc3ca679d9c66441230d23abc54b76c9442eaee35b6ece0cf0f5b67a95a2"),
+            part("CLIP_ImageEncoder.mlmodelc/metadata.json", 2100, "ff41fdda7c2a02e16c4142757a331ff99138c2c05ca32e5ba4ecfb4a04759ac9"),
+            part("CLIP_ImageEncoder.mlmodelc/coremldata.bin", 472, "68a77b743ee02d373e0f0a152d5146ea1eb9860a9c81b1979576a99972a9dcc2"),
+            part("CLIP_ImageEncoder.mlmodelc/analytics/coremldata.bin", 243, "9d4292a5186e1d7b5fee66d202e904b13f8036e3a19fb7b91444478b0bf997ea"),
+            part("CLIP_TextEncoder.mlmodelc/weights/weight.bin", 126_878_848, "3fa0dfd9975b5e10a37e3cd8cc4a563d28be2eeb7fc84e575ba74c0136176a01"),
+            part("CLIP_TextEncoder.mlmodelc/model.mil", 197_123, "58ca3815f654a44de9b36ae107b20266aec1463ec2134109bce2267264e1c1fc"),
+            part("CLIP_TextEncoder.mlmodelc/metadata.json", 2111, "6d28e82797c18f495bfdb21773503b04b0ad4e54fe5fe20b6f57259e9332c0cd"),
+            part("CLIP_TextEncoder.mlmodelc/coremldata.bin", 478, "1ea6f6dfb60c6f0f8d80c2e06500b1bf6a835a114aad66094dc4bf097f238935"),
+            part("CLIP_TextEncoder.mlmodelc/analytics/coremldata.bin", 243, "c1c58c2cf62ade0826a10b4441c8bb7e4fcd64a0fe5db2ed2d0a77cb8c6bbc0c"),
+            part("vocab.json", 862_328, "5047b556ce86ccaf6aa22b3ffccfc52d391ea4accdab9c2f2407da5b742d4363"),
+            part("merges.txt", 524_657, "f526393189112391ce6f9795d4695f704121ce452c3aad1f5335cc41337eba85"),
+        ]
+        var s = AIModelSpec(id: "coreml.clip-vit-b32", kind: .coreML, nameKey: "model.clip", descriptionKey: "model.clip.desc",
+                            fileName: "CLIP-ViT-B-32-DataComp", url: parts[0].url, bytes: parts.reduce(0) { $0 + $1.bytes },
+                            sha256: parts[0].sha256, license: "MIT", runtimeMB: 450)
+        s.parts = parts
+        return s
+    }()
+
     /// Package directory of the installed depth model.
     public static var installedDepthPackage: URL? {
         installedURL(depthAnything) == nil ? nil : modelsDirectory.appendingPathComponent("DepthAnythingV2SmallF16.mlpackage", isDirectory: true)
     }
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding, depthAnything]
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding, depthAnything, clip]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
     /// Set by the UI test driver: scripts see an empty sandboxed models folder (deterministic "not installed" UX) unless

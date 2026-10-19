@@ -20,18 +20,63 @@ struct SmartSearchField: View {
     }
 }
 
+/// Media ▸ search, while a query is typed and the CLIP model isn't installed (AI-028): one line offering free-text
+/// search ("Describe a scene — a dog on the beach") with the shared download / progress controls. Disappears once
+/// installed, then the bin is re-indexed with image embeddings and the query re-run.
+struct ClipSearchBanner: View {
+    let store: EditorStore
+    var body: some View {
+        let mm = ModelManager.shared
+        let _ = mm.states
+        let state = mm.state(ModelCatalog.clip)
+        VStack(spacing: 0) {
+            if !store.ai.mediaQuery.trimmingCharacters(in: .whitespaces).isEmpty && !state.isInstalled {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "sparkle.magnifyingglass").foregroundStyle(Theme.accent)
+                        HintText(text: tr("f4ai.clip.offer"))
+                    }
+                    ModelStateControls(spec: ModelCatalog.clip)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                .padding(.horizontal, 12).padding(.top, 8)
+                .testID("media.clipOffer")
+            }
+        }
+        .onChange(of: state.isInstalled) { _, ok in
+            guard ok else { return }
+            store.indexMediaIfNeeded()
+            store.prepareClipSearch(store.ai.mediaQuery)
+        }
+    }
+}
+
 extension EditorStore {
     func setMediaQuery(_ q: String) {
         ai.mediaQuery = q
         ai.mediaQueryEN = nil
         guard !q.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         indexMediaIfNeeded()
+        prepareClipSearch(q)
         if L10n.shared.language != "en" {
             let lang = L10n.shared.language
             Task {
                 let r = try? await CaptionTranslator.translate([(0, q)], from: lang, to: "en")
-                if ai.mediaQuery == q { ai.mediaQueryEN = r?[0] }
+                if ai.mediaQuery == q {
+                    ai.mediaQueryEN = r?[0]
+                    if let en = r?[0] { prepareClipSearch(en) }
+                }
             }
+        }
+    }
+
+    /// AI-028: embeds the query with CLIP off the main thread (free-text search), then refreshes the results.
+    func prepareClipSearch(_ q: String) {
+        guard ClipEmbedder.isInstalled else { return }
+        Task {
+            if await MediaIndex.shared.prepareClipQuery(q), !ai.mediaQuery.isEmpty { ai.mediaIndexRevision += 1 }
         }
     }
 
@@ -59,6 +104,6 @@ extension EditorStore {
         guard !q.isEmpty else { return nil }
         _ = ai.mediaIndexRevision
         let en = ai.mediaQueryEN
-        return items.map { ($0, MediaIndex.shared.score($0, query: q, english: en)) }.filter { $0.1 > 0.3 }.sorted { $0.1 > $1.1 }.map(\.0)
+        return MediaIndex.shared.search(items, query: q, english: en)
     }
 }

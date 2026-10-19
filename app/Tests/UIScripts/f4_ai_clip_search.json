@@ -1,0 +1,21 @@
+// F4 AI-028: free-text smart search with the CLIP model: three imported pictures (puppy, car, pizza); "a dog playing
+// on the grass" finds only the puppy, "something to eat" only the pizza — no Vision label / file name has these words.
+{
+  "project": "empty",
+  "requires": {"models": ["coreml.clip-vit-b32"]},
+  "steps": [
+    {"drop": {"files": ["fixtures/clip/puppy.jpg", "fixtures/clip/car.jpg", "fixtures/clip/pizza.jpg"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "media.count", "equals": 3, "timeout": 20}},
+    {"click": "id:asset.search"},
+    {"type": "a dog playing on the grass"},
+    {"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 60}},
+    {"wait": 1.5},
+    {"dump": "dog"},
+    {"snapshot": "clip-dog", "element": "id:panel.assets"},
+    {"expect": [{"path": "ui.assets.count.media", "equals": 1}, {"path": "ui.anchors", "notContains": "media.clipOffer"}]},
+    {"type": "something to eat", "replace": true},
+    {"wait": 2.0},
+    {"snapshot": "clip-food", "element": "id:panel.assets"},
+    {"expect": {"path": "ui.assets.count.media", "equals": 1}}
+  ]
+}

@@ -1,0 +1,13 @@
+// F4 AI-028: Media ▸ search without the CLIP model: typing a description offers the free-text search model
+// (download pill with its size); the Vision-label / name results still show.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.search"},
+    {"type": "a dog on the beach"},
+    {"wait": 1.0},
+    {"expect": [{"path": "ui.anchors", "contains": "media.clipOffer"}, {"path": "ui.anchors", "contains": "model.download.coreml.clip-vit-b32"},
+                {"path": "ui.models.coreml_clip-vit-b32", "equals": "notInstalled"}]},
+    {"snapshot": "clip-offer", "element": "id:panel.assets", "baseline": "f4_ai_clip_offer", "tolerance": 0.02, "threshold": 32}
+  ]
+}
