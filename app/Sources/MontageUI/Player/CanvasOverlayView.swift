@@ -704,13 +704,18 @@ final class CanvasOverlayView: NSView {
                 let r = CanvasDrag.rotated(r0, center: layer.geometry.center, start: start, current: p, snapping: snapping)
                 angleLabel = r
                 apply(id) { $0.setValue(.rotation, .scalar(r), at: local) }
-            case .edge:
+            case .edge(let edge):
+                // TX-011: one side by default (opposite edge fixed), ⌥ = from the centre
                 let sx = abs(base.value(.scale, at: local)?.vec2?.x ?? 1)
-                let w = CanvasHandles.textBoxWidth(layer.geometry, dragTo: p, layerScale: sx, canvasWidth: canvas.width)
+                let r = CanvasHandles.textBoxResize(layer.geometry, edge: edge, dragTo: p, fromCenter: e.modifierFlags.contains(.option),
+                                                    layerScale: sx, canvasWidth: canvas.width)
+                let pos = base.value(.position, at: local)?.vec2 ?? .zero
+                let np = CanvasDrag.moved(pos, by: r.shift, canvas: canvas)
                 apply(id) { c in
                     guard case .text(var t) = c.content else { return }
-                    t.boxWidth = w
+                    t.boxWidth = r.width
                     c.content = .text(t)
+                    c.setValue(.position, .vec2(np), at: local)
                 }
             case .delete:
                 break

@@ -1,0 +1,18 @@
+// TX-011: dragging a text box's right pill resizes from one side (the left edge stays, the box moves left by half the
+// change); with ⌥ it resizes from the centre (the position doesn't move). One undo step each.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "player:0.5,0.726"},
+    {"expect": [{"path": "selectedClips.0.kind", "equals": "text"}, {"path": "selectedClips.0.positionX", "approx": 0, "tolerance": 0.01}]},
+    {"drag": "player:0.645,0.726", "by": [-40, 0]},
+    {"expect": [{"path": "selectedClips.0.boxWidth", "gt": 0.05}, {"path": "selectedClips.0.positionX", "lt": -0.01},
+                {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "one-side", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"drag": "player:0.645,0.726", "by": [-40, 0], "modifiers": ["opt"]},
+    {"expect": [{"path": "selectedClips.0.boxWidth", "gt": 0.05}, {"path": "selectedClips.0.positionX", "approx": 0, "tolerance": 0.005}]},
+    {"snapshot": "from-centre", "element": "id:panel.player"}
+  ]
+}

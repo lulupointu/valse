@@ -155,6 +155,24 @@ nonisolated enum CanvasHandles {
         let lx = abs(d.x * cos(g.rotation) + d.y * sin(g.rotation))
         return min(max(2 * lx / max(abs(layerScale), 0.01) / max(canvasWidth, 1), 0.03), 4)
     }
+
+    /// TX-011 (F3): dragging edge pill `edge` (1 right, 3 left). Default = one-side resize (the opposite edge stays put, so
+    /// the box centre moves by half the change); ⌥ = resize from the centre (CapCut "Resize the text box from the center").
+    /// Returns the new `boxWidth` (fraction of the canvas width) and the centre shift in canvas px.
+    static func textBoxResize(_ g: LayerGeometry, edge: Int, dragTo p: Vec2, fromCenter: Bool, layerScale: Double,
+                              canvasWidth: Double) -> (width: Double, shift: Vec2) {
+        if fromCenter { return (textBoxWidth(g, dragTo: p, layerScale: layerScale, canvasWidth: canvasWidth), .zero) }
+        let axis = Vec2(cos(g.rotation), sin(g.rotation))
+        let side: Double = edge == 3 ? -1 : 1
+        let fixed = g.center - axis * (side * abs(g.halfSize.x))         // the edge that stays
+        let d = p - fixed
+        let reach = max(side * (d.x * axis.x + d.y * axis.y), 0)        // drag distance along the box, outward
+        let scale = max(abs(layerScale), 0.01)
+        let width = min(max(reach / scale / max(canvasWidth, 1), 0.03), 4)
+        let newHalf = width * max(canvasWidth, 1) * scale / 2
+        let newCenter = fixed + axis * (side * newHalf)
+        return (width, newCenter - g.center)
+    }
 }
 
 /// A snap line drawn across the whole canvas (canvas pixels).
