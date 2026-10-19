@@ -1,0 +1,24 @@
+// AU-004: ⌘. / ⌘, = Volume +0.1 dB / −0.1 dB on the selected clip with sound (−6.0 dB → −5.9 → −6.1), a toast shows the
+// new level, one undo step per press. AU-016: right-click ▸ "Sync video and audio" on two clips with sound runs the sync job.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:5/0"},
+    {"expect": {"path": "selectedClips.0.volume", "approx": 0.5}},
+    {"key": "cmd+."},
+    {"expect": [{"path": "selectedClips.0.volume", "approx": 0.50699, "tolerance": 0.0005}, {"path": "undo.name", "equals": "cmd.volume"},
+                {"path": "ui.toast", "contains": "−5.9 dB"}]},
+    {"key": "cmd+,", "repeat": 2},
+    {"expect": [{"path": "selectedClips.0.volume", "approx": 0.49545, "tolerance": 0.0005}, {"path": "undo.depth", "equals": 3}]},
+    {"snapshot": "volume-toast"},
+    {"key": "cmd+z", "repeat": 3},
+    {"expect": {"path": "selectedClips.0.volume", "approx": 0.5}},
+    {"select": ["clip:main/0", "clip:5/0"]},
+    {"rightClick": "clip:5/0", "menuItem": "tlmenu.syncAudio"},
+    {"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 30}},
+    {"wait": 0.5},
+    {"expect": {"path": "ui.toast", "exists": true}},
+    {"dump": "after-sync"},
+    {"snapshot": "after-sync", "element": "id:panel.timeline"}
+  ]
+}

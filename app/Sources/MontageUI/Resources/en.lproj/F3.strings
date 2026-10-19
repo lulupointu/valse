@@ -3,3 +3,7 @@
 "text.stroke.position.outside" = "Outside";
 "text.stroke.position.center" = "Center";
 "text.stroke.position.inside" = "Inside";
+"shortcut.volumeUp" = "Volume +0.1 dB";
+"shortcut.volumeDown" = "Volume −0.1 dB";
+"audio.volume.toast" = "Volume: %@";
+"audio.sync.done" = "Synced %d clip(s) to the first clip's sound";

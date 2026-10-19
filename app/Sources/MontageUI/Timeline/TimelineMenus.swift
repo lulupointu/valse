@@ -116,7 +116,7 @@ extension TimelineView {
                  })),
             item(hasExtract ? "tlmenu.restoreAudio" : "tlmenu.extractAudio", "s", [.control, .shift],
                  enabled: hasExtract || (isVideo && asset?.hasAudio == true && single?.audio.isMuted == false)) { s.extractOrRestoreAudio() },
-            item("tlmenu.syncAudio", enabled: false) {},
+            item("tlmenu.syncAudio", enabled: s.audioClips.count >= 2) { s.syncSelectedAudio() },   // AU-016 (F3)
             .separator(),
             item("tlmenu.compound", "g", .option, enabled: !clips.isEmpty) { s.createCompound() },
             item("tlmenu.uncompound", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {

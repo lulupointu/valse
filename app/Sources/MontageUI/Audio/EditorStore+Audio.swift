@@ -105,6 +105,7 @@ extension EditorStore {
             perform(Edit("cmd.syncAudio") { p in
                 for (id, t) in targets { _ = try TimelineOps.move(id, to: t, in: &p.timeline) }
             })
+            showToast(tr("audio.sync.done", targets.count))
         }
     }
 

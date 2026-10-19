@@ -212,6 +212,10 @@ public final class Keymap {
                                               "cancelEyedropper", "exitPreview", "closeRecorder", "exitCompound"])
         .union((1...9).map { "multicamAngle\($0)" })
 
+    /// Pairs that share a default key on purpose: the shortcut is only enabled in a context where the menu command
+    /// isn't meant (⌘, = Volume −0.1 dB while a clip with sound is selected, Settings… otherwise; CapCut AU-004).
+    static let sharedBindings: [Set<String>] = [["volumeDown", "menu.settings"]]
+
     static let playerIDs: Set<String> = ["playPause", "playerFullscreen", "exitPlayerFullscreen", "playerZoomIn", "playerZoomOut",
                                          "playerZoomFit", "rulers", "guides", "shuttleBack", "shuttleStop", "shuttleForward",
                                          "nudgeUp", "nudgeDown", "nudgeUpMany", "nudgeDownMany"]
@@ -287,6 +291,7 @@ public final class Keymap {
         let aliases = Self.aliasPrimaries()
         return entries.filter { e in
             guard e.id != id else { return false }
+            if Self.sharedBindings.contains([id, e.id]) { return false }
             if binding(for: e.id) == b { return true }
             // an alias of e holding the binding counts as e
             return aliases.contains { $0.value == e.id && $0.key != id && binding(for: $0.key) == b }
