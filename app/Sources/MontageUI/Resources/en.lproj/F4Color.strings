@@ -1,0 +1,10 @@
+/* F4: smart brush (CL-012), brush mask tracking (MK-004), colour card (CL-028), HDR conversion (CL-014) */
+"mask.brush.smart" = "Smart brush";
+"mask.smart.hint" = "Brush over an object in the player: the whole object is selected.";
+"mask.smart.busy" = "Selecting object…";
+"mask.smart.none" = "No object found under the brush. Try Quick brush.";
+"cmd.maskSmartBrush" = "Smart brush";
+"cmd.maskTrackRemove" = "Remove mask tracking";
+"mask.propagated" = "Tracked through the clip (%d shapes)";
+"mask.propagated.remove" = "Remove tracking";
+"maskTrack.brushHint" = "The painted area is followed frame by frame: its shape follows the object.";

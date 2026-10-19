@@ -3,6 +3,7 @@ import AppKit
 import Observation
 import MontageCore
 import MontageEngine
+import MontageAI
 
 /// Brush mask painting (CL-012 Adjust mask "Quick brush" / "Quick eraser"): while the tool is on, a drag on the player
 /// paints (or erases) a round stroke into the selected brush mask — one undo step per stroke. Brush size and mode are
@@ -14,7 +15,15 @@ final class MaskBrushState {
     /// 1…100 (100 = a brush a quarter of the layer height in radius).
     var size: Double = 30
     var erase = false
+    /// Smart brush (CL-012): a stroke selects the whole object(s) under it (Vision instance / person segmentation).
+    var smart = false
+    /// A smart-brush selection is being computed.
+    var busy = false
     var radius: Double { max(size, 1) / 100 * 0.25 }
+    var mode: String {
+        get { erase ? "erase" : (smart ? "smart" : "brush") }
+        set { erase = newValue == "erase"; smart = newValue == "smart" }
+    }
 }
 
 /// Canvas ↔ mask-box mapping of a brush mask over a layer (pure, unit-tested).
@@ -66,10 +75,40 @@ final class MaskBrushTool: CanvasTool {
         let stroke = MaskStroke(points: current.map { MaskBrushMapping.boxPoint($0, layer: g, mask: m) },
                                 radius: st.radius, erase: st.erase)
         let t = target
+        if st.smart && !st.erase && c.mediaID != nil {
+            smartStroke(stroke, clip: c, mask: m)
+            return
+        }
         store.perform(UpdateClip(clipID, nameKey: st.erase ? "cmd.maskErase" : "cmd.maskBrush") { c in
             let prev = c[keyPath: t.mask]?.strokes ?? []
             c[keyPath: t.mask]?.strokes = prev + [stroke]
+            c[keyPath: t.mask]?.propagation = nil   // painted again: the tracked shape is stale (Track mask again)
         })
+    }
+
+    /// Smart brush (CL-012): the object(s) under the stroke on this frame become a filled region of the mask.
+    func smartStroke(_ stroke: MaskStroke, clip c: Clip, mask m: Mask) {
+        guard let store, !MaskBrushState.shared.busy else { return }
+        let project = store.project, id = clipID, t = target
+        let source = c.sourceTime(at: store.transport.playhead.clamped(c.start, c.end - Time(ticks: 1)))
+        let rot = c.mediaID.flatMap(project.asset)?.sourceRotation ?? 0
+        MaskBrushState.shared.busy = true
+        Task { @MainActor in
+            defer { MaskBrushState.shared.busy = false }
+            do {
+                let raw = try await SmartMask.smartRegion(project: project, clipID: id, mask: t.mask, stroke: stroke, source: source)
+                let region = MaskContours.rawToBox(raw, mask: m, clip: c, rotation: rot)
+                var picked = stroke; picked.region = region
+                let s = picked
+                store.perform(UpdateClip(id, nameKey: "cmd.maskSmartBrush") { c in
+                    let prev = c[keyPath: t.mask]?.strokes ?? []
+                    c[keyPath: t.mask]?.strokes = prev + [s]
+                    c[keyPath: t.mask]?.propagation = nil
+                })
+            } catch {
+                store.showToast(tr("mask.smart.none"), error: true)
+            }
+        }
     }
     func hover(at p: Vec2?) { hover = p; revision += 1 }
 
@@ -121,8 +160,11 @@ struct MaskBrushControls: View {
         let st = MaskBrushState.shared
         let painting = store.maskBrushTool?.clipID == clip.id
         VStack(alignment: .leading, spacing: 4) {
-            SegmentedTabs([("brush", tr("mask.brush.paint")), ("erase", tr("mask.brush.erase"))],
-                          selection: Binding(get: { st.erase ? "erase" : "brush" }, set: { st.erase = $0 == "erase" }))
+            // Smart brush needs a frame to segment: media clips only (not adjustment / effect layers)
+            let tabs: [(id: String, title: String)] = clip.mediaID != nil
+                ? [("brush", tr("mask.brush.paint")), ("smart", tr("mask.brush.smart")), ("erase", tr("mask.brush.erase"))]
+                : [("brush", tr("mask.brush.paint")), ("erase", tr("mask.brush.erase"))]
+            SegmentedTabs(tabs, selection: Binding(get: { clip.mediaID == nil && st.smart ? "brush" : st.mode }, set: { st.mode = $0 }))
                 .testID("mask.brush.mode")
             SliderRow(tr("mask.brush.size"), range: 1...100, display: { String(Int($0.rounded())) }, testID: "slider.mask.brush.size",
                       get: { st.size }, set: { st.size = $0 }, onBegin: {}, onEnd: {})
@@ -139,10 +181,16 @@ struct MaskBrushControls: View {
                 }
                 .buttonStyle(.plain)
                 .testID("mask.brush.start")
+                if st.busy {
+                    ProgressView().controlSize(.small).testID("mask.smart.busy")
+                    Text(loc: "mask.smart.busy").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                }
                 if strokes > 0 {
                     Button {
                         let t = target
-                        store.perform(UpdateClip(clip.id, nameKey: "cmd.maskErase") { $0[keyPath: t.mask]?.strokes = [] })
+                        store.perform(UpdateClip(clip.id, nameKey: "cmd.maskErase") {
+                            $0[keyPath: t.mask]?.strokes = []; $0[keyPath: t.mask]?.propagation = nil
+                        })
                     } label: {
                         Text(loc: "mask.brush.clear").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                     }
@@ -150,7 +198,21 @@ struct MaskBrushControls: View {
                     .testID("mask.brush.clear")
                 }
             }
-            if strokes == 0 { HintText(text: tr("mask.brush.hint")) }
+            if let p = clip[keyPath: target.mask]?.propagation, !p.samples.isEmpty {
+                // MK-004: the painted region follows the object through the clip
+                HStack(spacing: 6) {
+                    Image(systemName: "scope").font(.system(size: 11)).foregroundStyle(Theme.accent)
+                    Text(verbatim: tr("mask.propagated", p.samples.count)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        .testID("mask.propagated")
+                    Button {
+                        let t = target
+                        store.perform(UpdateClip(clip.id, nameKey: "cmd.maskTrackRemove") { $0[keyPath: t.mask]?.propagation = nil })
+                    } label: { Text(loc: "mask.propagated.remove").font(.system(size: 11)).foregroundStyle(Theme.textTertiary) }
+                    .buttonStyle(.plain).testID("mask.propagated.remove")
+                }
+            }
+            if strokes == 0 { HintText(text: tr(st.smart && clip.mediaID != nil ? "mask.smart.hint" : "mask.brush.hint")) }
+            else if st.smart && clip.mediaID != nil { HintText(text: tr("mask.smart.hint")) }
         }
         .padding(.bottom, 6)
     }

@@ -1,0 +1,10 @@
+/* F4 : pinceau intelligent (CL-012), suivi du masque pinceau (MK-004), charte de couleurs (CL-028), conversion HDR (CL-014) */
+"mask.brush.smart" = "Pinceau intelligent";
+"mask.smart.hint" = "Passez le pinceau sur un objet dans le lecteur : l'objet entier est sélectionné.";
+"mask.smart.busy" = "Sélection de l'objet…";
+"mask.smart.none" = "Aucun objet trouvé sous le pinceau. Essayez le pinceau rapide.";
+"cmd.maskSmartBrush" = "Pinceau intelligent";
+"cmd.maskTrackRemove" = "Supprimer le suivi du masque";
+"mask.propagated" = "Suivi sur tout le clip (%d formes)";
+"mask.propagated.remove" = "Supprimer le suivi";
+"maskTrack.brushHint" = "La zone peinte est suivie image par image : sa forme suit l'objet.";

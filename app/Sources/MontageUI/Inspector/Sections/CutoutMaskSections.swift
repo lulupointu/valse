@@ -370,8 +370,9 @@ struct MaskShapesSection: View {
                 .testID("mask.pen.draw")
             }
             TileGrid {
-                // Brush (CL-012 Quick brush / eraser) is an Adjust / effect-layer mask shape
-                ForEach(MaskShape.allCases.filter { $0 != .brush || target.index == 0 }, id: \.self) { s in
+                // Brush (CL-012 Quick / Smart brush, eraser): Adjust / effect-layer masks, and clip masks of media clips
+                // (MK-004 custom brush mask tracking)
+                ForEach(MaskShape.allCases.filter { $0 != .brush || target.index == 0 || ctx.clip?.mediaID != nil }, id: \.self) { s in
                     Tile(title: tr(s.nameKey), selected: mask?.shape == s) { setShape(s) } content: {
                         Image(systemName: Self.symbol(s)).font(.system(size: 24, weight: .light)).foregroundStyle(Color(white: 0.85))
                     }

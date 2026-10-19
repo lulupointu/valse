@@ -229,6 +229,9 @@ public struct Mask: Hashable, Codable, Sendable {
     public var points: [Vec2]?
     /// Brush mask: painted / erased strokes in paint order (mask-box units).
     public var strokes: [MaskStroke]?
+    /// Brush mask tracked through the clip (MK-004): the region's shape per source frame; when set it replaces the
+    /// strokes at render time (`Mask.atSource`).
+    public var propagation: MaskPropagation?
     public init(shape: MaskShape, center: Vec2 = .zero, size: Vec2 = Vec2(0.5, 0.5), rotation: Double = 0,
                 feather: Double = 0, roundness: Double = 0, inverted: Bool = false) {
         self.shape = shape; self.center = center; self.size = size; self.rotation = rotation
@@ -248,7 +251,12 @@ public struct MaskStroke: Hashable, Codable, Sendable {
     public var points: [Vec2]
     public var radius: Double
     public var erase: Bool
-    public init(points: [Vec2], radius: Double, erase: Bool = false) { self.points = points; self.radius = radius; self.erase = erase }
+    /// Smart brush (CL-012): the object picked under the stroke as filled closed contours (mask-box units, even-odd
+    /// fill, so holes stay holes). Drawn instead of the polyline when set.
+    public var region: [[Vec2]]?
+    public init(points: [Vec2], radius: Double, erase: Bool = false, region: [[Vec2]]? = nil) {
+        self.points = points; self.radius = radius; self.erase = erase; self.region = region
+    }
 }
 
 /// Parameter value of an effect / transition / animation.

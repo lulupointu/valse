@@ -46,7 +46,7 @@ struct MaskTrackingSection: View {
                         .testID("maskTrack.start.\(targetID)")
                 }
             }
-            HintText(text: tr("maskTrack.hint"))
+            HintText(text: tr(ctx.clip?[keyPath: target.resolved(ctx.clip).mask]?.shape == .brush ? "maskTrack.brushHint" : "maskTrack.hint"))
         }
     }
 
@@ -61,11 +61,18 @@ struct MaskTrackingSection: View {
         let source = clip.sourceTime(at: store.transport.playhead.clamped(clip.start, clip.end - Time(ticks: 1)))
         let dir = MaskTrackUI.shared.direction
         let t = target.resolved(clip), id = clip.id
+        let brush = clip[keyPath: t.mask]?.shape == .brush
         let box = CommandBox()
         Task {
             let job = await JobQueue.shared.enqueue(titleKey: "maskTrack.job", priority: 1, subject: id.description) { progress in
-                box.command = try await MaskTrackingJob.run(project: project, clipID: id, mask: t.mask, center: t.center, size: t.size,
-                                                            from: source, direction: dir) { progress.report($0) }
+                if brush {
+                    // MK-004: a brushed region is segmented and propagated frame by frame (shape follows the object)
+                    box.command = try await SmartMask.propagate(project: project, clipID: id, mask: t.mask, center: t.center, size: t.size,
+                                                                from: source, direction: dir) { progress.report($0) }
+                } else {
+                    box.command = try await MaskTrackingJob.run(project: project, clipID: id, mask: t.mask, center: t.center, size: t.size,
+                                                                from: source, direction: dir) { progress.report($0) }
+                }
             }
             MaskTrackUI.shared.jobs[key] = job
             let st = await JobQueue.shared.wait(job)

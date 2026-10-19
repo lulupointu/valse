@@ -54,7 +54,18 @@ public final class RasterMasks: @unchecked Sendable {
         case .brush:
             // painted region: strokes in order, erase strokes paint black (round caps / joins)
             ctx.setLineCap(.round); ctx.setLineJoin(.round)
-            for st in m.strokes ?? [] where !st.points.isEmpty {
+            for st in m.strokes ?? [] {
+                if let region = st.region {
+                    // smart brush / tracked shape (CL-012, MK-004): filled contours, holes by even-odd
+                    let path = CGMutablePath()
+                    for c in region where c.count >= 3 {
+                        path.addLines(between: c.map { CGPoint(x: CGFloat($0.x) * bw, y: CGFloat($0.y) * bh) }); path.closeSubpath()
+                    }
+                    ctx.setFillColor(gray: st.erase ? 0 : 1, alpha: 1)
+                    ctx.addPath(path); ctx.fillPath(using: .evenOdd)
+                    continue
+                }
+                guard !st.points.isEmpty else { continue }
                 ctx.setStrokeColor(gray: st.erase ? 0 : 1, alpha: 1)
                 ctx.setLineWidth(CGFloat(max(st.radius, 0.001) * 2 * Double(h)))
                 let pts = st.points.map { CGPoint(x: CGFloat($0.x) * bw, y: CGFloat($0.y) * bh) }

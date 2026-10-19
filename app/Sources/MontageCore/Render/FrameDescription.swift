@@ -298,8 +298,14 @@ public enum FrameEvaluator {
                                  localTime: local)
         l.matte = r.matte
         l.adjustMask = r.adjustMask
+        // tracked brush masks (MK-004): the shape of this source frame
+        if r.mask?.propagation != nil || r.adjustMask?.propagation != nil || r.extraMasks?.contains(where: { $0.propagation != nil }) == true {
+            let s = c.sourceTime(at: t).seconds
+            l.mask = r.mask?.atSource(s); l.adjustMask = r.adjustMask?.atSource(s)
+            if r.mask != nil, let extra = r.extraMasks { l.extraMasks = extra.map { $0.atSource(s) } }
+        }
         l.skinProtect = c.skinToneProtection ?? false
-        if r.mask != nil, let extra = r.extraMasks { l.extraMasks = extra }
+        if r.mask != nil, let extra = r.extraMasks, l.extraMasks.isEmpty { l.extraMasks = extra }
         if case .sticker = c.content { l.shapeStyle = r.shapeStyle }
         l.stabilization = r.stabilization
         if let rl = c.relight, c.mediaID != nil { l.relight = rl.resolved(at: local.seconds) }
