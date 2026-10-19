@@ -1,0 +1,13 @@
+// AU-019: timeline waveforms draw two layers — the peak envelope (translucent) behind the RMS body (solid), clipping peaks
+// orange — on audio clips and on video clips' audio strip; Track ⋯ ▸ Audio waveform 100 % makes it taller.
+{
+  "project": "demo",
+  "steps": [
+    {"wait": 1.0},
+    {"wait": 0.5},
+    {"rightClick": "header:5/more", "menuItem": "track.waveform/100 %"},
+    {"expect": {"path": "undo.depth", "equals": 1}},
+    {"wait": 0.5},
+    {"snapshot": "waveforms", "element": "id:panel.timeline"}
+  ]
+}

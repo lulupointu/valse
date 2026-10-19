@@ -73,6 +73,27 @@ import MontageTestSupport
     }
 }
 
+/// AU-019 peak + RMS waveform cache.
+@Suite struct F3WaveformTests {
+    @Test func sineHasRmsAboutPeakOverRootTwo() async throws {
+        let url = try await TestMedia.video(.solid(.black), seconds: 1, size: CGSize(width: 64, height: 36), audioHz: 440)
+        let w = try await Task.detached { try await WaveformCache.compute(url) }.value
+        #expect(w.rms.count == w.peaks.count && w.peaks.count >= 95)
+        let pk = w.peak(from: 0.2, to: 0.8), rm = w.rmsLevel(from: 0.2, to: 0.8)
+        #expect(pk > 0.05)
+        #expect(abs(rm / pk - 1 / 2.0.squareRoot()) < 0.1, "rms \(rm) peak \(pk)")
+        // file round trip
+        let back = try #require(Waveform(data: w.data))
+        #expect(back.peaks == w.peaks && back.rms == w.rms)
+    }
+
+    @Test func rmsLevelAveragesEnergy() {
+        let w = Waveform(peaks: [255, 255, 255, 255], rms: [255, 0, 255, 0])
+        #expect(abs(w.rmsLevel(from: 0, to: 0.04) - (0.5).squareRoot()) < 1e-9)
+        #expect(Waveform(peaks: [200]).rmsLevel(from: 0, to: 0.01) > 0)   // legacy peaks-only fallback
+    }
+}
+
 /// MI-008 proxy creation rules.
 @Suite struct F3ProxyTests {
     func video(_ w: Double, _ h: Double) -> MediaAsset {

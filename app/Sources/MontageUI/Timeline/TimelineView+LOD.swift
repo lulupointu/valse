@@ -215,7 +215,7 @@ extension TimelineView {
         let mid = wr.midY
         let step: CGFloat = 2
         let dt = Double(step) / l.pixelsPerSecond
-        let hot = RGBA(hex: 0xE5934A)
+        let hot = RGBA(hex: 0xE5934A), soft = RGBA(color.r, color.g, color.b, 0.45)   // AU-019 peak layer
         var x = max(wr.minX, TimelineLayout.headerWidth)
         let xEnd = min(wr.maxX, bounds.width)
         var t0 = l.time(atX: x).seconds
@@ -232,8 +232,10 @@ extension TimelineView {
             guard let w = a.wave else { continue }
             let s0 = s.source(at: t0), s1 = s.source(at: t0 + dt)
             let amp = w.peak(from: min(s0, s1), to: max(s0, s1)) * s.volume * scale
-            let h = max(1, min(wr.height, CGFloat(amp) * wr.height))
-            c.rect(CGRect(x: x, y: mid - h / 2, width: step - 0.5, height: h), amp > 0.95 ? hot : color)
+            let rm = w.rmsLevel(from: min(s0, s1), to: max(s0, s1)) * s.volume * scale
+            let h = max(1, min(wr.height, CGFloat(amp) * wr.height)), hr = max(1, min(wr.height, CGFloat(rm) * wr.height))
+            c.rect(CGRect(x: x, y: mid - h / 2, width: step - 0.5, height: h), amp > 0.95 ? hot : soft)
+            c.rect(CGRect(x: x, y: mid - hr / 2, width: step - 0.5, height: hr), color)
         }
     }
 }

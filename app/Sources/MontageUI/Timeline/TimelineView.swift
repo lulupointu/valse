@@ -765,9 +765,12 @@ final class TimelineView: NSView {
         var x = max(wr.minX, TimelineLayout.headerWidth)
         while x < min(wr.maxX, bounds.width) {
             let t0 = clip.sourceTime(at: l.time(atX: x)).seconds, t1 = clip.sourceTime(at: l.time(atX: x + step)).seconds
+            // AU-019: peak (translucent) behind RMS (solid), clipping peaks orange
             let a = CGFloat(w.peak(from: min(t0, t1), to: max(t0, t1))) * clip.audio.volume * scale
-            let h = max(1, min(wr.height, a * wr.height))
-            c.rect(CGRect(x: x, y: mid - h / 2, width: step - 0.5, height: h), a > 0.95 ? RGBA(hex: 0xE5934A) : color)
+            let rm = CGFloat(w.rmsLevel(from: min(t0, t1), to: max(t0, t1))) * clip.audio.volume * scale
+            let h = max(1, min(wr.height, a * wr.height)), hr = max(1, min(wr.height, rm * wr.height))
+            c.rect(CGRect(x: x, y: mid - h / 2, width: step - 0.5, height: h), a > 0.95 ? RGBA(hex: 0xE5934A) : RGBA(color.r, color.g, color.b, 0.45))
+            c.rect(CGRect(x: x, y: mid - hr / 2, width: step - 0.5, height: hr), color)
             x += step
         }
     }
