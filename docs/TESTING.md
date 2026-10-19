@@ -73,6 +73,8 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
   search, AI writer, EditPilot, clipper / shorts (`MONTAGE_QA_LONG_VIDEO`, ≥ 60 s), audio clean-up levels through the export
   mix, stabilize, slow-mo; rendered frames / WAVs go to `MONTAGE_QA_OUT` (default a temp folder) — look at them. Use COPIES
   of real footage; results of the 2026-10-19 pass are in docs/STATUS.md ("AI QA results").
+  `MONTAGE_ENHANCE_LOG=1` (tests or the app) prints where an Enhance quality / denoise / deflicker pass spent its time
+  (decode / filter / scale / encode, real-time factor).
 
 **Environment-independent results.** Settings/library are sandboxed; in UI tests the cache-size readouts are fixed
 (`SettingsView.uitestCacheSizes`, "clear" only zeroes them) and the `home` sample projects use a fixed clock. For other

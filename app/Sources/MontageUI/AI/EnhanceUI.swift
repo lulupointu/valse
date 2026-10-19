@@ -60,7 +60,7 @@ struct EnhanceQualitySection: View {
         VStack(alignment: .leading, spacing: 4) {
             EnhanceProgress(ctx: ctx)
             InlineRow(label: tr("enhance.quality.level")) {
-                // AI2: UHD (up to 4K) and sources above 960 px use VideoToolbox's full ML super resolution
+                // HD = ×2, UHD = up to 4K: tiled low-latency ML super resolution (TiledScaler), faster than real time
                 SegmentedTabs(UpscaleTarget.allCases.map { (id: $0.rawValue, title: tr($0.nameKey)) }, selection: Binding(get: { target.rawValue }, set: { v in
                     guard let id = ctx.clip?.id, let t = UpscaleTarget(rawValue: v), e?.upscale != nil else { return }
                     ctx.store.updateEnhancement(id) { $0.upscale = t }

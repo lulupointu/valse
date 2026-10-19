@@ -147,9 +147,10 @@ import MontageTestSupport
             print("QA super-res canUpscale=\(VideoEnhancer.canUpscale(a)) size=\(a.pixelSize)")
             guard VideoEnhancer.canUpscale(a) else { return }
             let e = VideoEnhancement(original: a.id, upscale: .hd)
-            let (out, t) = try await Self.time { try await VideoEnhancer.process(a, e) }
+            try? FileManager.default.removeItem(at: VideoEnhancer.outputURL(a, e))
+            let (out, t) = try await Self.time { try await VideoEnhancer.process(a, e, stats: { print("QA super-res stats: \($0)") }) }
             let o = try await MediaProbe.probe(out)
-            print("QA super-res: took=\(t)s rtf=\(t / a.duration.seconds) out=\(o.pixelSize) \(out.path)")
+            print("QA super-res: took=\(t)s rtf=\(t / a.duration.seconds) out=\(o.pixelSize) transfer=\(o.transfer) bits=\(o.bitDepth ?? 0) \(out.path)")
         }
     }
 }

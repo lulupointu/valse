@@ -15,7 +15,8 @@ import MontageEngine
 /// - Reduce image noise: motion-adaptive recursive temporal filter on the 4:2:0 planes (static areas average over
 ///   frames, moving pixels pass through), strength per level. (VideoToolbox's VTTemporalNoiseFilter is used instead
 ///   when the Mac supports it.)
-/// - Enhance quality (HD): VideoToolbox low-latency ML super resolution ×2 (sources ≤ 960 px, no model download).
+/// - Enhance quality: VideoToolbox low-latency ML super resolution ×2 over tiles (`TiledScaler`, twice above ×2) + GPU
+///   resize, no model download; ~×0.9 real time for an iPhone 1080p HLG clip → 4K (the full ×4 scaler took ×50).
 public enum VideoEnhancer {
     public static var directory: URL { MontagePaths.cacheDirectory.appendingPathComponent("enhanced", isDirectory: true) }
 
@@ -24,16 +25,18 @@ public enum VideoEnhancer {
         directory.appendingPathComponent("\(a.contentHash)-\(e.key)-c2.mov")
     }
 
-    /// Whether super resolution applies to this media: the low-latency ×2 scaler (≤ 960 px) or VideoToolbox's full
-    /// ML super resolution scaler (×4, sources up to 1920×1080; its OS model downloads on first use).
+    /// Whether super resolution applies to this media: tiled low-latency ×2 scaler (`TiledScaler`, sources up to
+    /// 1920×1080, the fast path) or, where that scaler is missing, VideoToolbox's full ML scaler (×4, same limits).
     public static func canUpscale(_ a: MediaAsset) -> Bool {
         let (w, h) = rawSize(a)
-        return lowLatencySupports(w, h) || fullScalerSupports(w, h)
+        return tiledSupports(w, h) || fullScalerSupports(w, h)
     }
 
-    static func lowLatencySupports(_ w: Int, _ h: Int) -> Bool {
-        guard #available(macOS 26.0, *), VTLowLatencySuperResolutionScalerConfiguration.isSupported else { return false }
-        return !VTLowLatencySuperResolutionScalerConfiguration.supportedScaleFactors(frameWidth: w, frameHeight: h).isEmpty
+    static func tiledSupports(_ w: Int, _ h: Int) -> Bool {
+        guard #available(macOS 26.0, *), VTLowLatencySuperResolutionScalerConfiguration.isSupported,
+              !VTLowLatencySuperResolutionScalerConfiguration.supportedScaleFactors(frameWidth: 960, frameHeight: 540).isEmpty
+        else { return false }
+        return max(w, h) <= 1920 && min(w, h) <= 1080 && min(w, h) >= 96
     }
 
     static func fullScalerSupports(_ w: Int, _ h: Int) -> Bool {
@@ -54,7 +57,8 @@ public enum VideoEnhancer {
     }
 
     @discardableResult
-    public static func process(_ a: MediaAsset, _ e: VideoEnhancement, progress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
+    public static func process(_ a: MediaAsset, _ e: VideoEnhancement, progress: (@Sendable (Double) -> Void)? = nil,
+                               stats: (@Sendable (Stats) -> Void)? = nil) async throws -> URL {
         let out = outputURL(a, e)
         if FileManager.default.fileExists(atPath: out.path) { progress?(1); return out }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -76,8 +80,8 @@ public enum VideoEnhancer {
         // 2. processing pass
         let upscale = e.upscale != nil && canUpscale(a)
         let (ow, oh) = upscale ? upscaledSize(e.upscale!, width: w, height: h) : (w, h)
-        // ×2 on small sources: the low-latency scaler; anything else: the full scaler (×4) then a GPU downscale
-        let useFull = upscale && !(ow == w * 2 && oh == h * 2 && lowLatencySupports(w, h))
+        // tiled low-latency ×2 (twice for > ×2) + GPU resize; the full ×4 scaler only where the fast one is missing
+        let useFull = upscale && !tiledSupports(w, h)
         let tmp = out.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).mov")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let writer = try AVAssetWriter(outputURL: tmp, fileType: .mov)
@@ -137,29 +141,46 @@ public enum VideoEnhancer {
         var denoiser = e.denoise.map { TemporalDenoiser(level: $0) }
         var scale: ((CVPixelBuffer, CMTime) async throws -> CVPixelBuffer)?
         var endScaler: (() -> Void)?
-        var newBuffer: () -> CVPixelBuffer? = { makeBuffer(w, h) }
         if upscale, useFull, #available(macOS 26.0, *) {
             let sc = try await FullScaler(width: w, height: h, outWidth: ow, outHeight: oh)
             scale = { try await sc.scale($0, pts: $1) }; endScaler = { sc.end() }
         } else if upscale, #available(macOS 26.0, *) {
-            let sc = try Scaler(width: w, height: h)
+            let k = Double(max(ow, oh)) / Double(max(w, h))
+            let sc = try TiledScaler(width: w, height: h, passes: SuperResolutionTiles.passes(for: k), outWidth: ow, outHeight: oh)
             scale = { try await sc.scale($0, pts: $1) }; endScaler = { sc.end() }
-            newBuffer = { sc.sourceBuffer() }
         }
+        defer { endScaler?() }
         var frame = 0
+        var st = Stats(width: ow, height: oh)
+        let clock = ContinuousClock(), start = clock.now
+        func lap(_ t: inout Double, _ since: ContinuousClock.Instant) { t += Self.seconds(clock.now - since) }
         do {
-            while let sb = vOut.copyNextSampleBuffer() {
+            while true {
+                var t0 = clock.now
+                guard let sb = vOut.copyNextSampleBuffer() else { break }
+                lap(&st.decode, t0)
                 try Task.checkCancellation()
                 guard let src = CMSampleBufferGetImageBuffer(sb) else { continue }
                 let pts = CMSampleBufferGetPresentationTimeStamp(sb)
-                guard let work = newBuffer() else { throw AIToolError.noInput }
-                copy420(src, to: work, gain: frame < gains.count ? gains[frame] : 1)
-                denoiser?.apply(work)
-                var outBuf = work
-                if let scale { outBuf = try await scale(work, pts) }
+                t0 = clock.now
+                var outBuf = src
+                let gain = frame < gains.count ? gains[frame] : 1
+                // pixels are only rewritten for denoise / deflicker (or an odd-sized decoded frame); the tiled scaler
+                // reads the decoded frame directly
+                if scale == nil || denoiser != nil || gain != 1 || CVPixelBufferGetWidth(src) != w || CVPixelBufferGetHeight(src) != h {
+                    guard let work = makeBuffer(w, h) else { throw AIToolError.noInput }
+                    copy420(src, to: work, gain: gain)
+                    denoiser?.apply(work)
+                    outBuf = work
+                }
+                lap(&st.filter, t0); t0 = clock.now
+                if let scale { outBuf = try await scale(outBuf, pts) }
+                lap(&st.scale, t0); t0 = clock.now
                 while !vIn.isReadyForMoreMediaData { try Task.checkCancellation(); try await Task.sleep(nanoseconds: 2_000_000) }
+                lap(&st.encodeWait, t0); t0 = clock.now
                 if let widen { outBuf = try widen.convert(outBuf) }
                 if !adaptor.append(outBuf, withPresentationTime: pts) { throw writer.error ?? AIToolError.noInput }
+                lap(&st.encode, t0)
                 frame += 1
                 progress?(split + (1 - split) * min(1, pts.seconds / max(duration, 0.001)))
             }
@@ -168,14 +189,32 @@ public enum VideoEnhancer {
         } catch {
             reader.cancelReading(); writer.cancelWriting(); throw error
         }
-        endScaler?()
         if reader.status == .failed { writer.cancelWriting(); throw reader.error ?? AIToolError.noInput }
         await writer.finishWriting()
         guard writer.status == .completed else { throw writer.error ?? AIToolError.noInput }
         try? FileManager.default.removeItem(at: out)
         try FileManager.default.moveItem(at: tmp, to: out)
+        st.frames = frame; st.total = Self.seconds(clock.now - start); st.duration = duration
+        stats?(st)
+        if ProcessInfo.processInfo.environment["MONTAGE_ENHANCE_LOG"] != nil { print("enhance \(e.key): \(st)") }
         progress?(1)
         return out
+    }
+
+    static func seconds(_ d: Duration) -> Double { Double(d.components.seconds) + Double(d.components.attoseconds) / 1e18 }
+
+    /// Where the time of a `process` pass went (seconds, summed over frames): the AI QA timing log
+    /// (`MONTAGE_ENHANCE_LOG=1` prints it).
+    public struct Stats: Sendable, CustomStringConvertible {
+        public var width = 0, height = 0, frames = 0
+        public var duration = 0.0, total = 0.0, decode = 0.0, filter = 0.0, scale = 0.0, encodeWait = 0.0, encode = 0.0
+        init(width: Int, height: Int) { self.width = width; self.height = height }
+        /// Processing time ÷ media duration.
+        public var realTimeFactor: Double { total / max(duration, 0.001) }
+        public var description: String {
+            String(format: "%dx%d %d frames in %.2fs (×%.2f RT): decode %.2f filter %.2f scale %.2f encode-wait %.2f encode %.2f",
+                   width, height, frames, total, realTimeFactor, decode, filter, scale, encodeWait, encode)
+        }
     }
 
     static let hdrTransfers: Set<String> = [AVVideoTransferFunction_ITU_R_2100_HLG, AVVideoTransferFunction_SMPTE_ST_2084_PQ]
@@ -313,40 +352,8 @@ public enum VideoEnhancer {
         }
     }
 
-    /// VideoToolbox low-latency ×2 super resolution.
-    @available(macOS 26.0, *)
-    final class Scaler: @unchecked Sendable {
-        let processor = VTFrameProcessor()
-        let ow: Int, oh: Int
-        let srcPool: CVPixelBufferPool, dstPool: CVPixelBufferPool
-        init(width: Int, height: Int) throws {
-            let cfg = VTLowLatencySuperResolutionScalerConfiguration(frameWidth: width, frameHeight: height, scaleFactor: 2)
-            try processor.startSession(configuration: cfg)
-            ow = width * 2; oh = height * 2
-            var a: CVPixelBufferPool?, b: CVPixelBufferPool?
-            CVPixelBufferPoolCreate(nil, nil, cfg.sourcePixelBufferAttributes as CFDictionary, &a)
-            CVPixelBufferPoolCreate(nil, nil, cfg.destinationPixelBufferAttributes as CFDictionary, &b)
-            guard let a, let b else { throw AIToolError.noInput }
-            srcPool = a; dstPool = b
-        }
-        func sourceBuffer() -> CVPixelBuffer? { var pb: CVPixelBuffer?; CVPixelBufferPoolCreatePixelBuffer(nil, srcPool, &pb); return pb }
-        func scale(_ src: CVPixelBuffer, pts: CMTime) async throws -> CVPixelBuffer {
-            var dstOut: CVPixelBuffer?
-            CVPixelBufferPoolCreatePixelBuffer(nil, dstPool, &dstOut)
-            guard let dst = dstOut,
-                  let fs = VTFrameProcessorFrame(buffer: src, presentationTimeStamp: pts),
-                  let fd = VTFrameProcessorFrame(buffer: dst, presentationTimeStamp: pts) else { throw AIToolError.noInput }
-            let params = VTLowLatencySuperResolutionScalerParameters(sourceFrame: fs, destinationFrame: fd)
-            let box = UncheckedSendable(params)
-            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-                processor.process(parameters: box.value) { _, err in if let err { c.resume(throwing: err) } else { c.resume() } }
-            }
-            return dst
-        }
-        func end() { processor.endSession() }
-    }
-
-    /// VideoToolbox ML super resolution (×4, temporal: previous source/output frames are fed back), then a
+    /// Fallback where the low-latency scaler is missing: VideoToolbox ML super resolution (×4, temporal: previous
+    /// source/output frames are fed back; ~1.5 s per 1080p frame on an M1 Pro), then a
     /// VTPixelTransferSession downscale to the requested output size. Downloads the OS model first if needed.
     @available(macOS 26.0, *)
     final class FullScaler: @unchecked Sendable {

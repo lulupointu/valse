@@ -69,7 +69,7 @@
 "enhance.quality.uhd" = "UHD";
 "enhance.quality.hint" = "La HD rend les vidéos plus nettes et plus naturelles (super-résolution ×2 sur l'appareil).";
 "enhance.quality.unavailable" = "Disponible pour les vidéos jusqu'à 1080p sur ce Mac";
-"enhance.quality.hintUHD" = "L'UHD offre des détails plus précis et plus vifs (super-résolution sur l'appareil jusqu'à la 4K ; la première utilisation télécharge le modèle de macOS).";
+"enhance.quality.hintUHD" = "L'UHD offre des détails plus précis et plus vifs (super-résolution sur l'appareil jusqu'à la 4K).";
 "enhance.denoise" = "Réduire le bruit de l'image";
 "enhance.flicker" = "Supprimer les scintillements";
 "enhance.flicker.mode" = "Mode";

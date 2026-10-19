@@ -1,0 +1,16 @@
+// CL-019 / AI-021: Video ▸ Basic ▸ ☐ Enhance quality renders a super-resolved copy (tiled low-latency scaler, faster
+// than real time; it used to take ×50 real time) in the background; the clip then plays it (one undo step).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"scroll": "id:inspector.section.video.stabilize", "dx": 0, "dy": -400},
+    {"click": "id:inspector.section.video.enhanceQuality", "at": [0.035, 0.5]},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.enhance", "timeout": 30}},
+    {"snapshot": "enhance_quality", "element": "id:panel.inspector"},
+    {"expect": {"path": "media.count", "gt": 3}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.redoName", "equals": "cmd.enhance"}}
+  ]
+}

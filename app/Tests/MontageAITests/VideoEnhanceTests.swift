@@ -179,15 +179,16 @@ import MontageTestSupport
         #expect(VideoEnhancer.upscaledSize(.uhd, width: 1280, height: 720) == (3840, 2160))
     }
 
-    /// AI2: sources above 960 px (and UHD) go through VideoToolbox's full ML super resolution (×4 + downscale).
+    /// AI2: sources above 960 px (and UHD) are upscaled too: tiled ×2 twice (1280×720 → 5120×2880) + GPU downscale.
     @Test func enhanceQualityAbove960pxAndUHD() async throws {
         try await HeavyWorkGate.run {
             let url = try await TestMedia.video(.movingBox(.white, .red), seconds: 0.5, size: CGSize(width: 1280, height: 720))
             var p = TestProject(canvas: Size2(1280, 720))
             let id = try await p.addMedia(url)
             let a = p.project.media[0]
-            guard VideoEnhancer.fullScalerSupports(1280, 720) else { print("skip: no full super resolution on this Mac"); return }
+            guard VideoEnhancer.tiledSupports(1280, 720) || VideoEnhancer.fullScalerSupports(1280, 720) else { print("skip: no super resolution on this Mac"); return }
             #expect(VideoEnhancer.canUpscale(a))
+            try? FileManager.default.removeItem(at: VideoEnhancer.outputURL(a, VideoEnhancement(original: a.id, upscale: .uhd)))
             let cmd = try await VideoEnhanceJob.run(project: p.project, clipID: id, enhancement: VideoEnhancement(original: a.id, upscale: .uhd))
             try cmd.apply(to: &p.project)
             let now = try #require(p[id].mediaID.flatMap(p.project.asset))

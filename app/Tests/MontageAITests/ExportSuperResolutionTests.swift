@@ -15,7 +15,7 @@ import MontageTestSupport
             let a = p.project.media[0]
             var s = ExportSettings(); s.resolution = .p480; s.includeAudio = false; s.aiUltraHD = true   // ×1.78 → HD
             #expect(ExportHooks.clipsNeedingUpscale(p.project, settings: s).map(\.clip) == [id])
-            guard VideoEnhancer.lowLatencySupports(480, 270) else { print("skip: no low-latency super resolution on this Mac"); return }
+            guard VideoEnhancer.tiledSupports(480, 270) else { print("skip: no low-latency super resolution on this Mac"); return }
             let up = try await ExportSuperResolution.run(p.project, s, nil) { _ in }
             let now = try #require(up.timeline.clip(id)?.mediaID.flatMap(up.asset))
             #expect(now.pixelSize == Size2(960, 540) && up.timeline.clip(id)?.enhance?.upscale == .hd)

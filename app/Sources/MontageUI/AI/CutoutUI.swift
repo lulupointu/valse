@@ -86,7 +86,7 @@ struct JobProgressLine: View {
             HStack {
                 Text(verbatim: text).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                 Spacer()
-                if let cancel { SmallIconButton(symbol: "xmark.circle.fill", help: tr("ai.cancel"), size: 13, action: cancel) }
+                if let cancel { SmallIconButton(symbol: "xmark.circle.fill", help: tr("ai.cancel"), size: 13, action: cancel).testID("job.cancel") }
             }
             ProgressView(value: progress).progressViewStyle(.linear).tint(Theme.accent)
         }
