@@ -53,6 +53,10 @@ import MontageTestSupport
                     var shown = CMTime.invalid
                     let pb = out.copyPixelBuffer(forItemTime: it, itemTimeForDisplay: &shown)
                     probe = "itemTime \(String(format: "%.2f", it.seconds)) hasNew \(out.hasNewPixelBuffer(forItemTime: it)) forced copy \(pb != nil) shown \(String(format: "%.2f", shown.seconds))"
+                    if let item = engine.player.currentItem {
+                        let ranges = item.loadedTimeRanges.map { r in let r = r.timeRangeValue; return String(format: "%.1f+%.1f", r.start.seconds, r.duration.seconds) }
+                        probe += " | tcs \(engine.player.timeControlStatus.rawValue) wait \(engine.player.reasonForWaitingToPlay?.rawValue ?? "-") empty \(item.isPlaybackBufferEmpty) keepUp \(item.isPlaybackLikelyToKeepUp) loaded \(ranges) outputs \(item.outputs.count)"
+                    }
                 }
                 r.stalls.append(probe + " | ")
                 r.stalls[r.stalls.count - 1] += ("\(what) → no new frame for \(timeout) s (rate \(engine.player.rate), item \(engine.player.currentItem?.status.rawValue ?? -1), t \(String(format: "%.2f", engine.player.currentTime().seconds)), composed +\(engine.state.framesComposed - composed0))")
@@ -130,9 +134,21 @@ import MontageTestSupport
             let engine = PlaybackEngine(project: p.project)
             engine.usesProxies = false
             let r = try await Self.stress(engine, actions: 40, seed: 42, timeout: 4)   // healthy: < 0.6 s; frozen: never
-            print("playback stress (synthetic): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, stalls \(r.stalls.count)")
+            print("playback stress (synthetic): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, stalls \(r.stalls.count), pipeline re-primes \(engine.stallRecoveries)")
             for s in r.stalls { print("  stall: \(s)") }
             #expect(r.stalls.isEmpty, "\(r.stalls)")
+            // the stall watchdog re-primes only a stalled pipeline (rare), never steady playback
+            #expect(engine.stallRecoveries <= 5)
+            let before = engine.stallRecoveries
+            engine.seek(to: Time(2))
+            engine.play()
+            let t0 = CACurrentMediaTime()
+            while CACurrentMediaTime() - t0 < 2.5 {
+                _ = engine.pixelBuffer(forHostTime: CACurrentMediaTime())
+                try await Task.sleep(nanoseconds: 8_000_000)
+            }
+            engine.pause()
+            #expect(engine.stallRecoveries - before <= 1, "re-primes during steady playback")
         }
     }
 
@@ -145,7 +161,7 @@ import MontageTestSupport
             engine.usesProxies = false
             let n = Int(ProcessInfo.processInfo.environment["MONTAGE_STRESS_ACTIONS"] ?? "") ?? 80
             let r = try await Self.stress(engine, actions: n, seed: 42, timeout: 5)
-            print("playback stress (\(url.lastPathComponent)): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, stalls \(r.stalls.count)")
+            print("playback stress (\(url.lastPathComponent)): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, stalls \(r.stalls.count), pipeline re-primes \(engine.stallRecoveries)")
             for s in r.stalls { print("  stall: \(s)") }
             #expect(r.stalls.isEmpty, "\(r.stalls)")
         }

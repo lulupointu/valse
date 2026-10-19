@@ -429,6 +429,7 @@ public final class PlaybackEngine {
                 } else if let r = self.resumeRate {
                     self.resumeRate = nil
                     self.player.playImmediately(atRate: r)
+                    self.stallWatch = nil
                 }
             }
         }
@@ -459,12 +460,45 @@ public final class PlaybackEngine {
     public func pixelBuffer(forHostTime host: CFTimeInterval) -> (CVPixelBuffer, Time)? {
         guard let out = videoOutput else { return nil }
         let itemTime = out.itemTime(forHostTime: host)
-        guard out.hasNewPixelBuffer(forItemTime: itemTime) else { return nil }
+        guard out.hasNewPixelBuffer(forItemTime: itemTime) else { watchForStall(itemTime); return nil }
         var shown = CMTime.invalid
-        guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { return nil }
+        guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { watchForStall(itemTime); return nil }
         framesSinceSeek += 1
         lastFrameTime = Time(cmTime: shown)
+        stallWatch = nil
         return (pb, lastFrameTime)
+    }
+
+    // MARK: Stalled video pipeline (C3 round 2)
+
+    /// Item time when the view last asked for a frame and got none while playing (nil = frames are flowing).
+    private var stallWatch: CMTime?
+    /// Times the engine re-primed a stalled video pipeline (diagnostics / tests).
+    public private(set) var stallRecoveries = 0
+    /// Item-time span without a new frame, while playing, that counts as a frozen preview.
+    static let stallSpan = 0.3
+
+    /// AVPlayer sometimes stops requesting compositions from our custom compositor after a seek (scrub, rapid seeks,
+    /// even with the rate held during the seek): the clock and the audio run on, the buffers are full
+    /// (`timeControlStatus` playing, likely to keep up), but no video frame is composed any more — the preview freezes
+    /// on the pre-seek frame for seconds. It is internal to AVFoundation's video-composition pipeline; neither
+    /// ordering (hold → seek → play) nor `preroll` (never completes with a custom compositor) prevents it. The view polls
+    /// for frames every display refresh, so the engine sees the stall as it happens: when the item clock advanced
+    /// `stallSpan` with no new frame and no seek in flight, it re-primes the pipeline with an exact seek to the current
+    /// time (rate held, then resumed) — the preview recovers within ~0.3–0.5 s instead of freezing.
+    private func watchForStall(_ itemTime: CMTime) {
+        guard player.rate > 0, !seekInFlight, resumeRate == nil, reverseShuttleRate == 0, itemTime.isValid else {
+            stallWatch = nil; return
+        }
+        guard let since = stallWatch else { stallWatch = itemTime; return }
+        let span = CMTimeSubtract(itemTime, since).seconds
+        if span < 0 { stallWatch = itemTime; return }
+        guard span >= Self.stallSpan, project.duration.seconds - itemTime.seconds > 0.2 else { return }
+        stallWatch = nil
+        stallRecoveries += 1
+        let t = Time(cmTime: itemTime).clamped(.zero, max(project.duration, .zero))
+        requestedTime = t
+        performSeek(t, exact: true)
     }
 
     /// Re-renders the frame at the playhead from the last decoded sources with the LATEST project (paused edits).
