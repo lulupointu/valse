@@ -265,6 +265,7 @@ struct KeyframeTripletButtons: View, Equatable {
             .disabled(!m.active)
             .help(tr(m.on ? "inspector.keyframe.remove" : "inspector.keyframe.add"))
             .accessibilityLabel(Text(verbatim: tr(m.on ? "inspector.keyframe.remove" : "inspector.keyframe.add")))
+            .testID("keyframe.toggle." + keys.map(\.raw).joined(separator: "+"))   // UI scripts (C3b)
             Button { if let next = m.next, let clip = ctx.clip { store.seek(to: clip.start + next) } } label: {
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .medium)).frame(width: 12, height: 20).contentShape(Rectangle())
             }

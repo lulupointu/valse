@@ -1,0 +1,34 @@
+// C3b: moving an EXISTING clip works like a library drop: while dragging, the model is untouched (no live re-layout,
+// so lanes don't jump under the pointer — the flicker), a grey placeholder shows where it lands, main-track clips
+// are pushed aside, a lane boundary gives a new lane there; the drop lands exactly on the placeholder, one undo step.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": [{"path": "main.clips.0.name", "equals": "Ocean"}, {"path": "tracks.count", "equals": 6}]},
+    // Ocean (0–6 s, grabbed at its middle) dragged so its centre is at 13 s → end of the main track
+    {"drag": "clip:main/0", "to": "time:13@main", "hold": true},
+    {"expect": [{"path": "ui.dropPreview.placement", "equals": "main"}, {"path": "ui.dropPreview.index", "equals": 2},
+                {"path": "main.clips.0.name", "equals": "Ocean"}, {"path": "tracks.count", "equals": 6},
+                {"path": "undo.inGesture", "equals": false}]},
+    {"snapshot": "move-main-held", "element": "id:panel.timeline"},
+    {"release": true},
+    {"expect": [{"path": "main.clips.2.name", "equals": "Ocean"}, {"path": "main.clips.0.name", "equals": "Sunset"},
+                {"path": "undo.name", "equals": "cmd.move"}, {"path": "ui.dropPreview", "exists": false}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "main.clips.0.name", "equals": "Ocean"}},
+    // the overlay (track 1) onto the main track at 4 s: ripple insert, its lane goes
+    {"drag": "clip:1/0", "to": "time:4@main", "hold": true},
+    {"expect": [{"path": "ui.dropPreview.placement", "equals": "main"}, {"path": "tracks.count", "equals": 6}]},
+    {"snapshot": "move-overlay-to-main", "element": "id:panel.timeline"},
+    {"release": true},
+    {"expect": [{"path": "main.clips.count", "equals": 4}, {"path": "tracks.count", "equals": 5}, {"path": "undo.name", "equals": "cmd.move"}]},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "main.clips.count", "equals": 3}, {"path": "tracks.count", "equals": 6}]},
+    // the title (text lane) to the boundary just above its lane: a new text lane there; held, nothing moves
+    {"drag": "clip:2/0", "to": "clip:2/0", "toOffset": [60, -14], "hold": true},
+    {"expect": [{"path": "tracks.count", "equals": 6}, {"path": "ui.dropPreview", "exists": true}]},
+    {"snapshot": "move-text-held", "element": "id:panel.timeline"},
+    {"release": true},
+    {"expect": [{"path": "undo.name", "equals": "cmd.move"}, {"path": "tracks.2.clips.0.kind", "equals": "text"}]}
+  ]
+}

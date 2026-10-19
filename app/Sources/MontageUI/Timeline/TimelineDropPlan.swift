@@ -36,12 +36,28 @@ public struct TimelineDropPlan: Equatable {
     /// - Parameters:
     ///   - time: pointer time (already snapped by the caller when snapping is on).
     ///   - kind: `.audio` for audio media, `.video` for video / images.
+    ///   - mainProbe: time that picks the main-track boundary (moves use the clip's centre, like CapCut); default `time`.
+    ///   - home: layout row of the track a moved clip comes from (text / sticker / effect clips stay there when the
+    ///     pointer is over a lane they can't go on).
     public static func plan(layout l: TimelineLayout, timeline tl: Timeline, point pt: CGPoint, time: Time,
-                            duration: Time, kind: TrackKind) -> TimelineDropPlan {
+                            duration: Time, kind: TrackKind, mainProbe: Time? = nil, home: Int? = nil) -> TimelineDropPlan {
         let range = TimeRange(start: time, duration: duration)
         func fits(_ ri: Int) -> Bool {
             let t = tl.tracks[l.rows[ri].trackIndex]
             return !t.isLocked && t.clips.allSatisfy { !$0.range.overlaps(range) }
+        }
+        if kind != .audio && kind != .video {
+            // text / sticker / effect layers: their own kind of lane, a new lane at a boundary, never the main track
+            if let slot = l.insertionSlot(atY: pt.y), slot < l.rows.count, l.rows[slot].kind != .audio {
+                return .init(placement: .newLane(slot: slot), start: time, duration: duration, target: .newTrackAbove(l.rows[slot].trackID))
+            }
+            if let first = l.rows.first, pt.y < first.y {
+                return .init(placement: .newLane(slot: 0), start: time, duration: duration, target: .newTrackAbove(first.trackID))
+            }
+            let ri = l.rowIndex(atY: pt.y).flatMap { l.rows[$0].kind == kind && !tl.tracks[l.rows[$0].trackIndex].isLocked ? $0 : nil } ?? home
+            guard let ri else { return .init(placement: .newLane(slot: 0), start: time, duration: duration, target: .newTrack) }
+            if fits(ri) { return .init(placement: .lane(row: ri), start: time, duration: duration, target: .track(l.rows[ri].trackID)) }
+            return .init(placement: .newLane(slot: ri), start: time, duration: duration, target: .newTrackAbove(l.rows[ri].trackID))
         }
         if kind == .audio {
             if let ri = l.rowIndex(atY: pt.y), l.rows[ri].kind == .audio, l.insertionSlot(atY: pt.y) == nil, fits(ri) {
@@ -59,7 +75,7 @@ public struct TimelineDropPlan: Equatable {
         }
         if let ri = l.rowIndex(atY: pt.y) {
             let row = l.rows[ri]
-            if row.isMain { return mainPlan(l, tl, time: time, duration: duration) }
+            if row.isMain { return mainPlan(l, tl, time: time, duration: duration, probe: mainProbe) }
             if row.kind == .video, !tl.tracks[row.trackIndex].isLocked {
                 if fits(ri) { return .init(placement: .lane(row: ri), start: time, duration: duration, target: .track(row.trackID)) }
                 return .init(placement: .newLane(slot: ri), start: time, duration: duration, target: .newTrackAbove(row.trackID))
@@ -71,11 +87,11 @@ public struct TimelineDropPlan: Equatable {
         if let first = l.rows.first, pt.y < first.y {
             return .init(placement: .newLane(slot: 0), start: time, duration: duration, target: .newTrackAbove(first.trackID))
         }
-        return mainPlan(l, tl, time: time, duration: duration)
+        return mainPlan(l, tl, time: time, duration: duration, probe: mainProbe)
     }
 
     /// Ripple insert on the main track (or a plain placement when the magnet is off / there is no main row).
-    static func mainPlan(_ l: TimelineLayout, _ tl: Timeline, time: Time, duration: Time) -> TimelineDropPlan {
+    static func mainPlan(_ l: TimelineLayout, _ tl: Timeline, time: Time, duration: Time, probe: Time? = nil) -> TimelineDropPlan {
         guard let mi = tl.mainTrackIndex, let ri = l.rows.firstIndex(where: { $0.trackIndex == mi }) else {
             return .init(placement: .newLane(slot: 0), start: time, duration: duration, target: .automatic)
         }
@@ -83,7 +99,7 @@ public struct TimelineDropPlan: Equatable {
         guard tl.mainTrackMagnet else {
             return .init(placement: .lane(row: ri), start: time, duration: duration, target: .automatic)
         }
-        let index = TimelineOps.magneticIndex(for: time, in: main)
+        let index = TimelineOps.magneticIndex(for: probe ?? time, in: main)
         let start = index < main.clips.count ? main.clips[index].start : (main.clips.last?.end ?? .zero)
         return .init(placement: .main(index: index), start: start, duration: duration, target: .automatic)
     }

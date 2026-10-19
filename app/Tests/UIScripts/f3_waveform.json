@@ -1,5 +1,5 @@
-// AU-019: timeline waveforms draw two layers — the peak envelope (translucent) behind the RMS body (solid), clipping peaks
-// orange — on audio clips and on video clips' audio strip; Track ⋯ ▸ Audio waveform 100 % makes it taller.
+// AU-019: timeline waveforms are one-sided peak bars from the bottom up (CapCut, C3b), clipping peaks orange — on audio
+// clips and on video clips' audio strip; Track ⋯ ▸ Audio waveform 100 % makes it taller.
 {
   "project": "demo",
   "steps": [

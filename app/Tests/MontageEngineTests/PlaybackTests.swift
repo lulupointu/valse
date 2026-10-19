@@ -54,7 +54,8 @@ import MontageTestSupport
         #expect(replaced == 0 && redraws == 1)
         try TimelineOps.trim(id, edge: .tail, to: 1, in: &p.project)
         engine.update(project: p.project)
-        try await Task.sleep(nanoseconds: 300_000_000)
+        // the rebuild is async: wait for it (a fixed 0.3 s flaked under machine load)
+        for _ in 0..<100 where replaced == 0 { try await Task.sleep(nanoseconds: 50_000_000) }
         #expect(replaced == 1)
         #expect(engine.duration == Time(1))
     }

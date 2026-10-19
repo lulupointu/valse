@@ -48,6 +48,12 @@ public enum StateDump {
             d["animIn"] = c.animations.inAnim?.typeID ?? ""
             d["animOut"] = c.animations.outAnim?.typeID ?? ""
             d["animCombo"] = c.animations.combo?.typeID ?? ""
+            if let v = c.keyframes[ParamKey.volume.raw] {   // C3b: volume keyframes in dB (0.1 dB)
+                d["volumeKeyframesDB"] = v.keyframes.map { k -> Double in
+                    let g = k.value.component(0) ?? 1
+                    return g <= 0 ? -60 : (AudioProps.decibels(g) * 10).rounded() / 10
+                }
+            }
             d["keyframeCounts"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.count) })   // "transform_position"
             d["keyframeEasings"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.map { Self.easingName($0.easing) }) })
             func maskSummary(_ m: Mask) -> [String: Any] {

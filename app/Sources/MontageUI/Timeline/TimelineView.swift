@@ -39,6 +39,10 @@ final class TimelineView: NSView {
         var duplicate: Bool
         /// When the drag created a new track: the track (in the gesture base) it was inserted above.
         var newTrackAbove: TrackID??
+        /// Single-clip move (C3b): the timeline with the clip lifted out (drawn while dragging, the model is untouched
+        /// until mouse-up), and the layout row of the clip's own track.
+        var lifted: Timeline? = nil
+        var homeRow: Int? = nil
     }
     enum Drag {
         case none
@@ -56,7 +60,7 @@ final class TimelineView: NSView {
         case trackReorder(TrackID, y: CGFloat)
         case scrollbar(grab: CGFloat)
         /// Clip volume line drag (C3-2): pointer y at mouse-down, the clip then.
-        case volume(ClipID, grabY: CGFloat, origin: Clip)
+        case volume(ClipID, grabY: CGFloat, origin: Clip, grab: ClipVolumeLine.Grab)
     }
     var drag: Drag = .none
     var snapIndex: SnapIndex?
@@ -68,6 +72,9 @@ final class TimelineView: NSView {
     /// Media drag placeholder + main-track ripple preview (C3-1).
     var dropPlan: TimelineDropPlan?
     var dropTitle: String?
+    /// Single-clip move preview (C3b): timeline drawn instead of the model's, and the dragged clip under the pointer.
+    var movePreview: Timeline?
+    var moveGhost: (clip: Clip, y: CGFloat)?
     var hoverPoint: CGPoint?
     var hoverClip: ClipID?
     /// Clip whose volume line is hovered (↕ cursor, brighter line).
@@ -141,9 +148,14 @@ final class TimelineView: NSView {
         super.layout()
         let s = window?.backingScaleFactor ?? 2
         metalLayer.contentsScale = s
-        metalLayer.drawableSize = CGSize(width: max(1, bounds.width * s), height: max(1, bounds.height * s))
+        let size = CGSize(width: max(1, bounds.width * s), height: max(1, bounds.height * s))
+        let resized = metalLayer.drawableSize != size
+        metalLayer.drawableSize = size
         if bounds.width > 0 { ui.viewWidth = Double(bounds.width) }
         dirty = true
+        // Splitter / window resize (C3b flicker): draw NOW, presented with this layout's Core Animation transaction, so
+        // the new geometry never shows the old drawable stretched or a blank frame until the next display-link tick.
+        if resized, window != nil, bounds.width > 0 { MetalResize.synchronously(metalLayer) { tick() } }
     }
 
     override func updateTrackingAreas() {
@@ -185,8 +197,7 @@ final class TimelineView: NSView {
         let canvas = buildCanvas()
         guard let drawable = metalLayer.nextDrawable(), let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return }
         renderer.encode(canvas, into: drawable.texture, scale: metalLayer.contentsScale, clear: RGBA(hex: 0x1B1B1C), commandBuffer: cmd)
-        cmd.present(drawable)
-        cmd.commit()
+        MetalResize.present(drawable, cmd, on: metalLayer)
         recycle(canvas)
     }
 
@@ -277,6 +288,7 @@ final class TimelineView: NSView {
 
         // Drop indicator / snap line / insertion line / marquee
         if let plan = dropPlan { drawDropPlaceholder(&c, plan, layout: l) }
+        if let g = moveGhost { drawMoveGhost(&c, g.clip, y: g.y, layout: l, ctx: ctx) }
         if let d = dropIndicator {
             let x = l.x(d.time)
             c.rect(CGRect(x: x - 1, y: TimelineLayout.rulerHeight, width: 2, height: H), accent)
@@ -723,7 +735,9 @@ final class TimelineView: NSView {
             let ky = r.midY
 
             let img = SymbolImages.image("diamond.fill")
-            for (key, track) in clip.keyframes {
+            // volume keyframes sit on the audio strip's volume line instead (C3b, drawVolumeLine)
+            let volumeOnLine = clip.keyframes[ParamKey.volume.raw] != nil && volumeArea(clip, row: row, track: track, layout: l) != nil
+            for (key, track) in clip.keyframes where !(volumeOnLine && key == ParamKey.volume.raw) {
                 for k in track.keyframes {
                     let x = l.x(clip.start + k.time)
                     guard x >= r.minX - 4, x <= r.maxX + 4 else { continue }
@@ -760,17 +774,18 @@ final class TimelineView: NSView {
 
     func drawWaveform(_ c: inout Canvas2D, _ clip: Clip, asset: MediaAsset, in wr: CGRect, layout l: TimelineLayout, color: RGBA, scale: Double) {
         guard let w = WaveformCache.shared.cached(asset) else { requestWave(asset); return }
-        let mid = wr.midY
         let step: CGFloat = 2
+        let keyed = clip.hasKeyframes(.volume)
         var x = max(wr.minX, TimelineLayout.headerWidth)
         while x < min(wr.maxX, bounds.width) {
-            let t0 = clip.sourceTime(at: l.time(atX: x)).seconds, t1 = clip.sourceTime(at: l.time(atX: x + step)).seconds
-            // AU-019: peak (translucent) behind RMS (solid), clipping peaks orange
-            let a = CGFloat(w.peak(from: min(t0, t1), to: max(t0, t1))) * clip.audio.volume * scale
-            let rm = CGFloat(w.rmsLevel(from: min(t0, t1), to: max(t0, t1))) * clip.audio.volume * scale
-            let h = max(1, min(wr.height, a * wr.height)), hr = max(1, min(wr.height, rm * wr.height))
-            c.rect(CGRect(x: x, y: mid - h / 2, width: step - 0.5, height: h), a > 0.95 ? RGBA(hex: 0xE5934A) : RGBA(color.r, color.g, color.b, 0.45))
-            c.rect(CGRect(x: x, y: mid - hr / 2, width: step - 0.5, height: hr), color)
+            let tl0 = l.time(atX: x)
+            let t0 = clip.sourceTime(at: tl0).seconds, t1 = clip.sourceTime(at: l.time(atX: x + step)).seconds
+            // bar height follows the (keyframed) clip volume
+            let g = keyed ? ClipVolumeLine.gain(of: clip, at: (tl0 - clip.start).clamped(.zero, clip.duration)) : clip.audio.volume
+            let a = CGFloat(w.peak(from: min(t0, t1), to: max(t0, t1)) * g * scale)
+            let h = max(1, min(wr.height, a * wr.height))
+            // one-sided, from the bottom up (CapCut [23], C3b)
+            c.rect(CGRect(x: x, y: wr.maxY - h, width: step - 0.5, height: h), a > 0.95 ? RGBA(hex: 0xE5934A) : color)
             x += step
         }
     }

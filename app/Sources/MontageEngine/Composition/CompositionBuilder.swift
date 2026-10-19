@@ -312,6 +312,9 @@ public enum CompositionBuilder {
         }
     }
 
+    /// Linear ramp pieces per eased volume-keyframe span.
+    static let volumeCurveSteps = 16
+
     /// Clip gain, fades and volume keyframes as linear ramps on the lane.
     static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters, gain: Double = 1, duck: Ducking.Envelope? = nil) {
         let start = clip.start, end = clip.end
@@ -328,8 +331,16 @@ public enum CompositionBuilder {
         var points: Set<Int64> = [0, clip.duration.ticks]
         if clip.audio.fadeIn > .zero { points.insert(min(clip.audio.fadeIn, clip.duration).ticks) }
         if clip.audio.fadeOut > .zero { points.insert(max(.zero, clip.duration - clip.audio.fadeOut).ticks) }
-        for k in clip.keyframes[ParamKey.volume.raw]?.keyframes ?? [] where k.time > .zero && k.time < clip.duration {
+        let vks = clip.keyframes[ParamKey.volume.raw]?.keyframes ?? []
+        for k in vks where k.time > .zero && k.time < clip.duration {
             points.insert(k.time.ticks)
+        }
+        // eased spans between volume keyframes: sample the curve (the timeline draws `KeyframeTrack.value`, C3b)
+        for (a, b) in zip(vks, vks.dropFirst()) where a.easing != .linear && b.time > a.time {
+            for i in 1..<volumeCurveSteps {
+                let t = a.time + (b.time - a.time) * (Double(i) / Double(volumeCurveSteps))
+                if t > .zero && t < clip.duration { points.insert(t.ticks) }
+            }
         }
         if let duck {
             // ducking breakpoints only where the envelope moves

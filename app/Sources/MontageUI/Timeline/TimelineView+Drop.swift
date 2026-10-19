@@ -44,6 +44,32 @@ extension TimelineView {
         }
     }
 
+    // MARK: Moving an existing clip (C3b)
+
+    /// The dragged clip, translucent, centred on the pointer's y (its placeholder shows where it lands).
+    func drawMoveGhost(_ c: inout Canvas2D, _ clip: Clip, y: CGFloat, layout l: TimelineLayout, ctx: TimelineFrameContext) {
+        let tl = store.project.timeline
+        guard let loc = tl.locate(clip.id), let home = l.rows.first(where: { $0.trackIndex == loc.track }) else { return }
+        let track = tl.tracks[loc.track]
+        let row = TimelineLayout.Row(trackIndex: home.trackIndex, trackID: home.trackID, kind: home.kind, isMain: home.isMain,
+                                     y: y - home.height / 2, height: home.height)
+        let clipRect = c.clip
+        c.clip = CGRect(x: TimelineLayout.headerWidth, y: TimelineLayout.rulerHeight, width: bounds.width, height: bounds.height)
+        drawClip(&c, clip, row: row, track: track, layout: l, dim: 0.75, ctx: ctx)
+        c.clip = clipRect
+    }
+
+    func clearMovePreview() { movePreview = nil; moveGhost = nil; dropPlan = nil; dirty = true }
+
+    /// Drop of a moved clip: one undo step ("cmd.move") that lands exactly on the placeholder; no-op when unchanged.
+    func commitMove(_ id: ClipID, _ plan: TimelineDropPlan) {
+        var p = store.project
+        guard (try? TimelineOps.relocate(id, to: plan.start, target: plan.target, in: &p)) != nil,
+              p.timeline != store.project.timeline else { return }
+        store.edit("cmd.move") { p in try TimelineOps.relocate(id, to: plan.start, target: plan.target, in: &p) }
+        store.selection = [id]
+    }
+
     func drawDropPlaceholder(_ c: inout Canvas2D, _ plan: TimelineDropPlan, layout l: TimelineLayout) {
         guard let r = placeholderRect(plan, layout: l) else { return }
         if case .newLane = plan.placement {

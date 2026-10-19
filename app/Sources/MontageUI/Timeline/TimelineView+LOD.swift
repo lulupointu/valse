@@ -91,6 +91,8 @@ struct TimelineFrameContext {
     let selection: Set<ClipID>
     /// Clip id → running/queued job on it (empty almost always).
     let busy: [String: JobInfo]
+    /// Drawing a move preview (not the model's timeline): no per-revision span cache.
+    var preview = false
 }
 
 extension TimelineView {
@@ -104,7 +106,10 @@ extension TimelineView {
             // the running job wins over a queued one on the same clip (EditorStore.clipJob, same as the inspector)
             if let s = j.subject, busy[s] == nil || (busy[s]?.state == .queued && j.state == .running) { busy[s] = j }
         }
-        return TimelineFrameContext(project: store.project, selection: store.selection, busy: busy)
+        guard let mp = movePreview else { return TimelineFrameContext(project: store.project, selection: store.selection, busy: busy) }
+        var p = store.project
+        p.timeline = mp
+        return TimelineFrameContext(project: p, selection: store.selection, busy: busy, preview: true)
     }
 
     /// Draws the visible clips of one row: full detail for clips ≥ `lodClipWidth`, merged runs for tiny ones.
@@ -112,6 +117,10 @@ extension TimelineView {
                    ctx: TimelineFrameContext) {
         let vis = track.clips(in: l.visibleRange).indices
         guard !vis.isEmpty else { return }
+        if ctx.preview {   // move preview: plain per-clip drawing (the span cache is per model revision)
+            for k in vis { drawClip(&c, track.clips[k], row: row, track: track, layout: l, dim: dim, ctx: ctx) }
+            return
+        }
         let spans = drawCache.spans(track)
         guard spans.count == track.clips.count else { return }
         let pps = l.pixelsPerSecond
@@ -212,10 +221,9 @@ extension TimelineView {
     /// Waveform across a run: one bar per 2 pt, each from the clip under it (monotonic walk, O(run + bars)).
     private func drawRunWaveform(_ c: inout Canvas2D, _ run: [TimelineDrawCache.Span], _ range: Range<Int>, in wr: CGRect,
                                  layout l: TimelineLayout, color: RGBA, scale: Double) {
-        let mid = wr.midY
         let step: CGFloat = 2
         let dt = Double(step) / l.pixelsPerSecond
-        let hot = RGBA(hex: 0xE5934A), soft = RGBA(color.r, color.g, color.b, 0.45)   // AU-019 peak layer
+        let hot = RGBA(hex: 0xE5934A)
         var x = max(wr.minX, TimelineLayout.headerWidth)
         let xEnd = min(wr.maxX, bounds.width)
         var t0 = l.time(atX: x).seconds
@@ -232,10 +240,8 @@ extension TimelineView {
             guard let w = a.wave else { continue }
             let s0 = s.source(at: t0), s1 = s.source(at: t0 + dt)
             let amp = w.peak(from: min(s0, s1), to: max(s0, s1)) * s.volume * scale
-            let rm = w.rmsLevel(from: min(s0, s1), to: max(s0, s1)) * s.volume * scale
-            let h = max(1, min(wr.height, CGFloat(amp) * wr.height)), hr = max(1, min(wr.height, CGFloat(rm) * wr.height))
-            c.rect(CGRect(x: x, y: mid - h / 2, width: step - 0.5, height: h), amp > 0.95 ? hot : soft)
-            c.rect(CGRect(x: x, y: mid - hr / 2, width: step - 0.5, height: hr), color)
+            let h = max(1, min(wr.height, CGFloat(amp) * wr.height))
+            c.rect(CGRect(x: x, y: wr.maxY - h, width: step - 0.5, height: h), amp > 0.95 ? hot : color)   // one-sided (C3b)
         }
     }
 }

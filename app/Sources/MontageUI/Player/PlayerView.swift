@@ -78,8 +78,12 @@ final class PlayerView: NSView {
         super.layout()
         let s = window?.backingScaleFactor ?? 2
         metalLayer.contentsScale = s
-        metalLayer.drawableSize = CGSize(width: max(1, bounds.width * s), height: max(1, bounds.height * s))
+        let size = CGSize(width: max(1, bounds.width * s), height: max(1, bounds.height * s))
+        let resized = metalLayer.drawableSize != size
+        metalLayer.drawableSize = size
         needsRerender = true
+        // resize (C3b flicker): re-present the last frame at the new size inside this layout's CA transaction
+        if resized, window != nil, let f = lastFrame { MetalResize.synchronously(metalLayer) { present(f, retain: []) } }
     }
 
     func requestRedraw() { needsRerender = true }
@@ -189,10 +193,9 @@ final class PlayerView: NSView {
         Presenter.encode(tex, to: drawable.texture, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: lb,
                          contentRect: pixelRect(scale: metalLayer.contentsScale), mode: presentMode,
                          commandBuffer: cmd)
-        cmd.present(drawable)
         let hold = UncheckedSendable(retain)
         cmd.addCompletedHandler { _ in _ = hold }
-        cmd.commit()
+        MetalResize.present(drawable, cmd, on: metalLayer)
         presentedFrames += 1
     }
 

@@ -49,7 +49,12 @@ extension TimelineView {
         // clip volume line (C3-2), split tool excluded
         if ui.tool != .split, !mods.contains(.command), beginVolumeDrag(pt, layout: l) { return }
 
-        let hit = l.hitTest(pt, timeline: tl, selection: store.selection)
+        var hit = l.hitTest(pt, timeline: tl, selection: store.selection)
+        // volume keyframes live on the volume line (C3b): the generic mid-height diamond band doesn't grab them there
+        if case .keyframe(let id, let key, _, let ri) = hit, key == ParamKey.volume.raw, let c = tl.clip(id),
+           volumeArea(c, row: l.rows[ri], track: tl.tracks[l.rows[ri].trackIndex], layout: l) != nil {
+            hit = .clip(id, region: .body, row: ri)
+        }
         switch hit {
         case .ruler:
             drag = .scrub
@@ -155,6 +160,14 @@ extension TimelineView {
             } else if m.ids.count > 1 {
                 let ids = m.ids
                 store.updateGesture { p in try TimelineOps.moveClips(ids, by: delta, in: &p.timeline) }
+            } else if let lifted = m.lifted, let clip = store.project.timeline.clip(m.anchor) {
+                // C3b: placeholder at the target (ripple on main, lane, new lane), the clip follows the pointer
+                dropPlan = TimelineDropPlan.plan(layout: l, timeline: lifted, point: pt, time: start, duration: m.anchorDuration,
+                                                 kind: m.kind, mainProbe: start + m.anchorDuration / 2.0, home: m.homeRow)
+                dropTitle = nil
+                var ghost = clip
+                ghost.start = start
+                moveGhost = (ghost, pt.y)
             } else {
                 moveSingle(&m, start: start, pt: pt, layout: l)
                 drag = .move(m)
@@ -235,8 +248,8 @@ extension TimelineView {
                 if fadeIn { p.timeline[clip: id]?.audio.fadeIn = v } else { p.timeline[clip: id]?.audio.fadeOut = v }
             }
             trimLabel = (pt.x, pt.y, Timecode.shortDuration(v))
-        case .volume(let id, let grabY, let origin):
-            updateVolumeDrag(id, grabY: grabY, origin: origin, at: pt, layout: l)
+        case .volume(let id, let grabY, let origin, let grab):
+            updateVolumeDrag(id, grabY: grabY, origin: origin, grab: grab, at: pt, layout: l)
         case .trackReorder(let id, _):
             drag = .trackReorder(id, y: pt.y)
             insertionSlot = l.rowIndex(atY: pt.y).map { ri in
@@ -278,10 +291,19 @@ extension TimelineView {
             }
             let ids = store.selection.contains(id) ? store.selection : TimelineOps.expandGroups([id], in: tl)
             let dup = mods.contains(.option)
-            drag = .move(MoveDrag(anchor: id, ids: ids, grabTime: l.time(atX: p0.x), anchorStart: clip.start,
-                                  anchorDuration: clip.duration, kind: track.kind, duplicate: dup, newTrackAbove: nil))
+            var m = MoveDrag(anchor: id, ids: ids, grabTime: l.time(atX: p0.x), anchorStart: clip.start,
+                             anchorDuration: clip.duration, kind: track.kind, duplicate: dup, newTrackAbove: nil)
             duplicatedIDs = []
             snapIndex = SnapIndex(timeline: tl, excluding: ids)
+            if !dup, ids.count == 1, let lifted = try? TimelineOps.liftForMove(id, from: tl) {
+                // single clip: nothing changes until the drop (no live re-layout under the pointer = no flicker, C3b)
+                m.lifted = lifted.timeline
+                m.homeRow = ri
+                movePreview = lifted.timeline
+                drag = .move(m)
+                return
+            }
+            drag = .move(m)
             store.beginGesture(dup ? "cmd.duplicate" : "cmd.move")
         }
     }
@@ -353,6 +375,11 @@ extension TimelineView {
         case .scrub: store.seek(to: l.time(atX: pt.x), exact: true)
         case .marquee(let o, _, _):
             if hypot(pt.x - o.x, pt.y - o.y) <= 3, pt.x > TimelineLayout.headerWidth { store.seek(to: l.time(atX: pt.x), exact: true) }
+        case .move(let m) where m.lifted != nil:
+            let plan = dropPlan
+            clearMovePreview()
+            guard let plan else { break }
+            commitMove(m.anchor, plan)
         case .move(let m):
             store.endGesture()
             if m.duplicate, !duplicatedIDs.isEmpty { store.selection = Set(duplicatedIDs) }

@@ -45,9 +45,61 @@ public enum ClipVolumeLine {
         guard let track = origin.keyframes[key], !track.isEmpty else { return }
         clip.keyframes[key] = KeyframeTrack(track.keyframes.map { k in
             var k = k
-            let g = k.value.component(0) ?? 1
-            let d0 = g <= 0 ? minDB : max(AudioProps.decibels(g), minDB)
-            k.value = .scalar(gain(db: min(max(d0 + delta, minDB), maxDB)))
+            k.value = .scalar(gain(db: min(max(dB(k) + delta, minDB), maxDB)))
+            return k
+        })
+    }
+
+    // MARK: Keyframed volume (C3b, CapCut [24]/[26])
+
+    /// What a press on the volume line grabs.
+    public enum Grab: Equatable {
+        /// No volume keyframes: the static clip volume.
+        case whole
+        /// One keyframe diamond: only that keyframe changes.
+        case keyframe(Int)
+        /// The line between keyframes `lo` and `hi` (nil = before the first / after the last): the keyframes bounding
+        /// it move together. Before the first keyframe the value is held, so moving it changes everything from the clip
+        /// start to that keyframe; after the last one, everything after it.
+        case segment(lo: Int?, hi: Int?)
+    }
+
+    /// Grab at clip-local time `t`; a keyframe within `tolerance` wins.
+    public static func grab(_ clip: Clip, at t: Time, tolerance: Time) -> Grab {
+        guard let ks = clip.keyframes[ParamKey.volume.raw]?.keyframes, !ks.isEmpty else { return .whole }
+        if let i = ks.indices.min(by: { abs((ks[$0].time - t).ticks) < abs((ks[$1].time - t).ticks) }),
+           abs((ks[i].time - t).ticks) <= tolerance.ticks { return .keyframe(i) }
+        let lo = ks.lastIndex { $0.time <= t }
+        let hi = (lo.map { $0 + 1 } ?? 0)
+        return .segment(lo: lo, hi: hi < ks.count ? hi : nil)
+    }
+
+    /// Keyframe indices a grab moves.
+    public static func indices(_ g: Grab, count: Int) -> [Int] {
+        switch g {
+        case .whole: return []
+        case .keyframe(let i): return [i]
+        case .segment(let lo, let hi): return [lo, hi].compactMap { $0 }.filter { $0 < count }
+        }
+    }
+
+    static func dB(_ k: Keyframe) -> Double {
+        let g = k.value.component(0) ?? 1
+        return g <= 0 ? minDB : max(AudioProps.decibels(g), minDB)
+    }
+
+    /// Applies a vertical drag of `dy` points (area height `h`) to what `grab` holds, from the clip at drag start.
+    public static func apply(grab g: Grab, dy: CGFloat, areaHeight h: CGFloat, origin: Clip, to clip: inout Clip) {
+        let key = ParamKey.volume.raw
+        guard g != .whole, let track = origin.keyframes[key], !track.isEmpty else {
+            apply(db: draggedDB(from: AudioProps.decibels(origin.audio.volume), dy: dy, areaHeight: h), origin: origin, to: &clip)
+            return
+        }
+        let moved = Set(indices(g, count: track.keyframes.count))
+        clip.keyframes[key] = KeyframeTrack(track.keyframes.enumerated().map { i, k in
+            guard moved.contains(i) else { return k }
+            var k = k
+            k.value = .scalar(gain(db: draggedDB(from: dB(k), dy: dy, areaHeight: h)))
             return k
         })
     }

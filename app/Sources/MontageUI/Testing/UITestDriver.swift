@@ -164,6 +164,8 @@ public final class UITestDriver {
     private var metrics: [String: Double] = [:]
     private var report: [[String: Any]] = []
     private var warnings: [String] = []
+    /// Mouse still down after a `"hold": true` drag (released by `{"release": true}`), with its modifiers.
+    private var heldMouse: (CGPoint, NSEvent.ModifierFlags)?
     /// Destination of a `"hold": true` drop (hovering, not dropped yet).
     private var heldDropView: NSView?
     private let probe = TimelineFrameProbe()
@@ -350,7 +352,7 @@ public final class UITestDriver {
 
     // MARK: Steps
 
-    static let actions = ["click", "press", "doubleClick", "rightClick", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit", "wait",
+    static let actions = ["click", "press", "doubleClick", "rightClick", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit", "release", "wait",
                           "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log", "a11yAudit"]
 
     static func describe(_ step: [String: Any]) -> String {
@@ -396,7 +398,19 @@ public final class UITestDriver {
             let steps = (step["steps"] as? Int) ?? 12
             let host = window.contentView
             let startView = host.flatMap { $0.hitTest($0.superview?.convert(a, from: nil) ?? a) }
-            if !(startView.map(UITestWindow.isSwiftUIView) ?? false) {
+            let hold = (step["hold"] as? Bool) == true
+            if hold {
+                // press + moves, mouse stays down (snapshot / dump mid-drag); `{"release": true}` ends it
+                SyntheticEvents.post(SyntheticEvents.mouse(.leftMouseDown, at: a, in: window, modifiers: mods))
+                _ = await SyntheticEvents.drain()
+                for i in 1...max(1, steps) {
+                    let t = CGFloat(i) / CGFloat(max(1, steps))
+                    SyntheticEvents.post(SyntheticEvents.mouse(.leftMouseDragged, at: CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t),
+                                                               in: window, modifiers: mods))
+                    _ = await SyntheticEvents.drain()
+                }
+                heldMouse = (b, mods)
+            } else if !(startView.map(UITestWindow.isSwiftUIView) ?? false) {
                 // AppKit views (incl. tracking loops like NSSlider/NSTextField) get the whole gesture queued at once
                 SyntheticEvents.drag(from: a, to: b, in: window, steps: steps, modifiers: mods)
             } else {
@@ -441,6 +455,11 @@ public final class UITestDriver {
         } else if let payload = step["drop"] {
             try await drop(payload, on: try resolve(step["on"] ?? "id:timeline", step), hold: (step["hold"] as? Bool) == true)
             try await idle(settle: max(settle, 0.4))
+        } else if step["release"] != nil {
+            guard let (p, m) = heldMouse else { throw Failure("release without a held drag") }
+            SyntheticEvents.post(SyntheticEvents.mouse(.leftMouseUp, at: p, in: window, modifiers: m))
+            heldMouse = nil
+            try await idle(settle: settle)
         } else if step["dragExit"] != nil {
             // the held drag (`"hold": true`) leaves the destination: cancels it
             guard let v = heldDropView else { throw Failure("dragExit without a held drop") }

@@ -294,6 +294,54 @@ public enum TimelineOps {
         return right.id
     }
 
+    // MARK: Move with a placeholder (C3b)
+
+    /// The timeline with clip `id` taken out, as a move gesture previews it: the magnetic main track re-packed (no
+    /// linked-clip shifts), every track KEPT even when it becomes empty (lane rows stay put under the pointer).
+    public static func liftForMove(_ id: ClipID, from tl: Timeline) throws -> (timeline: Timeline, clip: Clip) {
+        var tl = tl
+        guard let loc = tl.locate(id) else { throw EditError.clipNotFound }
+        guard !tl.tracks[loc.track].isLocked else { throw EditError.trackLocked }
+        var clip = tl.tracks[loc.track].clips.remove(at: loc.clip)
+        if tl.tracks[loc.track].isMain {
+            // its neighbours change: transitions at both of its cuts go
+            if loc.clip > 0 { tl.tracks[loc.track].clips[loc.clip - 1].transitionOut = nil }
+            clip.transitionOut = nil
+            let linkage = tl.linkage
+            tl.linkage = false
+            compactMain(&tl)
+            tl.linkage = linkage
+        }
+        return (tl, clip)
+    }
+
+    /// Moves clip `id` to `start` with an insert target, exactly as the move preview showed it (`liftForMove`, then an
+    /// insert: ripple at the main-track boundary, a lane, a new lane above a track…). Clips linked to moved main-track
+    /// clips follow them. Returns the track the clip landed on.
+    @discardableResult
+    public static func relocate(_ id: ClipID, to start: Time, target: InsertTarget, in project: inout Project) throws -> TrackID {
+        let old = mainStarts(project.timeline)
+        var (tl, clip) = try liftForMove(id, from: project.timeline)
+        clip.start = max(.zero, start)
+        clip.linkedTo = nil
+        let linkage = tl.linkage
+        tl.linkage = false
+        var p = project
+        p.timeline = tl
+        let landed = try insert(clip, into: &p, target: target)
+        tl = p.timeline
+        tl.linkage = linkage
+        if linkage, let ti = tl.trackIndex(landed), !tl.tracks[ti].isMain,
+           let ci = tl.tracks[ti].clips.firstIndex(where: { $0.id == id }) {
+            tl.tracks[ti].clips[ci].linkedTo = mainClip(at: tl.tracks[ti].clips[ci].start, in: tl)?.id
+        }
+        if tl.mainTrackMagnet { compactMain(&tl, previousStarts: old) }
+        if let mi = tl.mainTrackIndex { clampTransitions(&tl.tracks[mi]) }
+        removeEmptyTracks(&tl)
+        project.timeline = tl
+        return landed
+    }
+
     // MARK: Delete
 
     public static func delete(_ ids: Set<ClipID>, in tl: inout Timeline) throws {
