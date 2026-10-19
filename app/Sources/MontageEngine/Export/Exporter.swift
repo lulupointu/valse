@@ -129,8 +129,10 @@ public enum Exporter {
         let writer = try AVAssetWriter(outputURL: url, fileType: fileType(for: url, settings: settings))
         writer.shouldOptimizeForNetworkUse = true
         writer.metadata = metadataItems(options)
+        // HLG: the footage's ambient viewing environment, so players render the file like its source (C1)
+        let ambient = space == .hdrHLG ? await HDRViewingMetadata.shared.ambientViewingEnvironment(for: project) : nil
         let vSettings = videoSettings(settings, w: w, h: h, canvas: project.settings.canvasSize, space: space,
-                                      bitDepth: bitDepth, alpha: alpha)
+                                      bitDepth: bitDepth, alpha: alpha, ambient: ambient)
         guard writer.canApply(outputSettings: vSettings, forMediaType: .video) else {
             throw ExportError.failed("unsupported video settings \(settings.codec) \(w)x\(h)")
         }
@@ -254,7 +256,7 @@ public enum Exporter {
     }
 
     static func videoSettings(_ s: ExportSettings, w: Int, h: Int, canvas: Size2, space: ProjectColorSpace = .sdr709,
-                              bitDepth: Int = 8, alpha: Bool = false) -> [String: Any] {
+                              bitDepth: Int = 8, alpha: Bool = false, ambient: Data? = nil) -> [String: Any] {
         var out: [String: Any] = [AVVideoWidthKey: w, AVVideoHeightKey: h]
         out[AVVideoColorPropertiesKey] = ColorTags(space).properties
         switch s.codec {
@@ -274,6 +276,10 @@ public enum Exporter {
                 // HDR10 static metadata (SMPTE ST 2086 mastering display + CTA-861.3 content light level).
                 props[kVTCompressionPropertyKey_MasteringDisplayColorVolume as String] = HDR10Metadata.masteringDisplay()
                 props[kVTCompressionPropertyKey_ContentLightLevelInfo as String] = HDR10Metadata.contentLightLevel()
+            }
+            if s.codec == .hevc && space == .hdrHLG, let ambient {
+                // kVTCompressionPropertyKey_AmbientViewingEnvironment (exported by VideoToolbox, not in the SDK headers)
+                props["AmbientViewingEnvironment"] = ambient
             }
             if hevcAlpha {
                 props[kVTCompressionPropertyKey_TargetQualityForAlpha as String] = 0.9

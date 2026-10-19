@@ -145,8 +145,28 @@ public final class PlaybackEngine {
 
     // MARK: Project updates
 
+    /// HLG projects: ambient viewing environment of the footage for the EDR preview layer (C1, `HDRViewingMetadata`);
+    /// nil = plain HLG. Changes call `onRedrawNeeded`.
+    public private(set) var hlgAmbientViewingEnvironment: Data?
+    private var ambientKey: [MediaID]?
+
+    private func refreshAmbient(_ project: Project) {
+        let assets = project.settings.colorSpace == .hdrHLG ? HDRViewingMetadata.hlgAssets(project) : []
+        let key = assets.map(\.id)
+        guard key != ambientKey else { return }
+        ambientKey = key
+        if assets.isEmpty { hlgAmbientViewingEnvironment = nil; return }
+        Task { [weak self] in
+            let v = await HDRViewingMetadata.shared.ambientViewingEnvironment(for: project)
+            guard let self, self.ambientKey == key, v != self.hlgAmbientViewingEnvironment else { return }
+            self.hlgAmbientViewingEnvironment = v
+            self.onRedrawNeeded?()
+        }
+    }
+
     public func update(project: Project, force: Bool = false) {
         self.project = project
+        refreshAmbient(project)
         let structure = structureCache.key(project, sources: sourceChooser)
         requestDerivedMedia(project, structure: structure)
         EffectPipelines.shared.prewarm(project)

@@ -210,10 +210,13 @@ public enum CompositionBuilder {
         vc.customVideoCompositorClass = (space.isHDR || highPrecision) ? MontageHDRCompositor.self : MontageCompositor.self
         vc.frameDuration = CMTime(value: CMTimeValue(fr.denominator), timescale: fr.numerator)
         vc.renderSize = renderSize ?? CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
-        let tags = ColorTags(space)
-        vc.colorPrimaries = tags.primaries
-        vc.colorTransferFunction = tags.transfer
-        vc.colorYCbCrMatrix = tags.matrix
+        // No colour properties on the video composition (C1): when they differ from a source's, AVPlayer (preview)
+        // CONVERTS the source frames to them before the compositor sees them (VideoToolbox HDR → SDR / HLG → PQ, despite
+        // `supportsHDRSourceFrames`), while AVAssetReader / AVAssetImageGenerator (export, thumbnails) only re-matrix
+        // the YCbCr — and both stamp the composition's tags, so the frames cannot be told apart. The renderer converts
+        // from the asset's own tags, so the HLG footage was converted twice in the preview (SDR: red, crushed skin;
+        // PQ: washed out). Untagged, every path delivers the decoded frames untouched; the compositor stamps its output
+        // with the project's tags (`MontageCompositor.stamp`).
         vc.instructions = [MontageInstruction(timeRange: CMTimeRange(start: .zero, duration: duration.cmTime),
                                               trackIDs: videoTrackIDs, state: state)]
         var mix: AVMutableAudioMix?

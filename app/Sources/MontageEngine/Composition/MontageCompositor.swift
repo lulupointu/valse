@@ -182,6 +182,7 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
             return
         }
         let (project, media, trackMap) = instr.state.snapshot()
+        Self.stamp(out, space: project.settings.colorSpace)
         let t = Time(cmTime: request.compositionTime)
         if let tid = instr.state.cachedTrack(at: t), let pb = request.sourceFrame(byTrackID: tid) {
             renderCached(pb, request: request, project: project, out: out, outTex: outTex, outCV: outCV, cmd: cmd, state: instr.state, clock0: clock0)
@@ -219,13 +220,25 @@ public final class MontageHDRCompositor: MontageCompositor, @unchecked Sendable 
 }
 
 extension MontageCompositor {
+    /// Tags a composed frame with the project's colour space. The video composition carries no colour properties (so
+    /// AVFoundation never converts the sources, see `CompositionBuilder`): the output's tags come from here.
+    static func stamp(_ pb: CVPixelBuffer, space: ProjectColorSpace) {
+        let tags = ColorTags(space)
+        CVBufferSetAttachment(pb, kCVImageBufferColorPrimariesKey, tags.primaries as CFString, .shouldPropagate)
+        CVBufferSetAttachment(pb, kCVImageBufferTransferFunctionKey, tags.transfer as CFString, .shouldPropagate)
+        CVBufferSetAttachment(pb, kCVImageBufferYCbCrMatrixKey, tags.matrix as CFString, .shouldPropagate)
+    }
+
     /// Cached segment frame: drawn as one full-canvas layer through the same renderer (scaling/format conversion only).
     fileprivate func renderCached(_ pb: CVPixelBuffer, request: AVAsynchronousVideoCompositionRequest, project: Project,
                                   out: CVPixelBuffer, outTex: MTLTexture, outCV: CVMetalTexture, cmd: MTLCommandBuffer, state: RenderState,
                                   clock0: UInt64) {
         let canvas = project.settings.canvasSize
-        let fake = MediaAsset(name: "render-cache", kind: .video, url: URL(fileURLWithPath: "/dev/null"), duration: .zero,
+        var fake = MediaAsset(name: "render-cache", kind: .video, url: URL(fileURLWithPath: "/dev/null"), duration: .zero,
                               pixelSize: canvas, frameRate: nil, hasVideo: true, hasAudio: false, contentHash: "render-cache")
+        // the segment holds code values in the project space (HDR projects: not SDR → no conversion)
+        let tags = ColorTags(project.settings.colorSpace)
+        fake.colorPrimaries = tags.primaries; fake.transferFunction = tags.transfer; fake.yCbCrMatrix = tags.matrix
         let clip = ClipID()
         let layer = LayerDescription(clipID: clip, trackID: TrackID(), source: .media(fake.id, sourceTime: .zero), sourceSize: canvas,
                                      transform: Transform(), opacity: 1, blendMode: .normal, crop: CropRect(), mask: nil,

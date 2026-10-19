@@ -25,6 +25,7 @@ final class PlayerView: NSView {
     /// Drawable colour setup for the current project colour space / screen (`configureColor`).
     private var configuredSpace: ProjectColorSpace?
     private var configuredEDR = false
+    private var configuredAmbient: Data?
     private(set) var presentMode: Presenter.Mode = .passthrough
     /// Item time of each decoded frame presented by the display link (dropped-frame telemetry, PB-013).
     var onFramePresented: ((Time) -> Void)?
@@ -147,32 +148,44 @@ final class PlayerView: NSView {
     private func configureColor() {
         let space = engine.project.settings.colorSpace
         let edr = space.isHDR && (window?.screen?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1) > 1
-        guard space != configuredSpace || edr != configuredEDR else { return }
-        configuredSpace = space; configuredEDR = edr
+        let ambient = space == .hdrHLG ? engine.hlgAmbientViewingEnvironment : nil
+        guard space != configuredSpace || edr != configuredEDR || ambient != configuredAmbient else { return }
+        configuredSpace = space; configuredEDR = edr; configuredAmbient = ambient
         if edr {
             metalLayer.pixelFormat = .rgba16Float
             metalLayer.wantsExtendedDynamicRangeContent = true
             metalLayer.colorspace = CGColorSpace(name: space == .hdrPQ ? CGColorSpace.itur_2100_PQ : CGColorSpace.itur_2100_HLG)
-            // reference white (203 nits) = UI white
+            // PQ: reference white (203 nits) = UI white. HLG: the footage's ambient viewing environment (iPhone: 314
+            // lux), like AVPlayer / QuickTime — without it the preview is ≈ 1.5 × brighter than Apple shows the clip (C1).
             metalLayer.edrMetadata = space == .hdrPQ
                 ? CAEDRMetadata.hdr10(minLuminance: 0.005, maxLuminance: 1000, opticalOutputScale: Float(ColorMath.referenceWhiteNits))
-                : CAEDRMetadata.hlg
+                : ambient.map { CAEDRMetadata.hlg(ambientViewingEnvironment: $0) } ?? CAEDRMetadata.hlg
             presentMode = .passthrough
         } else {
             metalLayer.pixelFormat = .bgra8Unorm
             metalLayer.wantsExtendedDynamicRangeContent = false
-            metalLayer.colorspace = nil
+            // SDR Rec.709 frames, colour-managed like AVPlayer shows Rec.709 video (QuickTime: ΔE00 1.1 vs 2.4 untagged,
+            // which macOS shows as display-native RGB)
+            metalLayer.colorspace = CGColorSpace(name: CGColorSpace.itur_709)
             metalLayer.edrMetadata = nil
             presentMode = space.isHDR ? .toneMapToSDR(space.transfer) : .passthrough
         }
         needsRerender = true
     }
 
+    /// sRGB UI colour → code values of the Rec.709-tagged SDR drawable (the letterbox matches the panel around it).
+    static func rec709(_ c: RGBA) -> RGBA {
+        guard let space = CGColorSpace(name: CGColorSpace.itur_709),
+              let o = CGColor(srgbRed: c.r, green: c.g, blue: c.b, alpha: 1).converted(to: space, intent: .defaultIntent, options: nil),
+              let k = o.components, k.count >= 3 else { return c }
+        return RGBA(Double(k[0]), Double(k[1]), Double(k[2]), c.a)
+    }
+
     private func present(_ tex: MTLTexture, retain: [Any]) {
         lastFrame = tex
         configureColor()
         guard let drawable = metalLayer.nextDrawable(), let cmd = ctx.queue.makeCommandBuffer() else { return }
-        let lb = configuredEDR ? ColorMath.color(letterbox, in: engine.project.settings.colorSpace) : letterbox
+        let lb = configuredEDR ? ColorMath.color(letterbox, in: engine.project.settings.colorSpace) : Self.rec709(letterbox)
         Presenter.encode(tex, to: drawable.texture, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: lb,
                          contentRect: pixelRect(scale: metalLayer.contentsScale), mode: presentMode,
                          commandBuffer: cmd)

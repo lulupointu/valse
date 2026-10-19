@@ -372,12 +372,12 @@ public final class FrameRenderer: @unchecked Sendable {
                 guard let (y, yc) = ctx.texture(pb, plane: 0, format: .r8Unorm),
                       let (c, cc) = ctx.texture(pb, plane: 1, format: .rg8Unorm) else { return nil }
                 scratch.retained += [yc, cc, pb]
-                yuv = (y, c, fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, Self.isBT709(pb))
+                yuv = (y, c, fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, Self.isBT709(pb, asset: media[id]))
             case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange, kCVPixelFormatType_420YpCbCr10BiPlanarFullRange:
                 guard let (y, yc) = ctx.texture(pb, plane: 0, format: .r16Unorm),
                       let (c, cc) = ctx.texture(pb, plane: 1, format: .rg16Unorm) else { return nil }
                 scratch.retained += [yc, cc, pb]
-                yuv = (y, c, fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange, Self.isBT709(pb))
+                yuv = (y, c, fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange, Self.isBT709(pb, asset: media[id]))
             case kCVPixelFormatType_32BGRA:
                 guard let (t, tc) = ctx.texture(pb, plane: 0, format: .bgra8Unorm) else { return nil }
                 scratch.retained += [tc, pb]
@@ -737,6 +737,14 @@ public final class FrameRenderer: @unchecked Sendable {
             m2020 = CFEqual(m, kCVImageBufferYCbCrMatrix_ITU_R_2020)
         }
         return (tf, wide, m2020)
+    }
+
+    /// YCbCr matrix of a source frame: the asset's probed tag wins, an untagged asset is Rec.709 (the video
+    /// composition is untagged since C1, so the decoder's guess — BT.601 below 720p — reaches the frame; before, the
+    /// composition stamped 709 on every source and our VideoToolbox-encoded synthetic / exported files are 709).
+    static func isBT709(_ pb: CVPixelBuffer, asset: MediaAsset?) -> Bool {
+        guard let asset else { return isBT709(pb) }
+        return asset.yCbCrMatrix != "ITU_R_601_4"
     }
 
     static func isBT709(_ pb: CVPixelBuffer) -> Bool {

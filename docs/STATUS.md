@@ -40,6 +40,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | SR1 | Enhance quality speed (AI QA: ×50 RT): VideoToolbox low-latency super resolution over overlapping tiles (≤ 960 px, 6 per 1080p frame, scaled concurrently) + GPU resize instead of the full ×4 scaler; decoded frames go straight to the tiler (no CPU copy without denoise / deflicker). IMG_9079 copy 1080p HLG → 4K: 1629 s → 27.6 s (×50 → ×0.84 RT); synthetic 540p → 1080p ×0.18 RT, 1080p → 4K ×0.72 RT (TiledSuperResolutionTests, load-aware budgets 3× / 6×); export "AI ultra HD" uses the same path | 4 | ready to merge | worktree-agent-adfcb28782f253ff4 |
 | C3 | Timeline & media fixes: (1) media drag shows a grey placeholder where it lands, main track ripples live, lane boundary = new lane there (`TimelineDropPlan`, `InsertTarget.newTrackAbove`), exit cancels — video / image / audio / several; (2) draggable clip volume line, dB tooltip, ↕ cursor, one undo step, keyframes offset (`ClipVolumeLine`); (3) media cards 288 px, aspect-fit letterboxed; (4) tooltips after 0.4 s app-wide (`Tooltips.install`); (5) playback freeze FIXED: seeking while AVPlayer's clock ran (rate 1, no stall waiting) often left the custom-compositor video pipeline without a preroll — clock + audio ran on, no frame requested for seconds. Seeks while playing now hold rate 0 and resume when the last coalesced seek lands. `PlaybackStressTests` (10-bit B-frame HLG HEVC via ffmpeg): 21/40 actions froze before → 0 (max 0.49 s to frames); 1019 real footage 60 actions 0 stalls; UI script `playback_seek_while_playing` | 4 | see branch | worktree-agent-aef37c1ea9a138783 |
 | QA-AI | AI QA pass 2: every model installed, all `requires.models` scripts, every done/partial AI feature end to end on a copy of project 1018 (iPhone 1080×1920 HLG, French speech) + bench/media | 4 | ready to merge — 6 bugs fixed (table below) | worktree-agent-af260dfaae90fa707 |
+| C1 | Colour-space looks (owner project 1019, iPhone HLG/DV): preview matched to Apple + export in SDR / HLG / PQ (untagged video composition, compositor-stamped output, HLG ambient viewing environment, Rec.709 SDR drawable); `ColorSpaceLookTests` ΔE00 vs Apple | 4 | ready to merge | worktree-agent-ab87aa66ecd61e634 |
 
 ## AI QA results (2026-10-19, pass 2)
 Inputs: COPIES of project 1018's footage (IMG_9079 32.7 s talking head, IMG_7510 91 s, scratch QA projects; the original was
@@ -132,6 +133,18 @@ projects processed before this fix (face covers refresh themselves when the proj
   fitted to Apple's own rendering (3.6/255 mean error on the owner's clips); HDR projects preview through an EDR
   CAMetalLayer (Rec.2100 HLG/PQ colour space, half-float frames) and tone-map on non-EDR screens / snapshots.
   Tests: `HDRTests` (ffmpeg HLG/PQ patch clips vs ColorMath + Apple, preview tone map), `ColorMathTests`.
+- 2026-10-19 C1 project 1019 (iPhone HLG / DV 8.4): SDR preview red / crushed skin, PQ preview washed out, HLG preview
+  brighter than QuickTime — while the export looked right. Cause: AVPlayer converts the source frames to the video
+  composition's colour properties before the custom compositor (VideoToolbox HDR→SDR / HLG→PQ, despite
+  `supportsHDRSourceFrames`; AVAssetReader only re-matrixes), and tags them like the composition, so the renderer
+  converted the footage a second time. The video composition is now untagged (frames arrive as decoded); the compositor
+  stamps its output with the project tags (`MontageCompositor.stamp`). Also: HLG preview layer + HLG HEVC export carry
+  the footage's ambient viewing environment (`HDRViewingMetadata`, iPhone 314 lux, as AVPlayer/QuickTime do); SDR
+  preview drawable tagged Rec.709 (colour-managed like AVPlayer). CIEDE2000 per patch vs Apple's rendering of the same
+  frame (`ColorSpaceLookTests`, owner clips via `MONTAGE_C1_FOOTAGE`): SDR preview 13 → 1.6–2.1 mean, PQ preview 9 →
+  0.14, HLG 0.17–0.20; export = preview within 0.3–1.2 (compression). Known: SDR fully saturated BT.2020 primaries
+  (synthetic patches) differ up to ΔE 11 from VideoToolbox's tone map (real footage < 3). Pre-existing, not fixed: a
+  range export starting mid-clip stalls (the video reader never delivers) on some iPhone clips, e.g. IMG_9079 at 1 s or 10 s (full / from-0 exports fine).
 
 ## Decisions log
 - 2026-10-19 Owner: NO AI-generated/procedural music. Music & SFX library must offer real ONLINE search (Instagram-like) — explicit exception to local-only, limited to the music/SFX browser (user-supplied API keys e.g. Pixabay/Freesound, download-on-add so projects work offline). Rest of app stays offline.

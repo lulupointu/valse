@@ -144,8 +144,9 @@ extension FrameRenderer {
                   let (c, cc) = ctx.texture(pb, plane: 1, format: ten ? .rg16Unorm : .rg8Unorm) else { return nil }
             scratch.retained += [yc, cc, pb]
             cu.fullRange = (fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange) ? 1 : (ten ? 2 : 0)
-            // same source as the layer: keep its BT.2020 matrix (HDR footage), else read the buffer's
-            cu.matrix709 = cu0.matrix709 > 1.5 ? 2 : (Self.isBT709(pb) ? 1 : 0)
+            // same source as the layer: keep its BT.2020 matrix (HDR footage), else Rec.709 (aux files are ours,
+            // VideoToolbox-encoded 709; the untagged video composition leaves the decoder's BT.601 guess on small frames)
+            cu.matrix709 = cu0.matrix709 > 1.5 ? 2 : 1
             cu.unpremultiply = 0
             fullscreen(ctx.convertYUV, target: out, cmd, label: "convert-aux") { enc in
                 enc.setFragmentTexture(y, index: 0); enc.setFragmentTexture(c, index: 1)
