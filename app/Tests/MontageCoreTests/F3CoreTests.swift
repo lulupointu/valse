@@ -20,6 +20,30 @@ struct F3CoreTests {
         #expect(abs(VolumeNudge.db(g) - 1) < 1e-9)
     }
 
+    // CV-006
+    @Test func cropGeometryRotationStaysInsideTheSource() throws {
+        let plain = CropRect(left: 0.1, top: 0.2, right: 0.3, bottom: 0.05)
+        let m = CropGeometry.affine(plain, aspect: 16.0 / 9)
+        #expect(abs(m.a - 0.6) < 1e-12 && abs(m.d - 0.75) < 1e-12 && m.b == 0 && m.c == 0 && m.tx == 0.1 && m.ty == 0.2)
+        #expect(CropGeometry.fitZoom(plain, aspect: 16.0 / 9) == 1)
+        for deg in [-45.0, -12.5, 7, 30, 45, 90] {
+            for c in [CropRect(rotation: deg), CropRect(left: 0.3, top: 0.1, right: 0.05, bottom: 0.4, rotation: deg)] {
+                let z = CropGeometry.fitZoom(c, aspect: 16.0 / 9)
+                #expect(z > 0 && z <= 1)
+                for (x, y) in CropGeometry.sampledCorners(c, aspect: 16.0 / 9) {
+                    #expect(x >= -1e-9 && x <= 1 + 1e-9 && y >= -1e-9 && y <= 1 + 1e-9, "\(deg)°: corner \(x),\(y)")
+                }
+                // the window keeps its centre
+                let cs = CropGeometry.sampledCorners(c, aspect: 16.0 / 9)
+                let mx = cs.map(\.0).reduce(0, +) / 4, my = cs.map(\.1).reduce(0, +) / 4
+                #expect(abs(mx - (c.left + 1 - c.right) / 2) < 1e-9 && abs(my - (c.top + 1 - c.bottom) / 2) < 1e-9)
+            }
+        }
+        // old files: no rotation key
+        let old = try JSONDecoder().decode(CropRect.self, from: Data(#"{"left":0.1,"top":0,"right":0,"bottom":0}"#.utf8))
+        #expect(old.rotation == nil && !old.isIdentity && CropRect(rotation: 5).isIdentity == false)
+    }
+
     // MI-020
     @Test func captionEncodingOverride() throws {
         let srt = "1\n00:00:01,000 --> 00:00:02,000\nПривет мир\n"

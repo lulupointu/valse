@@ -1,0 +1,34 @@
+// CV-006: toolbar ▸ Crop opens the crop dialog on the selected clip (uncropped frame + crop box). 1:1 centres a square
+// window, the bottom-right corner drags it smaller (ratio kept), Rotate turns the image inside the window, Confirm = one
+// undo step (crop L/T/R/B + rotation). Reopen + Reset + Confirm clears it; Cancel changes nothing.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"seek": 1.0},
+    {"click": "id:toolbar.crop"},
+    {"waitFor": {"path": "ui.crop.preview", "equals": true, "timeout": 10}},
+    {"expect": [{"path": "ui.crop.open", "equals": true}, {"path": "ui.crop.left", "equals": 0}]},
+    {"snapshot": "crop-open", "element": "id:crop.dialog"},
+    {"click": "id:crop.ratio.1:1"},
+    {"expect": [{"path": "ui.crop.ratio", "equals": "1:1"}, {"path": "ui.crop.left", "approx": 0.21875, "tolerance": 0.001}]},
+    {"drag": "id:crop.handle.br", "by": [-60, -60], "steps": 8},
+    {"expect": [{"path": "ui.crop.right", "gt": 0.22}, {"path": "ui.crop.bottom", "gt": 0.01}]},
+    {"drag": "id:crop.box", "by": [-40, 0], "steps": 6},
+    {"expect": {"path": "ui.crop.left", "lt": 0.2}},
+    {"click": "id:crop.rotate", "at": [0.7, 0.5]},
+    {"expect": {"path": "ui.crop.rotation", "gt": 5}},
+    {"snapshot": "crop-rotated", "element": "id:crop.dialog"},
+    {"click": "id:crop.confirm"},
+    {"expect": [{"path": "ui.crop.open", "equals": false}, {"path": "undo.name", "equals": "cmd.crop"},
+                {"path": "selectedClips.0.crop.rotation", "gt": 5}, {"path": "selectedClips.0.crop.right", "gt": 0.22}]},
+    {"snapshot": "crop-applied", "element": "id:panel.player"},
+    {"click": "id:toolbar.crop"},
+    {"click": "id:crop.cancel"},
+    {"expect": [{"path": "ui.crop.open", "equals": false}, {"path": "undo.depth", "equals": 1}]},
+    {"click": "id:toolbar.crop"},
+    {"click": "id:crop.reset"},
+    {"click": "id:crop.confirm"},
+    {"expect": [{"path": "selectedClips.0.crop", "exists": false}, {"path": "undo.depth", "equals": 2}]}
+  ]
+}

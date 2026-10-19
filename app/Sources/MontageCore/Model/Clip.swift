@@ -184,10 +184,13 @@ public struct Transform: Hashable, Codable, Sendable {
 /// Normalized crop insets (0…1 of the source on each side).
 public struct CropRect: Hashable, Codable, Sendable {
     public var left: Double, top: Double, right: Double, bottom: Double
-    public init(left: Double = 0, top: Double = 0, right: Double = 0, bottom: Double = 0) {
-        self.left = left; self.top = top; self.right = right; self.bottom = bottom
+    /// Rotation of the image inside the crop window, degrees clockwise (crop dialog "Rotate", CV-006); nil = 0.
+    /// The sampled window zooms in just enough to stay inside the source (`CropGeometry`).
+    public var rotation: Double?
+    public init(left: Double = 0, top: Double = 0, right: Double = 0, bottom: Double = 0, rotation: Double? = nil) {
+        self.left = left; self.top = top; self.right = right; self.bottom = bottom; self.rotation = rotation
     }
-    public var isIdentity: Bool { left == 0 && top == 0 && right == 0 && bottom == 0 }
+    public var isIdentity: Bool { left == 0 && top == 0 && right == 0 && bottom == 0 && (rotation ?? 0) == 0 }
 }
 
 /// CapCut blend modes ("Mix mode"). Raw values are persisted and also index the shader switch.

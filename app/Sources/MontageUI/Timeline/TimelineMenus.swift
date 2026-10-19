@@ -104,7 +104,7 @@ extension TimelineView {
                 item("tlmenu.reverse", enabled: isMedia && !(single?.isFreezeFrame ?? true), checked: single?.reversed ?? false) { s.reverseSelection() },
                 item("tlmenu.mirror", enabled: visual) { s.mirrorSelection() },
                 item("tlmenu.rotate", enabled: visual) { s.rotateSelection() },
-                item("tlmenu.crop", enabled: visual && single != nil) { s.inspectorTab = "video" },
+                item("tlmenu.crop", enabled: visual && single?.mediaID != nil) { s.openCropDialog() },
             ]),
             item("tlmenu.matchCut", enabled: !clips.isEmpty) { s.matchCut() },
             item("tlmenu.deleteClipMarkers", enabled: clips.contains { !($0.markers ?? []).isEmpty }) { s.removeClipMarkersSelection() },

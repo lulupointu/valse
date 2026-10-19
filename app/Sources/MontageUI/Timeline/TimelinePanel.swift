@@ -112,7 +112,7 @@ struct TimelineToolbarBar: View, Equatable {
                 IconButton("arrow.counterclockwise", help: tr("toolbar.reverse"), active: m.reversed, enabled: m.hasMedia) { store.reverseSelection() }
                 IconButton("arrow.left.and.right.righttriangle.left.righttriangle.right", help: tr("toolbar.mirror"), enabled: m.visualSel) { store.mirrorSelection() }
                 IconButton("rotate.right", help: tr("toolbar.rotate"), enabled: m.visualSel) { store.rotateSelection() }
-                IconButton("crop", help: tr("toolbar.crop"), enabled: m.visualSel && m.single) { store.inspectorTab = "video" }
+                IconButton("crop", help: tr("toolbar.crop"), enabled: m.visualSel && m.single) { store.openCropDialog() }.testID("toolbar.crop")
             }
             // W10 / C4: Transcript-based editing, always available (the transcript covers the whole main track)
             IconButton("text.word.spacing", help: tr("toolbar.transcript"), active: m.transcriptOpen) { store.ai.transcriptOpen.toggle() }.testID("toolbar.transcript")

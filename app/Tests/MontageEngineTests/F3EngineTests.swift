@@ -51,6 +51,28 @@ import MontageTestSupport
     }
 }
 
+/// CV-006 rotation inside the crop window.
+@Suite struct F3CropRenderTests {
+    @Test func rotatedCropTurnsTheImageAndNeverShowsEmptyCorners() async throws {
+        var p = TestProject()
+        let id = try await p.addVideo(.split(RGBA(1, 0, 0), RGBA(0, 0, 1)), seconds: 1)
+        let plain = try await p.render(at: 0.5)
+        #expect(plain[0.1, 0.5].r > 0.8 && plain[0.9, 0.5].b > 0.8)
+        // 90° clockwise: the red left half moves to the top
+        p[id].crop = CropRect(rotation: 90)
+        let r90 = try await p.render(at: 0.5)
+        #expect(r90[0.5, 0.08].r > 0.8 && r90[0.5, 0.08].b < 0.3, "top \(r90[0.5, 0.08])")
+        #expect(r90[0.5, 0.92].b > 0.8 && r90[0.5, 0.92].r < 0.3, "bottom \(r90[0.5, 0.92])")
+        // 30°: the window zooms in, so every corner still shows the image (no black)
+        p[id].crop = CropRect(left: 0.1, top: 0.1, right: 0.1, bottom: 0.1, rotation: 30)
+        let r30 = try await p.render(at: 0.5)
+        for (x, y) in [(0.12, 0.12), (0.88, 0.12), (0.12, 0.88), (0.88, 0.88)] {   // the cropped layer covers 0.1…0.9
+            let c = r30[x, y]
+            #expect(c.r + c.b > 0.7, "corner \(x),\(y) = \(c)")
+        }
+    }
+}
+
 /// MI-008 proxy creation rules.
 @Suite struct F3ProxyTests {
     func video(_ w: Double, _ h: Double) -> MediaAsset {

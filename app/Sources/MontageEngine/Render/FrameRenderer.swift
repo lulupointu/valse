@@ -412,12 +412,13 @@ public final class FrameRenderer: @unchecked Sendable {
         guard dispW >= 0.5, dispH >= 0.5 else { return nil }
         var srcW = dispW, srcH = dispH
         let cropW = 1 - l.crop.left - l.crop.right, cropH = 1 - l.crop.top - l.crop.bottom
+        var srcAspect = 16.0 / 9   // display aspect of the decoded source (rotated crops, CV-006)
         if let (y, _, _, _) = yuv {
             let (w, h) = rotation % 180 == 0 ? (Double(y.width), Double(y.height)) : (Double(y.height), Double(y.width))
-            srcW = min(dispW, w * cropW); srcH = min(dispH, h * cropH)
+            srcW = min(dispW, w * cropW); srcH = min(dispH, h * cropH); srcAspect = w / max(h, 1)
         } else if let t = rgbaSource {
             let (w, h) = rotation % 180 == 0 ? (Double(t.width), Double(t.height)) : (Double(t.height), Double(t.width))
-            srcW = min(dispW, w * cropW); srcH = min(dispH, h * cropH)
+            srcW = min(dispW, w * cropW); srcH = min(dispH, h * cropH); srcAspect = w / max(h, 1)
         } else if l.effects.isEmpty && l.mask?.shape.isRaster != true {
             srcW = min(dispW, 64); srcH = min(dispH, 64)   // flat colour: tiny texture, stretched
         } else {
@@ -427,7 +428,8 @@ public final class FrameRenderer: @unchecked Sendable {
 
         var layerTex = acquire(tw, th)
         var cu = ConvertUniforms(uvXform: Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV,
-                                                            rotation: rotation, stabilize: stabilizationCorrection(l, media: media)),
+                                                            rotation: rotation, stabilize: stabilizationCorrection(l, media: media),
+                                                            aspect: srcAspect),
                                  fullRange: 0, matrix709: 1, unpremultiply: unpremultiply ? 1 : 0)
         cu.inTF = Float(srcTF.code); cu.outTF = Float(space.transfer.code)
         cu.gamut = srcWide == space.isWideGamut ? 0 : (space.isWideGamut ? 1 : 2)
@@ -771,12 +773,14 @@ public final class FrameRenderer: @unchecked Sendable {
 
     /// Target-uv → source-uv: flip (display space) → crop → stabilization (shift + zoom, display space) →
     /// display→raw orientation.
+    /// `aspect` (display width / height of the source) is only needed when the crop is rotated (CV-006).
     static func uvTransform(crop: CropRect, flipH: Bool, flipV: Bool, rotation: Int,
-                            stabilize: StabilizeCorrection? = nil) -> simd_float3x2 {
+                            stabilize: StabilizeCorrection? = nil, aspect: Double = 16.0 / 9) -> simd_float3x2 {
         var m = Affine.identity
         if flipH { m = Affine(a: -1, b: 0, c: 0, d: 1, tx: 1, ty: 0).then(m) }
         if flipV { m = Affine(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: 1).then(m) }
-        var k = Affine(a: 1 - crop.left - crop.right, b: 0, c: 0, d: 1 - crop.top - crop.bottom, tx: crop.left, ty: crop.top)
+        let g = CropGeometry.affine(crop, aspect: aspect)
+        var k = Affine(a: g.a, b: g.b, c: g.c, d: g.d, tx: g.tx, ty: g.ty)
         k = m.then(k)
         if let st = stabilize {
             // u' = R(−roll)·(u − ½)/zoom + ½ − d   (d = correction, normalized display units; the roll is applied in

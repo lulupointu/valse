@@ -35,6 +35,8 @@ public enum StateDump {
                 "volume": c.audio.volume, "keyframes": Array(c.keyframes.keys).sorted(), "markers": (c.markers ?? []).map(\.time.seconds),
             ]
             if let n = c.name { d["name"] = n }
+            if !c.crop.isIdentity { d["crop"] = ["left": c.crop.left, "top": c.crop.top, "right": c.crop.right, "bottom": c.crop.bottom,
+                                                 "rotation": c.crop.rotation ?? 0] }   // CV-006 (F3)
             if tl.tracks.indices.contains(track) { d["lane"] = tl.tracks[track].kind.rawValue }
             if case .text(let t) = c.content {
                 d["text"] = t.string; if let w = t.boxWidth { d["boxWidth"] = w }
@@ -134,6 +136,7 @@ public enum StateDump {
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
         ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
+        ui["crop"] = CropDialogState.shared.dump   // CV-006 (F3)
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)

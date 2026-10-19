@@ -73,6 +73,10 @@ public struct EditorView: View {
             if let m = RecordingUI.shared.model { RecorderModal(store: store, model: m) }
         }
         .overlay {
+            // CV-006 crop dialog (F3): in-window modal like Export
+            if let m = CropDialogState.shared.model { CropDialogModal(store: store, model: m) }
+        }
+        .overlay {
             // W1 cover editor (main-track "Cover" button, TL-045): in-window modal like Export
             if let m = store.timelineUI.coverEditor { CoverEditorModal(store: store, model: m) }
         }

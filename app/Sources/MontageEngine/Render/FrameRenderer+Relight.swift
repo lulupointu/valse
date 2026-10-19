@@ -189,7 +189,8 @@ extension FrameRenderer {
                 if r.target.usesPersonMatte {
                     mask = MatteStore.shared.stillTexture(media: a, kind: RelightOps.personKind, device: ctx.device).map { ($0, false) }
                 }
-                xform = Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV, rotation: 0)
+                xform = Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV, rotation: 0,
+                                         aspect: a.pixelSize.width / max(a.pixelSize.height, 1))
             }
         default: return input
         }

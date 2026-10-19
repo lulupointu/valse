@@ -30,3 +30,7 @@
 "captions.encoding.eucKR" = "Coréen (EUC-KR)";
 "cmd.autoRelink" = "Relier les médias manquants";
 "toast.autoRelinked" = "%d fichier(s) manquant(s) retrouvé(s) automatiquement";
+"crop.title" = "Recadrer";
+"crop.rotate" = "Rotation";
+"crop.reset" = "Réinitialiser";
+"crop.confirm" = "Confirmer";

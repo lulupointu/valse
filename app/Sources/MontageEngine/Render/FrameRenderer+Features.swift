@@ -111,7 +111,8 @@ extension FrameRenderer {
         case .image(let id):
             if let a = media[id] {
                 matteTex = MatteStore.shared.stillTexture(media: a, kind: m.kind, device: ctx.device)
-                xform = Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV, rotation: 0)
+                xform = Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV, rotation: 0,
+                                         aspect: a.pixelSize.width / max(a.pixelSize.height, 1))
             }
         default: break
         }
