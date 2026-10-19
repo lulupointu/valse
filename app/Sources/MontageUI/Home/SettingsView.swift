@@ -124,7 +124,8 @@ struct SettingsTabBar: View {
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(selection == t ? Theme.textPrimary : Theme.textSecondary)
                         .lineLimit(1).minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity, minHeight: 28)
+                        // 9 tabs: a long label ("Performances") keeps its width, the rest share what is left
+                        .frame(minWidth: CGFloat(tr(t.nameKey).count) * 6.4 + 6, maxWidth: .infinity, minHeight: 28)
                         .background(selection == t ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
                         .contentShape(Rectangle())
                 }
