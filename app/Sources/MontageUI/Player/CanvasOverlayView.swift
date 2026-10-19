@@ -526,6 +526,26 @@ final class CanvasOverlayView: NSView {
 
         if let mt = maskTarget {
             let f = MaskFrame(layer: mt.layer.geometry, mask: mt.mask)
+            // pen outline (MK-002): ⌥-click a point removes it; a click on the outline between two points inserts one
+            // there and drags it
+            if let pts = f.points {
+                if e.modifierFlags.contains(.option), case .point(let i)? = f.hit(p, viewScale: vp.scale) {
+                    let t = mt.target
+                    store.perform(UpdateClip(mt.clip.id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.points = MaskFrame.removingPoint(pts, index: i) })
+                    return
+                }
+                if let ins = f.penInsertion(p, viewScale: vp.scale) {
+                    var np = pts; np.insert(ins.point, at: ins.index)
+                    let t = mt.target, id = mt.clip.id
+                    store.beginGesture("cmd.mask")
+                    apply(id) { $0[keyPath: t.mask]?.points = np }
+                    var base = mt.mask; base.points = np
+                    drag = .mask(handle: .point(ins.index), clipID: id, target: t, base: base,
+                                 frame: MaskFrame(layer: mt.layer.geometry, mask: base), start: p, startView: v, started: true)
+                    needsDisplay = true
+                    return
+                }
+            }
             if let h = f.hit(p, viewScale: vp.scale) {
                 drag = .mask(handle: h, clipID: mt.clip.id, target: mt.target, base: mt.mask, frame: f, start: p, startView: v, started: false)
                 return
@@ -725,6 +745,7 @@ final class CanvasOverlayView: NSView {
         let p = vp.toCanvas(v)
         let ui = store.playerUI
         if let eye = store.canvasEyedropper { eye.hover(at: p); NSCursor.crosshair.set(); return }
+        if let pen = store.penMaskTool { pen.hover(at: p); NSCursor.crosshair.set(); return }
         if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) {
             (g.axis == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set(); return
         }

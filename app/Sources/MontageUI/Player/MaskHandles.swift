@@ -163,3 +163,46 @@ nonisolated struct MaskFrame: Equatable {
     /// Feather / roundness from a vertical drag of `dy` view points (up = more), 0…1.
     static func dragged(_ base: Double, dy: Double) -> Double { min(max(base - dy / 150, 0), 1) }
 }
+
+// MARK: Pen outline editing (MK-001 / MK-002)
+
+nonisolated extension MaskFrame {
+    /// A click on the pen outline between two points inserts one there: index of the new point and its mask-box
+    /// position (nil when `p` isn't within a few view points of a chord between consecutive points, or is on a point).
+    func penInsertion(_ p: Vec2, viewScale vs: Double) -> (index: Int, point: Vec2)? {
+        let pos = pointPositions
+        guard pos.count >= 3 else { return nil }
+        if pos.contains(where: { ($0 - p).length * vs <= Self.cornerRadius + 1 + Self.slop }) { return nil }
+        var best: (Int, Double)?
+        for i in pos.indices {
+            let a = pos[i], b = pos[(i + 1) % pos.count], ab = b - a
+            let len2 = max(ab.x * ab.x + ab.y * ab.y, 1e-9)
+            let t = min(max(((p - a).x * ab.x + (p - a).y * ab.y) / len2, 0), 1)
+            let d = (a + ab * t - p).length * vs
+            if d <= 6, d < (best?.1 ?? .infinity) { best = (i + 1, d) }
+        }
+        guard let (i, _) = best else { return nil }
+        let l = toLocal(p)
+        return (i, Vec2(l.x / max(2 * half.x, 1e-6), l.y / max(2 * half.y, 1e-6)))
+    }
+
+    /// Pen outline without point `i` (an outline keeps at least 3 points).
+    static func removingPoint(_ base: [Vec2], index i: Int) -> [Vec2] {
+        guard base.count > 3, base.indices.contains(i) else { return base }
+        var out = base; out.remove(at: i); return out
+    }
+}
+
+/// Pen mask drawn point by point on the canvas (CapCut "click to add points, click the first point to close").
+nonisolated enum PenMaskDrawing {
+    /// Mask box (layer units: centre offset, size) and outline points (mask-box units, −0.5…0.5) for a closed outline
+    /// clicked at canvas points `pts` over layer `g`. nil with fewer than 3 points.
+    static func mask(from pts: [Vec2], layer g: LayerGeometry) -> (center: Vec2, size: Vec2, points: [Vec2])? {
+        guard pts.count >= 3 else { return nil }
+        let w = max(abs(g.halfSize.x) * 2, 1), h = max(abs(g.halfSize.y) * 2, 1)
+        let u = pts.map { p -> Vec2 in let l = MaskFrame.rotate(p - g.center, -g.rotation); return Vec2(l.x / w, l.y / h) }
+        let x0 = u.map(\.x).min()!, x1 = u.map(\.x).max()!, y0 = u.map(\.y).min()!, y1 = u.map(\.y).max()!
+        let c = Vec2((x0 + x1) / 2, (y0 + y1) / 2), s = Vec2(max(x1 - x0, 0.01), max(y1 - y0, 0.01))
+        return (c, s, u.map { Vec2(($0.x - c.x) / s.x, ($0.y - c.y) / s.y) })
+    }
+}

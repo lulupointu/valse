@@ -323,6 +323,22 @@ struct MaskShapesSection: View {
                 .buttonStyle(.plain)
                 .testID("mask.add")
             }
+            if let mask, mask.shape == .pen, let clip = ctx.clip {
+                // MK-002: draw the outline point by point on the canvas (click the first point to close)
+                let drawing = ctx.store.penMaskTool?.clipID == clip.id
+                Button {
+                    if drawing { ctx.store.endPenMask() } else { ctx.store.beginPenMask(clip.id, target: target) }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: drawing ? "xmark" : "pencil.tip").font(.system(size: 12, weight: .semibold))
+                        Text(loc: drawing ? "mask.pen.cancel" : "mask.pen.draw").font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
+                    .background(drawing ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .testID("mask.pen.draw")
+            }
             TileGrid {
                 ForEach(MaskShape.allCases, id: \.self) { s in
                     Tile(title: tr(s.nameKey), selected: mask?.shape == s) { setShape(s) } content: {
@@ -333,6 +349,7 @@ struct MaskShapesSection: View {
                 }
             }
         }
+        .onDisappear { ctx.store.endPenMask() }
     }
 
     /// ＋: a new rectangle mask after the last one, selected for editing.

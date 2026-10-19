@@ -114,3 +114,6 @@
 "mask.text.default" = "TEXT";
 "inspector.mask.text" = "Text";
 "inspector.mask.penHint" = "Drag the mask on the player to place it, or drag its points to reshape the outline; Size and Rotate scale and turn it.";
+"mask.pen.draw" = "Draw on canvas";
+"mask.pen.cancel" = "Cancel drawing";
+"mask.pen.hint" = "Click to add points, click the first point to close the mask";

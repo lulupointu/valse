@@ -1,0 +1,33 @@
+// MK-001 / MK-002: Pen mask ▸ "Draw on canvas": click points on the player, click the first point to close → the
+// outline (and mask box) is the drawn shape, one undo step. Then a click on the outline between two points inserts a
+// point, ⌥-click on a point removes it.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"click": "id:inspector.sub.mask"},
+    {"click": "id:mask.add"},
+    {"click": "id:mask.shape.pen"},
+    {"click": "id:mask.pen.draw"},
+    {"expect": {"path": "ui.toast", "exists": true}},
+    {"click": "player:0.3,0.3"},
+    {"click": "player:0.6,0.3"},
+    {"click": "player:0.45,0.7"},
+    {"snapshot": "pen-drawing", "element": "id:panel.player"},
+    {"click": "player:0.3,0.3"},
+    {"expect": [{"path": "selectedClips.0.mask.points", "count": 3}, {"path": "undo.name", "equals": "cmd.mask"},
+                {"path": "selectedClips.0.mask.points.0.0", "approx": -0.5, "tolerance": 0.01},
+                {"path": "selectedClips.0.mask.points.2.1", "approx": 0.5, "tolerance": 0.01}]},
+    {"snapshot": "pen-drawn", "element": "id:panel.player"},
+    {"click": "player:0.45,0.3"},
+    {"expect": {"path": "selectedClips.0.mask.points", "count": 4}},
+    {"click": "player:0.45,0.3", "modifiers": ["opt"]},
+    {"expect": {"path": "selectedClips.0.mask.points", "count": 3}},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.mask.points", "count": 7}}
+  ]
+}

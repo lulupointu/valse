@@ -110,4 +110,37 @@ struct MaskHandlesTests {
         let far = f.movedPoint(Mask.defaultPenPoints, index: 2, to: Vec2(1e6, 540))
         #expect(far[2].x == 1)
     }
+
+    @Test func penOutlineDrawnPointByPointBecomesTheMaskBox() throws {
+        // a triangle clicked over the right half of a 1920×1080 layer rotated 90°
+        let g = geometry(rotation: .pi / 2)
+        // canvas points of layer-unit points (0.1, -0.2), (0.4, -0.2), (0.25, 0.3) under a 90° rotation: (x, y) → (-y, x)
+        let lu = [Vec2(0.1, -0.2), Vec2(0.4, -0.2), Vec2(0.25, 0.3)]
+        let pts = lu.map { u in g.center + MaskFrame.rotate(Vec2(u.x * 1920, u.y * 1080), g.rotation) }
+        let r = try #require(PenMaskDrawing.mask(from: pts, layer: g))
+        #expect(abs(r.center.x - 0.25) < 1e-9 && abs(r.center.y - 0.05) < 1e-9)
+        #expect(abs(r.size.x - 0.3) < 1e-9 && abs(r.size.y - 0.5) < 1e-9)
+        #expect(abs(r.points[0].x + 0.5) < 1e-9 && abs(r.points[0].y + 0.5) < 1e-9 && abs(r.points[2].y - 0.5) < 1e-9)
+        // the mask frame built from it puts the outline points back where they were clicked
+        var m = Mask(shape: .pen, center: r.center, size: r.size); m.points = r.points
+        let f = MaskFrame(layer: g, mask: m)
+        for (a, b) in zip(f.pointPositions, pts) { #expect((a - b).length < 1e-6) }
+        #expect(PenMaskDrawing.mask(from: Array(pts.prefix(2)), layer: g) == nil)
+    }
+
+    @Test func penOutlineInsertAndRemovePoints() throws {
+        var m = Mask(shape: .pen, size: Vec2(0.5, 0.5)); m.points = [Vec2(-0.5, -0.5), Vec2(0.5, -0.5), Vec2(0.5, 0.5), Vec2(-0.5, 0.5)]
+        let f = MaskFrame(layer: geometry(), mask: m)   // box 960×540 around the centre
+        // a click on the top edge between points 0 and 1 inserts at index 1
+        let ins = try #require(f.penInsertion(Vec2(960 + 100, 540 - 270 + 2), viewScale: 1))
+        #expect(ins.index == 1 && abs(ins.point.y + 0.5) < 0.01 && abs(ins.point.x - 100.0 / 960) < 1e-6)
+        // on the closing edge (3 → 0) the new point goes last; far from the outline / on a point: nothing
+        #expect(f.penInsertion(Vec2(960 - 480, 540), viewScale: 1)?.index == 4)
+        #expect(f.penInsertion(Vec2(960, 540), viewScale: 1) == nil)
+        #expect(f.penInsertion(Vec2(960 - 480, 540 - 270), viewScale: 1) == nil)
+        // removing keeps at least 3 points
+        let three = MaskFrame.removingPoint(m.points!, index: 0)
+        #expect(three.count == 3 && three[0] == Vec2(0.5, -0.5))
+        #expect(MaskFrame.removingPoint(three, index: 0).count == 3)
+    }
 }
