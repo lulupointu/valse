@@ -3,6 +3,7 @@ import Foundation
 import MontageCore
 import MontageEffects
 import MontageEngine
+import MontageTestSupport
 
 /// Renders every effect / filter / adjustment once at 1080p and flags any over the real-time budget.
 ///
@@ -30,7 +31,9 @@ import MontageEngine
         for (id, ms) in times.prefix(15) { print(String(format: "  %6.2f  %@", ms, id)) }
         let total = times.reduce(0) { $0 + $1.1 }
         print(String(format: "  mean %.2f ms over %d entries", total / Double(max(times.count, 1)), times.count))
-        for (id, ms) in times where ms > limit {
+        // lenient mode follows the suite's load-aware rule: GPU timings mean nothing while other teams saturate the GPU
+        let overloaded = !Self.strict && TimingBudget.limit(Self.budgetMs, "effects 1080p GPU budget") == nil
+        for (id, ms) in times where ms > limit && !overloaded {
             Issue.record("\(id) costs \(String(format: "%.2f", ms)) ms at 1080p (limit \(limit) ms)")
         }
         #expect(times.count == all.count)
