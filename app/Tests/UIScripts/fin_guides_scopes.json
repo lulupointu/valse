@@ -5,6 +5,8 @@
   "steps": [
     {"idle": 1},
     {"key": "opt+cmd+r"},
+    {"waitFor": {"path": "ui.rulers", "equals": true, "timeout": 5}},
+    {"idle": 0.5},
     {"drag": "player:0.5,0.012", "to": "player:0.5,0.5", "steps": 8},
     {"expect": [{"path": "ui.guides.count", "equals": 1}, {"path": "ui.guides.0.axis", "equals": "h"},
                 {"path": "project.guides.count", "equals": 1}]},

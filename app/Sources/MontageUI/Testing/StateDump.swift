@@ -104,6 +104,7 @@ public enum StateDump {
         ui["assets"] = AssetStateDump.make(store)   // W13 asset panel
         ui["guides"] = store.playerUI.guides.map { ["axis": $0.axis == .vertical ? "v" : "h", "position": $0.position] }   // PB-011
         ui["editingGuide"] = store.playerUI.editingGuide != nil
+        ui["rulers"] = store.playerUI.showRulers
         ui["keystrokes"] = ["enabled": KeystrokeFeed.shared.enabled, "items": KeystrokeFeed.shared.items.map(\.text)]   // PB-015
         ui["previewAxis"] = ["on": store.timelineUI.previewAxis, "audio": store.timelineUI.previewAxisAudio]   // TL-031
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
