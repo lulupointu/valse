@@ -49,6 +49,24 @@ struct TextScene: @unchecked Sendable {
         var center: CGPoint = .zero
         var isShape = false
         var gradientRect: CGRect = .zero
+        /// TX-040: block style with a range's text effect applied, per effect id used by the runs.
+        var effectStyles: [String: TextContent] = [:]
+
+        /// The cluster as painted: under a range effect, colours inherited from the clip give way to the effect's.
+        func painted(_ c: LaidCluster, highlight: Bool) -> LaidCluster {
+            guard !highlight, c.style.effectID.flatMap({ effectStyles[$0] }) != nil else { return c }
+            var p = c
+            if p.style.color == style.color { p.style.color = nil }
+            if p.style.strokeColor == style.strokeColor { p.style.strokeColor = nil }
+            return p
+        }
+
+        /// Paint style of a cluster (its range's text effect, else the block style).
+        func style(for c: LaidCluster, highlight: Bool) -> TextContent {
+            if highlight { return highlightStyle ?? style }
+            if let e = c.style.effectID, let s = effectStyles[e] { return s }
+            return style
+        }
     }
 
     var blocks: [Block]
@@ -106,8 +124,17 @@ enum TextSceneBuilder {
                 h.fill = nil
                 hi = h
             }
-            return TextScene.Block(style: st, highlightStyle: hi, layout: layout, transform: .identity, em: px, layer: layer,
-                                   karaoke: st.karaoke, wordTimes: words)
+            var block = TextScene.Block(style: st, highlightStyle: hi, layout: layout, transform: .identity, em: px, layer: layer,
+                                        karaoke: st.karaoke, wordTimes: words)
+            for id in Set(st.runs.compactMap(\.style.effectID)) {
+                guard let d = Registries.textStyles[id] else { continue }
+                var e = st
+                d.restyle(&e)
+                // the range keeps the layout (font, size) of the block; only the painted look changes
+                e.fontName = st.fontName; e.fontSize = st.fontSize; e.runs = st.runs; e.string = st.string
+                block.effectStyles[id] = e
+            }
+            return block
         }
 
         if fitCaption, let w = boxW {
@@ -291,10 +318,11 @@ enum TextSceneBuilder {
                 }
             }
             // glyphs: all backs, then all fronts (like Core Text drawing strokes under fills)
-            let hasBack = st.strokeWidth > 0 || !st.extraStrokes.isEmpty || st.shadowColor.a > 0 || (st.glow.map { $0.mode != .inner } ?? false)
+            func backOf(_ s: TextContent) -> Bool { s.strokeWidth > 0 || !s.extraStrokes.isEmpty || s.shadowColor.a > 0 || (s.glow.map { $0.mode != .inner } ?? false) }
+            let hasBack = backOf(st) || b.effectStyles.values.contains(where: backOf)   // TX-040: range effects
             let hiStyle = b.highlightStyle
             let hiBack = hiStyle.map { $0.strokeWidth > 0 || !$0.extraStrokes.isEmpty || $0.shadowColor.a > 0 || $0.glow != nil } ?? false
-            let pad = padEm(st) * em
+            let pad = ([padEm(st)] + b.effectStyles.values.map(padEm)).max()! * em
             let hiPad = hiStyle.map { padEm($0) * em } ?? 0
             func clusterRect(_ c: TextLayoutResult.Element, _ p: CGFloat, _ M: CGAffineTransform) -> CGRect {
                 c.box.union(c.ink).insetBy(dx: -p, dy: -p).applying(M)
@@ -313,7 +341,8 @@ enum TextSceneBuilder {
                                            char: unit.char, word: unit.word, line: unit.line, variantOf: base))
                     }
                 }
-                let fr = clusterRect(c, em * 0.08 + (st.strokePosition == .center ? CGFloat(st.strokeWidth) * em / 2 : 0) + (st.glow?.mode != .outer && st.glow != nil ? CGFloat(st.glow!.radius) * em : 0), M)
+                let cs = b.style(for: c, highlight: false)
+                let fr = clusterRect(c, em * 0.08 + (cs.strokePosition == .center ? CGFloat(cs.strokeWidth) * em / 2 : 0) + (cs.glow?.mode != .outer && cs.glow != nil ? CGFloat(cs.glow!.radius) * em : 0), M)
                 fronts.append(.init(kind: .glyphFront(cluster: ci, variant: .base), block: bi, transform: M, rect: fr,
                                     char: unit.char, word: unit.word, line: unit.line))
                 if hiStyle != nil {

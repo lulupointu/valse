@@ -155,6 +155,7 @@ struct TextAssetTile<Preview: View>: View {
         .onTapGesture(count: 2, perform: add)
         .onDrag { NSItemProvider(object: payload as NSString) }
         .accessibilityElement(children: .combine)
+        .testID("text.tile.\(favorite?.id ?? title)")
         .accessibilityLabel(Text(verbatim: title))
         .accessibilityAddTraits(.isButton)
     }

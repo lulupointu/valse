@@ -132,6 +132,12 @@ extension EditorStore {
 
     /// Text effect / preset click: restyles the selected text clips (keeping their text), else adds a new styled text.
     func applyTextStyle(_ d: TextStyleDescriptor) {
+        // TX-040 (F3): with part of the text selected, a text effect applies to that range only
+        if d.kind == .effect, let c = singleSelectedClip, case .text = c.content,
+           let sel = TextUIState.shared.selection[c.id], sel.length > 0 {
+            applyTextRunStyle(c.id, TextRunStyle(effectID: d.id), nameKey: "cmd.textStyle")
+            return
+        }
         let ids = selectedClips.filter { if case .text = $0.content { return true }; return false }.map(\.id)
         guard !ids.isEmpty else {
             var t = TextContent(string: tr("text.default"))

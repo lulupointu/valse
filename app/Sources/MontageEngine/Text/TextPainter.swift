@@ -58,11 +58,11 @@ enum TextPainter {
             ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
             ctx.setFillColor(cg(color)); ctx.fillPath()
         case .glyphBack(let ci, let v):
-            let st = v == .highlight ? (b.highlightStyle ?? b.style) : b.style
-            drawBack(b.layout.clusters[ci], style: st, em: b.em, itemTransform: item.transform, in: ctx)
+            let st = b.style(for: b.layout.clusters[ci], highlight: v == .highlight)
+            drawBack(b.painted(b.layout.clusters[ci], highlight: v == .highlight), style: st, em: b.em, itemTransform: item.transform, in: ctx)
         case .glyphFront(let ci, let v):
-            let st = v == .highlight ? (b.highlightStyle ?? b.style) : b.style
-            drawFront(b.layout.clusters[ci], style: st, highlight: v == .highlight, em: b.em, itemTransform: item.transform,
+            let st = b.style(for: b.layout.clusters[ci], highlight: v == .highlight)
+            drawFront(b.painted(b.layout.clusters[ci], highlight: v == .highlight), style: st, highlight: v == .highlight, em: b.em, itemTransform: item.transform,
                       gradientRect: b.gradientRect, in: ctx)
         }
     }

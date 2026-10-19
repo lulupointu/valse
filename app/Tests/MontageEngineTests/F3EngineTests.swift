@@ -233,6 +233,32 @@ import MontageTestSupport
         #expect(h.count(inside, white) < h.count(outside, white) * 3 / 4)
     }
 
+    /// TX-040: a text effect on part of the text paints only those characters.
+    @Test func textEffectOnARangeOnly() throws {
+        let fx = try #require(Registries.textStyles(.effect).first { d in
+            // visible on black: a bright outline or a non-white fill
+            var t = TextContent(string: "A"); d.restyle(&t)
+            func vivid(_ c: RGBA) -> Bool { max(c.r, c.g, c.b) - min(c.r, c.g, c.b) > 0.5 }
+            return t.fill == nil && vivid(t.color)
+        })
+        let plain = h.render(h.text("HHHH"))
+        var t = h.text("HHHH")
+        t.applyStyle(TextRunStyle(effectID: fx.id), to: TextSpan(0, 2))
+        #expect(t.runs.first?.style.effectID == fx.id)
+        let styled = h.render(t)
+        func diff(_ x0: Int, _ x1: Int) -> Int {
+            var n = 0
+            for y in 0..<plain.height { for x in x0..<x1 {
+                let a = plain.pixel(x, y), b = styled.pixel(x, y)
+                if abs(a.r - b.r) + abs(a.g - b.g) + abs(a.b - b.b) > 0.3 { n += 1 }
+            } }
+            return n
+        }
+        let w = plain.width
+        #expect(diff(0, w / 2 - 4) > 200, "effect missing on the range")
+        #expect(diff(w / 2 + 12, w) < 30, "effect leaked outside the range")
+    }
+
     @Test func strokePositionRoundTripsAndDefaultsToOutside() throws {
         var t = TextContent(string: "A"); t.strokePosition = .inside
         let back = try JSONDecoder().decode(TextContent.self, from: JSONEncoder().encode(t))

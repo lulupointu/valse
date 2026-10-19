@@ -141,17 +141,21 @@ public struct TextRunStyle: Hashable, Codable, Sendable {
     public var underline: Bool?
     public var strokeColor: RGBA?
     public var backgroundColor: RGBA?
+    /// Text effect (word-art style id, `Registries.textStyles`) painted on this range only (TX-040): its outlines,
+    /// shadow, glow and fill replace the clip's on these characters.
+    public var effectID: String?
     public init(color: RGBA? = nil, fontName: String? = nil, sizeScale: Double? = nil, bold: Bool? = nil, italic: Bool? = nil,
-                underline: Bool? = nil, strokeColor: RGBA? = nil, backgroundColor: RGBA? = nil) {
+                underline: Bool? = nil, strokeColor: RGBA? = nil, backgroundColor: RGBA? = nil, effectID: String? = nil) {
         self.color = color; self.fontName = fontName; self.sizeScale = sizeScale; self.bold = bold; self.italic = italic
-        self.underline = underline; self.strokeColor = strokeColor; self.backgroundColor = backgroundColor
+        self.underline = underline; self.strokeColor = strokeColor; self.backgroundColor = backgroundColor; self.effectID = effectID
     }
     public var isEmpty: Bool { self == TextRunStyle() }
     /// `o` wins where it sets a value.
     public func merged(with o: TextRunStyle) -> TextRunStyle {
         TextRunStyle(color: o.color ?? color, fontName: o.fontName ?? fontName, sizeScale: o.sizeScale ?? sizeScale,
                      bold: o.bold ?? bold, italic: o.italic ?? italic, underline: o.underline ?? underline,
-                     strokeColor: o.strokeColor ?? strokeColor, backgroundColor: o.backgroundColor ?? backgroundColor)
+                     strokeColor: o.strokeColor ?? strokeColor, backgroundColor: o.backgroundColor ?? backgroundColor,
+                     effectID: o.effectID ?? effectID)
     }
 }
 

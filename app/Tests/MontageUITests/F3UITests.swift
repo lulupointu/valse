@@ -9,6 +9,28 @@ import MontageTestSupport
 
 /// Finisher F3 UI-layer logic.
 @MainActor struct F3UITests {
+    // TX-040
+    @Test func textEffectAppliesToTheSelectedRange() throws {
+        var p = Project(name: "t", settings: ProjectSettings(canvasSize: Size2(640, 360), frameRate: .fps30, backgroundColor: .black))
+        let c = Clip(content: .text(TextContent(string: "Hello world")), start: 0, duration: 3)
+        try TimelineOps.insert(c, into: &p)
+        let s = EditorStore(project: p)
+        s.autosaveEnabled = false
+        s.select([c.id])
+        let fx = try #require(Registries.textStyles(.effect).first)
+        TextUIState.shared.selection[c.id] = TextSpan(6, 5)
+        defer { TextUIState.shared.selection[c.id] = nil }
+        s.applyTextStyle(fx)
+        let t = try #require(CaptionOps.text(s.project.timeline.clip(c.id)!))
+        #expect(t.runs.count == 1 && t.runs[0].range == TextSpan(6, 5) && t.runs[0].style.effectID == fx.id)
+        #expect(t.styleID == nil)                       // the clip-wide look is untouched
+        #expect(s.session.undoStack.last?.nameKey == "cmd.textStyle")
+        // no selection: the whole clip takes the effect (as before)
+        TextUIState.shared.selection[c.id] = nil
+        s.applyTextStyle(fx)
+        #expect(CaptionOps.text(s.project.timeline.clip(c.id)!)?.styleID == fx.id)
+    }
+
     // TX-026
     @Test func lyricTemplatesStyleEveryLine() throws {
         let lyrics = Registries.captionTemplates.all.filter { $0.groupKey == "captionTemplate.group.lyrics" }

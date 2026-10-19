@@ -115,6 +115,7 @@ struct TextBasicSection: View {
                 if !ctx.isMulti {
                 ClipTextEditor(store: store, clipID: clip.id)
                     .id(clip.id)
+                    .testID("text.editor")
                     .frame(height: 64)
                     .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
                     .overlay(alignment: .bottomTrailing) {   // AI2 TX-034: dictate into the text clip
