@@ -1,7 +1,7 @@
 // AI2 (AI-005 / TX-038): Inspector ▸ Captions ▸ Speakers on speaker-tagged captions (fixture: 6 captions, 2 speakers):
 // rows with name + colour, speaker chips on the caption rows, colour change (one undo step), apply the selected
 // caption's style to its speaker, remove the labels → "Identify speakers" button. The diarization itself is covered
-// by SpeakerDiarizationTests (WeSpeaker model gated). Second part: Text ▸ Auto captions ▸ ☐ Identify speakers.
+// by SpeakerDiarizationTests (WeSpeaker model gated). Second part: Captions ▸ Auto captions ▸ ☐ Identify speakers.
 {
   "project": "fixtures/speakers.montage",
   "size": [1687, 1100],
@@ -30,7 +30,7 @@
     {"key": "cmd+z"},
     {"expect": {"path": "project.speakers.count", "equals": 2}},
     // Auto captions panel option
-    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.tab.captions"},
     {"click": "id:asset.nav.auto"},
     {"expect": {"path": "ui.anchors", "notContains": "captions.speakerCount"}},
     {"click": "id:captions.identifySpeakers"},

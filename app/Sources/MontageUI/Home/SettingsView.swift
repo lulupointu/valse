@@ -469,6 +469,18 @@ struct EditSettings: View {
             Dropdown(items: ProjectSettingsSheet.ratios.map { ($0, ProjectSettingsSheet.ratioTitle($0)) }, selection: draft.defaultRatio) { draft.defaultRatio = $0 }
                 .frame(width: 200)
         }
+        // C4 Labs: the owner picks how "Remove filler words" applies
+        SettingsDivider()
+        Text(loc: "settings.labs").font(.system(size: 12, weight: .medium)).foregroundStyle(IStyle.caption).padding(.bottom, 4)
+        SettingsRow(tr("fillers.style.title"), hint: tr(FillerRemovalStyle(rawValue: draft.fillerRemovalStyle)?.hintKey ?? "fillers.style.review.hint")) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(FillerRemovalStyle.allCases, id: \.self) { s in
+                    RadioLine(label: tr(s.nameKey), selected: draft.fillerRemovalStyle == s.rawValue, id: "fillerStyle.\(s.rawValue)") {
+                        draft.fillerRemovalStyle = s.rawValue
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -27,6 +27,10 @@ final class TextUIState {
     /// Bumped when imported fonts change.
     var fontsRevision = 0
     var presetsExpanded = false
+    /// C4 Text ▸ Basic "Apply to all main captions" (CapCut, on by default): style edits on a caption restyle its track.
+    var applyToAllCaptions: Bool = TestAnchors.isEnabled ? true : (UserDefaults.standard.object(forKey: "MontageApplyToAllCaptions") as? Bool ?? true) {
+        didSet { if !TestAnchors.isEnabled { UserDefaults.standard.set(applyToAllCaptions, forKey: "MontageApplyToAllCaptions") } }
+    }
 
     func noteRecent(_ font: String) {
         guard !font.isEmpty else { return }
@@ -214,6 +218,28 @@ extension EditorStore {
         _ = perform(Edit("cmd.captionText") { p in try CaptionOps.setText(id, s, in: &p) })
     }
 
+    /// Caption list ＋ (C4): a new caption after this one, selected.
+    func addCaption(after id: ClipID) {
+        let newID = ClipID()
+        let text = tr("captions.newCaption")
+        if perform(Edit("cmd.captionAdd") { p in _ = try CaptionOps.insertAfter(id, text: text, newID: newID, in: &p) }) {
+            selection = [newID]
+            seek(to: project.timeline.clip(newID)?.start ?? transport.playhead)
+        }
+    }
+
+    /// Caption list 🗑 (C4): deletes one caption, the others keep their timing.
+    func deleteCaption(_ id: ClipID) {
+        let tl = project.timeline
+        let next = tl.locate(id).flatMap { loc -> ClipID? in
+            let clips = tl.tracks[loc.track].clips
+            return loc.clip + 1 < clips.count ? clips[loc.clip + 1].id : (loc.clip > 0 ? clips[loc.clip - 1].id : nil)
+        }
+        if perform(Edit("cmd.captionDelete") { p in try CaptionOps.delete(id, in: &p) }) {
+            selection = next.map { [$0] } ?? []
+        }
+    }
+
     func nudgeCaption(_ id: ClipID, start: Time = .zero, end: Time = .zero) {
         _ = perform(Edit("cmd.captionTiming") { p in try CaptionOps.nudge(id, start: start, end: end, in: &p) })
     }
@@ -235,6 +261,19 @@ extension EditorStore {
 
     /// Caption template click: applied to every caption of the active caption track (CapCut "apply to all captions").
     func applyCaptionTemplate(_ d: CaptionTemplateDescriptor) {
+        // C4: with "Apply to all main captions" off, only the selected caption
+        if !TextUIState.shared.applyToAllCaptions, let c = singleSelectedClip, CaptionOps.isCaption(c) {
+            let anim = d.inAnim
+            perform(UpdateClip(c.id, nameKey: "cmd.captionTemplate") { clip in
+                guard case .text(var t) = clip.content else { return }
+                var look = t
+                d.apply(&look)
+                t.adoptLook(of: look)
+                clip.content = .text(t)
+                if let a = anim { clip.animations.inAnim = AnimationInstance(typeID: a, duration: min(Time(0.4), clip.duration * 0.5)) }
+            })
+            return
+        }
         guard let ti = activeCaptionTrackIndex else {
             if let (c, _) = selectedTextClip { updateText(c.id, nameKey: "cmd.captionTemplate") { d.apply(&$0) } }
             return

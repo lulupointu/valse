@@ -113,9 +113,9 @@ struct TimelineToolbarBar: View, Equatable {
                 IconButton("arrow.left.and.right.righttriangle.left.righttriangle.right", help: tr("toolbar.mirror"), enabled: m.visualSel) { store.mirrorSelection() }
                 IconButton("rotate.right", help: tr("toolbar.rotate"), enabled: m.visualSel) { store.rotateSelection() }
                 IconButton("crop", help: tr("toolbar.crop"), enabled: m.visualSel && m.single) { store.inspectorTab = "video" }
-                // W10: Transcript-based editing (opens the transcript panel in place of the asset panel)
-                IconButton("text.word.spacing", help: tr("toolbar.transcript"), active: m.transcriptOpen) { store.ai.transcriptOpen.toggle() }.testID("toolbar.transcript")
             }
+            // W10 / C4: Transcript-based editing, always available (the transcript covers the whole main track)
+            IconButton("text.word.spacing", help: tr("toolbar.transcript"), active: m.transcriptOpen) { store.ai.transcriptOpen.toggle() }.testID("toolbar.transcript")
             Spacer()
             VoiceoverButton(store: store)
             divider

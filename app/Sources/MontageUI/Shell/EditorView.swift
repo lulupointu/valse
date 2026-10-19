@@ -253,7 +253,13 @@ struct ToastView: View {
     var body: some View {
         if let toast {
             // CapCut (UX §9): centred white pill, black 12 pt text; errors stay red
-            Text(verbatim: toast.message)
+            HStack(spacing: 10) {
+                Text(verbatim: toast.message)
+                if let title = toast.actionTitle, let action = toast.action {   // C4: "Undo" after an instant edit
+                    Button(action: action) { Text(verbatim: title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.accentDim) }
+                        .buttonStyle(.plain).testID("toast.action")
+                }
+            }
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(toast.isError ? .white : .black)
                 .padding(.horizontal, 14).padding(.vertical, 7)

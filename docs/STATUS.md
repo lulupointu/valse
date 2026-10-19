@@ -40,8 +40,28 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | SR1 | Enhance quality speed (AI QA: ×50 RT): VideoToolbox low-latency super resolution over overlapping tiles (≤ 960 px, 6 per 1080p frame, scaled concurrently) + GPU resize instead of the full ×4 scaler; decoded frames go straight to the tiler (no CPU copy without denoise / deflicker). IMG_9079 copy 1080p HLG → 4K: 1629 s → 27.6 s (×50 → ×0.84 RT); synthetic 540p → 1080p ×0.18 RT, 1080p → 4K ×0.72 RT (TiledSuperResolutionTests, load-aware budgets 3× / 6×); export "AI ultra HD" uses the same path | 4 | ready to merge | worktree-agent-adfcb28782f253ff4 |
 | C3 | Timeline & media fixes: (1) media drag shows a grey placeholder where it lands, main track ripples live, lane boundary = new lane there (`TimelineDropPlan`, `InsertTarget.newTrackAbove`), exit cancels — video / image / audio / several; (2) draggable clip volume line, dB tooltip, ↕ cursor, one undo step, keyframes offset (`ClipVolumeLine`); (3) media cards 288 px, aspect-fit letterboxed; (4) tooltips after 0.4 s app-wide (`Tooltips.install`); (5) playback freeze FIXED: seeking while AVPlayer's clock ran (rate 1, no stall waiting) often left the custom-compositor video pipeline without a preroll — clock + audio ran on, no frame requested for seconds. Seeks while playing now hold rate 0 and resume when the last coalesced seek lands. `PlaybackStressTests` (10-bit B-frame HLG HEVC via ffmpeg): 21/40 actions froze before → 0 (max 0.49 s to frames); 1019 real footage 60 actions 0 stalls; UI script `playback_seek_while_playing` | 4 | see branch | worktree-agent-aef37c1ea9a138783 |
 | C2 | Inspector fixes: ▼ expands unticked options (generic, InspectorSectionView + effect blocks; settings editable, ticking applies); Remove BG / Auto removal / Custom removal / Chroma key (FR Supprimer l'arrière-plan / Suppression automatique / personnalisée / Clé chroma); job progress: timeline redraws on `store.jobs` (one source, `jobProgress` / `JobInfo.percent`); same-kind multi-select gets the full inspector (Bind.apply / `performInspector` fan out, one undo, mixed "-"; single-clip AI / mask / text-box sections hidden, `InspectorMultiEdit`) | 4 | ready to merge | worktree-agent-a9132457188fc6b70 |
+| C4 | Captions & transcript rework: Captions top-level asset tab (Auto · Local · Filler words); caption list = numbered text rows, hover ＋ / 🗑, no timing steppers; Text ▸ Basic \| Templates \| Bubble \| Effects; ☑ Apply to all main captions (default on, one undo step, live in drags); Transcript: global (no selection), Auto-detect dropdown fixed, up-to-date / out-of-date · Update (incremental), Remove filler words in timeline time (leading / trailing / cross-cut pauses, scope = selected clips), captions follow the cuts, 3 switchable apply styles (below) | 4 | ready to merge | worktree-agent-ab58eee3f67565a6e |
 | QA-AI | AI QA pass 2: every model installed, all `requires.models` scripts, every done/partial AI feature end to end on a copy of project 1018 (iPhone 1080×1920 HLG, French speech) + bench/media | 4 | ready to merge — 6 bugs fixed (table below) | worktree-agent-af260dfaae90fa707 |
 | C1 | Colour-space looks (owner project 1019, iPhone HLG/DV): preview matched to Apple + export in SDR / HLG / PQ (untagged video composition, compositor-stamped output, HLG ambient viewing environment, Rec.709 SDR drawable); `ColorSpaceLookTests` ΔE00 vs Apple | 4 | ready to merge | worktree-agent-ab87aa66ecd61e634 |
+
+## C4 — "Remove filler words": three apply styles to try (owner picks one)
+Switch in **Settings ▸ Edit ▸ Labs ▸ Filler removal style** (stored as `fillerRemovalStyle` in
+`~/Library/Application Support/Montage/settings.json`: `"instant"`, `"review"` (default) or `"inline"`; takes effect on the next click,
+no restart). Every style starts the same way — one click on **Remove filler words** in the Transcript panel (toolbar ▸ Transcript, no
+clip needs to be selected) or in **Captions ▸ Filler words** (also reachable from the ✨ wand in Inspector ▸ Captions): it transcribes
+what is missing first, then finds hesitations / fillers / repetitions / pauses ≥ the minimum (options ⚙: kinds, minimum pause), in the
+**selected main-track clips** if any are selected, else **everywhere**. Pauses include the silence before the first and after the last
+word of a run of speech clips and across cuts. Captions follow every cut (their words in the cut disappear from the caption text).
+- **(A) Instant**: cuts everything at once (one undo step); the toast says "Removed N filler words and pauses (X s)" with **Undo**.
+- **(B) Review list**: a checklist replaces the transcript — one row per filler / pause with its context ("… show. ⏸ Pause Today …"),
+  duration and time; click a row to play it, uncheck what to keep, **Remove N** (footer shows the time saved; Keep all / Remove all).
+- **(C) Inline**: the transcript stays, fillers and pause chips are highlighted in red (= removed); click one to keep it (outlined),
+  click again to drop it, then **Apply (N)**.
+Both entry points render the same `TranscriptWorkspace` (MontageUI/AI/TranscriptPanel.swift + FillerReviewViews.swift); the engine is
+`FillerCleanup` (MontageCore). Tests: `FillerCleanupTests`, `FillerRemovalSpeechTests` (whisper on bench/media/speech_fr.wav padded
+with silence), UI scripts `c4_fillers_{review,inline,instant}`, `c4_transcript_stale`, `c4_captions_tab`, `c4_caption_list`.
+Before/after of the owner's bug: screenshot 9 = before (one 32.7 s clip), 8 = after the old removal (6 s of silence kept at the start of
+IMG_9079 and 4 s at the end of IMG_7251, captions not moved).
 
 ## AI QA results (2026-10-19, pass 2)
 Inputs: COPIES of project 1018's footage (IMG_9079 32.7 s talking head, IMG_7510 91 s, scratch QA projects; the original was
@@ -191,6 +211,10 @@ projects processed before this fix (face covers refresh themselves when the proj
 
 - Never seek `PlaybackEngine.player` directly while it plays: go through `seek`/`performSeek` (they hold the rate at 0
   until the seek lands; seeking with the clock running froze the preview, C3-5). Start playback with `resume(atRate:)`.
+- `EditSession.postProcess` (C4) runs after every command and every gesture tick: today it replays a selected caption's style edit on
+  its track ("Apply to all main captions", `CaptionStyleSync`, ~4 ms for 400 captions). Keep anything added there cheap.
+- Ripple cuts from the transcript (`TranscriptEditing.rippleDelete`) move caption tracks themselves (linked or not) — don't also
+  shift captions by linkage in new transcript features.
 
 ## Known risks
 - Apple on-device French STT WER ~13% without OS model download → whisper.cpp (large-v3-turbo, 547 MB) as quality path.

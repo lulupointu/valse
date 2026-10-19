@@ -1,0 +1,33 @@
+// C4 style B (default "Review list"): the Transcript panel opens with nothing selected (the transcript is global), shows
+// "up to date", and "Remove filler words" lists every filler and pause — including the silence at the start and end of
+// the speech and the pauses across cuts — with checkboxes; unchecking one keeps it; "Remove N" cuts the rest as ONE
+// undo step, the toast offers Undo.
+{
+  "project": "demo-transcript",
+  "steps": [
+    {"click": "id:toolbar.transcript"},
+    {"expect": [{"path": "ui.anchors", "contains": "transcript.panel"}, {"path": "ui.transcript.status", "equals": "upToDate"},
+                {"path": "ui.fillers.style", "equals": "review"}]},
+    {"snapshot": "transcript-panel", "element": "id:transcript.panel"},
+    {"click": "id:fillers.remove"},
+    {"expect": [{"path": "ui.fillers.reviewing", "equals": true}, {"path": "ui.fillers.reviewStyle", "equals": "review"},
+                {"path": "ui.fillers.candidates.0.edge", "equals": "leading"},
+                {"path": "ui.fillers.candidates.-1.edge", "equals": "trailing"},
+                {"path": "ui.fillers.candidates.1.text", "equals": "euh"},
+                {"path": "ui.anchors", "contains": "fillers.list"}]},
+    {"dump": "review"},
+    {"snapshot": "fillers-checklist", "element": "id:transcript.panel"},
+    // keep the first item (the silence before "Hello")
+    {"click": "id:fillers.check.0"},
+    {"expect": {"path": "ui.fillers.dropped", "lt": 99}},
+    {"dump": "unchecked"},
+    {"click": "id:fillers.apply"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.removeFillers"}, {"path": "ui.fillers.reviewing", "equals": false},
+                {"path": "ui.toast", "contains": "Removed"},
+                {"path": "ui.transcript.words", "notContains": "euh"},
+                {"path": "ui.transcript.words", "contains": "Hello"}]},
+    {"snapshot": "after-removal", "element": "id:panel.timeline"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "ui.transcript.words", "contains": "euh"}}
+  ]
+}

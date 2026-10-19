@@ -117,6 +117,8 @@ enum BuiltinAssetTabs {
         AssetTab(id: "transitions", titleKey: "tab.transitions", symbol: "square.split.2x1", order: 5) { store in
             AnyView(TransitionsTab(store: store))   // W5: MontageUI/Transitions
         },
+        // C4: Captions is its own top-level tab like CapCut (auto / local captions, filler words)
+        AssetTab(id: "captions", titleKey: "tab.captions", symbol: "captions.bubble", order: 6) { AnyView(CaptionsAssetTab(store: $0)) },
         AssetTab(id: "filters", titleKey: "tab.filters", symbol: "camera.filters", order: 7) { store in
             AnyView(EffectLibraryTab(store: store, category: .filter).id(EffectCategory.filter))
         },

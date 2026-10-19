@@ -1,0 +1,13 @@
+// C4: the transcript says when it no longer covers the timeline ("Out of date — timeline changed · Update"); with one
+// main-track clip never transcribed, "Remove filler words" first transcribes what is missing (only that clip).
+{
+  "project": "demo-transcript:partial",
+  "steps": [
+    {"click": "id:toolbar.transcript"},
+    {"expect": [{"path": "ui.transcript.status", "equals": "stale"}, {"path": "ui.anchors", "contains": "transcript.update"},
+                {"path": "ui.anchors", "contains": "transcript.language"}]},
+    {"snapshot": "transcript-stale", "element": "id:transcript.status"},
+    {"click": "id:fillers.remove"},
+    {"expect": {"path": "ui.fillers.pending", "equals": true}}
+  ]
+}

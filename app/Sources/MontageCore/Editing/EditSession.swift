@@ -25,6 +25,9 @@ public struct EditSession: Sendable {
 
     private var gestureBase: Project?
     private var gestureName: String?
+    /// Runs after every command / gesture update with the state before it (C4: "Apply to all main captions" replays a
+    /// caption's style edit on its siblings inside the same undo step). nil = none.
+    public var postProcess: (@Sendable (_ before: Project, _ after: inout Project) -> Void)?
 
     public init(project: Project) { self.project = project }
 
@@ -41,6 +44,7 @@ public struct EditSession: Sendable {
         var p = project
         try command.apply(to: &p)
         FreezeLinks.sync(&p)
+        postProcess?(project, &p)
         guard p != project else { return }
         commit(nameKey: command.nameKey, before: project, after: p)
     }
@@ -60,6 +64,7 @@ public struct EditSession: Sendable {
         var p = base
         try body(&p)
         FreezeLinks.sync(&p)
+        postProcess?(base, &p)
         project = p
         revision += 1
     }

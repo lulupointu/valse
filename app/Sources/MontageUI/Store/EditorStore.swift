@@ -18,6 +18,10 @@ public struct Toast: Equatable, Identifiable {
     public let id = UUID()
     public let message: String
     public let isError: Bool
+    /// Optional button in the pill (C4: "Undo" after an instant filler removal).
+    public var actionTitle: String? = nil
+    public var action: (@MainActor () -> Void)? = nil
+    public static func == (a: Toast, b: Toast) -> Bool { a.id == b.id }
 }
 
 /// The editor's single source of truth on the main actor.
@@ -155,6 +159,7 @@ public final class EditorStore {
         installMediaPipelineHooks()
         installAIHooks()
         installExportHooks()
+        installCaptionStyleSync()   // C4 "Apply to all main captions"
         syncProjectSlices()
         playerUI.loadGuides(project.guides)
         playerUI.onGuidesChanged = { [weak self] in self?.persistGuides() }
@@ -194,6 +199,9 @@ public final class EditorStore {
         }
         return false
     }
+
+    /// C4: hook run inside every edit (see `EditSession.postProcess`).
+    func setSessionPostProcess(_ f: (@Sendable (Project, inout Project) -> Void)?) { session.postProcess = f }
 
     public func beginGesture(_ nameKey: String) { cancelPilotPreviewBeforeEdit(); session.beginGesture(nameKey) }
 
@@ -581,11 +589,11 @@ public final class EditorStore {
 
     // MARK: Toasts
 
-    public func showToast(_ message: String, error: Bool = false) {
-        let t = Toast(message: message, isError: error)
+    public func showToast(_ message: String, error: Bool = false, actionTitle: String? = nil, action: (@MainActor () -> Void)? = nil) {
+        let t = Toast(message: message, isError: error, actionTitle: actionTitle, action: action)
         toast = t
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: .seconds(action == nil ? 2.5 : 6))
             if self?.toast == t { self?.toast = nil }
         }
     }

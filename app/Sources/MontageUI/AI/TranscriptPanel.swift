@@ -4,15 +4,13 @@ import MontageCore
 import MontageEngine
 import MontageAI
 
-/// Transcript-based editing (UX_AI §2, AI-019/020, TL-042/035, AU-027): replaces the asset panel. Transcribe the main
-/// track, click a word to seek, select words (click, ⇧-click range) and Delete → ripple cut; deleted words stay struck
-/// through (Show/Hide deleted) and Restore puts the media back; pauses show as grey chips; Remove filler words deletes
-/// pauses / hesitations / repetitions in one step.
+/// Transcript-based editing (UX_AI §2, AI-019/020, TL-042/035, AU-027): replaces the asset panel. The transcript is
+/// global (every main-track clip with sound, no selection needed — C4). Click a word to seek, select words (click,
+/// ⇧-click range) and Delete → ripple cut; deleted words stay struck through (Show/Hide deleted) and Restore puts the
+/// media back; pauses show as grey chips. "Remove filler words" is the main action (`TranscriptWorkspace`, shared with
+/// Captions ▸ Filler words).
 struct TranscriptPanel: View {
     let store: EditorStore
-    @State private var query = ""
-    @State private var showDeleted = true
-    @State private var showCleanup = false
 
     struct Key: Hashable { let media: MediaID; let index: Int }
 
@@ -26,88 +24,206 @@ struct TranscriptPanel: View {
             }
             .padding(.horizontal, 12)
         } content: {
-            if ai.transcripts.isEmpty || ai.transcriptJob != nil { empty } else { editor }
+            TranscriptWorkspace(store: store, context: .panel)
+        }
+        .testID("transcript.panel")
+    }
+}
+
+/// THE transcript / filler-review surface (C4): status (up to date / out of date · Update), spoken language,
+/// "Remove filler words" with its scope and options, then the transcript text — or, while a review is open, the
+/// checklist (style B) / the transcript with fillers highlighted to keep or drop (style C). Used by the Transcript
+/// panel and by Captions ▸ Filler words so both entry points behave the same.
+struct TranscriptWorkspace: View {
+    enum Context { case panel, captions }
+    let store: EditorStore
+    let context: Context
+    @State private var query = ""
+    @State private var showDeleted = true
+
+    var body: some View {
+        let ai = store.ai
+        let f = ai.fillers
+        VStack(spacing: 0) {
+            TranscriptStatusBar(store: store)
+            FillerBar(store: store)
+            if ai.transcripts.isEmpty {
+                emptyHint
+            } else if f.reviewing && f.style == .review {
+                FillerChecklist(store: store)
+            } else {
+                textToolbar
+                TranscriptText(store: store, query: query, showDeleted: showDeleted)
+            }
+            footer
         }
         .onAppear { store.loadCachedTranscripts() }
-        .testID("transcript.panel")
+        .onChange(of: store.session.revision) { store.refreshFillerReview() }   // undo / edits during a review
+        .testID(context == .panel ? "transcript.workspace" : "captions.fillers")
     }
 
     var hasMain: Bool { !(store.project.timeline.mainTrack?.clips.isEmpty ?? true) }
 
-    @ViewBuilder var empty: some View {
-        let ai = store.ai
-        VStack(spacing: 14) {
+    @ViewBuilder var emptyHint: some View {
+        VStack(spacing: 12) {
             Image(systemName: "text.word.spacing").font(.system(size: 30)).foregroundStyle(Theme.textTertiary)
-            Text(loc: "transcript.emptyTitle").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+            Text(loc: "transcript.emptyTitle").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary).multilineTextAlignment(.center)
             HintText(text: tr(hasMain ? "transcript.emptyHint" : "transcript.noMain")).multilineTextAlignment(.center)
-            Dropdown(items: [(Optional<String>.none, tr("captions.autoDetect"))] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
-                     selection: ai.captionLanguage) { ai.captionLanguage = $0 }
-                .frame(width: 220)
-            if ai.transcriptJob != nil {
-                JobProgressLine(text: tr("transcript.progress", Int(ai.transcriptProgress * 100)), progress: ai.transcriptProgress) { store.cancelTranscript() }
-                    .frame(width: 260)
-            } else {
-                Button(tr("transcript.transcribe")) { store.transcribeMainTrack() }.buttonStyle(AccentButtonStyle()).disabled(!hasMain)
-                    .testID("transcript.transcribe")
-            }
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder var editor: some View {
+    var textToolbar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(IStyle.caption)
+                TextField(tr("captions.find"), text: $query).textFieldStyle(.plain).font(Theme.Fonts.row)
+            }
+            .padding(.horizontal, 8).frame(height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+            SmallIconButton(symbol: showDeleted ? "eye" : "eye.slash", help: tr(showDeleted ? "transcript.hideDeleted" : "transcript.showDeleted")) { showDeleted.toggle() }
+                .testID("transcript.showDeleted")
+            SmallIconButton(symbol: "arrow.clockwise", help: tr("transcript.retranscribe")) { store.transcribeMainTrack(force: true) }
+                .testID("transcript.retranscribe")
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+    }
+
+    @ViewBuilder var footer: some View {
         let ai = store.ai
-        let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: store.project.timeline)
-        let pauses = Dictionary(TranscriptEditing.pauses(words, minimum: ai.minPause).map { ($0.after, $0.seconds) }, uniquingKeysWith: { a, _ in a })
-        let playhead = store.transport.playhead
-        let current = words.lastIndex { !$0.isDeleted && $0.time <= playhead }
-        let selectedDeleted = words.filter { ai.transcriptSelection.contains(Key(media: $0.media, index: $0.index)) && $0.isDeleted }
-        VStack(spacing: 0) {
-            // toolbar: search, show deleted, clean up
+        let f = ai.fillers
+        if f.reviewing {
+            FillerReviewFooter(store: store)
+        } else if !ai.transcripts.isEmpty {
+            let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: store.project.timeline)
+            let selected = words.filter { ai.transcriptSelection.contains(TranscriptPanel.Key(media: $0.media, index: $0.index)) }
+            let selectedDeleted = selected.filter(\.isDeleted)
             HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(IStyle.caption)
-                    TextField(tr("captions.find"), text: $query).textFieldStyle(.plain).font(Theme.Fonts.row)
-                    if !query.isEmpty {
-                        Text(verbatim: tr("captions.results", words.filter { matches($0) }.count)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
-                    }
-                }
-                .padding(.horizontal, 8).frame(height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
-                SmallIconButton(symbol: showDeleted ? "eye" : "eye.slash", help: tr(showDeleted ? "transcript.hideDeleted" : "transcript.showDeleted")) { showDeleted.toggle() }
-                SmallIconButton(symbol: "wand.and.stars", help: tr("transcript.removeFillers"), active: showCleanup) { showCleanup.toggle() }
-                SmallIconButton(symbol: "arrow.clockwise", help: tr("transcript.retranscribe")) { store.transcribeMainTrack(force: true) }
-            }
-            .padding(10)
-            if showCleanup { cleanup(words) }
-            ScrollView {
-                FlowLayout(spacing: 3, lineSpacing: 6) {
-                    ForEach(Array(words.enumerated()), id: \.offset) { i, w in
-                        if showDeleted || !w.isDeleted {
-                            WordChip(word: w, selected: ai.transcriptSelection.contains(Key(media: w.media, index: w.index)),
-                                     current: i == current, hit: matches(w)) { shift in click(i, words, shift: shift) }
-                        }
-                        if let p = pauses[i] { PauseChip(seconds: p) }
-                    }
-                }
-                .padding(12)
-            }
-            // action bar
-            HStack(spacing: 8) {
-                let n = ai.transcriptSelection.count
-                if n > 0 { Text(verbatim: tr("transcript.selected", n)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption) }
+                if !selected.isEmpty { Text(verbatim: tr("transcript.selected", selected.count)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption) }
                 Spacer()
                 if !selectedDeleted.isEmpty {
                     PillButton(title: tr("transcript.restore"), symbol: "arrow.uturn.backward") { store.restoreTranscriptWords(selectedDeleted) }
                 }
-                PillButton(title: tr("transcript.delete"), symbol: "delete.left", enabled: n > selectedDeleted.count) {
-                    store.deleteTranscriptWords(words.filter { ai.transcriptSelection.contains(Key(media: $0.media, index: $0.index)) })
+                PillButton(title: tr("transcript.delete"), symbol: "delete.left", enabled: selected.count > selectedDeleted.count) {
+                    store.deleteTranscriptWords(selected)
                 }
-                PillButton(title: tr("captions.generate"), symbol: "captions.bubble") { store.ai.captionSource = .mainTrack; store.generateCaptions() }
+                .testID("transcript.delete")
+                if context == .panel {
+                    PillButton(title: tr("captions.generate"), symbol: "captions.bubble") { store.ai.captionSource = .mainTrack; store.generateCaptions() }
+                }
             }
             .padding(10)
             .background(Theme.panelHeader.opacity(0.6))
+            .background(KeyCatcher { store.deleteTranscriptWords(selected.filter { !$0.isDeleted }) })
         }
-        .background(KeyCatcher { store.deleteTranscriptWords(words.filter { ai.transcriptSelection.contains(Key(media: $0.media, index: $0.index)) && !$0.isDeleted }) })
+    }
+}
+
+/// "Up to date · French" / "Out of date — timeline changed · Update" / progress, and the spoken language.
+/// Its own view so transcription progress re-renders only this bar (the language menu stays usable meanwhile).
+struct TranscriptStatusBar: View {
+    let store: EditorStore
+    var body: some View {
+        let ai = store.ai
+        let status = store.transcriptStatus
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                switch status {
+                case .transcribing:
+                    TranscriptProgress(store: store)
+                case .upToDate:
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent).font(.system(size: 12))
+                    Text(verbatim: store.transcriptLanguage.map { tr("transcript.status.upToDateLang", CaptionLanguages.title($0)) } ?? tr("transcript.status.upToDate"))
+                        .font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                case .stale(_, let lang):
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(IStyle.warning).font(.system(size: 12))
+                    Text(verbatim: tr(lang ? "transcript.status.staleLanguage" : "transcript.status.stale"))
+                        .font(Theme.Fonts.hint).foregroundStyle(IStyle.warning).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    Button(tr("transcript.update")) { store.updateTranscript() }.buttonStyle(.link).font(Theme.Fonts.hint).testID("transcript.update")
+                case .none:
+                    Text(loc: "transcript.status.none").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Button(tr("transcript.transcribe")) { store.transcribeMainTrack() }.buttonStyle(.link).font(Theme.Fonts.hint).testID("transcript.transcribe")
+                case .noMedia:
+                    Text(loc: "transcript.status.noMedia").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                }
+                if status != .transcribing { Spacer(minLength: 4) }
+                Dropdown(items: [(Optional<String>.none, autoTitle)] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
+                         selection: ai.captionLanguage) { store.setTranscriptLanguage($0) }
+                    .frame(width: 150)
+                    .help(tr("captions.spokenLanguage"))
+                    .testID("transcript.language")
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(Theme.inset.opacity(0.5))
+        .testID("transcript.status")
+    }
+
+    /// "Auto detect (French)" once a language was detected.
+    var autoTitle: String {
+        if store.ai.captionLanguage == nil, let l = store.transcriptLanguage { return tr("transcript.autoDetected", CaptionLanguages.title(l)) }
+        return tr("captions.autoDetect")
+    }
+}
+
+/// Transcription progress line (isolated: the only view reading `transcriptProgress`).
+struct TranscriptProgress: View {
+    let store: EditorStore
+    var body: some View {
+        let p = store.ai.transcriptProgress
+        JobProgressLine(text: tr("transcript.progress", Int(p * 100)), progress: p) { store.cancelTranscript() }
+            .frame(maxWidth: .infinity)
+    }
+}
+
+/// The transcript as flowing words + pause chips. Filler words are tinted; while an inline review (style C) is open the
+/// candidates are highlighted and a click keeps / drops them.
+struct TranscriptText: View {
+    let store: EditorStore
+    let query: String
+    let showDeleted: Bool
+
+    var body: some View {
+        let ai = store.ai
+        let f = ai.fillers
+        let tl = store.project.timeline
+        let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: tl)
+        let inline = f.reviewing && f.style == .inline
+        let wordCands = inline ? Dictionary(f.candidates.filter { $0.kind != .pause }.map { ($0.anchor, $0) }, uniquingKeysWith: { a, _ in a }) : [:]
+        let pauseList = inline ? f.candidates.filter { $0.kind == .pause }
+            : FillerCleanup.pauses(words: words, transcripts: ai.transcripts, timeline: tl,
+                                   options: FillerCleanup.Options(minPause: ai.minPause))
+        let pausesBefore = Dictionary(grouping: pauseList, by: \.anchor)
+        let playhead = store.transport.playhead
+        let current = words.lastIndex { !$0.isDeleted && $0.time <= playhead }
+        ScrollView {
+            FlowLayout(spacing: 3, lineSpacing: 6) {
+                ForEach(Array(words.enumerated()), id: \.offset) { i, w in
+                    ForEach(pausesBefore[i] ?? [], id: \.id) { p in pauseChip(p, inline: inline) }
+                    if showDeleted || !w.isDeleted {
+                        if let c = wordCands[i] {
+                            FillerWordChip(text: w.word.text, dropped: f.dropped.contains(c.id), kind: c.kind) { store.toggleFiller(c.id) }
+                                .testID("fillers.word.\(i)")
+                        } else {
+                            WordChip(word: w, selected: ai.transcriptSelection.contains(TranscriptPanel.Key(media: w.media, index: w.index)),
+                                     current: i == current, hit: matches(w)) { shift in click(i, words, shift: shift) }
+                        }
+                    }
+                }
+                ForEach(pausesBefore[words.count] ?? [], id: \.id) { p in pauseChip(p, inline: inline) }
+            }
+            .padding(12)
+        }
+        .testID("transcript.text")
+    }
+
+    @ViewBuilder func pauseChip(_ p: FillerCleanup.Candidate, inline: Bool) -> some View {
+        if inline {
+            FillerPauseChip(seconds: p.seconds, dropped: store.ai.fillers.dropped.contains(p.id)) { store.toggleFiller(p.id) }
+                .testID("fillers.pause.\(p.anchor)")
+        } else {
+            PauseChip(seconds: p.seconds).onTapGesture { store.seek(to: p.range.start) }
+        }
     }
 
     func matches(_ w: TranscriptEditing.PlacedWord) -> Bool {
@@ -117,50 +233,14 @@ struct TranscriptPanel: View {
     func click(_ i: Int, _ words: [TranscriptEditing.PlacedWord], shift: Bool) {
         let ai = store.ai
         let w = words[i]
-        let key = Key(media: w.media, index: w.index)
-        if shift, let anchor = ai.transcriptAnchor, let a = words.firstIndex(where: { Key(media: $0.media, index: $0.index) == anchor }) {
-            ai.transcriptSelection = Set(words[min(a, i)...max(a, i)].map { Key(media: $0.media, index: $0.index) })
+        let key = TranscriptPanel.Key(media: w.media, index: w.index)
+        if shift, let anchor = ai.transcriptAnchor, let a = words.firstIndex(where: { TranscriptPanel.Key(media: $0.media, index: $0.index) == anchor }) {
+            ai.transcriptSelection = Set(words[min(a, i)...max(a, i)].map { TranscriptPanel.Key(media: $0.media, index: $0.index) })
         } else {
             ai.transcriptSelection = [key]
             ai.transcriptAnchor = key
             if !w.isDeleted { store.seek(to: w.time) }
         }
-    }
-
-    @ViewBuilder func cleanup(_ words: [TranscriptEditing.PlacedWord]) -> some View {
-        let ai = store.ai
-        let kept = words.filter { !$0.isDeleted }
-        let fillers = kept.filter { w in w.filler.map { ai.cleanupKinds.contains($0) } ?? false }
-        let pauses = ai.cleanupPauses ? TranscriptEditing.pauses(words, minimum: ai.minPause) : []
-        VStack(alignment: .leading, spacing: 8) {
-            Text(loc: "transcript.removeFillers").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-            HStack(spacing: 14) {
-                check("transcript.kind.pause", Binding(get: { ai.cleanupPauses }, set: { ai.cleanupPauses = $0 }))
-                ForEach([FillerWords.Kind.hesitation, .filler, .repetition], id: \.self) { k in
-                    check("transcript.kind.\(k.rawValue)", Binding(get: { ai.cleanupKinds.contains(k) },
-                                                                   set: { on in if on { ai.cleanupKinds.insert(k) } else { ai.cleanupKinds.remove(k) } }))
-                }
-            }
-            HStack {
-                Text(loc: "transcript.minPause").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                Stepper(value: Binding(get: { ai.minPause }, set: { ai.minPause = $0 }), in: 0.2...5, step: 0.1) {
-                    Text(verbatim: String(format: "%.1fs", ai.minPause)).font(Theme.Fonts.numeric).foregroundStyle(Theme.textPrimary)
-                }
-                Spacer()
-                let total = fillers.count + pauses.count
-                if total == 0 { HintText(text: tr("transcript.nothingFound")) }
-                PillButton(title: tr("transcript.deleteN", total), accent: true, enabled: total > 0) {
-                    store.removeFillers(fillers: fillers, pauses: pauses.map { (words[$0.after], words[$0.after + 1]) })
-                }
-            }
-        }
-        .padding(10)
-        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-        .padding(.horizontal, 10)
-    }
-
-    func check(_ key: String, _ b: Binding<Bool>) -> some View {
-        HStack(spacing: 6) { CapCheckbox(isOn: b); Text(loc: key).font(Theme.Fonts.row).foregroundStyle(IStyle.label) }
     }
 }
 
@@ -233,9 +313,11 @@ struct KeyCatcher: NSViewRepresentable {
 }
 
 extension EditorStore {
+    /// Fills in cached transcripts of main-track media that have none yet (instant, no job).
     func loadCachedTranscripts() {
-        guard ai.transcripts.isEmpty else { return }
-        for a in mainTrackMedia() { if let t = TranscriptStore.shared.latest(hash: a.contentHash) { ai.transcripts[a.id] = t } }
+        for a in mainTrackMedia() where ai.transcripts[a.id] == nil {
+            if let t = TranscriptStore.shared.latest(hash: a.contentHash) { ai.transcripts[a.id] = t }
+        }
     }
 
     func mainTrackMedia() -> [MediaAsset] {
@@ -246,17 +328,26 @@ extension EditorStore {
         }
     }
 
-    /// Transcribes every main-track media (whole file, cached) — "Transcribe" / "Re-transcribe".
-    public func transcribeMainTrack(force: Bool = false) {
+    /// Transcribes main-track media (whole files, cached) — "Transcribe", "Update" (`onlyMissing`: incremental, only the
+    /// media without a transcript) and "Re-transcribe" (`force`). Results are merged into `ai.transcripts`; a pending
+    /// "Remove filler words" continues when it finishes.
+    public func transcribeMainTrack(force: Bool = false, onlyMissing: Bool = false) {
         guard ai.transcriptJob == nil else { return }
-        let assets = mainTrackMedia()
-        guard !assets.isEmpty else { showToast(tr("transcript.noMain"), error: true); return }
+        let all = mainTrackMedia()
+        let assets = onlyMissing ? all.filter { ai.transcripts[$0.id] == nil } : all
+        guard !assets.isEmpty else {
+            if all.isEmpty { showToast(tr("transcript.noMain"), error: true) }
+            if ai.fillers.pendingRemove { startFillerRemoval() }
+            return
+        }
         let lang = ai.captionLanguage, engine = ai.captionEngine
         let box = TranscriptBox()
         ai.transcriptProgress = 0
+        let gate = ProgressGate()
         Task {
             let id = await JobQueue.shared.enqueue(titleKey: "transcript.job", priority: 1) { [weak self] progress in
                 for (i, a) in assets.enumerated() {
+                    try Task.checkCancellation()
                     let key = TranscriptStore.key(hash: a.contentHash, range: nil, language: lang, engine: engine, fillers: true)
                     if !force, let t = TranscriptStore.shared.get(key) { box.add(a.id, t); continue }
                     let wav = try await AudioExtractor.wav16k(a.url, range: nil)
@@ -264,7 +355,8 @@ extension EditorStore {
                     let t = try await Transcriber.transcribe(wav: wav, request: .init(language: lang, engine: engine, keepFillers: true)) { f in
                         let p = (Double(i) + f) / Double(assets.count)
                         progress.report(p)
-                        Task { @MainActor in self?.ai.transcriptProgress = p }
+                        // ≤ 1 UI update per percent (a flood of re-renders kept menus from opening — C4)
+                        if gate.pass(p) { Task { @MainActor in self?.ai.transcriptProgress = p } }
                     }
                     TranscriptStore.shared.put(t, key)
                     box.add(a.id, t)
@@ -274,13 +366,20 @@ extension EditorStore {
             let st = await JobQueue.shared.wait(id)
             ai.transcriptJob = nil
             if st == .done {
-                ai.transcripts = box.all
-                if box.all.values.allSatisfy({ $0.words.isEmpty }) { showToast(tr("ai.error.noSpeech"), error: true) }
-            } else if case .failed = st { showToast(tr("captions.error.failed"), error: true) }
+                for (k, v) in box.all { ai.transcripts[k] = v }
+                if ai.transcripts.values.allSatisfy({ $0.words.isEmpty }) { showToast(tr("ai.error.noSpeech"), error: true); ai.fillers.pendingRemove = false }
+                else if ai.fillers.pendingRemove { startFillerRemoval() }
+            } else {
+                ai.fillers.pendingRemove = false
+                if case .failed = st { showToast(tr("captions.error.failed"), error: true) }
+            }
         }
     }
 
-    public func cancelTranscript() { if let id = ai.transcriptJob { Task { await JobQueue.shared.cancel(id) } } }
+    public func cancelTranscript() {
+        ai.fillers.pendingRemove = false
+        if let id = ai.transcriptJob { Task { await JobQueue.shared.cancel(id) } }
+    }
 
     public func deleteTranscriptWords(_ words: [TranscriptEditing.PlacedWord]) {
         let live = words.filter { !$0.isDeleted }
@@ -293,27 +392,6 @@ extension EditorStore {
     public func restoreTranscriptWords(_ words: [TranscriptEditing.PlacedWord]) {
         if perform(Edit("cmd.transcriptRestore") { p in try TranscriptEditing.restore(words, in: &p) }) { ai.transcriptSelection = [] }
     }
-
-    /// Remove filler words: one ripple edit for the chosen fillers and the pauses (pauses keep 0.15 s on each side).
-    public func removeFillers(fillers: [TranscriptEditing.PlacedWord], pauses: [(TranscriptEditing.PlacedWord, TranscriptEditing.PlacedWord)]) {
-        let tl = project.timeline
-        var ranges: [TimeRange] = []
-        for w in fillers {
-            guard let id = w.clip, let c = tl.clip(id),
-                  let s = c.timelineTime(forSource: Time(w.word.start).clamped(c.sourceRange.start, c.sourceRange.end)),
-                  let e = c.timelineTime(forSource: Time(w.word.end).clamped(c.sourceRange.start, c.sourceRange.end)) else { continue }
-            ranges.append(TimeRange(start: min(s, e), end: max(s, e)))
-        }
-        for (a, b) in pauses {
-            guard let id = a.clip, let c = tl.clip(id),
-                  let s = c.timelineTime(forSource: Time(a.word.end + 0.15).clamped(c.sourceRange.start, c.sourceRange.end)),
-                  let e = c.timelineTime(forSource: Time(b.word.start - 0.15).clamped(c.sourceRange.start, c.sourceRange.end)), e > s else { continue }
-            ranges.append(TimeRange(start: s, end: e))
-        }
-        guard !ranges.isEmpty else { showToast(tr("transcript.nothingFound")); return }
-        let cuts = ranges
-        if perform(Edit("cmd.removeFillers") { p in try TranscriptEditing.rippleDelete(cuts, in: &p) }) { showToast(tr("transcript.fillersRemoved")) }
-    }
 }
 
 nonisolated final class TranscriptBox: @unchecked Sendable {
@@ -321,4 +399,11 @@ nonisolated final class TranscriptBox: @unchecked Sendable {
     private var map: [MediaID: Transcript] = [:]
     func add(_ id: MediaID, _ t: Transcript) { lock.withLock { map[id] = t } }
     var all: [MediaID: Transcript] { lock.withLock { map } }
+}
+
+/// Lets a progress value through when it moved by ≥ 1 % (thread-safe).
+nonisolated final class ProgressGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last = -1.0
+    func pass(_ p: Double) -> Bool { lock.withLock { if p - last >= 0.01 || p >= 1 { last = p; return true }; return false } }
 }

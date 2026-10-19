@@ -93,9 +93,23 @@ import MontageTestSupport
         placed = TranscriptEditing.placedWords(transcripts: s.ai.transcripts, timeline: s.project.timeline)
         let fillers = placed.filter { $0.filler != nil }
         #expect(fillers.map(\.word.text) == ["euh"])
-        s.removeFillers(fillers: fillers, pauses: [])
+        // C4 review flow: everything found is dropped by default; keep the pauses, cut the filler — one undo step
+        s.ai.cleanupPauses = true
+        let found = s.fillerCandidates(scope: nil)
+        #expect(found.contains { $0.text == "euh" })
+        s.ai.fillers.candidates = found
+        s.ai.fillers.dropped = Set(found.map(\.id))
+        s.ai.fillers.reviewing = true
+        for c in found where c.kind == .pause { s.toggleFiller(c.id) }
+        let depth = s.session.undoStack.count
+        s.applyFillerReview()
+        #expect(s.session.undoStack.count == depth + 1 && s.session.undoNameKey == "cmd.removeFillers")
+        #expect(!s.ai.fillers.reviewing)
+        #expect(s.toast?.actionTitle != nil)   // Undo in the toast
         placed = TranscriptEditing.placedWords(transcripts: s.ai.transcripts, timeline: s.project.timeline)
         #expect(placed.first { $0.word.text == "euh" }?.isDeleted == true)
+        s.toast?.action?()
+        #expect(s.session.undoStack.count == depth)
         #expect(TimelineOps.validate(s.project.timeline).isEmpty)
         if let dir = ProcessInfo.processInfo.environment["MONTAGE_SNAPSHOT_DIR"] {
             try snapshot(TranscriptPanel(store: s), to: URL(fileURLWithPath: dir).appendingPathComponent("ai-transcript.png"), size: CGSize(width: 520, height: 520))

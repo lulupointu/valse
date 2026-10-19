@@ -104,7 +104,7 @@ extension TimelineView {
             item("tlmenu.generateCaptions", enabled: single.map { c in c.mediaID.flatMap(s.project.asset)?.hasAudio ?? false } ?? false) {
                 if let c = single { s.ai.captionSource = .clip(c.id); s.generateCaptions() }
             },
-            item("tlmenu.transcript", enabled: isMedia) { s.ai.transcriptOpen = true },
+            item("tlmenu.transcript") { s.ai.transcriptOpen = true },
             item("tlmenu.clipper", enabled: isVideo && single != nil && asset?.hasAudio == true) { if let c = single { s.ai.clipper = AIClipperState(clipID: c.id) } },
             sub("tlmenu.separateAudio", [
                 item("tlmenu.separateAudio.vocals", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: true) } },

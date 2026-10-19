@@ -16,17 +16,22 @@ enum TextInspector {
 
     static let textTab = InspectorTab(id: "text", titleKey: "inspector.tab.text", order: 0, subTabs: [
         InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
-        InspectorSubTab(id: "bubble", titleKey: "text.sub.bubble", order: 1),
-        InspectorSubTab(id: "effects", titleKey: "text.sub.effects", order: 2),
+        // C4: caption templates live under Text like CapCut (Basic | Templates | Bubble | Effects), captions only
+        InspectorSubTab(id: "templates", titleKey: "text.sub.templates", order: 1, appliesTo: isCaption),
+        InspectorSubTab(id: "bubble", titleKey: "text.sub.bubble", order: 2),
+        InspectorSubTab(id: "effects", titleKey: "text.sub.effects", order: 3),
     ], footer: { ctx, _ in
         AnyView(PillButton(title: tr("inspector.saveAsPreset"), accent: true) { ctx.store.saveTextPreset() })
     }, appliesTo: { $0.kind == .text })
 
-    static let captionsTab = InspectorTab(id: "captions", titleKey: "captions.tab", order: 1, appliesTo: isCaption)
+    /// Captions comes first for caption clips (CapCut: Captions | Text | Animation | …).
+    static let captionsTab = InspectorTab(id: "captions", titleKey: "captions.tab", order: -1, appliesTo: isCaption)
 
     static let tabs = [textTab, captionsTab]
 
     static let sections: [InspectorSection] = [
+        InspectorSection(id: "text.applyAllCaptions", tab: "text", subTab: "basic", order: -1, titleKey: nil,
+                         appliesTo: isCaption) { AnyView(ApplyToAllCaptionsRow(ctx: $0)) },
         InspectorSection(id: "text.content", tab: "text", subTab: "basic", order: 0, titleKey: nil) { AnyView(TextBasicSection(ctx: $0)) },
         InspectorSection(id: "text.template", tab: "text", subTab: "basic", order: 5, titleKey: "text.template.section",
                          appliesTo: isTemplate) { AnyView(TextTemplateSection(ctx: $0)) },
@@ -50,7 +55,8 @@ enum TextInspector {
         InspectorSection(id: "text.bubble", tab: "text", subTab: "bubble", order: 0, titleKey: nil) { AnyView(TextBubbleSection(ctx: $0)) },
         InspectorSection(id: "text.effects", tab: "text", subTab: "effects", order: 0, titleKey: nil) { AnyView(TextEffectsSection(ctx: $0)) },
         InspectorSection(id: "captions.list", tab: "captions", order: 0, titleKey: nil) { AnyView(CaptionEditorSection(ctx: $0)) },
-        InspectorSection(id: "captions.templates", tab: "captions", order: 10, titleKey: "captions.templates") { AnyView(CaptionTemplatesSection(ctx: $0)) },
+        InspectorSection(id: "captions.templates", tab: "text", subTab: "templates", order: 0, titleKey: nil,
+                         appliesTo: isCaption) { AnyView(CaptionTemplatesSection(ctx: $0)) },
     ]
 
     // MARK: Row helpers

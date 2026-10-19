@@ -323,6 +323,8 @@ public final class UITestDriver {
             var p = try await DemoProject.make()
             p.timeline = Timeline()
             store.load(project: p)
+        case let s where s.hasPrefix("demo-transcript"):   // C4: demo + a known transcript (TranscriptDemo)
+            try await TranscriptDemo.load(s, into: store)
         case let s where s.hasPrefix("media:"):   // W13: N bin items (demo media repeated), empty timeline
             let n = Int(s.split(separator: ":").last ?? "") ?? 1000
             store.load(project: try await StressProject.makeBin(items: n))

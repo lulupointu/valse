@@ -1,0 +1,53 @@
+/* C4 refonte légendes & transcription : onglet Légendes, liste des légendes, Appliquer à toutes les légendes principales, Supprimer les tics de langage */
+"tab.captions" = "Légendes";
+"captions.nav.fillers" = "Tics de langage";
+"text.sub.templates" = "Modèles";
+"captions.applyAllMain" = "Appliquer à toutes les légendes principales";
+"captions.applyAllMain.help" = "Les changements de style de cette légende s’appliquent aussi à toutes les légendes de sa piste";
+"captions.addAfter" = "Ajouter une légende après celle-ci";
+"captions.delete" = "Supprimer la légende";
+"captions.newCaption" = "Nouvelle légende";
+"cmd.captionAdd" = "Ajouter une légende";
+"cmd.captionDelete" = "Supprimer la légende";
+
+"transcript.status.upToDate" = "Transcription à jour";
+"transcript.status.upToDateLang" = "À jour · %@";
+"transcript.status.stale" = "Plus à jour — la timeline a changé";
+"transcript.status.staleLanguage" = "Plus à jour — la langue parlée a changé";
+"transcript.status.none" = "Pas encore transcrit";
+"transcript.status.noMedia" = "Aucun clip avec du son sur la piste principale";
+"transcript.update" = "Mettre à jour";
+"transcript.autoDetected" = "Détection auto (%@)";
+
+"fillers.found" = "%d tics de langage et pauses trouvés";
+"fillers.reviewHint" = "Les éléments cochés sont supprimés. Cliquez sur une ligne pour lire à partir de là.";
+"fillers.inlineHint" = "Les mots et pauses en rouge sont supprimés — cliquez pour les garder.";
+"fillers.scope.all" = "Partout";
+"fillers.scope.selected" = "Dans les %d clips sélectionnés";
+"fillers.options" = "Types de tics et pause minimale";
+"fillers.removed" = "%d tics de langage et pauses supprimés (%@ s)";
+"fillers.undo" = "Annuler";
+"fillers.badge.pause" = "Pause";
+"fillers.badge.hesitation" = "Hésitation";
+"fillers.badge.filler" = "Tic";
+"fillers.badge.repetition" = "Répétition";
+"fillers.pause.leading" = "Pause au début";
+"fillers.pause.middle" = "Pause";
+"fillers.pause.trailing" = "Pause à la fin";
+"fillers.pause.whole" = "Clip silencieux";
+"fillers.clickToKeep" = "Cliquer pour garder";
+"fillers.clickToRemove" = "Cliquer pour supprimer";
+"fillers.keepAll" = "Tout garder";
+"fillers.removeAll" = "Tout supprimer";
+"fillers.saves" = "Gain : %@ s";
+"fillers.applyN" = "Appliquer (%d)";
+"fillers.removeN" = "Supprimer %d";
+
+"settings.labs" = "Labo";
+"fillers.style.title" = "Style de suppression des tics";
+"fillers.style.instant" = "Instantané — supprime tout de suite, annulation depuis la notification";
+"fillers.style.review" = "Liste à valider — cochez chaque tic, puis Supprimer";
+"fillers.style.inline" = "Dans le texte — cliquez sur les mots surlignés pour les garder ou non, puis Appliquer";
+"fillers.style.instant.hint" = "Supprimer les tics de langage coupe en une fois tous les tics et pauses trouvés.";
+"fillers.style.review.hint" = "Supprimer les tics de langage liste ce qui a été trouvé ; décochez ce qu’il faut garder.";
+"fillers.style.inline.hint" = "Supprimer les tics de langage surligne ce qui a été trouvé dans la transcription ; cliquez pour garder ou non.";

@@ -184,8 +184,9 @@ toast. Montage should do the same (debounced autosave about 2 s after the last e
 ### 3.1 Structure
 - **Top tab bar** (42 pt, `#303030`): 10 icon tabs, each a **18 pt monoline icon above an 11 pt label**, about 50 pt pitch, left-aligned
   with 8 pt inset: **Media · Audio · Text · Stickers · Effects · Transitions · Filters · Adjustment · Templates · AI avatar**. Active
-  tab = icon and label in accent `#57BECB` (the icon becomes filled). There's **no separate Captions tab**: captions live under **Text ▸
-  Auto captions / Local captions**. Shortcut: **⇥ Tab** = "Switch material panel".
+  tab = icon and label in accent `#57BECB` (the icon becomes filled). **Captions is its own tab between Transitions and Filters** (current
+  CapCut, owner screenshot 2026-10-19; older builds had captions under Text): **Auto captions · Local captions** (Montage adds **Filler
+  words**, the shared transcript / filler review, C4). Shortcut: **⇥ Tab** = "Switch material panel".
 - **Left sub-nav column, 120 pt wide** (inside the panel, 9 pt padding): stacked items **28 pt tall, radius 4**. Group headers are
   filled buttons (`#2A2A2A` / white bold text with a chevron ▾/▴, collapsible). The selected group/item = bg `#2F4E52` (accent.dim)
   and text accent. Plain items are 13 pt white with no bg. Example (Effects): `Favorites` · `Video effects ▴` → Trending, B.Duck,
@@ -235,7 +236,8 @@ Sub-nav: `Yours ▾` · `Music ▴` → genre list (Phonk, Vlog, Funny, Reggaeto
 plus a thin progress bar). Click = play/pause the preview.
 
 ### 3.5 Text tab ([61](ux/61_assets_text.png))
-Sub-nav: **Add text** (selected) · `Yours ▾` · `Text effects ▾` · `Text template ▾` · **Auto captions** · **Local captions**.
+Sub-nav: **Add text** (selected) · `Yours ▾` · `Text effects ▾` · `Text template ▾` (· AI writer). Auto / Local captions moved to the
+**Captions** tab (§3.1, C4).
 "Add text" shows a single **"Default text"** card (86×86, `#2A2A2A`, "Default text" in white 13 pt). ⊕ or drag adds a text clip
 (default duration **3 s**, centred, white, system font, size 15). Text effects = styled-word grid (word art). Text template = animated
 title

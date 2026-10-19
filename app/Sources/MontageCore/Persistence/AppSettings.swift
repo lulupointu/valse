@@ -97,6 +97,11 @@ public struct AppSettings: Codable, Sendable, Equatable {
     /// Default export folder (nil = ~/Movies).
     public var exportDirectory: String?
 
+    // MARK: Labs (C4)
+    /// How "Remove filler words" applies: "instant" (cut at once, undo toast), "review" (checklist + Remove N, default),
+    /// "inline" (highlighted words in the transcript, click to keep / drop, then Apply). `FillerRemovalStyle`.
+    public var fillerRemovalStyle = "review"
+
     public init() {}
 
     public var defaultFrameRate: FrameRate {

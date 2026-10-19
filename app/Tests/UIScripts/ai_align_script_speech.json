@@ -4,7 +4,7 @@
   "project": "demo",
   "requires": {"models": ["whisper.small-q5_1"]},
   "steps": [
-    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.tab.captions"},
     {"click": "id:asset.nav.local"},
     {"click": "id:captions.script.editor"},
     {"type": "Hello and welcome to the show"},

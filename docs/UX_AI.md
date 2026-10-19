@@ -98,6 +98,12 @@ Click count: Text tab → Auto captions → (optional language) → Generate = *
   regenerate them using the same style and template.") [R]
 
 ### 1.4 Caption inspector (selecting any caption clip) [R][L]
+> **C4 (owner screenshots 2026-10-19, current CapCut):** tabs **Captions | Text | Animation | Tracking | Text to speech**; the Captions list
+> is a search field + tools, then **numbered rows of text only** (edited in place) with hover **＋** (add a caption after) and **🗑**
+> (delete) — no timing fields (timing is done on the timeline). **Text** has sub-tabs **Basic | Templates | Bubble | Effects**: caption
+> templates live in Templates, and Basic starts with **☑ Apply to all main captions** (on by default: a style edit restyles every caption
+> of the track). The Captions tab and the asset panel moved: see UX.md §3.1.
+
 The inspector header gets a **Captions / Légendes** tab next to Text, Animation, Text to speech. It lists all captions:
 - One row per caption: index number + timestamps + editable text. **Click a row → the playhead jumps there.**
   Shortcuts (from the in-app tip, exact text): *"Double-click the number to play from the caption · Split a caption: Enter · Exit editing:
@@ -137,7 +143,10 @@ Buttons: **Split and add / Diviser et ajouter**, **Add without split / Ajouter s
 
 ### 2.1 Where
 - Timeline toolbar button **Transcript / Transcription** (visible when a clip is selected) [L]. Its tooltip is "Transcript-based editing /
-  Édition basée sur la transcription" [R][T].
+  Édition basée sur la transcription" [R][T]. **Montage (C4)**: always visible — the transcript is global (every main-track clip with
+  sound), no selection needed; the panel says whether it is up to date ("Out of date — timeline changed · Update", incremental) and its
+  main action is **Remove filler words** (scope: everywhere, or the selected clips), whose review UI is shared with Captions ▸ Filler
+  words. Apply style = Settings ▸ Edit ▸ Labs (Instant / Review list / Inline), see STATUS.md C4.
 - Also: menu ▸ Layout ▸ "Transcript-based editing" (a layout mode) [T].
 - It opens as a **panel that replaces the asset panel on the left** [T]. Close it with ✕ ("Hide the window of transcript-based editing") [R][T].
 

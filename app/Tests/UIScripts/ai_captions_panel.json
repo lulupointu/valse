@@ -1,8 +1,8 @@
-// W10: Text ▸ Auto captions — engine details stay under "Advanced" (UX_GAPS W10-2); TTS tab groups voices by locale (W10-1).
+// W10: Captions ▸ Auto captions — engine details stay under "Advanced" (UX_GAPS W10-2); TTS tab groups voices by locale (W10-1).
 {
   "project": "demo",
   "steps": [
-    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.tab.captions"},
     {"click": "id:asset.nav.auto"},
     {"expect": {"path": "ui.anchors", "contains": "captions.advanced"}},
     {"snapshot": "captions-collapsed", "element": "id:panel.assets"},

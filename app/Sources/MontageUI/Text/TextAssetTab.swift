@@ -4,8 +4,8 @@ import MontageCore
 import MontageEffects
 import MontageEngine
 
-/// Asset panel ▸ Text (UX.md §3.5, screenshots 61/121/119/120): Add text · Yours · Text effects · Text template ·
-/// Auto captions · Local captions. Tiles show the real rendered look; click / ⊕ / double-click adds or applies, drag
+/// Asset panel ▸ Text (UX.md §3.5, screenshots 61/121): Add text · Yours · Text effects · Text template · AI writer
+/// (auto / local captions moved to the Captions tab, C4). Tiles show the real rendered look; click / ⊕ / double-click adds or applies, drag
 /// drops on the timeline.
 struct TextAssetTab: View {
     let store: EditorStore
@@ -20,13 +20,10 @@ struct TextAssetTab: View {
     var body: some View {
         HStack(spacing: 0) {
             SubNav(items: [("add", tr("text.nav.add")), ("yours", tr("text.nav.yours")), ("effects", tr("text.nav.effects")),
-                           ("templates", tr("text.nav.templates")), ("auto", tr("ai.captions")), ("local", tr("text.nav.local")),
-                           ("writer", tr("writer.nav"))],
+                           ("templates", tr("text.nav.templates")), ("writer", tr("writer.nav"))],   // captions: own tab (C4)
                    selection: $nav)
             Group {
                 switch nav {
-                case "auto": CaptionsTab(store: store)
-                case "local": LocalCaptionsPanel(store: store)
                 case "writer": AIWriterPanel(store: store)   // W10
                 default:
                     ScrollView {

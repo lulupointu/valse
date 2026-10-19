@@ -1,9 +1,9 @@
-// AI2 (TX-030): Text ▸ Local captions ▸ script ▸ "Align to speech" is offered under the script editor and enabled once a
+// AI2 (TX-030): Captions ▸ Local captions ▸ script ▸ "Align to speech" is offered under the script editor and enabled once a
 // script is typed. The alignment itself is unit-tested (ScriptAlignmentTests); ai_align_script_speech.json runs the job.
 {
   "project": "demo",
   "steps": [
-    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.tab.captions"},
     {"click": "id:asset.nav.local"},
     {"expect": [{"path": "ui.anchors", "contains": "align.button"},
                 {"path": "ui.anchors", "contains": "captions.script.editor"}]},
