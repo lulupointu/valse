@@ -46,3 +46,13 @@
 "inspector.motionBlur.direction.backward" = "Trailing";
 "inspector.motionBlur.direction.forward" = "Leading";
 "inspector.motionBlur.direction.both" = "Both ways";
+"fontbook.nav" = "Fonts";
+"fontbook.import" = "Import fonts";
+"fontbook.hint" = "Import up to 9 TTF / OTF / TTC fonts at once; they stay available in every project.";
+"fontbook.noImported" = "No imported fonts yet — import or drop font files here.";
+"fontbook.reveal" = "Show in Finder";
+"fontbook.remove" = "Remove from Montage";
+"fontbook.selectText" = "Select a text clip to apply the font";
+"fontbook.removed" = "%@ removed";
+"fontbook.removeFailed" = "Couldn't remove %@";
+"text.favorites.empty" = "Star text effects, templates or fonts to find them here.";

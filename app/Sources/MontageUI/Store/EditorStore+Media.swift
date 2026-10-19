@@ -201,6 +201,7 @@ extension EditorStore {
     public func importFonts(_ urls: [URL]) {
         Task {
             let names = await Task.detached { (try? FontLibrary.importFonts(urls)) ?? [] }.value
+            FontCatalog.invalidate(); TextUIState.shared.fontsRevision += 1   // MI-021 (F3): font book / picker re-list
             if names.isEmpty { showToast(tr("toast.fontsFailed"), error: true) } else { showToast(tr("toast.fontsInstalled", names.count)) }
         }
     }

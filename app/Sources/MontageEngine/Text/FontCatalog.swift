@@ -40,6 +40,9 @@ public enum FontCatalog {
         return Array(Set(urls.flatMap(familyNames))).sorted()
     }
 
+    /// Drops the cached family lists (after imported fonts were removed, MI-021).
+    public static func invalidate() { lock.withLock { cachedImported = nil; cachedSystem = nil } }
+
     /// Installed font families (no hidden "." system families), sorted.
     public static var systemFamilies: [String] {
         if let c = lock.withLock({ cachedSystem }) { return c }

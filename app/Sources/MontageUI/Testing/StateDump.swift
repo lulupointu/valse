@@ -137,6 +137,7 @@ public enum StateDump {
         ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
         ui["crop"] = CropDialogState.shared.dump   // CV-006 (F3)
+        ui["fontbook"] = ["imported": FontCatalog.importedFamilies, "favorites": TextUIState.shared.favoriteFonts]   // MI-021 / MI-024 (F3)
         // AU-009 (F3): offline audio stage of the selected clip (isolate voice / noise reduction …)
         if let c = store.singleSelectedClip, let a = c.mediaID.flatMap(p.asset) {
             let spec = ClipAudioPlan.make(c.audio).render

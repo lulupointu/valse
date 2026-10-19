@@ -20,10 +20,12 @@ struct TextAssetTab: View {
     var body: some View {
         HStack(spacing: 0) {
             SubNav(items: [("add", tr("text.nav.add")), ("yours", tr("text.nav.yours")), ("effects", tr("text.nav.effects")),
-                           ("templates", tr("text.nav.templates")), ("writer", tr("writer.nav"))],   // captions: own tab (C4)
+                           ("templates", tr("text.nav.templates")), ("fonts", tr("fontbook.nav")),
+                           ("writer", tr("writer.nav"))],   // captions: own tab (C4)
                    selection: $nav)
             Group {
                 switch nav {
+                case "fonts": FontBookPanel(store: store)   // MI-021 (F3)
                 case "writer": AIWriterPanel(store: store)   // W10
                 default:
                     ScrollView {
@@ -58,6 +60,7 @@ struct TextAssetTab: View {
             }
         case "yours":
             let presets = TextPresetStore.shared.presets
+            TextFavoritesSection(store: store)   // MI-024 (F3): ☆ text effects / templates / fonts
             if presets.isEmpty {
                 EmptyState(symbol: "star", title: tr("text.yours.empty"))
             } else {
@@ -77,7 +80,8 @@ struct TextAssetTab: View {
                     Text(verbatim: tr(g)).font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
                     LazyVGrid(columns: Self.columns, spacing: 12) {
                         ForEach(items) { d in
-                            TextAssetTile(title: d.displayName, payload: DragPayload.textStyle(d.id), add: { store.applyTextStyle(d) }) {
+                            TextAssetTile(title: d.displayName, payload: DragPayload.textStyle(d.id),
+                                          favorite: (AssetLibraryStore.textEffectsNamespace, d.id), add: { store.applyTextStyle(d) }) {
                                 TextPreviewImage(key: "fx:\(d.id)", content: TextPreviewImage.style(d, sample: "ART"), fontPx: 44)
                             }
                         }
@@ -92,7 +96,8 @@ struct TextAssetTab: View {
                     Text(verbatim: tr(g)).font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
                     LazyVGrid(columns: Self.columns, spacing: 12) {
                         ForEach(items) { d in
-                            TextAssetTile(title: tr(d.nameKey), payload: DragPayload.textTemplate(d.id), add: { store.addTextTemplate(d) }) {
+                            TextAssetTile(title: tr(d.nameKey), payload: DragPayload.textTemplate(d.id),
+                                          favorite: (AssetLibraryStore.textTemplatesNamespace, d.id), add: { store.addTextTemplate(d) }) {
                                 TextPreviewImage(key: "template:\(d.id)", content: d.makeContent(), fontPx: 34)
                             }
                         }
@@ -109,6 +114,8 @@ struct TextAssetTab: View {
 struct TextAssetTile<Preview: View>: View {
     let title: String
     let payload: String
+    /// MI-024 (F3): ☆ on hover (namespace, id) → Text ▸ Yours ▸ Favorites.
+    var favorite: (ns: String, id: String)? = nil
     let add: () -> Void
     @ViewBuilder let preview: () -> Preview
     @State private var hover = false
@@ -120,6 +127,19 @@ struct TextAssetTile<Preview: View>: View {
                     .overlay { preview() }
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
+                if let f = favorite {
+                    let on = AssetLibraryStore.shared.isFavorite(f.ns, f.id)
+                    if hover || on {
+                        Button { AssetLibraryStore.shared.toggleFavorite(f.ns, f.id) } label: {
+                            Image(systemName: on ? "star.fill" : "star").font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(on ? IStyle.curve : .white).frame(width: 20, height: 20)
+                                .background(Color.black.opacity(0.45), in: Circle())
+                        }
+                        .buttonStyle(.plain).padding(4).help(tr("text.font.favorite"))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .testID("text.fav.\(f.id)")
+                    }
+                }
                 if hover {
                     Button(action: add) {
                         Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)

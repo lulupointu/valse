@@ -22,6 +22,9 @@ public final class AssetLibraryStore {
         recents = (defaults.dictionary(forKey: Self.recentsKey) as? [String: [String]]) ?? [:]
     }
 
+    /// F3 (MI-024): namespaces of the Text tab's favourites (fonts, text effects, text templates).
+    public static let fontsNamespace = "fonts", textEffectsNamespace = "textEffects", textTemplatesNamespace = "textTemplates"
+
     public func isFavorite(_ ns: String, _ id: String) -> Bool { favorites[ns]?.contains(id) ?? false }
 
     /// Favourites of a library, most recently starred first.

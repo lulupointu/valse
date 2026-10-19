@@ -46,3 +46,13 @@
 "inspector.motionBlur.direction.backward" = "Arrière";
 "inspector.motionBlur.direction.forward" = "Avant";
 "inspector.motionBlur.direction.both" = "Les deux";
+"fontbook.nav" = "Polices";
+"fontbook.import" = "Importer des polices";
+"fontbook.hint" = "Importez jusqu'à 9 polices TTF / OTF / TTC à la fois ; elles restent disponibles dans tous les projets.";
+"fontbook.noImported" = "Aucune police importée — importez ou déposez des fichiers de police ici.";
+"fontbook.reveal" = "Afficher dans le Finder";
+"fontbook.remove" = "Retirer de Montage";
+"fontbook.selectText" = "Sélectionnez un texte pour appliquer la police";
+"fontbook.removed" = "%@ retirée";
+"fontbook.removeFailed" = "Impossible de retirer %@";
+"text.favorites.empty" = "Ajoutez des effets, modèles ou polices aux favoris pour les retrouver ici.";

@@ -1,0 +1,26 @@
+// MI-021: Text ▸ Fonts (font book) — a font file dropped on the app is imported (listed under Imported with a live
+// preview), ☆ adds it to the favourites, a click applies it to the selected text, 🗑 removes it from Montage.
+// MI-024: the starred font (and ☆ text effects / templates, hover star on their tiles) show up under Text ▸ Yours ▸ Favorites.
+// Font: DejaVu Sans Display (Bitstream Vera licence, fixtures/LICENSE_DEJAVU.txt).
+{
+  "project": "demo",
+  "steps": [
+    {"drop": {"files": ["fixtures/DejaVuSansDisplay.ttf"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "ui.fontbook.imported", "contains": "DejaVu Sans Display", "timeout": 10}},
+    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.nav.fonts"},
+    {"expect": {"path": "ui.anchors", "contains": "fontbook.row.DejaVu Sans Display"}},
+    {"click": "id:fontbook.favorite.DejaVu Sans Display"},
+    {"expect": {"path": "ui.fontbook.favorites", "contains": "DejaVu Sans Display"}},
+    {"snapshot": "font-book", "element": "id:panel.assets"},
+    {"select": ["clip:2/0"]},
+    {"click": "id:fontbook.row.DejaVu Sans Display", "at": [0.4, 0.5]},
+    {"expect": {"path": "undo.name", "equals": "cmd.textFont"}},
+    {"click": "id:asset.nav.yours"},
+    {"expect": [{"path": "ui.anchors", "contains": "text.favorites"}, {"path": "ui.anchors", "contains": "text.favfont.DejaVu Sans Display"}]},
+    {"snapshot": "text-favorites", "element": "id:panel.assets"},
+    {"click": "id:asset.nav.fonts"},
+    {"click": "id:fontbook.remove.DejaVu Sans Display"},
+    {"expect": [{"path": "ui.fontbook.imported", "notContains": "DejaVu Sans Display"}, {"path": "ui.toast", "exists": true}]}
+  ]
+}

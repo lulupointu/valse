@@ -18,9 +18,26 @@ final class TextUIState {
     var showReplace = false
     var effectSearch = ""
     var fontSearch = ""
-    var favoriteFonts: [String] = UserDefaults.standard.stringArray(forKey: "MontageFavoriteFonts") ?? [] {
-        didSet { UserDefaults.standard.set(favoriteFonts, forKey: "MontageFavoriteFonts") }
+    /// MI-024 (F3): font favourites live in the shared asset favourites store (namespace "fonts"), like every other ☆.
+    var favoriteFonts: [String] {
+        get { _ = Self.migrated; return AssetLibraryStore.shared.favoriteIDs(AssetLibraryStore.fontsNamespace) }
+        set {
+            let lib = AssetLibraryStore.shared, ns = AssetLibraryStore.fontsNamespace
+            let cur = Set(lib.favoriteIDs(ns)), next = Set(newValue)
+            for n in newValue where !cur.contains(n) { lib.toggleFavorite(ns, n) }
+            for n in cur where !next.contains(n) { lib.toggleFavorite(ns, n) }
+        }
     }
+    /// One-time move of the pre-F3 favourites list into the shared store.
+    private static let migrated: Bool = {
+        let d = UserDefaults.standard, key = "MontageFavoriteFonts"
+        guard !TestAnchors.isEnabled, let old = d.stringArray(forKey: key), !old.isEmpty else { return true }
+        for n in old.reversed() where !AssetLibraryStore.shared.isFavorite(AssetLibraryStore.fontsNamespace, n) {
+            AssetLibraryStore.shared.toggleFavorite(AssetLibraryStore.fontsNamespace, n)
+        }
+        d.removeObject(forKey: key)
+        return true
+    }()
     var recentFonts: [String] = UserDefaults.standard.stringArray(forKey: "MontageRecentFonts") ?? [] {
         didSet { UserDefaults.standard.set(recentFonts, forKey: "MontageRecentFonts") }
     }
