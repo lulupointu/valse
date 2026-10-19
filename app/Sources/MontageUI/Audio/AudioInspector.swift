@@ -43,7 +43,7 @@ enum AudioInspector {
             AnyView(StrengthRow(ctx: $0, path: \.enhanceVoice, defaultValue: 0.7, hint: "audio.enhance.hint"))
         }
         s += both("denoise", order: 30, titleKey: "audio.denoise", chrome: { strengthChrome($0, \.noiseReduction, 0.6, "cmd.audioEffect") }) {
-            AnyView(StrengthRow(ctx: $0, path: \.noiseReduction, defaultValue: 0.6, hint: nil))
+            AnyView(StrengthRow(ctx: $0, path: \.noiseReduction, defaultValue: 0.6, hint: "f4ai.denoise.hint"))   // AI-009: strength in dB
         }
         s += both("separation", order: 40, titleKey: "audio.separation", chrome: { ctx in
             InspectorSectionChrome(isEnabled: clipBinding(ctx, "cmd.separation", get: { $0.audio.separation != nil }, set: { c, v in c.audio.separation = v ? .keepVocals : nil }))

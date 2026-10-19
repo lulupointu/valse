@@ -29,7 +29,7 @@ public struct RenderStageSpec: Hashable, Codable, Sendable {
     }
 
     /// Stable cache key (bumped `version` invalidates every rendered file when the DSP changes).
-    public static let version = 1
+    public static let version = 2   // 2: F4 AI-009 ML denoise strength = attenuation limit in dB
     public var cacheKey: String {
         let enc = JSONEncoder(); enc.outputFormatting = .sortedKeys
         let data = (try? enc.encode(self)) ?? Data()

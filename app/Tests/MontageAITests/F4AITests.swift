@@ -126,6 +126,67 @@ import MontageTestSupport
         }
     }
 
+    // MARK: AI-009 ML denoise strength
+
+    @Test func denoiseStrengthIsAnAttenuationLimit() {
+        #expect(AudioML.residualGain(strength: 0) == 1)
+        #expect(AudioML.residualGain(strength: 1) == 0)
+        #expect(abs(20 * log10(AudioML.residualGain(strength: 0.5)) + 20) < 0.01)
+        #expect(abs(20 * log10(AudioML.residualGain(strength: 0.25)) + 10) < 0.01)
+        let g = stride(from: 0.0, through: 1.0, by: 0.1).map { AudioML.residualGain(strength: Float($0)) }
+        #expect(zip(g, g.dropFirst()).allSatisfy { $0 > $1 })
+    }
+
+    /// Reduce noise through the rendered stage with the ML voice stem: the noise left in speech pauses follows the
+    /// slider in dB (25 % ≈ −10 dB, 50 % ≈ −20 dB, 100 % = everything the model removes).
+    @Test func mlDenoiseFollowsTheStrength() async throws {
+        try await HeavyWorkGate.run {
+            guard VoiceIsolator.isAvailable, let speech = AIFixtures.speechFR else { print("skip: AUSoundIsolation / bench media missing"); return }
+            AudioML.voiceStems = { a, p in try await VoiceIsolator.separate(a, progress: p) }
+            let clean = try Self.readMono16k(speech, seconds: 6)
+            let sr = 48_000.0, n = Int(6 * sr)
+            let fmt = AVAudioFormat(standardFormatWithSampleRate: sr, channels: 2)!
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("f4-noisy-\(UUID().uuidString).caf")
+            defer { try? FileManager.default.removeItem(at: url) }
+            let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(n))!
+            buf.frameLength = AVAudioFrameCount(n)
+            var up = [Float](repeating: 0, count: n)
+            var seed: UInt64 = 42
+            for i in 0..<n {
+                up[i] = clean[min(i / 3, clean.count - 1)]
+                seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                let noise = (Float(seed >> 40) / Float(1 << 24) * 2 - 1) * 0.08
+                buf.floatChannelData![0][i] = up[i] + noise; buf.floatChannelData![1][i] = up[i] + noise
+            }
+            do { let f = try AVAudioFile(forWriting: url, settings: fmt.settings); try f.write(from: buf) }
+            var asset = try await MediaProbe.probe(url)
+            asset.contentHash = "f4-dn-\(UUID().uuidString.prefix(6))"
+            defer { for s in VoiceIsolator.Stem.allCases { try? FileManager.default.removeItem(at: AudioStemStore.shared.stemURL(media: asset, kind: s.rawValue)) } }
+            func pauseReduction(_ strength: Double) async throws -> Double {
+                var spec = RenderStageSpec(); spec.denoise = strength; spec.mlVoice = true
+                let out = try await AudioRenderCache.shared.render(asset, spec: spec)
+                defer { try? FileManager.default.removeItem(at: out) }
+                let f = try AVAudioFile(forReading: out)
+                let b = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(f.length))!
+                try f.read(into: b)
+                let y = b.floatChannelData![0]
+                var inP = 0.0, outP = 0.0
+                for s in stride(from: 0, to: min(Int(b.frameLength), n) - 960, by: 960) {
+                    var e = 0.0
+                    for i in s..<s + 960 { e += Double(up[i] * up[i]) }
+                    guard e < 1e-4 else { continue }
+                    for i in s..<s + 960 { inP += Double(buf.floatChannelData![0][i] * buf.floatChannelData![0][i]); outP += Double(y[i] * y[i]) }
+                }
+                return 10 * log10(inP / max(outP, 1e-12))
+            }
+            let r25 = try await pauseReduction(0.25), r50 = try await pauseReduction(0.5), r100 = try await pauseReduction(1)
+            print("metric ml_denoise_db 25%=\(r25) 50%=\(r50) 100%=\(r100)")
+            #expect(abs(r25 - 10) < 3)
+            #expect(abs(r50 - 20) < 4)
+            #expect(r100 > r50 + 5)
+        }
+    }
+
     // MARK: AI-002 lyrics vocal pre-separation
 
     static func readMono16k(_ url: URL, seconds: Double) throws -> [Float] {

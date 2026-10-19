@@ -3,3 +3,4 @@
 "model.clip.desc" = "Trouve les ressources à partir d'une description de l'image, comme « un chien sur la plage ».";
 "f4ai.clip.offer" = "Décris une scène pour la retrouver (« coucher de soleil sur la mer ») : télécharge le modèle de recherche intelligente.";
 "captions.phase.separating" = "Séparation de la voix…";
+"f4ai.denoise.hint" = "L'intensité règle la quantité de bruit supprimée : 25 % ≈ −10 dB, 50 % ≈ −20 dB, 100 % ne garde que la voix.";

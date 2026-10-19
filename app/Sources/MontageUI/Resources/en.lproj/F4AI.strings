@@ -3,3 +3,4 @@
 "model.clip.desc" = "Finds media from a description of what is in the picture, like \"a dog on the beach\".";
 "f4ai.clip.offer" = "Describe a scene to find it (\"sunset over the sea\"): download the smart search model.";
 "captions.phase.separating" = "Separating vocals…";
+"f4ai.denoise.hint" = "Strength sets how much noise is removed: 25 % ≈ −10 dB, 50 % ≈ −20 dB, 100 % keeps only the voice.";

@@ -186,7 +186,7 @@ public final class AudioRenderCache: @unchecked Sendable {
                     let sep = spec.separation
                     let strength = Float(spec.denoise ?? (spec.enhance != nil ? 0.9 : 1))
                     let vg: Float = sep == .removeVocals ? 0 : 1
-                    let rg: Float = sep == .keepVocals ? 0 : (sep == .removeVocals ? 1 : 1 - strength)
+                    let rg: Float = sep == .keepVocals ? 0 : (sep == .removeVocals ? 1 : AudioML.residualGain(strength: strength))
                     let mixed = dst.deletingLastPathComponent().appendingPathComponent("ml-\(UUID().uuidString).caf")
                     defer { try? FileManager.default.removeItem(at: mixed) }
                     try AudioML.mix(a, voiceGain: vg, restGain: rg, to: mixed)

@@ -1,0 +1,16 @@
+// F4 AI-009: Audio ▸ Basic ▸ ☑ Reduce noise (one undo step) shows its strength in % with the dB meaning of the slider
+// (the ML voice stem's residual follows an attenuation limit: 25 % ≈ −10 dB, 50 % ≈ −20 dB; engine-tested in F4AITests).
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "clip:5/0"},
+    {"click": "id:inspector.tab.audioBasic"},
+    {"click": "id:inspector.section.audioBasic.denoise", "at": [0.035, 0.5]},
+    {"expect": {"path": "undo.name", "equals": "cmd.audioEffect"}},
+    {"wait": 0.5},
+    {"snapshot": "denoise-strength-fr", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 0}}
+  ]
+}

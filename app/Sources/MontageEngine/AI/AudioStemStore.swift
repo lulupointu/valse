@@ -55,6 +55,16 @@ public enum AudioML {
     }
     public static var isAvailable: Bool { voiceStems != nil && usedByPlans }
 
+    /// AI-009 Reduce noise strength → gain of the non-voice residual, as an attenuation limit in dB (DeepFilterNet's
+    /// `atten_lim_db` semantics): strength s removes up to `maxReductionDB · s` dB of noise, 100 % removes it all.
+    /// A linear wet/dry (1 − s) only reached −6 dB at 50 %, so the slider did little until the very end.
+    public static let maxReductionDB: Float = 40
+    public static func residualGain(strength s: Float) -> Float {
+        if s <= 0 { return 1 }
+        if s >= 0.999 { return 0 }
+        return powf(10, -maxReductionDB * s / 20)
+    }
+
     /// Writes `voiceGain·voice + restGain·novoice` (48 kHz stereo float CAF) for the rendered stage.
     static func mix(_ a: MediaAsset, voiceGain: Float, restGain: Float, to dst: URL) throws {
         let s = AudioStemStore.shared
