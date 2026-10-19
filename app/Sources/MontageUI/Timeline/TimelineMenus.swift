@@ -122,6 +122,9 @@ extension TimelineView {
             item("tlmenu.uncompound", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
                 s.explodeCompound()
             },
+            item("tlmenu.editCompound", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                if let id = single?.id { s.enterCompound(id) }
+            },
             item("tlmenu.multicam", enabled: false) {},
             item("tlmenu.savePreset", enabled: false) {},
             item("tlmenu.group", "g", .command, enabled: clips.count >= 2) { s.groupSelection() },

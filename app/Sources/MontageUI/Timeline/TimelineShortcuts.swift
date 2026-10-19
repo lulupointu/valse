@@ -26,6 +26,7 @@ enum TimelineShortcuts {
         Shortcut("selectByClip", "shortcut.selectByClip", .char("x"), .shift) { $0.rangeFromSelection() },
         Shortcut("group", "shortcut.group", .char("g"), .command) { $0.groupSelection() },
         Shortcut("ungroup", "shortcut.ungroup", .char("g"), [.command, .shift]) { $0.ungroupSelection() },
+        Shortcut("compound", "tlmenu.compound", .char("g"), .option) { $0.createCompound() },
         Shortcut("speedPanel", "shortcut.speedPanel", .char("r"), .command) { s in if s.singleSelectedClip != nil { s.inspectorTab = "speed" } },
         Shortcut("zoomFit", "shortcut.zoomFit", .char("z"), .shift) { $0.zoomTimelineToFit() },
         Shortcut("copy", "shortcut.copy", .char("c"), .command) { $0.copySelection() },

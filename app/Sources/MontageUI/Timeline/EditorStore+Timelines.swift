@@ -22,7 +22,7 @@ extension EditorStore {
         let clips = withSelection ? selection : []
         if withSelection && clips.isEmpty { return }
         let name = nextTimelineName(), first = tr("timelines.nameN", 1)
-        if perform(Edit("cmd.newTimeline") { p in try MultiTimelineOps.newTimeline(&p, name: name, firstName: first, clips: clips) }) {
+        if perform(Edit("cmd.newTimeline") { p in CompoundEditing.exitAll(&p); try MultiTimelineOps.newTimeline(&p, name: name, firstName: first, clips: clips) }) {
             selection = []
             showToast(tr("timelines.created", name))
         }
@@ -31,7 +31,7 @@ extension EditorStore {
     public func switchTimeline(_ id: TimelineSlotID) {
         guard id != project.activeTimelineID else { return }
         engine.pause()
-        if perform(Edit("cmd.switchTimeline") { p in try MultiTimelineOps.switchTo(&p, id) }) {
+        if perform(Edit("cmd.switchTimeline") { p in CompoundEditing.exitAll(&p); try MultiTimelineOps.switchTo(&p, id) }) {
             selection = []
             seek(to: .zero)
         }
@@ -44,11 +44,47 @@ extension EditorStore {
     public func duplicateTimeline(_ id: TimelineSlotID) {
         let base = timelineSlots.first { $0.id == id }?.name ?? ""
         let name = tr("timelines.copyOf", base)
-        if perform(Edit("cmd.duplicateTimeline") { p in try MultiTimelineOps.duplicate(&p, id, name: name) }) { selection = [] }
+        if perform(Edit("cmd.duplicateTimeline") { p in CompoundEditing.exitAll(&p); try MultiTimelineOps.duplicate(&p, id, name: name) }) { selection = [] }
     }
 
     public func deleteTimeline(_ id: TimelineSlotID) {
-        if perform(Edit("cmd.deleteTimeline") { p in try MultiTimelineOps.delete(&p, id) }) { selection = [] }
+        if perform(Edit("cmd.deleteTimeline") { p in CompoundEditing.exitAll(&p); try MultiTimelineOps.delete(&p, id) }) { selection = [] }
+    }
+
+    // MARK: Edit inside compound clips (TL-021) / groups (TL-020)
+
+    /// The project as exported / seen from outside every compound being edited.
+    public var rootProject: Project {
+        var p = project
+        CompoundEditing.exitAll(&p)
+        return p
+    }
+
+    /// Double-click a compound clip: its nested timeline opens in the timeline and the player.
+    public func enterCompound(_ id: ClipID) {
+        engine.pause()
+        if perform(Edit("cmd.enterCompound") { p in try CompoundEditing.enter(id, in: &p) }) {
+            selection = []
+            seek(to: .zero)
+        }
+    }
+
+    /// Breadcrumb "‹" / Esc: back to the parent timeline (the compound clip shows the edits).
+    public func exitCompound(all: Bool = false) {
+        guard project.isInsideCompound else { return }
+        engine.pause()
+        let id = project.compoundEdit?.first?.clipID, inner = project.compoundEdit?.last?.clipID
+        if perform(Edit("cmd.exitCompound") { p in if all { CompoundEditing.exitAll(&p) } else { try CompoundEditing.exit(&p) } }) {
+            if let c = (all ? id : inner).flatMap({ project.timeline.clip($0) }) { selection = [c.id]; seek(to: c.start) }
+        }
+    }
+
+    /// Double-click a grouped clip: select only it, to edit it on its own (CapCut "enter the group").
+    public func enterGroup(_ id: ClipID) {
+        guard project.timeline.clip(id)?.groupID != nil else { return }
+        selection = [id]
+        ui.selectedTransition = nil; ui.selectedMarker = nil
+        showToast(tr("group.entered"))
     }
 
     /// ⌃⇥ / ⌃⇧⇥: next / previous timeline tab.
@@ -183,5 +219,34 @@ struct FrameRatePrompt: View {
         .padding(.horizontal, 12).frame(height: 34)
         .background(Theme.accent.opacity(0.12))
         .testID("framerate.prompt")
+    }
+}
+
+/// Breadcrumb above the timeline while editing inside a compound clip (TL-021): "‹ Main timeline › Compound 1".
+struct CompoundBreadcrumb: View {
+    let store: EditorStore
+    let path: [String]
+    var body: some View {
+        HStack(spacing: 6) {
+            Button { store.exitCompound() } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "chevron.left").font(.system(size: 10, weight: .semibold))
+                    Text(loc: "compound.back")
+                }
+            }
+            .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("compound.back")
+            Button { store.exitCompound(all: true) } label: { Text(loc: "compound.root") }
+                .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).testID("compound.root")
+            ForEach(Array(path.enumerated()), id: \.offset) { i, name in
+                Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+                Text(verbatim: name).font(.system(size: 12, weight: i == path.count - 1 ? .semibold : .regular))
+                    .foregroundStyle(i == path.count - 1 ? Theme.textPrimary : Theme.textSecondary)
+            }
+            Spacer()
+            Text(loc: "compound.editingHint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+        }
+        .padding(.horizontal, 10).frame(height: 30)
+        .background(Theme.accent.opacity(0.1))
+        .testID("compound.breadcrumb")
     }
 }

@@ -146,3 +146,11 @@
 "player.guide.edit" = "Edit guide position…";
 "player.guide.vertical" = "Vertical guide";
 "player.guide.horizontal" = "Horizontal guide";
+/* TL-020 / TL-021 enter group / compound */
+"cmd.enterCompound" = "Edit compound clip";
+"cmd.exitCompound" = "Back to timeline";
+"compound.back" = "Back";
+"compound.root" = "Main timeline";
+"compound.editingHint" = "Editing inside a compound clip — Esc to go back";
+"group.entered" = "Editing one clip of the group — click elsewhere to select the group again";
+"tlmenu.editCompound" = "Edit compound clip";

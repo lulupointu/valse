@@ -260,3 +260,33 @@ import Foundation
         #expect(p.timeline.clip(g)?.freezeSource == nil)
     }
 }
+
+/// TL-021 edit inside a compound clip.
+@Suite struct FinisherCompoundEditTests {
+    @Test func enterEditExitWritesTheNestedTimelineBack() throws {
+        var (p, ids) = Fx.project(mainClips: 3)
+        let cid = try TimelineOps.createCompound([ids[0], ids[1]], name: "C", in: &p)
+        let parentDuration = p.timeline.clip(cid)!.duration
+        try CompoundEditing.enter(cid, in: &p)
+        #expect(p.isInsideCompound && CompoundEditing.path(p) == ["C"])
+        #expect(p.timeline.allClips.count == 2)
+        // the compound is still "used" (its clip lives in the parent on the stack)
+        #expect(MultiTimelineOps.allTimelines(p).count == 2)
+        // edit inside: trim the last nested clip by 1 s
+        let inner = p.timeline.mainTrack!.clips.last!
+        try TimelineOps.trim(inner.id, edge: .tail, to: inner.end - Time(1), in: &p)
+        let nestedDuration = p.timeline.duration
+        try CompoundEditing.exit(&p)
+        #expect(!p.isInsideCompound && p.compoundEdit == nil)
+        let comp = try #require(p.compound({ if case .compound(let c) = p.timeline.clip(cid)!.content { return c }; return CompoundID() }()))
+        #expect(comp.timeline.duration == nestedDuration)
+        // the compound clip got shorter with its content
+        #expect(p.timeline.clip(cid)!.duration == min(parentDuration, nestedDuration))
+        #expect(TimelineOps.validate(p.timeline).isEmpty)
+        #expect(throws: EditError.self) { try CompoundEditing.exit(&p) }
+        #expect(throws: EditError.self) { try CompoundEditing.enter(ids[2], in: &p) }   // not a compound
+        try CompoundEditing.enter(cid, in: &p)
+        CompoundEditing.exitAll(&p)
+        #expect(!p.isInsideCompound && p.timeline.clip(cid) != nil)
+    }
+}

@@ -21,6 +21,8 @@ public struct Project: Codable, Sendable, Equatable {
     public var cover: ProjectCover?
     /// Player guides (PB-011), saved with the project. Optional so older files decode.
     public var guides: [ProjectGuide]?
+    /// Editing inside compound clips (TL-021): the parent timelines to return to. nil = not inside a compound.
+    public var compoundEdit: [CompoundEditFrame]?
 
     /// Diarized caption speakers (names + colours, AI-005 / TX-038). Optional so older files decode.
     public var speakers: [CaptionSpeaker]?

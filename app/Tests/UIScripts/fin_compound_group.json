@@ -1,0 +1,29 @@
+// Finisher TL-021 / TL-020: ⌥G makes a compound of two main clips; double-click it opens its nested timeline (breadcrumb,
+// player shows it); a delete inside is kept when Esc goes back. ⌘G groups clips; double-click one selects only it.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:main/0"},
+    {"click": "clip:main/1", "modifiers": ["shift"]},
+    {"key": "opt+g"},
+    {"expect": [{"path": "main.clips.count", "equals": 2}, {"path": "main.clips.0.kind", "equals": "compound"}]},
+    {"doubleClick": "clip:main/0"},
+    {"expect": [{"path": "project.compoundEdit.count", "equals": 1}, {"path": "ui.anchors", "contains": "compound.breadcrumb"},
+                {"path": "main.clips.count", "equals": 2}, {"path": "undo.name", "equals": "cmd.enterCompound"}]},
+    {"snapshot": "inside-compound", "element": "id:panel.timeline"},
+    {"click": "clip:main/1"},
+    {"key": "delete"},
+    {"expect": {"path": "main.clips.count", "equals": 1}},
+    {"key": "escape"},
+    {"expect": [{"path": "project.compoundEdit", "exists": false}, {"path": "ui.anchors", "notContains": "compound.breadcrumb"},
+                {"path": "main.clips.0.kind", "equals": "compound"}, {"path": "selectedClips.count", "equals": 1}]},
+    {"click": "clip:main/0"},
+    {"click": "clip:main/1", "modifiers": ["shift"]},
+    {"key": "cmd+g"},
+    {"click": "clip:main/1"},
+    {"expect": {"path": "selectedClips.count", "equals": 2}},
+    {"doubleClick": "clip:main/1"},
+    {"expect": [{"path": "selectedClips.count", "equals": 1}, {"path": "selectedClips.0.index", "equals": 1}]}
+  ]
+}

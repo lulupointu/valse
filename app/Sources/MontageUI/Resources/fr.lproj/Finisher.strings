@@ -146,3 +146,11 @@
 "player.guide.edit" = "Modifier la position du repère…";
 "player.guide.vertical" = "Repère vertical";
 "player.guide.horizontal" = "Repère horizontal";
+/* TL-020 / TL-021 enter group / compound */
+"cmd.enterCompound" = "Modifier le clip composé";
+"cmd.exitCompound" = "Retour à la chronologie";
+"compound.back" = "Retour";
+"compound.root" = "Chronologie principale";
+"compound.editingHint" = "Modification dans un clip composé — Échap pour revenir";
+"group.entered" = "Modification d’un seul clip du groupe — cliquez ailleurs pour resélectionner le groupe";
+"tlmenu.editCompound" = "Modifier le clip composé";

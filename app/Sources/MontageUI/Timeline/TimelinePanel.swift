@@ -12,6 +12,10 @@ public struct TimelinePanel: View {
                 TimelineTabs(store: store)
                 Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
             }
+            if store.project.isInsideCompound {
+                CompoundBreadcrumb(store: store, path: CompoundEditing.path(store.project))
+                Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
+            }
             if let r = store.timelineUI.frameRatePrompt { FrameRatePrompt(store: store, rate: r) }
             TimelineToolbar(store: store)
             Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)

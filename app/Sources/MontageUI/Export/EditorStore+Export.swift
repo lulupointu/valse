@@ -33,7 +33,7 @@ extension EditorStore {
     public func openExport(scope: ExportScope? = nil) {
         guard project.duration > .zero else { showToast(tr("export.error.empty"), error: true); return }
         exports.requestedScope = scope
-        exports.dialog = ExportDialogModel(project: project, title: projectName, selection: selection, scope: scope)
+        exports.dialog = ExportDialogModel(project: rootProject, title: projectName, selection: selection, scope: scope)
         exports.shownJobs = []
         isExportSheetPresented = true
     }

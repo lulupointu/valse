@@ -165,6 +165,7 @@ public enum MultiTimelineOps {
 
     /// Every timeline's tracks (active first): compounds/media in use anywhere in the project.
     public static func allTimelines(_ p: Project) -> [Timeline] {
-        [p.timeline] + (p.timelines ?? []).filter { $0.id != p.activeTimelineID }.map(\.timeline)
+        [p.timeline] + (p.compoundEdit ?? []).map(\.parent)   // parents while editing inside a compound (TL-021)
+            + (p.timelines ?? []).filter { $0.id != p.activeTimelineID }.map(\.timeline)
     }
 }

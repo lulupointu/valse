@@ -13,7 +13,6 @@ public final class KeystrokeFeed {
     public struct Item: Identifiable, Equatable { public let id = UUID(); public let text: String; var count = 1 }
     public private(set) var items: [Item] = []
     public private(set) var enabled = false
-    @ObservationIgnored private var monitor: Any?
     /// Seconds a pill stays; nil = 2 s, or 30 s in UI tests (read at push time: the feed may exist before the driver).
     @ObservationIgnored var lifetimeOverride: TimeInterval?
     var lifetime: TimeInterval { lifetimeOverride ?? (TestAnchors.isEnabled ? 30 : 2) }
@@ -26,19 +25,13 @@ public final class KeystrokeFeed {
         guard on != enabled else { return }
         enabled = on
         if !HomeSandbox.isActive { UserDefaults.standard.set(on, forKey: Self.defaultsKey) }
-        if on {
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
-                MainActor.assumeIsolated { self?.record(e) }
-                return e
-            }
-        } else {
-            if let monitor { NSEvent.removeMonitor(monitor) }
-            monitor = nil
-            items = []
-        }
+        if !on { items = [] }
     }
 
+    /// Fed by `ShortcutRegistry.handle` (the editor's key path: it sees every key the editor receives, before the
+    /// app's monitor consumes it).
     func record(_ e: NSEvent) {
+        guard enabled else { return }
         let mods = e.modifierFlags.intersection([.command, .option, .control])
         if e.window?.firstResponder is NSText, mods.isEmpty { return }   // typing text
         guard let b = KeyBinding(event: e) else { return }

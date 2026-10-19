@@ -340,7 +340,11 @@ extension TimelineView {
                 let g = TimelineOps.expandGroups([id], in: store.project.timeline)
                 if g != store.selection { store.select([id]) }
             }
-            if e.clickCount == 2, let c = store.project.timeline.clip(id) { store.seek(to: c.start) }
+            if e.clickCount == 2, let c = store.project.timeline.clip(id) {
+                if case .compound = c.content { store.enterCompound(id); return }   // TL-021 edit inside
+                if c.groupID != nil { store.enterGroup(id); return }                // TL-020 enter the group
+                store.seek(to: c.start)
+            }
         case .scrub: store.seek(to: l.time(atX: pt.x), exact: true)
         case .marquee(let o, _, _):
             if hypot(pt.x - o.x, pt.y - o.y) <= 3, pt.x > TimelineLayout.headerWidth { store.seek(to: l.time(atX: pt.x), exact: true) }

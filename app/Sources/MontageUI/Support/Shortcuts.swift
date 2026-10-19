@@ -72,6 +72,8 @@ public enum ShortcutRegistry {
         Shortcut("playerFullscreen", "shortcut.playerFullscreen", .char("f"), [.shift, .command]) { $0.togglePlayerFullscreen() },
         Shortcut("exitPlayerFullscreen", "shortcut.exitFullscreen", .escape, isEnabled: { $0.playerUI.isFullscreen }) { $0.setPlayerFullscreen(false) },
         Shortcut("cancelEyedropper", "shortcut.cancelEyedropper", .escape, isEnabled: { $0.canvasEyedropper != nil }) { $0.endCanvasColorPick() },
+        Shortcut("exitCompound", "compound.back", .escape,
+                 isEnabled: { $0.project.isInsideCompound && !$0.isPreviewing && !$0.playerUI.isFullscreen }) { $0.exitCompound() },
         Shortcut("exitPreview", "shortcut.exitPreview", .escape, isEnabled: { $0.isPreviewing && !$0.playerUI.isFullscreen }) { $0.exitPreview() },
         Shortcut("playerZoomIn", "shortcut.playerZoomIn", .char("+"), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
         Shortcut("playerZoomInEq", "shortcut.playerZoomIn", .char("="), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
@@ -113,6 +115,7 @@ public enum ShortcutRegistry {
 
     /// Returns true if the event was handled.
     public static func handle(_ e: NSEvent, store: EditorStore) -> Bool {
+        KeystrokeFeed.shared.record(e)   // PB-015 View ▸ Show keystrokes
         if let responder = e.window?.firstResponder, responder is NSText || responder is NSTextView { return false }
         if Keymap.isRecording { return false }
         guard let k = key(for: e) else { return false }
