@@ -1,0 +1,15 @@
+// MI-008: Settings ▸ Performance ▸ Proxy: creation policy, resolution (540p / 720p / 1080p), "Only convert material above
+// proxy resolution", location, size + clear. Untick "only above", Save → persisted.
+{
+  "project": "home",
+  "steps": [
+    {"click": "id:home.top.settings"},
+    {"click": "id:settings.tab.performance"},
+    {"expect": [{"path": "ui.anchors", "contains": "settings.check.proxyOnlyAbove"}, {"path": "app.settings.proxyOnlyAbove", "equals": true},
+                {"path": "app.settings.proxyResolution", "equals": 720}]},
+    {"click": "id:settings.check.proxyOnlyAbove"},
+    {"snapshot": "proxy-settings", "element": "id:settings"},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.modal", "equals": ""}, {"path": "app.settings.proxyOnlyAbove", "equals": false}]}
+  ]
+}

@@ -12,3 +12,6 @@
 "tlmenu.audioStream.separate" = "Séparer les pistes audio";
 "cmd.audioStream" = "Piste audio";
 "cmd.separateStreams" = "Séparer les pistes audio";
+"settings.proxyResolution" = "Résolution du proxy";
+"settings.proxyResolution.hint" = "S'applique aux proxys créés à partir de maintenant. Videz les proxys pour les recréer à la nouvelle taille.";
+"settings.proxyOnlyAbove" = "Convertir uniquement les éléments au-dessus de la résolution du proxy";

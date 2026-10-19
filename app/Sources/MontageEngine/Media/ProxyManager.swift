@@ -15,6 +15,10 @@ public final class ProxyManager: @unchecked Sendable {
     public enum Policy: String, Codable, Sendable, CaseIterable { case auto, always, never }
 
     public var policy: Policy = .auto
+    /// Proxy short side in px (Settings ▸ Performance ▸ Proxy resolution, MI-008). Applies to proxies made from now on.
+    public var resolution = 720
+    /// "Only convert material above proxy resolution": `.always` skips videos already at or below `resolution`.
+    public var onlyAboveResolution = true
     public let directory: URL
     private let lock = NSLock()
     private var ready: Set<String> = []
@@ -45,7 +49,9 @@ public final class ProxyManager: @unchecked Sendable {
     public func shouldGenerate(_ a: MediaAsset) -> Bool {
         switch policy {
         case .never: return false
-        case .always: return a.kind == .video && a.hasVideo
+        case .always:
+            guard a.kind == .video && a.hasVideo else { return false }
+            return !onlyAboveResolution || Int(min(a.pixelSize.width, a.pixelSize.height)) > resolution
         case .auto: return MemoryBudget.wantsProxy(a)
         }
     }
@@ -55,9 +61,9 @@ public final class ProxyManager: @unchecked Sendable {
         for a in assets where (force || shouldGenerate(a)) && a.kind == .video && !PlayableMediaCache.shared.needsConversion(a) {
             let skip = lock.withLock { ready.contains(a.contentHash) || pending[a.contentHash] != nil }
             if skip { continue }
-            let src = PlayableMediaCache.shared.resolvedURL(for: a), dst = proxyURL(for: a), hash = a.contentHash
+            let src = PlayableMediaCache.shared.resolvedURL(for: a), dst = proxyURL(for: a), hash = a.contentHash, res = resolution
             let id = await JobQueue.shared.enqueue(titleKey: "job.proxy", detail: a.name, priority: -1, subject: hash) { progress in
-                try await ProxyManager.generate(source: src, to: dst, progress: progress)
+                try await ProxyManager.generate(source: src, to: dst, maxShortSide: res, progress: progress)
             }
             lock.withLock { pending[hash] = id }
             Task {

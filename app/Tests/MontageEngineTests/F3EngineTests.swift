@@ -7,6 +7,28 @@ import MontageEffects
 @testable import MontageEngine
 import MontageTestSupport
 
+/// MI-008 proxy creation rules.
+@Suite struct F3ProxyTests {
+    func video(_ w: Double, _ h: Double) -> MediaAsset {
+        MediaAsset(name: "v", kind: .video, url: URL(fileURLWithPath: "/tmp/v.mov"), duration: 10, pixelSize: Size2(w, h),
+                   frameRate: .fps30, hasVideo: true, hasAudio: false, contentHash: "h\(w)")
+    }
+
+    @Test func alwaysOnlyConvertsMaterialAboveTheProxyResolution() {
+        let m = ProxyManager()
+        m.policy = .always; m.resolution = 720; m.onlyAboveResolution = true
+        #expect(m.shouldGenerate(video(1920, 1080)))
+        #expect(!m.shouldGenerate(video(1280, 720)))
+        #expect(!m.shouldGenerate(video(720, 1280)))      // portrait: short side
+        m.resolution = 540
+        #expect(m.shouldGenerate(video(1280, 720)))
+        m.onlyAboveResolution = false; m.resolution = 1080
+        #expect(m.shouldGenerate(video(640, 360)))
+        m.policy = .never
+        #expect(!m.shouldGenerate(video(3840, 2160)))
+    }
+}
+
 /// Finisher F3 render tests (text stroke position, …).
 @Suite(.serialized) struct F3TextRenderTests {
     let h = TextRenderTests()

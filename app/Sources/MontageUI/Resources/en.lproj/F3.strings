@@ -12,3 +12,6 @@
 "tlmenu.audioStream.separate" = "Separate audio tracks";
 "cmd.audioStream" = "Audio track";
 "cmd.separateStreams" = "Separate audio tracks";
+"settings.proxyResolution" = "Proxy resolution";
+"settings.proxyResolution.hint" = "Applies to proxies created from now on. Clear the proxies to rebuild them at the new size.";
+"settings.proxyOnlyAbove" = "Only convert material above proxy resolution";

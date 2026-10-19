@@ -580,6 +580,11 @@ struct PerformanceSettings: View {
             Dropdown(items: ProxyManager.Policy.allCases.map { ($0.rawValue, tr("settings.proxyPolicy.\($0.rawValue)")) }, selection: draft.proxyPolicy) { draft.proxyPolicy = $0 }
                 .frame(width: 260)
         }
+        SettingsRow(tr("settings.proxyResolution"), hint: tr("settings.proxyResolution.hint")) {   // MI-008 (F3)
+            Dropdown(items: [540, 720, 1080].map { ($0, "\($0)p") }, selection: draft.proxyResolution) { draft.proxyResolution = $0 }
+                .frame(width: 260)
+            CheckLine(label: tr("settings.proxyOnlyAbove"), isOn: $draft.proxyOnlyAbove, id: "proxyOnlyAbove")
+        }
         SettingsRow(tr("settings.proxyLocation")) {
             PathSetting(path: cache.appendingPathComponent("proxies").path, onChoose: { NSWorkspace.shared.activateFileViewerSelecting([cache.appendingPathComponent("proxies")]) }, id: "proxyLocation")
         }

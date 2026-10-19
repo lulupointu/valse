@@ -70,6 +70,10 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var useProxies = true
     /// `ProxyManager.Policy` raw value ("auto", "always", "never").
     public var proxyPolicy = "auto"
+    /// Proxy short side in px: 540 / 720 / 1080 (MI-008).
+    public var proxyResolution = 720
+    /// "Only convert material above proxy resolution" (CapCut default on).
+    public var proxyOnlyAbove = true
     /// Speed up hardware encoding (export uses VideoToolbox when available).
     public var hardwareEncoding = true
     /// Speed up hardware decoding.
