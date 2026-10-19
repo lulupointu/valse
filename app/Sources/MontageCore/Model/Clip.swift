@@ -108,6 +108,9 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var extraMasks: [Mask]?
     /// Shape sticker look (ST-008, see ShapeStickerStyle.swift); nil = the sticker's own colours.
     public var shapeStyle: ShapeStickerStyle?
+    /// Effect / filter clip ▸ "Apply to" (FX-004, see EffectScope.swift): which layers below it the effects process.
+    /// nil = all (CapCut default).
+    public var effectScope: EffectScope?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

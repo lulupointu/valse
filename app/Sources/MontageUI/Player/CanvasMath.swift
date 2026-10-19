@@ -84,14 +84,19 @@ nonisolated enum CanvasLayers {
             out.append(CanvasLayer(clipID: l.clipID, geometry: l.geometry(canvasSize: canvas, sourceSizeOverride: size),
                                    isText: isText, isLocked: locked.contains(l.trackID)))
         }
-        for item in frame.items {
-            switch item {
-            case .layer(let l): add(l)
-            case .transition(_, let to, _, _, _): add(to)
-            case .adjustment: break
-            case .nested(let container, _): add(container)   // compound clip: one layer
+        func walk(_ items: [RenderItem]) {
+            for item in items {
+                switch item {
+                case .layer(let l): add(l)
+                case .transition(_, let to, _, _, _): add(to)
+                case .adjustment: break
+                case .nested(let container, let inner):
+                    // FX-004 "Apply to ▸ PiP" groups the overlays it processes: their layers stay selectable
+                    if container.isEffectGroup { walk(inner) } else { add(container) }   // compound clip: one layer
+                }
             }
         }
+        walk(frame.items)
         return out
     }
 

@@ -66,6 +66,9 @@ public struct LayerDescription: Hashable, Sendable {
     public var duration: Time = .zero
     /// Shape sticker look at this instant (ST-008); nil = the sticker's own.
     public var shapeStyle: ShapeStickerStyle? = nil
+    /// Container of an effect clip's "Apply to ▸ PiP" group (FX-004): not a layer of its own (canvas hit-testing
+    /// looks inside it).
+    public var isEffectGroup = false
 
     /// Media/images/solids are aspect-fitted to the canvas at scale 1; text and stickers use their own
     /// size in canvas pixels (`sourceSize`).
@@ -133,9 +136,12 @@ public enum FrameEvaluator {
     static func items(_ project: Project, at t: Time, depth: Int, background: inout RGBA) -> [RenderItem] {
         let canvas = project.settings.canvasSize
         var items: [RenderItem] = []
+        // FX-004: index in `items` just after the main track's items (main-scoped effects go there).
+        var mainEnd: Int?
         for track in project.timeline.tracks where track.kind.isVisual && !track.isHidden {
             let active = track.clips(at: t).filter(\.isEnabled)
             guard !active.isEmpty else { continue }
+            defer { if track.isMain { mainEnd = items.count } }
             if active.count >= 2,   // main or overlay (PiP) transition
                let a = active.first, let b = active.dropFirst().first, let tr = a.transitionOut {
                 // a ends inside b's head: transition region is [b.start, a.end)
@@ -154,7 +160,24 @@ public enum FrameEvaluator {
                 if case .adjustment = c.content {
                     let local = c.localTime(t)
                     let r = c.resolved(at: local)
-                    items.append(.adjustment(clipID: c.id, effects: resolveEffects(r), opacity: r.opacity, localTime: local, mask: r.adjustMask))
+                    let adj = RenderItem.adjustment(clipID: c.id, effects: resolveEffects(r), opacity: r.opacity, localTime: local, mask: r.adjustMask)
+                    switch c.effectScope ?? .all {
+                    case .all:
+                        items.append(adj)
+                    case .main:
+                        // only the main track (+ background / canvas fill): processed before the overlays are placed
+                        guard let m = mainEnd else { continue }
+                        items.insert(adj, at: m)
+                        mainEnd = m + 1
+                    case .pip:
+                        // only the overlays between the main track and this clip: composited as a group, processed,
+                        // then placed back over the untouched main track
+                        let start = mainEnd ?? 0
+                        guard start < items.count else { continue }
+                        let group = Array(items[start...]) + [adj]
+                        items.removeSubrange(start...)
+                        items.append(.nested(container: effectGroupContainer(c, track: track, canvas: canvas, local: local), items: group))
+                    }
                 } else if case .compound(let cid) = c.content {
                     if let n = nestedItem(c, cid, track: track, project: project, at: t, depth: depth) { items.append(n) }
                 } else if let l = layer(c, track: track, project: project, at: t) {
@@ -166,6 +189,15 @@ public enum FrameEvaluator {
             }
         }
         return items
+    }
+
+    /// Full-canvas, identity placement of an "Apply to ▸ PiP" effect group (FX-004).
+    static func effectGroupContainer(_ c: Clip, track: Track, canvas: Size2, local: Time) -> LayerDescription {
+        var l = LayerDescription(clipID: c.id, trackID: track.id, source: .solid(.clear), sourceSize: canvas, transform: Transform(),
+                                 opacity: 1, blendMode: .normal, crop: CropRect(), mask: nil, effects: [], animations: [],
+                                 localTime: local)
+        l.isEffectGroup = true
+        return l
     }
 
     /// The nested timeline of a compound clip at parent time `t` (nested time = the clip's remapped source time).

@@ -176,6 +176,7 @@ struct EffectClipSection: View {
                     }
                 }
             }
+            if !effects.isEmpty { EffectScopeRow(ctx: ctx) }   // FX-004 "Apply to" (F4Effects.swift)
         }
     }
 }

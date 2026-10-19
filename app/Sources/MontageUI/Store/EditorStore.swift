@@ -96,6 +96,9 @@ public final class EditorStore {
     /// `project` (an inspector drag would re-render the 300-item media bin on every tick).
     public private(set) var usedMediaIDs: Set<MediaID> = []
     private let usedMediaMemo = TrackMemo<[MediaID]> { $0.compactMap(\.mediaID) }
+    /// Effect / filter / adjustment descriptor ids used anywhere on the timeline: "Added" chip on library cards (FX-001).
+    public private(set) var usedEffectIDs: Set<String> = []
+    private let usedEffectMemo = TrackMemo<Set<String>> { Set($0.flatMap { $0.effects.map(\.typeID) }) }
     public var selection: Set<ClipID> = [] { didSet { if selection != oldValue { selectionDidChange() } } }
     /// Selected transition, identified by the clip that owns it (`transitionOut`). Exclusive with `selection`
     /// (CapCut selects a transition after dropping it and shows its inspector). Stored in `timelineUI`.
@@ -275,6 +278,8 @@ public final class EditorStore {
         if projectNameSlice != n { projectNameSlice = n }
         let used = Set(usedMediaMemo.values(p.timeline.tracks).joined())
         if usedMediaIDs != used { usedMediaIDs = used }
+        let usedFX = usedEffectMemo.values(p.timeline.tracks).reduce(into: Set<String>()) { $0.formUnion($1) }
+        if usedEffectIDs != usedFX { usedEffectIDs = usedFX }
         syncSelectionSlices()
     }
 

@@ -223,8 +223,9 @@ struct EffectLibraryTab: View {
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
+                            let used = store.usedEffectIDs
                             ForEach(items) { d in
-                                EffectCard(descriptor: d, selected: selected == d.id,
+                                EffectCard(descriptor: d, selected: selected == d.id, added: used.contains(d.id),
                                            select: { selected = d.id; store.previewEffect(d) }, add: { selected = d.id; store.applyEffect(d) })
                                     .testID("asset.tile.\(d.id)")
                             }
@@ -312,6 +313,8 @@ extension EditorStore {
 struct EffectCard: View {
     let descriptor: EffectDescriptor
     let selected: Bool
+    /// Already used on the timeline: CapCut "Added" chip top-left (FX-001).
+    var added = false
     let select: () -> Void
     let add: () -> Void
     @State private var hover = false
@@ -331,6 +334,9 @@ struct EffectCard: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
                                                                            lineWidth: selected ? 2 : 1.5))
                         .contentShape(Rectangle())
+                        .overlay(alignment: .topLeading) {
+                            if added { AddedChip().allowsHitTesting(false).testID("asset.tile.\(descriptor.id).added") }
+                        }
                 }
                 .buttonStyle(.plain)
                 if hover || selected {

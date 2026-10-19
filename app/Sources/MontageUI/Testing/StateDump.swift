@@ -54,6 +54,8 @@ public enum StateDump {
             }
             if let m = c.mask { d["mask"] = maskSummary(m) }
             if let m = c.adjustMask { d["adjustMask"] = maskSummary(m) }
+            if c.content == .adjustment { d["effectScope"] = (c.effectScope ?? .all).rawValue }   // FX-004
+            if let m = c.matte { d["matte"] = ["kind": m.kind, "bodyOnly": m.isBodyOnly] as [String: Any] }   // FX-002
             if let st = c.shapeStyle {   // ST-008
                 d["shapeStyle"] = ["fill": st.fill != nil, "gradient": st.fillEnd != nil, "stroke": st.stroke != nil,
                                    "strokeWidth": st.strokeWidth, "dash": st.dash.rawValue, "points": st.points?.count ?? 0] as [String: Any]

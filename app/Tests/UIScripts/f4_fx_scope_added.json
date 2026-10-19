@@ -1,0 +1,33 @@
+// FX-001: an effect used on the timeline shows the "Added" chip on its card (gone again after undo).
+// FX-004: Special effects ▸ Basic ▸ "Apply to  Main | PiP | All" on an effect clip (one undo step per change).
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "id:asset.tab.effects"},
+    {"expect": {"path": "ui.anchors", "notContains": "asset.tile.montage.effect.shake.added"}},
+    {"hover": "id:asset.tile.montage.effect.shake"},
+    {"click": "id:asset.tile.montage.effect.shake"},
+    {"click": "id:asset.tile.montage.effect.shake.add"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.effect"}, {"path": "selectedClips.0.kind", "equals": "adjustment"},
+                {"path": "selectedClips.0.effectScope", "equals": "all"}]},
+    {"expect": {"path": "ui.anchors", "contains": "asset.tile.montage.effect.shake.added"}},
+    {"click": "id:asset.tab.media"},
+    {"click": "id:asset.tab.effects"},
+    {"snapshot": "effects-added-chip", "element": "id:panel.assets"},
+    {"expect": {"path": "ui.anchors", "contains": "fx.scope.main"}},
+    {"snapshot": "effect-scope-all", "element": "id:panel.inspector"},
+    {"click": "id:fx.scope.main"},
+    {"expect": [{"path": "selectedClips.0.effectScope", "equals": "main"}, {"path": "undo.name", "equals": "cmd.fx.scope"}]},
+    {"click": "id:fx.scope.pip"},
+    {"expect": {"path": "selectedClips.0.effectScope", "equals": "pip"}},
+    {"snapshot": "effect-scope-pip", "element": "id:panel.inspector"},
+    {"snapshot": "effect-scope-pip-player", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.effectScope", "equals": "main"}},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 0}},
+    {"expect": {"path": "ui.anchors", "notContains": "asset.tile.montage.effect.shake.added"}}
+  ]
+}

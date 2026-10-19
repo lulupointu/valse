@@ -15,8 +15,14 @@ public struct ClipMatte: Hashable, Codable, Sendable {
     public var inverted: Bool
     /// Matting blend (CK-008) 0…1: edge-aware smoothing of the matte edge + colour decontamination. nil = off.
     public var edgeBlend: Double?
-    public init(kind: String = "person", feather: Double = 0, expand: Double = 0, inverted: Bool = false, edgeBlend: Double? = nil) {
+    /// FX-002 body effects on plain video: the matte only feeds the clip's body effects (outline, aura, shadow…);
+    /// the layer itself is NOT cut out. nil / false = ordinary cutout.
+    public var bodyOnly: Bool?
+    public var isBodyOnly: Bool { bodyOnly ?? false }
+    public init(kind: String = "person", feather: Double = 0, expand: Double = 0, inverted: Bool = false, edgeBlend: Double? = nil,
+                bodyOnly: Bool? = nil) {
         self.kind = kind; self.feather = feather; self.expand = expand; self.inverted = inverted; self.edgeBlend = edgeBlend
+        self.bodyOnly = bodyOnly
     }
 }
 

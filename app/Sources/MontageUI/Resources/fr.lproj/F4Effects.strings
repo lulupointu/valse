@@ -1,0 +1,11 @@
+/* F4-FX : portée des effets (FX-004), effets corporels sur vidéo (FX-002), détourage magique (FX-008), effets personnalisés (FX-018) */
+
+/* FX-004 Appliquer à */
+"fx.scope.applyTo" = "Appliquer à";
+"fx.scope.main" = "Principale";
+"fx.scope.pip" = "Incrustation";
+"fx.scope.all" = "Tout";
+"fx.scope.hint.main" = "Seule la piste principale est modifiée ; les incrustations restent intactes.";
+"fx.scope.hint.pip" = "Seules les incrustations (image dans l'image) sont modifiées ; la piste principale reste intacte.";
+"fx.scope.hint.all" = "Tout ce qui se trouve sous cet effet est modifié.";
+"cmd.fx.scope" = "Portée de l'effet";
