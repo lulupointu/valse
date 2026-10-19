@@ -93,4 +93,20 @@ import MontageTestSupport
             bmp.writePNG(URL(fileURLWithPath: dir).appendingPathComponent("w5-motion-path.png"))
         }
     }
+
+    /// AI QA: camera tracking / reframe / AI movement keyframes (one per analysed frame) drew a band of diamonds over
+    /// the subject's face; generated paths are hidden and dense hand-made ones drop their diamonds.
+    @Test func motionPathHidesGeneratedAndDenseKeyframes() async throws {
+        let (s, ids) = try await store()
+        var c = s.project.timeline.clip(ids[0])!
+        #expect(MotionPathDrawing.showsPath(c) && MotionPathDrawing.showsDiamonds(c))
+        for i in 0..<40 { c.setValue(.position, .vec2(Vec2(Double(i) / 100, 0)), at: Time(Double(i) * 0.1)) }
+        #expect(MotionPathDrawing.showsPath(c) && !MotionPathDrawing.showsDiamonds(c))
+        c.cameraLock = CameraLockOptions(target: .face)
+        #expect(!MotionPathDrawing.showsPath(c))
+        c.cameraLock = nil; c.reframe = ReframeOptions()
+        #expect(!MotionPathDrawing.showsPath(c))
+        c.reframe = nil; c.aiMovement = AIMovementOptions(preset: .soft)
+        #expect(!MotionPathDrawing.showsPath(c))
+    }
 }

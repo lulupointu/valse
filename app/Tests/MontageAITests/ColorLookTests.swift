@@ -95,4 +95,23 @@ import MontageTestSupport
         print("metric color_correct_skin_hue_shift gray=\(hueShift(grayWorld)) face=\(hueShift(faceAware))")
         #expect(hueShift(faceAware) < 12 && hueShift(grayWorld) > 30)
     }
+
+    /// AI QA (project 1018 is an HLG project): looks are computed on SDR frames; applied unchanged to HLG Rec.2020
+    /// working values they gave a strong cyan / green cast. Re-baked for the project space: identity stays identity,
+    /// a contrast curve keeps greys neutral, a warm look stays warm, highlights keep their headroom.
+    @Test func looksAreRebakedForHDRProjects() {
+        let id = LUT.identity(size: 17)
+        #expect(ColorLooks.inProjectSpace(id, .sdr709) == id)
+        let hid = ColorLooks.inProjectSpace(id, .hdrHLG)
+        for c in [SIMD3<Float>(0.2, 0.4, 0.6), SIMD3<Float>(0.75, 0.75, 0.75), SIMD3<Float>(0.95, 0.9, 0.85)] {
+            let o = hid.apply(c)
+            #expect(abs(o.x - c.x) < 0.01 && abs(o.y - c.y) < 0.01 && abs(o.z - c.z) < 0.01, "identity \(c) → \(o)")
+        }
+        let contrast = LUT.make(size: 17) { c in (c - 0.5) * 1.3 + 0.5 }
+        let grey = ColorLooks.inProjectSpace(contrast, .hdrHLG).apply(SIMD3<Float>(0.6, 0.6, 0.6))
+        #expect(abs(grey.x - grey.y) < 0.01 && abs(grey.y - grey.z) < 0.01, "neutral stays neutral: \(grey)")
+        let warm = LUT.make(size: 17) { c in SIMD3<Float>(min(1, c.x * 1.08), c.y, c.z * 0.92) }
+        let w = ColorLooks.inProjectSpace(warm, .hdrHLG).apply(SIMD3<Float>(0.6, 0.6, 0.6))
+        #expect(w.x > w.y + 0.01 && w.z < w.y - 0.01, "warm stays warm: \(w)")
+    }
 }

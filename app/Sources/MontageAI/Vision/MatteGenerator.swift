@@ -58,8 +58,19 @@ public enum MatteGenerator {
 
     /// Matte already cached for this media/mode?
     public static func isReady(_ asset: MediaAsset, _ mode: CutoutMode) -> Bool {
-        asset.kind == .image ? MatteStore.shared.hasStill(media: asset, kind: mode.kind)
-                             : MatteStore.shared.readyMatteVideo(media: asset, kind: mode.kind) != nil
+        if asset.kind == .image { return MatteStore.shared.hasStill(media: asset, kind: mode.kind) }
+        guard let u = MatteStore.shared.readyMatteVideo(media: asset, kind: mode.kind) else { return false }
+        if case .faces = mode { return FileManager.default.fileExists(atPath: facesMarker(u).path) }
+        return true
+    }
+
+    /// Faces mattes written before the rotation fix (AI QA 2026-10-19) are misplaced on rotated footage: current ones
+    /// carry this marker file next to the matte video; the editor re-generates stale ones (`isStaleFaceMatte`).
+    static func facesMarker(_ matte: URL) -> URL { matte.appendingPathExtension("v2") }
+
+    /// A faces matte exists but predates the rotation fix (re-generate it with `generate(_, mode: .faces)`).
+    public static func isStaleFaceMatte(_ asset: MediaAsset) -> Bool {
+        asset.kind == .video && MatteStore.shared.readyMatteVideo(media: asset, kind: CutoutMode.faces.kind) != nil && !isReady(asset, .faces)
     }
 
     /// Generates (or reuses) the matte. `progress` 0…1.
@@ -140,6 +151,7 @@ public enum MatteGenerator {
         let sequence = VNSequenceRequestHandler()
         var previous: MaskBuffer?
         var faces = FaceMatte.Holder()
+        let faceOrientation = SubjectAnalyzer.orientation(asset.sourceRotation)
         var tracker: InstanceTracker?
         if case .custom(let sel) = mode {
             tracker = try await InstanceTracker(seed: sel, asset: av, track: track, size: CGSize(width: w, height: h))
@@ -149,10 +161,11 @@ public enum MatteGenerator {
             guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
             let t = CMSampleBufferGetPresentationTimeStamp(sb)
             if case .faces = mode {
+                // upright faces (iPhone portrait footage is stored rotated): boxes come back in display coordinates
                 let req = VNDetectFaceRectanglesRequest()
-                try autoreleasepool { try VNImageRequestHandler(cvPixelBuffer: pb).perform([req]) }
+                try autoreleasepool { try VNImageRequestHandler(cvPixelBuffer: pb, orientation: faceOrientation).perform([req]) }
                 let boxes = faces.update((req.results ?? []).filter { $0.confidence > 0.4 }.map(\.boundingBox))
-                try await writer.append(FaceMatte.image(width: w, height: h, faces: boxes), at: Time(cmTime: t))
+                try await writer.append(FaceMatte.image(width: w, height: h, faces: boxes, rotation: asset.sourceRotation), at: Time(cmTime: t))
                 progress?(min(0.99, t.seconds / total))
                 continue
             }
@@ -183,6 +196,9 @@ public enum MatteGenerator {
         if reader.status == .failed { throw reader.error ?? AIToolError.noInput }
         try await writer.finish()
         finished = true
+        if case .faces = mode {
+            FileManager.default.createFile(atPath: facesMarker(MatteStore.shared.matteVideoURL(media: asset, kind: mode.kind)).path, contents: Data())
+        }
         progress?(1)
     }
 
@@ -317,24 +333,51 @@ struct MaskBuffer {
     var coverage: Double { Double(pixels.reduce(0) { $0 + Int($1) }) / Double(max(pixels.count, 1)) / 255 }
 }
 
-/// Face matte drawing: Vision face boxes (normalized, y up) → white ellipses grown to cover hair / chin, soft edge.
+/// Face matte drawing: Vision face boxes (normalized, y up, in DISPLAY orientation) → white ellipses grown to cover
+/// hair / chin, soft edge, drawn into the RAW (stored, unrotated) frame the matte is aligned with. Growing in display
+/// axes matters on rotated footage (iPhone portrait): growing in raw axes pushed the ellipse sideways, leaving the
+/// mouth and chin uncovered and the mosaic on the background (AI QA, project 1018).
 enum FaceMatte {
-    static func image(width w: Int, height h: Int, faces: [CGRect]) -> CGImage {
+    static func image(width w: Int, height h: Int, faces: [CGRect], rotation: Int = 0) -> CGImage {
         let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w, space: CGColorSpaceCreateDeviceGray(),
                             bitmapInfo: CGImageAlphaInfo.none.rawValue)!
         ctx.setFillColor(gray: 0, alpha: 1); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
         for f in faces {
             // CG is y-up like Vision's normalized boxes
-            let r = CGRect(x: f.minX * CGFloat(w), y: f.minY * CGFloat(h), width: f.width * CGFloat(w), height: f.height * CGFloat(h))
-            let g = r.insetBy(dx: -r.width * 0.25, dy: -r.height * 0.3).offsetBy(dx: 0, dy: r.height * 0.08)
+            let g = rawRect(grown(f), rotation: rotation)
+            let r = CGRect(x: g.minX * CGFloat(w), y: g.minY * CGFloat(h), width: g.width * CGFloat(w), height: g.height * CGFloat(h))
             // soft edge: concentric ellipses
             for k in stride(from: 4, through: 0, by: -1) {
-                let inset = CGFloat(k) * g.width * 0.03
+                let inset = CGFloat(k) * min(r.width, r.height) * 0.03
                 ctx.setFillColor(gray: 1 - CGFloat(k) * 0.2, alpha: 1)
-                ctx.fillEllipse(in: g.insetBy(dx: inset, dy: inset))
+                ctx.fillEllipse(in: r.insetBy(dx: inset, dy: inset))
             }
         }
         return ctx.makeImage()!
+    }
+
+    /// The covered area of a face box (normalized, y up, display orientation): wider and taller, centred a bit above.
+    static func grown(_ f: CGRect) -> CGRect {
+        f.insetBy(dx: -f.width * 0.25, dy: -f.height * 0.3).offsetBy(dx: 0, dy: f.height * 0.08)
+    }
+
+    /// A display-oriented normalized y-up rect → the same area in the raw frame (normalized, y up). `rotation` is the
+    /// clockwise rotation applied to decoded frames for display (`MediaAsset.sourceRotation`).
+    static func rawRect(_ d: CGRect, rotation: Int) -> CGRect {
+        func raw(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            // y-up → top-left, display → raw (inverse of MotionTracking.rawToDisplay), back to y-up
+            let tx = x, ty = 1 - y
+            let r: (CGFloat, CGFloat)
+            switch (rotation % 360 + 360) % 360 {
+            case 90: r = (ty, 1 - tx)
+            case 180: r = (1 - tx, 1 - ty)
+            case 270: r = (1 - ty, tx)
+            default: r = (tx, ty)
+            }
+            return CGPoint(x: r.0, y: 1 - r.1)
+        }
+        let a = raw(d.minX, d.minY), b = raw(d.maxX, d.maxY)
+        return CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
     }
 
     /// Keeps faces through short detection drop-outs (≤ 6 frames) and smooths box jitter.

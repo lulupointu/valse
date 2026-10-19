@@ -86,6 +86,54 @@ import MontageTestSupport
         }
     }
 
+    /// AI QA (project 1018, iPhone HLG): the denoised / enhanced copy kept the HLG signal but lost its colour tags, so it
+    /// was read back as BT.709 and looked grey and washed out. The output now carries the source's tags (HEVC Main10).
+    @Test func enhancedCopyKeepsHLGColourTags() async throws {
+        try await HeavyWorkGate.run {
+            let url = TestMedia.directory.appendingPathComponent("enhance-hlg-src.mov")
+            if !FileManager.default.fileExists(atPath: url.path) {
+                let tmp = TestMedia.directory.appendingPathComponent("tmp-\(UUID().uuidString).mov")
+                let (w, h) = (320, 180)
+                let writer = try AVAssetWriter(outputURL: tmp, fileType: .mov)
+                let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+                    AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoWidthKey: w, AVVideoHeightKey: h,
+                    AVVideoColorPropertiesKey: ColorTags(.hdrHLG).properties,
+                    AVVideoCompressionPropertiesKey: [AVVideoProfileLevelKey: "HEVC_Main10_AutoLevel"]])
+                input.expectsMediaDataInRealTime = false
+                let ad = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                    kCVPixelBufferWidthKey as String: w, kCVPixelBufferHeightKey as String: h,
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()])
+                writer.add(input)
+                #expect(writer.startWriting()); writer.startSession(atSourceTime: .zero)
+                for f in 0..<15 {
+                    while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+                    var pbOut: CVPixelBuffer?
+                    CVPixelBufferPoolCreatePixelBuffer(nil, ad.pixelBufferPool!, &pbOut)
+                    let pb = try #require(pbOut)
+                    CVPixelBufferLockBaseAddress(pb, [])
+                    for (plane, v) in [(0, UInt16(600 << 6)), (1, UInt16(512 << 6))] {
+                        let base = CVPixelBufferGetBaseAddressOfPlane(pb, plane)!.assumingMemoryBound(to: UInt16.self)
+                        let n = CVPixelBufferGetBytesPerRowOfPlane(pb, plane) / 2 * CVPixelBufferGetHeightOfPlane(pb, plane)
+                        for i in 0..<n { base[i] = v }
+                    }
+                    CVPixelBufferUnlockBaseAddress(pb, [])
+                    #expect(ad.append(pb, withPresentationTime: CMTime(value: CMTimeValue(f), timescale: 30)))
+                }
+                input.markAsFinished(); await writer.finishWriting()
+                try FileManager.default.moveItem(at: tmp, to: url)
+            }
+            let a = try await MediaProbe.probe(url)
+            #expect(a.transfer == .hlg)
+            let e = VideoEnhancement(original: a.id, denoise: .normal)
+            try? FileManager.default.removeItem(at: VideoEnhancer.outputURL(a, e))
+            let out = try await VideoEnhancer.process(a, e)
+            let b = try await MediaProbe.probe(out)
+            #expect(b.transfer == .hlg && b.isWideGamut, "enhanced copy tagged HLG / BT.2020")
+            #expect((b.bitDepth ?? 0) >= 10)
+        }
+    }
+
     @Test func deflickerFlattensFrameBrightness() async throws {
         try await HeavyWorkGate.run {
             let url = try await Self.noisyVideo(flicker: true)

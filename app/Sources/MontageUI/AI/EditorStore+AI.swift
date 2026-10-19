@@ -93,6 +93,28 @@ extension EditorStore {
             self.engine.forceRebuild()
         }
         AIModelsInstall.once()
+        refreshStaleFaceMattes()
+    }
+
+    /// Face covers made before the rotation fix have a misplaced matte on rotated (iPhone portrait) footage:
+    /// re-generate those mattes in the background when the project opens; the old one shows until the new one is ready.
+    func refreshStaleFaceMattes() {
+        var seen = Set<String>()
+        for t in project.timeline.tracks {
+            for c in t.clips where c.matte?.kind == CutoutMode.faces.kind {
+                guard let a = c.mediaID.flatMap(project.asset), seen.insert(a.contentHash).inserted,
+                      MatteGenerator.isStaleFaceMatte(a) else { continue }
+                Task {
+                    let id = await JobQueue.shared.enqueue(titleKey: "faceCover.job", priority: 0, subject: c.id.description) { progress in
+                        try await MatteGenerator.generate(a, mode: .faces) { progress.report($0) }
+                    }
+                    if await JobQueue.shared.wait(id) == .done {
+                        MatteStore.shared.didWriteMatte(media: a, kind: CutoutMode.faces.kind)
+                        engine.forceRebuild()
+                    }
+                }
+            }
+        }
     }
 
     /// Called after every project change: unticked / undone cutouts cancel their job (CapCut: ⌘Z cancels).

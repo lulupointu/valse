@@ -87,4 +87,28 @@ import MontageTestSupport
             #expect(clip.keyframes[ParamKey.position.raw] == nil && clip.cameraLock == nil)
         }
     }
+
+    /// AI QA (project 1018, iPhone portrait = stored rotated 90°): the face ellipse is grown in display axes and mapped
+    /// back to the raw frame, consistent with `MotionTracking.rawToDisplay` (it used to grow sideways in raw axes and
+    /// left the mouth / chin unmasked).
+    @Test func faceMatteMapsDisplayBoxesToTheRawFrame() {
+        for rot in [0, 90, 180, 270] {
+            for raw in [Vec2(0.2, 0.3), Vec2(0.7, 0.6)] {
+                let d = MotionTracking.rawToDisplay(raw, rotation: rot)        // top-left display
+                let box = CGRect(x: d.x - 0.01, y: (1 - d.y) - 0.01, width: 0.02, height: 0.02)   // y-up display
+                let r = FaceMatte.rawRect(box, rotation: rot)
+                #expect(abs(r.midX - raw.x) < 1e-9 && abs((1 - r.midY) - raw.y) < 1e-9, "rot \(rot) \(raw) → \(r)")
+            }
+        }
+        // a face in the upper half of a portrait frame stored landscape (rotation 90): the matte is white there in raw
+        let face = CGRect(x: 0.4, y: 0.6, width: 0.2, height: 0.12)   // display, y-up
+        let img = FaceMatte.image(width: 200, height: 100, faces: [face], rotation: 90)
+        let b = Bitmap(img)
+        let rr = FaceMatte.rawRect(FaceMatte.grown(face), rotation: 90)
+        #expect(b[rr.midX, 1 - rr.midY].r > 0.9, "centre of the face is covered")
+        #expect(b[0.9, 0.9].r < 0.1 && b[0.05, 0.05].r < 0.1, "background stays clear")
+        // display height (chin ↔ forehead) maps to raw width for a 90° rotation
+        let g = FaceMatte.grown(face)
+        #expect(abs(rr.width - g.height) < 1e-9 && abs(rr.height - g.width) < 1e-9)
+    }
 }

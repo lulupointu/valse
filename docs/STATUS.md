@@ -37,6 +37,49 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | FIN | Final polish backlog (collect here): prompt/auto-select HDR project colour space when HDR media imported (CapCut-like); verify EDR preview on a real HDR display; text Loop grid duplicate names (Float/Shake/Hop/Breathe/Heartbeat shared vs glyph); FR video-animation names truncated ("Fond…ntrant") — verify after W5 merge; animation grid not scrollable by test driver | 4 | backlog | |
 | AI2 | AI wave 2 (P1 rest): EditPilot agent (on-device LLM), AI movement, relight, speaker-ID captions (AI-005/TX-038), forced alignment (TX-030), dictate (TX-034), camera tracking hand | 3 | merged (AI-048, AI-005, TX-038, TX-030, TX-034, AI-024/CL-020, AI-025, AI-013 (hand + custom box), CL-019 done; AI-041 track object; AI-031 Home wizard; quit-mid-job + LaMa segfault fixed) | worktree-agent-ace3ab6274c22fd67 |
 | MUS | Music & sound library usable on Instagram (AU-001, AU-002, AU-025): bundled CC0 pack (66 tracks + 195 SFX via scripts/fetch_music_pack.sh, audio never committed, build_app.sh bundles + SHA-checks it) + online search (Freesound CC0/CC BY, Jamendo CC BY only; user keys in Keychain, Settings ▸ Music); no generated audio | 3 | ready to merge (integrated, AU-001/002/025 done) | worktree-agent-a47f7bb6ab8a14a34 (c71c6cd) |
+| QA-AI | AI QA pass 2: every model installed, all `requires.models` scripts, every done/partial AI feature end to end on a copy of project 1018 (iPhone 1080×1920 HLG, French speech) + bench/media | 4 | ready to merge — 6 bugs fixed (table below) | worktree-agent-af260dfaae90fa707 |
+
+## AI QA results (2026-10-19, pass 2)
+Inputs: COPIES of project 1018's footage (IMG_9079 32.7 s talking head, IMG_7510 91 s, scratch QA projects; the original was
+only read), bench/media. Every model in ModelCatalog installed (whisper turbo + small, demucs 4s/6s, Qwen3-4B, LaMa, WeSpeaker,
+Depth Anything) + whisper-cli / demucs / llama-completion. The 7 model-gated UI scripts pass; 19 QA UI scripts drove each feature
+in the app on the 1018 copy (player / inspector / timeline snapshots looked at); `RealMediaQATests` + `RealMediaQA2Tests`
+(`MONTAGE_QA_VIDEO`, docs/TESTING.md) measured engines. Timings were taken on a loaded machine (2–4 other heavy jobs).
+
+| Feature | Verdict | Evidence |
+|---|---|---|
+| Auto captions AI-001 / TX-017 (whisper turbo) | works | 32.7 s FR in 4.8 s (×0.15 RT); transcript word-perfect with punctuation; 8 two-line captions inside the 9:16 frame |
+| Speaker ID AI-005 | works | WeSpeaker: 1 speaker (correct), 8 turns, 1.3 s |
+| Align script to speech TX-030 | works | match 0.98, 8 captions, 3.7 s |
+| Keyword highlight AI-004 | works | Qwen (local) 3.2 s: attendre, nouvelles, sœur, trente |
+| Bilingual / translate AI-003 | blocked (OS) | Apple Translation fr↔en pack not installed ("needsDownload") — owner downloads it once (see below) |
+| Transcript editing AI-019 / pauses AI-020 | works | panel shows the exact text + pause chips; EditPilot "supprime les silences" cut 5 pauses (32.7 → 12.6 s) |
+| Auto lyrics AI-002 | not tested | no sung footage available (partial row unchanged) |
+| Stems AI-011 / AU-010 (demucs 6s) | works | ×2.3 RT (77 s); vocals RMS 0.037 vs other stems < 1e-4; UI "Vocals" stem track |
+| Isolate voice / Reduce noise / Enhance voice AU-007/008/009 | works | export mix noise floor −73.8 dBFS → −81.7 (reduce noise) / −95.1 (enhance) / −120 (isolate), speech −27.7 → −30.6 dBFS; AUSoundIsolation ×0.07 RT |
+| Text to speech AI-006 / TX-016 | works | FR voice, linked TTS clip on the 1018 copy |
+| Auto cutout CK-002 / AI-015 | works | clean hair edges; person ×2.2 RT, main subject ×5.2 RT |
+| Auto reframe AI-012 | works | 4 s, 24 keyframes (9:16 → 1:1 can only pan vertically) |
+| Camera tracking AI-013 | works (bug fixed) | face / body 1–1.6 s; **bug**: the motion-path overlay drew one diamond per tracking keyframe, a band over the eyes → generated paths (camera tracking / reframe / AI movement) are no longer drawn, dense paths lose their diamonds |
+| Motion tracking AI-014 | works | face box tracked 10 s (300 samples) in 1.4 s |
+| AI movement AI-025 | works | 0.5 s, keyframes written |
+| Face mosaic AI-051 / ST-006 | was broken → fixed | **bug**: on rotated (iPhone portrait) footage the face ellipse grew in raw-frame axes: mouth / chin left clear, mosaic on the wall. Faces are now detected upright and grown in display axes; stale mattes regenerate on project open |
+| Relight AI-024 | works | depth + person matte 61 s for 32.7 s (×1.9 RT); visible key light |
+| AI remove AI-041 | works | LaMa on a 1080×1920 still 5.5 s, seamless; videos > 30 s are refused by design |
+| Auto adjust / Color correction CL-007 / CL-008 | was broken in HDR → fixed | **bug**: SDR-computed looks applied to HLG working values gave a strong cyan / green cast (1018 is an HLG project). Looks are now re-baked for HDR projects (delta in project space); wall goes warm → neutral |
+| Reduce image noise CL-018 / AI-022 | was broken on HDR → fixed | **bug**: the processed copy lost its colour tags (HLG read as BT.709: grey, washed out). Output now keeps the source tags, HDR as HEVC Main10 (10-bit widen, tagged buffers); old cached copies ignored (`-c2`) |
+| Enhance quality CL-019 / AI-021 | degraded (slow) | correct 2160×3840 output, but 1629 s for 32.7 s (×50 RT, VideoToolbox ML scaler); the UI job was at 39 % after 15 min. Same colour fix applies |
+| Stabilize CV-013 / AI-059 | works (sped up) | analysis 455 s → 179 s for 32.7 s (decoder-side downscale instead of full-res CPU box filter); same camera path |
+| Smooth slow-mo AI-018 | works | optical-flow provider on, 0.09 s / frame |
+| Scene split AI-026 | works | 1.9 s; "No scene change found" on a single shot (correct) |
+| Smart search AI-028 | was broken → fixed | **bug**: Vision labels the clip "people" / "adult", but "person", "personne", "femme" found nothing (embedding too far, no translation pack). Built-in FR/EN synonyms; UI search "personne" now finds IMG_9079 |
+| AI writer AI-029 | works (minor) | Qwen local, FR multi-line script in the UI (11 s); the engine ignored "4 phrases" once (one sentence) |
+| EditPilot AI-048 | works (bug fixed) | FR request on 1018: 3-step plan (silences, captions, keywords) applied as one undo step; **bug**: "Rends la vidéo carrée pour Instagram" → 9:16 by the model; a ratio word in the request now overrides the model's ratio |
+| AI clipper / shorts AI-031 | works | clipper on 91 s: 1 highlight in 14.6 s (LLM on) |
+
+Owner, by hand: (1) Apple Translation packs (System Settings ▸ General ▸ Language & Region ▸ Translation Languages ▸ French +
+English) for bilingual captions; (2) re-apply Auto adjust / Color correction and Reduce noise / Enhance quality on clips of HDR
+projects processed before this fix (face covers refresh themselves when the project opens).
 
 ## Cross-team requests / blockers (open)
 | From | Needs from | What | Feature IDs |
@@ -116,6 +159,11 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 - Never use AVAudioTimePitchAlgorithm `.varispeed`: hangs the audio reader during export on sped-up clips.
 - Heavy work from main-actor code/tests starves PlaybackTests — run it off-main (`Task.detached`).
 - Quit / end of a UI test: `AppShutdown.stopBackgroundWork()` cancels exports + every `JobQueue` job and waits for them (exiting under live Core ML/Metal work crashed in MPSGraph teardown). The `ai_remove_inference` exit-139 segfault (clean-check) was the same teardown crash (inference still running at `exit`, MPSGraph logging); also LaMa is now one shared model with serialized predictions and owned pixel copies (stress test `concurrentInpaintingUnderLoadAndCancel`). New background work must go through `JobQueue` (or check `Task.isCancelled`) so quit can stop it.
+
+- Generated media must keep the source's colour: copy primaries / transfer / matrix into the writer (`AVVideoColorPropertiesKey`),
+  HDR as HEVC Main10 fed 10-bit buffers that carry the same colour attachments (untagged → kVTParameterErr). Colour stats taken
+  on SDR frames (AVAssetImageGenerator) must be converted before being applied to HDR working values (`ColorLooks.inProjectSpace`).
+  Vision on iPhone portrait footage: pass the orientation (`SubjectAnalyzer.orientation(asset.sourceRotation)`), then map back to raw.
 
 ## Known risks
 - Apple on-device French STT WER ~13% without OS model download → whisper.cpp (large-v3-turbo, 547 MB) as quality path.

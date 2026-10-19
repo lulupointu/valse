@@ -26,4 +26,20 @@ import MontageTestSupport
             #expect(MediaIndex.shared.score(a, query: a.name) >= 1)
         }
     }
+
+    /// AI QA (project 1018): a talking person is labelled "people" / "adult" by Vision, but "person", "personne",
+    /// "femme" found nothing (embedding too far, no translation pack installed). Built-in FR/EN synonyms cover them.
+    @Test func everydayFrenchAndEnglishWordsFindPeople() throws {
+        let a = MediaAsset(name: "IMG_0001", kind: .video, url: URL(fileURLWithPath: "/tmp/x.mov"), duration: Time(10),
+                           pixelSize: Size2(1080, 1920), frameRate: nil, hasVideo: true, hasAudio: false,
+                           contentHash: "mi-syn-\(UUID().uuidString.prefix(6))")
+        let e = MediaIndex.Entry(labels: ["people": 0.9, "adult": 0.9], text: "")
+        try FileManager.default.createDirectory(at: MediaIndex.shared.directory, withIntermediateDirectories: true)
+        try JSONEncoder().encode(e).write(to: MediaIndex.shared.url(a.contentHash))
+        defer { try? FileManager.default.removeItem(at: MediaIndex.shared.url(a.contentHash)) }
+        for q in ["person", "personne", "femme", "Homme", "gens", "woman"] {
+            #expect(MediaIndex.shared.score(a, query: q) > 0.5, "\(q)")
+        }
+        #expect(MediaIndex.shared.score(a, query: "voiture") == 0)
+    }
 }

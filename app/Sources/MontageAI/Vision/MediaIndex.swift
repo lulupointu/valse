@@ -69,6 +69,41 @@ public final class MediaIndex: @unchecked Sendable {
         s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).replacingOccurrences(of: "_", with: " ")
     }
 
+    /// Built-in FR / EN query words → Vision taxonomy labels, so everyday searches work without a translation pack and
+    /// where word embeddings are too far apart ("person" ↔ "people": AI QA found 0 hits for a talking person).
+    static let synonyms: [String: [String]] = {
+        let groups: [([String], [String])] = [
+            (["person", "persons", "personne", "personnes", "gens", "humain", "humains", "human", "humans", "someone", "quelqu'un"], ["people", "adult"]),
+            (["woman", "women", "femme", "femmes", "fille", "filles", "girl", "girls", "dame"], ["people", "adult"]),
+            (["man", "men", "homme", "hommes", "garcon", "garcons", "boy", "boys", "monsieur"], ["people", "adult"]),
+            (["child", "children", "kid", "kids", "enfant", "enfants", "bebe", "baby"], ["child", "baby", "people"]),
+            (["face", "faces", "visage", "visages", "portrait", "selfie"], ["people", "portrait"]),
+            (["chien", "chiens", "dog", "dogs", "chiot"], ["dog", "canine", "animal"]),
+            (["chat", "chats", "cat", "cats", "chaton"], ["cat", "feline", "animal"]),
+            (["animal", "animaux", "animals"], ["animal"]),
+            (["voiture", "voitures", "auto", "car", "cars"], ["car", "vehicle", "automobile"]),
+            (["plage", "beach"], ["beach", "shore", "sand"]),
+            (["mer", "ocean", "sea"], ["sea", "ocean", "water", "beach"]),
+            (["ciel", "sky"], ["sky", "cloudy", "cloud"]),
+            (["montagne", "montagnes", "mountain", "mountains"], ["mountain", "hill"]),
+            (["arbre", "arbres", "tree", "trees", "foret", "forest", "bois"], ["tree", "forest", "plant"]),
+            (["fleur", "fleurs", "flower", "flowers"], ["flower", "plant"]),
+            (["nourriture", "repas", "food", "meal", "plat"], ["food", "meal", "dish"]),
+            (["boisson", "drink", "cafe", "coffee"], ["drink", "beverage", "coffee"]),
+            (["ville", "city", "rue", "street"], ["city", "street", "building", "structure"]),
+            (["maison", "house", "batiment", "building"], ["house", "building", "structure"]),
+            (["neige", "snow"], ["snow", "winter"]),
+            (["nuit", "night"], ["night", "dark"]),
+            (["eau", "water"], ["water"]),
+            (["texte", "text", "ecriture"], ["text", "document"]),
+        ]
+        var m: [String: [String]] = [:]
+        for (words, labels) in groups { for w in words { m[w, default: []] += labels } }
+        return m
+    }()
+
+    static func labelSynonyms(_ word: String) -> [String] { synonyms[word] ?? [] }
+
     /// Relevance of a media for query words (0 = no match). `english` = the query translated to English (labels).
     public func score(_ a: MediaAsset, query: String, english: String? = nil) -> Double {
         let words = Self.norm(query).split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init).filter { $0.count >= 2 }
@@ -82,7 +117,7 @@ public final class MediaIndex: @unchecked Sendable {
             var best = haystack.contains(w) ? 1.0 : 0
             for (label, conf) in e?.labels ?? [:] {
                 let l = Self.norm(label)
-                for q in Set([w] + enWords) {
+                for q in Set([w] + enWords + Self.labelSynonyms(w)) {
                     let singular = q.hasSuffix("s") ? String(q.dropLast()) : q
                     if l == q || l == singular || l.split(separator: " ").contains(Substring(singular)) { best = max(best, Double(conf) + 0.5) }
                     else if let emb, q.count >= 3, !l.contains(" "), emb.distance(between: q, and: l) < 0.55 { best = max(best, Double(conf) * 0.6) }

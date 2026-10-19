@@ -79,6 +79,16 @@ public enum PilotRules {
         has(s, ["selected", "selection", "this clip", "ce clip", "le clip selectionne", "clip selectionne", "these clips", "ces clips"]) ? .selected : .all
     }
 
+    /// Fixes model calls that contradict an explicit word of the request: Qwen3-4B answered "Rends la vidéo carrée pour
+    /// Instagram" (square) with 9:16 (AI QA). A ratio the request names ("carré", "16:9", "vertical"…) wins.
+    public static func reconcile(_ actions: [PilotAction], request: String) -> [PilotAction] {
+        guard let r = normalizeRatio(request) else { return actions }
+        return actions.map { a in
+            if case .setAspect(let ratio, let fill) = a, ratio != r { return .setAspect(ratio: r, fill: fill) }
+            return a
+        }
+    }
+
     /// "9:16", "9/16", "9x16", "16 9" → a ratio id of `ProjectSettings.aspectPresets`.
     public static func normalizeRatio(_ s: String) -> String? {
         let f = fold(s)

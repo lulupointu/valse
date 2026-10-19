@@ -131,7 +131,7 @@ public enum ColorLooks {
         let stats = ColorStats.of(imgs.flatMap(rgb))
         // Color correction (CL-008): white balance from the faces' skin when there are faces
         let skin = kind == .correct ? ColorTransfer.skinMean(imgs.flatMap(skinPixels)) : nil
-        let id = try register(ColorTransfer.autoAdjustLUT(stats, title: kind.title, skin: skin), kind: kind)
+        let id = try register(inProjectSpace(ColorTransfer.autoAdjustLUT(stats, title: kind.title, skin: skin), p.settings.colorSpace), kind: kind)
         return Edit(kind == .auto ? "cmd.autoAdjust" : "cmd.colorCorrect") { p in try set(id, kind: kind, strength: strength, on: clipID, in: &p) }
     }
 
@@ -139,8 +139,26 @@ public enum ColorLooks {
     public static func match(project p: Project, clipID: ClipID, reference: [SIMD3<Float>], strength: Double = 1) async throws -> any EditCommand {
         guard let c = p.timeline.clip(clipID), let a = c.mediaID.flatMap(p.asset), !reference.isEmpty else { throw AIToolError.noInput }
         let s = ColorStats.of(try await pixels(a, range: c.sourceRange)), r = ColorStats.of(reference)
-        let id = try register(ColorTransfer.matchLUT(source: s, reference: r), kind: .match)
+        let id = try register(inProjectSpace(ColorTransfer.matchLUT(source: s, reference: r), p.settings.colorSpace), kind: .match)
         return Edit("cmd.colorMatch") { p in try set(id, kind: .match, strength: strength, on: clipID, in: &p) }
+    }
+
+    /// Looks are computed on SDR Rec.709 frames, but HDR projects compose in HLG / PQ Rec.2020 values: applying the SDR
+    /// LUT there gave the owner's HLG footage a strong cyan / green cast (AI QA, project 1018). In an HDR space the look
+    /// is re-baked as a delta: c + (toHDR(look(toSDR(c))) − toHDR(toSDR(c))), so an identity look stays the identity and
+    /// highlights above SDR white keep their headroom.
+    public static func inProjectSpace(_ lut: LUT, _ space: ProjectColorSpace) -> LUT {
+        guard space.isHDR else { return lut }
+        let tf = space.transfer
+        var out = LUT.make(size: 33) { c in
+            let x = ColorMath.convert([Double(c.x), Double(c.y), Double(c.z)], from: tf, wide: true, to: .sdr, wide: false)
+            let y = lut.apply(SIMD3<Float>(Float(x[0]), Float(x[1]), Float(x[2])))
+            let hx = ColorMath.convert(x, from: .sdr, wide: false, to: tf, wide: true)
+            let hy = ColorMath.convert([Double(y.x), Double(y.y), Double(y.z)], from: .sdr, wide: false, to: tf, wide: true)
+            return SIMD3<Float>(c.x + Float(hy[0] - hx[0]), c.y + Float(hy[1] - hx[1]), c.z + Float(hy[2] - hx[2]))
+        }
+        out.title = lut.title
+        return out
     }
 
     /// Replaces the clip's look of `kind` (keeps its strength when there was one). Looks go first in the stack.

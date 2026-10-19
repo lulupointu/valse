@@ -20,7 +20,8 @@ public enum VideoEnhancer {
     public static var directory: URL { MontagePaths.cacheDirectory.appendingPathComponent("enhanced", isDirectory: true) }
 
     public static func outputURL(_ a: MediaAsset, _ e: VideoEnhancement) -> URL {
-        directory.appendingPathComponent("\(a.contentHash)-\(e.key).mov")
+        // "-c2": colour-tagged outputs (earlier HDR results were untagged → washed out; never reuse them)
+        directory.appendingPathComponent("\(a.contentHash)-\(e.key)-c2.mov")
     }
 
     /// Whether super resolution applies to this media: the low-latency ×2 scaler (≤ 960 px) or VideoToolbox's full
@@ -80,13 +81,27 @@ public enum VideoEnhancer {
         let tmp = out.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).mov")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let writer = try AVAssetWriter(outputURL: tmp, fileType: .mov)
-        let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoWidthKey: ow, AVVideoHeightKey: oh,
-            AVVideoCompressionPropertiesKey: [AVVideoQualityKey: 0.8]])
+        // keep the source's colour tags (iPhone HLG / Dolby Vision footage): untagged output was read back as BT.709
+        // and the enhanced copy looked grey and washed out (AI QA, project 1018). HDR stays HEVC Main10.
+        let color = try await Self.colorProperties(vt)
+        var compression: [String: Any] = [AVVideoQualityKey: 0.8]
+        let hdr = (color?[AVVideoTransferFunctionKey] as? String).map(Self.hdrTransfers.contains) ?? false
+        if hdr {
+            // constant-quality isn't accepted with Main10 here (kVTParameterErr): average bit rate instead
+            compression = [AVVideoProfileLevelKey: "HEVC_Main10_AutoLevel", AVVideoAverageBitRateKey: max(4_000_000, ow * oh * 6)]
+        }
+        var videoSettings: [String: Any] = [AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoWidthKey: ow, AVVideoHeightKey: oh,
+                                            AVVideoCompressionPropertiesKey: compression]
+        if let color { videoSettings[AVVideoColorPropertiesKey] = color }
+        let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         vIn.transform = transform
         vIn.expectsMediaDataInRealTime = false
+        // Main10 needs 10-bit input: HDR frames are widened (VTPixelTransferSession) right before encoding
+        let outFormat = hdr ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        let widen = hdr ? try TenBitWidener(width: ow, height: oh, color: color ?? [:]) : nil
+        defer { widen?.end() }
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: vIn, sourcePixelBufferAttributes: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelBufferPixelFormatTypeKey as String: outFormat,
             kCVPixelBufferWidthKey as String: ow, kCVPixelBufferHeightKey as String: oh,
             kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()])
         writer.add(vIn)
@@ -143,6 +158,7 @@ public enum VideoEnhancer {
                 var outBuf = work
                 if let scale { outBuf = try await scale(work, pts) }
                 while !vIn.isReadyForMoreMediaData { try Task.checkCancellation(); try await Task.sleep(nanoseconds: 2_000_000) }
+                if let widen { outBuf = try widen.convert(outBuf) }
                 if !adaptor.append(outBuf, withPresentationTime: pts) { throw writer.error ?? AIToolError.noInput }
                 frame += 1
                 progress?(split + (1 - split) * min(1, pts.seconds / max(duration, 0.001)))
@@ -160,6 +176,17 @@ public enum VideoEnhancer {
         try FileManager.default.moveItem(at: tmp, to: out)
         progress?(1)
         return out
+    }
+
+    static let hdrTransfers: Set<String> = [AVVideoTransferFunction_ITU_R_2100_HLG, AVVideoTransferFunction_SMPTE_ST_2084_PQ]
+
+    /// Colour primaries / transfer / matrix of a video track as `AVVideoColorPropertiesKey` settings (nil = untagged).
+    static func colorProperties(_ track: AVAssetTrack) async throws -> [String: Any]? {
+        guard let fd = try await track.load(.formatDescriptions).first else { return nil }
+        func ext(_ k: CFString) -> String? { CMFormatDescriptionGetExtension(fd, extensionKey: k) as? String }
+        guard let p = ext(kCMFormatDescriptionExtension_ColorPrimaries), let t = ext(kCMFormatDescriptionExtension_TransferFunction),
+              let m = ext(kCMFormatDescriptionExtension_YCbCrMatrix) else { return nil }
+        return [AVVideoColorPrimariesKey: p, AVVideoTransferFunctionKey: t, AVVideoYCbCrMatrixKey: m]
     }
 
     // MARK: Flicker analysis
@@ -406,4 +433,32 @@ public enum VideoEnhanceJob {
             p.timeline[clip: clipID] = c
         }
     }
+}
+
+/// 8-bit 4:2:0 → 10-bit 4:2:0 (same colour space) for HEVC Main10 output of HDR sources. The widened buffers carry the
+/// output's colour tags: untagged ones made the HLG encoder fail with kVTParameterErr (-12902).
+final class TenBitWidener {
+    private let session: VTPixelTransferSession
+    private let pool: CVPixelBufferPool
+    private let tags: [(CFString, CFString)]
+    init(width: Int, height: Int, color: [String: Any]) throws {
+        tags = [(kCVImageBufferColorPrimariesKey, AVVideoColorPrimariesKey), (kCVImageBufferTransferFunctionKey, AVVideoTransferFunctionKey),
+                (kCVImageBufferYCbCrMatrixKey, AVVideoYCbCrMatrixKey)].compactMap { k, s in (color[s] as? String).map { (k, $0 as CFString) } }
+        var s: VTPixelTransferSession?
+        guard VTPixelTransferSessionCreate(allocator: nil, pixelTransferSessionOut: &s) == noErr, let s else { throw AIToolError.noInput }
+        var p: CVPixelBufferPool?
+        CVPixelBufferPoolCreate(nil, nil, [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                                           kCVPixelBufferWidthKey as String: width, kCVPixelBufferHeightKey as String: height,
+                                           kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary, &p)
+        guard let p else { throw AIToolError.noInput }
+        session = s; pool = p
+    }
+    func convert(_ src: CVPixelBuffer) throws -> CVPixelBuffer {
+        var out: CVPixelBuffer?
+        CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out)
+        guard let out, VTPixelTransferSessionTransferImage(session, from: src, to: out) == noErr else { throw AIToolError.noInput }
+        for (k, v) in tags { CVBufferSetAttachment(out, k, v, .shouldPropagate) }
+        return out
+    }
+    func end() { VTPixelTransferSessionInvalidate(session) }
 }

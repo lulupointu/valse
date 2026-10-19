@@ -96,8 +96,15 @@ public final class StabilizationStore: @unchecked Sendable {
         guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw MediaProbeError.unsupported(url) }
         let (rate, duration) = (try await track.load(.nominalFrameRate), try await asset.load(.duration).seconds)
         let reader = try AVAssetReader(asset: asset)
-        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange])
+        // the analysis works on ≈ 256 px luma: let the decoder scale (512 px) instead of reading full-size 1080p / 4K
+        // frames and box-filtering them on the CPU (AI QA: 32 s of iPhone 1080p HLG took minutes)
+        let natural = try await track.load(.naturalSize)
+        var settings: [String: Any] = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
+        if natural.width > 512 {
+            settings[kCVPixelBufferWidthKey as String] = 512
+            settings[kCVPixelBufferHeightKey as String] = max(16, Int(512 * natural.height / max(natural.width, 1)) / 2 * 2)
+        }
+        let out = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
         out.alwaysCopiesSampleData = false
         reader.add(out)
         guard reader.startReading() else { throw reader.error ?? NSError(domain: "Montage", code: 100) }

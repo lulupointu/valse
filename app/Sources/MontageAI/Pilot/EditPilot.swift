@@ -33,7 +33,7 @@ public enum EditPilotPlanner {
             if let reply = try? await OnDeviceLLM.respond(prompt, instructions: instructions(project, selection: selection),
                                                           temperature: 0.1, maxTokens: 400),
                let actions = PilotCallParser.parse(reply) {
-                if !actions.isEmpty { return Plan(actions: actions, engine: e, reply: reply) }
+                if !actions.isEmpty { return Plan(actions: PilotRules.reconcile(actions, request: request), engine: e, reply: reply) }
                 let rules = PilotRules.plan(request)
                 return Plan(actions: rules, engine: rules.isEmpty ? e : .rules, reply: reply)
             }
@@ -52,7 +52,7 @@ public enum EditPilotPlanner {
         - remove_fillers {}: cut filler words (um, uh, euh) and repetitions.
         - add_captions {"language": spoken language code or null, "translate_to": language code or null}
         - highlight_keywords {}: highlight keywords in the captions.
-        - set_aspect {"ratio": "16:9"|"9:16"|"1:1"|"4:3"|"3:4"|"4:5"|"2.35:1", "fill": true}
+        - set_aspect {"ratio": "16:9"|"9:16"|"1:1"|"4:3"|"3:4"|"4:5"|"2.35:1", "fill": true}: square / carré = 1:1, vertical = 9:16, horizontal = 16:9.
         - set_speed {"factor": 0.1-10, "scope": "all"|"selected"}
         - speed_up_quiet {"factor": default 2}: speed up quiet, static (boring) parts instead of cutting them.
         - add_transitions {"transition": one of [\(transitions)], "duration": seconds}: between every clip of the main track.

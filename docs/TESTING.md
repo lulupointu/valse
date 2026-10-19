@@ -68,7 +68,11 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
 - Opt-in AI tests: `MONTAGE_SLOW_TESTS=1 scripts/test.sh --filter MontageAITests` (demucs, LLM writer/clipper);
   `MONTAGE_QA_VIDEO=/path/to/talking-person.mp4 scripts/test.sh --filter RealMediaQATests` runs every engine on real
   footage and prints real-time factors + quality metrics (transcript, stems RMS, scenes, speakers, shorts, TTS round
-  trip, super resolution).
+  trip, super resolution). `--filter RealMediaQA` also runs `RealMediaQA2Tests`: captions on a 9:16 project, cutout,
+  reframe, camera / motion tracking, AI movement, face mosaic, relight, AI remove, auto colour (SDR + HLG project), smart
+  search, AI writer, EditPilot, clipper / shorts (`MONTAGE_QA_LONG_VIDEO`, ≥ 60 s), audio clean-up levels through the export
+  mix, stabilize, slow-mo; rendered frames / WAVs go to `MONTAGE_QA_OUT` (default a temp folder) — look at them. Use COPIES
+  of real footage; results of the 2026-10-19 pass are in docs/STATUS.md ("AI QA results").
 
 **Environment-independent results.** Settings/library are sandboxed; in UI tests the cache-size readouts are fixed
 (`SettingsView.uitestCacheSizes`, "clear" only zeroes them) and the `home` sample projects use a fixed clock. For other

@@ -7,9 +7,23 @@ import MontageCore
 enum MotionPathDrawing {
     static let accent = NSColor(srgbRed: 0x57 / 255.0, green: 0xBE / 255.0, blue: 0xCB / 255.0, alpha: 1)
 
+    /// Above this many position keyframes the diamonds are dropped (path + current dot only): they would pile up into
+    /// an unreadable band over the subject.
+    static let maxDiamonds = 24
+
+    /// Camera tracking / auto reframe / AI movement write dense generated keyframes that follow the subject; their path
+    /// sat right on the face (AI QA on real footage), and CapCut shows none for them. Only hand-made paths are drawn.
+    static func showsPath(_ clip: Clip) -> Bool {
+        clip.cameraLock == nil && clip.reframe == nil && clip.aiMovement == nil
+    }
+
+    static func showsDiamonds(_ clip: Clip) -> Bool {
+        (clip.keyframes[ParamKey.position.raw]?.keyframes.count ?? 0) <= maxDiamonds
+    }
+
     @MainActor
     static func draw(_ ctx: CGContext, viewport vp: PlayerViewport, store: EditorStore) {
-        guard store.selection.count == 1, let clip = store.singleSelectedClip,
+        guard store.selection.count == 1, let clip = store.singleSelectedClip, showsPath(clip),
               let path = MotionPath.path(for: clip, canvas: store.project.settings.canvasSize) else { return }
         let pts = path.points.map(vp.toView)
         guard pts.count >= 2 else { return }
@@ -23,7 +37,7 @@ enum MotionPathDrawing {
         ctx.setLineDash(phase: 0, lengths: [])
         let sel = store.timelineUI.selectedKeyframe
         let times = clip.keyframes[ParamKey.position.raw]?.keyframes.map(\.time) ?? []
-        for (i, k) in path.keyframes.enumerated() {
+        for (i, k) in path.keyframes.enumerated() where showsDiamonds(clip) {
             let p = vp.toView(k)
             let isSel = sel.map { $0.clip == clip.id && $0.key == ParamKey.position.raw && i < times.count
                 && abs(($0.time - times[i]).ticks) <= keyframeRefTolerance.ticks } ?? false
