@@ -39,7 +39,7 @@ public enum Registries {
     // Text engine content (W7)
     public static let textBubbles = Registry<TextBubbleDescriptor>(BuiltinTextBubbles.all)
     public static let textTemplates = Registry<TextTemplateDescriptor>(BuiltinTextTemplates.all)
-    public static let captionTemplates = Registry<CaptionTemplateDescriptor>(BuiltinCaptionTemplates.all)
+    public static let captionTemplates = Registry<CaptionTemplateDescriptor>(BuiltinCaptionTemplates.all + BuiltinLyricTemplates.all)   // + TX-026 lyrics (F3)
 
     public static func textStyles(_ kind: TextStyleKind) -> [TextStyleDescriptor] { textStyles.all.filter { $0.kind == kind } }
 

@@ -1,0 +1,13 @@
+// TX-026: an LRC file dropped on the app becomes a lyric caption track (Captions tab lists the lines); the caption
+// templates include the dedicated Lyrics set (unit test F3UITests.lyricTemplatesStyleEveryLine applies one).
+{
+  "project": "demo",
+  "steps": [
+    {"drop": {"files": ["fixtures/f3_lyrics.lrc"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.captionImport", "timeout": 10}},
+    {"select": ["clip:1/0"]},
+    {"click": "id:inspector.tab.captions"},
+    {"expect": [{"path": "ui.anchors", "contains": "inspector.section.captions.templates"}, {"path": "tracks.1.clips.count", "equals": 3}]},
+    {"snapshot": "lyric-track", "element": "id:panel.inspector"}
+  ]
+}

@@ -3,11 +3,32 @@ import Foundation
 import CoreGraphics
 import MontageCore
 import MontageEngine
+import MontageEffects
 @testable import MontageUI
 import MontageTestSupport
 
 /// Finisher F3 UI-layer logic.
 @MainActor struct F3UITests {
+    // TX-026
+    @Test func lyricTemplatesStyleEveryLine() throws {
+        let lyrics = Registries.captionTemplates.all.filter { $0.groupKey == "captionTemplate.group.lyrics" }
+        #expect(lyrics.count == 8)
+        var p = Project(name: "t", settings: ProjectSettings(canvasSize: Size2(640, 360), frameRate: .fps30, backgroundColor: .black))
+        CaptionOps.addCaptionTrack([CaptionSegment(text: "Hello my love", start: 0, end: 2), CaptionSegment(text: "Sing it", start: 2, end: 4)],
+                                   to: &p, origin: .lyrics)
+        let s = EditorStore(project: p)
+        s.autosaveEnabled = false
+        let sunset = try #require(lyrics.first { $0.id == "montage.lyricTemplate.sunset" })
+        s.applyCaptionTemplate(sunset)
+        let ti = try #require(s.activeCaptionTrackIndex)
+        for c in s.project.timeline.tracks[ti].clips {
+            let t = try #require(CaptionOps.text(c))
+            #expect(t.fill != nil && t.karaoke?.mode == .reveal && t.caption?.origin == .lyrics)
+        }
+        let tw = try #require(lyrics.first { $0.id == "montage.lyricTemplate.typewriter" })
+        #expect(tw.inAnim.flatMap { Registries.animations[$0] } != nil)   // the in animation exists
+    }
+
     // CV-009
     @Test func distributeEqualisesGaps() {
         let canvas = Size2(1000, 500)

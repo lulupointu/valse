@@ -8,7 +8,7 @@
     {"expect": {"path": "ui.anchors", "contains": "captions.encoding"}},
     {"snapshot": "local-captions", "element": "id:panel.assets"},
     {"drop": {"files": ["fixtures/f3_captions.srt"]}, "on": "time:0@main"},
-    {"waitFor": {"path": "undo.name", "equals": "cmd.importCaptions", "timeout": 10}},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.captionImport", "timeout": 10}},
     {"expect": {"path": "ui.toast", "exists": true}}
   ]
 }

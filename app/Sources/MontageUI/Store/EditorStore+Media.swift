@@ -11,7 +11,7 @@ extension EditorStore {
     public func importMedia(_ urls: [URL], thenInsertAt time: Time? = nil, target: InsertTarget = .automatic, folder: MediaFolderID? = nil) {
         let captions = urls.filter { CaptionFile.extensions.contains($0.pathExtension.lowercased()) }
         let fonts = urls.filter { FontLibrary.extensions.contains($0.pathExtension.lowercased()) }
-        for c in captions { importCaptions(c) }
+        for c in captions { importCaptions(from: c) }   // F3: dropped caption files become a real caption track (origin, lyrics for LRC)
         if !fonts.isEmpty { importFonts(fonts) }
         let items = MediaProbe.expandWithFolders(urls.filter { !captions.contains($0) && !fonts.contains($0) })
         guard !items.isEmpty else { return }
