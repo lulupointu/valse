@@ -1,0 +1,29 @@
+// C4: Text ▸ Basic | Templates | Bubble | Effects for captions (CapCut [11][18]); ☑ Apply to all main captions (on by
+// default) makes a font-size edit on one caption restyle the whole track in one undo step; off = only that caption.
+{
+  "project": "demo-transcript:captions",
+  "steps": [
+    {"select": ["clip:1/1"]},
+    {"click": "id:inspector.tab.text"},
+    {"expect": [{"path": "ui.anchors", "contains": "captions.applyAllMain"}, {"path": "ui.anchors", "contains": "inspector.sub.templates"},
+                {"path": "ui.transcript.applyToAllCaptions", "equals": true}]},
+    {"snapshot": "text-basic-caption", "element": "id:panel.inspector"},
+    {"click": "id:slider.Font size.field"},
+    {"type": "40", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "ui.transcript.captions.0.fontSize", "equals": 40}, {"path": "ui.transcript.captions.1.fontSize", "equals": 40},
+                {"path": "ui.transcript.captions.2.fontSize", "equals": 40},
+                {"path": "ui.transcript.captions.0.text", "equals": "Hello euh welcome to the show. Today"}]},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "ui.transcript.captions.0.fontSize", "notEquals": 40}, {"path": "ui.transcript.captions.2.fontSize", "notEquals": 40}]},
+    {"click": "id:captions.applyAllMain"},
+    {"expect": {"path": "ui.transcript.applyToAllCaptions", "equals": false}},
+    {"click": "id:slider.Font size.field"},
+    {"type": "30", "replace": true},
+    {"key": "return"},
+    {"expect": [{"path": "ui.transcript.captions.1.fontSize", "equals": 30}, {"path": "ui.transcript.captions.0.fontSize", "notEquals": 30}]},
+    {"click": "id:inspector.sub.templates"},
+    {"expect": {"path": "ui.anchors", "contains": "inspector.section.captions.templates"}},
+    {"snapshot": "text-templates", "element": "id:panel.inspector"}
+  ]
+}

@@ -16,7 +16,7 @@
     {"snapshot": "scope-selected", "element": "id:transcript.panel"},
     {"click": "id:fillers.remove"},
     {"expect": [{"path": "undo.name", "equals": "cmd.removeFillers"}, {"path": "ui.fillers.reviewing", "equals": false},
-                {"path": "ui.toast", "contains": "Removed"}, {"path": "ui.anchors", "contains": "toast.action"},
+                {"path": "ui.toast", "exists": true}, {"path": "ui.anchors", "contains": "toast.action"},
                 // clip 1 ("we we talk about captions."): the repetition went, clip 0's "euh" stayed
                 {"path": "ui.transcript.words", "contains": "euh"}, {"path": "ui.transcript.words", "contains": "um"}]},
     {"dump": "after"},

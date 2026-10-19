@@ -207,7 +207,9 @@ extension EditorStore {
         let me = UncheckedSendable(WeakStore(self))
         setSessionPostProcess { before, after in
             MainActor.assumeIsolated {
-                guard TextUIState.shared.applyToAllCaptions, let s = me.value.store, let id = s.captionStyleSource else { return }
+                // never read `s.project` here: the session is being mutated (exclusive access) — only the selection
+                guard TextUIState.shared.applyToAllCaptions, let s = me.value.store, s.selection.count == 1, let id = s.selection.first,
+                      before.timeline.clip(id).map(CaptionOps.isCaption) == true else { return }
                 CaptionStyleSync.propagate(from: id, before: before, after: &after)
             }
         }
