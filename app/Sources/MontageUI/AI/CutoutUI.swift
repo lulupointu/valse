@@ -11,7 +11,7 @@ import MontageAI
 // render engine through `MatteStore`.
 
 enum CutoutInspector {
-    static func autoKinds(_ c: Clip?) -> Bool { c?.matte.map { $0.kind == "person" || $0.kind == "subject" } ?? false }
+    static func autoKinds(_ c: Clip?) -> Bool { c?.matte.map { !$0.isBodyOnly && ($0.kind == "person" || $0.kind == "subject") } ?? false }
     static func isCustom(_ c: Clip?) -> Bool { c?.matte?.kind.hasPrefix("custom.") ?? false }
 
     @MainActor static let sections: [InspectorSection] = [

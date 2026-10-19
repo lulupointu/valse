@@ -9,3 +9,7 @@
 "fx.scope.hint.pip" = "Seules les incrustations (image dans l'image) sont modifiées ; la piste principale reste intacte.";
 "fx.scope.hint.all" = "Tout ce qui se trouve sous cet effet est modifié.";
 "cmd.fx.scope" = "Portée de l'effet";
+
+/* FX-002 effets corporels sur vidéo */
+"fx.body.job" = "Détection de la personne pour les effets corporels";
+"fx.body.failed" = "Aucune personne trouvée pour l'effet corporel.";

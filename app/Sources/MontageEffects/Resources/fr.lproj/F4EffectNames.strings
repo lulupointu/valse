@@ -1,0 +1,4 @@
+/* F4-FX : effets Détourage magique (FX-008) */
+"effect.magicCutout" = "Détourage magique";
+"effect.magicSpotlight" = "Projecteur magique";
+"effect.magicColorPop" = "Couleur magique";

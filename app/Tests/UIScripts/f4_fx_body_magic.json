@@ -1,0 +1,25 @@
+// FX-002 / FX-008: Effects ▸ Body effects ▸ Magic cutout applied to a plain video clip → the clip gets a body-effects-only
+// person matte (not a cutout: the frame stays whole), a background person-matte job runs, one undo step removes both.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "clip:main/1"},
+    {"click": "id:asset.tab.effects"},
+    {"click": "id:asset.nav.effect.group.body"},
+    {"expect": {"path": "ui.anchors", "contains": "asset.tile.montage.effect.magicCutout"}},
+    {"snapshot": "f4-fx-body-group", "element": "id:panel.assets"},
+    {"hover": "id:asset.tile.montage.effect.magicCutout"},
+    {"click": "id:asset.tile.montage.effect.magicCutout"},
+    {"click": "id:asset.tile.montage.effect.magicCutout.add"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.effect"}, {"path": "selectedClips.0.kind", "equals": "media"},
+                {"path": "selectedClips.0.effects", "contains": "montage.effect.magicCutout"},
+                {"path": "selectedClips.0.matte.bodyOnly", "equals": true}]},
+    {"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 90}},
+    {"snapshot": "f4-fx-magic-player", "element": "id:panel.player"},
+    {"snapshot": "f4-fx-magic-inspector", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": [{"path": "selectedClips.0.effects", "notContains": "montage.effect.magicCutout"},
+                {"path": "selectedClips.0.matte", "exists": false}]}
+  ]
+}

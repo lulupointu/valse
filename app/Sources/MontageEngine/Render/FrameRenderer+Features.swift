@@ -69,63 +69,74 @@ extension FrameRenderer {
             }
         }
 
-        // AI matte (video: aux lane Y plane; image: still texture)
-        if let m = l.matte {
-            var matteTex: MTLTexture?
-            var isVideo: Float = 0, fullRange: Float = 1
-            var xform = cu.uvXform
-            switch l.source {
-            case .media:
-                if let pb = sources.auxPixelBuffer(for: l.clipID, role: .matte) {
-                    let fmt = CVPixelBufferGetPixelFormatType(pb)
-                    let planar = CVPixelBufferIsPlanar(pb)
-                    let yFormat: MTLPixelFormat
-                    switch fmt {
-                    case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange, kCVPixelFormatType_420YpCbCr10BiPlanarFullRange: yFormat = .r16Unorm
-                    case kCVPixelFormatType_32BGRA: yFormat = .bgra8Unorm
-                    default: yFormat = .r8Unorm
-                    }
-                    if let (t, tc) = ctx.texture(pb, plane: planar ? 0 : 0, format: yFormat) {
-                        scratch.retained += [tc, pb]
-                        matteTex = t
-                        isVideo = planar ? 1 : 0
-                        fullRange = (fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange || !planar) ? 1 : 0
-                    }
-                }
-            case .image(let id):
-                if let a = media[id] {
-                    matteTex = MatteStore.shared.stillTexture(media: a, kind: m.kind, device: ctx.device)
-                    xform = Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV, rotation: 0)
-                }
-            default: break
-            }
-            if let mt = matteTex {
-                let out = acquire(cur.width, cur.height)
-                var u = MatteUniforms(uvXform: xform, fullRange: fullRange, expand: Float(m.expand), feather: Float(m.feather),
-                                      invert: m.inverted ? 1 : 0, isVideo: isVideo)
-                let src = cur
-                fullscreen(fp.matte, target: out, cmd, label: "matte") { enc in
-                    enc.setFragmentTexture(src, index: 0); enc.setFragmentTexture(mt, index: 1)
-                    enc.setFragmentBytes(&u, length: MemoryLayout<MatteUniforms>.stride, index: 0)
-                }
-                cur = out
-                // Matting blend (CK-008): edge-aware matte smoothing + colour decontamination of the cut-out edge.
-                if let b = m.edgeBlend, b > 0.001 {
-                    let refined = acquire(cur.width, cur.height)
-                    let matted = cur
-                    var mu = MattingUniforms(texel: SIMD2(1 / Float(cur.width), 1 / Float(cur.height)) * max(1, Float(cur.height) / 720),
-                                             smooth: Float(min(b, 1)), decontaminate: Float(min(b, 1)))
-                    fullscreen(FinishPipelines.shared.mattingBlend, target: refined, cmd, label: "matting-blend") { enc in
-                        enc.setFragmentTexture(matted, index: 0)
-                        enc.setFragmentBytes(&mu, length: MemoryLayout<MattingUniforms>.stride, index: 0)
-                    }
-                    cur = refined
-                }
-            }
+        // AI matte (video: aux lane Y plane; image: still texture). A body-effects-only matte (FX-002) leaves the layer
+        // uncut: prepareLayer applies it to a copy that only feeds the body effects.
+        if let m = l.matte, !m.isBodyOnly {
+            cur = applyMatte(m, layer: l, to: cur, uv: cu, media: media, sources: sources, cmd: cmd, scratch: scratch, acquire: acquire)
         }
         // Relight (AI2): depth-normal shading, after the matte (alpha untouched)
         if let r = l.relight {
             cur = applyRelight(r, layer: l, to: cur, uv: cu, media: media, sources: sources, cmd: cmd, scratch: scratch, acquire: acquire)
+        }
+        return cur
+    }
+
+    /// Multiplies the layer alpha by its AI matte (+ matting blend). Returns `cur` when the matte is not ready.
+    func applyMatte(_ m: ClipMatte, layer l: LayerDescription, to input: MTLTexture, uv cu: ConvertUniforms, media: [MediaID: MediaAsset],
+                    sources: any FrameSourceProvider, cmd: MTLCommandBuffer, scratch: FrameScratch,
+                    acquire: (Int, Int) -> MTLTexture) -> MTLTexture {
+        var cur = input
+        let fp = FeaturePipelines.shared
+        var matteTex: MTLTexture?
+        var isVideo: Float = 0, fullRange: Float = 1
+        var xform = cu.uvXform
+        switch l.source {
+        case .media:
+            if let pb = sources.auxPixelBuffer(for: l.clipID, role: .matte) {
+                let fmt = CVPixelBufferGetPixelFormatType(pb)
+                let planar = CVPixelBufferIsPlanar(pb)
+                let yFormat: MTLPixelFormat
+                switch fmt {
+                case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange, kCVPixelFormatType_420YpCbCr10BiPlanarFullRange: yFormat = .r16Unorm
+                case kCVPixelFormatType_32BGRA: yFormat = .bgra8Unorm
+                default: yFormat = .r8Unorm
+                }
+                if let (t, tc) = ctx.texture(pb, plane: planar ? 0 : 0, format: yFormat) {
+                    scratch.retained += [tc, pb]
+                    matteTex = t
+                    isVideo = planar ? 1 : 0
+                    fullRange = (fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange || !planar) ? 1 : 0
+                }
+            }
+        case .image(let id):
+            if let a = media[id] {
+                matteTex = MatteStore.shared.stillTexture(media: a, kind: m.kind, device: ctx.device)
+                xform = Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV, rotation: 0)
+            }
+        default: break
+        }
+        if let mt = matteTex {
+            let out = acquire(cur.width, cur.height)
+            var u = MatteUniforms(uvXform: xform, fullRange: fullRange, expand: Float(m.expand), feather: Float(m.feather),
+                                  invert: m.inverted ? 1 : 0, isVideo: isVideo)
+            let src = cur
+            fullscreen(fp.matte, target: out, cmd, label: "matte") { enc in
+                enc.setFragmentTexture(src, index: 0); enc.setFragmentTexture(mt, index: 1)
+                enc.setFragmentBytes(&u, length: MemoryLayout<MatteUniforms>.stride, index: 0)
+            }
+            cur = out
+            // Matting blend (CK-008): edge-aware matte smoothing + colour decontamination of the cut-out edge.
+            if let b = m.edgeBlend, b > 0.001 {
+                let refined = acquire(cur.width, cur.height)
+                let matted = cur
+                var mu = MattingUniforms(texel: SIMD2(1 / Float(cur.width), 1 / Float(cur.height)) * max(1, Float(cur.height) / 720),
+                                         smooth: Float(min(b, 1)), decontaminate: Float(min(b, 1)))
+                fullscreen(FinishPipelines.shared.mattingBlend, target: refined, cmd, label: "matting-blend") { enc in
+                    enc.setFragmentTexture(matted, index: 0)
+                    enc.setFragmentBytes(&mu, length: MemoryLayout<MattingUniforms>.stride, index: 0)
+                }
+                cur = refined
+            }
         }
         return cur
     }

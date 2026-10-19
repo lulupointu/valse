@@ -10,7 +10,7 @@ struct CutoutStrokeSection: View {
 
     static func applies(_ ctx: InspectorContext) -> Bool {
         guard let c = ctx.clip, c.mediaID != nil else { return false }
-        return c.matte != nil || c.effects.contains { $0.typeID == BuiltinKeying.chromaKeyID || $0.typeID == BuiltinCutoutStroke.id }
+        return (c.matte.map { !$0.isBodyOnly } ?? false) || c.effects.contains { $0.typeID == BuiltinKeying.chromaKeyID || $0.typeID == BuiltinCutoutStroke.id }
     }
 
     static func instance(_ ctx: InspectorContext) -> EffectInstance? {

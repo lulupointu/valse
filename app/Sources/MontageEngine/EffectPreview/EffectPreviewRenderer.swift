@@ -210,7 +210,10 @@ public final class EffectPreviewRenderer: @unchecked Sendable {
         let pool = ctx.pool
         func acquire(_ w: Int, _ h: Int) -> MTLTexture { let t = pool.acquire(w, h); scratch.textures.append(t); return t }
         let resolved = effects.map { ResolvedEffect(instanceID: $0.id, typeID: $0.typeID, params: $0.params) }
-        var out = FrameRenderer.shared.applyEffects(resolved, to: src, time: Time(time), cmd: cmd, acquire: acquire)
+        // FX-008: effects reading the whole frame behind the person (magic cutout) get the composited sample scene
+        let backdrop = subject && descs.contains { $0.inputs.contains(.backdrop) }
+            ? sceneTexture(width: width, height: height, scene: .subjectOverBackground) : nil
+        var out = FrameRenderer.shared.applyEffects(resolved, to: src, time: Time(time), cmd: cmd, acquire: acquire, backdrop: backdrop)
         if subject, let bg = sceneTexture(width: width, height: height, scene: .background), let over = overPipeline() {
             let target = acquire(width, height)
             let fg = out

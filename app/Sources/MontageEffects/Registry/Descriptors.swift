@@ -65,6 +65,9 @@ public enum EffectInput: Sendable, Hashable {
     /// The effect's own input before its first pass → `texture2d<float> orig` (sampled with `s`). Lets multi-pass
     /// effects (glow, bloom, halation) combine a blurred intermediate with the untouched layer in their last pass.
     case original
+    /// FX-002 / FX-008: the whole un-cut layer behind a body effect → `texture2d<float> backdrop`. A body effect on plain
+    /// video gets the person cut-out as `src` and the full frame here (outside that path: the effect's own input).
+    case backdrop
 }
 
 /// A shader-based effect, filter or adjustment applied to one layer (or, on an adjustment clip, to the composite below).

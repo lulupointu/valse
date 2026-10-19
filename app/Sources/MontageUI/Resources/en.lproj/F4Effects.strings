@@ -9,3 +9,7 @@
 "fx.scope.hint.pip" = "Only overlays (picture-in-picture) are affected; the main track stays as it is.";
 "fx.scope.hint.all" = "Everything below this effect is affected.";
 "cmd.fx.scope" = "Effect scope";
+
+/* FX-002 body effects on plain video */
+"fx.body.job" = "Finding the person for body effects";
+"fx.body.failed" = "No person found for the body effect.";

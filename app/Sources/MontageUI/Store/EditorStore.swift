@@ -406,9 +406,11 @@ public final class EditorStore {
                     guard var clip = p.timeline.clip(c.id) else { continue }
                     if d.category == .filter { clip.effects.removeAll { Registries.effects[$0.typeID]?.category == .filter } }
                     clip.effects.append(d.makeInstance())
+                    BodyEffects.prepare(&clip, for: d, in: p)   // FX-002: person matte for body effects on plain video
                     p.timeline[clip: c.id] = clip
                 }
             })
+            startBodyMatteJobs(targets.map(\.id))
         }
     }
 

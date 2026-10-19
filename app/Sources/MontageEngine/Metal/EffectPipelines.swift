@@ -23,7 +23,7 @@ public final class EffectPipelines: @unchecked Sendable {
             case .lut3D:
                 decl += "texture3d<float> in\(i) [[texture(\(i + 1))]], "
                 args += ", in\(i), s3"
-            case .original:
+            case .original, .backdrop:
                 decl += "texture2d<float> in\(i) [[texture(\(i + 1))]], "
                 args += ", in\(i)"
             }

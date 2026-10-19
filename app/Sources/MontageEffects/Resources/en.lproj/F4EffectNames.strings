@@ -1,0 +1,4 @@
+/* F4-FX: Magic cutout effects (FX-008) */
+"effect.magicCutout" = "Magic cutout";
+"effect.magicSpotlight" = "Magic spotlight";
+"effect.magicColorPop" = "Magic colour pop";

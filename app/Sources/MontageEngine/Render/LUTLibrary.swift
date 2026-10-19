@@ -9,7 +9,7 @@ public enum EffectInputs {
     public static func texture(for input: EffectInput) -> MTLTexture? {
         switch input {
         case .lut3D(let id): return LUTLibrary.texture(id)
-        case .original: return nil   // bound by the renderer (the effect's own input)
+        case .original, .backdrop: return nil   // bound by the renderer (the effect's own input / the un-cut layer)
         }
     }
 }

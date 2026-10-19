@@ -349,7 +349,7 @@ public final class FrameRenderer: @unchecked Sendable {
                               media: [MediaID: MediaAsset], sources: any FrameSourceProvider, cmd: MTLCommandBuffer,
                               scratch: FrameScratch, acquire: (Int, Int) -> MTLTexture,
                               space: ProjectColorSpace = .sdr709, nested: MTLTexture? = nil) -> (MTLTexture, PlaceUniforms)? {
-        let l = animated(l0, canvas: canvas)
+        var l = animated(l0, canvas: canvas)
         guard l.opacity > 0.001 else { return nil }
 
         // Source size in canvas pixels for text/stickers comes from rasterization.
@@ -453,6 +453,13 @@ public final class FrameRenderer: @unchecked Sendable {
         // W6 per-layer features on the straight source (before the effect stack, like CapCut's cutout/speed tools).
         layerTex = applyLayerFeatures(l, to: layerTex, uv: cu, media: media, sources: sources, cmd: cmd,
                                       scratch: scratch, acquire: acquire)
+
+        // FX-002: body effects on an un-cut layer render on its person matte and go back over the whole layer.
+        if let m = l.matte, m.isBodyOnly, l.effects.contains(where: Self.isBodyEffect) {
+            layerTex = applyBodyEffects(m, layer: l, to: layerTex, uv: cu, media: media, sources: sources, cmd: cmd,
+                                        scratch: scratch, acquire: acquire)
+            l.effects.removeAll(where: Self.isBodyEffect)
+        }
 
         if !l.effects.isEmpty {
             let isAdjust: (ResolvedEffect) -> Bool = { Registries.effects[$0.typeID]?.category == .adjustment }
@@ -641,14 +648,21 @@ public final class FrameRenderer: @unchecked Sendable {
     /// `recycle` (frame renderer) receives each intermediate pass texture once nothing later in the chain reads it;
     /// `input` itself is never recycled.
     func applyEffects(_ effects: [ResolvedEffect], to input: MTLTexture, time: Time, cmd: MTLCommandBuffer,
-                      acquire: (Int, Int) -> MTLTexture, recycle: ((MTLTexture) -> Void)? = nil) -> MTLTexture {
+                      acquire: (Int, Int) -> MTLTexture, recycle: ((MTLTexture) -> Void)? = nil,
+                      backdrop: MTLTexture? = nil) -> MTLTexture {
         let chainInput = input
         var cur = input
         for e in effects {
             guard let d = Registries.effects[e.typeID], let pipe = EffectPipelines.shared.effect(d) else { continue }
             // Extra inputs (3D LUTs…): skip the effect if a resource is missing (e.g. LUT file deleted).
             let input = cur
-            let extra = d.inputs.map { $0 == .original ? input : EffectInputs.texture(for: $0) }
+            let extra = d.inputs.map { i -> MTLTexture? in
+                switch i {
+                case .original: return input
+                case .backdrop: return backdrop ?? chainInput
+                default: return EffectInputs.texture(for: i)
+                }
+            }
             if extra.contains(where: { $0 == nil }) { continue }
             let keepsInput = d.inputs.contains(.original)
             var params = d.packParams(e.params)

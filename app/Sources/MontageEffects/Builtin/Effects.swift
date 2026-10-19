@@ -73,5 +73,5 @@ public enum BuiltinEffects {
     ].map { "montage.effect.\($0)" }
 
     /// The procedural effects library (FXKit bases × presets), in asset-panel order.
-    public static let library: [EffectDescriptor] = FXBlur.all + FXGlitch.all + FXArt.all + FXDistort.all + FXLight.all + FXParticles.all
+    public static let library: [EffectDescriptor] = FXBlur.all + FXGlitch.all + FXArt.all + FXDistort.all + FXLight.all + FXParticles.all + FXMagic.all
 }
