@@ -20,3 +20,5 @@ bench/media
 # music / SFX library audio: fetched into the scripts/fetch_music_pack.sh cache, bundled by build_app.sh, never committed
 /content-cache/
 *.m4a
+# UI-test fixtures are small and committed (the *.m4a rule above is for the music library)
+!app/Tests/UIScripts/fixtures/**/*.m4a
