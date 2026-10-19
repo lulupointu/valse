@@ -70,7 +70,7 @@ in the app on the 1018 copy (player / inspector / timeline snapshots looked at);
 | Reduce image noise CL-018 / AI-022 | was broken on HDR → fixed | **bug**: the processed copy lost its colour tags (HLG read as BT.709: grey, washed out). Output now keeps the source tags, HDR as HEVC Main10 (10-bit widen, tagged buffers); old cached copies ignored (`-c2`) |
 | Enhance quality CL-019 / AI-021 | degraded (slow) | correct 2160×3840 output, but 1629 s for 32.7 s (×50 RT, VideoToolbox ML scaler); the UI job was at 39 % after 15 min. Same colour fix applies |
 | Stabilize CV-013 / AI-059 | works (sped up) | analysis 455 s → 179 s for 32.7 s (decoder-side downscale instead of full-res CPU box filter); same camera path |
-| Smooth slow-mo AI-018 | works | optical-flow provider on, 0.09 s / frame |
+| Smooth slow-mo AI-018 | works (fix) | optical-flow provider on, 0.09 s / frame; **bug**: under heavy load the blocking `prepareOpticalFlow(wait:)` (export / tests) gave up after 30 s waiting for a utility-QoS queue (54 s session start in the full suite) and silently fell back to frame blending → it now builds the session on the calling thread |
 | Scene split AI-026 | works | 1.9 s; "No scene change found" on a single shot (correct) |
 | Smart search AI-028 | was broken → fixed | **bug**: Vision labels the clip "people" / "adult", but "person", "personne", "femme" found nothing (embedding too far, no translation pack). Built-in FR/EN synonyms; UI search "personne" now finds IMG_9079 |
 | AI writer AI-029 | works (minor) | Qwen local, FR multi-line script in the UI (11 s); the engine ignored "4 phrases" once (one sentence) |

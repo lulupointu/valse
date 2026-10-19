@@ -70,7 +70,7 @@ final class VTFrameInterpolator: FrameInterpolating, @unchecked Sendable {
         guard !warming.contains(key), !sessions.contains(where: { $0.width == w && $0.height == h }) else { return }
         warming.insert(key)
         if cache == nil { CVMetalTextureCacheCreate(nil, nil, device, nil, &cache) }
-        DispatchQueue.global(qos: .utility).async { [self] in
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
             let made = Self.makeSession(w, h)
             lock.withLock {
                 warming.remove(key)
@@ -83,7 +83,26 @@ final class VTFrameInterpolator: FrameInterpolating, @unchecked Sendable {
 
     /// Blocks until the session for a size exists (export / tests).
     func prepare(_ w: Int, _ h: Int, device: MTLDevice) {
-        lock.withLock { prewarm(w, h, device: device) }
+        // the caller blocks anyway: build the session on this thread instead of waiting for a background queue that heavy
+        // concurrent work can starve past the timeout (export / tests then silently fell back to frame blending)
+        let key = "\(w)x\(h)"
+        let start = lock.withLock { () -> Bool in
+            if sessions.contains(where: { $0.width == w && $0.height == h }) || warming.contains(key) { return false }
+            if cache == nil { CVMetalTextureCacheCreate(nil, nil, device, nil, &cache) }
+            warming.insert(key)
+            return true
+        }
+        if start {
+            let made = Self.makeSession(w, h)
+            lock.withLock {
+                warming.remove(key)
+                if let made {
+                    sessions.append(made)
+                    if sessions.count > 2 { sessions.removeFirst().processor.endSession() }
+                }
+            }
+            return
+        }
         for _ in 0..<600 {
             if lock.withLock({ sessions.contains { $0.width == w && $0.height == h } || !warming.contains("\(w)x\(h)") }) { return }
             Thread.sleep(forTimeInterval: 0.05)
