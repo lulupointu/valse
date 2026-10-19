@@ -1,4 +1,4 @@
-// F4 AI-002: Text ▸ Auto captions ▸ Auto lyrics on a "song" (French voice under a band ≈ 10 dB louder): the vocals
+// F4 AI-002: Captions ▸ Auto captions ▸ Auto lyrics on a "song" (French voice under a band ≈ 10 dB louder): the vocals
 // are separated first (Apple voice isolation, "Separating vocals…"), then whisper writes the lyric captions.
 {
   "project": "empty",
@@ -7,7 +7,7 @@
     {"drop": {"files": ["fixtures/lyrics/song.m4a"]}, "on": "time:0@main"},
     {"waitFor": {"path": "media.count", "equals": 1, "timeout": 20}},
     {"waitFor": {"path": "tracks.count", "gte": 1, "timeout": 20}},
-    {"click": "id:asset.tab.text"},
+    {"click": "id:asset.tab.captions"},
     {"click": "id:asset.nav.auto"},
     {"click": "id:captions.autoLyrics"},
     {"wait": 0.3},
