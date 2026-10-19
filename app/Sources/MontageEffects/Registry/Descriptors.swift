@@ -220,6 +220,8 @@ public struct VectorLayer: Sendable, Hashable {
     public enum Shape: Sendable, Hashable {
         case rect, roundedRect, circle, triangle, diamond, hexagon, star(points: Int), heart, arrow, chevron, line, ring
         case cross, plus, check, bubble, burst(points: Int), sparkle
+        /// Closed smooth curve through points of the unit square (custom drawn shape, ST-008).
+        case path([Vec2])
     }
     public var shape: Shape
     public var fill: RGBA?
@@ -231,10 +233,47 @@ public struct VectorLayer: Sendable, Hashable {
     /// Inset of this layer's box inside the unit square (fraction of the side).
     public var inset: Double
     public var shadow: Bool
+    /// Stroke dash lengths (unit-square units); nil = solid (ST-008 shape style).
+    public var dash: [Double]? = nil
+    /// Corner radius of `rect` / `roundedRect` as a fraction of the shorter side; nil = the shape's default.
+    public var cornerRadius: Double? = nil
     public init(_ shape: Shape, fill: RGBA? = nil, fillBottom: RGBA? = nil, stroke: RGBA? = nil, strokeWidth: Double = 0,
                 inset: Double = 0.06, shadow: Bool = false) {
         self.shape = shape; self.fill = fill; self.fillBottom = fillBottom; self.stroke = stroke
         self.strokeWidth = strokeWidth; self.inset = inset; self.shadow = shadow
+    }
+}
+
+extension VectorLayer {
+    /// Whether the shape is drawn as a line only (fills are ignored).
+    public var isStrokeOnly: Bool {
+        switch shape { case .line, .ring, .chevron, .check: return true; default: return false }
+    }
+
+    /// The sticker's look as an editable shape style (ST-008).
+    public var shapeStyle: ShapeStickerStyle {
+        isStrokeOnly ? ShapeStickerStyle(fill: nil, stroke: stroke ?? .white, strokeWidth: strokeWidth)
+                     : ShapeStickerStyle(fill: fill, fillEnd: fillBottom, stroke: strokeWidth > 0 ? stroke : nil, strokeWidth: strokeWidth > 0 ? strokeWidth : 0.04)
+    }
+
+    /// `layers` with the first (shape) layer restyled by `s` (custom outline, fill, gradient, stroke, dash, corners).
+    public static func styled(_ layers: [VectorLayer], _ s: ShapeStickerStyle) -> [VectorLayer] {
+        guard var l = layers.first else { return layers }
+        if let pts = s.points, pts.count >= 3 { l.shape = .path(pts); l.inset = 0 }
+        if l.isStrokeOnly {
+            l.fill = nil; l.fillBottom = nil
+            l.stroke = s.stroke ?? s.fill ?? l.stroke
+        } else {
+            l.fill = s.fill; l.fillBottom = s.fill == nil ? nil : s.fillEnd
+            l.stroke = s.stroke
+        }
+        l.strokeWidth = l.stroke == nil ? 0 : s.strokeWidth
+        // keep a wide stroke inside the unit square
+        if !l.isStrokeOnly, s.points == nil { l.inset = max(l.inset, l.strokeWidth / 2 + 0.01) }
+        else if s.points != nil { l.inset = 0 }
+        l.dash = s.dashPattern(width: l.strokeWidth)
+        l.cornerRadius = s.cornerRadius
+        return [l] + layers.dropFirst()
     }
 }
 

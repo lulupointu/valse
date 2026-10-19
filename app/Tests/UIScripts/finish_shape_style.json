@@ -1,0 +1,33 @@
+// ST-008: Stickers ▸ Basic ▸ Shape on a shape sticker — fill off, stroke on, dashed line style, then "Draw on canvas"
+// replaces the outline with points clicked on the player (click the first point to close), one undo step each.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "id:asset.tab.stickers"},
+    {"click": "id:asset.nav.sticker.group.shapes"},
+    {"click": "id:asset.tile.montage.sticker.shape.rect.yellow"},
+    {"click": "id:asset.tile.montage.sticker.shape.rect.yellow.add"},
+    {"expect": {"path": "ui.anchors", "contains": "inspector.section.sticker.shape"}},
+    {"click": "id:shape.stroke.toggle"},
+    {"expect": [{"path": "selectedClips.0.shapeStyle.stroke", "equals": true}, {"path": "undo.name", "equals": "cmd.shapeStyle"}]},
+    {"click": "id:shape.fill.toggle"},
+    {"expect": {"path": "selectedClips.0.shapeStyle.fill", "equals": false}},
+    {"click": "id:shape.dash", "at": [0.5, 0.5]},
+    {"expect": {"path": "selectedClips.0.shapeStyle.dash", "equals": "dashed"}},
+    {"snapshot": "shape-inspector", "element": "id:panel.inspector"},
+    {"snapshot": "shape-dashed", "element": "id:panel.player"},
+    {"click": "id:shape.fill.toggle"},
+    {"expect": {"path": "selectedClips.0.shapeStyle.fill", "equals": true}},
+    {"click": "id:shape.draw"},
+    {"click": "player:0.2,0.2"},
+    {"click": "player:0.45,0.25"},
+    {"click": "player:0.4,0.5"},
+    {"click": "player:0.25,0.45"},
+    {"click": "player:0.2,0.2"},
+    {"expect": [{"path": "selectedClips.0.shapeStyle.points", "equals": 4}, {"path": "selectedClips.0.positionX", "lt": -0.1}]},
+    {"snapshot": "shape-drawn", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.shapeStyle.points", "equals": 0}}
+  ]
+}

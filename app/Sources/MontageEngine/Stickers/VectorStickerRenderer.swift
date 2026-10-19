@@ -37,7 +37,7 @@ public enum VectorStickerRenderer {
         ctx.setLineJoin(.round); ctx.setLineCap(.round)
         for l in layers {
             let r = CGRect(x: l.inset, y: l.inset, width: 1 - 2 * l.inset, height: 1 - 2 * l.inset)
-            let (path, strokeOnly) = Self.path(l.shape, in: r)
+            let (path, strokeOnly) = Self.path(l.shape, in: r, corner: l.cornerRadius)
             ctx.saveGState()
             if l.shadow { ctx.setShadow(offset: CGSize(width: 0, height: 0.012 * s), blur: 0.03 * s, color: CGColor(gray: 0, alpha: 0.45)) }
             if let f = l.fill, !strokeOnly {
@@ -54,6 +54,7 @@ public enum VectorStickerRenderer {
             if let st = l.stroke, l.strokeWidth > 0 {
                 ctx.setShadow(offset: .zero, blur: 0, color: nil)
                 if l.shadow && l.fill == nil { ctx.setShadow(offset: CGSize(width: 0, height: 0.012 * s), blur: 0.03 * s, color: CGColor(gray: 0, alpha: 0.45)) }
+                if let d = l.dash { ctx.setLineDash(phase: 0, lengths: d.map { CGFloat($0) }) }
                 ctx.setStrokeColor(cg(st)); ctx.setLineWidth(l.strokeWidth); ctx.addPath(path); ctx.strokePath()
             }
             ctx.restoreGState()
@@ -63,7 +64,7 @@ public enum VectorStickerRenderer {
     static func cg(_ c: RGBA) -> CGColor { CGColor(srgbRed: c.r, green: c.g, blue: c.b, alpha: c.a) }
 
     /// Path of a shape inside `r`; `strokeOnly` shapes (line, ring, chevron, check) ignore fills.
-    static func path(_ shape: VectorLayer.Shape, in r: CGRect) -> (CGPath, Bool) {
+    static func path(_ shape: VectorLayer.Shape, in r: CGRect, corner: Double? = nil) -> (CGPath, Bool) {
         let p = CGMutablePath()
         let c = CGPoint(x: r.midX, y: r.midY), w = r.width, h = r.height
         func poly(_ pts: [CGPoint]) { p.addLines(between: pts); p.closeSubpath() }
@@ -78,6 +79,14 @@ public enum VectorStickerRenderer {
             poly(pts)
         }
         switch shape {
+        case .rect where corner != nil, .roundedRect where corner != nil:
+            // ST-008 corner radius (fraction of the shorter side)
+            let rr = r.insetBy(dx: 0, dy: h * 0.12)
+            let rad = min(max(CGFloat(corner ?? 0), 0), 0.5) * min(rr.width, rr.height)
+            if rad < 1e-4 { p.addRect(rr) } else { p.addRoundedRect(in: rr, cornerWidth: rad, cornerHeight: rad) }
+        case .path(let pts):
+            guard pts.count >= 3 else { p.addEllipse(in: r); break }
+            p.addPath(RasterMasks.smoothClosedPath(pts.map { CGPoint(x: r.minX + CGFloat($0.x) * w, y: r.minY + CGFloat($0.y) * h) }))
         case .rect: p.addRect(r.insetBy(dx: 0, dy: h * 0.12))
         case .roundedRect:
             let rr = r.insetBy(dx: 0, dy: h * 0.12)

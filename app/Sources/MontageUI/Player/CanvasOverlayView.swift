@@ -746,6 +746,7 @@ final class CanvasOverlayView: NSView {
         let ui = store.playerUI
         if let eye = store.canvasEyedropper { eye.hover(at: p); NSCursor.crosshair.set(); return }
         if let pen = store.penMaskTool { pen.hover(at: p); NSCursor.crosshair.set(); return }
+        if let sd = store.shapeDrawTool { sd.hover(at: p); NSCursor.crosshair.set(); return }
         if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) {
             (g.axis == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set(); return
         }

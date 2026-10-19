@@ -100,6 +100,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     public var faceCoverOf: ClipID?
     /// Masks 2…4 (MK-005, see MultiMask.swift); the layer shows the union of `mask` and these.
     public var extraMasks: [Mask]?
+    /// Shape sticker look (ST-008, see ShapeStickerStyle.swift); nil = the sticker's own colours.
+    public var shapeStyle: ShapeStickerStyle?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

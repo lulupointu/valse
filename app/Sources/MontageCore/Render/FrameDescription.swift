@@ -64,6 +64,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var isCanvasBackground = false
     /// Clip duration (text templates time their layers on it).
     public var duration: Time = .zero
+    /// Shape sticker look at this instant (ST-008); nil = the sticker's own.
+    public var shapeStyle: ShapeStickerStyle? = nil
 
     /// Media/images/solids are aspect-fitted to the canvas at scale 1; text and stickers use their own
     /// size in canvas pixels (`sourceSize`).
@@ -264,6 +266,7 @@ public enum FrameEvaluator {
         l.adjustMask = r.adjustMask
         l.skinProtect = c.skinToneProtection ?? false
         if r.mask != nil, let extra = r.extraMasks { l.extraMasks = extra }
+        if case .sticker = c.content { l.shapeStyle = r.shapeStyle }
         l.stabilization = r.stabilization
         if let rl = c.relight, c.mediaID != nil { l.relight = rl.resolved(at: local.seconds) }
         l.duration = c.duration

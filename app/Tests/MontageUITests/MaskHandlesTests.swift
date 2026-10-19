@@ -143,4 +143,22 @@ struct MaskHandlesTests {
         #expect(three.count == 3 && three[0] == Vec2(0.5, -0.5))
         #expect(MaskFrame.removingPoint(three, index: 0).count == 3)
     }
+
+    @Test func customShapeDrawnOnTheCanvasRefitsTheSticker() throws {
+        // a 100 px sticker square at canvas (500, 300), rotated 90°, scale 1; points clicked to its lower right
+        var g = LayerGeometry(sourceSize: Size2(100, 100), canvasSize: Size2(1000, 600), transform: Transform(), fitsCanvas: false)
+        g.center = Vec2(500, 300); g.halfSize = Vec2(50, 50); g.rotation = .pi / 2
+        let pts = [Vec2(600, 400), Vec2(700, 400), Vec2(650, 480)]
+        let r = try #require(ShapeDrawing.fit(pts, layer: g, position: Vec2(0, 0), scale: Vec2(1, 1), canvas: Size2(1000, 600)))
+        // the new square, mapped back, puts every outline point where it was clicked
+        var g2 = g
+        g2.center = Vec2(500 + r.position.x * 1000, 300 + r.position.y * 600)
+        g2.halfSize = Vec2(50 * r.scale.x, 50 * r.scale.y)
+        for (q, p) in zip(r.points, pts) {
+            let local = Vec2((q.x - 0.5) * 2 * g2.halfSize.x, (q.y - 0.5) * 2 * g2.halfSize.y)
+            #expect((g2.center + MaskFrame.rotate(local, g2.rotation) - p).length < 1e-6)
+        }
+        #expect(r.points.allSatisfy { $0.x >= ShapeDrawing.margin - 1e-9 && $0.x <= 1 - ShapeDrawing.margin + 1e-9 })
+        #expect(ShapeDrawing.fit(Array(pts.prefix(2)), layer: g, position: .zero, scale: Vec2(1, 1), canvas: Size2(1000, 600)) == nil)
+    }
 }

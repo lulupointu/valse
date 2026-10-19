@@ -53,6 +53,10 @@ public enum StateDump {
             }
             if let m = c.mask { d["mask"] = maskSummary(m) }
             if let m = c.adjustMask { d["adjustMask"] = maskSummary(m) }
+            if let st = c.shapeStyle {   // ST-008
+                d["shapeStyle"] = ["fill": st.fill != nil, "gradient": st.fillEnd != nil, "stroke": st.stroke != nil,
+                                   "strokeWidth": st.strokeWidth, "dash": st.dash.rawValue, "points": st.points?.count ?? 0] as [String: Any]
+            }
             return d
         }
         func trackSummary(_ t: Track, _ i: Int) -> [String: Any] {

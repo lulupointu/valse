@@ -93,3 +93,6 @@
 
 "mask.text" = "Texte";
 "mask.pen" = "Plume";
+"prop.shapeFill" = "Remplissage";
+"prop.shapeStroke" = "Couleur du contour";
+"prop.shapeStrokeWidth" = "Épaisseur du contour";

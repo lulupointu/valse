@@ -171,7 +171,7 @@ public final class TextRasterizer: @unchecked Sendable {
         return (Vec2(Double(tb.midX - b.midX), Double(tb.midY - b.midY)), Size2(Double(tb.width), Double(tb.height)))
     }
 
-    public func sticker(_ id: String, canvasSide: Double, outputScale: Double, time: Double = 0) -> Result? {
+    public func sticker(_ id: String, canvasSide: Double, outputScale: Double, time: Double = 0, style: ShapeStickerStyle? = nil) -> Result? {
         guard let d = Registries.stickers[id] else { return nil }
         switch d.source {
         case .emoji(let e):
@@ -182,9 +182,10 @@ public final class TextRasterizer: @unchecked Sendable {
             guard let url = bundle().url(forResource: name, withExtension: nil),
                   let tex = ImageTextureCache.load(url: url, maxSide: Int(canvasSide * outputScale) + 1) else { return nil }
             return Result(texture: tex, canvasSize: Size2(canvasSide, canvasSide))
-        case .vector(let layers):
+        case .vector(let base):
             let px = max(8, Int((canvasSide * outputScale).rounded(.up)))
-            let key = "\(id)@\(px)"
+            let layers = style.map { VectorLayer.styled(base, $0) } ?? base
+            let key = "\(id)@\(px)" + (style.map { "#\($0.hashValue)" } ?? "")
             if let t = vectorLock.withLock({ vectorCache[key] }) { return Result(texture: t, canvasSize: Size2(canvasSide, canvasSide)) }
             guard let tex = VectorStickerRenderer.texture(layers, px: px) else { return nil }
             vectorLock.withLock {

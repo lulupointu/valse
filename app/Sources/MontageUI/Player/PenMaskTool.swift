@@ -91,7 +91,7 @@ final class PenMaskTool: CanvasTool {
 extension EditorStore {
     /// Starts drawing a pen outline for the selected mask of `clipID` (Video ▸ Mask / Adjust ▸ Mask ▸ Pen).
     func beginPenMask(_ clipID: ClipID, target: MaskTarget) {
-        endPenMask()
+        endPenMask(); endShapeDraw()
         let t = PenMaskTool(clipID: clipID, target: target, store: self)
         playerUI.canvasTool = t
         engine.pause()

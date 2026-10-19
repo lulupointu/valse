@@ -60,8 +60,14 @@ public enum BuiltinStickers {
         ("plus", .plus), ("cross", .cross),
     ]
 
+    /// Custom shape (ST-008): a blob until the user draws its outline on the canvas (Stickers ▸ Shape ▸ Draw on canvas).
+    public static let customShapeID = "montage.sticker.shape.custom"
+    static let customShape = vector("shape.custom", group: "shapes",
+                                    [VectorLayer(.path(Mask.defaultPenPoints.map { Vec2($0.x * 0.84 + 0.5, $0.y * 0.84 + 0.5) }), fill: .white, inset: 0)],
+                                    tags: ["shape", "custom", "draw", "pen"])
+
     /// Shapes (ST-008 basic graphics): every kind in five colours.
-    static let shapes: [StickerDescriptor] = shapeKinds.flatMap { k in
+    static let shapes: [StickerDescriptor] = [customShape] + shapeKinds.flatMap { k in
         shapeColors.map { c in
             let layer: VectorLayer
             switch k.shape {

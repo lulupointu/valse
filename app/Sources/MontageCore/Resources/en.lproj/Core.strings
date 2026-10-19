@@ -93,3 +93,6 @@
 
 "mask.text" = "Text";
 "mask.pen" = "Pen";
+"prop.shapeFill" = "Fill";
+"prop.shapeStroke" = "Stroke colour";
+"prop.shapeStrokeWidth" = "Stroke width";

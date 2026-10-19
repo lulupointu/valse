@@ -86,6 +86,8 @@ enum BuiltinInspector {
         // Sticker (ST-009: a full layer — Position & Size, Blend (opacity + mode), Mask)
         InspectorSection(id: "sticker.transform", tab: "sticker", subTab: "basic", order: 0, titleKey: "inspector.transform",
                          chrome: TransformSection.chrome) { AnyView(TransformSection(ctx: $0)) },
+        InspectorSection(id: "sticker.shape", tab: "sticker", subTab: "basic", order: 5, titleKey: "shape.section",
+                         appliesTo: ShapeStyleSection.applies, chrome: ShapeStyleSection.chrome) { AnyView(ShapeStyleSection(ctx: $0)) },
         InspectorSection(id: "sticker.blend", tab: "sticker", subTab: "basic", order: 10, titleKey: "inspector.blend",
                          chrome: BlendSection.chrome) { AnyView(BlendSection(ctx: $0)) },
         InspectorSection(id: "sticker.mask.shapes", tab: "sticker", subTab: "mask", order: 0, titleKey: "inspector.mask") { AnyView(MaskShapesSection(ctx: $0)) },
