@@ -13,7 +13,7 @@ enum AIRemoveInspector {
         InspectorSection(id: "video.aiRemove", tab: "video", subTab: "basic", order: 51, titleKey: "remove.title",
                          appliesTo: { ctx in
             guard let c = ctx.clip, let a = (c.removal?.original ?? c.mediaID).flatMap(ctx.store.project.asset) else { return false }
-            return a.kind == .image || (a.kind == .video && a.duration.seconds <= ObjectRemover.maxVideoSeconds + 0.5)
+            return ObjectRemover.canProcess(a, clipSource: c.sourceRange)   // AI-041: the clip's used part ≤ 30 s
         }, chrome: { ctx in
             InspectorSectionChrome(isEnabled: Binding(get: {
                 guard let c = ctx.clip else { return false }

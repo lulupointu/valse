@@ -187,6 +187,142 @@ import MontageTestSupport
         }
     }
 
+    // MARK: AI-041 AI remove: long sources, temporal consistency
+
+    /// Textured background (diagonal stripes + gradient) with per-frame sensor noise and a static red "logo" box at
+    /// (0.4…0.6, 0.4…0.6); 320×240, `fps`.
+    static func logoVideo(seconds: Double, fps: Int32 = 10) async throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("f4-logo-\(UUID().uuidString).mov")
+        let w = 320, h = 240
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: w, AVVideoHeightKey: h,
+                                                                           AVVideoCompressionPropertiesKey: [AVVideoQualityKey: 0.95]])
+        let ad = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA, kCVPixelBufferWidthKey as String: w, kCVPixelBufferHeightKey as String: h])
+        writer.add(input)
+        writer.startWriting(); writer.startSession(atSourceTime: .zero)
+        var seed: UInt64 = 7
+        let n = Int(seconds * Double(fps))
+        for f in 0..<n {
+            var pb: CVPixelBuffer?
+            CVPixelBufferPoolCreatePixelBuffer(nil, ad.pixelBufferPool!, &pb)
+            let b = pb!
+            CVPixelBufferLockBaseAddress(b, [])
+            let base = CVPixelBufferGetBaseAddress(b)!.assumingMemoryBound(to: UInt8.self), bpr = CVPixelBufferGetBytesPerRow(b)
+            for y in 0..<h {
+                for x in 0..<w {
+                    seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                    let nz = Int(seed >> 59) - 16   // ±16 sensor noise
+                    let stripe = ((x + y) / 12) % 2 == 0 ? 60 : 0
+                    var r = 90 + stripe + x / 6 + nz, g = 120 + stripe / 2 + y / 5 + nz, bl = 150 - stripe / 3 + nz
+                    let fx = Double(x) / Double(w), fy = Double(y) / Double(h)
+                    if fx > 0.4 && fx < 0.6 && fy > 0.4 && fy < 0.6 { r = 230; g = 20; bl = 30 }
+                    let p = base + y * bpr + x * 4
+                    p[0] = UInt8(max(0, min(255, bl))); p[1] = UInt8(max(0, min(255, g))); p[2] = UInt8(max(0, min(255, r))); p[3] = 255
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(b, [])
+            while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+            ad.append(b, withPresentationTime: CMTime(value: CMTimeValue(f), timescale: fps))
+        }
+        input.markAsFinished()
+        await writer.finishWriting()
+        return url
+    }
+
+    static let logoStrokes = [RemovalStroke(points: [Vec2(0.4, 0.4), Vec2(0.6, 0.4), Vec2(0.6, 0.6), Vec2(0.4, 0.6), Vec2(0.4, 0.4)], radius: 0.05),
+                              RemovalStroke(points: [Vec2(0.5, 0.5)], radius: 0.1)]
+
+    /// Frames (centre crop of the logo area, RGB 0…255) of a movie.
+    static func frames(_ url: URL) throws -> [(t: Double, px: [UInt8])] {
+        let asset = AVURLAsset(url: url)
+        let reader = try AVAssetReader(asset: asset)
+        let track = asset.tracks(withMediaType: .video)[0]
+        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        reader.add(out); reader.startReading()
+        var r: [(Double, [UInt8])] = []
+        while let sb = out.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(sb) {
+            CVPixelBufferLockBaseAddress(pb, .readOnly)
+            let w = CVPixelBufferGetWidth(pb), h = CVPixelBufferGetHeight(pb), bpr = CVPixelBufferGetBytesPerRow(pb)
+            let base = CVPixelBufferGetBaseAddress(pb)!.assumingMemoryBound(to: UInt8.self)
+            var px: [UInt8] = []
+            for y in Int(Double(h) * 0.44)..<Int(Double(h) * 0.56) {
+                for x in Int(Double(w) * 0.44)..<Int(Double(w) * 0.56) { let p = base + y * bpr + x * 4; px += [p[2], p[1], p[0]] }
+            }
+            CVPixelBufferUnlockBaseAddress(pb, .readOnly)
+            r.append((CMSampleBufferGetPresentationTimeStamp(sb).seconds, px))
+        }
+        return r
+    }
+
+    static func flicker(_ fs: [(t: Double, px: [UInt8])]) -> Double {
+        guard fs.count > 1 else { return 0 }
+        var s = 0.0
+        for (a, b) in zip(fs, fs.dropFirst()) { s += zip(a.px, b.px).reduce(0.0) { $0 + abs(Double($1.0) - Double($1.1)) } / Double(a.px.count) }
+        return s / Double(fs.count - 1)
+    }
+
+    static func redness(_ px: [UInt8]) -> Double {
+        var s = 0.0
+        for i in stride(from: 0, to: px.count, by: 3) { s += Double(px[i]) - Double(px[i + 1]) }
+        return s / Double(px.count / 3)
+    }
+
+    /// Static logo on a noisy textured shot: the fill shimmers less with temporal smoothing (and the logo is gone).
+    @Test func removalFillIsTemporallyStable() async throws {
+        try await HeavyWorkGate.run {
+            guard LaMaInpainter.isAvailable else { print("skip: LaMa model not installed"); return }
+            let url = try await Self.logoVideo(seconds: 2)
+            defer { try? FileManager.default.removeItem(at: url) }
+            var a = try await MediaProbe.probe(url)
+            var results: [Bool: Double] = [:]
+            for on in [false, true] {
+                a.contentHash = "f4-logo-\(on)-\(UUID().uuidString.prefix(6))"
+                RemovalTemporalSmoother.enabled = on
+                defer { RemovalTemporalSmoother.enabled = true }
+                let asset = a
+                let out = try await withCheckedThrowingContinuation { (c: CheckedContinuation<URL, Error>) in
+                    DispatchQueue.global().async { Task { do { c.resume(returning: try await ObjectRemover.process(asset, strokes: Self.logoStrokes)) } catch { c.resume(throwing: error) } } }
+                }
+                defer { try? FileManager.default.removeItem(at: out) }
+                let fs = try Self.frames(out)
+                #expect(fs.count == 20)
+                #expect(fs.allSatisfy { Self.redness($0.px) < 40 }, "logo removed")
+                results[on] = Self.flicker(fs)
+            }
+            let off = results[false] ?? 0, on = results[true] ?? 0
+            print("metric removal_flicker off=\(off) on=\(on)")
+            #expect(on < off * 0.7)
+        }
+    }
+
+    /// A long source (40 s) with a 3 s clip: only the clip's part is inpainted, the rest is copied untouched.
+    @Test func longSourceOnlyTheClipRangeIsInpainted() async throws {
+        try await HeavyWorkGate.run {
+            guard LaMaInpainter.isAvailable else { print("skip: LaMa model not installed"); return }
+            let url = try await Self.logoVideo(seconds: 40, fps: 5)
+            defer { try? FileManager.default.removeItem(at: url) }
+            var a = try await MediaProbe.probe(url)
+            a.contentHash = "f4-long-\(UUID().uuidString.prefix(6))"
+            let clip = TimeRange(start: Time(20), end: Time(23))
+            #expect(!ObjectRemover.canProcess(a, clipSource: nil))
+            #expect(ObjectRemover.canProcess(a, clipSource: clip))
+            let range = try #require(ObjectRemover.workRange(a, clipSource: clip))
+            let asset = a
+            let out = try await withCheckedThrowingContinuation { (c: CheckedContinuation<URL, Error>) in
+                DispatchQueue.global().async { Task { do { c.resume(returning: try await ObjectRemover.process(asset, strokes: Self.logoStrokes, range: range)) } catch { c.resume(throwing: error) } } }
+            }
+            defer { try? FileManager.default.removeItem(at: out) }
+            let fs = try Self.frames(out)
+            #expect(fs.count == 200)
+            for f in fs {
+                let red = Self.redness(f.px)
+                if f.t >= 20 && f.t <= 23 { #expect(red < 40, "removed at \(f.t)") }
+                if f.t < 19 || f.t > 24 { #expect(red > 150, "untouched at \(f.t)") }
+            }
+        }
+    }
+
     // MARK: AI-002 lyrics vocal pre-separation
 
     static func readMono16k(_ url: URL, seconds: Double) throws -> [Float] {

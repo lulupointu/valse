@@ -205,9 +205,11 @@ public enum ObjectRemover {
         return ctx.makeImage()!
     }
 
-    static func key(_ a: MediaAsset, _ strokes: [RemovalStroke], tracking: RemovalTracking? = nil) -> String {
+    static func key(_ a: MediaAsset, _ strokes: [RemovalStroke], tracking: RemovalTracking? = nil, range: TimeRange? = nil) -> String {
         var d = (try? JSONEncoder().encode(strokes)) ?? Data()
         if let tracking { d += Data(String(format: "track@%.4f", tracking.time).utf8) }
+        if let range { d += Data(String(format: "range@%.3f-%.3f", range.start.seconds, range.end.seconds).utf8) }
+        d += Data("t1".utf8)   // t1: temporal smoothing of the fill
         return a.contentHash + "-" + SHA256.hash(data: d).prefix(6).map { String(format: "%02x", $0) }.joined()
     }
 
@@ -221,7 +223,23 @@ public enum ObjectRemover {
         return samples.isEmpty ? nil : (ref, samples)
     }
 
-    public static func process(_ a: MediaAsset, strokes: [RemovalStroke], tracking: RemovalTracking? = nil,
+    /// Seconds of video actually inpainted for a clip: its used source range (frames outside it are copied), so a
+    /// 10 s clip cut from a 10 min recording qualifies.
+    public static func workRange(_ a: MediaAsset, clipSource: TimeRange?) -> TimeRange? {
+        guard let r = clipSource else { return nil }
+        let pad = Time(0.25)   // a little margin for trims / transitions
+        let s = max(.zero, r.start - pad), e = min(a.duration, r.end + pad)
+        return s <= .zero && e >= a.duration ? nil : TimeRange(start: s, end: e)
+    }
+
+    public static func canProcess(_ a: MediaAsset, clipSource: TimeRange?) -> Bool {
+        if a.kind == .image { return true }
+        guard a.kind == .video else { return false }
+        return (workRange(a, clipSource: clipSource)?.duration.seconds ?? a.duration.seconds) <= maxVideoSeconds + 0.5
+    }
+
+    /// `range`: only frames inside it are inpainted (the clip's used part, `workRange`), the others are copied.
+    public static func process(_ a: MediaAsset, strokes: [RemovalStroke], tracking: RemovalTracking? = nil, range: TimeRange? = nil,
                                progress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let lama = try LaMaInpainter.acquire()
@@ -238,8 +256,8 @@ public enum ObjectRemover {
             progress?(1)
             return out
         }
-        guard a.duration.seconds <= maxVideoSeconds + 0.5 else { throw AIToolError.unavailable("too long") }
-        let out = directory.appendingPathComponent(key(a, strokes, tracking: tracking) + ".mov")
+        guard (range?.duration.seconds ?? a.duration.seconds) <= maxVideoSeconds + 0.5 else { throw AIToolError.unavailable("too long") }
+        let out = directory.appendingPathComponent(key(a, strokes, tracking: tracking, range: range) + ".mov")
         if FileManager.default.fileExists(atPath: out.path) { return out }
         // moving object: track it first (30 % of the progress), then move the mask on every frame
         var track: (ref: NormRect, samples: [TrackSample])?
@@ -283,6 +301,7 @@ public enum ObjectRemover {
         } : nil
         defer { audio?.cancel() }
         let duration = max(a.duration.seconds, 0.001)
+        let smoother = RemovalTemporalSmoother(width: w, height: h)
         do {
             while let sb = vOut.copyNextSampleBuffer() {
                 try Task.checkCancellation()
@@ -292,12 +311,16 @@ public enum ObjectRemover {
                 if let track, let box = RemovalTracking.box(at: pts.seconds, in: track.samples) {
                     frameMask = mask(RemovalTracking.transform(strokes, from: track.ref, to: box), width: w, height: h)
                 }
-                let res = try autoreleasepool { try lama.inpaint(frame, mask: frameMask) }
+                let inRange = range.map { pts.seconds >= $0.start.seconds - 0.001 && pts.seconds <= $0.end.seconds + 0.001 } ?? true
+                let res = inRange ? try autoreleasepool { try lama.inpaint(frame, mask: frameMask) } : frame
                 guard let outPB = adaptor.pixelBufferPool.flatMap({ pool -> CVPixelBuffer? in var b: CVPixelBuffer?; CVPixelBufferPoolCreatePixelBuffer(nil, pool, &b); return b }) else { throw AIToolError.noInput }
                 CVPixelBufferLockBaseAddress(outPB, [])
                 let ctx = CGContext(data: CVPixelBufferGetBaseAddress(outPB), width: w, height: h, bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(outPB),
                                     space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
                 ctx.draw(res, in: CGRect(x: 0, y: 0, width: w, height: h))
+                if inRange, let base = CVPixelBufferGetBaseAddress(outPB) {
+                    smoother.apply(out: base.assumingMemoryBound(to: UInt8.self), bytesPerRow: CVPixelBufferGetBytesPerRow(outPB), source: frame, mask: frameMask)
+                }
                 CVPixelBufferUnlockBaseAddress(outPB, [])
                 while !vIn.isReadyForMoreMediaData { try Task.checkCancellation(); try await Task.sleep(nanoseconds: 2_000_000) }
                 adaptor.append(outPB, withPresentationTime: pts)
@@ -328,7 +351,8 @@ public enum ObjectRemovalJob {
             }
         }
         let track = original.kind == .video ? tracking : nil
-        let url = try await ObjectRemover.process(original, strokes: strokes, tracking: track, progress: progress)
+        let range = original.kind == .video ? ObjectRemover.workRange(original, clipSource: c.sourceRange) : nil
+        let url = try await ObjectRemover.process(original, strokes: strokes, tracking: track, range: range, progress: progress)
         var processed = try await MediaProbe.probe(url)
         processed.name = original.name
         let asset = processed
