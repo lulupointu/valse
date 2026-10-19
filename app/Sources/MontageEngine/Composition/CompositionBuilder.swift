@@ -140,7 +140,7 @@ public enum CompositionBuilder {
                         }
                     }
                     // Aux lanes: same output layout, shifted source (blend/motion-blur frames) or another file (matte).
-                    for (role, url, shift) in try await auxInputs(clip, asset: asset, videoURL: videoURL, reversed: reversedURL != nil, purpose: purpose) {
+                    for (role, url, shift) in try await auxInputs(clip, asset: asset, videoURL: videoURL, reversed: reversedURL != nil, purpose: purpose, frameRate: fr) {
                         let entry = try await AssetCache.shared.entry(url)
                         guard let src = entry.video else { continue }
                         let key = "\(lane)-\(role)"
@@ -223,11 +223,14 @@ public enum CompositionBuilder {
     }
 
     /// Aux lanes a clip needs: (role, file, source shift).
-    static func auxInputs(_ clip: Clip, asset: MediaAsset, videoURL: URL, reversed: Bool, purpose: RenderPurpose)
-    async throws -> [(AuxRole, URL, Time)] {
+    static func auxInputs(_ clip: Clip, asset: MediaAsset, videoURL: URL, reversed: Bool, purpose: RenderPurpose,
+                          frameRate: FrameRate = .fps30) async throws -> [(AuxRole, URL, Time)] {
         var out: [(AuxRole, URL, Time)] = []
         let sfd = (asset.frameRate ?? .fps30).frameDuration
-        if clip.smoothSlowMo != nil, Self.hasSlowSection(clip.speed) { out.append((.nextFrame, videoURL, sfd)) }
+        if clip.smoothSlowMo != nil, FrameUpconversion.needsInterpolation(rate: FrameUpconversion.minRate(clip.speed),
+                                                                           sourceRate: asset.frameRate, projectRate: frameRate) {
+            out.append((.nextFrame, videoURL, sfd))
+        }
         if let mb = clip.motionBlur, mb.amount > 0 {
             for k in 1..<mb.clampedSamples { out.append((.previousFrame(k), videoURL, Time(ticks: -sfd.ticks * Int64(k)))) }
         }

@@ -316,6 +316,7 @@ public final class EditorStore {
         if project.timeline.mainTrack?.clips.count == 1, project.settings.aspectPreset == "original" || project.timeline.allClips.count == 1 {
             adoptCanvas(from: asset)
         }
+        if project.timeline.allClips.filter({ $0.mediaID != nil }).count == 1 { offerFrameRate(of: asset) }   // SP-009
         return clip.id
     }
 

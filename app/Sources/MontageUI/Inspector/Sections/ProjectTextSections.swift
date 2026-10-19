@@ -61,6 +61,7 @@ struct ProjectSettingsSheet: View {
     @State private var colorSpace = ProjectColorSpace.sdr709
     @State private var copyMedia = false
     @State private var applyToAll = true
+    @State private var smooth = false
     @State private var tab = "details"
 
     /// Resolution dropdown id of "Customized".
@@ -147,6 +148,9 @@ struct ProjectSettingsSheet: View {
                         row(tr("details.frameRate")) {
                             Dropdown(items: FrameRate.common.map { ($0, String(format: "%.2f fps", $0.fps)) }, selection: fps) { fps = $0 }
                         }
+                        row(tr("framerate.smooth")) {
+                            CheckLine(label: tr("framerate.smooth.label"), isOn: $smooth, id: "smoothPlayback")
+                        }
                         if store.otherTimelineCount > 0 {
                             row(tr("projectSettings.applyTo")) {
                                 CheckLine(label: tr("projectSettings.applyToAll"), isOn: $applyToAll, id: "applyToAll")
@@ -192,6 +196,8 @@ struct ProjectSettingsSheet: View {
             fps = s.frameRate
             colorSpace = s.colorSpace
             copyMedia = store.copiesMediaOnImport
+            let cands = FrameUpconversion.candidates(store.project)
+            smooth = !cands.isEmpty && cands.allSatisfy { id in store.project.timeline.clip(id)?.smoothSlowMo != nil }
         }
     }
 
@@ -227,6 +233,10 @@ struct ProjectSettingsSheet: View {
             p.settings.copyMediaOnImport = copy
             if all { for i in (p.timelines ?? []).indices { apply(&p.timelines![i].settings) } }
         })
+        // after the rate change: optical flow for the clips now below the project rate (SP-009)
+        let cands = FrameUpconversion.candidates(store.project)
+        let isOn = !cands.isEmpty && cands.allSatisfy { id in store.project.timeline.clip(id)?.smoothSlowMo != nil }
+        if smooth != isOn { store.smoothPlayback(smooth) }
         isPresented = false
     }
 }

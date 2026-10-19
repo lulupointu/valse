@@ -44,6 +44,10 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var timecodeStyle = "frames"
     /// Drop-frame time code (HH:MM:SS;FF) for 29.97 / 59.94 fps projects.
     public var dropFrame = false
+    /// Mouse (SE-016): plain mouse-wheel direction on the timeline, "vertical" (tracks) or "horizontal" (time).
+    public var mouseWheelScroll = "vertical"
+    /// Mouse (SE-016): modifier that makes scrolling zoom the timeline: "command" (default), "option", "none".
+    public var mouseZoomModifier = "command"
     /// Play audio while scrubbing (CapCut default off).
     public var scrubAudio = false
 
@@ -72,6 +76,10 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var renderCacheLimitGB = 10.0
     /// Pre-render heavy parts of the timeline in the background ("Auto render").
     public var autoRender = false
+    /// Auto optimization when playback drops frames: "none" (CapCut default), "smart", "deep" (PB-003).
+    public var autoOptimization = "none"
+    /// Playback priority: "quality" or "performance" (PB-004).
+    public var playbackPriority = "quality"
 
     // MARK: Export defaults
     /// `ExportSettings.Codec` raw value.

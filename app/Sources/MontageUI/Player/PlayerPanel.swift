@@ -40,8 +40,11 @@ struct PlayerCanvasArea: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottomLeading) { KeystrokeOverlay() }
             if store.playerUI.isZoomBarVisible {
                 ZoomBar(ui: store.playerUI, store: store).padding(.bottom, 10)
+            } else {
+                DroppedFramesBanner(store: store, health: store.playerUI.health)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -357,6 +360,9 @@ final class PlayerContainerView: NSView {
         addSubview(overlay)
         overlay.onContentRectChange = { [weak player] r in player?.contentRect = r }
         overlay.frameSampler = { [weak player] in player?.sampleFrame() }
+        let health = store.playerUI.health
+        health.store = store
+        player.onFramePresented = { [weak health, weak store] t in health?.presented(t, playing: store?.engine.isPlaying ?? false) }
     }
     required init?(coder: NSCoder) { fatalError() }
 

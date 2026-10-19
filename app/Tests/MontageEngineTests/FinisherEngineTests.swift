@@ -3,6 +3,40 @@ import Foundation
 @preconcurrency import AVFoundation
 @testable import MontageCore
 @testable import MontageEngine
+import MontageTestSupport
+
+/// SP-009 frame-rate up-conversion, SP-010 time-lapse speeds.
+@Suite struct FinisherSpeedRenderTests {
+    @Test func smoothPlaybackInterpolatesBelowProjectRate() async throws {
+        var p = TestProject()
+        let id = try await p.addVideo(.alternate(.black, .white), seconds: 1)   // 30 fps source
+        p.project.settings.frameRate = .fps60
+        #expect(FrameUpconversion.candidates(p.project) == [id])
+        // t = 17/60 s → source frame 8.5 at 1× (black, next white)
+        let t = 17.0 / 60
+        #expect(TimeRemapTests.level(try await p.render(at: t)) < 10)
+        p[id].smoothSlowMo = .frameBlending
+        let v = TimeRemapTests.level(try await p.render(at: t))
+        #expect(abs(v - 127.5) < 14, "v \(v)")
+        // same rate as the project: nothing to interpolate, nothing changes
+        p.project.settings.frameRate = .fps30
+        #expect(FrameUpconversion.candidates(p.project).isEmpty)
+        #expect(!FrameUpconversion.needsInterpolation(rate: 1, sourceRate: .fps30, projectRate: .fps30))
+        #expect(FrameUpconversion.needsInterpolation(rate: 0.5, sourceRate: .fps60, projectRate: .fps30))
+    }
+
+    @Test func timeLapseSpeedsShowTheRightFrames() async throws {
+        var p = TestProject()
+        let id = try await p.addVideo(.frameIndex, seconds: 10)
+        try TimelineOps.setSpeed(id, .constant(50), in: &p.project.timeline)
+        #expect(abs(p[id].duration.seconds - 0.2) < 0.001)
+        // output 0.1 s → source 5 s = frame 150
+        let v = TimeRemapTests.level(try await p.render(at: 0.1))
+        #expect(abs(v - TimeRemapTests.expectedLevel(frame: 150)) < 3, "v \(v)")
+        try TimelineOps.setSpeed(id, .constant(100), in: &p.project.timeline)
+        #expect(abs(p[id].duration.seconds - 0.1) < 0.001)
+    }
+}
 
 /// Finisher rows: TL-032 / AU-023 scrub audio grains, AU-040 notification sounds, AU-024 device lists.
 @Suite struct FinisherAudioTests {

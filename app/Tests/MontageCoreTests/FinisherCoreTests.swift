@@ -159,3 +159,38 @@ import Foundation
         #expect(back.copyMediaOnImport == true)
     }
 }
+
+@Suite struct MatchCutTests {
+    @Test func splitsOnBeatsInsideTheClip() throws {
+        var tl = Timeline()
+        let v = Clip(content: .solid(.white), start: 0, duration: 6)
+        tl.tracks[0].clips = [v]
+        var music = Track(kind: .audio)
+        var m = Clip(content: .solid(.black), start: 1, duration: 10)
+        m.beats = [Time(0.5), Time(1.5), Time(3), Time(4.99)]   // absolute 1.5, 2.5, 4, 5.99 (too close to the end)
+        music.clips = [m]
+        tl.tracks.append(music)
+        let n = try TimelineOps.matchCut([v.id], in: &tl)
+        #expect(n == 3)
+        #expect(tl.tracks[0].clips.map(\.start) == [Time(0), Time(1.5), Time(2.5), Time(4)])
+        #expect(TimelineOps.validate(tl).isEmpty)
+        var empty = Timeline()
+        empty.tracks[0].clips = [v]
+        #expect(throws: EditError.self) { try TimelineOps.matchCut([v.id], in: &empty) }
+    }
+
+    @Test func splitAudioTrackMakesLeftAndRightClips() throws {
+        var tl = Timeline()
+        var a = Track(kind: .audio)
+        let c = Clip(content: .media(MediaID()), start: 1, duration: 4)
+        a.clips = [c]
+        tl.tracks.append(a)
+        let r = try TimelineOps.splitAudioChannels(c.id, in: &tl)
+        let left = try #require(tl.clip(c.id)), right = try #require(tl.clip(r))
+        #expect(left.audio.channels == .leftToBoth && right.audio.channels == .rightToBoth)
+        #expect(left.groupID != nil && left.groupID == right.groupID && right.range == left.range)
+        #expect(tl.tracks.filter { $0.kind == .audio }.count == 2)
+        #expect(TimelineOps.validate(tl).isEmpty)
+        #expect(throws: EditError.self) { try TimelineOps.splitAudioChannels(c.id, in: &tl) }   // already split
+    }
+}

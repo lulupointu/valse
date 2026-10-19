@@ -444,6 +444,15 @@ struct EditSettings: View {
             SwitchButton(isOn: $draft.scrubAudio, id: "scrubAudio")
         }
         SettingsDivider()
+        SettingsRow(tr("settings.mouse.wheel")) {
+            Dropdown(items: TimelineScrollMapping.WheelScroll.allCases.map { ($0.rawValue, tr($0.nameKey)) }, selection: draft.mouseWheelScroll) { draft.mouseWheelScroll = $0 }
+                .frame(width: 260).testID("settings.mouse.wheel")
+        }
+        SettingsRow(tr("settings.mouse.zoom"), hint: tr("settings.mouse.hint")) {
+            Dropdown(items: TimelineScrollMapping.ZoomModifier.allCases.map { ($0.rawValue, tr($0.nameKey)) }, selection: draft.mouseZoomModifier) { draft.mouseZoomModifier = $0 }
+                .frame(width: 260).testID("settings.mouse.zoom")
+        }
+        SettingsDivider()
         Text(loc: "settings.newProjects").font(.system(size: 12, weight: .medium)).foregroundStyle(IStyle.caption).padding(.bottom, 4)
         SettingsRow(tr("details.frameRate")) {
             Dropdown(items: FrameRate.common.map { ($0, HomeFormat.fps($0)) }, selection: draft.defaultFrameRate) { draft.defaultFrameRate = $0 }
@@ -508,6 +517,17 @@ struct PerformanceSettings: View {
         SettingsRow(tr("player.quality"), hint: tr("settings.previewQuality.hint", MemoryBudget.isLowMemoryMachine ? "720p" : "1080p")) {
             Dropdown(items: PreviewQuality.allCases.map { ($0.rawValue, tr($0.nameKey)) }, selection: draft.previewQuality) { draft.previewQuality = $0 }
                 .frame(width: 200)
+        }
+        SettingsRow(tr("settings.priority"), hint: tr(PlaybackPriority(rawValue: draft.playbackPriority)?.hintKey ?? "settings.priority.quality.hint")) {
+            HStack(spacing: 16) {
+                ForEach(PlaybackPriority.allCases, id: \.self) { p in
+                    RadioLine(label: tr(p.nameKey), selected: draft.playbackPriority == p.rawValue, id: "priority.\(p.rawValue)") { draft.playbackPriority = p.rawValue }
+                }
+            }
+        }
+        SettingsRow(tr("settings.autoOptimization"), hint: tr("settings.autoOptimization.hint")) {
+            Dropdown(items: AutoOptimization.allCases.map { ($0.rawValue, tr($0.nameKey)) }, selection: draft.autoOptimization) { draft.autoOptimization = $0 }
+                .frame(width: 200).testID("settings.autoOptimization")
         }
         SettingsDivider()
         SettingsRow(tr("settings.proxy")) {

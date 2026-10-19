@@ -449,19 +449,23 @@ extension TimelineView {
     // MARK: Scroll & zoom
 
     override func scrollWheel(with e: NSEvent) {
-        if e.modifierFlags.contains(.command) {
-            let dy = e.scrollingDeltaY
-            guard dy != 0 else { return }
-            zoom(by: e.hasPreciseScrollingDeltas ? exp(Double(dy) * 0.01) : (dy > 0 ? 1.1 : 1 / 1.1), around: point(e).x)
-            return
-        }
-        let horizontal = e.modifierFlags.contains(.option) || e.modifierFlags.contains(.shift)
-        let dx = horizontal ? (e.scrollingDeltaX != 0 ? e.scrollingDeltaX : e.scrollingDeltaY) : e.scrollingDeltaX
-        let dy = horizontal ? 0 : e.scrollingDeltaY
-        if dx != 0 { scrollTime = min(max(0, scrollTime - Double(dx) / store.pixelsPerSecond), scrollableDuration) }
-        if dy != 0 {
-            let maxY = max(0, layoutNow.contentHeight - bounds.height)
-            scrollY = min(max(0, scrollY - dy), maxY)
+        // Settings ▸ Edit ▸ Mouse (SE-016): wheel direction and zoom modifier
+        let s = AppPreferences.shared.settings
+        let action = TimelineScrollMapping.action(
+            dx: Double(e.scrollingDeltaX), dy: Double(e.scrollingDeltaY),
+            command: e.modifierFlags.contains(.command), option: e.modifierFlags.contains(.option),
+            shift: e.modifierFlags.contains(.shift), precise: e.hasPreciseScrollingDeltas,
+            wheel: TimelineScrollMapping.WheelScroll(rawValue: s.mouseWheelScroll) ?? .vertical,
+            zoomModifier: TimelineScrollMapping.ZoomModifier(rawValue: s.mouseZoomModifier) ?? .command)
+        switch action {
+        case .none: return
+        case .zoom(let k): zoom(by: k, around: point(e).x)
+        case .scroll(let dx, let dy):
+            if dx != 0 { scrollTime = min(max(0, scrollTime - dx / store.pixelsPerSecond), scrollableDuration) }
+            if dy != 0 {
+                let maxY = max(0, layoutNow.contentHeight - bounds.height)
+                scrollY = min(max(0, scrollY - CGFloat(dy)), maxY)
+            }
         }
     }
 

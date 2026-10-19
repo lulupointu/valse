@@ -59,6 +59,8 @@ public final class AppPreferences {
         let q = PreviewQuality(rawValue: settings.previewQuality) ?? .auto
         if store.previewQuality != q { store.previewQuality = q }
         if store.playerUI.usesProxies != settings.useProxies { store.setUsesProxies(settings.useProxies) }
+        let perf = settings.playbackPriority == PlaybackPriority.performance.rawValue
+        if PlaybackEngine.performancePriority != perf { PlaybackEngine.performancePriority = perf; store.engine.forceRebuild() }
         // Settings ▸ Audio: preview output device + monitor volume (a missing device falls back to the default)
         let uid = AudioDevices.id(forUID: settings.audioOutputDeviceUID, in: AudioDevices.outputs()) != nil ? settings.audioOutputDeviceUID : nil
         if store.engine.player.audioOutputDeviceUniqueID != uid { store.engine.player.audioOutputDeviceUniqueID = uid }

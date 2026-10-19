@@ -422,12 +422,15 @@ public final class PlaybackEngine {
         return true
     }
 
+    /// Settings ▸ Performance ▸ "Performance priority" (PB-004): Auto preview quality caps at 720p on every machine.
+    public static var performancePriority = false
+
     /// Preview render size for a canvas: capped by quality and the machine's memory class.
     public static func previewSize(canvas: Size2, quality: PreviewQuality) -> CGSize {
         let short = min(canvas.width, canvas.height)
         let maxH: Double
         switch quality {
-        case .auto: maxH = MemoryBudget.isLowMemoryMachine ? 720 : 1080
+        case .auto: maxH = MemoryBudget.isLowMemoryMachine || performancePriority ? 720 : 1080
         case .full: maxH = min(short, 2160)
         case .half: maxH = short / 2
         case .quarter: maxH = short / 4

@@ -12,6 +12,7 @@ public struct TimelinePanel: View {
                 TimelineTabs(store: store)
                 Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
             }
+            if let r = store.timelineUI.frameRatePrompt { FrameRatePrompt(store: store, rate: r) }
             TimelineToolbar(store: store)
             Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
             TimelineHost(store: store)

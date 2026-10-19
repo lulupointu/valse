@@ -45,3 +45,72 @@
 "settings.audio.monitor" = "Volume de l'aperçu";
 "settings.audio.monitor.hint" = "Volume général du lecteur uniquement ; l'audio exporté garde ses niveaux.";
 "settings.audio.testSound" = "Écouter le son";
+
+"playback.dropping" = "Des images sont perdues";
+"playback.lagging" = "La vidéo saccade beaucoup";
+"playback.optimize" = "Optimiser";
+"playback.optimized" = "Lecture optimisée : aperçu réglé sur %@";
+"playback.nothingToOptimize" = "L'aperçu est déjà au réglage le plus léger";
+"settings.autoOptimization" = "Optimisation automatique";
+"settings.autoOptimization.hint" = "Quand la lecture perd des images, réduit automatiquement le coût de l'aperçu (peut baisser la qualité de l'aperçu, jamais celle de l'exportation).";
+"settings.autoOptimization.none" = "Aucune";
+"settings.autoOptimization.smart" = "Optimisation intelligente";
+"settings.autoOptimization.deep" = "Optimisation approfondie";
+"settings.priority" = "Priorité de lecture";
+"settings.priority.quality" = "Priorité à la qualité";
+"settings.priority.performance" = "Priorité aux performances";
+"settings.priority.quality.hint" = "Privilégie la résolution : l'aperçu automatique va jusqu'à 1080p.";
+"settings.priority.performance.hint" = "Privilégie la fluidité de lecture : l'aperçu automatique est limité à 720p.";
+
+"view.showKeystrokes" = "Afficher les touches";
+
+"settings.mouse.wheel" = "Molette de la souris sur la chronologie";
+"settings.mouse.wheel.vertical" = "Faire défiler les pistes (vertical)";
+"settings.mouse.wheel.horizontal" = "Faire défiler le temps (horizontal)";
+"settings.mouse.zoom" = "Zoomer la chronologie avec";
+"settings.mouse.zoom.command" = "⌘ + défilement";
+"settings.mouse.zoom.option" = "⌥ + défilement";
+"settings.mouse.zoom.none" = "Molette seule (⌘ fait défiler)";
+"settings.mouse.hint" = "⇧ + défilement fait toujours défiler horizontalement. Les trackpads défilent dans les deux sens ; pincez pour zoomer.";
+
+"about.checkUpdates" = "Rechercher des mises à jour";
+"about.updates.hint" = "Ouvre la page des versions dans votre navigateur. Montage ne vérifie jamais de lui-même.";
+"about.updates.manual" = "Les mises à jour sont manuelles : aucune page de mise à jour n'est configurée pour cette version. Montage ne se connecte jamais à Internet de lui-même.";
+"env.run" = "Test de l'environnement";
+"env.running" = "Test en cours…";
+"env.verdict.smooth" = "Votre ordinateur peut faire tourner Montage de façon fluide";
+"env.verdict.warnings" = "Montage fonctionnera, avec quelques limites";
+"env.gpu" = "Processeur graphique";
+"env.gpu.advice" = "Processeur graphique ancien : baissez la qualité d'aperçu ou activez les proxys.";
+"env.memory" = "Mémoire";
+"env.memory.advice" = "Peu de mémoire : gardez les proxys activés et fermez les autres apps pendant le montage 4K.";
+"env.os" = "Système";
+"env.os.advice" = "Montage nécessite macOS 14 ou une version ultérieure.";
+"env.decode" = "Décodage matériel";
+"env.decode.advice" = "Pas de décodage matériel HEVC : les vidéos HEVC utiliseront des proxys.";
+"env.encode" = "Encodage matériel";
+"env.encode.advice" = "Pas d'encodeur matériel : les exportations seront plus lentes.";
+"env.disk" = "Espace libre (cache)";
+"env.disk.advice" = "Moins de 10 Go libres : les proxys et le cache de rendu peuvent remplir le disque.";
+"env.ffmpeg" = "FFmpeg (formats supplémentaires)";
+"env.ffmpeg.advice" = "Facultatif : installez FFmpeg pour ouvrir MKV/AVI/WebM et exporter en MP3.";
+
+"framerate.prompt" = "Cette vidéo est en %@. Modifier la fréquence d'images du projet (actuellement %@) ?";
+"framerate.change" = "Passer à %@";
+"framerate.keep" = "Conserver";
+"framerate.changed" = "Fréquence d'images du projet : %@";
+"framerate.smooth" = "Lecture fluide";
+"framerate.smooth.label" = "Rendre la lecture plus fluide (flux optique pour les clips sous la fréquence du projet)";
+"cmd.projectFrameRate" = "Modifier la fréquence d'images";
+"cmd.smoothPlayback" = "Lecture fluide";
+
+"tlmenu.duplicateFrame" = "Dupliquer l'image";
+"cmd.duplicateFrame" = "Dupliquer l'image";
+
+"tlmenu.matchCut" = "Coupe sur le rythme (diviser sur les marqueurs)";
+"cmd.matchCut" = "Coupe sur le rythme";
+"matchCut.noBeats" = "Aucun rythme marqué : sélectionnez la musique et détectez d'abord son rythme";
+"matchCut.done" = "%d coupes sur le rythme";
+
+"tlmenu.splitAudioTrack" = "Séparer la piste audio (G / D)";
+"cmd.splitAudioTrack" = "Séparer la piste audio";

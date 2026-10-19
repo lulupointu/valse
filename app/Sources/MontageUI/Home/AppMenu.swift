@@ -175,6 +175,7 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         ]))
         main.addItem(menu("menu.clip", [
             ed("menu.freeze") { $0.freezeFrame() },
+            ed("tlmenu.duplicateFrame") { $0.duplicateFrame() },
             ed("menu.reverse") { $0.reverseSelection() },
             ed("menu.mirror") { $0.mirrorSelection() },
             ed("menu.rotate") { $0.rotateSelection() },
@@ -242,6 +243,7 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
                 self.store.toggleLoop()
             },
             reg("playerFullscreen"),
+            item("view.showKeystrokes", checked: { KeystrokeFeed.shared.enabled }) { KeystrokeFeed.shared.setEnabled(!KeystrokeFeed.shared.enabled) },
             .separator(),
             item("menu.language.system", checked: { L10n.shared.languagePreference == "system" }) { L10n.shared.setLanguagePreference("system") },
             item("menu.language.en", checked: { L10n.shared.languagePreference == "en" }) { L10n.shared.setLanguagePreference("en") },

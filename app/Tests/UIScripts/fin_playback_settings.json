@@ -1,0 +1,30 @@
+// Finisher PB-015 / PB-003 / PB-004 / SE-016 / SE-014 / SE-015: View ▸ Show keystrokes overlays pressed keys on the
+// player; Settings ▸ Performance playback priority + auto optimization, Edit ▸ mouse; About ▸ Environment test report.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"menu": "menu.view/view.showKeystrokes"},
+    {"click": "clip:main/1"},
+    {"seek": 8},
+    {"key": "right"},
+    {"key": "right"},
+    {"key": "cmd+b"},
+    {"expect": [{"path": "ui.anchors", "contains": "player.keystrokes"}, {"path": "main.clips.count", "equals": 4}]},
+    {"snapshot": "keystrokes", "element": "id:panel.player"},
+    {"menu": "menu.view/view.showKeystrokes"},
+    {"expect": {"path": "ui.anchors", "notContains": "player.keystrokes"}},
+    {"menu": "menu.app/menu.settings"},
+    {"click": "id:settings.tab.performance"},
+    {"click": "id:settings.radio.priority.performance"},
+    {"snapshot": "settings-performance-priority", "element": "id:settings"},
+    {"click": "id:settings.tab.edit"},
+    {"snapshot": "settings-edit-mouse", "element": "id:settings"},
+    {"click": "id:settings.tab.about"},
+    {"click": "id:about.environment"},
+    {"waitFor": {"path": "ui.anchors", "contains": "env.report", "timeout": 15}},
+    {"snapshot": "settings-about-env", "element": "id:settings", "mask": ["id:env.report"]},
+    {"click": "id:dialog.ok"},
+    {"expect": {"path": "app.settings.playbackPriority", "equals": "performance"}}
+  ]
+}

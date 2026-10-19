@@ -87,11 +87,13 @@ extension TimelineView {
             item("tlmenu.split", "b", .command) { s.split() },
             sub("tlmenu.edit", [
                 item("tlmenu.freeze", enabled: isVideo) { s.freezeFrame() },
+                item("tlmenu.duplicateFrame", enabled: isVideo) { s.duplicateFrame() },
                 item("tlmenu.reverse", enabled: isMedia && !(single?.isFreezeFrame ?? true), checked: single?.reversed ?? false) { s.reverseSelection() },
                 item("tlmenu.mirror", enabled: visual) { s.mirrorSelection() },
                 item("tlmenu.rotate", enabled: visual) { s.rotateSelection() },
                 item("tlmenu.crop", enabled: visual && single != nil) { s.inspectorTab = "video" },
             ]),
+            item("tlmenu.matchCut", enabled: !clips.isEmpty) { s.matchCut() },
             // W10 AI entries
             sub("tlmenu.splitScenes", [
                 item("tlmenu.splitScenes.scene", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id, mode: .scene) } },
@@ -159,6 +161,7 @@ extension TimelineView {
                 .separator(),
                 item("tlmenu.markBeat", "m", []) { s.addMarker() },
                 item("tlmenu.clearBeats", enabled: single?.beats != nil) { s.clearBeatsSelection() },
+                item("tlmenu.splitAudioTrack", enabled: single?.mediaID != nil && single?.audio.channels == .stereo) { s.splitAudioChannels() },
             ], at: 9)
         }
         return menu(items)

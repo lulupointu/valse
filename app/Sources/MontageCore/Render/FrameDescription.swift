@@ -274,7 +274,8 @@ public enum FrameEvaluator {
         l.duration = c.duration
         if case .media(let id) = c.content, let a = project.asset(id), a.kind == .video {
             l.motionBlur = r.motionBlur
-            if let m = r.smoothSlowMo, c.speed.rate(at: local, outputDuration: c.duration) < 0.999 {
+            if let m = r.smoothSlowMo, FrameUpconversion.needsInterpolation(rate: c.speed.rate(at: local, outputDuration: c.duration),
+                                                                           sourceRate: a.frameRate, projectRate: project.settings.frameRate) {
                 l.slowMoMethod = m
                 l.frameBlend = frameBlendWeight(c, asset: a, at: t)
             }

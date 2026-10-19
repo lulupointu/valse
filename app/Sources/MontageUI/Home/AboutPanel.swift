@@ -101,6 +101,7 @@ struct AboutPanel: View {
                     Text(loc: "about.local").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
                 }
             }
+            UpdatesAndEnvironment()
             SettingsDivider()
             Text(loc: "about.licenses").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
             VStack(spacing: 6) {
@@ -187,6 +188,66 @@ struct ContentLibraryCredits: View {
             Text(verbatim: "\(i.kind == .music ? i.title : AudioLibrarySections.title(i)) — \(i.source.author) · \(i.license.id) · \(i.source.name)\(i.source.pack.map { " (\($0))" } ?? "") · \(i.source.page)")
                 .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textSecondary)
                 .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// Settings ▸ About ▸ Check for updates (SE-015) and Environment test (SE-014). Montage never contacts a server on its
+/// own: "Check for updates" only opens the releases page in the browser when clicked (Info.plist `MontageReleasesURL`).
+struct UpdatesAndEnvironment: View {
+    @State private var report: EnvironmentProbe.Report?
+    @State private var running = false
+
+    static var releasesURL: URL? {
+        (Bundle.main.infoDictionary?["MontageReleasesURL"] as? String).flatMap { URL(string: $0) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Button(tr("about.checkUpdates")) { if let u = Self.releasesURL { NSWorkspace.shared.open(u) } }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+                    .disabled(Self.releasesURL == nil).testID("about.checkUpdates")
+                Button(tr(running ? "env.running" : "env.run")) { run() }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(running).testID("about.environment")
+            }
+            Text(loc: Self.releasesURL == nil ? "about.updates.manual" : "about.updates.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+            if let report {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: report.smooth ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(report.smooth ? Theme.accent : Color(hex: 0xE8B33A))
+                        Text(loc: report.smooth ? "env.verdict.smooth" : "env.verdict.warnings").font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                    ForEach(report.checks) { c in
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 6) {
+                                Image(systemName: c.status == .ok ? "checkmark.circle" : c.status == .warning ? "exclamationmark.circle" : "xmark.circle")
+                                    .font(.system(size: 11)).foregroundStyle(c.status == .ok ? Theme.accent : Color(hex: 0xE8B33A))
+                                Text(verbatim: tr(c.titleKey)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).frame(width: 150, alignment: .leading)
+                                Text(verbatim: c.value).font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.middle)
+                                    .testID("env.value.\(c.id)")
+                            }
+                            if let a = c.adviceKey {
+                                Text(loc: a).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).padding(.leading, 23)
+                            }
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                .testID("env.report")
+            }
+        }
+    }
+
+    func run() {
+        running = true
+        Task {
+            let r = await Task.detached(priority: .userInitiated) { EnvironmentProbe.run() }.value
+            report = r
+            running = false
         }
     }
 }

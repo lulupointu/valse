@@ -1,0 +1,84 @@
+import SwiftUI
+import AppKit
+import Observation
+import MontageCore
+
+/// "Show keystrokes" (PB-015, View menu): the keys pressed in the editor appear as pills over the bottom-left of the
+/// preview for ~2 s (for tutorials / screen recordings). Plain typing into text fields is not shown, only combos.
+@MainActor @Observable
+public final class KeystrokeFeed {
+    public static let shared = KeystrokeFeed()
+    static let defaultsKey = "montage.view.showKeystrokes"
+
+    public struct Item: Identifiable, Equatable { public let id = UUID(); public let text: String; var count = 1 }
+    public private(set) var items: [Item] = []
+    public private(set) var enabled = false
+    @ObservationIgnored private var monitor: Any?
+    @ObservationIgnored var lifetime: TimeInterval = 2
+
+    init() {
+        if !HomeSandbox.isActive, UserDefaults.standard.bool(forKey: Self.defaultsKey) { setEnabled(true) }
+    }
+
+    public func setEnabled(_ on: Bool) {
+        guard on != enabled else { return }
+        enabled = on
+        if !HomeSandbox.isActive { UserDefaults.standard.set(on, forKey: Self.defaultsKey) }
+        if on {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+                MainActor.assumeIsolated { self?.record(e) }
+                return e
+            }
+        } else {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+            items = []
+        }
+    }
+
+    func record(_ e: NSEvent) {
+        let mods = e.modifierFlags.intersection([.command, .option, .control])
+        if e.window?.firstResponder is NSText, mods.isEmpty { return }   // typing text
+        guard let b = KeyBinding(event: e) else { return }
+        push(b.display)
+    }
+
+    /// Adds a label (repeats of the last key show "×N").
+    func push(_ text: String) {
+        if let last = items.last, last.text == text {
+            items[items.count - 1].count += 1
+        } else {
+            items.append(Item(text: text))
+            if items.count > 4 { items.removeFirst() }
+        }
+        let id = items.last!.id, count = items.last!.count
+        DispatchQueue.main.asyncAfter(deadline: .now() + lifetime) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, let i = self.items.firstIndex(where: { $0.id == id }), self.items[i].count == count else { return }
+                withAnimation(.easeOut(duration: 0.2)) { _ = self.items.remove(at: i) }
+            }
+        }
+    }
+}
+
+struct KeystrokeOverlay: View {
+    @Bindable var feed: KeystrokeFeed = .shared
+    var body: some View {
+        if feed.enabled && !feed.items.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(feed.items) { it in
+                    Text(verbatim: it.count > 1 ? "\(it.text)  ×\(it.count)" : it.text)
+                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10).frame(height: 30)
+                        .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(0.25), lineWidth: 1))
+                        .transition(.opacity)
+                }
+            }
+            .padding(12)
+            .allowsHitTesting(false)
+            .testID("player.keystrokes")
+        }
+    }
+}

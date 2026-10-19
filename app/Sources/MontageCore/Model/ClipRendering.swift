@@ -29,6 +29,34 @@ public enum SlowMotionMethod: String, Codable, Sendable, CaseIterable {
     public var nameKey: String { "slowmo.\(rawValue)" }
 }
 
+/// Frame-rate up-conversion (SP-009 "Make video playback smoother"): a clip with `smoothSlowMo` also interpolates when
+/// the project frame rate is higher than what the clip delivers (source fps × speed), e.g. 24 fps footage in a 60 fps
+/// project, not only when it is slowed down.
+public enum FrameUpconversion {
+    /// Output frames fall between source frames at this speed rate.
+    public static func needsInterpolation(rate: Double, sourceRate: FrameRate?, projectRate: FrameRate) -> Bool {
+        rate < 0.999 || rate * (sourceRate ?? .fps30).fps < projectRate.fps * 0.999
+    }
+
+    /// Lowest rate reached by a speed (constant, or the slowest curve point).
+    public static func minRate(_ s: Speed) -> Double {
+        switch s {
+        case .constant(let v): return v
+        case .curve(let c): return c.points.map(\.v).min() ?? 1
+        }
+    }
+
+    /// Video clips of the timeline whose source is slower than the project (candidates for optical flow).
+    public static func candidates(_ project: Project) -> [ClipID] {
+        let lookup = project.mediaLookup
+        return project.timeline.tracks.filter(\.kind.isVisual).flatMap(\.clips).compactMap { c in
+            guard let id = c.mediaID, let a = lookup[id], a.kind == .video,
+                  minRate(c.speed) * (a.frameRate ?? .fps30).fps < project.settings.frameRate.fps * 0.999 else { return nil }
+            return c.id
+        }
+    }
+}
+
 /// Frame-accumulation motion blur ("Motion blur": amount, times).
 public struct MotionBlur: Hashable, Codable, Sendable {
     /// Blur amount 0…1 (weight of the trailing frames).

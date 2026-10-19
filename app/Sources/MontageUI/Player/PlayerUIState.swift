@@ -22,6 +22,8 @@ public final class PlayerUIState {
     /// Player zoom (1 = fit) and pan in view points (PB-007).
     public var zoom: Double = 1
     public var pan: CGPoint = .zero
+    /// Dropped-frame telemetry + auto optimization (PB-003 / PB-013).
+    public let health = PlaybackHealth()
     public var isZoomBarVisible = false
     // Guides & rulers (PB-011)
     public var showRulers = false

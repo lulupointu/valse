@@ -45,3 +45,72 @@
 "settings.audio.monitor" = "Preview volume";
 "settings.audio.monitor.hint" = "Master volume of the player only; exported audio keeps its levels.";
 "settings.audio.testSound" = "Play sound";
+
+"playback.dropping" = "There are dropped frames";
+"playback.lagging" = "Video lags a lot";
+"playback.optimize" = "Optimize";
+"playback.optimized" = "Playback optimized: preview set to %@";
+"playback.nothingToOptimize" = "Preview is already at its lightest setting";
+"settings.autoOptimization" = "Auto optimization";
+"settings.autoOptimization.hint" = "When playback drops frames, lower the preview cost automatically (may lower preview quality, never the export).";
+"settings.autoOptimization.none" = "None";
+"settings.autoOptimization.smart" = "Smart optimization";
+"settings.autoOptimization.deep" = "Deep optimization";
+"settings.priority" = "Playback priority";
+"settings.priority.quality" = "Quality priority";
+"settings.priority.performance" = "Performance priority";
+"settings.priority.quality.hint" = "Prioritize screen resolution: Auto preview uses up to 1080p.";
+"settings.priority.performance.hint" = "Prioritize playback smoothness: Auto preview is capped at 720p.";
+
+"view.showKeystrokes" = "Show keystrokes";
+
+"settings.mouse.wheel" = "Mouse wheel on the timeline";
+"settings.mouse.wheel.vertical" = "Scroll tracks (vertical)";
+"settings.mouse.wheel.horizontal" = "Scroll time (horizontal)";
+"settings.mouse.zoom" = "Zoom the timeline with";
+"settings.mouse.zoom.command" = "⌘ + scroll";
+"settings.mouse.zoom.option" = "⌥ + scroll";
+"settings.mouse.zoom.none" = "Scroll wheel alone (⌘ scrolls)";
+"settings.mouse.hint" = "⇧ + scroll always scrolls horizontally. Trackpads scroll in both directions; pinch zooms.";
+
+"about.checkUpdates" = "Check for updates";
+"about.updates.hint" = "Opens the releases page in your browser. Montage never checks on its own.";
+"about.updates.manual" = "Updates are manual: this build has no update page configured. Montage never connects to the internet on its own.";
+"env.run" = "Environment test";
+"env.running" = "Testing…";
+"env.verdict.smooth" = "Your computer can run Montage smoothly";
+"env.verdict.warnings" = "Montage will run, with some limits";
+"env.gpu" = "Graphics";
+"env.gpu.advice" = "Older GPU: lower the preview quality or turn on proxies.";
+"env.memory" = "Memory";
+"env.memory.advice" = "Little memory: keep proxies on and close other apps while editing 4K.";
+"env.os" = "System";
+"env.os.advice" = "Montage needs macOS 14 or later.";
+"env.decode" = "Hardware decoding";
+"env.decode.advice" = "No HEVC hardware decoding: HEVC footage will use proxies.";
+"env.encode" = "Hardware encoding";
+"env.encode.advice" = "No hardware encoder: exports will be slower.";
+"env.disk" = "Free space (cache)";
+"env.disk.advice" = "Less than 10 GB free: proxies and render cache may fill the disk.";
+"env.ffmpeg" = "FFmpeg (extra formats)";
+"env.ffmpeg.advice" = "Optional: install FFmpeg to open MKV/AVI/WebM and export MP3.";
+
+"framerate.prompt" = "This video is %@. Change the frame rate of this project (now %@)?";
+"framerate.change" = "Change to %@";
+"framerate.keep" = "Keep";
+"framerate.changed" = "Project frame rate: %@";
+"framerate.smooth" = "Smooth playback";
+"framerate.smooth.label" = "Make video playback smoother (optical flow for clips below the project frame rate)";
+"cmd.projectFrameRate" = "Change frame rate";
+"cmd.smoothPlayback" = "Smooth playback";
+
+"tlmenu.duplicateFrame" = "Duplicate frame";
+"cmd.duplicateFrame" = "Duplicate frame";
+
+"tlmenu.matchCut" = "Match cut (split on beats)";
+"cmd.matchCut" = "Match cut";
+"matchCut.noBeats" = "No beats marked: select the music and use Auto beats or Mark beats first";
+"matchCut.done" = "%d cuts on the beat";
+
+"tlmenu.splitAudioTrack" = "Split audio track (L / R)";
+"cmd.splitAudioTrack" = "Split audio track";

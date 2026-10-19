@@ -26,6 +26,8 @@ final class PlayerView: NSView {
     private var configuredSpace: ProjectColorSpace?
     private var configuredEDR = false
     private(set) var presentMode: Presenter.Mode = .passthrough
+    /// Item time of each decoded frame presented by the display link (dropped-frame telemetry, PB-013).
+    var onFramePresented: ((Time) -> Void)?
 
     init(engine: PlaybackEngine) {
         self.engine = engine
@@ -100,8 +102,9 @@ final class PlayerView: NSView {
     }
 
     @objc private func tick(_ l: CADisplayLink) {
-        if let (pb, _) = engine.pixelBuffer(forHostTime: l.targetTimestamp) {
+        if let (pb, t) = engine.pixelBuffer(forHostTime: l.targetTimestamp) {
             lastPixelBuffer = pb
+            onFramePresented?(t)
             if let (tex, cv) = frameTexture(pb) {
                 present(tex, retain: [cv, pb])
                 needsRerender = false

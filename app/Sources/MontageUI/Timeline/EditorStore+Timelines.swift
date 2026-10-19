@@ -64,6 +64,38 @@ extension EditorStore {
         ScrubAudio.shared.scrub(project, at: t.clamped(.zero, project.duration))
     }
 
+    // MARK: Frame rate (SP-009)
+
+    /// First video differs from the project rate → offer "Change frame rate for this project?".
+    func offerFrameRate(of asset: MediaAsset) {
+        guard asset.kind == .video, let f = asset.frameRate else { return }
+        let r = FrameRate.nearest(to: f.fps)
+        timelineUI.frameRatePrompt = abs(r.fps - project.settings.frameRate.fps) > 0.01 ? r : nil
+    }
+
+    /// Accepts the prompt (one undo step; all timelines keep their own rate).
+    public func changeProjectFrameRate(_ r: FrameRate) {
+        timelineUI.frameRatePrompt = nil
+        if perform(Edit("cmd.projectFrameRate") { p in p.settings.frameRate = r }) {
+            showToast(tr("framerate.changed", HomeFormat.fps(r)))
+        }
+    }
+
+    /// "Make video playback smoother": optical-flow interpolation on every video clip slower than the project rate.
+    @discardableResult
+    public func smoothPlayback(_ on: Bool) -> Int {
+        let ids = Set(FrameUpconversion.candidates(project))
+        guard !ids.isEmpty else { return 0 }
+        perform(Edit("cmd.smoothPlayback") { p in
+            for ti in p.timeline.tracks.indices {
+                for ci in p.timeline.tracks[ti].clips.indices where ids.contains(p.timeline.tracks[ti].clips[ci].id) {
+                    p.timeline.tracks[ti].clips[ci].smoothSlowMo = on ? .opticalFlow : nil
+                }
+            }
+        })
+        return ids.count
+    }
+
     /// Effective "Import material" for this project (project setting, else Settings ▸ Project), SE-010.
     public var copiesMediaOnImport: Bool {
         project.settings.copyMediaOnImport ?? AppPreferences.shared.settings.copyMediaOnImport
@@ -130,5 +162,26 @@ struct TimelineTabs: View {
             Button(tr("timelines.delete")) { store.deleteTimeline(s.id) }.disabled(!canDelete)
         }
         .testID("timelines.tab.\(index)")
+    }
+}
+
+/// "Change frame rate for this project?" (SP-009, CapCut prompt after adding the first video).
+struct FrameRatePrompt: View {
+    let store: EditorStore
+    let rate: FrameRate
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "speedometer").foregroundStyle(Theme.accent)
+            Text(verbatim: tr("framerate.prompt", HomeFormat.fps(rate), HomeFormat.fps(store.project.settings.frameRate)))
+                .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+            Spacer()
+            Button(tr("framerate.change", HomeFormat.fps(rate))) { store.changeProjectFrameRate(rate) }
+                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("framerate.change")
+            Button(tr("framerate.keep")) { store.timelineUI.frameRatePrompt = nil }
+                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("framerate.keep")
+        }
+        .padding(.horizontal, 12).frame(height: 34)
+        .background(Theme.accent.opacity(0.12))
+        .testID("framerate.prompt")
     }
 }

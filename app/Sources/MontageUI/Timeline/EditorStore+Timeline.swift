@@ -176,6 +176,40 @@ extension EditorStore {
         if edit("cmd.freeze", { p in box.value = try TimelineOps.freezeFrame(c.id, at: t, in: &p) }) { selection = [box.value] }
     }
 
+    /// "Duplicate frame" (TL-015): repeats the frame under the playhead for one frame (≥ the minimum clip length),
+    /// inserted in place like a freeze; the playhead moves past it so repeated use stutters successive frames.
+    public func duplicateFrame() {
+        guard let c = targetClip else { return }
+        let t = playhead.clamped(c.start, c.end)
+        let d = max(project.settings.frameRate.frameDuration, TimelineOps.minimumClipDuration)
+        let box = ResultBox(ClipID())
+        if edit("cmd.duplicateFrame", { p in box.value = try TimelineOps.freezeFrame(c.id, at: t, duration: d, in: &p) }) {
+            selection = [box.value]
+            if let f = project.timeline.clip(box.value) { seek(to: f.end) }
+        }
+    }
+
+    /// "Match cut" (TL-036): split the selected clips on the marked beats of the music.
+    public func matchCut() {
+        let ids = selection.isEmpty ? Set(targetClip.map { [$0.id] } ?? []) : selection
+        guard !ids.isEmpty else { return }
+        guard !TimelineOps.beatTimes(project.timeline, excluding: ids).isEmpty else { showToast(tr("matchCut.noBeats")); return }
+        let box = ResultBox(0)
+        if edit("cmd.matchCut", { p in box.value = try TimelineOps.matchCut(ids, in: &p.timeline) }) {
+            showToast(tr("matchCut.done", box.value))
+        }
+    }
+
+    /// "Split audio track" (AU-018): a stereo (dual-mono) audio clip becomes its left channel here and its right
+    /// channel on a new audio track, grouped so they move together.
+    public func splitAudioChannels() {
+        guard let c = singleSelectedClip else { return }
+        let box = ResultBox(ClipID())
+        if edit("cmd.splitAudioTrack", { p in box.value = try TimelineOps.splitAudioChannels(c.id, in: &p.timeline) }) {
+            selection = [c.id, box.value]
+        }
+    }
+
     public func reverseSelection() {
         let ids = selection.isEmpty ? Set(targetClip.map { [$0.id] } ?? []) : selection
         edit("cmd.reverse") { p in try TimelineOps.toggleReverse(ids, in: &p.timeline) }
