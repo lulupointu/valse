@@ -74,6 +74,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var hardwareEncoding = true
     /// Speed up hardware decoding.
     public var hardwareDecoding = true
+    /// EX-016 "Faster exporting, but may have color differences": the hardware encoder favours speed over quality.
+    public var fastExport = false
     /// Cache folder (nil = ~/Library/Caches/Montage). Takes effect after a restart.
     public var cacheDirectory: String?
     /// Render cache cap ("Auto clear [10] GB").

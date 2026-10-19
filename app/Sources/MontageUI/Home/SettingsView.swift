@@ -533,8 +533,23 @@ struct PerformanceSettings: View {
     var cache: URL { MontagePaths.cacheDirectory }
     var body: some View {
         SettingsRow(tr("settings.encode")) {
-            CheckLine(label: tr("settings.hwEncode"), isOn: $draft.hardwareEncoding, id: "hwEncode")
-            HintText(text: tr("settings.hwDecode.hint"))
+            HStack(spacing: 5) {
+                CheckLine(label: tr("settings.hwEncode"), isOn: $draft.hardwareEncoding, id: "hwEncode")
+                SettingsHelp(text: tr("ex.hw.encode.help"), id: "hwEncode")
+            }
+            // EX-016: CapCut's "Faster exporting, but may have color differences" (needs the hardware encoder)
+            HStack(spacing: 5) {
+                CheckLine(label: tr("ex.hw.fastExport"), isOn: Binding(get: { draft.hardwareEncoding && draft.fastExport },
+                                                                         set: { draft.fastExport = $0 }), id: "fastExport")
+                SettingsHelp(text: tr("ex.hw.fastExport.help"), id: "fastExport")
+            }
+            .padding(.leading, 24)
+            .disabled(!draft.hardwareEncoding).opacity(draft.hardwareEncoding ? 1 : 0.45)
+            // Apple silicon always decodes H.264 / HEVC / ProRes on the media engine: shown checked and locked (honest)
+            HStack(spacing: 5) {
+                CheckLine(label: tr("ex.hw.decode"), isOn: .constant(true), id: "hwDecode").disabled(true).opacity(0.6)
+                SettingsHelp(text: tr("settings.hwDecode.hint"), id: "hwDecode")
+            }
         }
         SettingsDivider()
         SettingsRow(tr("player.quality"), hint: tr("settings.previewQuality.hint", MemoryBudget.isLowMemoryMachine ? "720p" : "1080p")) {

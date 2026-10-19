@@ -1,0 +1,18 @@
+// F4 EX-016: Settings ▸ Performance ▸ Encode settings — Speed up hardware encoding, Faster exporting (sub-option, disabled
+// without the hardware encoder), Speed up hardware decoding (always on, locked); ⓘ help on each; saved to the settings.
+{
+  "project": "home",
+  "steps": [
+    {"click": "id:home.top.settings"},
+    {"click": "id:settings.tab.performance"},
+    {"expect": {"path": "ui.anchors", "contains": "settings.check.fastExport"}},
+    {"expect": {"path": "ui.anchors", "contains": "settings.help.fastExport"}},
+    {"click": "id:settings.check.fastExport"},
+    {"snapshot": "f4-settings-hw-fast", "element": "id:settings"},
+    {"click": "id:settings.check.hwEncode"},
+    {"snapshot": "f4-settings-hw-off", "element": "id:settings"},
+    {"click": "id:settings.check.hwEncode"},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.settings.fastExport", "equals": true}, {"path": "app.settings.hardwareEncoding", "equals": true}]}
+  ]
+}

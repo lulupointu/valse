@@ -48,6 +48,7 @@ public final class AppPreferences {
         guard !HomeSandbox.isActive else { return }  // never touch the user's path overrides from a sandbox
         let d = UserDefaults.standard
         d.set(settings.hardwareEncoding, forKey: ExportDialogModel.hardwareDefaultsKey)
+        d.set(settings.hardwareEncoding && settings.fastExport, forKey: ExportDialogModel.fastEncodingDefaultsKey)
         d.set(settings.exportSound, forKey: ExportQueue.soundDefaultsKey)
         d.set(settings.notifyOnExport, forKey: ExportQueue.notifyDefaultsKey)
         if let p = settings.projectsDirectory, !p.isEmpty { d.set(p, forKey: MontagePaths.draftsOverrideKey) } else { d.removeObject(forKey: MontagePaths.draftsOverrideKey) }
@@ -86,6 +87,7 @@ public final class AppPreferences {
         e.codec = ExportSettings.Codec(rawValue: settings.exportCodec) ?? e.codec
         e.bitrateMode = ExportSettings.BitrateMode(rawValue: settings.exportBitrate) ?? e.bitrateMode
         e.preferHardware = settings.hardwareEncoding
+        e.fastEncoding = settings.hardwareEncoding && settings.fastExport
         e.frameRate = settings.exportFrameRate > 0 ? Self.frameRate(settings.exportFrameRate) : project.settings.frameRate
         let short = min(project.settings.canvasSize.width, project.settings.canvasSize.height)
         if settings.exportResolution > 0, let r = ExportSettings.Resolution(rawValue: settings.exportResolution) {

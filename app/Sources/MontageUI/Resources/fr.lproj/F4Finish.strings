@@ -5,3 +5,7 @@
 "pm.drive.banner" = "Le disque « %1$@ » qui contient votre dossier d'enregistrement n'est pas connecté. Les nouveaux projets sont enregistrés dans %2$@ jusqu'à ce que vous le rebranchiez.";
 "pm.drive.openSettings" = "Paramètres";
 "pm.drive.projectOffline" = "Ce projet se trouve sur le disque « %@ », qui n'est pas connecté. Branchez-le et réessayez.";
+"ex.hw.encode.help" = "Exporte avec le moteur multimédia d'Apple silicon : plusieurs fois plus rapide. Désactivé = encodeur logiciel (plus lent, même format et mêmes couleurs).";
+"ex.hw.fastExport" = "Exportation plus rapide, mais les couleurs peuvent différer";
+"ex.hw.fastExport.help" = "L'encodeur matériel privilégie la vitesse à la qualité. Les dégradés et les zones sombres peuvent légèrement différer.";
+"ex.hw.decode" = "Accélérer le décodage matériel";

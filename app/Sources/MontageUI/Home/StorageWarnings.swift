@@ -54,3 +54,15 @@ struct SaveFolderBanner: View {
         }
     }
 }
+
+/// CapCut's ⓘ next to a setting: hover shows the explanation; VoiceOver reads it as the help of a labelled image.
+struct SettingsHelp: View {
+    let text: String
+    var id: String
+    var body: some View {
+        Image(systemName: "questionmark.circle").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+            .help(text)
+            .accessibilityLabel(Text(verbatim: text))
+            .testID("settings.help.\(id)")
+    }
+}

@@ -289,6 +289,9 @@ public enum Exporter {
                 // Peak ≈ average over 1 s windows (VideoToolbox data-rate limit): constant-bit-rate-like output.
                 props[kVTCompressionPropertyKey_DataRateLimits as String] = [NSNumber(value: Double(bitrate) * 1.1 / 8), NSNumber(value: 1)]
             }
+            if s.preferHardware && s.fastEncoding {
+                props[kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality as String] = true   // EX-016
+            }
             out[AVVideoCompressionPropertiesKey] = props
             out[AVVideoEncoderSpecificationKey] = [
                 kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: s.preferHardware]

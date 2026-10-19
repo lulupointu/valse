@@ -99,6 +99,11 @@ import MontageEngine
         s.hardwareEncoding = false
         e = AppPreferences.exportDefaults(s, for: p)
         #expect(e.resolution == .p720 && e.frameRate.fps == 60 && e.codec == .hevc && !e.preferHardware)
+        // EX-016: "Faster exporting" only applies with the hardware encoder
+        s.fastExport = true
+        #expect(!AppPreferences.exportDefaults(s, for: p).fastEncoding)
+        s.hardwareEncoding = true
+        #expect(AppPreferences.exportDefaults(s, for: p).fastEncoding)
     }
 
     @Test func firstExportUsesSettingsDefaults() {

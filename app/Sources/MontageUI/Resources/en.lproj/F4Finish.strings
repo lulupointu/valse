@@ -5,3 +5,7 @@
 "pm.drive.banner" = "The drive “%1$@” that holds your Save to folder isn't connected. New projects are saved to %2$@ until you reconnect it.";
 "pm.drive.openSettings" = "Settings";
 "pm.drive.projectOffline" = "This project is on the drive “%@”, which isn't connected. Connect it and try again.";
+"ex.hw.encode.help" = "Exports with the Apple silicon media engine: several times faster. Off = software encoder (slower, same format and colours).";
+"ex.hw.fastExport" = "Faster exporting, but may have color differences";
+"ex.hw.fastExport.help" = "The hardware encoder favours speed over quality. Gradients and dark areas can look slightly different.";
+"ex.hw.decode" = "Speed up hardware decoding";

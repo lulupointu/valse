@@ -46,6 +46,8 @@ public final class ExportDialogModel {
     public static let defaultsKey = "montage.export.dialog.v1"
     /// Settings ▸ Performance "Speed up hardware encoding" (UI owned by W12). Default on.
     public static let hardwareDefaultsKey = "montage.export.hardwareEncoding"
+    /// EX-016 Settings ▸ Performance ▸ "Faster exporting, but may have color differences".
+    public static let fastEncodingDefaultsKey = "montage.export.fastEncoding"
     /// Settings ▸ Export defaults (W12): video settings + folder for the first export (nothing remembered yet).
     public nonisolated(unsafe) static var firstExportDefaults: (@Sendable (Project) -> (video: ExportSettings, folder: URL?))?
 
@@ -97,6 +99,7 @@ public final class ExportDialogModel {
         self.title = title
         var r = (defaults.data(forKey: Self.defaultsKey)).flatMap { try? JSONDecoder().decode(Remembered.self, from: $0) } ?? Remembered()
         if defaults.object(forKey: Self.hardwareDefaultsKey) != nil { r.video.preferHardware = defaults.bool(forKey: Self.hardwareDefaultsKey) }
+        r.video.fastEncoding = r.video.preferHardware && defaults.bool(forKey: Self.fastEncodingDefaultsKey)
         if defaults.data(forKey: Self.defaultsKey) == nil {
             // first export: CapCut defaults, frame rate from the project, resolution ≤ canvas
             r.video.frameRate = ExportSettings.frameRates.min { abs($0.fps - project.settings.frameRate.fps) < abs($1.fps - project.settings.frameRate.fps) } ?? .fps30

@@ -100,6 +100,9 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var audioBitrateKbps: Int = 192
     /// Hardware encoder preferred (falls back to software if unavailable). Settings ▸ "Speed up hardware encoding".
     public var preferHardware: Bool = true
+    /// EX-016 Settings ▸ "Faster exporting, but may have color differences": the hardware encoder prioritises speed
+    /// over quality (VideoToolbox `PrioritizeEncodingSpeedOverQuality`). Ignored by the software encoder and ProRes.
+    public var fastEncoding: Bool = false
     /// Captions are rendered into the picture (false = only the sidecar caption file).
     public var burnCaptions: Bool = true
     /// EX-019: prepend the cover frame as the first frame (social thumbnails).
@@ -114,7 +117,7 @@ public struct ExportSettings: Codable, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case codec, container, resolution, frameRate, bitrateMode, customBitrateMbps, rateControl, bitDepth, alpha, toneMapToSDR,
-             aspect, includeAudio, audioBitrateKbps, preferHardware, burnCaptions, prependCover, motionBlur, aiUltraHD
+             aspect, includeAudio, audioBitrateKbps, preferHardware, fastEncoding, burnCaptions, prependCover, motionBlur, aiUltraHD
     }
 
     public init(from decoder: any Decoder) throws {
@@ -134,6 +137,7 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         includeAudio = (try? c.decodeIfPresent(Bool.self, forKey: .includeAudio)) ?? d.includeAudio
         audioBitrateKbps = (try? c.decodeIfPresent(Int.self, forKey: .audioBitrateKbps)) ?? d.audioBitrateKbps
         preferHardware = (try? c.decodeIfPresent(Bool.self, forKey: .preferHardware)) ?? d.preferHardware
+        fastEncoding = (try? c.decodeIfPresent(Bool.self, forKey: .fastEncoding)) ?? d.fastEncoding
         burnCaptions = (try? c.decodeIfPresent(Bool.self, forKey: .burnCaptions)) ?? d.burnCaptions
         prependCover = (try? c.decodeIfPresent(Bool.self, forKey: .prependCover)) ?? d.prependCover
         motionBlur = (try? c.decodeIfPresent(MotionBlurLevel.self, forKey: .motionBlur)) ?? d.motionBlur
