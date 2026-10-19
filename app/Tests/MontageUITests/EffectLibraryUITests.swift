@@ -54,6 +54,16 @@ import MontageTestSupport
         #expect(StickerCatalog.search("fleche").contains { $0.id == "montage.sticker.arrowRed" })
     }
 
+    @Test func stickerRecentsAndSort() {
+        let a = "montage.sticker.heartPink", b = "montage.sticker.arrowRed", c = "montage.sticker.shape.circle.yellow"
+        #expect(StickerCatalog.entries(nav: StickerCatalog.recentNav, favorites: [], recents: [b, "gone", a]).map(\.id) == [b, a])
+        #expect(StickerCatalog.nav().prefix(StickerCatalog.leadingNavCount).map(\.id).contains(StickerCatalog.recentNav))
+        let items = [a, b, c].compactMap { Registries.stickers[$0] }
+        #expect(StickerCatalog.sorted(items, by: .standard, favorites: [c], recents: [b]).map(\.id) == [a, b, c])
+        #expect(StickerCatalog.sorted(items, by: .favorites, favorites: [c], recents: [b]).map(\.id) == [c, a, b])
+        #expect(StickerCatalog.sorted(items, by: .recent, favorites: [c], recents: [c, b]).map(\.id) == [c, b, a])
+    }
+
     @Test func favoritesToggleAndPersist() {
         let suite = "montage.test.favorites.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

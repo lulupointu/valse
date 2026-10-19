@@ -12,3 +12,7 @@
 "fxlib.favorites.empty" = "Hover a card and click ☆ to add it to your favorites.";
 "fxlib.addFavorite" = "Add to favorites";
 "fxlib.removeFavorite" = "Remove from favorites";
+"sticker.sort" = "Sort";
+"sticker.sort.standard" = "Default";
+"sticker.sort.favorites" = "Favorites first";
+"sticker.sort.recent" = "Recently used first";

@@ -171,4 +171,26 @@ struct MaskHandlesTests {
         let b = MaskBrushMapping.boxPoint(p, layer: g, mask: m)
         #expect(abs(b.x - 0.25) < 1e-9 && abs(b.y + 0.5) < 1e-9)
     }
+
+    @Test func vectorscopeAndHistogram() throws {
+        // 2 pure red + 2 grey pixels
+        let px: [UInt8] = [255, 0, 0, 255, 255, 0, 0, 255, 128, 128, 128, 255, 128, 128, 128, 255]
+        let vs = try #require(ScopeAnalyzer.image(rgba: px, width: 2, height: 2, mode: .vectorscope))
+        #expect(vs.width == ScopeAnalyzer.vectorSize && vs.height == ScopeAnalyzer.vectorSize)
+        func alpha(_ img: CGImage, _ x: Int, _ y: Int) -> UInt8 {
+            let d = img.dataProvider!.data! as Data
+            return d[(y * img.width + x) * 4 + 3]
+        }
+        let n = Double(ScopeAnalyzer.vectorSize)
+        let red = ScopeAnalyzer.vectorPoint(r: 1, g: 0, b: 0)
+        #expect(red.x < 0.5 && red.y < 0.5)   // red: Cb < 0, Cr > 0 → left, up
+        #expect(alpha(vs, Int(red.x * n), Int(red.y * n)) > 0 && alpha(vs, Int(n / 2), Int(n / 2)) > 0)   // grey at the centre
+        #expect(alpha(vs, 2, Int(n) - 3) == 0)
+        let hist = try #require(ScopeAnalyzer.image(rgba: px, width: 2, height: 2, mode: .histogram))
+        #expect(hist.height == ScopeAnalyzer.levels)
+        #expect(alpha(hist, hist.width - 1, 0) > 0)          // R = 255 reaches the top (peak bin)
+        #expect(alpha(hist, hist.width / 2, hist.height - 1) > 0)   // grey bin
+        #expect(alpha(hist, 0, hist.height - 1) > 0)         // G, B = 0 for the red pixels
+        #expect(alpha(hist, hist.width / 4, hist.height - 1) == 0)
+    }
 }

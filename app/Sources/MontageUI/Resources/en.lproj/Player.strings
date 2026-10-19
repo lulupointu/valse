@@ -109,3 +109,5 @@
 
 /* Canvas eyedropper (W2-8) */
 "player.eyedropper.hint" = "Click the video to pick a colour · esc to cancel";
+"player.scope.vectorscope" = "Vectorscope";
+"player.scope.histogram" = "RGB histogram";

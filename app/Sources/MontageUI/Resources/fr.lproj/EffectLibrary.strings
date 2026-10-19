@@ -12,3 +12,7 @@
 "fxlib.favorites.empty" = "Survolez une carte et cliquez sur ☆ pour l’ajouter à vos favoris.";
 "fxlib.addFavorite" = "Ajouter aux favoris";
 "fxlib.removeFavorite" = "Retirer des favoris";
+"sticker.sort" = "Trier";
+"sticker.sort.standard" = "Par défaut";
+"sticker.sort.favorites" = "Favoris en premier";
+"sticker.sort.recent" = "Récemment utilisés en premier";

@@ -366,7 +366,8 @@ final class CanvasOverlayView: NSView {
 
     /// Bottom-right panel: dark rounded box, 0/50/100 % grid, the scope image.
     private func drawScope(_ ctx: CGContext) {
-        let w = min(240, bounds.width * 0.4), h = w / 2
+        let square = store.playerUI.scope.isSquare
+        let w = square ? min(160, bounds.width * 0.3) : min(240, bounds.width * 0.4), h = square ? w : w / 2
         let box = CGRect(x: bounds.width - w - 10, y: bounds.height - h - 10, width: w, height: h)
         ctx.saveGState()
         ctx.setFillColor(NSColor.black.withAlphaComponent(0.88).cgColor)
@@ -374,9 +375,30 @@ final class CanvasOverlayView: NSView {
         let plot = box.insetBy(dx: 6, dy: 6)
         ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.18).cgColor)
         ctx.setLineWidth(0.5)
-        for f in [0.0, 0.25, 0.5, 0.75, 1.0] {
-            let y = plot.minY + plot.height * f
-            ctx.strokeLineSegments(between: [CGPoint(x: plot.minX, y: y), CGPoint(x: plot.maxX, y: y)])
+        if square {
+            // vectorscope graticule: rings at 25 / 50 %, centre cross, R / G / B / skin-tone direction marks
+            let c = CGPoint(x: plot.midX, y: plot.midY), rad = plot.width / 2
+            for k in [0.5, 1.0] { ctx.strokeEllipse(in: CGRect(x: c.x - rad * k, y: c.y - rad * k, width: 2 * rad * k, height: 2 * rad * k)) }
+            ctx.strokeLineSegments(between: [CGPoint(x: c.x - 4, y: c.y), CGPoint(x: c.x + 4, y: c.y), CGPoint(x: c.x, y: c.y - 4), CGPoint(x: c.x, y: c.y + 4)])
+            func at(_ r: Double, _ g: Double, _ b: Double) -> CGPoint {
+                let p = ScopeAnalyzer.vectorPoint(r: r, g: g, b: b)
+                return CGPoint(x: plot.minX + p.x * plot.width, y: plot.minY + p.y * plot.height)
+            }
+            for (col, p) in [(NSColor.systemRed, at(0.75, 0, 0)), (NSColor.systemGreen, at(0, 0.75, 0)), (NSColor.systemBlue, at(0, 0, 0.75)),
+                             (NSColor.systemYellow, at(0.75, 0.75, 0)), (NSColor.systemTeal, at(0, 0.75, 0.75)), (NSColor.magenta, at(0.75, 0, 0.75))] {
+                ctx.setStrokeColor(col.withAlphaComponent(0.6).cgColor)
+                ctx.stroke(CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6))
+            }
+            // skin-tone line (≈ 123° on a Rec. 709 vectorscope): through the plotted direction of a typical skin colour
+            let skin = at(0.85, 0.62, 0.5)
+            let d = CGPoint(x: skin.x - c.x, y: skin.y - c.y), len = max(hypot(d.x, d.y), 1e-3)
+            ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.25).cgColor)
+            ctx.strokeLineSegments(between: [c, CGPoint(x: c.x + d.x / len * rad, y: c.y + d.y / len * rad)])
+        } else {
+            for f in [0.0, 0.25, 0.5, 0.75, 1.0] {
+                let y = plot.minY + plot.height * f
+                ctx.strokeLineSegments(between: [CGPoint(x: plot.minX, y: y), CGPoint(x: plot.maxX, y: y)])
+            }
         }
         if let img = scopeImage {
             // the CG image is drawn bottom-up in this flipped view: flip it back so high values stay at the top

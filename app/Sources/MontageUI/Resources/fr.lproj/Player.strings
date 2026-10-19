@@ -109,3 +109,5 @@
 
 /* Canvas eyedropper (W2-8) */
 "player.eyedropper.hint" = "Cliquez sur la vidéo pour prélever une couleur · échap pour annuler";
+"player.scope.vectorscope" = "Vectorscope";
+"player.scope.histogram" = "Histogramme RVB";

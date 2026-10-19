@@ -1,0 +1,17 @@
+// ST-010: Stickers ▸ Recent lists the stickers added to the timeline, most recent first.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.stickers"},
+    {"click": "id:asset.nav.asset.nav.recent"},
+    {"expect": {"path": "ui.anchors", "notContains": "asset.tile.montage.sticker.shape.circle.white"}},
+    {"click": "id:asset.nav.sticker.group.shapes"},
+    {"click": "id:asset.tile.montage.sticker.shape.circle.white"},
+    {"click": "id:asset.tile.montage.sticker.shape.circle.white.add"},
+    {"expect": {"path": "selectedClips.0.kind", "contains": "sticker"}},
+    {"click": "id:asset.nav.asset.nav.recent"},
+    {"expect": [{"path": "ui.anchors", "contains": "asset.tile.montage.sticker.shape.circle.white"},
+                {"path": "ui.anchors", "notContains": "asset.tile.montage.sticker.shape.rect.white"}]},
+    {"snapshot": "sticker-recent", "element": "id:panel.assets"}
+  ]
+}

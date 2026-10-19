@@ -21,8 +21,29 @@ enum StickerCatalog {
         return groupOrder.filter(seen.contains) + seen.filter { !groupOrder.contains($0) }
     }
 
+    /// "Recent" (ST-010): stickers added to the timeline, most recent first (`AssetLibraryStore` namespace "stickers").
+    static let recentNav = "asset.nav.recent"
+    static let recentsNamespace = "stickers"
+    /// Rail entries before the categories (Favorites · Recent · Yours).
+    static let leadingNavCount = 3
+
     static func nav() -> [(id: String, titleKey: String)] {
-        [(EffectLibraryCatalog.favoritesNav, "fxlib.favorites"), (yoursNav, yoursNav)] + groups().map { ($0, $0) }
+        [(EffectLibraryCatalog.favoritesNav, "fxlib.favorites"), (recentNav, recentNav), (yoursNav, yoursNav)] + groups().map { ($0, $0) }
+    }
+
+    /// Sort of a sticker list (ST-010): catalogue order, favourites first, or recently used first.
+    enum Sort: String, CaseIterable { case standard, favorites, recent }
+
+    static func sorted(_ items: [StickerDescriptor], by sort: Sort, favorites: Set<String>, recents: [String]) -> [StickerDescriptor] {
+        switch sort {
+        case .standard: return items
+        case .favorites:
+            return items.filter { favorites.contains($0.id) } + items.filter { !favorites.contains($0.id) }
+        case .recent:
+            let rank = Dictionary(recents.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+            let used = items.filter { rank[$0.id] != nil }.sorted { rank[$0.id]! < rank[$1.id]! }
+            return used + items.filter { rank[$0.id] == nil }
+        }
     }
 
     /// Registered stickers minus deleted custom ones (the registry can't unregister).
@@ -33,8 +54,9 @@ enum StickerCatalog {
         }
     }
 
-    static func entries(nav: String, favorites: Set<String>) -> [StickerDescriptor] {
+    static func entries(nav: String, favorites: Set<String>, recents: [String] = []) -> [StickerDescriptor] {
         let all = available
+        if nav == recentNav { return recents.compactMap { id in all.first { $0.id == id } } }
         return nav == EffectLibraryCatalog.favoritesNav ? all.filter { favorites.contains($0.id) } : all.filter { $0.groupKey == nav }
     }
 
@@ -70,15 +92,19 @@ struct StickerLibraryTab: View {
     @State private var query = ""
     @State private var selected: String?
     @State private var revision = 0   // bumps after importing / deleting custom stickers
+    @State private var sort: StickerCatalog.Sort = .standard
     private var favorites: EffectFavorites { EffectFavorites.shared }
 
     var body: some View {
         let _ = revision
         let navItems = StickerCatalog.nav()
-        let current = nav.isEmpty ? (navItems.dropFirst(2).first?.id ?? navItems[0].id) : nav
+        let current = nav.isEmpty ? (navItems.dropFirst(StickerCatalog.leadingNavCount).first?.id ?? navItems[0].id) : nav
         let yours = current == StickerCatalog.yoursNav
+        let recentNav = current == StickerCatalog.recentNav
         let searching = !EffectLibraryCatalog.fold(query).isEmpty
-        let items = searching ? StickerCatalog.search(query) : StickerCatalog.entries(nav: current, favorites: favorites.ids)
+        let recents = AssetLibraryStore.shared.recentIDs(StickerCatalog.recentsNamespace)
+        let listed = searching ? StickerCatalog.search(query) : StickerCatalog.entries(nav: current, favorites: favorites.ids, recents: recents)
+        let items = recentNav && !searching ? listed : StickerCatalog.sorted(listed, by: sort, favorites: favorites.ids, recents: recents)
         HStack(spacing: 0) {
             SubNav(items: navItems.map { ($0.id, tr($0.titleKey)) }, selection: Binding(get: { current }, set: { nav = $0; query = "" }))
             VStack(alignment: .leading, spacing: 8) {
@@ -91,10 +117,30 @@ struct StickerLibraryTab: View {
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
                 .padding(.horizontal, 12)
                 .testID("asset.search")
-                Text(verbatim: searching ? tr("fxlib.results") : tr(navItems.first { $0.id == current }?.titleKey ?? current))
-                    .font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
+                HStack {
+                    Text(verbatim: searching ? tr("fxlib.results") : tr(navItems.first { $0.id == current }?.titleKey ?? current))
+                        .font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    if !recentNav || searching {
+                        // ST-010 sort: Default · Favorites first · Recently used first
+                        Menu {
+                            ForEach(StickerCatalog.Sort.allCases, id: \.self) { s in
+                                Button { sort = s } label: {
+                                    if s == sort { Label(tr("sticker.sort.\(s.rawValue)"), systemImage: "checkmark") } else { Text(tr("sticker.sort.\(s.rawValue)")) }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .help(tr("sticker.sort"))
+                        .testID("sticker.sort")
+                    }
+                }
+                .padding(.horizontal, 12)
                 if items.isEmpty && !(yours && !searching) {
-                    EmptyState(symbol: searching ? "magnifyingglass" : "star", title: tr(searching ? "fxlib.noResults" : "fxlib.favorites.empty"))
+                    EmptyState(symbol: searching ? "magnifyingglass" : (recentNav ? "clock" : "star"),
+                               title: tr(searching ? "fxlib.noResults" : (recentNav ? "asset.empty.recent" : "fxlib.favorites.empty")))
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
@@ -103,7 +149,10 @@ struct StickerLibraryTab: View {
                             }
                             ForEach(items) { s in
                                 StickerCard(sticker: s, selected: selected == s.id, select: { selected = s.id; store.previewSticker(s.id) },
-                                            add: { selected = s.id; store.addGeneratorClip(.sticker(id: s.id)) },
+                                            add: {
+                                                selected = s.id; store.addGeneratorClip(.sticker(id: s.id))
+                                                AssetLibraryStore.shared.noteUsed(StickerCatalog.recentsNamespace, s.id)
+                                            },
                                             remove: s.groupKey == StickerCatalog.yoursNav ? {
                                                 UserStickerLibrary.shared.remove(s.id); revision += 1
                                             } : nil)
