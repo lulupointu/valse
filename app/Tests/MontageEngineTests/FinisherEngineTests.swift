@@ -55,8 +55,7 @@ import MontageTestSupport
         let src = ScrubAudio.sources(in: p, at: Time(1))
         #expect(src.count == 1)
         #expect(abs(src[0].sourceTime.seconds - 1) < 0.001)
-        let fmt = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
-        let buf = try #require(ScrubAudio.mix(src, format: fmt))
+        let buf = try #require(await Self.grain(src))
         #expect(buf.frameLength == AVAudioFrameCount(ScrubAudio.grain * 44_100))
         var peak: Float = 0
         for i in 0..<Int(buf.frameLength) { peak = max(peak, abs(buf.floatChannelData![0][i])) }
@@ -81,22 +80,35 @@ import MontageTestSupport
         }
     }
 
-    /// TL-018: the track volume scales the exported mix and the scrub grains.
+    /// Blocking AVAssetReader work runs on a GCD thread, not on the test's cooperative thread: many blocking audio
+    /// tests at once exhausted the cooperative pool and deadlocked AVFoundation (copyNextSampleBuffer never returned).
+    static func grain(_ src: [ScrubAudio.Source]) async -> AVAudioPCMBuffer? {
+        await withCheckedContinuation { (c: CheckedContinuation<UncheckedSendable<AVAudioPCMBuffer?>, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let fmt = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
+                c.resume(returning: UncheckedSendable(ScrubAudio.mix(src, format: fmt)))
+            }
+        }.value
+    }
+
+    static func peak(_ b: AVAudioPCMBuffer) -> Float {
+        var m: Float = 0
+        for i in 0..<Int(b.frameLength) { m = max(m, abs(b.floatChannelData![0][i])) }
+        return m
+    }
+
+    /// TL-018: the track volume scales the audio (scrub grains here; the composition/export path bakes the same gain in
+    /// `CompoundFlattening.decodeTracks`, unit-tested in Core).
     @Test func trackVolumeScalesTheMix() async throws {
         var p = try await Self.toneProject()
-        func peak(_ b: MontageEngine.AudioBuffer) -> Float {
-            var m: Float = 0
-            for i in 0..<b.frames { m = max(m, abs(b[0, i])) }
-            return m
-        }
-        let range = TimeRange(start: Time(seconds: 0.5), duration: Time(seconds: 1))
-        let full = peak(try await AudioMixdown.render(p, range: range))
+        let full = Self.peak(try #require(await Self.grain(ScrubAudio.sources(in: p, at: Time(1)))))
         let ti = p.timeline.tracks.firstIndex { !$0.clips.isEmpty }!
         p.timeline.tracks[ti].volume = 0.5
-        let half = peak(try await AudioMixdown.render(p, range: range))
+        let src = ScrubAudio.sources(in: p, at: Time(1))
+        #expect(abs(src[0].gain - 0.5) < 1e-6)
+        let half = Self.peak(try #require(await Self.grain(src)))
         #expect(full > 0.05)
         #expect(abs(half / full - 0.5) < 0.05, "full \(full) half \(half)")
-        #expect(abs(ScrubAudio.sources(in: p, at: Time(1))[0].gain - 0.5) < 1e-6)
     }
 
     @Test func deviceListsHaveUniqueUIDs() {
@@ -109,7 +121,7 @@ import MontageTestSupport
 
 /// SE-018 support package.
 @Suite struct FinisherSupportPackageTests {
-    @Test func zipHasEnvironmentLogSettingsAndProject() throws {
+    @Test func zipHasEnvironmentLogSettingsAndProject() async throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("fin-support-\(UUID().uuidString)")
         defer { try? fm.removeItem(at: root) }
@@ -122,13 +134,17 @@ import MontageTestSupport
         try Data("other".utf8).write(to: crashes.appendingPathComponent("Safari-2026-10-19.ips"))
         var c = SupportPackage.Contents(projectJSON: Data("{\"name\":\"x\"}".utf8), projectName: "x")
         c.settingsURL = settings; c.crashReportsDirectory = crashes
-        let zip = try SupportPackage.build(c, into: root.appendingPathComponent("out"), date: Date(timeIntervalSince1970: 0))
+        c.includeLog = false   // `log show` is slow; covered by the UI script
+        let cc = c, out = root.appendingPathComponent("out")
+        let zip = try await withCheckedThrowingContinuation { (k: CheckedContinuation<URL, Error>) in
+            DispatchQueue.global().async { k.resume(with: Result { try SupportPackage.build(cc, into: out, date: Date(timeIntervalSince1970: 0)) }) }
+        }
         #expect(zip.pathExtension == "zip" && fm.fileExists(atPath: zip.path))
         let p = Process(); let pipe = Pipe()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/unzip"); p.arguments = ["-l", zip.path]; p.standardOutput = pipe
         try p.run(); p.waitUntilExit()
         let list = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        for f in ["environment.txt", "montage.log", "settings.json", "project/project.json", "crashes/Montage-2026-10-19.ips"] {
+        for f in ["environment.txt", "settings.json", "project/project.json", "crashes/Montage-2026-10-19.ips"] {
             #expect(list.contains(f), "missing \(f)")
         }
         #expect(!list.contains("Safari"))

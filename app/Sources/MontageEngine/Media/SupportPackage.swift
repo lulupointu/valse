@@ -1,5 +1,4 @@
 import Foundation
-import OSLog
 import MontageCore
 
 /// "Package logs & drafts" (SE-018): one zip a user can attach to a bug report — this session's Montage log
@@ -62,16 +61,20 @@ public enum SupportPackage {
         (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
     }
 
-    /// This process's Montage log lines (last 2 h).
+    /// This process's Montage log lines (last 2 h), read with `/usr/bin/log show` in a child process: enumerating
+    /// OSLogStore in-process can stall the process's own logging (AVFoundation decoders log a lot) and deadlocked
+    /// concurrent media readers in the test suite.
     static func sessionLog() -> String {
-        guard let store = try? OSLogStore(scope: .currentProcessIdentifier) else { return "(log unavailable)\n" }
-        let since = store.position(date: Date().addingTimeInterval(-7200))
-        guard let entries = try? store.getEntries(at: since, matching: NSPredicate(format: "subsystem == %@", "fr.montage")) else {
-            return "(log unavailable)\n"
-        }
-        let f = ISO8601DateFormatter()
-        var out = ""
-        for case let e as OSLogEntryLog in entries { out += "\(f.string(from: e.date)) [\(e.category)] \(e.composedMessage)\n" }
-        return out.isEmpty ? "(no Montage log entries in this session)\n" : out
+        let p = Process(), pipe = Pipe()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+        p.arguments = ["show", "--style", "compact", "--last", "2h", "--predicate",
+                       "subsystem == \"fr.montage\" AND processID == \(ProcessInfo.processInfo.processIdentifier)"]
+        p.standardOutput = pipe
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return "(log unavailable)\n" }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        let text = String(data: data, encoding: .utf8) ?? ""
+        return text.isEmpty ? "(no Montage log entries in this session)\n" : text
     }
 }
