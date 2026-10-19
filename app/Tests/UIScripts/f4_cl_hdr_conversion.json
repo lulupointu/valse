@@ -1,0 +1,23 @@
+// F4 CL-014: an HLG clip (ffmpeg BT.2020 HLG patch chart) in an SDR project → Video ▸ Basic ▸ ☐ HDR conversion:
+// ticking switches to BT.2390 tone mapping (1000-nit source peak), the peak slider re-grades; one undo step each; ⌘Z.
+{
+  "project": "empty",
+  "size": [1687, 1500],
+  "steps": [
+    {"drop": {"files": ["fixtures/hlg-patches.mov"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 15}},
+    {"click": "clip:main/0"},
+    {"seek": 0.5},
+    {"click": "id:inspector.tab.video"},
+    {"expect": {"path": "ui.anchors", "contains": "inspector.section.video.hdrConversion"}},
+    {"snapshot": "hdr-conv-player-default", "element": "id:panel.player"},
+    {"click": "id:inspector.section.video.hdrConversion", "at": [0.035, 0.5]},
+    {"expect": [{"path": "undo.name", "equals": "cmd.hdrConversion"}, {"path": "project.timeline.tracks.0.clips.0.hdrConversion.peakNits", "equals": 1000}]},
+    {"idle": 1},
+    {"snapshot": "hdr-conv-player-bt2390", "element": "id:panel.player"},
+    {"expect": {"path": "ui.anchors", "contains": "slider.hdrConv.peak"}},
+    {"snapshot": "hdr-conv-inspector", "element": "id:panel.inspector"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "project.timeline.tracks.0.clips.0.hdrConversion", "exists": false}}
+  ]
+}

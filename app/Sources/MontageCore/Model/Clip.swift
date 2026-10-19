@@ -111,6 +111,8 @@ public struct Clip: Codable, Sendable, Equatable, Identifiable {
     /// Effect / filter clip ▸ "Apply to" (FX-004, see EffectScope.swift): which layers below it the effects process.
     /// nil = all (CapCut default).
     public var effectScope: EffectScope?
+    /// HDR conversion (CL-014, see HDRConversion.swift); nil = the default conversion.
+    public var hdrConversion: HDRConversion?
 
     public var isFreezeFrame: Bool { freezeFrame ?? false }
 

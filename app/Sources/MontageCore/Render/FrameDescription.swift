@@ -51,6 +51,8 @@ public struct LayerDescription: Hashable, Sendable {
     public var adjustMask: Mask? = nil
     /// Skin tone protection (CL-010) for the adjustment-category effects.
     public var skinProtect = false
+    /// CL-014 HDR conversion of the source (nil = default).
+    public var hdrConversion: HDRConversion? = nil
     /// Masks 2…4 (MK-005): the layer shows the union of `mask` and these.
     public var extraMasks: [Mask] = []
     /// Smooth slow-mo: weight 0…1 of the NEXT source frame (aux lane `.nextFrame`) at this instant; nil = off.
@@ -305,6 +307,7 @@ public enum FrameEvaluator {
             if r.mask != nil, let extra = r.extraMasks { l.extraMasks = extra.map { $0.atSource(s) } }
         }
         l.skinProtect = c.skinToneProtection ?? false
+        l.hdrConversion = c.hdrConversion
         if r.mask != nil, let extra = r.extraMasks, l.extraMasks.isEmpty { l.extraMasks = extra }
         if case .sticker = c.content { l.shapeStyle = r.shapeStyle }
         l.stabilization = r.stabilization

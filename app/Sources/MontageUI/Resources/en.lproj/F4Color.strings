@@ -13,3 +13,12 @@
 "colorCard.recalibrate" = "Calibrate at playhead";
 "colorCard.notFound" = "No color card found in this frame. Move the playhead to a frame where the whole chart is visible.";
 "cmd.colorCard" = "Color card";
+"hdrConv.title" = "HDR conversion";
+"hdrConv.hint.toSDR" = "HDR video in an SDR project. Off: natural look (like Photos). On: BT.2390 tone mapping from the video's peak brightness — raise it to keep more highlight detail.";
+"hdrConv.hint.toHDR" = "SDR video in an HDR project. Off: SDR white stays at 203 nits. On: highlights are expanded up to the peak brightness, mid-tones stay.";
+"hdrConv.sourcePeak" = "Source peak brightness";
+"hdrConv.targetPeak" = "Peak brightness";
+"hdrConv.nits" = "%d nits";
+"hdrConv.method.natural" = "Natural";
+"hdrConv.method.bt2390" = "BT.2390";
+"cmd.hdrConversion" = "HDR conversion";

@@ -13,3 +13,12 @@
 "colorCard.recalibrate" = "Calibrer à la tête de lecture";
 "colorCard.notFound" = "Aucune charte de couleurs trouvée sur cette image. Placez la tête de lecture sur une image où toute la charte est visible.";
 "cmd.colorCard" = "Charte de couleurs";
+"hdrConv.title" = "Conversion HDR";
+"hdrConv.hint.toSDR" = "Vidéo HDR dans un projet SDR. Désactivé : rendu naturel (comme Photos). Activé : mappage des tons BT.2390 depuis la luminosité maximale de la vidéo — augmentez-la pour garder plus de détails dans les hautes lumières.";
+"hdrConv.hint.toHDR" = "Vidéo SDR dans un projet HDR. Désactivé : le blanc SDR reste à 203 nits. Activé : les hautes lumières sont étendues jusqu'à la luminosité maximale, les tons moyens restent.";
+"hdrConv.sourcePeak" = "Luminosité maximale de la source";
+"hdrConv.targetPeak" = "Luminosité maximale";
+"hdrConv.nits" = "%d nits";
+"hdrConv.method.natural" = "Naturel";
+"hdrConv.method.bt2390" = "BT.2390";
+"cmd.hdrConversion" = "Conversion HDR";

@@ -432,6 +432,7 @@ public final class FrameRenderer: @unchecked Sendable {
         cu.inTF = Float(srcTF.code); cu.outTF = Float(space.transfer.code)
         cu.gamut = srcWide == space.isWideGamut ? 0 : (space.isWideGamut ? 1 : 2)
         cu.inWide = srcWide ? 1 : 0; cu.outWide = space.isWideGamut ? 1 : 0
+        if let h = l.hdrConversion, srcTF != space.transfer { cu.toneMode = h.shaderMode; cu.peakNits = Float(h.peakNits) }
         if let (y, c, full, bt709) = yuv {
             cu.fullRange = full ? 1 : (y.pixelFormat == .r16Unorm ? 2 : 0); cu.matrix709 = matrix2020 ? 2 : (bt709 ? 1 : 0)
             fullscreen(ctx.convertYUV, target: layerTex, cmd, label: "convert-yuv") { enc in
@@ -828,6 +829,10 @@ struct ConvertUniforms {
     var outTF: Float = 0
     var gamut: Float = 0
     var outWide: Float = 0
+    /// CL-014: 0 = default conversion, 1 = BT.2390 EETF (HDR → SDR) / highlight expansion (SDR → HDR).
+    var toneMode: Float = 0
+    /// CL-014: source mastering peak (HDR → SDR) or target highlight peak (SDR → HDR), nits.
+    var peakNits: Float = 1000
     static let identity = ConvertUniforms(uvXform: Affine.identity.matrix, fullRange: 0, matrix709: 1, unpremultiply: 0)
 }
 

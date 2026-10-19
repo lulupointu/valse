@@ -19,7 +19,7 @@ enum CoreShaders {
     // inWide/outWide: BT.2020 primaries (HLG OOTF luminance weights). Colour math mirrors MontageCore.ColorMath
     // (linear 1.0 = 203-nit reference white; HLG OOTF on luminance; HDR→SDR: gamut desaturation + 1 − exp(−k·maxRGB), k = 0.4 HLG / 1 PQ).
     struct ConvertU { float3x2 uvXform; float fullRange; float matrix709; float unpremultiply; float inWide;
-                      float inTF; float outTF; float gamut; float outWide; };
+                      float inTF; float outTF; float gamut; float outWide; float toneMode; float peakNits; };
 
     inline float2 xf(constant ConvertU& u, float2 uv) { return u.uvXform * float3(uv, 1.0); }
 
@@ -73,7 +73,52 @@ enum CoreShaders {
         }
         return tf_from_linear(l, outTF, ko);
     }
+    // CL-014 (mirror of ColorMath.convert(conversion:)): PQ in absolute nits, BT.2390 EETF, SDR → HDR highlight expansion.
+    inline float pq_enc_nits(float n) {
+        const float m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625, c3 = 18.6875;
+        float p = pow(clamp(n / 10000.0, 0.0, 1.0), m1);
+        return pow((c1 + c2 * p) / (1.0 + c3 * p), m2);
+    }
+    inline float pq_dec_nits(float v) {
+        const float m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625, c3 = 18.6875;
+        float p = pow(max(v, 0.0), 1.0 / m2);
+        return pow(max(p - c1, 0.0) / (c2 - c3 * p), 1.0 / m1) * 10000.0;
+    }
+    inline float bt2390_nits(float n, float srcPeak, float dstPeak) {
+        if (srcPeak <= dstPeak) { return min(n, dstPeak); }
+        float pw = pq_enc_nits(srcPeak);
+        float e1 = min(pq_enc_nits(n) / pw, 1.0);
+        float maxLum = pq_enc_nits(dstPeak) / pw;
+        float ks = 1.5 * maxLum - 0.5;
+        float e2 = e1;
+        if (e1 > ks) {
+            float t = (e1 - ks) / (1.0 - ks), t2 = t * t, t3 = t2 * t;
+            e2 = (2.0 * t3 - 3.0 * t2 + 1.0) * ks + (t3 - 2.0 * t2 + t) * (1.0 - ks) + (-2.0 * t3 + 3.0 * t2) * maxLum;
+        }
+        return pq_dec_nits(e2 * pw);
+    }
+    inline float3 color_convert_tm(float3 rgb, int inTF, int outTF, int gamut, float inWide, float outWide, float peak) {
+        if (inTF == outTF || (inTF != 0 && outTF != 0)) { return color_convert_v(rgb, inTF, outTF, gamut, inWide, outWide); }
+        float3 l = tf_to_linear(rgb, inTF, luma_k(inWide));
+        if (gamut == 1) { l = float3x3(float3(0.6274, 0.0691, 0.0164), float3(0.3293, 0.9195, 0.0880), float3(0.0433, 0.0114, 0.8956)) * l; }
+        if (gamut == 2) { l = float3x3(float3(1.6605, -0.1246, -0.0182), float3(-0.5876, 1.1329, -0.1006), float3(-0.0728, -0.0083, 1.1187)) * l; }
+        float3 ko = luma_k(outWide);
+        float y = max(dot(ko, l), 0.0);
+        float mn = min(l.r, min(l.g, l.b));
+        if (mn < 0.0) { l = y > 0.0 ? max(y + (l - y) * (y / (y - mn)), 0.0) : float3(0.0); }
+        float m = max(l.r, max(l.g, l.b));
+        if (m > 0.0) {
+            float o;
+            if (outTF == 0) { o = bt2390_nits(m * 203.0, peak, 203.0) / 203.0; }
+            else { float g = max(peak / 203.0, 1.0); o = m * (1.0 + (g - 1.0) * m * m); }
+            l *= o / m;
+        }
+        return tf_from_linear(l, outTF, ko);
+    }
     inline float3 color_convert(float3 rgb, constant ConvertU& u) {
+        if (u.toneMode > 0.5) {
+            return color_convert_tm(rgb, int(u.inTF + 0.5), int(u.outTF + 0.5), int(u.gamut + 0.5), u.inWide, u.outWide, u.peakNits);
+        }
         return color_convert_v(rgb, int(u.inTF + 0.5), int(u.outTF + 0.5), int(u.gamut + 0.5), u.inWide, u.outWide);
     }
 
