@@ -1,5 +1,5 @@
 // Finisher TL-021 / TL-020: ⌥G makes a compound of two main clips; double-click it opens its nested timeline (breadcrumb,
-// player shows it); a delete inside is kept when Esc goes back. ⌘G groups clips; double-click one selects only it.
+// player shows it); a delete inside is kept when Esc goes back. ⌘G groups clips; double-click one selects only it. Timeline ▸ Preview axis with audio (TL-031).
 {
   "project": "demo",
   "steps": [
@@ -24,6 +24,8 @@
     {"click": "clip:main/1"},
     {"expect": {"path": "selectedClips.count", "equals": 2}},
     {"doubleClick": "clip:main/1"},
-    {"expect": [{"path": "selectedClips.count", "equals": 1}, {"path": "selectedClips.0.index", "equals": 1}]}
+    {"expect": [{"path": "selectedClips.count", "equals": 1}, {"path": "selectedClips.0.index", "equals": 1}]},
+    {"menu": "menu.timeline/previewAxis.audio"},
+    {"expect": [{"path": "ui.previewAxis.on", "equals": true}, {"path": "ui.previewAxis.audio", "equals": true}]}
   ]
 }

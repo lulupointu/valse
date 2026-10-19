@@ -394,6 +394,7 @@ extension TimelineView {
         if ui.previewAxis, !store.transport.isPlaying, let h = hoverTime {
             if previewAnchor == nil { previewAnchor = store.transport.playhead }
             store.seek(to: h, exact: false)
+            if ui.previewAxisAudio { store.previewAxisAudio(at: h) }   // TL-031 "video + audio" mode
         } else if !ui.previewAxis, let a = previewAnchor {
             previewAnchor = nil; store.seek(to: a)
         }

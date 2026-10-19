@@ -211,6 +211,10 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             reg("snapping", checked: { [unowned self] in self.store.project.timeline.snapping }),
             reg("linkage", checked: { [unowned self] in self.store.project.timeline.linkage }),
             reg("previewAxis", checked: { [unowned self] in self.store.timelineUI.previewAxis }),
+            item("previewAxis.audio", checked: { [unowned self] in self.store.timelineUI.previewAxisAudio }) { [unowned self] in
+                self.store.timelineUI.previewAxisAudio.toggle()
+                if self.store.timelineUI.previewAxisAudio { self.store.timelineUI.previewAxis = true }
+            },
             .separator(),
             reg("zoomIn", "menu.zoomIn"),
             reg("zoomOut", "menu.zoomOut"),

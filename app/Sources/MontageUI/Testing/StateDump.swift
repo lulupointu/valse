@@ -105,6 +105,7 @@ public enum StateDump {
         ui["guides"] = store.playerUI.guides.map { ["axis": $0.axis == .vertical ? "v" : "h", "position": $0.position] }   // PB-011
         ui["editingGuide"] = store.playerUI.editingGuide != nil
         ui["keystrokes"] = ["enabled": KeystrokeFeed.shared.enabled, "items": KeystrokeFeed.shared.items.map(\.text)]   // PB-015
+        ui["previewAxis"] = ["on": store.timelineUI.previewAxis, "audio": store.timelineUI.previewAxisAudio]   // TL-031
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}

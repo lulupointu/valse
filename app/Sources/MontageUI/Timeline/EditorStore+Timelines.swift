@@ -100,6 +100,12 @@ extension EditorStore {
         ScrubAudio.shared.scrub(project, at: t.clamped(.zero, project.duration))
     }
 
+    /// Preview axis in "Video + audio" mode (TL-031): an audio grain of what the hovered time sounds like.
+    func previewAxisAudio(at t: Time) {
+        guard !isPreviewing else { return }
+        ScrubAudio.shared.scrub(project, at: t.clamped(.zero, project.duration))
+    }
+
     // MARK: Frame rate (SP-009)
 
     /// First video differs from the project rate → offer "Change frame rate for this project?".

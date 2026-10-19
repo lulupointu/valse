@@ -154,3 +154,5 @@
 "compound.editingHint" = "Editing inside a compound clip — Esc to go back";
 "group.entered" = "Editing one clip of the group — click elsewhere to select the group again";
 "tlmenu.editCompound" = "Edit compound clip";
+/* TL-031 preview axis audio */
+"previewAxis.audio" = "Preview axis with audio";

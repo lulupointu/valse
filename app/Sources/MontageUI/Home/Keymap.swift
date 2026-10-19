@@ -128,7 +128,7 @@ nonisolated public enum KeymapPreset: String, Codable, CaseIterable, Sendable {
                 "deleteLeft": b("[", .option), "deleteRight": b("]", .option),
                 "selectLeft": nil, "selectRight": nil,
                 "zoomFit": b("z", .shift), "magnet": b("p"),
-                "toggleClip": b("v"), "group": b("g", .option), "ungroup": b("g", [.option, .shift]),
+                "toggleClip": b("v"), "group": b("g", .option), "ungroup": b("g", [.option, .shift]), "compound": nil,
                 "previewAxis": b("s"), "snapping": b("n"), "speedPanel": b("r", .command),
                 "extractAudio": b("s", [.control, .shift]), "duplicate": b("d", .command),
                 "playerFullscreen": b("f", [.shift, .command]), "markerColor": b("m", .option),
@@ -208,7 +208,7 @@ public final class Keymap {
     /// Context-dependent bindings that deliberately share a key with another command and fall through when disabled
     /// (arrows nudge only while the canvas has focus, esc exits full screen only in full screen). Not rebindable.
     static let contextualIDs: Set<String> = ["nudgeUp", "nudgeDown", "nudgeUpMany", "nudgeDownMany", "exitPlayerFullscreen",
-                                              "cancelEyedropper", "exitPreview"]
+                                              "cancelEyedropper", "exitPreview", "closeRecorder", "exitCompound"]
 
     static let playerIDs: Set<String> = ["playPause", "playerFullscreen", "exitPlayerFullscreen", "playerZoomIn", "playerZoomOut",
                                          "playerZoomFit", "rulers", "guides", "shuttleBack", "shuttleStop", "shuttleForward",

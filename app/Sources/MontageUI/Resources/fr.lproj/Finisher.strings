@@ -154,3 +154,5 @@
 "compound.editingHint" = "Modification dans un clip composé — Échap pour revenir";
 "group.entered" = "Modification d’un seul clip du groupe — cliquez ailleurs pour resélectionner le groupe";
 "tlmenu.editCompound" = "Modifier le clip composé";
+/* TL-031 preview axis audio */
+"previewAxis.audio" = "Axe de prévisualisation avec audio";

@@ -8,6 +8,8 @@
     {"drag": "player:0.5,0.012", "to": "player:0.5,0.5", "steps": 8},
     {"expect": [{"path": "ui.guides.count", "equals": 1}, {"path": "ui.guides.0.axis", "equals": "h"},
                 {"path": "project.guides.count", "equals": 1}]},
+    {"expect": {"path": "ui.guides.0.position", "approx": 0.5, "tolerance": 0.03}},
+    {"idle": 0.5},
     {"doubleClick": "player:0.5,0.5"},
     {"expect": {"path": "ui.editingGuide", "equals": true}},
     {"click": "id:guide.position"},

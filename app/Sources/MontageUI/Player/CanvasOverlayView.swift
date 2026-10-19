@@ -544,7 +544,10 @@ final class CanvasOverlayView: NSView {
             return
         }
         // existing guide
-        if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) { drag = .guide(id: g.id); return }
+        if ui.showGuides, !ui.guidesLocked, let g = guide(near: v, vp) {
+            if e.clickCount == 2 { ui.editingGuide = g.id; return }   // PB-011: type an exact position
+            drag = .guide(id: g.id); return
+        }
 
         if let mt = maskTarget {
             let f = MaskFrame(layer: mt.layer.geometry, mask: mt.mask)
