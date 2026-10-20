@@ -47,6 +47,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | C3b | Timeline round 2 (owner feedback): (1) moving an existing clip works like a library drop — single-clip moves lift the clip (`TimelineOps.liftForMove`, lanes kept), placeholder + live main-track ripple + new lane at boundaries, drop = `TimelineOps.relocate` exactly as previewed, one undo step; (2) flicker FIXED — the move gesture mutated the model every mouse event, a new lane appeared/disappeared, every row shifted under the pointer and the next event re-targeted (oscillation in the owner's recording); now the model is untouched until the drop. Splitter / window resize: `CAMetalLayer` views changed `drawableSize` in `layout()` but drew on the next display-link tick, presented outside the resize transaction (stretched / blank frame) → `MetalResize` presents synchronously with `presentsWithTransaction` (timeline + player); (3) one-sided waveforms from the bottom; (4) volume keyframes are diamonds on the volume line, always visible; (5) volume-line drags: diamond = that keyframe, segment = both bounding keyframes, before first / after last = that keyframe (`ClipVolumeLine.Grab`); render samples eased spans (16 pieces) so it matches the drawn curve (`VolumeCurveRenderTests`). Tests `TimelineC3bTests`, UI `c3b_move_clip`, `c3b_volume_keyframes` (driver: drag `"hold"` + `release`); (6) remaining playback freeze (C1 saw `PlaybackStressTests` fail on main): real, not load — reproduced at load 8 (~1 run in 4: after a scrub's final exact seek / a seek storm, AVPlayer plays with full buffers but never asks our compositor for a frame again). Internal to AVFoundation; reordering didn't prevent it and `preroll` never completes with a custom compositor (10/40 stalls). Fix: the engine watches the display-link frame polls — playing, no seek in flight, item clock +0.3 s with no new frame → exact re-seek at the current time (rate held, resumed); `stallRecoveries` counts it. 0 stalls in 13 synthetic runs (incl. under load) + 1019 80 actions; the 4 s budget is unchanged. Hardened after an 8 s freeze in a gate run beside another agent's gate (clock running, 0 frames composed, no re-prime): the output re-handed the frame it already showed, which reset the watch → only a new display time counts as a frame; after 2 futile re-seeks the player item is rebuilt (`stallRebuilds`); stall reports carry compositor requests / GPU frames / re-primes / rebuilds (`CompositorStats.requestsStarted`). 9 full-suite runs (4 beside a second full suite) 0 stalls | 4 | see branch | worktree-agent-aef37c1ea9a138783 |
 | QA-AI | AI QA pass 2: every model installed, all `requires.models` scripts, every done/partial AI feature end to end on a copy of project 1018 (iPhone 1080×1920 HLG, French speech) + bench/media | 4 | ready to merge — 6 bugs fixed (table below) | worktree-agent-af260dfaae90fa707 |
 | C1 | Colour-space looks (owner project 1019, iPhone HLG/DV): preview matched to Apple + export in SDR / HLG / PQ (untagged video composition, compositor-stamped output, HLG ambient viewing environment, Rec.709 SDR drawable); `ColorSpaceLookTests` ΔE00 vs Apple | 4 | ready to merge | worktree-agent-ab87aa66ecd61e634 |
+| B1 | Engine bugs: (1) range export starting mid-project hung (IMG_9079 @ 1 s / 10 s): the base track was the 1-s blank stretched to the project duration, reads starting inside stretched samples never deliver for ~1/3 of durations → 60-s blank tiled unscaled (`RangeExportTests`, ffmpeg HLG HEVC fixture + opt-in owner clip); (2) every remaining `copyNextSampleBuffer` loop in MontageEngine / MontageAI off the cooperative pool (`OffPool.run` / new `OffPool.next`, ScrubAudio on GCD; `BlockingReadStressTests` deadlocks pre-fix); (3) load flakes: ML `JobQueue` jobs `heavy: true` respect `HeavyWorkGate` in tests (gate moved to MontageEngine, re-entrant, taken before a slot), per-run unit-test cache folder (concurrent runs deleted each other's mattes: RelightRenderTests), cutout / auto-beats tests await the job task, animation tiles hold the end pose under UI tests (w5_animation_apply), assets_media_tab waits for state | 4 | ready to merge | worktree-agent-a5b5cbfb73ba84b18 |
 
 ## C4 — "Remove filler words": three apply styles to try (owner picks one)
 Switch in **Settings ▸ Edit ▸ Labs ▸ Filler removal style** (stored as `fillerRemovalStyle` in
@@ -168,8 +169,14 @@ projects processed before this fix (face covers refresh themselves when the proj
   preview drawable tagged Rec.709 (colour-managed like AVPlayer). CIEDE2000 per patch vs Apple's rendering of the same
   frame (`ColorSpaceLookTests`, owner clips via `MONTAGE_C1_FOOTAGE`): SDR preview 13 → 1.6–2.1 mean, PQ preview 9 →
   0.14, HLG 0.17–0.20; export = preview within 0.3–1.2 (compression). Known: SDR fully saturated BT.2020 primaries
-  (synthetic patches) differ up to ΔE 11 from VideoToolbox's tone map (real footage < 3). Pre-existing, not fixed: a
-  range export starting mid-clip stalls (the video reader never delivers) on some iPhone clips, e.g. IMG_9079 at 1 s or 10 s (full / from-0 exports fine).
+  (synthetic patches) differ up to ΔE 11 from VideoToolbox's tone map (real footage < 3). Pre-existing: a
+  range export starting mid-clip stalled (the video reader never delivers) on some iPhone clips, e.g. IMG_9079 at 1 s
+  or 10 s (full / from-0 exports fine) — fixed in B1 (stretched base track, not the clip).
+- 2026-10-20 B1 range-export hang: not iPhone-specific. The composition's base track was the 1-s blank STRETCHED to
+  the project duration; for about one duration in three (32.735 s = IMG_9079 alone, 32.7, 45.123, 61.01 s …) an
+  AVAssetReader whose time range starts inside the stretched samples never delivers a frame — also with Apple's own
+  compositor and without the clip. Now a 60-s 1-fps blank is tiled unscaled. `RangeExportTests` (ffmpeg 10-bit HLG
+  HEVC iPhone-like fixture; owner clip opt-in `MONTAGE_B1_CLIP=<copy of IMG_9079.mov>`).
 
 ## Decisions log
 - 2026-10-19 Owner: NO AI-generated/procedural music. Music & SFX library must offer real ONLINE search (Instagram-like) — explicit exception to local-only, limited to the music/SFX browser (user-supplied API keys e.g. Pixabay/Freesound, download-on-add so projects work offline). Rest of app stays offline.
@@ -202,8 +209,17 @@ projects processed before this fix (face covers refresh themselves when the proj
   tests run on Swift's cooperative pool (≈ core count threads): when ~10 such tests overlap the pool is exhausted and
   AVFoundation deadlocks (whole suite hangs at 0 % CPU). New tests must do blocking media work on a GCD queue
   (`withCheckedContinuation` + `DispatchQueue.global().async`, see `FinisherAudioTests.grain`); engine read loops use
-  `OffPool.run` (AudioFileIO.stream, AudioMixdown.stream, WaveformCache.compute already do; F3 hang); avoid in-process
-  `OSLogStore` enumeration (SupportPackage shells out to `/usr/bin/log`).
+  `OffPool.run` around the loop, or `await OffPool.next(output)` per sample when the loop awaits (B1: every
+  MontageEngine / MontageAI loop does; `BlockingReadStressTests`); avoid in-process
+  `OSLogStore` enumeration (SupportPackage shells out to `/usr/bin/log`). A watchdog for such a hang needs its own
+  `Thread`: with the pool deadlocked, GCD's global queues get no new worker either.
+- ML work started through `JobQueue` passes `heavy: true` (B1): in unit tests it then runs inside `HeavyWorkGate`
+  (now in MontageEngine, re-entrant). Tests that drive a store flow await the task it returns (`setCutout`,
+  `autoBeats`) instead of polling with a time budget. Unit-test processes use their own cache folder
+  (`$TMPDIR/montage-test-cache/run-<pid>`, `MontagePaths.testRunCacheDirectory`; compiled models stay shared), so
+  tests may write / delete content-hash-keyed cache entries (mattes, stems) without racing other checkouts' runs.
+- The composition base track tiles a 60-s blank unscaled (`CompositionBuilder.addBase`): never `scaleTimeRange` a
+  composition track to an arbitrary duration — reads starting inside stretched samples can stall forever (B1).
 - Quit / end of a UI test: `AppShutdown.stopBackgroundWork()` cancels exports + every `JobQueue` job and waits for them (exiting under live Core ML/Metal work crashed in MPSGraph teardown). The `ai_remove_inference` exit-139 segfault (clean-check) was the same teardown crash (inference still running at `exit`, MPSGraph logging); also LaMa is now one shared model with serialized predictions and owned pixel copies (stress test `concurrentInpaintingUnderLoadAndCancel`). New background work must go through `JobQueue` (or check `Task.isCancelled`) so quit can stop it.
 
 - Inspector multi-select (C2): new inspector writes go through `Bind.apply` / `ClipParamRow` / `store.performInspector(UpdateClip|SetSpeed)`
