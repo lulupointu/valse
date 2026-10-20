@@ -117,7 +117,7 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 | wait for async work | `{"waitFor": {"path": "media.count", "equals": 2, "timeout": 10}}` · `{"wait": 0.5}` · `{"idle": 1}` |
 | snapshot / screenshot test | `{"snapshot": "name", "element": "id:panel.inspector", "baseline": true, "tolerance": 0.01, "mask": ["id:clock"]}` |
 | dump state | `{"dump": "before-drop"}` → `build/uitest/<name>/before-drop.json` |
-| VoiceOver label audit (SE-017) | `{"a11yAudit": "inspector", "max": 0}` — walks the real AX tree; fails when more than `max` buttons / checkboxes / sliders / images / fields have no spoken name; writes `<name>.a11y.json` |
+| VoiceOver label audit (SE-017) | `{"a11yAudit": "inspector", "max": 0}` — walks the real AX tree; fails when more than `max` buttons / checkboxes / sliders / images / fields have no spoken name; writes `<name>.a11y.json`. `"element": "id:switcher.popover"` audits only that element (its subtree, or the elements inside its frame); a scoped audit that finds nothing fails |
 | setup shortcuts (not UI) | `{"seek": 2.5}` · `{"select": ["clip:main/0", "clip:1/0"]}` |
 | perf / metric | see §3 |
 
@@ -158,6 +158,10 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   Settings `settings.tab.<tab>`, `settings.{check,switch,field,radio,button,language}.<id>`; shortcuts `keymap.binding.<cmd>`,
   `keymap.preset.<preset>`, `keymap.conflict(.override|.cancel)`, `keymap.reset`. State: `app.{screen, modal, scope, projects,
   selected, settings, keymap.bindings, renderedRanges…}` (StateDump.appHook).
+- project switcher (P1): `titlebar.projectSwitcher`, `switcher.popover`, `switcher.search`, `switcher.row.<i>` (+`.newWindow` on hover),
+  `switcher.newProject`, `switcher.home`, `switcher.empty`; state `app.switcher.{isOpen, query, selected, rows[{name, status
+  (current/normal/otherWindow/offline), current}]}`. Fixtures: `home:3:heldelsewhere` (newest project held by a registered
+  Montage-like pid), `home:N:offlinedrive` (also puts the oldest project on the disconnected drive)
 - asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>` (grid tile or list filmstrip row; `"at": [fx, fy]` clicks at a source time, C6), `media.import`, `media.layout`; state `ui.assets.media.{layout, columns}`, `ui.assets.preview.{kind, time}`
 - tooltips (C6, custom: `Support/Tooltips.swift`): `{"hover": "id:toolbar.split", "settle": 0}` then `ui.tooltipPending` (waiting for the 0.2 s delay) / `ui.tooltip` (visible text, null when none) — see `c6_tooltips.json`. The driver resolves the hovered `.help()` element itself (tracking areas only fire for real moves)
 - U1: Settings sideways scroll `ui.settings.{overflow, innerOverflow, scrollX, innerScrollX, horizontallyElastic}` (Settings open only);

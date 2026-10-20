@@ -43,14 +43,21 @@ extension EditorStore {
 
     /// Leaves the editor (Back to home / opening another project / quit): saves if needed, takes a "close" version,
     /// refreshes the cover and releases the session lock.
-    public func closeProject() async {
+    /// `coverWait`: how long to wait for the Home cover (P1: switching projects doesn't wait for it; a cover render can
+    /// stall on some iPhone clips, which used to block Back to home / switching forever). The cover finishes in the
+    /// background either way; the "close" version snapshot is always written before returning.
+    public func closeProject(coverWait: Duration = .seconds(3)) async {
         guard let url = packageURL else { close(); return }
         let snapshot = project
         close()
-        await Task.detached(priority: .userInitiated) {
-            _ = try? ProjectVersions.snapshot(snapshot, in: url, kind: .close)
-            await Self.writeCover(snapshot, to: url)
-        }.value
+        await Task.detached(priority: .userInitiated) { _ = try? ProjectVersions.snapshot(snapshot, in: url, kind: .close) }.value
+        let cover = Task.detached(priority: .userInitiated) { await Self.writeCover(snapshot, to: url) }
+        guard coverWait > .zero else { return }
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            let once = ResumeOnce()
+            Task.detached { await cover.value; if once.take() { c.resume() } }
+            Task.detached { try? await Task.sleep(for: coverWait); if once.take() { c.resume() } }
+        }
     }
 
     // MARK: Versions
@@ -147,6 +154,13 @@ extension EditorStore {
 }
 
 nonisolated final class PackBox: @unchecked Sendable { var url: URL? }
+
+/// First caller wins (a continuation resumed by whichever of two tasks finishes first).
+nonisolated final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func take() -> Bool { lock.withLock { if done { return false }; done = true; return true } }
+}
 
 /// Builds a self-contained project copy (W12 "Pack project"). Off-main.
 nonisolated enum ProjectPacker {

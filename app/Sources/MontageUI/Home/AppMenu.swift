@@ -146,10 +146,13 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             return i
         }
         main.addItem(menu("menu.file", [
-            item("menu.new", id: "menu.new") { [unowned self] in
-                if self.app.screen == .editor { Task { await self.store.closeProject(); self.app.newProject() } } else { self.app.newProject() }
-            },
+            item("menu.new", id: "menu.new") { [unowned self] in self.app.newProjectFromAnywhere() },
             item("menu.open", id: "menu.open") { [unowned self] in self.app.openPanel() },
+            // P1: title-bar project switcher; not while typing in a text field (except its own search field)
+            item("menu.switchProject", id: "menu.switchProject", enabled: { [unowned self] in self.inEditor }) { [unowned self] in
+                if !self.app.switcher.isOpen, NSApp.windows.contains(where: { $0.isVisible && $0.firstResponder is NSText }) { return }
+                self.app.switcher.toggle()
+            },
             item("pm.window.openInNewMenu", id: "menu.openInNewWindow") { [unowned self] in self.app.openPanel(newWindow: true) },   // PM-014
             item("pm.window.new", id: "menu.newWindow") { [unowned self] in self.app.newWindow() },
             sub("menu.openRecent", recents.isEmpty ? [item("menu.openRecent.none", enabled: { false }) {}] : recents),

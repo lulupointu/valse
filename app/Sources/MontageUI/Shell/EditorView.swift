@@ -38,6 +38,10 @@ public struct EditorView: View {
             }
         }
         .background(Theme.window)
+        .overlay(alignment: .top) {
+            // P1: title-bar project switcher popover
+            if let sw = ProjectSwitcher.active { ProjectSwitcherOverlay(switcher: sw) }
+        }
         .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
         .overlay(alignment: .topTrailing) {
             // W5: during UI tests the keyframe panel (normally a floating NSPanel) lives in the offscreen test window
@@ -268,8 +272,7 @@ struct TitleBar: View {
                 .keyboardShortcut("e", modifiers: .command)
                 .testID("titlebar.export")
             }
-            Text(verbatim: store.projectName)
-                .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+            ProjectSwitcherButton(store: store)   // P1: click = project switcher (⌘⇧O)
         }
         .padding(.horizontal, 10)
         .frame(height: Theme.Metrics.titleBarHeight)

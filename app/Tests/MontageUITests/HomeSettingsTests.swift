@@ -205,6 +205,9 @@ import MontageEngine
         app.newWindow()
         #expect(launched.count == 2 && launched[0] == a && launched[1] == nil)
         try "1".write(to: b.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)   // pid 1: alive
+        #expect(SessionLock.holderPID(b) == nil)          // P1: alive but not Montage = stale lock
+        SessionLock.registerTestHolder(1)                 // pretend pid 1 is another Montage window
+        defer { SessionLock.unregisterTestHolder(1) }
         #expect(SessionLock.holderPID(b) == 1)
         app.openInNewWindow(b)
         #expect(launched.count == 2)                       // focused, not launched

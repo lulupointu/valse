@@ -41,8 +41,10 @@ extension AppModel {
             try? ProjectPackage.save(p, to: url)
         }
         if parts.contains("heldelsewhere"), let url = visibleEntries.first?.url {
-            // PM-014: the newest project is open in another (live) Montage window — pid 1 (launchd) is always alive
+            // PM-014: the newest project is open in another (live) Montage window — pid 1 (launchd) is always alive and
+            // registered as a Montage-like holder (P1: any other live pid is a stale lock now)
             try? "1".write(to: url.appendingPathComponent(SessionLock.fileName), atomically: true, encoding: .utf8)
+            SessionLock.registerTestHolder(1)
         }
         // F3 (MI-006) `"home:3:moved"`: the media's folder was renamed — the file now sits in "Footage/" next to the projects
         if parts.contains("moved"), let url = visibleEntries.first?.url, var p = try? ProjectPackage.load(from: url) {
@@ -74,6 +76,8 @@ extension AppModel {
             domain[MontagePaths.draftsOverrideKey] = off
             UserDefaults.standard.setVolatileDomain(domain, forName: UserDefaults.argumentDomain)
             preferences.edit { $0.projectsDirectory = off }
+            // P1: the oldest project lives on that disconnected drive too (switcher row dimmed, open refused)
+            if let last = visibleEntries.last?.url { StorageLocation.testOverrides[last.standardizedFileURL.path] = .unavailable(name: "Montage Test Drive") }
         }
         await refresh()
         if parts.contains("crash") { checkCrashRecovery() }
@@ -201,6 +205,7 @@ extension AppModel {
             "trashCount": trashCount,
             "projectName": store.projectName,
             "launchedWindows": ProjectWindows.launched,
+            "switcher": switcher.stateDump(),   // P1
             "renderedRanges": store.renderedPreviewRanges().map { [$0.start.seconds, $0.end.seconds] },
             "settings": {
                 // every AppSettings field (encoded), plus the language preference

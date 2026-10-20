@@ -100,6 +100,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.app.trashOrDeleteSelection()
                 return nil
             }
+            // P1 project switcher open: its keys first; other keys go to its search field, never to editor shortcuts
+            if self.app.switcher.isOpen { return self.app.switcher.handle(e) ? nil : e }
             return ShortcutRegistry.handle(e, store: self.store) ? nil : e
         }
         NotificationCenter.default.addObserver(forName: L10n.didChange, object: nil, queue: .main) { [weak self] _ in
@@ -183,6 +185,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    /// P1 (CapCut): the red close button in the editor goes back to Home ("Saved to project"); on Home it quits.
+    func windowShouldClose(_ sender: NSWindow) -> Bool { app?.windowShouldClose() ?? true }
 
     /// Finder "Open With" / drop on the Dock icon (MI-028): projects open, media files are imported.
     func application(_ application: NSApplication, open urls: [URL]) {

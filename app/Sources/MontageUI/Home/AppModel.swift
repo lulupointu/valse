@@ -76,6 +76,8 @@ public final class AppModel {
 
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var checkedRecovery = false
+    /// P1: title-bar project switcher (⌘⇧O).
+    public let switcher = ProjectSwitcher()
 
     public init(store: EditorStore, preferences: AppPreferences = .shared, library: ProjectLibrary? = nil) {
         self.store = store
@@ -84,6 +86,8 @@ public final class AppModel {
         preferences.store = store
         preferences.apply(to: store)
         TitleBar.showShortcuts = { [weak self] in self?.modal = .shortcuts }
+        switcher.app = self
+        ProjectSwitcher.active = switcher
         OnlineAudioState.openSettings = { [weak self] in self?.modal = .settings(.music) }
         // UI tests / demo screenshots (sandbox) neither read nor write the user's Home view preferences
         if !HomeSandbox.isActive {
@@ -118,7 +122,7 @@ public final class AppModel {
     // MARK: Library refresh
 
     /// Rescans the library off the main thread (cheap: summaries are cached by modification date).
-    public func refresh() async {
+    public func refresh(checkRecovery: Bool = true) async {
         scanTask?.cancel()
         let lib = library
         let (list, f) = await Task.detached(priority: .userInitiated) { (lib.scan(), lib.folders) }.value
@@ -128,10 +132,10 @@ public final class AppModel {
         saveFolderWarning = MontagePaths.configuredDraftsWarning?.location
         selectedIDs = selectedIDs.filter { id in list.contains { $0.id == id } }
         if case .folder(let id) = scope, !f.contains(where: { $0.id == id }) { scope = .all }
-        if !checkedRecovery { checkedRecovery = true; checkCrashRecovery() }
+        if checkRecovery, !checkedRecovery { checkedRecovery = true; checkCrashRecovery() }
     }
 
-    public func refreshSoon() { scanTask?.cancel(); scanTask = Task { await refresh() } }
+    public func refreshSoon(checkRecovery: Bool = true) { scanTask?.cancel(); scanTask = Task { await refresh(checkRecovery: checkRecovery) } }
 
     // MARK: Crash recovery (PM-004)
 
@@ -168,37 +172,75 @@ public final class AppModel {
         }
     }
 
-    /// Opens a project package in the editor (Home card, File ▸ Open, Finder, recovery).
+    /// Opens a project package in the editor (Home card, File ▸ Open, Finder, recovery, project switcher).
+    /// P1 safe switching: every check runs BEFORE the current project is closed (a failed open used to leave the user
+    /// with nothing open); if the open still fails after the close, the previous project is reopened (else Home).
     public func open(_ url: URL) {
-        if store.packageURL?.standardizedFileURL == url.standardizedFileURL, screen == .editor { return }
-        // PM-014: open in another window → bring that window forward
-        if ProjectWindows.focusHolder(of: url) { store.showToast(tr("pm.window.alreadyOpen")); return }
-        if SessionLock.isHeldByOtherProcess(url) { store.showToast(tr("error.openElsewhere"), error: true); return }
-        // PM-009: a project on a drive that isn't connected
-        if case .unavailable(let drive) = StorageLocation.of(url) { store.showToast(tr("pm.drive.projectOffline", drive), error: true); return }
+        let inEditor = screen == .editor
+        switch ProjectSwitcherModel.check(url, current: inEditor ? store.packageURL : nil) {
+        case .alreadyCurrent: return
+        case .heldElsewhere:
+            // PM-014: open in another window → bring that window forward
+            _ = ProjectWindows.focusHolder(of: url)
+            store.showToast(tr("pm.window.alreadyOpen")); return
+        case .offline(let drive):
+            store.showToast(tr("pm.drive.projectOffline", drive), error: true); return   // PM-009
+        case .unreadable:
+            store.showToast(tr("error.unreadable"), error: true); return
+        case .ok: break
+        }
         let lib = library
+        let previous = inEditor ? store.packageURL : nil
         Task {
-            if screen == .editor { await store.closeProject() }
+            if inEditor {
+                Self.endTextEditing()
+                await store.closeProject(coverWait: .zero)   // the Home cover renders in the background
+                if previous != nil { store.showToast(tr("home.savedToProject")) }   // CapCut "Saved to project"
+            }
             do {
-                try store.open(url)
+                try store.open(url)   // may replace the toast ("Recovered…")
                 lib.noteOpened(url)
                 enterEditor { _ in }
                 if !store.missingMedia.isEmpty { await store.autoRelinkMissing() }   // MI-006 (F3): search likely folders first
                 if !store.missingMedia.isEmpty { modal = .relink }
-            } catch let e as PersistenceError {
-                store.showToast(tr(e.messageKey), error: true)
             } catch {
-                store.showToast(tr("error.unreadable"), error: true)
+                let key = (error as? PersistenceError)?.messageKey ?? "error.unreadable"
+                if let previous {
+                    do { try store.open(previous) } catch {
+                        store.load(project: Project())
+                        screen = .home
+                        await refresh()
+                    }
+                }
+                store.showToast(tr(key), error: true)
             }
         }
+    }
+
+    /// Commits the text field being edited (inspector numbers, names) before the project goes away.
+    static func endTextEditing() {
+        for w in NSApp?.windows ?? [] where w.firstResponder is NSText { w.makeFirstResponder(nil) }
+    }
+
+    /// P1 (CapCut): the editor's red close button goes back to Home ("Saved to project") instead of quitting.
+    /// Returns true when the window may close (Home: quits as before).
+    public func windowShouldClose() -> Bool {
+        guard screen == .editor else { return true }
+        switcher.close()
+        backToHome()
+        return false
     }
 
     /// PM-014: File ▸ Open in New Window / Home ▸ … ▸ Open in new window. The project already open here stays put;
     /// one open in another window is brought forward.
     public func openInNewWindow(_ url: URL) {
-        if store.packageURL?.standardizedFileURL == url.standardizedFileURL, screen == .editor { return }
-        if ProjectWindows.focusHolder(of: url) { store.showToast(tr("pm.window.alreadyOpen")); return }
-        if case .unavailable(let drive) = StorageLocation.of(url) { store.showToast(tr("pm.drive.projectOffline", drive), error: true); return }
+        switch ProjectSwitcherModel.check(url, current: screen == .editor ? store.packageURL : nil) {
+        case .alreadyCurrent: return
+        case .heldElsewhere: _ = ProjectWindows.focusHolder(of: url); store.showToast(tr("pm.window.alreadyOpen")); return
+        case .offline(let drive): store.showToast(tr("pm.drive.projectOffline", drive), error: true); return
+        case .unreadable: store.showToast(tr("error.unreadable"), error: true); return
+        case .ok: break
+        }
         if !ProjectWindows.open(url) { store.showToast(tr("pm.window.failed"), error: true) }
     }
 
@@ -220,9 +262,22 @@ public final class AppModel {
         Task { try? await Task.sleep(for: .milliseconds(250)); isTransitioning = false }
     }
 
+    /// File ▸ New (⌘N) / switcher footer: from the editor, the current project is saved and closed first.
+    public func newProjectFromAnywhere() {
+        switcher.close()
+        if screen == .editor {
+            Self.endTextEditing()
+            Task { await store.closeProject(); newProject() }
+        } else {
+            newProject()
+        }
+    }
+
     /// Montage ▸ Back to home page: saves (toast "Saved to project"), refreshes the cover, shows Home.
     public func backToHome() {
         guard screen == .editor else { return }
+        switcher.close()
+        Self.endTextEditing()
         let hadProject = store.packageURL != nil
         Task {
             await store.closeProject()

@@ -1,0 +1,26 @@
+// P1 project switcher in French: « Changer de projet », « Rechercher des projets », « Modifié aujourd'hui à … »,
+// « Nouveau projet » / « Tous les projets », « Aucun projet ne correspond à … », toast « Enregistré dans le projet ».
+{
+  "project": "home:12",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:home.card.0"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 10}},
+    {"click": "id:titlebar.projectSwitcher"},
+    {"expect": [{"path": "app.switcher.isOpen", "equals": true}, {"path": "app.switcher.rows.count", "equals": 11}]},
+    {"snapshot": "switcher-open-fr", "element": "id:switcher.popover", "baseline": true, "mask": ["id:switcher.search"]},
+    {"type": "zzz"},
+    {"expect": {"path": "ui.anchors", "contains": "switcher.empty"}},
+    {"snapshot": "switcher-empty-fr", "element": "id:switcher.popover"},
+    {"key": "escape"},
+    {"type": "drone"},
+    {"expect": {"path": "app.switcher.rows.count", "equals": 1}},
+    {"key": "return"},
+    {"waitFor": {"path": "app.projectName", "equals": "Drone footage", "timeout": 10}},
+    {"expect": {"path": "ui.toast", "equals": "Enregistré dans le projet"}},
+    {"menu": "menu.file/menu.switchProject"},
+    {"expect": {"path": "app.switcher.isOpen", "equals": true}},
+    {"click": "id:switcher.home"},
+    {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 10}}
+  ]
+}

@@ -1,0 +1,13 @@
+/* P1 sélecteur de projet (nom du projet dans la barre de titre, ⌘⇧O) */
+"switcher.help" = "Changer de projet (⌘⇧O)";
+"menu.switchProject" = "Changer de projet…";
+"switcher.edited" = "Modifié %@";
+"switcher.today" = "aujourd'hui à %@";
+"switcher.yesterday" = "hier";
+"switcher.otherWindow" = "Ouvert dans une autre fenêtre";
+"switcher.newWindow" = "Ouvrir dans une nouvelle fenêtre (⌘↩)";
+"switcher.offline" = "Disque non connecté";
+"switcher.newProject" = "Nouveau projet";
+"switcher.home" = "Tous les projets";
+"switcher.empty.only" = "Vos autres projets apparaîtront ici.";
+"switcher.rename" = "Renommer…";

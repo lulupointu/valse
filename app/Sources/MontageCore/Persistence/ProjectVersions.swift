@@ -101,12 +101,7 @@ public enum CrashRecovery {
         urls.filter(hasStaleLock)
     }
 
-    public static func hasStaleLock(_ package: URL) -> Bool {
-        let url = package.appendingPathComponent(SessionLock.fileName)
-        guard let s = try? String(contentsOf: url, encoding: .utf8),
-              let pid = Int32(s.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
-        return pid != getpid() && !SessionLock.isAlive(pid)
-    }
+    public static func hasStaleLock(_ package: URL) -> Bool { SessionLock.isStale(package) }
 
     /// "Not now": forget the crash (removes the stale lock; the autosaved project stays as it is).
     public static func dismiss(_ package: URL) {

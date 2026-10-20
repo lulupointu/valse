@@ -32,12 +32,27 @@ nonisolated enum AccessibilityAuditAX {
         return ""
     }
 
-    /// Walks the focused window of this process. `windowTitle` picks the window (nil = all windows).
-    static func run(limit: Int = 12000) -> Result {
+    /// The first element with this AXIdentifier under `roots` (depth-first).
+    static func find(_ id: String, in roots: [AXUIElement], limit: Int = 12000) -> AXUIElement? {
+        var stack = roots, seen = 0
+        while let e = stack.popLast(), seen < limit {
+            seen += 1
+            if string(e, "AXIdentifier") == id { return e }
+            stack.append(contentsOf: ((value(e, "AXChildren") as? [AXUIElement]) ?? []).reversed())
+        }
+        return nil
+    }
+
+    /// Walks the windows of this process (`scope`: only the subtree of the element with that test ID).
+    static func run(limit: Int = 12000, scope: String? = nil) -> Result {
         var r = Result()
         let app = AXUIElementCreateApplication(getpid())
         AXUIElementSetMessagingTimeout(app, 5)
-        guard let windows = value(app, "AXWindows") as? [AXUIElement] else { r.error = "no AXWindows (accessibility API refused)"; return r }
+        guard var windows = value(app, "AXWindows") as? [AXUIElement] else { r.error = "no AXWindows (accessibility API refused)"; return r }
+        if let scope {
+            guard let e = find(scope, in: windows) else { r.error = "no element \(scope)"; return r }
+            windows = [e]
+        }
         var stack: [(AXUIElement, String)] = windows.map { ($0, "") }, seen = 0
         while let (e, ctx) = stack.popLast(), seen < limit {
             seen += 1
