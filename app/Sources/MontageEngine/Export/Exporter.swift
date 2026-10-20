@@ -83,7 +83,16 @@ public enum Exporter {
         if tenBitHEVC && !alpha { readFormat = kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange }
         else if space.isHDR && settings.codec.isProRes { readFormat = kCVPixelFormatType_64RGBAHalf }
         else if space.isHDR { readFormat = kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange }
-        else { readFormat = kCVPixelFormatType_32BGRA }
+        else {
+            #if arch(x86_64)
+            // x86_64 (Intel / Rosetta): VideoToolbox's HEVC encoder converts BGRA input to FULL-range 4:2:0 there
+            // (ffprobe: yuvj420p, measured under Rosetta), so 8-bit HEVC gets video-range 4:2:0 from the reader, like
+            // Apple Silicon's output (yuv420p). Alpha still needs BGRA.
+            readFormat = settings.codec == .hevc && !alpha ? kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange : kCVPixelFormatType_32BGRA
+            #else
+            readFormat = kCVPixelFormatType_32BGRA
+            #endif
+        }
         let vTracks = try await built.composition.loadTracks(withMediaType: .video)
         func videoOutput() -> AVAssetReaderVideoCompositionOutput {
             let o = AVAssetReaderVideoCompositionOutput(videoTracks: vTracks, videoSettings: [

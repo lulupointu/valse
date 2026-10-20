@@ -107,8 +107,14 @@ final class FrameAccumulator {
                         case .u8: vDSP_vfltu8(row.assumingMemoryBound(to: UInt8.self), 1, t.baseAddress!, 1, vDSP_Length(n))
                         case .u16: vDSP_vfltu16(row.assumingMemoryBound(to: UInt16.self), 1, t.baseAddress!, 1, vDSP_Length(n))
                         case .f16:
+                            #if arch(arm64)
                             let h = row.assumingMemoryBound(to: Float16.self)
                             for i in 0..<n { t[i] = Float(h[i]) }
+                            #else   // no Float16 on x86_64: vImage half → float (exact, SIMD)
+                            var sb = vImage_Buffer(data: row, height: 1, width: vImagePixelCount(n), rowBytes: n * 2)
+                            var db = vImage_Buffer(data: t.baseAddress!, height: 1, width: vImagePixelCount(n), rowBytes: n * 4)
+                            vImageConvert_Planar16FtoPlanarF(&sb, &db, vImage_Flags(kvImageDoNotTile))
+                            #endif
                         }
                         let dst = a.baseAddress! + r * n
                         vDSP_vadd(dst, 1, t.baseAddress!, 1, dst, 1, vDSP_Length(n))
@@ -135,8 +141,14 @@ final class FrameAccumulator {
                     case .u8: vDSP_vfixru8(src, 1, row.assumingMemoryBound(to: UInt8.self), 1, vDSP_Length(n))
                     case .u16: vDSP_vfixru16(src, 1, row.assumingMemoryBound(to: UInt16.self), 1, vDSP_Length(n))
                     case .f16:
+                        #if arch(arm64)
                         let h = row.assumingMemoryBound(to: Float16.self)
                         for i in 0..<n { h[i] = Float16(src[i]) }
+                        #else   // no Float16 on x86_64: vImage float → half (round-to-nearest-even, = Float16(_:))
+                        var sb = vImage_Buffer(data: src, height: 1, width: vImagePixelCount(n), rowBytes: n * 4)
+                        var db = vImage_Buffer(data: row, height: 1, width: vImagePixelCount(n), rowBytes: n * 2)
+                        vImageConvert_PlanarFtoPlanar16F(&sb, &db, vImage_Flags(kvImageDoNotTile))
+                        #endif
                     }
                 }
             }

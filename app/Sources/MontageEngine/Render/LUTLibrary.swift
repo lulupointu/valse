@@ -130,10 +130,17 @@ public final class LUTLibrary: @unchecked Sendable {
         d.usage = .shaderRead
         d.storageMode = .shared
         guard let t = MetalContext.shared.device.makeTexture(descriptor: d) else { return nil }
+        #if arch(arm64)
         var half = [Float16](repeating: 1, count: n * n * n * 4)
         for (i, v) in lut.values.enumerated() {
             half[i * 4] = Float16(v.x); half[i * 4 + 1] = Float16(v.y); half[i * 4 + 2] = Float16(v.z)
         }
+        #else   // Float16 is unavailable on x86_64: same IEEE half bits via the portable conversion
+        var half = [UInt16](repeating: 0x3C00, count: n * n * n * 4)
+        for (i, v) in lut.values.enumerated() {
+            half[i * 4] = Half.bits(Float(v.x)); half[i * 4 + 1] = Half.bits(Float(v.y)); half[i * 4 + 2] = Half.bits(Float(v.z))
+        }
+        #endif
         half.withUnsafeBytes { raw in
             t.replace(region: MTLRegionMake3D(0, 0, 0, n, n, n), mipmapLevel: 0, slice: 0, withBytes: raw.baseAddress!,
                       bytesPerRow: n * 8, bytesPerImage: n * n * 8)
