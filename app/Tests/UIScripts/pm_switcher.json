@@ -37,6 +37,8 @@
     {"expect": {"path": "app.switcher.isOpen", "equals": true}},
     {"click": "id:switcher.home"},
     {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 10}},
-    {"expect": {"path": "app.switcher.isOpen", "equals": false}}
+    {"expect": [{"path": "app.switcher.isOpen", "equals": false}, {"path": "ui.toast", "contains": "Saved"}]},
+    // CapCut parity (capcut_05_back_home_toast.png): Home with the "Saved to project" toast
+    {"snapshot": "switcher-home-toast"}
   ]
 }
