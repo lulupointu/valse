@@ -110,6 +110,14 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
   code 3, reported separately by `uitest.sh`) when a model is missing (e.g. `ai_remove_inference`).
   Sidecar runtimes (`whisper-cli`, `demucs`, `llama-completion`) are looked up in the user's real
   `~/Library/Application Support/Montage/bin` even though UI tests sandbox the support folder.
+  `"requires": {"minOS": 14}` SKIPS the whole script below that macOS major version (a feature that only exists there).
+- **OS / environment conditions on a step** (macOS 13 support): `"minOS": 14` runs the step only on macOS 14+, `"maxOS": 13`
+  only up to 13, `"ffmpeg": true|false` only when the FFmpeg sidecar is / isn't installed (MP3 export). A skipped step is
+  logged `⏭` and reported `"skipped"`. Use them for **expected** differences only (an API that doesn't exist on the older
+  system), asserting the older system's behaviour in a `maxOS` twin step, so the newer system's assertions stay intact —
+  e.g. `ai_relight` (no depth model on 13), `f4_cl_smart_brush` (no instance segmentation on 13), `ai_enhance_quality`
+  (VT super resolution is 26+), `c4_transcript_stale` (SFSpeech before 26 needs a permission tests never have).
+  `MONTAGE_UITEST_OS_MAJOR=13` fakes the version to check a script's 13 branch on a newer host.
 - Caption word timing: `CaptionOnsetTests` builds FR / EN speech with known word onsets, silences and noise
   (`bench/speech_onsets.swift`, cached in ~/Library/Caches/MontageDev/fixtures; bump `fixtureVersion` when the script
   changes) and asserts median onset error < 80 ms, max < 200 ms; `MONTAGE_U2_FOOTAGE=/copy/of/IMG_7251.mov` adds the
@@ -280,6 +288,18 @@ stored at 1 px per point (downscaled from Retina) to keep the repo small. Prefer
 - Video frames, thumbnails and fonts can vary slightly: use `threshold` 32–48 and `tolerance` 0.01–0.03 for regions
   with media; keep defaults for pure chrome.
 - Standalone: `scripts/imgdiff.sh a.png b.png --diff d.png` prints `{"passed", "fraction", "differingPixels", …}`.
+- **Machine-independent pixels.** The test process pins what changes pixels but not behaviour (`UITestDriver.prepareProcess`):
+  overlay scroll bars (a Mac with a mouse, or a VM, has legacy 15 pt scrollers that narrow every scroll view) and the
+  time zone `Europe/Paris` (`MONTAGE_UITEST_TZ`; the Home / switcher dates come from a fixed UTC clock). On a non-Retina
+  display (the macOS 13 VM is 1x) an element crop gets the size the Retina path would give (no ±1 px size mismatch).
+- **Per-OS baselines (macOS 13).** `app/Tests/Baselines/macos<N>/<name>.png`, when it exists, replaces `<name>.png` on
+  macOS N only, so the host gate never sees it. Use it for rendering-only differences of the older system (text
+  rasterised at 1x in the VM, native slider / segmented control / link-button looks, inactive-window tints, a missing
+  newer-OS-only card) — never for a layout bug (fix it) or a behaviour difference (`minOS` / `maxOS` steps). Record them
+  in the macOS 13 VM: run the script with `--update-baselines --baselines <copy of Baselines>`, LOOK at each PNG next to the
+  host baseline, copy only the snapshots that fail on 13 into `Baselines/macos13/`. Against such a baseline the tolerance
+  is at least 1 % (1x text shifts by a sub-pixel from run to run: 0.7 % measured). Inventory and reasons: STATUS.md
+  ("macOS 13 UI results").
 
 ## 3. Perf tests
 

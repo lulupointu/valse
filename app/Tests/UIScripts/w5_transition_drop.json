@@ -15,7 +15,8 @@
     {"click": "id:transition.param.softness.field"},
     {"type": "40", "replace": true},
     {"key": "return"},
-    {"expect": {"path": "undo.name", "equals": "cmd.transition"}},
+    // the softness edit keeps the new duration (macOS 13 wrote back a stale transition: 1.0 → 0.5)
+    {"expect": [{"path": "undo.name", "equals": "cmd.transition"}, {"path": "main.clips.1.transitionDuration", "approx": 1.0}]},
     {"snapshot": "transition-inspector", "element": "id:panel.inspector", "baseline": "w5_transition_inspector"},
     {"key": "cmd+z"},
     {"key": "cmd+z"},

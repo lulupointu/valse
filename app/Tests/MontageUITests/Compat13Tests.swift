@@ -2,6 +2,7 @@ import Testing
 import Foundation
 import QuartzCore
 import Perception
+import MontageCore
 @testable import MontageUI
 
 /// macOS 13 back-ports (Support/Compat13.swift) exercised on the host: the fallback paths are forced where possible.
@@ -48,5 +49,34 @@ import Perception
         // target timestamps are CACurrentMediaTime-based (same clock, not mach ticks / absolute) and increasing
         #expect(zip(targets, targets.dropFirst()).allSatisfy { $0 < $1 })
         #expect(lags.allSatisfy { $0 > -1 && $0 < 0.2 }, "lags: \(Array(lags.prefix(5)))")
+    }
+
+    /// No FFmpeg sidecar (a fresh Mac, the macOS 13 VM): MP3 is unavailable. A video-only export must stay possible
+    /// (it was disabled by the hidden MP3 default) and ticking Export audio falls back to AAC.
+    @Test func exportWithoutMP3Encoder() throws {
+        var p = Project()
+        try TimelineOps.insert(Clip(content: .text(TextContent(string: "a")), start: 0, duration: Time(2)), into: &p)
+        let suite = "montage.m13.test.\(UUID().uuidString)"
+        let d = try #require(UserDefaults(suiteName: suite))
+        defer { d.removePersistentDomain(forName: suite) }
+        let m = ExportDialogModel(project: p, title: "t", selection: [], defaults: d)
+        m.remembered.videoEnabled = true; m.remembered.audioEnabled = false
+        m.remembered.audio.format = .mp3
+        m.mp3Available = false
+        #expect(m.canExport)
+        #expect(m.remembered.audio.format == .aac)
+        m.remembered.audioEnabled = true
+        #expect(m.canExport)
+        m.remembered.audio.format = .mp3   // e.g. remembered before the sidecar was removed
+        #expect(!m.canExport)
+    }
+
+    @Test func uiTestOSConditions() {
+        let major = UITestDriver.osMajor
+        #expect(UITestDriver.osConditionUnmet(["minOS": major]) == nil)
+        #expect(UITestDriver.osConditionUnmet(["maxOS": major]) == nil)
+        #expect(UITestDriver.osConditionUnmet(["minOS": major + 1]) != nil)
+        #expect(UITestDriver.osConditionUnmet(["maxOS": major - 1]) != nil)
+        #expect(UITestDriver.applyModelPolicy(["requires": ["minOS": major + 1]]) != nil)
     }
 }

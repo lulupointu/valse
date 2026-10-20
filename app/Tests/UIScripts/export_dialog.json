@@ -14,8 +14,10 @@
     {"click": "id:export.section.audio"},
     {"click": "id:export.section.gif"},
     {"expect": [{"path": "ui.export.dialog.audio", "equals": true}, {"path": "ui.export.dialog.gif", "equals": true},
-                {"path": "ui.export.dialog.outputs.count", "equals": 3},
-                {"path": "ui.export.dialog.outputs", "contains": "Demo.mp3"}]},
+                {"path": "ui.export.dialog.outputs.count", "equals": 3}, {"path": "ui.export.dialog.canExport", "equals": true}]},
+    // MP3 is encoded by the FFmpeg sidecar; without it the format falls back to AAC (.m4a)
+    {"ffmpeg": true, "expect": {"path": "ui.export.dialog.outputs", "contains": "Demo.mp3"}},
+    {"ffmpeg": false, "expect": {"path": "ui.export.dialog.outputs", "contains": "Demo.m4a"}},
     {"snapshot": "dialog-audio-gif", "element": "id:export.dialog"},
     {"click": "id:export.confirm"},
     {"waitFor": {"path": "ui.export.shown.0.state", "equals": "done", "timeout": 90}},

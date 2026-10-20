@@ -65,7 +65,11 @@ public final class ExportDialogModel {
     }
     public var coverImage: Data?
     public var coverPreview: NSImage?
-    public var mp3Available = true
+    /// MP3 needs the FFmpeg sidecar (libmp3lame). Without it the audio format falls back to AAC (the menu shows MP3
+    /// as unavailable), so "Export audio" never silently disables the Export button.
+    public var mp3Available = true {
+        didSet { if !mp3Available, remembered.audio.format == .mp3 { remembered.audio.format = .aac } }
+    }
     /// UI: collapsed sections.
     public var expanded: Set<String> = ["video", "audio", "gif", "captions"]
 
@@ -168,7 +172,8 @@ public final class ExportDialogModel {
         remembered.videoEnabled || remembered.audioEnabled || remembered.gifEnabled || (remembered.captionsEnabled && hasCaptions)
     }
 
-    public var audioFormatUsable: Bool { remembered.audio.format != .mp3 || mp3Available }
+    /// The audio format only matters when audio is exported (an unavailable MP3 must not block a video-only export).
+    public var audioFormatUsable: Bool { !remembered.audioEnabled || remembered.audio.format != .mp3 || mp3Available }
 
     public var canExport: Bool { anyOutput && project.duration > .zero && audioFormatUsable && preflight.isOK }
 

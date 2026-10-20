@@ -40,7 +40,9 @@
     {"click": "id:asset.nav.online.trending"},
     {"click": "id:asset.search"},
     {"type": "summer"},
-    {"wait": 0.6},
+    // the query is debounced (250 ms): wait for the whole word before the phase (still "loaded" from Trending), else a
+    // loaded VM matched the partial "su" query
+    {"waitFor": {"path": "ui.assets.query.audio", "equals": "summer", "timeout": 10}},
     {"waitFor": {"path": "ui.assets.online.phase", "equals": "loaded", "timeout": 10}},
     {"expect": [{"path": "ui.assets.query.audio", "equals": "summer"}, {"path": "ui.assets.online.count", "gte": 6}]},
     {"click": "id:asset.search.clear"},

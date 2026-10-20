@@ -249,7 +249,11 @@ struct TransitionParamRows: View {
         let store = ctx.store
         let value = t.params[spec.key] ?? spec.defaultValue
         let write: (ParamValue, Bool) -> Void = { v, live in
-            var nt = t
+            // Start from the transition as it is NOW, not the instance captured when this row was built: on macOS 13
+            // SwiftUI can keep a field's earlier onSubmit closure (same display text), and a softness edit then wrote
+            // back the old duration.
+            var nt = store.project.timeline.clip(clip)?.transitionOut ?? t
+            guard nt.typeID == t.typeID else { return }
             nt.params[spec.key] = v
             let inst = nt
             if live { store.updateGesture { p in try TimelineOps.setTransition(clip, inst, in: &p.timeline) } }

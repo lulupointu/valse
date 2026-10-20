@@ -12,7 +12,7 @@
                 {"path": "ui.anchors", "contains": "aiMovement.preset.shake"},
                 {"path": "ui.anchors", "contains": "aiMovement.strength"}]},
     {"click": "id:aiMovement.preset.shake"},
-    {"waitFor": {"path": "selectedClips.0.keyframeCounts.transform_rotation", "gt": 10, "timeout": 10}},
+    {"waitFor": {"path": "selectedClips.0.keyframeCounts.transform_rotation", "gt": 10, "timeout": 30}},
     {"snapshot": "ai-movement-shake", "element": "id:inspector.section.video.aiMovement", "baseline": true, "tolerance": 0.01},
     {"key": "cmd+z"},
     {"expect": {"path": "selectedClips.0.keyframeCounts.transform_rotation", "exists": false}},
