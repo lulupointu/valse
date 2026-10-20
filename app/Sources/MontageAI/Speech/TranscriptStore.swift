@@ -18,9 +18,13 @@ public final class TranscriptStore: @unchecked Sendable {
 
     public static func key(hash: String, range: TimeRange?, language: String?, engine: SpeechEngine, fillers: Bool) -> String {
         let r = range.map { "\(Int($0.start.seconds * 1000))-\(Int($0.end.seconds * 1000))" } ?? "all"
-        // t4: DTW word times + speech-onset snapping (older cached transcripts have early/late words); t5: punctuated style prompt
-        return "\(hash)-\(r)-\(language ?? "auto")-\(engine.rawValue)\(fillers ? "-f" : "")-t5"
+        // t4: DTW word times + speech-onset snapping (older cached transcripts have early/late words); t5: punctuated style
+        // prompt; t6: first word after a silence no longer anchored at the segment start, VAD core test (U2)
+        return "\(hash)-\(r)-\(language ?? "auto")-\(engine.rawValue)\(fillers ? "-f" : "")-\(version)"
     }
+
+    /// Timing version of cached transcripts: older files are ignored (their words start too early), never deleted.
+    public static let version = "t6"
 
     public func get(_ key: String) -> Transcript? {
         if let t = lock.withLock({ memory[key] }) { return t }
@@ -34,11 +38,15 @@ public final class TranscriptStore: @unchecked Sendable {
         if let d = try? JSONEncoder().encode(t) { try? d.write(to: url(key), options: .atomic) }
     }
 
-    /// Most recent transcript of a media item whatever its parameters (transcript panel).
+    /// Most recent transcript of a media item whatever its parameters (transcript panel), of the current timing
+    /// `version` (an older one would cut fillers / pauses at its stale times; the panel offers to transcribe instead).
     public func latest(hash: String) -> Transcript? {
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey]) else { return nil }
-        let mine = files.filter { $0.lastPathComponent.hasPrefix(hash + "-") && $0.lastPathComponent.contains("-all-") }
+        let mine = files.filter {
+            $0.lastPathComponent.hasPrefix(hash + "-") && $0.lastPathComponent.contains("-all-")
+                && $0.deletingPathExtension().lastPathComponent.hasSuffix("-" + Self.version)
+        }
         let newest = mine.max { a, b in
             let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast

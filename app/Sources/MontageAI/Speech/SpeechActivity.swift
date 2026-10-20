@@ -20,21 +20,32 @@ public struct SpeechActivity: Sendable {
 
     public init(speech: [Bool], thresholdDB: Double = 0) { self.speech = speech; self.thresholdDB = thresholdDB }
 
-    /// Frame energies (dB) → speech flags. Threshold: 35 dB under the loud speech level (98th percentile), but at least
-    /// 12 dB over the noise floor (10th percentile); runs shorter than 30 ms are ignored.
+    /// Within this many dB of the loud speech level, a run of frames has a voiced core.
+    static let coreDB = 22.0
+    /// Consecutive frames (10 ms) a run needs at the core level to count as speech (a vowel lasts ≥ 50 ms; a footstep
+    /// or a click doesn't).
+    static let coreFrames = 5
+
+    /// Frame energies (dB) → speech flags, with hysteresis. A run of frames above the low threshold — 35 dB under the
+    /// loud speech level (98th percentile), but at least 12 dB over the noise floor (10th percentile) — is speech when
+    /// it lasts ≥ 30 ms and holds 50 ms in a row within `coreDB` of the speech level; the run's soft edges (fricatives,
+    /// decays) stay speech. Without the core test, seconds of walk-in noise / rustle 25–30 dB under the voice counted
+    /// as speech, so a word whisper started in it was never snapped to the voice (U2, owner clip IMG_7251).
     public init(frameDB db: [Double]) {
         guard !db.isEmpty else { self.init(speech: []); return }
         let sorted = db.sorted()
         let floor = sorted[Int(Double(sorted.count - 1) * 0.1)], peak = sorted[Int(Double(sorted.count - 1) * 0.98)]
-        let thr = max(floor + 12, peak - 35)
+        let thr = max(floor + 12, peak - 35), core = peak - Self.coreDB
         var sp = db.map { $0 > thr }
-        // a breath / click shorter than 30 ms is not a speech onset
+        // a breath / click shorter than 30 ms is not a speech onset; nor is a run that never gets near the voice level
         var i = 0
         while i < sp.count {
             guard sp[i] else { i += 1; continue }
             var j = i
             while j < sp.count, sp[j] { j += 1 }
-            if j - i < 3 { for k in i..<j { sp[k] = false } }
+            var streak = 0, longest = 0
+            for k in i..<j { streak = db[k] > core ? streak + 1 : 0; longest = max(longest, streak) }
+            if j - i < 3 || longest < Self.coreFrames { for k in i..<j { sp[k] = false } }
             i = j
         }
         if peak - floor < 10 { sp = Array(repeating: true, count: db.count) }   // no dynamics: can't tell silence

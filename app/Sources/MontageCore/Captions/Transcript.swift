@@ -69,6 +69,9 @@ public enum FillerWords {
     static let bigramsFR: Set<String> = ["du coup", "en fait", "tu vois", "vous voyez", "en gros"]
     static let bigramsEN: Set<String> = ["you know", "i mean", "kind of", "sort of"]
 
+    /// "euh", "um", "hmm"… (can be held for a second or more).
+    public static func isHesitation(_ word: String) -> Bool { hesitations.contains(CaptionText.normalize(word)) }
+
     /// Classifies every word (nil = not a filler). Multi-word fillers mark all their words; a word repeated right
     /// after itself ("le le") marks the first occurrence as a repetition. Context fillers ("like", "genre") are only
     /// flagged when isolated by pauses or punctuation, to avoid false positives.
