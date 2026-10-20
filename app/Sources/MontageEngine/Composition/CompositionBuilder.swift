@@ -93,9 +93,7 @@ public enum CompositionBuilder {
         let blank = try await BlankVideo.url()
         if let bt = try await AssetCache.shared.entry(blank).video,
            let base = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) {
-            let one = CMTimeRange(start: .zero, duration: CMTime(value: 1, timescale: 1))
-            try base.insertTimeRange(one, of: bt, at: .zero)
-            base.scaleTimeRange(CMTimeRange(start: .zero, duration: one.duration), toDuration: duration.cmTime)
+            try addBase(base, blank: bt, duration: duration)
             videoTrackIDs.append(base.trackID)
         }
 
@@ -223,6 +221,21 @@ public enum CompositionBuilder {
         if !audioParams.isEmpty { mix = AVMutableAudioMix(); mix!.inputParameters = audioParams }
         return BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
                                 duration: duration, state: state, audioState: audioState)
+    }
+
+    /// The base track covers `[0, duration)` with copies of the blank file, back to back and unscaled (B1). It used to
+    /// be the blank's first second STRETCHED to the duration (`scaleTimeRange`): for about one duration in three
+    /// (32.735 s = owner clip IMG_9079, 32.7, 45.123, 61.01 s …) an AVAssetReader whose `timeRange` starts inside the
+    /// stretched samples never delivered a composed frame (AVFoundation; Apple's own compositor too), so range exports
+    /// starting mid-project hung while full / from-0 exports worked.
+    static func addBase(_ base: AVMutableCompositionTrack, blank: AVAssetTrack, duration: Time) throws {
+        let piece = Time(Double(BlankVideo.seconds))
+        var at = Time.zero
+        while at < duration {
+            let len = min(piece, duration - at)
+            try base.insertTimeRange(CMTimeRange(start: .zero, duration: len.cmTime), of: blank, at: at.cmTime)
+            at = at + len
+        }
     }
 
     /// Aux lanes a clip needs: (role, file, source shift).

@@ -49,7 +49,7 @@ import MontageTestSupport
     /// The exported file's frame at `t` (real Exporter, decoded without colour conversion).
     static func exportFrame(_ project: Project, at t: Double) async throws -> ColorScience.Frame {
         var s = ExportSettings(); s.resolution = .p480
-        // from 0: a range export starting mid-clip stalls on some iPhone clips (IMG_9079; pre-existing, also without C1)
+        // from 0 (cheap); mid-project range exports are covered by RangeExportTests (B1: stretched base track stall)
         s.includeAudio = false
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("c1-\(UUID().uuidString).\(s.fileExtension)")
         defer { try? FileManager.default.removeItem(at: url) }
