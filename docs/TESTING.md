@@ -65,6 +65,10 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
   code 3, reported separately by `uitest.sh`) when a model is missing (e.g. `ai_remove_inference`).
   Sidecar runtimes (`whisper-cli`, `demucs`, `llama-completion`) are looked up in the user's real
   `~/Library/Application Support/Montage/bin` even though UI tests sandbox the support folder.
+- Caption word timing: `CaptionOnsetTests` builds FR / EN speech with known word onsets, silences and noise
+  (`bench/speech_onsets.swift`, cached in ~/Library/Caches/MontageDev/fixtures; bump `fixtureVersion` when the script
+  changes) and asserts median onset error < 80 ms, max < 200 ms; `MONTAGE_U2_FOOTAGE=/copy/of/IMG_7251.mov` adds the
+  owner clip. Changing word timing → bump `TranscriptStore.version` (stale cached transcripts are then ignored).
 - Opt-in AI tests: `MONTAGE_SLOW_TESTS=1 scripts/test.sh --filter MontageAITests` (demucs, LLM writer/clipper);
   `MONTAGE_QA_VIDEO=/path/to/talking-person.mp4 scripts/test.sh --filter RealMediaQATests` runs every engine on real
   footage and prints real-time factors + quality metrics (transcript, stems RMS, scenes, speakers, shorts, TTS round

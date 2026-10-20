@@ -104,6 +104,21 @@ public enum WhisperEngine {
     /// (DTW marks token ends; measured on synthetic French speech: 0 → −47 ms bias, 0.15 → ≈ 0).
     static let dtwStartBias = 0.15
 
+    /// Longest plausible duration of one token, from its spelling: ≈ 90 ms per letter + 250 ms (≤ 1.2 s), digits ×3
+    /// (spoken numbers are long), hesitations ("euh", "um") 1.5 s. A word can't start earlier than its first token's
+    /// DTW time minus this: the start anchor is the previous token, and for a segment's first word that is the segment
+    /// start — the 30 s window start or the previous segment's end, seconds before the voice after a silence (U2, owner
+    /// clip IMG_7251: "Vous" anchored at 0 s, DTW 3.74 s → started at 0.56 s). DTW also bunches the first tokens of a
+    /// segment after a long silence, which drags the next word's anchor back the same way.
+    static func maxTokenDuration(_ token: String) -> Double {
+        let t = token.trimmingCharacters(in: .whitespaces)
+        if FillerWords.isHesitation(t) { return 1.5 }
+        let letters = t.unicodeScalars.reduce(0) { n, u in
+            CharacterSet.decimalDigits.contains(u) ? n + 3 : CharacterSet.letters.contains(u) ? n + 1 : n
+        }
+        return min(1.2, 0.25 + 0.09 * Double(letters))
+    }
+
     /// Parses `-ojf` output into words.
     public static func parse(_ data: Data, fallbackLanguage: String) throws -> Transcript {
         guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIToolError.unavailable("bad json") }
@@ -183,7 +198,8 @@ public enum WhisperEngine {
                 if cur == nil || (text.hasPrefix(" ") && !isPunct) {
                     flush()
                     let from = prev ?? segStart
-                    cur = (text, from + dtwStartBias * max(0, d - from), d, p.map { [$0] } ?? [])
+                    let start = max(from + dtwStartBias * max(0, d - from), d - maxTokenDuration(text))
+                    cur = (text, start, d, p.map { [$0] } ?? [])
                 } else {
                     cur!.text += text
                     if !isPunct { cur!.end = max(cur!.end, d); if let p { cur!.p.append(p) } }
