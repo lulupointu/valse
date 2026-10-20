@@ -143,8 +143,13 @@ public enum Exporter {
         writer.metadata = metadataItems(options)
         // HLG: the footage's ambient viewing environment, so players render the file like its source (C1)
         let ambient = space == .hdrHLG ? await HDRViewingMetadata.shared.ambientViewingEnvironment(for: project) : nil
-        let vSettings = videoSettings(settings, w: w, h: h, canvas: project.settings.canvasSize, space: space,
+        var vSettings = videoSettings(settings, w: w, h: h, canvas: project.settings.canvasSize, space: space,
                                       bitDepth: bitDepth, alpha: alpha, ambient: ambient)
+        if !writer.canApply(outputSettings: vSettings, forMediaType: .video) {
+            // macOS 13 / Intel encoders reject some optional properties (an unsupported one fails canApply, and would
+            // throw in AVAssetWriterInput): export without them rather than not at all. 14+/Apple Silicon never get here.
+            vSettings = Self.withoutOptionalCompressionKeys(vSettings)
+        }
         guard writer.canApply(outputSettings: vSettings, forMediaType: .video) else {
             throw ExportError.failed("unsupported video settings \(settings.codec) \(w)x\(h)")
         }
@@ -265,6 +270,21 @@ public enum Exporter {
         case .proRes4444XQ: return AVVideoCodecType(rawValue: "ap4x")
         default: return .proRes422
         }
+    }
+
+    /// Compression properties the export can live without: HLG ambient viewing environment (VideoToolbox 14+) and the
+    /// fast-encode hint (not every hardware encoder accepts it, e.g. Intel Quick Sync).
+    static let optionalCompressionKeys = ["AmbientViewingEnvironment", kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality as String]
+
+    static func withoutOptionalCompressionKeys(_ settings: [String: Any]) -> [String: Any] {
+        guard var props = settings[AVVideoCompressionPropertiesKey] as? [String: Any] else { return settings }
+        for k in optionalCompressionKeys where props[k] != nil {
+            props[k] = nil
+            EngineLog.info("export: encoder rejected optional property \(k); exporting without it")
+        }
+        var out = settings
+        out[AVVideoCompressionPropertiesKey] = props
+        return out
     }
 
     static func videoSettings(_ s: ExportSettings, w: Int, h: Int, canvas: Size2, space: ProjectColorSpace = .sdr709,

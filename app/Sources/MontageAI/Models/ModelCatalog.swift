@@ -161,12 +161,21 @@ public enum ModelCatalog {
         return s
     }()
 
-    /// Package directory of the installed depth model.
-    public static var installedDepthPackage: URL? {
-        installedURL(depthAnything) == nil ? nil : modelsDirectory.appendingPathComponent("DepthAnythingV2SmallF16.mlpackage", isDirectory: true)
+    /// Apple's Depth Anything package is Core ML spec 8 (iOS 17 opset): macOS 13 cannot compile it. There Relight uses
+    /// its pseudo-depth fallback and the manager doesn't offer the download.
+    public static var depthModelSupported: Bool {
+        if #available(macOS 14, *) { return true }
+        return false
     }
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding, depthAnything, clip]
+    /// Package directory of the installed depth model (nil where the OS can't run it).
+    public static var installedDepthPackage: URL? {
+        guard depthModelSupported, installedURL(depthAnything) != nil else { return nil }
+        return modelsDirectory.appendingPathComponent("DepthAnythingV2SmallF16.mlpackage", isDirectory: true)
+    }
+
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding]
+        + (depthModelSupported ? [depthAnything] : []) + [clip]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
     /// Set by the UI test driver: scripts see an empty sandboxed models folder (deterministic "not installed" UX) unless

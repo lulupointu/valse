@@ -89,7 +89,7 @@ public enum BuiltinTransitions {
             float f = pow(tr_bump(t), 3.0);
             return mix(c, float4(p[0], p[1], p[2], 1.0), f);
             """),
-        t("dimDissolve", "basic", "circle.lefthalf.striped.horizontal", """
+        t("dimDissolve", "basic", SFSymbolCompat.compat("circle.lefthalf.striped.horizontal"), """
             float4 c = mix(FA(uv), FB(uv), tr_smooth(t));
             c.rgb *= 1.0 - 0.65 * tr_bump(t);
             return c;
@@ -287,7 +287,7 @@ public enum BuiltinTransitions {
             c.rgb = min(c.rgb + f, 1.0);
             return c;
             """),
-        t("rainbowLeak", "light", "rainbow", params: [intensity(0.7)], """
+        t("rainbowLeak", "light", SFSymbolCompat.compat("rainbow"), params: [intensity(0.7)], """
             float k = tr_bump(t) * p[0];
             float4 c = mix(FA(uv), FB(uv), smoothstep(0.3, 0.7, t));
             float3 h = fx_hsv2rgb(float3(fract(uv.x * 0.6 + uv.y * 0.3 + t * 0.8), 0.65, 1.0));
@@ -540,7 +540,7 @@ public enum BuiltinTransitions {
             float bb = mix(FA(c0 / (1.0 + amp * 0.7) + 0.5).b, FB(c0 / (1.0 + amp * 0.7) + 0.5).b, m);
             return float4(rr, g.g, bb, g.a);
             """),
-        t("tvOff", "glitch", "tv.slash", duration: 0.6, """
+        t("tvOff", "glitch", SFSymbolCompat.compat("tv.slash"), duration: 0.6, """
             float sy = t < 0.5 ? mix(1.0, 0.004, tr_ease(t * 2.0)) : mix(0.004, 1.0, tr_ease(t * 2.0 - 1.0));
             float2 q = float2(uv.x, (uv.y - 0.5) / sy + 0.5);
             if (!tr_inside(q)) return float4(0.0, 0.0, 0.0, 1.0);
@@ -573,7 +573,7 @@ public enum BuiltinTransitions {
             float2 r = uv + float2(sin(uv.y * 12.0 + t * 8.0) * 0.05, sin(uv.x * 8.0 + t * 5.0) * 0.025) * amp;
             return mix(MA(r), MB(r), smoothstep(0.3, 0.7, t));
             """),
-        t("liquid", "distortion", "drop.halffull", params: [intensity(0.6)], """
+        t("liquid", "distortion", SFSymbolCompat.compat("drop.halffull"), params: [intensity(0.6)], """
             float amp = tr_bump(t) * p[0];
             float2 off = float2(tr_fbm(uv * 4.0 + t * 2.0), tr_fbm(uv * 4.0 + 9.3 - t * 2.0)) - 0.45;
             float2 r = uv + off * 0.12 * amp;
@@ -663,7 +663,7 @@ public enum BuiltinTransitions {
             return col;
             """)
     } + [
-        t("pageCurl", "3d", "book.pages", duration: 0.9, """
+        t("pageCurl", "3d", SFSymbolCompat.compat("book.pages"), duration: 0.9, """
             float2 n = float2(0.9, 0.25);
             float nn = dot(n, n), ns = n.x + n.y;
             float x = dot(uv, n) / ns;

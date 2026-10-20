@@ -72,7 +72,7 @@ public enum PilotAction: Hashable, Codable, Sendable {
         case .addCaptions: return "captions.bubble"
         case .highlightKeywords: return "highlighter"
         case .setAspect: return "aspectratio"
-        case .setSpeed, .speedUpQuiet, .fitDuration: return "gauge.with.dots.needle.67percent"
+        case .setSpeed, .speedUpQuiet, .fitDuration: return "speedometer"
         case .addTransitions: return "rectangle.on.rectangle.angled"
         case .applyFilter: return "camera.filters"
         case .applyEffect: return "sparkles"

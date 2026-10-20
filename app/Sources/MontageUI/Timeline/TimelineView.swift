@@ -693,7 +693,7 @@ final class TimelineView: NSView {
         if r.width > 40 {
             if !clip.speed.isNormal && !clip.isFreezeFrame {
                 if case .curve = clip.speed { badge("waveform.path.ecg", tr("timeline.badge.curve"), color: RGBA(hex: 0xF2C230)) }
-                else { badge("gauge.with.needle", String(format: "%.1fx", clip.speed.averageRate), color: RGBA(hex: 0xF2C230)) }
+                else { badge(SFSymbolCompat.compat("gauge.with.needle"), String(format: "%.1fx", clip.speed.averageRate), color: RGBA(hex: 0xF2C230)) }
             }
             if clip.reversed { badge("arrow.uturn.backward") }
             if clip.audio.isMuted && asset?.hasAudio == true && !clip.isFreezeFrame { badge("speaker.slash") }

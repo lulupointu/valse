@@ -85,7 +85,8 @@
 "env.memory" = "Mémoire";
 "env.memory.advice" = "Peu de mémoire : gardez les proxys activés et fermez les autres apps pendant le montage 4K.";
 "env.os" = "Système";
-"env.os.advice" = "Montage nécessite macOS 14 ou une version ultérieure.";
+"env.os.advice" = "Montage nécessite macOS 13 ou une version ultérieure.";
+"env.os.advice13" = "Certaines fonctions d’IA nécessitent macOS 14 ou une version ultérieure (détourage de sujet, traduction, Apple Intelligence). Tout le reste fonctionne.";
 "env.decode" = "Décodage matériel";
 "env.decode.advice" = "Pas de décodage matériel HEVC : les vidéos HEVC utiliseront des proxys.";
 "env.encode" = "Encodage matériel";

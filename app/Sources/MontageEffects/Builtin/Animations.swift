@@ -164,10 +164,10 @@ public enum BuiltinAnimations {
         inAnim("shake", "anim.in.shake", "iphone.radiowaves.left.and.right", duration: 0.6, ease: AnimEase.linear, shake),
         inAnim("swirl", "anim.in.swirl", "hurricane", swirl),
         inAnim("stretch", "anim.in.stretch", "arrow.left.and.right.square", stretch),
-        inAnim("tilt", "anim.in.tilt", "rectangle.portrait.rotate", tilt),
+        inAnim("tilt", "anim.in.tilt", SFSymbolCompat.compat("rectangle.portrait.rotate"), tilt),
         inAnim("zoomBlur", "anim.in.zoomBlur", "circle.circle", zoomBlur),
         inAnim("rollIn", "anim.in.rollIn", "arrow.uturn.right.circle", roll),
-        inAnim("flicker", "anim.in.flicker", "lightbulb.max", ease: AnimEase.linear, flicker),
+        inAnim("flicker", "anim.in.flicker", SFSymbolCompat.compat("lightbulb.max"), ease: AnimEase.linear, flicker),
         inAnim("unfold", "anim.in.unfold", "rectangle.expand.vertical", ease: AnimEase.outBack, fold),
     ]
 
@@ -201,7 +201,7 @@ public enum BuiltinAnimations {
         outAnim("shake", "anim.out.shake", "iphone.radiowaves.left.and.right", duration: 0.6, ease: AnimEase.linear, shake),
         outAnim("swirl", "anim.out.swirl", "hurricane", swirl),
         outAnim("stretch", "anim.out.stretch", "arrow.left.and.right.square", stretch),
-        outAnim("tilt", "anim.out.tilt", "rectangle.portrait.rotate", tilt),
+        outAnim("tilt", "anim.out.tilt", SFSymbolCompat.compat("rectangle.portrait.rotate"), tilt),
         outAnim("zoomBlur", "anim.out.zoomBlur", "circle.circle", zoomBlur),
         outAnim("rollOut", "anim.out.rollOut", "arrow.uturn.left.circle", { k, s in roll(k, &s); s.transform.position.x += 1.2 * k }),
         outAnim("flicker", "anim.out.flicker", "lightbulb.slash", ease: AnimEase.linear, flicker),
@@ -226,10 +226,10 @@ public enum BuiltinAnimations {
             s.transform.scale = s.transform.scale * (1 + 0.18 * AnimEase.inOutCubic(p))
             s.transform.position.x += 0.04 * AnimEase.inOutCubic(p)
         }),
-        combo("pushIn", "arrow.down.right.and.arrow.up.left.rectangle", edge: 0.0001, { _, _ in }, { _, _ in }, hold: { p, s in
+        combo("pushIn", SFSymbolCompat.compat("arrow.down.right.and.arrow.up.left.rectangle"), edge: 0.0001, { _, _ in }, { _, _ in }, hold: { p, s in
             s.transform.scale = s.transform.scale * (1 + 0.15 * p)
         }),
-        combo("pullBack", "arrow.up.left.and.arrow.down.right.rectangle", edge: 0.0001, { _, _ in }, { _, _ in }, hold: { p, s in
+        combo("pullBack", SFSymbolCompat.compat("arrow.up.left.and.arrow.down.right.rectangle"), edge: 0.0001, { _, _ in }, { _, _ in }, hold: { p, s in
             s.transform.scale = s.transform.scale * (1.15 - 0.15 * p)
         }),
         combo("rock", "arrow.left.and.right.circle", edge: 0.0001, { _, _ in }, { _, _ in }, hold: { p, s in
@@ -266,13 +266,13 @@ public enum BuiltinAnimations {
         },
         loop("blink", "eye", duration: 1) { p, s in s.opacity *= p > 0.45 && p < 0.55 ? 0 : 1 },
         loop("breathe", "lungs", duration: 2) { p, s in s.opacity *= 1 - 0.45 * (0.5 - 0.5 * cos(p * 2 * .pi)) },
-        loop("jelly", "drop.halffull", duration: 0.8) { p, s in
+        loop("jelly", SFSymbolCompat.compat("drop.halffull"), duration: 0.8) { p, s in
             let d = exp(-3 * p) * sin(p * 2 * .pi * 3)
             s.transform.scale.x *= 1 + 0.15 * d; s.transform.scale.y *= 1 - 0.15 * d
         },
         loop("rock", "arrow.left.and.right.circle", duration: 1.5) { p, s in s.transform.rotation += 15 * sin(p * 2 * .pi) },
         loop("zoom", "plus.magnifyingglass", duration: 1.5) { p, s in s.transform.scale = s.transform.scale * (1 + 0.15 * (0.5 - 0.5 * cos(p * 2 * .pi))) },
-        loop("orbit", "circle.dotted.circle", duration: 2) { p, s in
+        loop("orbit", SFSymbolCompat.compat("circle.dotted.circle"), duration: 2) { p, s in
             s.transform.position.x += 0.03 * sin(p * 2 * .pi); s.transform.position.y += 0.03 * (1 - cos(p * 2 * .pi))
         },
         loop("flash", "bolt", duration: 0.6) { p, s in s.opacity *= 0.55 + 0.45 * cos(p * 2 * .pi) },

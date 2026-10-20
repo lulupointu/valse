@@ -92,7 +92,7 @@ enum FXDistort {
     """)
 
     /// Liquid warp, optionally psychedelic colours. p: amount, speed · c: scale, colour cycling.
-    static let liquid = FXBase("liquid", params: [FXKit.amount(0.5), FXKit.speed(0.5)], symbol: "drop.halffull", """
+    static let liquid = FXBase("liquid", params: [FXKit.amount(0.5), FXKit.speed(0.5)], symbol: SFSymbolCompat.compat("drop.halffull"), """
     float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx) {
         constant float* c = p + 2;
         float t = ctx.time * (0.2 + p[1] * 1.2);
