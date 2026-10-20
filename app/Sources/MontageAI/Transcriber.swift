@@ -160,10 +160,11 @@ public enum Transcriber {
     static func sfSpeech(url: URL, locale: Locale, language: String) async throws -> Transcript {
         var status = SFSpeechRecognizer.authorizationStatus()
         if status == .notDetermined {
-            status = await withTaskGroup(of: SFSpeechRecognizerAuthorizationStatus.self) { g in
-                g.addTask { await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) } } }
-                g.addTask { try? await Task.sleep(nanoseconds: 3_000_000_000); return .notDetermined }
-                let first = await g.next()!; g.cancelAll(); return first
+            // Answer or 3 s, whichever comes first. (A task group would still wait for a callback that never fires.)
+            status = await withCheckedContinuation { c in
+                let once = OnceFlag()
+                SFSpeechRecognizer.requestAuthorization { s in if once.take() { c.resume(returning: s) } }
+                DispatchQueue.global().asyncAfter(deadline: .now() + 3) { if once.take() { c.resume(returning: .notDetermined) } }
             }
         }
         guard status == .authorized else { throw AIToolError.unavailable("speech recognition not authorized") }
