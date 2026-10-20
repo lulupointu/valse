@@ -488,11 +488,13 @@ struct AutoAdjustSection: View {
             })
     }
 
-    /// Analyses the clip's source frame at the playhead and stores the result (one undo step).
-    static func run(_ ctx: InspectorContext, _ clip: Clip) {
-        guard let asset = ctx.asset else { return }
+    /// Analyses the clip's source frame at the playhead and stores the result (one undo step). Returns the task
+    /// (tests await it).
+    @discardableResult
+    static func run(_ ctx: InspectorContext, _ clip: Clip) -> Task<Void, Never>? {
+        guard let asset = ctx.asset else { return nil }
         let store = ctx.store, t = store.transport.playhead, id = clip.id
-        Task {
+        return Task {
             guard let img = try? await AutoAdjustAnalyzer.frame(of: clip, asset: asset, at: t) else {
                 store.showToast(tr("autoAdjust.failed"), error: true); return
             }

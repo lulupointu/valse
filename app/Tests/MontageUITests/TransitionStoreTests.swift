@@ -71,9 +71,7 @@ import MontageTestSupport
         s.applyTransition(Registries.transitions["montage.transition.wipeLeft"]!)
         // let a few thumbnails land
         for d in Registries.transitions.all.prefix(12) { _ = TransitionThumbnails.shared.still(d) }
-        for _ in 0..<400 where Registries.transitions.all.prefix(12).contains(where: { TransitionThumbnails.shared.still($0) == nil }) {
-            try await Task.sleep(for: .milliseconds(30))
-        }
+        await TransitionThumbnails.shared.idle()   // awaited (B1): a 12 s poll budget ran out under full-suite load
         #expect(TransitionThumbnails.shared.still(Registries.transitions.all[0]) != nil)
         let tab = TransitionsTab(store: s).frame(width: 520, height: 420).background(Theme.panel)
         let img = Self.snapshot(tab, size: CGSize(width: 520, height: 420))

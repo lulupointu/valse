@@ -163,6 +163,7 @@ struct TransitionTile: View {
     @ObservationIgnored private var loops: [String: [CGImage]] = [:]
     @ObservationIgnored private var loopOrder: [String] = []
     @ObservationIgnored private var pending: Set<String> = []
+    @ObservationIgnored private var idleWaiters: [CheckedContinuation<Void, Never>] = []
     @ObservationIgnored private let queue: OperationQueue = {
         let q = OperationQueue()
         q.maxConcurrentOperationCount = 3
@@ -188,7 +189,10 @@ struct TransitionTile: View {
         pending.insert(key)
         let n = Self.loopFrames, px = Self.px
         queue.addOperation {
-            guard let (a, b) = Self.samples.value else { return }
+            guard let (a, b) = Self.samples.value else {
+                Task { @MainActor in TransitionThumbnails.shared.store([], for: d.id, loop: loop, key: key) }
+                return
+            }
             let progresses = loop ? (0..<n).map { Double($0) / Double(n - 1) } : [0.4]
             let images = UncheckedSendable(PresetPreviewRenderer.transitionFrames(d, from: a, to: b, progresses: progresses,
                                                                                  width: px, height: px).compactMap { $0 })
@@ -196,8 +200,15 @@ struct TransitionTile: View {
         }
     }
 
+    /// Resolves once no picture is being rendered (tests wait on this instead of polling with a time budget).
+    func idle() async {
+        if pending.isEmpty { return }
+        await withCheckedContinuation { idleWaiters.append($0) }
+    }
+
     private func store(_ images: [CGImage], for id: String, loop: Bool, key: String) {
         pending.remove(key)
+        if pending.isEmpty { let w = idleWaiters; idleWaiters = []; for c in w { c.resume() } }
         guard !images.isEmpty else { return }
         if loop {
             loops[id] = images
