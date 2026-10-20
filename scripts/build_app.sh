@@ -3,23 +3,35 @@
 # Bundles the music + sound-effect library (Contents/Resources/Content) from the scripts/fetch_music_pack.sh cache
 # and verifies every manifest item (file present, SHA-256) — fails if the cache is incomplete; `--no-content` skips it
 # (a missing cache only warns unless MONTAGE_REQUIRE_CONTENT=1).
-# Usage: scripts/build_app.sh [--debug] [--no-content]
+# The executable is universal (arm64 + x86_64, macOS 13+ per Info.plist / LC_BUILD_VERSION): each arch is built
+# separately and merged with lipo; the resource bundles are architecture-independent (taken from the host build).
+# `--host-only` (or MONTAGE_APP_ARCHS="arm64") builds only the listed / host arch, for quicker local iterations.
+# Usage: scripts/build_app.sh [--debug] [--no-content] [--host-only]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CONFIG=release
 CONTENT=1
+HOST="$(uname -m)"
+ARCHS="${MONTAGE_APP_ARCHS:-arm64 x86_64}"
 for a in "$@"; do
   case "$a" in
     --debug) CONFIG=debug;;
     --no-content) CONTENT=0;;
+    --host-only) ARCHS="$HOST";;
   esac
 done
-swift build -c "$CONFIG" --product Montage >&2
-BIN="$(swift build -c "$CONFIG" --show-bin-path)"
+SLICES=()
+for arch in $ARCHS; do
+  swift build -c "$CONFIG" --product Montage --arch "$arch" >&2
+  SLICES+=("$(swift build -c "$CONFIG" --arch "$arch" --show-bin-path)/Montage")
+done
+# resource bundles: from the host-arch build when it is in the list, else the first one
+BIN="$(dirname "${SLICES[0]}")"
+for arch in $ARCHS; do [[ "$arch" == "$HOST" ]] && BIN="$(swift build -c "$CONFIG" --arch "$arch" --show-bin-path)"; done
 APP=build/Montage.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN/Montage" "$APP/Contents/MacOS/Montage"
+lipo -create "${SLICES[@]}" -output "$APP/Contents/MacOS/Montage"
 cp app/Bundle/Info.plist "$APP/Contents/Info.plist"
 cp app/Bundle/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp -R app/Bundle/en.lproj app/Bundle/fr.lproj "$APP/Contents/Resources/"
