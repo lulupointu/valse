@@ -62,11 +62,20 @@ public struct ScreenSource: Identifiable, Hashable, Sendable {
 public enum CaptureDevices {
     public struct Device: Identifiable, Hashable, Sendable { public let id: String; public let name: String }
     public static func cameras() -> [Device] {
-        AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera, .deskViewCamera],
-                                         mediaType: .video, position: .unspecified).devices.map { Device(id: $0.uniqueID, name: $0.localizedName) }
+        // macOS 13 names: `.externalUnknown` (renamed `.external` in 14; Continuity Camera is reported under it on 13).
+        let types: [AVCaptureDevice.DeviceType] = if #available(macOS 14, *) {
+            [.builtInWideAngleCamera, .external, .continuityCamera, .deskViewCamera]
+        } else {
+            [.builtInWideAngleCamera, .externalUnknown, .deskViewCamera]
+        }
+        return AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .unspecified)
+            .devices.map { Device(id: $0.uniqueID, name: $0.localizedName) }
     }
     public static func microphones() -> [Device] {
-        AVCaptureDevice.DiscoverySession(deviceTypes: [.microphone, .external], mediaType: .audio, position: .unspecified)
+        // macOS 13 names: `.builtInMicrophone` / `.externalUnknown` (renamed `.microphone` / `.external` in 14).
+        let types: [AVCaptureDevice.DeviceType] = if #available(macOS 14, *) { [.microphone, .external] }
+            else { [.builtInMicrophone, .externalUnknown] }
+        return AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .audio, position: .unspecified)
             .devices.map { Device(id: $0.uniqueID, name: $0.localizedName) }
     }
 }
