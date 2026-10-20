@@ -206,6 +206,10 @@ projects processed before this fix (face covers refresh themselves when the proj
 - Always-visible views must read store slices, never `store.project` (re-render storms). New render passes must `scratch.recycle` inputs (memory). See TESTING.md.
 - UI tests are environment-independent (7d89983): AI models sandboxed (scripts declare `requires.models`, else SKIP), fixed cache sizes/clock in test mode, snapshot `mask`. uitest.sh exits non-zero on failure.
 - Unit timing checks are load-aware (985b24e, TimingBudget: 3x gross bound, skipped when load > cores); precise budgets live in scripts/perf.sh. Heavy scripts share 2 machine-wide slots (scripts/slots.sh).
+- Intel / macOS 13 (m13-intel): `Float16` is unavailable on x86_64 — use `Half` (MontageCore; bit-exact, verified on all
+  2^32 floats) behind `#if arch(arm64)`. `scripts/build_app.sh` builds a universal app (`--host-only` for quick builds);
+  `scripts/build_ai_runtimes.sh` builds universal macOS 13 sidecars (x86_64 = ggml CPU, no Metal; never link Homebrew
+  dylibs). `scripts/test_x86.sh` runs the x86_64 unit tests under Rosetta.
 - Gate (T1): iterate with `scripts/check_fast.sh`, run `scripts/check_clean.sh --ui` ONCE before "ready to merge". Failed
   tests are retried once alone; only twice-failing tests that are not in `app/Tests/quarantine.txt` fail the gate.
   A "flaky" line is a bug report, not a pass to ignore.

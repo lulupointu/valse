@@ -32,6 +32,8 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   `--unit-filter <re>` narrows the unit tests; `--base HEAD~1` checks only your last commit's UI area; `--all-ui` runs every
   script (still incremental). Run it as often as you like (a one-file change measured 6 min: 980 unit tests + 11 UI scripts).
   Single files: `scripts/test.sh --filter X`, `scripts/uitest.sh app/Tests/UIScripts/x.json`.
+  Intel (x86_64) build: `scripts/test_x86.sh [--filter X]` runs Core / Effects / Engine tests as x86_64 under Rosetta
+  (CPU code paths only: Metal still runs on the Apple GPU). Float16 doesn't exist on x86_64: use `Half` (MontageCore).
 - **Stage 2 — once, just before "ready to merge": `scripts/check_clean.sh --ui`** (fresh clean checkout, ~970 unit tests,
   every UI script, 16–33 min). Only this one proves the branch; it writes `build/check_clean.ok` for the merge.
   Don't run stage 2 repeatedly to debug: fix with stage 1 / single scripts, then run stage 2 once more.

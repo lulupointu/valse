@@ -40,13 +40,28 @@ fi
 use_private_tmpdir test-x86
 DEV="$(xcode-select -p)/Platforms/MacOSX.platform/Developer"
 LOG=build/test-x86.log
-set +e
-# The runner is an x86_64-only binary, so it runs under Rosetta without `arch` (which would strip DYLD_* variables).
-DYLD_FRAMEWORK_PATH="$DEV/Library/Frameworks" DYLD_LIBRARY_PATH="$DEV/usr/lib" \
-  run_watched "$LOG" "$RUNNER" --test-bundle-path "$BUNDLE" --testing-library swift-testing \
-  --xunit-output build/test-x86-xunit.xml ${ARGS[@]+"${ARGS[@]}"}
-CODE=$?
-set -e
+# Known Rosetta issue: after many audio renders, Apple's translated AudioQueue server thread (AQServer) can trap in its
+# caulk allocator (EXC_BAD_INSTRUCTION, exit 132) — not reproducible test by test. A crashed run is resumed: suites
+# that already finished are skipped (up to 4 resumes); the crash is reported.
+: > "$LOG"; SKIP=(); CRASHES=0; CODE=1
+for attempt in 1 2 3 4 5; do
+  set +e
+  # The runner is an x86_64-only binary, so it runs under Rosetta without `arch` (which would strip DYLD_* variables).
+  DYLD_FRAMEWORK_PATH="$DEV/Library/Frameworks" DYLD_LIBRARY_PATH="$DEV/usr/lib" \
+    run_watched "$LOG.part" "$RUNNER" --test-bundle-path "$BUNDLE" --testing-library swift-testing \
+    --xunit-output build/test-x86-xunit.xml ${ARGS[@]+"${ARGS[@]}"} ${SKIP[@]+"${SKIP[@]}"}
+  CODE=$?
+  set -e
+  cat "$LOG.part" >> "$LOG"
+  [[ $CODE == 132 || $CODE == 134 || $CODE == 139 ]] || break
+  CRASHES=$((CRASHES + 1))
+  echo "x86 test process crashed (exit $CODE, attempt $attempt) during: $(grep -E 'Test .* started' "$LOG.part" | tail -1)"
+  while read -r suite; do SKIP+=(--skip "\.${suite}(/|\$)"); done < <(grep -oE 'Suite [A-Za-z0-9_]+ (passed|failed)' "$LOG.part" | awk '{print $2}' | sort -u)
+done
+rm -f "$LOG.part"
 grep -E "✘|Test run with|HUNG" "$LOG" | grep -vE "^\s*$" | tail -60 || true
-if [[ $CODE == 0 ]] && grep -qE "Test run with [0-9]+ tests? .*passed" "$LOG"; then echo "X86 TESTS GREEN"; exit 0; fi
+PASSED=$(grep -cE "✔ Test .* passed after" "$LOG" || true)
+FAILED=$(grep -cE "✘ Test .* failed after" "$LOG" || true)
+echo "x86 tests: $PASSED passed, $FAILED failed, $CRASHES Rosetta AQServer crash(es) resumed"
+if [[ $CODE == 0 && $FAILED == 0 ]]; then echo "X86 TESTS GREEN"; exit 0; fi
 echo "X86 TESTS FAILED (exit $CODE, see $LOG)"; exit 1
