@@ -134,6 +134,7 @@ extension TimelineView {
             guard let thumb = scrollbarThumb(l) else { return }
             let trackW = l.clipAreaWidth - 8 - thumb.width
             let total = scrollableDuration, vis = l.visibleRange.duration.seconds
+            noteUserScroll()
             scrollTime = Double((pt.x - grab - TimelineLayout.headerWidth - 4) / max(trackW, 1)) * max(total - vis, 0)
         case .marquee(let o, _, let base):
             drag = .marquee(origin: o, current: pt, base: base)
@@ -499,9 +500,12 @@ extension TimelineView {
             zoomModifier: TimelineScrollMapping.ZoomModifier(rawValue: s.mouseZoomModifier) ?? .command)
         switch action {
         case .none: return
-        case .zoom(let k): zoom(by: k, around: point(e).x)
+        case .zoom(let k): noteUserScroll(); zoom(by: k, around: point(e).x)
         case .scroll(let dx, let dy):
-            if dx != 0 { scrollTime = min(max(0, scrollTime - dx / store.pixelsPerSecond), scrollableDuration) }
+            if dx != 0 {
+                noteUserScroll()
+                scrollTime = min(max(0, scrollTime - dx / store.pixelsPerSecond), scrollableDuration)
+            }
             if dy != 0 {
                 let maxY = max(0, layoutNow.contentHeight - bounds.height)
                 scrollY = min(max(0, scrollY - CGFloat(dy)), maxY)
@@ -509,7 +513,7 @@ extension TimelineView {
         }
     }
 
-    override func magnify(with e: NSEvent) { zoom(by: 1 + e.magnification, around: point(e).x) }
+    override func magnify(with e: NSEvent) { noteUserScroll(); zoom(by: 1 + e.magnification, around: point(e).x) }
 
     func zoom(by k: Double, around x: CGFloat) {
         let l = layoutNow

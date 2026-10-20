@@ -146,15 +146,15 @@ public struct EditorView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 assets.frame(width: leftW)
-                Splitter(axis: .vertical) { dx in layout.fractions.left = clamp((leftW + dx) / inner.width, 0.18, 0.5) }
+                Splitter(axis: .vertical, value: leftW) { w in layout.fractions.left = clamp(w / inner.width, 0.18, 0.5) }
                     .frame(width: g)
                 player.frame(maxWidth: .infinity)
-                Splitter(axis: .vertical) { dx in layout.fractions.right = clamp((rightW - dx) / inner.width, 0.18, 0.5) }
+                Splitter(axis: .vertical, value: rightW, sign: -1) { w in layout.fractions.right = clamp(w / inner.width, 0.18, 0.5) }
                     .frame(width: g)
                 inspector.frame(width: rightW)
             }
             .frame(height: topH)
-            Splitter(axis: .horizontal) { dy in layout.fractions.top = clamp((topH + dy) / inner.height, 0.3, 0.75) }
+            Splitter(axis: .horizontal, value: topH) { h in layout.fractions.top = clamp(h / inner.height, 0.3, 0.75) }
                 .frame(height: g)
             timeline
         }
@@ -172,16 +172,16 @@ public struct EditorView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     assets.frame(width: assetW)
-                    Splitter(axis: .vertical) { dx in layout.fractions.left = clamp((assetW + dx) / leftColumn, 0.3, 0.7) }
+                    Splitter(axis: .vertical, value: assetW) { w in layout.fractions.left = clamp(w / leftColumn, 0.3, 0.7) }
                         .frame(width: g)
                     inspector.frame(maxWidth: .infinity)
                 }
                 .frame(height: topH)
-                Splitter(axis: .horizontal) { dy in layout.fractions.top = clamp((topH + dy) / inner.height, 0.3, 0.75) }
+                Splitter(axis: .horizontal, value: topH) { h in layout.fractions.top = clamp(h / inner.height, 0.3, 0.75) }
                     .frame(height: g)
                 timeline
             }
-            Splitter(axis: .vertical) { dx in layout.fractions.right = clamp((playerW - dx) / inner.width, 0.22, 0.5) }
+            Splitter(axis: .vertical, value: playerW, sign: -1) { w in layout.fractions.right = clamp(w / inner.width, 0.22, 0.5) }
                 .frame(width: g)
             player.frame(width: playerW)
         }
@@ -189,21 +189,38 @@ public struct EditorView: View {
 }
 
 /// Draggable gutter between panels.
+///
+/// U1 (owner: "flicker while moving UI elements"): the drag is read in the WINDOW's coordinate space and mapped
+/// absolutely (size at press + mouse travel). It used to read `DragGesture`'s default local space — the splitter's own
+/// frame, which moves with every resize — and add up per-event deltas, so each event saw the mouse travel minus the
+/// splitter's last move: the panel only followed half the mouse and its width alternated between two values on
+/// successive frames (the owner's recording: asset panel edge 820 / 857 / 821 / 858 px…), the whole layout jittering.
 struct Splitter: View {
     enum Axis { case vertical, horizontal }
     let axis: Axis
+    /// The size this splitter controls (panel width / height) as currently laid out.
+    let value: CGFloat
+    /// +1 when dragging right / down grows `value`, −1 when it shrinks it (the panel is after the splitter).
+    var sign: CGFloat = 1
+    /// New size for the panel (unclamped: the caller clamps).
     let onDrag: (CGFloat) -> Void
-    @State private var last: CGFloat = 0
+    @State private var start: CGFloat?
     var body: some View {
         Rectangle().fill(Color.clear)
             .contentShape(Rectangle())
             .onHover { inside in
                 if inside { (axis == .vertical ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push() } else { NSCursor.pop() }
             }
-            .gesture(DragGesture(minimumDistance: 1).onChanged { v in
-                let d = axis == .vertical ? v.translation.width : v.translation.height
-                onDrag(d - last); last = d
-            }.onEnded { _ in last = 0 })
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global).onChanged { v in
+                let s = start ?? value
+                if start == nil { start = s }
+                onDrag(Self.size(start: s, translation: v.translation, axis: axis, sign: sign))
+            }.onEnded { _ in start = nil })
+    }
+
+    /// Panel size for a drag that started at `start`: absolute, so it never drifts or oscillates.
+    static func size(start: CGFloat, translation: CGSize, axis: Axis, sign: CGFloat) -> CGFloat {
+        start + sign * (axis == .vertical ? translation.width : translation.height)
     }
 }
 
@@ -236,7 +253,7 @@ struct TitleBar: View {
                 if let show = TitleBar.showShortcuts {
                     Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)) }
                         .buttonStyle(.plain).foregroundStyle(Theme.textSecondary)
-                        .help(tr("menu.shortcuts"))
+                        .help(tr("keymap.title"))
                         .testID("titlebar.shortcuts")
                 }
                 ExportQueueButton(queue: store.exports.queue)

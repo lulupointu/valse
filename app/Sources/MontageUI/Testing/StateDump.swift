@@ -102,6 +102,7 @@ public enum StateDump {
             "pixelsPerSecond": store.pixelsPerSecond,
             "scrollTime": timeline?.scrollTime ?? 0,
             "scrollY": Double(timeline?.scrollY ?? 0),
+            "followManual": timeline?.follow.manual ?? false,   // U1-6: user scrolled during playback (no auto follow)
             "menu": (NSApp.mainMenu?.items ?? []).compactMap { $0.submenu?.title },
             "firstResponder": (SyntheticEvents.testWindow?.firstResponder).map { String(describing: type(of: $0)) } ?? "",
             "editingText": (SyntheticEvents.testWindow?.firstResponder as? NSText)?.string ?? NSNull(),
@@ -143,6 +144,7 @@ public enum StateDump {
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
         ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
+        if let s = SettingsScrollProbe.dump() { ui["settings"] = s }   // U1-2 {overflow, scrollX}
         ui["crop"] = CropDialogState.shared.dump   // CV-006 (F3)
         ui["fontbook"] = ["imported": FontCatalog.importedFamilies, "favorites": TextUIState.shared.favoriteFonts]   // MI-021 / MI-024 (F3)
         // AU-009 (F3): offline audio stage of the selected clip (isolate voice / noise reduction …)

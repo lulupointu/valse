@@ -13,7 +13,7 @@ struct ShortcutEditorView: View {
     var dirty: Bool { keymap.preset != Keymap.shared.preset || keymap.overrides != Keymap.shared.overrides }
 
     var body: some View {
-        DialogCard(title: tr("menu.shortcuts"), width: 760, onClose: close) {
+        DialogCard(title: tr("keymap.title"), width: 760, onClose: close) {
             VStack(spacing: 14) {
                 ShortcutList(keymap: keymap, compact: false)
                     .frame(height: 520)
@@ -117,7 +117,9 @@ struct ShortcutList: View {
                 if list.isEmpty {
                     Text(loc: "keymap.noResults").font(.system(size: 12)).foregroundStyle(Theme.textTertiary).padding(30)
                 }
+                Color.clear.frame(height: 0).lockHorizontalScroll()   // U1-2: vertical only
             }
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             .background(Theme.inset.opacity(compact ? 0 : 0.6), in: RoundedRectangle(cornerRadius: 8))
             if let p = pending {
                 // inline conflict prompt ("⌘B shortcut already belongs to Split. Override it?")

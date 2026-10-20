@@ -1,0 +1,50 @@
+// U1-6 timeline follow during playback (owner: "I can't scroll to the point where I am not seeing the playing mark").
+// Zoomed in (~1.3 s visible): (1) scrolling while playing is never fought — the playhead stays off-screen where the user
+// put it; (2) play with the playhead off-screen to the right → the line comes in at the right edge − padding, then the
+// timeline pages when the line reaches the right edge (CapCut page follow); (3) play with the playhead off-screen to the
+// left → the line comes in at the left edge + padding. Logic: PlayheadFollow (unit-tested in OwnerUIFixesU1Tests).
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"drag": "id:toolbar.zoomSlider", "at": [0.6, 0.5], "to": "id:toolbar.zoomSlider", "toAt": [0.95, 0.5]},
+    {"expect": {"path": "ui.pixelsPerSecond", "gt": 300}},
+    {"seek": 0.5},
+    {"scroll": "id:timeline", "dx": 20000, "dy": 0},
+    {"expect": {"path": "ui.scrollTime", "equals": 0}},
+    // (1) play, then scroll far to the right while playing: the timeline stays there
+    {"key": "space"},
+    {"wait": 0.4},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.scrollTime", "equals": 0}, {"path": "ui.followManual", "equals": false}]},
+    {"scroll": "id:timeline", "dx": -12000, "dy": 0},
+    {"expect": [{"path": "ui.followManual", "equals": true}, {"path": "ui.scrollTime", "gt": 6}]},
+    {"dump": "scrolled-away"},
+    {"wait": 1.5},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.scrollTime", "gt": 6}, {"path": "playhead", "lt": 4}]},
+    {"snapshot": "scrolled-away", "element": "id:panel.timeline"},
+    {"key": "space"},
+    {"expect": [{"path": "isPlaying", "equals": false}, {"path": "ui.followManual", "equals": false}]},
+    // (2) playhead off-screen to the right, play → it comes in at the right edge
+    {"seek": 9},
+    {"scroll": "id:timeline", "dx": 20000, "dy": 0},
+    {"expect": {"path": "ui.scrollTime", "equals": 0}},
+    {"key": "space", "settle": 0},
+    // ~1.3 s visible: line at 9 s, 40 pt (~0.03 s) from the right edge → scrollTime ≈ 7.7
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.scrollTime", "gt": 7}, {"path": "ui.scrollTime", "lt": 8.99}]},
+    {"snapshot": "start-right", "element": "id:panel.timeline"},
+    // …and pages when the line reaches the right edge: line back at the left + padding
+    {"waitFor": {"path": "ui.scrollTime", "gt": 8.9, "timeout": 4}},
+    {"expect": {"path": "ui.followManual", "equals": false}},
+    {"snapshot": "paged", "element": "id:panel.timeline"},
+    {"key": "space"},
+    // (3) playhead off-screen to the left, play → it comes in at the left edge
+    {"seek": 1},
+    {"scroll": "id:timeline", "dx": -12000, "dy": 0},
+    {"expect": {"path": "ui.scrollTime", "gt": 6}},
+    {"key": "space"},
+    {"wait": 0.1},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "ui.scrollTime", "lt": 1}, {"path": "ui.scrollTime", "gt": 0.7}]},
+    {"snapshot": "start-left", "element": "id:panel.timeline"},
+    {"key": "space"}
+  ]
+}

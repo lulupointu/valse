@@ -1,0 +1,19 @@
+// U1-1 (owner: "flicker while moving UI elements"): a panel splitter follows the mouse 1:1 and steadily. The old
+// splitter read the drag in its own (moving) coordinate space, so the asset panel followed only half the mouse travel
+// and its width alternated between two values on successive frames (the owner's recording). 20-step drags: the asset /
+// player gutter +100 pt, and the player / inspector gutter −80 pt.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"expect": [{"path": "ui.layout.left", "approx": 0.34, "tolerance": 0.001}, {"path": "ui.layout.right", "approx": 0.31, "tolerance": 0.001}]},
+    {"dump": "before"},
+    {"drag": "id:panel.assets", "at": [1, 0.5], "offset": [3, 0], "by": [100, 0], "steps": 20},
+    // 100 pt of a 1671 pt wide panel grid = +0.0598
+    {"expect": {"path": "ui.layout.left", "approx": 0.3998, "tolerance": 0.003}},
+    {"drag": "id:panel.inspector", "at": [0, 0.5], "offset": [-3, 0], "by": [-80, 0], "steps": 20},
+    {"expect": {"path": "ui.layout.right", "approx": 0.3579, "tolerance": 0.003}},
+    {"dump": "after"},
+    {"snapshot": "after-drag"}
+  ]
+}

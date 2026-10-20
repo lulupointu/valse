@@ -91,6 +91,8 @@ final class TimelineView: NSView {
     var requestedThumbs: Set<String> = []
 
     var requestedWaves: Set<String> = []
+    /// U1-6 playback follow state.
+    var follow = PlayheadFollow()
     /// Per-revision drawing data (asset map, duration, labels) — see TimelineView+LOD.swift.
     let drawCache = TimelineDrawCache()
     /// Display-list storage reused across frames (no per-frame array growth); see `recycle(_:)`.
@@ -113,6 +115,7 @@ final class TimelineView: NSView {
             _ = self.store.selection
             _ = self.store.pixelsPerSecond
             _ = self.store.transport.playhead
+            _ = self.store.transport.isPlaying   // U1-6: follow on play start
             _ = self.ui.scrollTime; _ = self.ui.scrollY; _ = self.ui.tool
             _ = self.ui.selectedTransition; _ = self.ui.selectedMarker; _ = self.ui.selectedKeyframe
             _ = self.store.jobs   // C2: job progress on clips redraws with the inspector's (one source: store.jobs)
@@ -175,14 +178,18 @@ final class TimelineView: NSView {
         draw()
     }
 
+    /// U1-6: playback follow (start: bring an off-screen playhead in; playing: page at the right edge; a user scroll while
+    /// playing turns it off until the next play / seek). See `PlayheadFollow`.
     func followPlayhead() {
-        guard store.transport.isPlaying, case .none = drag else { return }
-        let l = layoutNow
-        let x = l.x(store.transport.playhead)
-        if x > bounds.width - 40 || x < TimelineLayout.headerWidth {
-            scrollTime = max(0, store.transport.playhead.seconds - 1)
-        }
+        let playing = store.transport.isPlaying
+        guard let t = follow.update(isPlaying: playing, playhead: store.transport.playhead.seconds, scrollTime: scrollTime,
+                                    pixelsPerSecond: store.pixelsPerSecond,
+                                    visibleWidth: Double(bounds.width - TimelineLayout.headerWidth)) else { return }
+        if case .none = drag { scrollTime = t }
     }
+
+    /// Call before any user-driven horizontal scroll (wheel, trackpad, scrollbar, pinch).
+    func noteUserScroll() { follow.userScrolled(isPlaying: store.transport.isPlaying) }
 
     /// Total scrollable duration (timeline + 30 % slack, at least the visible span).
     var scrollableDuration: Double {

@@ -178,7 +178,7 @@ extension EditorStore {
             case .done:
                 guard let r = box.result, perform(r.command) else { return }
                 ai.captionSpokenLanguage = r.language
-                showToast(tr("captions.added", r.count))
+                showToast(tr("captions.addedCount", r.count))
                 if let first = SpeechCaptions.captions(in: self.project.timeline).first {
                     selection = [first.id]
                     inspectorTab = "captions"

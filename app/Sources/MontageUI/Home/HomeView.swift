@@ -106,7 +106,7 @@ struct HomeSidebar: View {
             NavItem(symbol: "trash", title: tr("home.nav.trash"), selected: app.section == .projects && app.scope == .trash,
                     badge: app.trashCount, id: "trash") { app.section = .projects; app.scope = .trash }
                 .dropDestination(for: String.self) { ids, _ in app.trash(app.entries.filter { ids.contains($0.id) }); return true }
-            NavItem(symbol: "gearshape", title: tr("menu.settings"), selected: false, id: "settings") { app.modal = .settings(.general) }
+            NavItem(symbol: "gearshape", title: tr("settings.title"), selected: false, id: "settings") { app.modal = .settings(.general) }
                 .padding(.bottom, 14)
         }
         .padding(.horizontal, 16)
@@ -149,8 +149,8 @@ struct HomeTopBar: View {
         HStack(spacing: 14) {
             Spacer()
             IconButton("square.and.arrow.down", help: tr("home.importProject")) { app.importProjectPanel() }.testID("home.top.import")
-            IconButton("keyboard", help: tr("menu.shortcuts")) { app.modal = .shortcuts }.testID("home.top.shortcuts")
-            IconButton("gearshape", help: tr("menu.settings")) { app.modal = .settings(.general) }.testID("home.top.settings")
+            IconButton("keyboard", help: tr("keymap.title")) { app.modal = .shortcuts }.testID("home.top.shortcuts")
+            IconButton("gearshape", help: tr("settings.title")) { app.modal = .settings(.general) }.testID("home.top.settings")
         }
         .padding(.horizontal, 20)
         .frame(height: 40)

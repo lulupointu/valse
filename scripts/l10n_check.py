@@ -3,7 +3,10 @@
 
 Fails (exit 1) if:
   - a key exists in an en.lproj table but not in the matching fr.lproj table (or vice versa),
-  - a literal key used in Swift sources (tr("…"), Text(loc: "…"), *Key: "…") is missing from every en table.
+  - a literal key used in Swift sources (tr("…"), Text(loc: "…"), *Key: "…") is missing from every en table,
+  - (U1) format arguments don't line up: en and fr have a different number of placeholders (%@, %d, %1$@…), a key
+    is defined twice (two tables) with a different number of placeholders (whichever table loads last wins), or a
+    literal `tr("key")` / `Text(loc: "key")` with NO arguments uses a string that has placeholders (shows "%@").
 Dynamic keys (string interpolation) are covered by Swift tests (registry/enum keys).
 """
 import json, os, re, subprocess, sys
@@ -18,9 +21,15 @@ def load_strings(path):
         sys.exit(1)
     return json.loads(out.stdout)
 
+PLACEHOLDER = re.compile(r'%(?:\d+\$)?[-+ 0#]*\d*(?:\.\d+)?(?:ll|l|h)?[@dDuUxXoOfFeEgGcCsSpaA]')
+
+def placeholders(s):
+    return len(PLACEHOLDER.findall(s.replace("%%", ""))) if isinstance(s, str) else 0
+
 def tables():
     en, fr = {}, {}
     problems = []
+    defined = {}   # (lang, key) -> [(table, value)]
     for module in sorted(os.listdir(SRC)):
         res = os.path.join(SRC, module, "Resources")
         if not os.path.isdir(res):
@@ -43,12 +52,34 @@ def tables():
             for k, v in f.items():
                 if isinstance(v, str) and not v.strip():
                     problems.append(f"{module}/{name}: empty fr value for '{k}'")
+            for lang, tab in (("en", e), ("fr", f)):
+                for k, v in tab.items():
+                    defined.setdefault((lang, k), []).append((f"{module}/{name}", v))
             en.update(e); fr.update(f)
         if os.path.isdir(fr_dir):
             for name in os.listdir(fr_dir):
                 if name.endswith(".strings") and not os.path.exists(os.path.join(en_dir, name)):
                     problems.append(f"{module}/en.lproj/{name} is missing")
+    for (lang, k), defs in sorted(defined.items()):
+        if len({placeholders(v) for _, v in defs}) > 1:
+            problems.append(f"{lang} key '{k}' defined in {', '.join(t for t, _ in defs)} with different format arguments")
+    for k, v in en.items():
+        if k in fr and placeholders(v) != placeholders(fr[k]):
+            problems.append(f"'{k}': en has {placeholders(v)} format argument(s), fr has {placeholders(fr[k])}")
     return en, fr, problems
+
+NO_ARGS = re.compile(r'\btr\(\s*"([^"\\]+)"\s*\)|Text\(loc:\s*"([^"\\]+)"\s*\)')
+
+def calls_without_args():
+    out = []
+    for dirpath, _, files in os.walk(SRC):
+        for fn in files:
+            if fn.endswith(".swift"):
+                path = os.path.join(dirpath, fn)
+                text = open(path, encoding="utf-8").read()
+                for m in NO_ARGS.finditer(text):
+                    out.append((m.group(1) or m.group(2), f"{os.path.relpath(path, ROOT)}:{text.count(chr(10), 0, m.start()) + 1}"))
+    return out
 
 PATTERNS = [
     re.compile(r'\btr\(\s*"([^"\\]+)"'),
@@ -81,6 +112,9 @@ def main():
     for k, where in sorted(used_keys().items()):
         if k not in en:
             problems.append(f"key '{k}' used in {where} is missing from en tables")
+    for k, where in calls_without_args():
+        if placeholders(en.get(k)) > 0:
+            problems.append(f"{where}: '{k}' needs {placeholders(en[k])} format argument(s), called without any")
     if problems:
         print("✘ localization check failed:")
         for p in problems:

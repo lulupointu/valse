@@ -1,5 +1,5 @@
 /* W10 IA vidéo : diviser les scènes, séparer l'audio, recadrage automatique */
-"tlmenu.generateCaptions" = "Générer les légendes";
+"tlmenu.generateCaptions" = "Générer les sous-titres";
 "scenes.job" = "Division des scènes…";
 "scenes.done" = "Clip divisé en %d scènes";
 "scenes.none" = "Aucun changement de scène trouvé";
@@ -105,7 +105,7 @@
 "writer.rewrite" = "Réécrire";
 "writer.addSplit" = "Diviser et ajouter";
 "writer.addNoSplit" = "Ajouter sans diviser";
-"writer.added" = "Légendes ajoutées";
+"writer.added" = "Sous-titres ajoutés";
 "writer.failed" = "Impossible de générer le script. Réessaie.";
 "writer.disclaimer" = "Les scripts sont générés automatiquement par l'IA sur ce Mac. Vérifie-les avant de publier.";
 "writer.needsModel" = "Le rédacteur IA a besoin d'Apple Intelligence ou du modèle de texte local (Qwen3 4B) de la liste des modèles IA.";

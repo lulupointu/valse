@@ -48,9 +48,9 @@
 "pilot.secondsUnit" = "%@ s";
 "pilot.step.removeSilences" = "Couper les silences de plus de %@ s";
 "pilot.step.removeFillers" = "Couper les tics de langage et les répétitions";
-"pilot.step.addCaptions" = "Ajouter des légendes (%@)";
-"pilot.step.addCaptionsTranslated" = "Ajouter des légendes (%1$@) traduites en %2$@";
-"pilot.step.highlightKeywords" = "Mettre en évidence les mots-clés des légendes";
+"pilot.step.addCaptions" = "Ajouter des sous-titres (%@)";
+"pilot.step.addCaptionsTranslated" = "Ajouter des sous-titres (%1$@) traduits en %2$@";
+"pilot.step.highlightKeywords" = "Mettre en évidence les mots-clés des sous-titres";
 "pilot.step.setAspect" = "Passer au format %@";
 "pilot.step.setAspectFill" = "Passer au format %@ et remplir le cadre";
 "pilot.step.setSpeed" = "Vitesse %1$@ sur %2$@";
@@ -82,7 +82,7 @@
 "pilot.result.reduceNoise" = "Réduction du bruit sur %d clips";
 "pilot.result.enhanceVoice" = "Amélioration de la voix sur %d clips";
 "pilot.result.normalize" = "%d clips normalisés à −14 LUFS";
-"pilot.result.captions" = "%d légendes ajoutées";
+"pilot.result.captions" = "%d sous-titres ajoutés";
 "pilot.result.title" = "Titre ajouté";
 "pilot.result.keywords" = "%d mots-clés mis en évidence";
 "pilot.result.translated" = "traduites en %@";
@@ -91,17 +91,17 @@
 "pilot.diff.duration" = "Durée";
 "pilot.diff.ratio" = "Format";
 "pilot.diff.mainClips" = "Clips sur la piste principale";
-"pilot.diff.captions" = "Légendes";
+"pilot.diff.captions" = "Sous-titres";
 "pilot.diff.transitions" = "Transitions";
 "pilot.diff.effects" = "Effets et filtres";
 "pilot.diff.tracks" = "Pistes";
 /* TX-030 Aligner sur la voix */
 "cmd.alignScript" = "Aligner sur la voix";
 "align.button" = "Aligner sur la voix";
-"align.help" = "Calez ce script sur la voix de la vidéo : chaque mot suit ce qui est dit (légendes prêtes pour le karaoké).";
+"align.help" = "Calez ce script sur la voix de la vidéo : chaque mot suit ce qui est dit (sous-titres prêts pour le karaoké).";
 "align.job" = "Alignement du script sur la voix";
 "align.progress" = "Alignement sur la voix… %d %%";
-"align.done" = "%1$d légendes alignées sur la voix (%2$d %% des mots reconnus)";
+"align.done" = "%1$d sous-titres alignés sur la voix (%2$d %% des mots reconnus)";
 "align.cancelled" = "Alignement annulé";
 "align.error.mismatch" = "Le script ne correspond pas à la voix de la vidéo.";
 /* TX-034 Dicter */

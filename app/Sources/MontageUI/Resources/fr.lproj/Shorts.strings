@@ -14,7 +14,7 @@
 "shorts.duration.under60" = "< 60 s";
 "shorts.duration.from60to90" = "60 – 90 s";
 "shorts.duration.from90to180" = "90 s – 3 min";
-"shorts.captions" = "Ajouter des légendes";
+"shorts.captions" = "Ajouter des sous-titres";
 "shorts.hint" = "Chaque vidéo courte devient un nouveau projet 9:16, recadré sur l'intervenant. Tout est traité sur votre Mac.";
 "shorts.get" = "Obtenir des vidéos courtes";
 "shorts.phase.analyzing" = "Analyse en cours… %d %%";

@@ -238,11 +238,26 @@ final class TooltipWindow: NSPanel {
 
     func setText(_ text: String) {
         label.stringValue = text
-        let s = label.fittingSize
-        let size = CGSize(width: ceil(min(s.width, Self.maxTextWidth)) + 16, height: ceil(s.height) + 8)
+        // U1: measure the WRAPPED text. `fittingSize` gives the one-line size, so a text wider than `maxTextWidth` was
+        // clamped to that width with a one-line height and its second line cut off ("Double-cliquez pour lire à partir de").
+        let s = Self.textSize(text, font: label.font ?? .systemFont(ofSize: 12))
+        let size = CGSize(width: s.width + 16, height: s.height + 8)
         label.frame = CGRect(x: 8, y: 4, width: size.width - 16, height: size.height - 8)
         setContentSize(size)
     }
+
+    /// Size of `text` wrapped at `maxTextWidth` (rounded up to whole points).
+    static func textSize(_ text: String, font: NSFont) -> CGSize {
+        let cell = NSTextFieldCell(textCell: text)
+        cell.font = font
+        cell.wraps = true
+        cell.lineBreakMode = .byWordWrapping
+        let s = cell.cellSize(forBounds: CGRect(x: 0, y: 0, width: maxTextWidth, height: 10_000))
+        return CGSize(width: ceil(min(s.width, maxTextWidth)), height: ceil(s.height))
+    }
+
+    /// Visible label (tests).
+    var labelFrame: CGRect { label.frame }
 
     /// Centred under the anchor (above it when there's no room below), kept inside the screen's visible frame.
     static func origin(size: CGSize, anchor: CGRect, screen: CGRect?) -> CGPoint {

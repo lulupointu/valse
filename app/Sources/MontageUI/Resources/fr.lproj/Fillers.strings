@@ -1,14 +1,14 @@
-/* C4 refonte légendes & transcription : onglet Légendes, liste des légendes, Appliquer à toutes les légendes principales, Supprimer les tics de langage */
-"tab.captions" = "Légendes";
+/* C4 refonte sous-titres & transcription : onglet Sous-titres, liste des sous-titres, Appliquer à tous les sous-titres principaux, Supprimer les tics de langage */
+"tab.captions" = "Sous-titres";
 "captions.nav.fillers" = "Tics de langage";
 "text.sub.templates" = "Modèles";
-"captions.applyAllMain" = "Appliquer à toutes les légendes principales";
-"captions.applyAllMain.help" = "Les changements de style de cette légende s’appliquent aussi à toutes les légendes de sa piste";
-"captions.addAfter" = "Ajouter une légende après celle-ci";
-"captions.delete" = "Supprimer la légende";
-"captions.newCaption" = "Nouvelle légende";
-"cmd.captionAdd" = "Ajouter une légende";
-"cmd.captionDelete" = "Supprimer la légende";
+"captions.applyAllMain" = "Appliquer à tous les sous-titres principaux";
+"captions.applyAllMain.help" = "Les changements de style de ce sous-titre s’appliquent aussi à tous les sous-titres de sa piste";
+"captions.addAfter" = "Ajouter un sous-titre après celui-ci";
+"captions.delete" = "Supprimer le sous-titre";
+"captions.newCaption" = "Nouveau sous-titre";
+"cmd.captionAdd" = "Ajouter un sous-titre";
+"cmd.captionDelete" = "Supprimer le sous-titre";
 
 "transcript.status.upToDate" = "Transcription à jour";
 "transcript.status.upToDateLang" = "À jour · %@";

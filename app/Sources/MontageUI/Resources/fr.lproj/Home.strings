@@ -233,6 +233,9 @@
 
 /* Menus */
 "menu.settings" = "Paramètres…";
+/* U1 : titre dans l'app (fenêtre Paramètres, barre latérale / info-bulle de l'accueil) : pas de points de suspension */
+"settings.title" = "Paramètres";
+"keymap.title" = "Raccourcis clavier";
 "menu.home" = "Retour à l'accueil";
 "menu.openRecent" = "Ouvrir un projet récent";
 "menu.openRecent.none" = "Aucun projet récent";

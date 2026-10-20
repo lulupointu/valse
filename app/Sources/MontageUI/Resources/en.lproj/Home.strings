@@ -233,6 +233,9 @@
 
 /* Menus */
 "menu.settings" = "Settings…";
+/* U1: in-app title (Settings dialog, Home sidebar / gear tooltip): no ellipsis, that is only for the menu item */
+"settings.title" = "Settings";
+"keymap.title" = "Keyboard shortcuts";
 "menu.home" = "Back to Home";
 "menu.openRecent" = "Open Recent";
 "menu.openRecent.none" = "No recent projects";

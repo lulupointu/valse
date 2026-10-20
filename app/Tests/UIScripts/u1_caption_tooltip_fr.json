@@ -1,0 +1,21 @@
+// U1-5 (owner: "Hover text is not right for the subtitle jump"): the caption number's tooltip ends with the time a
+// double-click plays from, in French, and the pill wraps instead of cutting the end off (TooltipWindow.textSize,
+// OwnerUIFixesU1Tests.longTooltipWrapsAndShowsEveryWord). U1-3: the tab reads "Sous-titres".
+{
+  "project": "demo-transcript:captions",
+  "lang": "fr",
+  "steps": [
+    {"select": ["clip:1/0"]},
+    {"click": "id:inspector.tab.captions"},
+    {"expect": {"path": "ui.anchors", "contains": "captions.row.2"}},
+    {"hover": "id:captions.row.1", "at": [0.03, 0.5]},
+    {"wait": 0.35},
+    {"expect": {"path": "ui.tooltip", "equals": "Double-cliquez pour lire à partir de 00:00:01"}},
+    {"hover": "id:captions.row.2", "at": [0.03, 0.5]},
+    {"wait": 0.35},
+    {"expect": {"path": "ui.tooltip", "contains": "Double-cliquez pour lire à partir de 00:00:0"}},
+    {"expect": {"path": "ui.tooltip", "notEquals": "Double-cliquez pour lire à partir de 00:00:01"}},
+    {"snapshot": "captions-fr", "element": "id:panel.inspector"},
+    {"snapshot": "assets-fr", "element": "id:panel.assets"}
+  ]
+}

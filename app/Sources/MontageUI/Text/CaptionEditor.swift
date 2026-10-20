@@ -115,7 +115,7 @@ struct CaptionRow: View {
             Text(verbatim: "\(index)").font(.system(size: 12).monospacedDigit())
                 .foregroundStyle(isSelected ? Theme.accent : IStyle.caption).frame(minWidth: 20, alignment: .leading)
                 .onTapGesture(count: 2) { store.seek(to: clip.start); if !store.transport.isPlaying { store.togglePlay() } }
-                .help(tr("captions.playFrom"))
+                .help(CaptionRow.playFromHelp(clip.start))   // U1-5: "… from 00:00:03"
             CaptionTextField(store: store, clipID: clip.id, previousID: previousID, isLast: isLast)
                 .frame(minHeight: 20)
             if let sp = t?.caption?.speaker, !sp.isEmpty { SpeakerChip(store: store, speaker: sp) }   // AI-005
@@ -135,6 +135,12 @@ struct CaptionRow: View {
         .onHover { hover = $0 }
         .onTapGesture { store.selection = [clip.id]; store.seek(to: clip.start) }
         .testID("captions.row.\(index)")
+    }
+
+    /// Tooltip of the caption number: where a double-click starts playback. U1-5: the owner read "Double-cliquez pour
+    /// lire à partir de" (the pill cut the rest of the line off) as a missing time; it now ends with the start time.
+    static func playFromHelp(_ start: Time) -> String {
+        tr("captions.playFromTime", Timecode.string(start, rate: .fps30, style: .seconds, dropFrame: false, showFrames: false))
     }
 
     func rowButton(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {

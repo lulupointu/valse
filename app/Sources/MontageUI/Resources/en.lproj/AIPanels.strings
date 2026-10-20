@@ -17,7 +17,7 @@
 "captions.engine.apple" = "Apple speech (fast). Download the Whisper model for the best accuracy.";
 "captions.engine.noRuntime" = "Whisper model installed, but the whisper.cpp runtime is missing. Using Apple speech.";
 "captions.engineChoice" = "Engine";
-"captions.added" = "Captions added (%d)";
+"captions.addedCount" = "Captions added (%d)";
 "captions.cancelled" = "Caption generation canceled";
 "captions.error.noAudio" = "Add a clip with sound to the timeline first.";
 "captions.error.failed" = "Couldn't add captions. Try again.";
@@ -41,6 +41,7 @@
 "captions.sameLanguage" = "The captions are already in this language.";
 "captions.removeTranslation" = "Remove translation";
 "captions.playFrom" = "Double-click to play from this caption";
+"captions.playFromTime" = "Double-click to play from %@";
 "captions.shortcutsHint" = "Split a caption: Enter · New line: ⌘ Enter · Merge up: Delete at the start · Merge down: Fn Delete at the end";
 "captions.display.original" = "Original";
 "captions.display.bilingual" = "Bilingual";

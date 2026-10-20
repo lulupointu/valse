@@ -439,7 +439,9 @@ public final class UITestDriver {
         } else if let t = step["scroll"] {
             let p = try resolve(t, step)
             let dx = (step["dx"] as? NSNumber)?.doubleValue ?? 0, dy = (step["dy"] as? NSNumber)?.doubleValue ?? 0
-            for _ in 0..<((step["repeat"] as? Int) ?? 1) { try deliverScroll(at: p, dx: dx, dy: dy, modifiers: mods) }
+            // "phase": "began" | "changed" | "ended" = trackpad gesture events (U1: rubber-band checks)
+            let phase: Int64? = (step["phase"] as? String).flatMap { ["began": 1, "changed": 2, "ended": 4][$0] }
+            for _ in 0..<((step["repeat"] as? Int) ?? 1) { try deliverScroll(at: p, dx: dx, dy: dy, modifiers: mods, phase: phase) }
             try await idle(settle: settle)
         } else if let k = step["key"] as? String {
             guard let spec = SyntheticEvents.parseKey(k) else { throw Failure("unknown key \(k)") }
@@ -707,8 +709,8 @@ public final class UITestDriver {
 
     // MARK: Scroll, menu, drop
 
-    private func deliverScroll(at p: CGPoint, dx: Double, dy: Double, modifiers: NSEvent.ModifierFlags) throws {
-        guard let e = SyntheticEvents.scroll(at: p, in: window, dx: dx, dy: dy, modifiers: modifiers) else { throw Failure("cannot make scroll event") }
+    private func deliverScroll(at p: CGPoint, dx: Double, dy: Double, modifiers: NSEvent.ModifierFlags, phase: Int64? = nil) throws {
+        guard let e = SyntheticEvents.scroll(at: p, in: window, dx: dx, dy: dy, modifiers: modifiers, phase: phase) else { throw Failure("cannot make scroll event") }
         if e.window === window {
             SyntheticEvents.post(e)
         } else if let host = window.contentView, let v = host.hitTest(host.superview?.convert(p, from: nil) ?? p) {

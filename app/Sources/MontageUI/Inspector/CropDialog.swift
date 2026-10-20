@@ -269,7 +269,9 @@ struct CropDialogView: View {
     }
 
     private func drag(_ h: CropDialogModel.Handle, img: CGRect) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        // U1: window space — the handle moves with the crop, so its local space would shrink every next translation
+        // by the last move (handle lagging half the mouse and jittering, like the panel splitters did).
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { v in
                 let start = dragStart ?? model.crop
                 if dragStart == nil { dragStart = start }

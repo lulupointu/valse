@@ -31,7 +31,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        DialogCard(title: tr("menu.settings"), width: width, onClose: close) {
+        DialogCard(title: tr("settings.title"), width: width, onClose: close) {
             VStack(spacing: 14) {
                 SettingsTabBar(selection: $tab)
                 ScrollView {
@@ -50,7 +50,9 @@ struct SettingsView: View {
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .lockHorizontalScroll()   // U1-2: vertical only
                 }
+                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
                 .frame(height: tab == .shortcuts ? 470 : 440)
                 .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
                 .testID("settings.body")
@@ -199,6 +201,9 @@ struct SwitchButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        // U1-2: no text inside, so in a `SettingsRow` (first-baseline aligned) the switch sat ABOVE its label; align the
+        // label's first line with the switch's middle instead.
+        .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 4 }
         .accessibilityLabel(Text(verbatim: label.isEmpty ? tr("ax.switch") : label))
         .accessibilityValue(Text(verbatim: tr(isOn ? "ax.on" : "ax.off")))
         .testID("settings.switch.\(id)")

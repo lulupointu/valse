@@ -136,7 +136,10 @@ enum SyntheticEvents {
     static func move(to p: CGPoint, in w: NSWindow) { post(mouse(.mouseMoved, at: p, in: w)) }
 
     /// Pixel-precise scroll-wheel event at a window point. Positive dy scrolls content down (wheel "up"), like AppKit.
-    static func scroll(at p: CGPoint, in w: NSWindow, dx: CGFloat, dy: CGFloat, modifiers: NSEvent.ModifierFlags = []) -> NSEvent? {
+    /// `phase` (U1): a trackpad-style continuous scroll in a gesture phase (1 began, 2 changed, 4 ended), so scroll
+    /// views rubber-band as under a real two-finger swipe; nil = a classic wheel tick.
+    static func scroll(at p: CGPoint, in w: NSWindow, dx: CGFloat, dy: CGFloat, modifiers: NSEvent.ModifierFlags = [],
+                       phase: Int64? = nil) -> NSEvent? {
         guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: Int32(dy.rounded()),
                                wheel2: Int32(dx.rounded()), wheel3: 0) else { return nil }
         let screen = w.convertPoint(toScreen: p)
@@ -145,6 +148,10 @@ enum SyntheticEvents {
         cg.flags = CGEventFlags(rawValue: UInt64(modifiers.rawValue))
         cg.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(w.windowNumber))
         cg.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(w.windowNumber))
+        if let phase {
+            cg.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+            cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+        }
         return NSEvent(cgEvent: cg)
     }
 
