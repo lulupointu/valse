@@ -51,9 +51,17 @@ public final class EffectPipelines: @unchecked Sendable {
     }
     """
 
+    /// Full MSL library source of an effect / transition (prelude + descriptor shader + fragment wrapper).
+    static func source(_ d: EffectDescriptor) -> String {
+        ShaderPrelude.source + "\n" + d.shader + EffectPipelines.effectWrapper(inputs: d.inputs)
+    }
+    static func source(_ d: TransitionDescriptor) -> String {
+        ShaderPrelude.source + "\n" + d.shader + EffectPipelines.transitionWrapper
+    }
+
     public func effect(_ d: EffectDescriptor) -> MTLRenderPipelineState? {
         if let cached = lock.withLock({ effects[d.id] }) { return cached }
-        let source = ShaderPrelude.source + "\n" + d.shader + EffectPipelines.effectWrapper(inputs: d.inputs)
+        let source = Self.source(d)
         // Presets of one base shader (same source, different `constants`) share one compiled pipeline.
         if let shared = lock.withLock({ bySource[source] }) {
             lock.withLock { effects[d.id] = .some(shared) }
@@ -83,7 +91,7 @@ public final class EffectPipelines: @unchecked Sendable {
 
     public func transition(_ d: TransitionDescriptor) -> MTLRenderPipelineState? {
         if let cached = lock.withLock({ transitions[d.id] }) { return cached }
-        let p = compile(id: d.id, source: ShaderPrelude.source + "\n" + d.shader + EffectPipelines.transitionWrapper, fn: "tr_main")
+        let p = compile(id: d.id, source: Self.source(d), fn: "tr_main")
         lock.withLock { transitions[d.id] = .some(p) }
         return p
     }
@@ -129,7 +137,7 @@ public final class EffectPipelines: @unchecked Sendable {
     private func compile(id: String, source: String, fn: String) -> MTLRenderPipelineState? {
         let ctx = MetalContext.shared
         do {
-            let lib = try ctx.device.makeLibrary(source: source, options: nil)
+            let lib = try ctx.device.makeLibrary(source: source, options: ctx.caps.compileOptions)
             let d = MTLRenderPipelineDescriptor()
             d.vertexFunction = ctx.fullscreenVS
             d.fragmentFunction = lib.makeFunction(name: fn)

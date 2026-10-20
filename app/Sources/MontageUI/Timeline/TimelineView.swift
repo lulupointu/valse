@@ -859,9 +859,10 @@ final class TimelineView: NSView {
         let s = window?.backingScaleFactor ?? 2
         let w = max(1, Int(bounds.width * s)), h = max(1, Int(bounds.height * s))
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: w, height: h, mipmapped: false)
-        d.usage = [.renderTarget, .shaderRead]; d.storageMode = .shared
-        guard let out = MetalContext.shared.device.makeTexture(descriptor: d), let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return nil }
+        d.usage = [.renderTarget, .shaderRead]
+        guard let out = MetalContext.shared.makeReadbackTexture(d), let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return nil }
         renderer.encode(buildCanvas(), into: out, scale: s, clear: RGBA(hex: 0x1B1B1C), commandBuffer: cmd)
+        MetalContext.shared.synchronizeForReadback(out, cmd)
         cmd.commit(); cmd.waitUntilCompleted()
         return TextureReadback.cgImage(out)
     }

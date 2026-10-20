@@ -14,11 +14,14 @@ public final class MetalContext: @unchecked Sendable {
     /// Working format of layer and accumulation textures.
     public static let workingFormat: MTLPixelFormat = .rgba16Float
 
+    /// Mac2 fallbacks are gated on these (see `GPUCapabilities`).
+    public let caps: GPUCapabilities
     let library: MTLLibrary
     let convertYUV: MTLRenderPipelineState
     let convertRGBA: MTLRenderPipelineState
     let solid: MTLRenderPipelineState
-    let place: MTLRenderPipelineState
+    /// Layer placement with programmable blending (framebuffer fetch). `nil` on Mac2 GPUs (see `placeFallback`).
+    let place: MTLRenderPipelineState?
     let mix: MTLRenderPipelineState
     /// Adjust ▸ Mask blend (original vs adjusted through a shape mask).
     let maskMix: MTLRenderPipelineState
@@ -41,9 +44,13 @@ public final class MetalContext: @unchecked Sendable {
         self.device = device
         self.queue = queue
         queue.label = "montage.render"
+        let caps = GPUCapabilities(device: device)
+        self.caps = caps
         let library: MTLLibrary
         do {
-            library = try device.makeLibrary(source: CoreShaders.source, options: nil)
+            // Mac2: the same passes without the framebuffer-fetch `place_fs` (a `[[color(0)]]` input doesn't compile there).
+            library = try device.makeLibrary(source: caps.framebufferFetch ? CoreShaders.source : CoreShaders.mac2Source,
+                                              options: caps.compileOptions)
         } catch {
             fatalError("Core shaders failed to compile: \(error)")
         }
@@ -67,7 +74,7 @@ public final class MetalContext: @unchecked Sendable {
         convertYUV = pipe("fullscreen_vs", "convert_yuv_fs", w)
         convertRGBA = pipe("fullscreen_vs", "convert_rgba_fs", w)
         solid = pipe("fullscreen_vs", "solid_fs", w)
-        place = pipe("place_vs", "place_fs", w)
+        place = caps.framebufferFetch ? pipe("place_vs", "place_fs", w) : nil
         mix = pipe("fullscreen_vs", "mix_fs", w)
         maskMix = pipe("fullscreen_vs", "mask_mix_fs", w)
         unpremultiply = pipe("fullscreen_vs", "unpremultiply_fs", w)
@@ -81,6 +88,58 @@ public final class MetalContext: @unchecked Sendable {
         CVMetalTextureCacheCreate(nil, nil, device, nil, &c)
         textureCache = c!
         pool = TexturePool(device: device)
+    }
+
+    // MARK: Mac2 fallbacks
+
+    /// Mac2 layer placement: `over` = normal blend through fixed-function premultiplied-over (no destination read),
+    /// `blend` = blend modes reading the destination from a copy of the accumulation texture (texture 1).
+    struct PlaceFallback { let over: MTLRenderPipelineState; let blend: MTLRenderPipelineState }
+    private let fallbackLock = NSLock()
+    private var _placeFallback: PlaceFallback?
+
+    var placeFallback: PlaceFallback {
+        fallbackLock.withLock {
+            if let p = _placeFallback { return p }
+            let lib: MTLLibrary
+            if caps.framebufferFetch {   // Apple GPU running the fallback on purpose: compile the Mac2 variant now
+                do { lib = try device.makeLibrary(source: CoreShaders.mac2Source, options: caps.compileOptions) } catch {
+                    fatalError("Mac2 core shaders failed to compile: \(error)")
+                }
+            } else {
+                lib = library
+            }
+            func pipe(_ fs: String, over: Bool) -> MTLRenderPipelineState {
+                let d = MTLRenderPipelineDescriptor()
+                d.vertexFunction = lib.makeFunction(name: "place_vs")
+                d.fragmentFunction = lib.makeFunction(name: fs)
+                d.colorAttachments[0].pixelFormat = MetalContext.workingFormat
+                if over {
+                    d.colorAttachments[0].isBlendingEnabled = true
+                    d.colorAttachments[0].sourceRGBBlendFactor = .one
+                    d.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+                    d.colorAttachments[0].sourceAlphaBlendFactor = .one
+                    d.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+                }
+                do { return try device.makeRenderPipelineState(descriptor: d) } catch { fatalError("pipeline \(fs): \(error)") }
+            }
+            let p = PlaceFallback(over: pipe("place_over_fs", over: true), blend: pipe("place_dst_fs", over: false))
+            _placeFallback = p
+            return p
+        }
+    }
+
+    /// Texture the CPU reads back with `getBytes` (snapshots, previews): shared on Apple GPUs, managed on Mac2.
+    public func makeReadbackTexture(_ d: MTLTextureDescriptor) -> MTLTexture? {
+        d.storageMode = caps.readbackStorageMode
+        return device.makeTexture(descriptor: d)
+    }
+
+    /// Makes GPU writes to a managed texture visible to the CPU (no-op for shared / private ones). Encode before commit.
+    public func synchronizeForReadback(_ t: MTLTexture, _ cmd: MTLCommandBuffer) {
+        guard t.storageMode == .managed, let blit = cmd.makeBlitCommandEncoder() else { return }
+        blit.synchronize(resource: t)
+        blit.endEncoding()
     }
 
     /// Zero-copy wrap of an IOSurface-backed CVPixelBuffer plane. Keep the returned CVMetalTexture alive until the GPU

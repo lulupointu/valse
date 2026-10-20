@@ -85,7 +85,7 @@ final class FinishPipelines: @unchecked Sendable {
     private init() {
         let ctx = MetalContext.shared
         let lib: MTLLibrary
-        do { lib = try ctx.device.makeLibrary(source: FinishShaders.source, options: nil) } catch {
+        do { lib = try ctx.device.makeLibrary(source: FinishShaders.source, options: ctx.caps.compileOptions) } catch {
             fatalError("finish shaders failed to compile: \(error)")
         }
         func pipe(_ fs: String) -> MTLRenderPipelineState {
