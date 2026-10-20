@@ -104,7 +104,7 @@ final class RelightPipeline: @unchecked Sendable {
         let ctx = MetalContext.shared
         var st: MTLRenderPipelineState?
         do {
-            let lib = try ctx.device.makeLibrary(source: RelightShaders.source, options: nil)
+            let lib = try ctx.device.makeLibrary(source: RelightShaders.source, options: ctx.caps.compileOptions)
             let d = MTLRenderPipelineDescriptor()
             d.vertexFunction = ctx.fullscreenVS
             d.fragmentFunction = lib.makeFunction(name: "relight_fs")

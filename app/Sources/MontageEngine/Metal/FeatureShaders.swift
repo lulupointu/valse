@@ -78,7 +78,7 @@ final class FeaturePipelines: @unchecked Sendable {
     private init() {
         let ctx = MetalContext.shared
         let lib: MTLLibrary
-        do { lib = try ctx.device.makeLibrary(source: FeatureShaders.source, options: nil) } catch {
+        do { lib = try ctx.device.makeLibrary(source: FeatureShaders.source, options: ctx.caps.compileOptions) } catch {
             fatalError("feature shaders failed to compile: \(error)")
         }
         func pipe(_ fs: String, _ fmt: MTLPixelFormat = MetalContext.workingFormat) -> MTLRenderPipelineState {

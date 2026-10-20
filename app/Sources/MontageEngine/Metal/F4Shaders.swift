@@ -27,7 +27,7 @@ final class F4Pipelines: @unchecked Sendable {
     private init() {
         let ctx = MetalContext.shared
         let lib: MTLLibrary
-        do { lib = try ctx.device.makeLibrary(source: F4Shaders.source, options: nil) } catch {
+        do { lib = try ctx.device.makeLibrary(source: F4Shaders.source, options: ctx.caps.compileOptions) } catch {
             fatalError("F4 shaders failed to compile: \(error)")
         }
         let d = MTLRenderPipelineDescriptor()

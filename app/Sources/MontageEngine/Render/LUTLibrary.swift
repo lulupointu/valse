@@ -128,7 +128,7 @@ public final class LUTLibrary: @unchecked Sendable {
         d.pixelFormat = .rgba16Float
         d.width = n; d.height = n; d.depth = n
         d.usage = .shaderRead
-        d.storageMode = .shared
+        d.storageMode = MetalContext.shared.caps.readbackStorageMode   // CPU-filled: shared (Apple GPU) / managed (Mac2)
         guard let t = MetalContext.shared.device.makeTexture(descriptor: d) else { return nil }
         #if arch(arm64)
         var half = [Float16](repeating: 1, count: n * n * n * 4)

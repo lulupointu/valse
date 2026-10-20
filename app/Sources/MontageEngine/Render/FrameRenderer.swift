@@ -61,6 +61,14 @@ public final class FrameRenderer: @unchecked Sendable {
     var allowsDirectText = true
     /// Frame textures are reused within the frame once dead (`FrameScratch.recycle`); tests turn it off to compare.
     var allowsTextureRecycling = true
+    /// Layer placement reads the destination with framebuffer fetch (Apple GPUs). Off on Mac2 GPUs (fallback:
+    /// fixed-function "over" for normal blend, destination copy for blend modes); tests turn it off on an Apple GPU
+    /// to compare the fallback. Can't be turned on where the device lacks it.
+    var useFramebufferFetch: Bool {
+        get { fetchEnabled && ctx.place != nil }
+        set { fetchEnabled = newValue }
+    }
+    private var fetchEnabled = true
     /// Pool textures the last encoded frame used (tests / diagnostics).
     private(set) var lastFrameTextureCount = 0
 
@@ -145,8 +153,10 @@ public final class FrameRenderer: @unchecked Sendable {
                 rp.colorAttachments[0].texture = acc
                 rp.colorAttachments[0].loadAction = .load
                 rp.colorAttachments[0].storeAction = .store
-                guard let enc = cmd.makeRenderCommandEncoder(descriptor: rp) else { return }
+                guard var enc = cmd.makeRenderCommandEncoder(descriptor: rp) else { return }
                 enc.label = "place"
+                let fetch = useFramebufferFetch
+                var dstCopies: [MTLTexture] = []
                 // every text layer's glyph instances above the inline limit share one buffer per pass
                 let stride = MemoryLayout<GlyphInstance>.stride
                 var glyphBytes = 0
@@ -166,7 +176,26 @@ public final class FrameRenderer: @unchecked Sendable {
                         }
                         continue
                     case .layer(let tex, var u):
-                        enc.setRenderPipelineState(ctx.place)
+                        if fetch, let place = ctx.place {
+                            enc.setRenderPipelineState(place)
+                        } else if u.blend == 0 {
+                            enc.setRenderPipelineState(ctx.placeFallback.over)
+                        } else {
+                            // Mac2 blend mode: no framebuffer fetch → copy the destination under the layer, read it back.
+                            enc.endEncoding()
+                            let copy = acquire(acc.width, acc.height)
+                            if let box = Self.placementBox(u, acc.width, acc.height), let blit = cmd.makeBlitCommandEncoder() {
+                                blit.copy(from: acc, sourceSlice: 0, sourceLevel: 0, sourceOrigin: box.origin, sourceSize: box.size,
+                                          to: copy, destinationSlice: 0, destinationLevel: 0, destinationOrigin: box.origin)
+                                blit.endEncoding()
+                            }
+                            guard let e = cmd.makeRenderCommandEncoder(descriptor: rp) else { return }
+                            enc = e
+                            enc.label = "place-blend"
+                            enc.setRenderPipelineState(ctx.placeFallback.blend)
+                            enc.setFragmentTexture(copy, index: 1)
+                            dstCopies.append(copy)
+                        }
                         enc.setVertexBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
                         enc.setFragmentBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
                         enc.setFragmentTexture(tex, index: 0)
@@ -185,6 +214,7 @@ public final class FrameRenderer: @unchecked Sendable {
                     case .glyphs: break
                     }
                 }
+                for t in dstCopies { scratch.recycle(t) }
                 placements.removeAll()
             }
 
@@ -707,12 +737,28 @@ public final class FrameRenderer: @unchecked Sendable {
         rp.colorAttachments[0].loadAction = .load
         rp.colorAttachments[0].storeAction = .store
         guard let enc = cmd.makeRenderCommandEncoder(descriptor: rp) else { return }
-        enc.setRenderPipelineState(ctx.place)
+        if useFramebufferFetch, let place = ctx.place {
+            enc.setRenderPipelineState(place)
+        } else {
+            enc.setRenderPipelineState(ctx.placeFallback.over)   // blend 0 = premultiplied over
+        }
         enc.setVertexBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
         enc.setFragmentBytes(&u, length: MemoryLayout<PlaceUniforms>.stride, index: 0)
         enc.setFragmentTexture(tex, index: 0)
         enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         enc.endEncoding()
+    }
+
+    /// Pixel bounding box of a placed layer quad (+1 px), clipped to the target; `nil` when it's off target.
+    static func placementBox(_ u: PlaceUniforms, _ w: Int, _ h: Int) -> (origin: MTLOrigin, size: MTLSize)? {
+        let cs = [u.c0, u.c1, u.c2, u.c3]
+        func clampF(_ v: Float, _ n: Int) -> Float { v.isNaN ? 0 : min(max(v, -1), Float(n) + 1) }
+        let xs = cs.map { clampF(($0.x + 1) * 0.5 * Float(w), w) }, ys = cs.map { clampF((1 - $0.y) * 0.5 * Float(h), h) }
+        guard let x0f = xs.min(), let x1f = xs.max(), let y0f = ys.min(), let y1f = ys.max() else { return nil }
+        let x0 = max(0, Int(x0f.rounded(.down)) - 1), x1 = min(w, Int(x1f.rounded(.up)) + 1)
+        let y0 = max(0, Int(y0f.rounded(.down)) - 1), y1 = min(h, Int(y1f.rounded(.up)) + 1)
+        guard x1 > x0, y1 > y0 else { return nil }
+        return (MTLOrigin(x: x0, y: y0, z: 0), MTLSize(width: x1 - x0, height: y1 - y0, depth: 1))
     }
 
     func fullscreen(_ pipe: MTLRenderPipelineState, target: MTLTexture, _ cmd: MTLCommandBuffer, label: String,

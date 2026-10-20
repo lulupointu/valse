@@ -180,7 +180,7 @@ public final class EffectPreviewRenderer: @unchecked Sendable {
     private func scenePipeline() -> MTLRenderPipelineState? {
         if let p = lock.withLock({ scenePipe }) { return p }
         do {
-            let lib = try ctx.device.makeLibrary(source: Self.sceneSource, options: nil)
+            let lib = try ctx.device.makeLibrary(source: Self.sceneSource, options: ctx.caps.compileOptions)
             let d = MTLRenderPipelineDescriptor()
             d.vertexFunction = ctx.fullscreenVS
             d.fragmentFunction = lib.makeFunction(name: "sample_scene_fs")
@@ -288,21 +288,22 @@ public final class EffectPreviewRenderer: @unchecked Sendable {
         return best
     }
 
+    /// Effect-on-scene preview composite (own tiny library).
+    static let overSource = """
+    #include <metal_stdlib>
+    using namespace metal;
+    struct QuadOut { float4 pos [[position]]; float2 uv; };
+    fragment float4 over_fs(QuadOut in [[stage_in]], texture2d<float> fg [[texture(0)]], texture2d<float> bg [[texture(1)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        float4 f = fg.sample(s, in.uv), b = bg.sample(s, in.uv);
+        float a = saturate(f.a);
+        return float4(mix(b.rgb * 0.85, f.rgb, a), 1.0);
+    }
+    """
     private var overPipe: MTLRenderPipelineState?
     private func overPipeline() -> MTLRenderPipelineState? {
         if let p = lock.withLock({ overPipe }) { return p }
-        let src = """
-        #include <metal_stdlib>
-        using namespace metal;
-        struct QuadOut { float4 pos [[position]]; float2 uv; };
-        fragment float4 over_fs(QuadOut in [[stage_in]], texture2d<float> fg [[texture(0)]], texture2d<float> bg [[texture(1)]]) {
-            constexpr sampler s(filter::linear, address::clamp_to_edge);
-            float4 f = fg.sample(s, in.uv), b = bg.sample(s, in.uv);
-            float a = saturate(f.a);
-            return float4(mix(b.rgb * 0.85, f.rgb, a), 1.0);
-        }
-        """
-        guard let lib = try? ctx.device.makeLibrary(source: src, options: nil) else { return nil }
+        guard let lib = try? ctx.device.makeLibrary(source: Self.overSource, options: ctx.caps.compileOptions) else { return nil }
         let d = MTLRenderPipelineDescriptor()
         d.vertexFunction = ctx.fullscreenVS
         d.fragmentFunction = lib.makeFunction(name: "over_fs")

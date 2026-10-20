@@ -162,7 +162,7 @@ final class Canvas2DRenderer {
     """
 
     init() {
-        let lib = try! ctx.device.makeLibrary(source: Self.shader, options: nil)
+        let lib = try! ctx.device.makeLibrary(source: Self.shader, options: ctx.caps.compileOptions)
         let d = MTLRenderPipelineDescriptor()
         d.vertexFunction = lib.makeFunction(name: "c2d_vs")
         d.fragmentFunction = lib.makeFunction(name: "c2d_fs")

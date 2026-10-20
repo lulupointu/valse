@@ -311,7 +311,7 @@ enum TextGPU {
             if let p = pipelines[vertex] { return p }
             let dev = MetalContext.shared.device
             do {
-                let lib = try dev.makeLibrary(source: shader, options: nil)
+                let lib = try dev.makeLibrary(source: shader, options: MetalContext.shared.caps.compileOptions)
                 let d = MTLRenderPipelineDescriptor()
                 d.vertexFunction = lib.makeFunction(name: vertex)
                 d.fragmentFunction = lib.makeFunction(name: "glyph_fs")

@@ -17,6 +17,7 @@ public enum PresetPreviewRenderer {
         let ctx = MetalContext.shared
         guard let out = sharedBGRA(width, height), let cmd = ctx.queue.makeCommandBuffer() else { return nil }
         FrameRenderer.shared.encode(frame, media: media, sources: sources, output: out, commandBuffer: cmd)
+        ctx.synchronizeForReadback(out, cmd)
         cmd.commit()
         cmd.waitUntilCompleted()
         return image(from: out)
@@ -31,6 +32,7 @@ public enum PresetPreviewRenderer {
         let outs = frames.map { f -> MTLTexture? in
             guard let out = sharedBGRA(width, height) else { return nil }
             FrameRenderer.shared.encode(f, media: media, sources: sources, output: out, commandBuffer: cmd)
+            ctx.synchronizeForReadback(out, cmd)
             return out
         }
         cmd.commit()
@@ -69,7 +71,7 @@ public enum PresetPreviewRenderer {
                 enc.setFragmentBytes(&prog, length: 4, index: 2)
             }
             let out = sharedBGRA(width, height)
-            if let out { encodeOutput(work, to: out, cmd) }
+            if let out { encodeOutput(work, to: out, cmd); ctx.synchronizeForReadback(out, cmd) }
             outs.append(out)
         }
         cmd.addCompletedHandler { _ in ctx.pool.release(work) }
@@ -180,8 +182,7 @@ public enum PresetPreviewRenderer {
     static func sharedBGRA(_ w: Int, _ h: Int) -> MTLTexture? {
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: max(w, 1), height: max(h, 1), mipmapped: false)
         d.usage = [.renderTarget, .shaderRead]
-        d.storageMode = .shared
-        return MetalContext.shared.device.makeTexture(descriptor: d)
+        return MetalContext.shared.makeReadbackTexture(d)   // shared (Apple GPU) / managed (Mac2): synchronize before reading
     }
 
     /// Premultiplied working texture → opaque BGRA8 over black.

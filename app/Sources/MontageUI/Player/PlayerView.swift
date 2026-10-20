@@ -206,8 +206,8 @@ final class PlayerView: NSView {
         // Make sure we have a frame even if the display link never ran (window occluded / not on screen).
         if lastFrame == nil { rerender() }
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: w, height: h, mipmapped: false)
-        d.usage = [.renderTarget, .shaderRead]; d.storageMode = .shared
-        guard let out = ctx.device.makeTexture(descriptor: d), let cmd = ctx.queue.makeCommandBuffer() else { return nil }
+        d.usage = [.renderTarget, .shaderRead]
+        guard let out = ctx.makeReadbackTexture(d), let cmd = ctx.queue.makeCommandBuffer() else { return nil }
         if let frame = lastFrame {
             // always SDR (HDR projects tone-mapped like on an SDR screen)
             let space = engine.project.settings.colorSpace
@@ -215,13 +215,14 @@ final class PlayerView: NSView {
                              contentRect: pixelRect(scale: s), mode: space.isHDR ? .toneMapToSDR(space.transfer) : .passthrough,
                              commandBuffer: cmd)
         }
+        ctx.synchronizeForReadback(out, cmd)
         cmd.commit(); cmd.waitUntilCompleted()
         return TextureReadback.cgImage(out)
     }
 }
 
 enum TextureReadback {
-    /// BGRA8 shared texture → CGImage.
+    /// BGRA8 readback texture (`MetalContext.makeReadbackTexture`, synchronized) → CGImage.
     static func cgImage(_ tex: MTLTexture) -> CGImage? {
         let w = tex.width, h = tex.height
         var bytes = [UInt8](repeating: 0, count: w * h * 4)

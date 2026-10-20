@@ -363,4 +363,41 @@ enum CoreShaders {
         return float4(saturate(color_convert_v(c, int(tf + 0.5), 0, 2, 1.0, 0.0)), 1.0);
     }
     """
+    /// Mac2 GPUs (Intel / AMD, no programmable blending): `source` with `place_fs` (framebuffer fetch) replaced by
+    /// `place_over_fs` (normal blend; premultiplied colour for the fixed-function "over" blend, same maths) and
+    /// `place_dst_fs` (blend modes; the destination is read from a copy of the accumulation texture, texture 1).
+    static let mac2Source: String = {
+        guard let start = source.range(of: "fragment float4 place_fs("),
+              let end = source.range(of: "// ---- Adjustment-layer mix") else { fatalError("CoreShaders: place_fs not found") }
+        return source.replacingCharacters(in: start.lowerBound..<end.lowerBound, with: mac2Place)
+    }()
+
+    static let mac2Place = """
+    fragment float4 place_over_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]], constant PlaceU& u [[buffer(0)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        float4 src = t.sample(s, in.uv);                    // straight alpha
+        float as = src.a * u.opacity * maskAlpha(u, in.uv);
+        if (as <= 0.0) { return float4(0.0); }             // one·0 + (1 − 0)·dst = dst
+        return float4(as * src.rgb, as);
+    }
+
+    fragment float4 place_dst_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]],
+                                 texture2d<float> dstTex [[texture(1)]], constant PlaceU& u [[buffer(0)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        float4 dst = dstTex.read(uint2(in.pos.xy));
+        float4 src = t.sample(s, in.uv);                    // straight alpha
+        float as = src.a * u.opacity * maskAlpha(u, in.uv);
+        if (as <= 0.0) { return dst; }
+        float ab = dst.a;
+        float3 cb = ab > 0.0 ? dst.rgb / ab : float3(0.0);
+        float3 mixed = src.rgb;
+        if (u.blend != 0) {
+            float3 bl = saturate(blendRGB(u.blend, cb, src.rgb));
+            mixed = (1.0 - ab) * src.rgb + ab * bl;
+        }
+        return float4(as * mixed + (1.0 - as) * dst.rgb, as + ab * (1.0 - as));
+    }
+
+
+    """
 }
