@@ -86,7 +86,10 @@ for s in "${SCRIPTS[@]}"; do
   elif [[ $CODE == 3 ]]; then SKIP=$((SKIP + 1)); SKIPPED+=("$NAME")
   elif REASON="$(python3 scripts/testlib.py quarantined ui "$NAME")"; then
     QUAR+=("$NAME (exit $CODE) — $REASON → $OUT/$NAME")
-  else FAIL=$((FAIL + 1)); FAILED+=("$NAME (exit $CODE$([[ $RETRY == 1 ]] && echo ", failed twice")) → $OUT/$NAME"); fi
+  else
+    TWICE=""; if [[ $RETRY == 1 ]]; then TWICE=", failed twice"; fi
+    FAIL=$((FAIL + 1)); FAILED+=("$NAME (exit $CODE$TWICE) → $OUT/$NAME")
+  fi
 done
 echo "UI tests: $PASS passed, $FAIL failed, $SKIP skipped, ${#FLAKY[@]} flaky (passed on retry), ${#QUAR[@]} quarantined failures"
 for f in ${SKIPPED[@]+"${SKIPPED[@]}"}; do echo "  skipped: $f"; done

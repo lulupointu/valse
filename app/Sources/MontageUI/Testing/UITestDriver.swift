@@ -504,7 +504,15 @@ public final class UITestDriver {
             AccessibilityAudit.enableTree()
             try await idle(settle: 0.5)
             // the real AX API (what VoiceOver uses) from a background thread while the main thread serves it
-            let ax = AccessibilityAuditAX.run()   // in-process AX requests are served on the calling (main) thread
+            var ax = AccessibilityAuditAX.run()   // in-process AX requests are served on the calling (main) thread
+            // Under load the AX read can come back empty (→ the in-process fallback, which misses SwiftUI's names) or
+            // before SwiftUI filled lazy names (Menu buttons). Re-read until clean or ~4 s; a really unlabeled element
+            // stays unlabeled and still fails (~6 s).
+            let allowed = (step["max"] as? Int) ?? 0
+            for _ in 0..<12 where ax.error != nil || ax.checked == 0 || ax.unlabeled.count > allowed {
+                try await idle(settle: 0.5)
+                ax = AccessibilityAuditAX.run()
+            }
             var d: [String: Any]
             if ax.error == nil, ax.checked > 0 {
                 d = ["checked": ax.checked, "unlabeled": ax.unlabeled, "roles": ax.roles, "source": "AXUIElement"]

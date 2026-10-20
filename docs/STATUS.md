@@ -201,6 +201,9 @@ projects processed before this fix (face covers refresh themselves when the proj
   A "flaky" line is a bug report, not a pass to ignore.
   Tests run in a private TMPDIR: anything that must survive the run (caches) belongs in `MONTAGE_TEST_MEDIA_DIR` /
   MontagePaths, never in `FileManager.default.temporaryDirectory`.
+- `a11yAudit` (T1 fix): under load the real AX read sometimes returned no windows (the offscreen accessory window is
+  missing from AXWindows) → the in-process fallback, which misses SwiftUI names → random "unlabeled AXMenuButton"
+  failures in `f4_se_a11y_*`. The audit now also takes the app's window children / main window and re-reads for ~6 s.
 - Media features: test with `RealLikeMedia` (iPhone HLG portrait, speech, music) rather than only testsrc patterns.
   Rotation, 10-bit HLG and 44.1 kHz AAC are the paths real footage breaks.
 - MP3 export requires FFmpeg sidecar with libmp3lame; otherwise option disabled with hint.
