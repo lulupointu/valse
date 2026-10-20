@@ -504,12 +504,14 @@ public final class UITestDriver {
             AccessibilityAudit.enableTree()
             try await idle(settle: 0.5)
             // the real AX API (what VoiceOver uses) from a background thread while the main thread serves it
-            let ax = AccessibilityAuditAX.run()   // in-process AX requests are served on the calling (main) thread
+            // `"element": "id:x"` audits only that element's subtree (P1: the project switcher popover)
+            let scope = (step["element"] as? String).map { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : $0 }
+            let ax = AccessibilityAuditAX.run(scope: scope)   // in-process AX requests are served on the calling (main) thread
             var d: [String: Any]
             if ax.error == nil, ax.checked > 0 {
                 d = ["checked": ax.checked, "unlabeled": ax.unlabeled, "roles": ax.roles, "source": "AXUIElement"]
             } else {
-                d = AccessibilityAudit.dump(window); d["source"] = "in-process"; d["axError"] = ax.error ?? "empty"
+                d = AccessibilityAudit.dump(window, scope: scope); d["source"] = "in-process"; d["axError"] = ax.error ?? "empty"
             }
             StateDump.write(d, to: out.appendingPathComponent("\(name).a11y.json"))
             let bad = (d["unlabeled"] as? [String]) ?? []

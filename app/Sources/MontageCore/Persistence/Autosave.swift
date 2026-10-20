@@ -11,9 +11,7 @@ public enum SessionLock {
     public static func acquire(_ packageURL: URL) -> Bool {
         let url = packageURL.appendingPathComponent(fileName)
         var crashed = false
-        if let s = try? String(contentsOf: url, encoding: .utf8), let pid = Int32(s.trimmingCharacters(in: .whitespacesAndNewlines)) {
-            crashed = pid != getpid() && !isAlive(pid)
-        }
+        if let pid = lockPID(packageURL) { crashed = pid != getpid() && !isMontageHolder(pid) }
         try? "\(getpid())".write(to: url, atomically: true, encoding: .utf8)
         return crashed
     }
@@ -22,22 +20,65 @@ public enum SessionLock {
         try? FileManager.default.removeItem(at: packageURL.appendingPathComponent(fileName))
     }
 
-    /// True if another live process holds the lock (project open elsewhere).
-    public static func isHeldByOtherProcess(_ packageURL: URL) -> Bool {
-        let url = packageURL.appendingPathComponent(fileName)
-        guard let s = try? String(contentsOf: url, encoding: .utf8), let pid = Int32(s.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
-        return pid != getpid() && isAlive(pid)
+    /// The pid written in the lock file, if any.
+    public static func lockPID(_ packageURL: URL) -> Int32? {
+        guard let s = try? String(contentsOf: packageURL.appendingPathComponent(fileName), encoding: .utf8) else { return nil }
+        return Int32(s.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    /// PM-014: pid of the other live Montage process holding the project (to bring its window forward), else nil.
-    public static func holderPID(_ packageURL: URL) -> Int32? {
-        let url = packageURL.appendingPathComponent(fileName)
-        guard let s = try? String(contentsOf: url, encoding: .utf8), let pid = Int32(s.trimmingCharacters(in: .whitespacesAndNewlines)),
-              pid != getpid(), isAlive(pid) else { return nil }
+    /// True if another running Montage process holds the lock (project open elsewhere).
+    public static func isHeldByOtherProcess(_ packageURL: URL) -> Bool { holderPID(packageURL) != nil }
+
+    /// PM-014: pid of the other running Montage process holding the project (to bring its window forward), else nil.
+    /// Only a live process that IS Montage counts: after a crash the lock's pid can be reused by any other process
+    /// (P1: `kill(pid, 0)` alone showed "already open" with no window to focus) — such a lock is stale (crash recovery).
+    public static func holderPID(_ packageURL: URL, isMontage: (Int32) -> Bool = isMontageHolder) -> Int32? {
+        guard let pid = lockPID(packageURL), pid != getpid(), isMontage(pid) else { return nil }
         return pid
     }
 
+    /// True if the lock was left by a session that isn't running any more (crashed, or its pid now belongs to another app).
+    public static func isStale(_ packageURL: URL, isMontage: (Int32) -> Bool = isMontageHolder) -> Bool {
+        guard let pid = lockPID(packageURL) else { return false }
+        return pid != getpid() && !isMontage(pid)
+    }
+
     static func isAlive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 || errno == EPERM }
+
+    // MARK: Who holds a lock
+
+    private static let holdersLock = NSLock()
+    nonisolated(unsafe) private static var testHolders: Set<Int32> = []
+
+    /// Test hook (UI fixture `home:3:heldelsewhere`, unit tests): treat a live `pid` as another Montage instance.
+    public static func registerTestHolder(_ pid: Int32) { holdersLock.withLock { _ = testHolders.insert(pid) } }
+    public static func unregisterTestHolder(_ pid: Int32) { holdersLock.withLock { _ = testHolders.remove(pid) } }
+
+    /// A live process that is Montage: same bundle identifier (another copy of Montage.app), else the same executable
+    /// name ("Montage", development builds run unbundled).
+    public static func isMontageHolder(_ pid: Int32) -> Bool {
+        guard pid > 0, isAlive(pid) else { return false }
+        if holdersLock.withLock({ testHolders.contains(pid) }) { return true }
+        guard let exe = executablePath(of: pid) else { return false }
+        let theirs = URL(fileURLWithPath: exe).resolvingSymlinksInPath()
+        if let mine = Bundle.main.bundleIdentifier, let other = bundleIdentifier(ofExecutable: theirs) { return mine == other }
+        let myName = Bundle.main.executableURL?.lastPathComponent ?? ProcessInfo.processInfo.processName
+        return theirs.lastPathComponent == myName
+    }
+
+    static func executablePath(of pid: Int32) -> String? {
+        var buf = [CChar](repeating: 0, count: 4096)   // PROC_PIDPATHINFO_MAXSIZE
+        let n = proc_pidpath(pid, &buf, UInt32(buf.count))
+        guard n > 0 else { return nil }
+        return String(decoding: buf.prefix(Int(n)).map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+
+    /// `…/X.app/Contents/MacOS/X` → X.app's bundle identifier.
+    static func bundleIdentifier(ofExecutable exe: URL) -> String? {
+        let macOS = exe.deletingLastPathComponent(), contents = macOS.deletingLastPathComponent(), app = contents.deletingLastPathComponent()
+        guard macOS.lastPathComponent == "MacOS", contents.lastPathComponent == "Contents", app.pathExtension == "app" else { return nil }
+        return Bundle(url: app)?.bundleIdentifier
+    }
 }
 
 /// Autosave timing. Every project lives in a package from creation (new projects go to the drafts folder), and the

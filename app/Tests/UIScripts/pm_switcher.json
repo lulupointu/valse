@@ -1,0 +1,42 @@
+// P1 project switcher: the title-bar project name opens a searchable list of every project; type + Return switches in
+// the same window ("Saved to project"), ⌘⇧O toggles it, ⌘↩ opens the selection in a new window, Esc clears then closes,
+// the footer goes to Home. Also the VoiceOver audit of the popover.
+{
+  "project": "home:12",
+  "steps": [
+    {"click": "id:home.card.0"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 10}},
+    {"click": "id:titlebar.projectSwitcher"},
+    // 12 sample projects, one of them in the Trash
+    {"expect": [{"path": "app.switcher.isOpen", "equals": true}, {"path": "app.switcher.rows.count", "equals": 11},
+                {"path": "app.switcher.rows.0.current", "equals": true}, {"path": "app.switcher.selected", "equals": 1}]},
+    {"snapshot": "switcher-open", "element": "id:switcher.popover", "baseline": true, "mask": ["id:switcher.search"]},
+    {"snapshot": "switcher-window"},
+    {"a11yAudit": "switcher", "element": "id:switcher.popover", "max": 0},
+    {"type": "drone"},
+    {"expect": [{"path": "app.switcher.rows.count", "equals": 1}, {"path": "app.switcher.rows.0.name", "equals": "Drone footage"}]},
+    {"key": "return"},
+    {"waitFor": {"path": "app.projectName", "equals": "Drone footage", "timeout": 10}},
+    {"expect": [{"path": "ui.toast", "contains": "Saved"}, {"path": "app.switcher.isOpen", "equals": false}]},
+    {"key": "cmd+shift+o"},
+    {"expect": [{"path": "app.switcher.isOpen", "equals": true}, {"path": "app.switcher.rows.0.name", "equals": "Drone footage"}]},
+    {"key": "down"},
+    {"expect": {"path": "app.switcher.selected", "equals": 2}},
+    {"key": "cmd+return"},
+    {"expect": [{"path": "app.launchedWindows.count", "equals": 1}, {"path": "app.screen", "equals": "editor"},
+                {"path": "app.projectName", "equals": "Drone footage"}, {"path": "app.switcher.isOpen", "equals": false}]},
+    {"key": "cmd+shift+o"},
+    {"type": "zzz"},
+    {"expect": [{"path": "ui.anchors", "contains": "switcher.empty"}, {"path": "app.switcher.query", "equals": "zzz"}]},
+    {"snapshot": "switcher-empty", "element": "id:switcher.popover"},
+    {"key": "escape"},
+    {"expect": [{"path": "app.switcher.isOpen", "equals": true}, {"path": "app.switcher.query", "equals": ""}]},
+    {"key": "escape"},
+    {"expect": {"path": "app.switcher.isOpen", "equals": false}},
+    {"click": "id:titlebar.projectSwitcher"},
+    {"expect": {"path": "app.switcher.isOpen", "equals": true}},
+    {"click": "id:switcher.home"},
+    {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 10}},
+    {"expect": {"path": "app.switcher.isOpen", "equals": false}}
+  ]
+}
