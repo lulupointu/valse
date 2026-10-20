@@ -482,7 +482,7 @@ after about 1.5 s (see §8.3).
 - With **preview axis ON**, hovering over the timeline shows a second, thinner grey line that follows the mouse, and the player shows that
   frame (hover scrubbing).
 - **Follow during playback** (Montage, owner U1, 2026-10-20): the timeline never fights a scroll — wheel / trackpad / scrollbar / pinch
-  while playing turns the follow off until the next play or seek. On play, an off-screen playhead is brought in: off the left → the line
+  while playing turns the follow off until the next play or seek (or until the user has scrolled the line back on screen and stopped scrolling for 1 s). On play, an off-screen playhead is brought in: off the left → the line
   40 pt from the left edge; off the right → 40 pt from the right edge. While playing, when the line reaches the right edge the timeline
   pages (line back 40 pt from the left) (`PlayheadFollow`). CapCut's own follow was not re-observed live in U1 (agents send no real input).
 

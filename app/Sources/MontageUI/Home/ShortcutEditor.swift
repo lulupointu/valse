@@ -74,10 +74,19 @@ struct ShortcutList: View {
     @State private var pending: (id: String, binding: KeyBinding, conflicts: [KeymapEntry])?
     @State private var monitor: Any?
 
+    /// The command's name in this list: a menu item title without its trailing "…" (owner, U1-4: the ellipsis belongs on
+    /// the menu item only — it means "opens a dialog" there, and reads as a cut-off label anywhere else).
+    static func title(_ e: KeymapEntry) -> String { title(tr(e.titleKey)) }
+    static func title(_ s: String) -> String {
+        var t = s
+        while t.hasSuffix("…") || t.hasSuffix("...") { t = String(t.dropLast(t.hasSuffix("…") ? 1 : 3)) }
+        return t.trimmingCharacters(in: .whitespaces)
+    }
+
     var rows: [KeymapEntry] {
         let q = search.trimmingCharacters(in: .whitespaces)
         let base = q.isEmpty ? keymap.entries(in: category) : keymap.entries
-        return base.filter { q.isEmpty || tr($0.titleKey).range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        return base.filter { q.isEmpty || Self.title($0).range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             || (keymap.binding(for: $0.id)?.display.localizedCaseInsensitiveContains(q) ?? false) }
     }
 
@@ -125,7 +134,7 @@ struct ShortcutList: View {
                 // inline conflict prompt ("⌘B shortcut already belongs to Split. Override it?")
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 13)).foregroundStyle(Color(hex: 0xE8B33A))
-                    Text(loc: "keymap.conflict.message", p.binding.display, p.conflicts.map { tr($0.titleKey) }.joined(separator: ", "))
+                    Text(loc: "keymap.conflict.message", p.binding.display, p.conflicts.map { Self.title($0) }.joined(separator: ", "))
                         .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Button(tr("common.cancel")) { pending = nil }.buttonStyle(SecondaryButtonStyle()).testID("keymap.conflict.cancel")
@@ -159,7 +168,7 @@ struct ShortcutList: View {
         let b = keymap.binding(for: e.id)
         let changed = b != keymap.presetBinding(e.id)
         return HStack(spacing: 6) {
-            Text(verbatim: tr(e.titleKey)).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+            Text(verbatim: Self.title(e)).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).lineLimit(1)
             if changed { Circle().fill(Theme.accent).frame(width: 5, height: 5).help(tr("keymap.changed")) }
             Spacer(minLength: 6)
             Button { toggleRecording(e.id) } label: {

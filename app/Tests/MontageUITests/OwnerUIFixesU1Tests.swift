@@ -52,6 +52,17 @@ import MontageCore
         #expect(left == ["audio.license.creditBody"], "still 'légende': \(left)")
     }
 
+    /// U1-4: the shortcut list (Settings ▸ Shortcuts, Keyboard Shortcuts window) names menu commands without the menu
+    /// item's "…" — only the app-menu item keeps it.
+    @Test func shortcutListDropsTheMenuEllipsis() {
+        #expect(ShortcutList.title("Settings…") == "Settings")
+        #expect(ShortcutList.title("Paramètres…") == "Paramètres")
+        #expect(ShortcutList.title("Keyboard Shortcuts...") == "Keyboard Shortcuts")
+        #expect(ShortcutList.title("Split") == "Split")
+        let entry = Keymap.menuCommands.first { $0.id == "menu.settings" }!
+        #expect(!ShortcutList.title(entry).hasSuffix("…"))
+    }
+
     // MARK: 5. tooltips wrap instead of losing their end
 
     @Test func longTooltipWrapsAndShowsEveryWord() {
@@ -135,8 +146,8 @@ import MontageCore
     // MARK: 6. playback follow
 
     /// 100 px/s, 1000 px of clip area → 10 s visible, padding 40 px = 0.4 s.
-    func run(_ f: inout PlayheadFollow, playing: Bool = true, _ t: Double, scroll: Double) -> Double? {
-        f.update(isPlaying: playing, playhead: t, scrollTime: scroll, pixelsPerSecond: 100, visibleWidth: 1000)
+    func run(_ f: inout PlayheadFollow, playing: Bool = true, _ t: Double, scroll: Double, now: Double = 0) -> Double? {
+        f.update(isPlaying: playing, playhead: t, scrollTime: scroll, pixelsPerSecond: 100, visibleWidth: 1000, now: now)
     }
 
     @Test func playStartBringsAnOffscreenPlayheadIn() {
@@ -166,7 +177,7 @@ import MontageCore
     @Test func userScrollDuringPlaybackIsNeverFought() {
         var f = PlayheadFollow()
         #expect(run(&f, 25, scroll: 20) == nil)
-        f.userScrolled(isPlaying: true)
+        f.userScrolled(isPlaying: true, now: 0)
         #expect(f.manual)
         // the user scrolled far right: the playhead is off-screen to the left — stays there
         #expect(run(&f, 25.1, scroll: 60) == nil)
@@ -178,10 +189,30 @@ import MontageCore
         #expect(run(&f, 3, scroll: 60).map { abs($0 - 2.6) < 1e-9 } == true)   // backwards = seek
         #expect(!f.manual)
         // stopping clears it; the next play starts fresh
-        f.userScrolled(isPlaying: true)
+        f.userScrolled(isPlaying: true, now: 0)
         #expect(run(&f, playing: false, 3.1, scroll: 50) == nil)
         #expect(!f.manual)
         #expect(run(&f, 3.1, scroll: 50).map { abs($0 - 2.7) < 1e-9 } == true)
+    }
+
+    /// The user scrolls back to the playhead while playing and lets go: after `resumeAfter` the follow is back (pages
+    /// at the right edge again); while they keep scrolling it stays off.
+    @Test func followResumesWhenTheUserScrollsBackToThePlayhead() {
+        var f = PlayheadFollow()
+        #expect(run(&f, 25, scroll: 20, now: 0) == nil)
+        f.userScrolled(isPlaying: true, now: 0.1)
+        #expect(run(&f, 25.1, scroll: 60, now: 0.2) == nil)              // scrolled away: off-screen, untouched
+        f.userScrolled(isPlaying: true, now: 0.5)                        // …and back: line visible at scroll 22
+        #expect(run(&f, 25.5, scroll: 22, now: 0.9) == nil)
+        #expect(f.manual)                                                 // still scrolling (< 1 s): stays off
+        #expect(run(&f, 26, scroll: 22, now: 1.6) == nil)
+        #expect(!f.manual)                                                // let go, line on screen: follow resumes
+        #expect(run(&f, 31.9, scroll: 22, now: 2) == nil)
+        #expect(run(&f, 32.01, scroll: 22, now: 2).map { abs($0 - 31.61) < 1e-9 } == true)   // right edge (32 s): pages
+        // scrolled away and left there: never resumes on its own
+        f.userScrolled(isPlaying: true, now: 3)
+        for i in 1...50 { #expect(run(&f, 32.01 + Double(i) * 0.1, scroll: 80, now: 3 + Double(i) * 0.1) == nil) }
+        #expect(f.manual)
     }
 
     @Test func scrollsWhilePausedDontTurnFollowOff() {
