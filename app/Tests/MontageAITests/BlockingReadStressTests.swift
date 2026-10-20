@@ -47,21 +47,25 @@ import MontageTestSupport
             ("wav16k", { let u = try await AudioExtractor.wav16k(url, range: nil); try? FileManager.default.removeItem(at: u) }),
             ("stemWAV", { try await StemSeparator.writeWAV(url, to: out("wav")) }),
         ]
-        let perKind = max(2, ProcessInfo.processInfo.activeProcessorCount * 5 / kinds.count)
-        let done = Done()
-        defer { done.set() }
+        // ≈ 3 × the core count (the pool width): enough to exhaust the pool pre-fix, light enough for the full suite
+        let perKind = max(2, ProcessInfo.processInfo.activeProcessorCount * 3 / kinds.count)
         let total = perKind * kinds.count
-        // a Thread of its own: with the pool deadlocked GCD's global queues get no new worker either (seen: no watchdog
-        // fired after 16 min on the pre-fix code)
-        Thread.detachNewThread {
-            let deadline = Date().addingTimeInterval(300)
-            while !done.isSet, Date() < deadline { Thread.sleep(forTimeInterval: 0.5) }
-            if !done.isSet { fatalError("B1 stress: \(total) concurrent read loops did not finish in 300 s (cooperative pool deadlock)") }
-        }
         var finished: [String: Int] = [:]
-        try await withThrowingTaskGroup(of: String.self) { g in
-            for (name, job) in kinds { for _ in 0..<perKind { g.addTask { try await job(); return name } } }
-            for try await name in g { finished[name, default: 0] += 1 }
+        // inside the heavy-work gate: dozens of hardware decodes / encodes must not overlap the real-time probes
+        try await HeavyWorkGate.run {
+            let done = Done()
+            defer { done.set() }
+            // a Thread of its own: with the pool deadlocked GCD's global queues get no new worker either (seen: no
+            // watchdog fired after 16 min on the pre-fix code)
+            Thread.detachNewThread {
+                let deadline = Date().addingTimeInterval(300)
+                while !done.isSet, Date() < deadline { Thread.sleep(forTimeInterval: 0.5) }
+                if !done.isSet { fatalError("B1 stress: \(total) concurrent read loops did not finish in 300 s (cooperative pool deadlock)") }
+            }
+            try await withThrowingTaskGroup(of: String.self) { g in
+                for (name, job) in kinds { for _ in 0..<perKind { g.addTask { try await job(); return name } } }
+                for try await name in g { finished[name, default: 0] += 1 }
+            }
         }
         for (name, _) in kinds { #expect(finished[name] == perKind, "\(name)") }
     }
