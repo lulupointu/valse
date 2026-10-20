@@ -61,6 +61,7 @@ to the colour tests and `RealLikeFootageTests.ownerFootageProbesAndPlays`, as ar
 `MONTAGE_QA_PROJECT` (playback stress on a real project) and `MONTAGE_QA_VIDEO` (AI QA).
 
 **Stage-1 UI selection.** `scripts/ui_select.py --explain [--files …]` prints what `check_fast.sh` would run and why.
+The diff base is `main` (the whole branch); `check_fast.sh --base HEAD~1` limits it to the last commit.
 Add a rule to `app/Tests/ui_map.txt` when you create a new area or the heuristics miss your scripts; put a script in
 the `smoke:` line only if it is fast and broad.
 

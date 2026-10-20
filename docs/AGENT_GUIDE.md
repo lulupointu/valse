@@ -29,7 +29,8 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   (uncommitted changes included), every unit test, and only the UI scripts relevant to `git diff main...HEAD` + your
   uncommitted files: a smoke set + `app/Tests/ui_map.txt` (source dir → scripts) + scripts that use a test ID / l10n key
   found in a changed Swift file + changed scripts / fixtures / baselines. `--list` shows what it would run and why;
-  `--unit-filter <re>` narrows the unit tests; `--all-ui` runs every script (still incremental). Run it as often as you like.
+  `--unit-filter <re>` narrows the unit tests; `--base HEAD~1` checks only your last commit's UI area; `--all-ui` runs every
+  script (still incremental). Run it as often as you like (a one-file change measured 6 min: 980 unit tests + 11 UI scripts).
   Single files: `scripts/test.sh --filter X`, `scripts/uitest.sh app/Tests/UIScripts/x.json`.
 - **Stage 2 — once, just before "ready to merge": `scripts/check_clean.sh --ui`** (fresh clean checkout, ~970 unit tests,
   every UI script, 16–33 min). Only this one proves the branch; it writes `build/check_clean.ok` for the merge.
