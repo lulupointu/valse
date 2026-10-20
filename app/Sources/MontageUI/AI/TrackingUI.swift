@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 import MontageAI
@@ -26,7 +26,7 @@ enum TrackingInspector {
 }
 
 /// Session-only "Scale with object" choice.
-@MainActor @Observable final class TrackingUIState {
+@MainActor @Perceptible final class TrackingUIState {
     static let shared = TrackingUIState()
     var scaleWithObject = false
 }
@@ -34,42 +34,44 @@ enum TrackingInspector {
 struct TrackingSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let store = ctx.store
-        let clip = ctx.clip
-        let tool = store.ai.trackTool.flatMap { $0.clipID == clip?.id ? $0 : nil }
-        let on = tool != nil || clip?.tracking != nil || clip.map { store.ai.trackingJobs[$0.id] != nil } ?? false
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                tile(symbol: "nosign", title: tr("tracking.none"), selected: !on, id: "tracking.none") {
-                    if let id = clip?.id { store.removeTracking(id) }
-                }
-                tile(symbol: "scope", title: tr("tracking.motion"), selected: on, id: "tracking.motion") {
-                    if let id = clip?.id, tool == nil { store.beginTrackingBox(id) }
-                }
-                Spacer()
-            }
-            if let id = clip?.id, let job = store.ai.trackingJobs[id] {
-                let p = store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr("tracking.applying", JobInfo.percent(p)), progress: p) { store.cancelTracking(id) }
-            }
-            if on {
-                ToggleLine(label: tr("tracking.scale"), isOn: Binding(get: { TrackingUIState.shared.scaleWithObject },
-                                                                      set: { TrackingUIState.shared.scaleWithObject = $0 }))
-                if let tool {
-                    HintText(text: tr(tool.referenceAvailable ? "tracking.hint" : "tracking.noVideo"))
-                    HStack {
-                        Spacer()
-                        PillButton(title: tr("ai.cancel")) { store.endTrackingBox() }
-                        PillButton(title: tr("tracking.start"), accent: true, enabled: tool.referenceAvailable) { store.startTracking() }
-                            .testID("tracking.start")
+        WithPerceptionTracking {
+            let store = ctx.store
+            let clip = ctx.clip
+            let tool = store.ai.trackTool.flatMap { $0.clipID == clip?.id ? $0 : nil }
+            let on = tool != nil || clip?.tracking != nil || clip.map { store.ai.trackingJobs[$0.id] != nil } ?? false
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    tile(symbol: "nosign", title: tr("tracking.none"), selected: !on, id: "tracking.none") {
+                        if let id = clip?.id { store.removeTracking(id) }
                     }
-                } else if clip?.tracking != nil {
-                    HintText(text: tr("tracking.applied"))
-                    PillButton(title: tr("tracking.again"), symbol: "scope") { if let id = clip?.id { store.beginTrackingBox(id) } }
+                    tile(symbol: "scope", title: tr("tracking.motion"), selected: on, id: "tracking.motion") {
+                        if let id = clip?.id, tool == nil { store.beginTrackingBox(id) }
+                    }
+                    Spacer()
+                }
+                if let id = clip?.id, let job = store.ai.trackingJobs[id] {
+                    let p = store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr("tracking.applying", JobInfo.percent(p)), progress: p) { store.cancelTracking(id) }
+                }
+                if on {
+                    ToggleLine(label: tr("tracking.scale"), isOn: Binding.perceived(get: { TrackingUIState.shared.scaleWithObject },
+                                                                          set: { TrackingUIState.shared.scaleWithObject = $0 }))
+                    if let tool {
+                        HintText(text: tr(tool.referenceAvailable ? "tracking.hint" : "tracking.noVideo"))
+                        HStack {
+                            Spacer()
+                            PillButton(title: tr("ai.cancel")) { store.endTrackingBox() }
+                            PillButton(title: tr("tracking.start"), accent: true, enabled: tool.referenceAvailable) { store.startTracking() }
+                                .testID("tracking.start")
+                        }
+                    } else if clip?.tracking != nil {
+                        HintText(text: tr("tracking.applied"))
+                        PillButton(title: tr("tracking.again"), symbol: "scope") { if let id = clip?.id { store.beginTrackingBox(id) } }
+                    }
                 }
             }
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 4)
     }
 
     func tile(symbol: String, title: String, selected: Bool, id: String, action: @escaping () -> Void) -> some View {
@@ -91,16 +93,16 @@ struct TrackingSection: View {
 // MARK: - Box tool on the canvas
 
 /// Yellow tracking box (canvas pixels). Drag inside = move, near a corner = resize, outside = draw a new box.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class MotionTrackBoxTool: CanvasTool {
     public let clipID: ClipID
     public private(set) var revision = 0
     /// Box in canvas pixels.
     public var rect: CGRect
-    @ObservationIgnored weak var store: EditorStore?
-    @ObservationIgnored private var mode: Mode = .none
-    @ObservationIgnored private var anchor = Vec2.zero
-    @ObservationIgnored private var startRect = CGRect.zero
+    @PerceptionIgnored weak var store: EditorStore?
+    @PerceptionIgnored private var mode: Mode = .none
+    @PerceptionIgnored private var anchor = Vec2.zero
+    @PerceptionIgnored private var startRect = CGRect.zero
     enum Mode { case none, move, resize(Int), draw }
 
     init(clipID: ClipID, store: EditorStore) {

@@ -18,7 +18,7 @@ struct IsolatedHost<Content: View>: NSViewRepresentable {
         let h = NSHostingView(rootView: wrapped)
         if let panel { PanelFocus.shared.register(h, for: panel) }
         h.sizingOptions = []
-        h.safeAreaRegions = []
+        if #available(macOS 13.3, *) { h.safeAreaRegions = [] }
         return h
     }
 

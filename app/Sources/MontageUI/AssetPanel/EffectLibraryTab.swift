@@ -4,6 +4,7 @@ import ImageIO
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 // Effects / Filters / Adjustment asset tabs (UX.md §3.1–3.2, 3.7, 3.9, 3.10): left sub-nav (Favorites, Trending /
 // Featured, categories), search, 86 pt square cards rendered with the real effect on the procedural sample frame,
@@ -86,7 +87,7 @@ enum EffectLibraryCatalog {
 }
 
 /// Favourite effects/filters/adjustments (☆ on cards), persisted per user.
-@MainActor @Observable
+@MainActor @Perceptible
 final class EffectFavorites {
     /// UI tests get a fresh, throw-away store so scripts are deterministic and never touch the user's favourites.
     static let shared = EffectFavorites(defaults: TestAnchors.isEnabled ? testDefaults() : .standard)
@@ -97,7 +98,7 @@ final class EffectFavorites {
     }
     static let defaultsKey = "montage.assets.favoriteEffects"
     private(set) var ids: Set<String>
-    @ObservationIgnored private let defaults: UserDefaults
+    @PerceptionIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -114,7 +115,7 @@ final class EffectFavorites {
 
 /// Card thumbnails rendered off-main by `EffectPreviewRenderer` (same shaders as preview/export): one still per
 /// entry (LRU-bounded) and a short animated loop for the hovered card.
-@MainActor @Observable
+@MainActor @Perceptible
 final class EffectThumbnails {
     static let shared = EffectThumbnails()
     static let pixels = 160
@@ -124,11 +125,11 @@ final class EffectThumbnails {
 
     private(set) var stills: [String: CGImage] = [:]
     private(set) var loops: [String: [CGImage]] = [:]
-    @ObservationIgnored private var pending: Set<String> = []
-    @ObservationIgnored private var stillOrder: [String] = []
-    @ObservationIgnored private var loopOrder: [String] = []
-    @ObservationIgnored let maxStills = 600   // W13: all effects + filters stay cached across tab switches
-    @ObservationIgnored let maxLoops = 4
+    @PerceptionIgnored private var pending: Set<String> = []
+    @PerceptionIgnored private var stillOrder: [String] = []
+    @PerceptionIgnored private var loopOrder: [String] = []
+    @PerceptionIgnored let maxStills = 600   // W13: all effects + filters stay cached across tab switches
+    @PerceptionIgnored let maxLoops = 4
 
     struct Box: @unchecked Sendable { let images: [CGImage] }
 
@@ -206,52 +207,56 @@ struct EffectLibraryTab: View {
     }
 
     var body: some View {
-        let navItems = EffectLibraryCatalog.nav(category)
-        let current = nav.isEmpty ? (navItems.dropFirst().first?.id ?? navItems[0].id) : nav
-        let searching = !EffectLibraryCatalog.fold(query).isEmpty
-        let items = searching ? EffectLibraryCatalog.search(category, query)
-            : EffectLibraryCatalog.entries(category, nav: current, favorites: favorites.ids)
-        let title = searching ? tr("fxlib.results") : tr(navItems.first { $0.id == current }?.titleKey ?? current)
-        HStack(spacing: 0) {
-            SubNav(items: navItems.map { ($0.id, tr($0.titleKey)) }, selection: Binding(get: { current }, set: { nav = $0; query = "" }))
-            VStack(alignment: .leading, spacing: 8) {
-                searchField
-                Text(verbatim: title).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
-                if current == CustomEffectLibrary.groupKey && !searching {
-                    CustomEffectsHeader(store: store, isEmpty: items.isEmpty)   // FX-018
-                }
-                if current == EffectLibraryCatalog.customAdjustNav && !searching {
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
-                            CustomAdjustmentCard(selected: selected == EffectLibraryCatalog.customAdjustNav,
-                                                 select: { selected = EffectLibraryCatalog.customAdjustNav },
-                                                 add: { selected = EffectLibraryCatalog.customAdjustNav; store.addCustomAdjustment() })
-                                .testID("asset.tile.customAdjustment")
-                        }
-                        .padding(.horizontal, 12).padding(.bottom, 12)
+        WithPerceptionTracking {
+            let navItems = EffectLibraryCatalog.nav(category)
+            let current = nav.isEmpty ? (navItems.dropFirst().first?.id ?? navItems[0].id) : nav
+            let searching = !EffectLibraryCatalog.fold(query).isEmpty
+            let items = searching ? EffectLibraryCatalog.search(category, query)
+                : EffectLibraryCatalog.entries(category, nav: current, favorites: favorites.ids)
+            let title = searching ? tr("fxlib.results") : tr(navItems.first { $0.id == current }?.titleKey ?? current)
+            HStack(spacing: 0) {
+                SubNav(items: navItems.map { ($0.id, tr($0.titleKey)) }, selection: Binding.perceived(get: { current }, set: { nav = $0; query = "" }))
+                VStack(alignment: .leading, spacing: 8) {
+                    searchField
+                    Text(verbatim: title).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
+                    if current == CustomEffectLibrary.groupKey && !searching {
+                        CustomEffectsHeader(store: store, isEmpty: items.isEmpty)   // FX-018
                     }
-                } else if items.isEmpty && current == CustomEffectLibrary.groupKey && !searching {
-                    Spacer()
-                } else if items.isEmpty {
-                    EmptyState(symbol: current == EffectLibraryCatalog.favoritesNav && !searching ? "star" : "magnifyingglass",
-                               title: tr(searching ? "fxlib.noResults" : (current == EffectLibraryCatalog.favoritesNav ? "fxlib.favorites.empty" : "fxlib.noResults")))
-                } else {
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
-                            let used = store.usedEffectIDs
-                            let _ = CustomEffectsState.shared.revision   // FX-018: re-list after import / reload / delete
-                            ForEach(items) { d in
-                                EffectCard(descriptor: d, selected: selected == d.id, added: used.contains(d.id),
-                                           select: { selected = d.id; store.previewEffect(d) }, add: { selected = d.id; store.applyEffect(d) })
-                                    .testID("asset.tile.\(d.id)")
+                    if current == EffectLibraryCatalog.customAdjustNav && !searching {
+                        ScrollView {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
+                                CustomAdjustmentCard(selected: selected == EffectLibraryCatalog.customAdjustNav,
+                                                     select: { selected = EffectLibraryCatalog.customAdjustNav },
+                                                     add: { selected = EffectLibraryCatalog.customAdjustNav; store.addCustomAdjustment() })
+                                    .testID("asset.tile.customAdjustment")
                             }
+                            .padding(.horizontal, 12).padding(.bottom, 12)
                         }
-                        .padding(.horizontal, 12).padding(.bottom, 12)
+                    } else if items.isEmpty && current == CustomEffectLibrary.groupKey && !searching {
+                        Spacer()
+                    } else if items.isEmpty {
+                        EmptyState(symbol: current == EffectLibraryCatalog.favoritesNav && !searching ? "star" : "magnifyingglass",
+                                   title: tr(searching ? "fxlib.noResults" : (current == EffectLibraryCatalog.favoritesNav ? "fxlib.favorites.empty" : "fxlib.noResults")))
+                    } else {
+                        ScrollView {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
+                                let used = store.usedEffectIDs
+                                let _ = CustomEffectsState.shared.revision   // FX-018: re-list after import / reload / delete
+                                ForEach(items) { d in
+                                    WithPerceptionTracking {
+                                        EffectCard(descriptor: d, selected: selected == d.id, added: used.contains(d.id),
+                                                   select: { selected = d.id; store.previewEffect(d) }, add: { selected = d.id; store.applyEffect(d) })
+                                            .testID("asset.tile.\(d.id)")
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 12).padding(.bottom, 12)
+                        }
                     }
                 }
+                .padding(.top, 10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .padding(.top, 10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
@@ -281,33 +286,35 @@ struct CustomAdjustmentCard: View {
     @State private var hover = false
 
     var body: some View {
-        VStack(spacing: 5) {
-            ZStack(alignment: .bottomTrailing) {
-                Button {
-                    if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { add() } else { select() }
-                } label: {
-                    RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
-                        .overlay {
-                            Text(loc: "adjust.custom").font(.system(size: 11)).foregroundStyle(Theme.textPrimary)
-                                .multilineTextAlignment(.center).padding(6)
-                        }
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
-                                                                           lineWidth: selected ? 2 : 1.5))
-                        .contentShape(Rectangle())
+        WithPerceptionTracking {
+            VStack(spacing: 5) {
+                ZStack(alignment: .bottomTrailing) {
+                    Button {
+                        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { add() } else { select() }
+                    } label: {
+                        RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                            .overlay {
+                                Text(loc: "adjust.custom").font(.system(size: 11)).foregroundStyle(Theme.textPrimary)
+                                    .multilineTextAlignment(.center).padding(6)
+                            }
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                                                                               lineWidth: selected ? 2 : 1.5))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if hover || selected {
+                        RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
+                            .padding(4)
+                            .testID("asset.tile.customAdjustment.add")
+                    }
                 }
-                .buttonStyle(.plain)
-                if hover || selected {
-                    RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
-                        .padding(4)
-                        .testID("asset.tile.customAdjustment.add")
-                }
+                .aspectRatio(1, contentMode: .fit)
             }
-            .aspectRatio(1, contentMode: .fit)
+            .onHover { hover = $0 }
+            .onDrag { NSItemProvider(object: DragPayload.customAdjustment as NSString) }
+            .contextMenu { Button(tr("asset.addToTrack"), action: add) }
+            .help(tr("adjust.custom.help"))
         }
-        .onHover { hover = $0 }
-        .onDrag { NSItemProvider(object: DragPayload.customAdjustment as NSString) }
-        .contextMenu { Button(tr("asset.addToTrack"), action: add) }
-        .help(tr("adjust.custom.help"))
     }
 }
 
@@ -339,42 +346,44 @@ struct EffectCard: View {
     private var favorites: EffectFavorites { EffectFavorites.shared }
 
     var body: some View {
-        let fav = favorites.contains(descriptor.id)
-        VStack(spacing: 5) {
-            ZStack(alignment: .bottomTrailing) {
-                // The thumbnail is a Button (click = select, double-click = add) so it also takes synthetic UI-test clicks.
-                Button(action: clicked) {
-                    RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
-                        .overlay { preview }
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
-                                                                           lineWidth: selected ? 2 : 1.5))
-                        .contentShape(Rectangle())
-                        .overlay(alignment: .topLeading) {
-                            if added { AddedChip().allowsHitTesting(false).testID("asset.tile.\(descriptor.id).added") }
-                        }
+        WithPerceptionTracking {
+            let fav = favorites.contains(descriptor.id)
+            VStack(spacing: 5) {
+                ZStack(alignment: .bottomTrailing) {
+                    // The thumbnail is a Button (click = select, double-click = add) so it also takes synthetic UI-test clicks.
+                    Button(action: clicked) {
+                        RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                            .overlay { preview }
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                                                                               lineWidth: selected ? 2 : 1.5))
+                            .contentShape(Rectangle())
+                            .overlay(alignment: .topLeading) {
+                                if added { AddedChip().allowsHitTesting(false).testID("asset.tile.\(descriptor.id).added") }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    if hover || selected {
+                        CardBadges(id: descriptor.id, fav: fav, add: add)
+                    } else if fav {
+                        Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                            .allowsHitTesting(false)
+                    }
                 }
-                .buttonStyle(.plain)
-                if hover || selected {
-                    CardBadges(id: descriptor.id, fav: fav, add: add)
-                } else if fav {
-                    Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
-                        .allowsHitTesting(false)
-                }
+                .aspectRatio(1, contentMode: .fit)
+                Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1).truncationMode(.middle)
             }
-            .aspectRatio(1, contentMode: .fit)
-            Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                .lineLimit(1).truncationMode(.middle)
+            .contentShape(Rectangle())
+            .onHover { h in hover = h; if h { hoverStart = Date() } }
+            .onDrag { NSItemProvider(object: DragPayload.effect(descriptor.id) as NSString) }
+            .contextMenu {
+                Button(tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(descriptor.id) }
+                Button(tr("asset.addToTrack"), action: add)
+                if descriptor.groupKey == CustomEffectLibrary.groupKey { CustomEffectMenuItems(effectID: descriptor.id) }   // FX-018
+            }
+            .help(tr(descriptor.nameKey))
         }
-        .contentShape(Rectangle())
-        .onHover { h in hover = h; if h { hoverStart = Date() } }
-        .onDrag { NSItemProvider(object: DragPayload.effect(descriptor.id) as NSString) }
-        .contextMenu {
-            Button(tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { favorites.toggle(descriptor.id) }
-            Button(tr("asset.addToTrack"), action: add)
-            if descriptor.groupKey == CustomEffectLibrary.groupKey { CustomEffectMenuItems(effectID: descriptor.id) }   // FX-018
-        }
-        .help(tr(descriptor.nameKey))
     }
 
     private func clicked() {
@@ -384,9 +393,11 @@ struct EffectCard: View {
     @ViewBuilder var preview: some View {
         if hover, let frames = thumbs.loop(descriptor), !frames.isEmpty {
             SwiftUI.TimelineView(.animation(minimumInterval: EffectThumbnails.loopSeconds / Double(EffectThumbnails.frameCount))) { tl in
-                let t = tl.date.timeIntervalSince(hoverStart)
-                let i = Int(t / EffectThumbnails.loopSeconds * Double(frames.count)) % frames.count
-                Image(decorative: frames[max(0, i)], scale: 2).resizable().scaledToFill()
+                WithPerceptionTracking {
+                    let t = tl.date.timeIntervalSince(hoverStart)
+                    let i = Int(t / EffectThumbnails.loopSeconds * Double(frames.count)) % frames.count
+                    Image(decorative: frames[max(0, i)], scale: 2).resizable().scaledToFill()
+                }
             }
         } else if descriptor.category == .adjustment && !descriptor.id.hasPrefix("user.lut.") {
             Image(systemName: descriptor.symbol).font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85))
@@ -404,14 +415,16 @@ struct CardBadges: View {
     let fav: Bool
     let add: () -> Void
     var body: some View {
-        HStack(spacing: 4) {
-            RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
-                       help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(id) }
-                .testID("asset.tile.\(id).favorite")
-            RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
-                .testID("asset.tile.\(id).add")
+        WithPerceptionTracking {
+            HStack(spacing: 4) {
+                RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
+                           help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(id) }
+                    .testID("asset.tile.\(id).favorite")
+                RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
+                    .testID("asset.tile.\(id).add")
+            }
+            .padding(4)
         }
-        .padding(4)
     }
 }
 
@@ -423,11 +436,13 @@ struct RoundBadge: View {
     let help: String
     let action: () -> Void
     var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 10, weight: .bold)).foregroundStyle(tint)
-                .frame(width: 20, height: 20).background(fill, in: Circle())
+        WithPerceptionTracking {
+            Button(action: action) {
+                Image(systemName: symbol).font(.system(size: 10, weight: .bold)).foregroundStyle(tint)
+                    .frame(width: 20, height: 20).background(fill, in: Circle())
+            }
+            .buttonStyle(.plain).help(help)
         }
-        .buttonStyle(.plain).help(help)
     }
 }
 

@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Third-party components and their licenses (SE-018). Add one entry when a dependency, model or asset pack ships.
 /// License texts are legal texts and stay in their original language.
@@ -90,53 +91,57 @@ struct AboutPanel: View {
         return "\(v) (\(b))"
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                RoundedRectangle(cornerRadius: 12).fill(LinearGradient(colors: [Color(hex: 0x6CC9DD), Color(hex: 0x4FB4C9)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 56, height: 56)
-                    .overlay(Image(systemName: "film.stack").font(.system(size: 24, weight: .semibold)).foregroundStyle(.black.opacity(0.8)))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(verbatim: "Montage").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
-                    Text(loc: "about.version", version).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                    Text(loc: "about.local").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 14) {
+                    RoundedRectangle(cornerRadius: 12).fill(LinearGradient(colors: [Color(hex: 0x6CC9DD), Color(hex: 0x4FB4C9)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 56, height: 56)
+                        .overlay(Image(systemName: "film.stack").font(.system(size: 24, weight: .semibold)).foregroundStyle(.black.opacity(0.8)))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(verbatim: "Montage").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                        Text(loc: "about.version", version).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                        Text(loc: "about.local").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                    }
                 }
-            }
-            UpdatesAndEnvironment()
-            SettingsDivider()
-            Text(loc: "about.licenses").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-            VStack(spacing: 6) {
-                ForEach(ThirdPartyLicense.all) { l in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Button { expanded = expanded == l.id ? nil : l.id } label: {
-                            HStack {
-                                Image(systemName: expanded == l.id ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(Theme.textTertiary).frame(width: 12)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(verbatim: l.name).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.textPrimary)
-                                    Text(verbatim: tr(l.usageKey)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                UpdatesAndEnvironment()
+                SettingsDivider()
+                Text(loc: "about.licenses").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                VStack(spacing: 6) {
+                    ForEach(ThirdPartyLicense.all) { l in
+                        WithPerceptionTracking {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Button { expanded = expanded == l.id ? nil : l.id } label: {
+                                    HStack {
+                                        Image(systemName: expanded == l.id ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .bold))
+                                            .foregroundStyle(Theme.textTertiary).frame(width: 12)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(verbatim: l.name).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.textPrimary)
+                                            Text(verbatim: tr(l.usageKey)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                                        }
+                                        Spacer()
+                                        Text(verbatim: l.license).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accent)
+                                            .padding(.horizontal, 6).frame(height: 18)
+                                            .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                                    }
+                                    .contentShape(Rectangle())
                                 }
-                                Spacer()
-                                Text(verbatim: l.license).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accent)
-                                    .padding(.horizontal, 6).frame(height: 18)
-                                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                                .buttonStyle(.plain)
+                                .testID("about.license.\(l.id)")
+                                if expanded == l.id {
+                                    Text(verbatim: l.text).font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.textSecondary)
+                                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                                        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                                    Text(verbatim: l.url).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).textSelection(.enabled)
+                                }
                             }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .testID("about.license.\(l.id)")
-                        if expanded == l.id {
-                            Text(verbatim: l.text).font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.textSecondary)
-                                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                                .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-                            Text(verbatim: l.url).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).textSelection(.enabled)
+                            .padding(10)
+                            .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 6))
                         }
                     }
-                    .padding(10)
-                    .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 6))
                 }
+                ContentLibraryCredits()
             }
-            ContentLibraryCredits()
         }
     }
 }
@@ -146,36 +151,38 @@ struct ContentLibraryCredits: View {
     @State private var expanded = false
 
     var body: some View {
-        let items = ContentLibrary.items
-        let music = items.filter { $0.kind == .music }, sfx = items.filter { $0.kind == .sfx }
-        VStack(alignment: .leading, spacing: 8) {
-            SettingsDivider()
-            HStack {
-                Text(loc: "about.content.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                Spacer()
-                Text(verbatim: "CC0 / Public domain").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 6).frame(height: 18)
-                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
-            }
-            Text(verbatim: tr("about.content.summary", music.count, sfx.count)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button { expanded.toggle() } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .bold))
-                    Text(loc: expanded ? "about.content.hide" : "about.content.show").font(.system(size: 12))
+        WithPerceptionTracking {
+            let items = ContentLibrary.items
+            let music = items.filter { $0.kind == .music }, sfx = items.filter { $0.kind == .sfx }
+            VStack(alignment: .leading, spacing: 8) {
+                SettingsDivider()
+                HStack {
+                    Text(loc: "about.content.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Spacer()
+                    Text(verbatim: "CC0 / Public domain").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 6).frame(height: 18)
+                        .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
                 }
-                .foregroundStyle(Theme.accent)
-            }
-            .buttonStyle(.plain)
-            .testID("about.content.toggle")
-            if expanded {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    group(tr("audio.lib.music"), music)
-                    group(tr("audio.lib.sfx"), sfx)
+                Text(verbatim: tr("about.content.summary", music.count, sfx.count)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button { expanded.toggle() } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .bold))
+                        Text(loc: expanded ? "about.content.hide" : "about.content.show").font(.system(size: 12))
+                    }
+                    .foregroundStyle(Theme.accent)
                 }
-                .padding(10)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-                .testID("about.content.list")
+                .buttonStyle(.plain)
+                .testID("about.content.toggle")
+                if expanded {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        group(tr("audio.lib.music"), music)
+                        group(tr("audio.lib.sfx"), sfx)
+                    }
+                    .padding(10)
+                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                    .testID("about.content.list")
+                }
             }
         }
     }
@@ -184,10 +191,12 @@ struct ContentLibraryCredits: View {
         Text(verbatim: "\(title) (\(items.count))").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
             .padding(.top, 4)
         ForEach(items) { i in
-            // legal credits stay in English: title — author · license · source page
-            Text(verbatim: "\(i.kind == .music ? i.title : AudioLibrarySections.title(i)) — \(i.source.author) · \(i.license.id) · \(i.source.name)\(i.source.pack.map { " (\($0))" } ?? "") · \(i.source.page)")
-                .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textSecondary)
-                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            WithPerceptionTracking {
+                // legal credits stay in English: title — author · license · source page
+                Text(verbatim: "\(i.kind == .music ? i.title : AudioLibrarySections.title(i)) — \(i.source.author) · \(i.license.id) · \(i.source.name)\(i.source.pack.map { " (\($0))" } ?? "") · \(i.source.page)")
+                    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.textSecondary)
+                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
@@ -206,52 +215,56 @@ struct UpdatesAndEnvironment: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Button(tr("about.checkUpdates")) { if let u = Self.releasesURL { NSWorkspace.shared.open(u) } }
-                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
-                    .disabled(Self.releasesURL == nil).testID("about.checkUpdates")
-                Button(tr(running ? "env.running" : "env.run")) { run() }
-                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(running).testID("about.environment")
-                Button(tr(packaging ? "support.packaging" : "support.package")) { packageLogs() }
-                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(packaging).testID("about.packageLogs")
-            }
-            Text(loc: Self.releasesURL == nil ? "about.updates.manual" : "about.updates.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-            if let packageURL {
-                HStack(spacing: 6) {
-                    Image(systemName: "doc.zipper").foregroundStyle(Theme.accent)
-                    Text(verbatim: tr("support.saved", packageURL.lastPathComponent)).font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1).truncationMode(.middle).testID("support.saved")
-                    Button(tr("support.reveal")) { NSWorkspace.shared.activateFileViewerSelecting([packageURL]) }
-                        .buttonStyle(.plain).font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Button(tr("about.checkUpdates")) { if let u = Self.releasesURL { NSWorkspace.shared.open(u) } }
+                        .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+                        .disabled(Self.releasesURL == nil).testID("about.checkUpdates")
+                    Button(tr(running ? "env.running" : "env.run")) { run() }
+                        .buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(running).testID("about.environment")
+                    Button(tr(packaging ? "support.packaging" : "support.package")) { packageLogs() }
+                        .buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(packaging).testID("about.packageLogs")
                 }
-            }
-            if let report {
-                VStack(alignment: .leading, spacing: 6) {
+                Text(loc: Self.releasesURL == nil ? "about.updates.manual" : "about.updates.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                if let packageURL {
                     HStack(spacing: 6) {
-                        Image(systemName: report.smooth ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(report.smooth ? Theme.accent : Color(hex: 0xE8B33A))
-                        Text(loc: report.smooth ? "env.verdict.smooth" : "env.verdict.warnings").font(.system(size: 12.5, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
+                        Image(systemName: "doc.zipper").foregroundStyle(Theme.accent)
+                        Text(verbatim: tr("support.saved", packageURL.lastPathComponent)).font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1).truncationMode(.middle).testID("support.saved")
+                        Button(tr("support.reveal")) { NSWorkspace.shared.activateFileViewerSelecting([packageURL]) }
+                            .buttonStyle(.plain).font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
                     }
-                    ForEach(report.checks) { c in
-                        VStack(alignment: .leading, spacing: 1) {
-                            HStack(spacing: 6) {
-                                Image(systemName: c.status == .ok ? "checkmark.circle" : c.status == .warning ? "exclamationmark.circle" : "xmark.circle")
-                                    .font(.system(size: 11)).foregroundStyle(c.status == .ok ? Theme.accent : Color(hex: 0xE8B33A))
-                                Text(verbatim: tr(c.titleKey)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).frame(width: 150, alignment: .leading)
-                                Text(verbatim: c.value).font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.middle)
-                                    .testID("env.value.\(c.id)")
-                            }
-                            if let a = c.adviceKey {
-                                Text(loc: a).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).padding(.leading, 23)
+                }
+                if let report {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: report.smooth ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                .foregroundStyle(report.smooth ? Theme.accent : Color(hex: 0xE8B33A))
+                            Text(loc: report.smooth ? "env.verdict.smooth" : "env.verdict.warnings").font(.system(size: 12.5, weight: .semibold))
+                                .foregroundStyle(Theme.textPrimary)
+                        }
+                        ForEach(report.checks) { c in
+                            WithPerceptionTracking {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: c.status == .ok ? "checkmark.circle" : c.status == .warning ? "exclamationmark.circle" : "xmark.circle")
+                                            .font(.system(size: 11)).foregroundStyle(c.status == .ok ? Theme.accent : Color(hex: 0xE8B33A))
+                                        Text(verbatim: tr(c.titleKey)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).frame(width: 150, alignment: .leading)
+                                        Text(verbatim: c.value).font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.middle)
+                                            .testID("env.value.\(c.id)")
+                                    }
+                                    if let a = c.adviceKey {
+                                        Text(loc: a).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).padding(.leading, 23)
+                                    }
+                                }
                             }
                         }
                     }
+                    .padding(10)
+                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                    .testID("env.report")
                 }
-                .padding(10)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-                .testID("env.report")
             }
         }
     }

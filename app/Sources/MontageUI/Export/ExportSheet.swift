@@ -3,27 +3,32 @@ import AppKit
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Dimmed backdrop + dialog (hit-testing blocked behind it).
 struct ExportModal: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.5).ignoresSafeArea().contentShape(Rectangle()).onTapGesture {}
-            if let model = store.exports.dialog {
-                ExportSheet(store: store, model: model)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
-                    .shadow(color: .black.opacity(0.5), radius: 24)
-                    .background(GeometryReader { g in
-                        Color.clear
-                            .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
-                            .onChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
-                    })
+        WithPerceptionTracking {
+            ZStack {
+                Color.black.opacity(0.5).ignoresSafeArea().contentShape(Rectangle()).onTapGesture {}
+                if let model = store.exports.dialog {
+                    ExportSheet(store: store, model: model)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+                        .shadow(color: .black.opacity(0.5), radius: 24)
+                        .background(GeometryReader { g in
+                            WithPerceptionTracking {
+                                Color.clear
+                                    .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
+                                    .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
+                            }
+                        })
+                }
             }
+            .onAppear { if store.exports.dialog == nil { store.openExport(scope: store.exports.requestedScope) } }
+            .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
         }
-        .onAppear { if store.exports.dialog == nil { store.openExport(scope: store.exports.requestedScope) } }
-        .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
     }
 }
 
@@ -33,31 +38,33 @@ struct ExportModal: View {
 /// (estimated)", Cancel, Export. Export turns the window into the progress / share view; closing it keeps the export
 /// running in the background queue (title-bar indicator).
 struct ExportSheet: View {
-    @Bindable var store: EditorStore
-    @Bindable var model: ExportDialogModel
+    @Perception.Bindable var store: EditorStore
+    @Perception.Bindable var model: ExportDialogModel
     @State private var coverPopover = false
     var jobs: [ExportJobItem] { store.exports.shownJobs }
 
     static let size = CGSize(width: 720, height: 663)
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(verbatim: tr("export.window", model.title)).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                Spacer()
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                HStack {
+                    Text(verbatim: tr("export.window", model.title)).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Spacer()
+                }
+                .padding(.horizontal, 16).frame(height: 36)
+                Rectangle().fill(ExportStyle.separator).frame(height: 1)
+                if jobs.isEmpty { form } else { ExportProgressView(store: store, jobs: jobs, cover: model.coverPreview, onClose: close) }
             }
-            .padding(.horizontal, 16).frame(height: 36)
-            Rectangle().fill(ExportStyle.separator).frame(height: 1)
-            if jobs.isEmpty { form } else { ExportProgressView(store: store, jobs: jobs, cover: model.coverPreview, onClose: close) }
+            .frame(width: Self.size.width, height: Self.size.height)
+            .background(ExportStyle.background)
+            .testID("export.dialog")
+            .task {
+                model.mp3Available = await MP3Encoder.isAvailable()
+                await model.refreshCover()
+            }
+            .onValueChange(of: model.coverTime) { Task { await model.refreshCover() } }
         }
-        .frame(width: Self.size.width, height: Self.size.height)
-        .background(ExportStyle.background)
-        .testID("export.dialog")
-        .task {
-            model.mp3Available = await MP3Encoder.isAvailable()
-            await model.refreshCover()
-        }
-        .onChange(of: model.coverTime) { Task { await model.refreshCover() } }
     }
 
     func close() { store.closeExportDialog() }
@@ -113,7 +120,7 @@ struct ExportSheet: View {
                 .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain).padding(8).testID("export.editCover")
-            .popover(isPresented: $coverPopover, arrowEdge: .bottom) { CoverEditor(model: model, store: store) }
+            .popover(isPresented: $coverPopover, arrowEdge: .bottom) { WithPerceptionTracking { CoverEditor(model: model, store: store) } }
         }
         .frame(width: 320, height: 180)
     }
@@ -172,7 +179,7 @@ struct ExportSheet: View {
     }
 
     func expandedBinding(_ key: String) -> Binding<Bool> {
-        Binding(get: { model.expanded.contains(key) }, set: { if $0 { model.expanded.insert(key) } else { model.expanded.remove(key) } })
+        Binding.perceived(get: { model.expanded.contains(key) }, set: { if $0 { model.expanded.insert(key) } else { model.expanded.remove(key) } })
     }
 
     // MARK: Video
@@ -200,7 +207,7 @@ struct ExportSheet: View {
                 if v.bitrateMode == .custom && !v.codec.isProRes {
                     ExportRow(label: tr("export.kbps"), enabled: on) {
                         HStack(spacing: 8) {
-                            TextField("", value: Binding(get: { Int(model.remembered.video.customBitrateMbps * 1000) },
+                            TextField("", value: Binding.perceived(get: { Int(model.remembered.video.customBitrateMbps * 1000) },
                                                          set: { k in model.editVideo { $0.customBitrateMbps = min(800, max(0.5, Double(k) / 1000)) } }),
                                       format: .number)
                                 .textFieldStyle(.plain).font(Theme.Fonts.numeric).foregroundStyle(.white)
@@ -237,19 +244,19 @@ struct ExportSheet: View {
                         .foregroundStyle(on ? ExportStyle.label : ExportStyle.disabledLabel)
                 }
                 if hdr {
-                    toggleRow(tr("export.hdrToSDR"), detail: tr("export.hdrToSDR.hint"), isOn: Binding(
+                    toggleRow(tr("export.hdrToSDR"), detail: tr("export.hdrToSDR.hint"), isOn: Binding.perceived(
                         get: { model.remembered.video.toneMapToSDR }, set: { b in model.editVideo { $0.toneMapToSDR = b } }), enabled: on)
                 }
                 if v.codec.supportsAlpha {
-                    toggleRow(tr("export.alpha"), detail: tr("export.alpha.hint"), isOn: Binding(
+                    toggleRow(tr("export.alpha"), detail: tr("export.alpha.hint"), isOn: Binding.perceived(
                         get: { model.remembered.video.alpha }, set: { b in model.editVideo { $0.alpha = b } }), enabled: on)
                 }
                 if model.hasBurnableCaptions {
-                    toggleRow(tr("export.burnCaptions"), detail: nil, isOn: Binding(
+                    toggleRow(tr("export.burnCaptions"), detail: nil, isOn: Binding.perceived(
                         get: { model.remembered.video.burnCaptions }, set: { b in model.editVideo { $0.burnCaptions = b } }), enabled: on)
                 }
                 // EX-025: motion blur rendered by frame accumulation (Times 2× / 4× / 6×)
-                toggleRow(tr("export.motionBlur"), detail: tr("export.motionBlur.hint"), isOn: Binding(
+                toggleRow(tr("export.motionBlur"), detail: tr("export.motionBlur.hint"), isOn: Binding.perceived(
                     get: { model.remembered.video.motionBlur != .off },
                     set: { b in model.editVideo { $0.motionBlur = b ? .medium : .off } }), enabled: on)
                     .testID("export.motionBlur")
@@ -260,7 +267,7 @@ struct ExportSheet: View {
                     }
                 }
                 // EX-018: AI ultra HD (on-device super resolution of low-resolution clips before rendering)
-                toggleRow(tr("export.aiUltraHD"), detail: tr("export.aiUltraHD.hint"), isOn: Binding(
+                toggleRow(tr("export.aiUltraHD"), detail: tr("export.aiUltraHD.hint"), isOn: Binding.perceived(
                     get: { model.remembered.video.aiUltraHD }, set: { b in model.editVideo { $0.aiUltraHD = b } }), enabled: on)
                     .testID("export.aiUltraHD")
             }
@@ -339,7 +346,7 @@ struct ExportSheet: View {
         let available = model.hasCaptions
         let on = model.remembered.captionsEnabled && available
         return VStack(alignment: .leading, spacing: 4) {
-            ExportSectionHeader(id: "captions", title: tr("export.captions"), isOn: Binding(get: { on }, set: { model.remembered.captionsEnabled = $0 }),
+            ExportSectionHeader(id: "captions", title: tr("export.captions"), isOn: Binding.perceived(get: { on }, set: { model.remembered.captionsEnabled = $0 }),
                                 expanded: expandedBinding("captions"), enabled: available)
             if model.expanded.contains("captions") {
                 ExportRow(label: tr("export.format"), enabled: on) {
@@ -401,34 +408,36 @@ struct ExportButtonStyle: ButtonStyle {
 /// "Edit cover": pick the cover frame (slider + live preview, or the playhead) or import an image; optionally prepend
 /// it as the first frame of the video (EX-019). The cover is embedded as the file's artwork.
 struct CoverEditor: View {
-    @Bindable var model: ExportDialogModel
+    @Perception.Bindable var model: ExportDialogModel
     let store: EditorStore
     @State private var seconds: Double = 0
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(loc: "export.cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-            Group {
-                if let img = model.coverPreview { Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).accessibilityLabel(Text(verbatim: tr("ax.cover", model.title))) } else { Color.black }
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(loc: "export.cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Group {
+                    if let img = model.coverPreview { Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).accessibilityLabel(Text(verbatim: tr("ax.cover", model.title))) } else { Color.black }
+                }
+                .frame(width: 288, height: 162).background(Color.black).clipShape(RoundedRectangle(cornerRadius: 6))
+                Slider(value: $seconds, in: 0...max(0.01, model.project.duration.seconds)) { editing in
+                    if !editing { model.usesProjectCover = false; model.coverImage = nil; model.coverTime = Time(seconds) }
+                }
+                .controlSize(.small)
+                HStack {
+                    Button(tr("export.cover.playhead")) {
+                        model.usesProjectCover = false; model.coverImage = nil; seconds = store.transport.playhead.seconds; model.coverTime = store.transport.playhead
+                    }.buttonStyle(SecondaryButtonStyle())
+                    Button(tr("export.cover.import")) { importImage() }.buttonStyle(SecondaryButtonStyle())
+                }
+                HStack(spacing: 8) {
+                    ExportCheckbox(isOn: Binding.perceived(get: { model.remembered.video.prependCover }, set: { b in model.editVideo { $0.prependCover = b } }))
+                    Text(loc: "export.cover.prepend").font(.system(size: 12)).foregroundStyle(ExportStyle.label)
+                }
             }
-            .frame(width: 288, height: 162).background(Color.black).clipShape(RoundedRectangle(cornerRadius: 6))
-            Slider(value: $seconds, in: 0...max(0.01, model.project.duration.seconds)) { editing in
-                if !editing { model.usesProjectCover = false; model.coverImage = nil; model.coverTime = Time(seconds) }
-            }
-            .controlSize(.small)
-            HStack {
-                Button(tr("export.cover.playhead")) {
-                    model.usesProjectCover = false; model.coverImage = nil; seconds = store.transport.playhead.seconds; model.coverTime = store.transport.playhead
-                }.buttonStyle(SecondaryButtonStyle())
-                Button(tr("export.cover.import")) { importImage() }.buttonStyle(SecondaryButtonStyle())
-            }
-            HStack(spacing: 8) {
-                ExportCheckbox(isOn: Binding(get: { model.remembered.video.prependCover }, set: { b in model.editVideo { $0.prependCover = b } }))
-                Text(loc: "export.cover.prepend").font(.system(size: 12)).foregroundStyle(ExportStyle.label)
-            }
+            .padding(14).frame(width: 316)
+            .background(Theme.menu)
+            .onAppear { seconds = model.coverTime.seconds }
         }
-        .padding(14).frame(width: 316)
-        .background(Theme.menu)
-        .onAppear { seconds = model.coverTime.seconds }
     }
 
     func importImage() {

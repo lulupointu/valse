@@ -3,6 +3,7 @@ import MontageCore
 import MontageEngine
 import MontageEffects
 import MontageAI
+import Perception
 
 // Video ▸ Basic ▸ ☐ Face cover (AI-051 / ST-006): detects and follows faces in the background, then covers them with
 // Mosaic or Blur (a linked copy of the clip with a faces matte one track above) or with a sticker per face — white
@@ -13,7 +14,7 @@ enum FaceCoverInspector {
         InspectorSection(id: "video.faceCover", tab: "video", subTab: "basic", order: 49, titleKey: "faceCover.title",
                          appliesTo: { ctx in (ctx.isMediaVideo || ctx.asset?.kind == .image) && ctx.clip?.matte?.kind != CutoutMode.faces.kind },
                          chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: {
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: {
                 guard let c = ctx.clip else { return false }
                 return ctx.store.hasFaceCover(c.id) || ctx.store.ai.faceJobs[c.id] != nil
             }, set: { on in
@@ -39,7 +40,7 @@ enum FaceCoverChoice: String, CaseIterable, Sendable {
     }
 }
 
-@MainActor @Observable final class FaceCoverUI {
+@MainActor @Perceptible final class FaceCoverUI {
     static let shared = FaceCoverUI()
     var choice: FaceCoverChoice = .mosaic
     /// Custom face sticker (ST-006 "custom sticker").
@@ -58,50 +59,54 @@ struct FaceCoverSection: View {
     @State private var opacityDraft: Double?
 
     var body: some View {
-        let ui = FaceCoverUI.shared
-        let current = ctx.clip.map { ctx.store.faceCoverChoice($0.id) } ?? nil
-        let choice = current ?? ui.choice
-        let active = current != nil
-        VStack(alignment: .leading, spacing: 4) {
-            if let id = ctx.clip?.id, let job = ctx.store.ai.faceJobs[id] {
-                let p = ctx.store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr("faceCover.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeFaceCover(id) }
-            }
-            InlineRow(label: tr("faceCover.style")) {
-                Dropdown(items: FaceCoverChoice.allCases.map { ($0, tr($0.nameKey)) }, selection: choice) { s in
-                    ui.choice = s
-                    if let id = ctx.clip?.id, active { ctx.store.applyFaceCover(id, choice: s) }
+        WithPerceptionTracking {
+            let ui = FaceCoverUI.shared
+            let current = ctx.clip.map { ctx.store.faceCoverChoice($0.id) } ?? nil
+            let choice = current ?? ui.choice
+            let active = current != nil
+            VStack(alignment: .leading, spacing: 4) {
+                if let id = ctx.clip?.id, let job = ctx.store.ai.faceJobs[id] {
+                    let p = ctx.store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr("faceCover.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeFaceCover(id) }
                 }
-                .testID("faceCover.style")
-            }
-            if choice == .sticker {
-                let picks = FaceCoverUI.quickStickers.filter { Registries.stickers[$0] != nil }
-                    + StickerCatalog.available.filter { $0.groupKey == StickerCatalog.yoursNav }.map(\.id)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(picks, id: \.self) { sid in
-                            stickerTile(sid, selected: ui.stickerID == sid) {
-                                ui.stickerID = sid
-                                if let id = ctx.clip?.id, active { ctx.store.applyFaceCover(id, choice: .sticker) }
+                InlineRow(label: tr("faceCover.style")) {
+                    Dropdown(items: FaceCoverChoice.allCases.map { ($0, tr($0.nameKey)) }, selection: choice) { s in
+                        ui.choice = s
+                        if let id = ctx.clip?.id, active { ctx.store.applyFaceCover(id, choice: s) }
+                    }
+                    .testID("faceCover.style")
+                }
+                if choice == .sticker {
+                    let picks = FaceCoverUI.quickStickers.filter { Registries.stickers[$0] != nil }
+                        + StickerCatalog.available.filter { $0.groupKey == StickerCatalog.yoursNav }.map(\.id)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(picks, id: \.self) { sid in
+                                WithPerceptionTracking {
+                                    stickerTile(sid, selected: ui.stickerID == sid) {
+                                        ui.stickerID = sid
+                                        if let id = ctx.clip?.id, active { ctx.store.applyFaceCover(id, choice: .sticker) }
+                                    }
+                                }
                             }
                         }
                     }
+                    .frame(height: 44)
                 }
-                .frame(height: 44)
+                if choice.stickerID(ui) != nil {
+                    SliderRowView(label: tr("faceCover.size"), unit: ((sizeDraft ?? ui.size) - 0.8) / 2.4, originUnit: 0, display: "\(Int(((sizeDraft ?? ui.size) / 1.6 * 100).rounded()))%",
+                                  parse: NumberParse.number, onBegin: {}, onChange: { sizeDraft = 0.8 + $0 * 2.4 },
+                                  onEnd: { commitSize(sizeDraft ?? ui.size) },
+                                  commit: { commitSize(min(max($0, 50), 200) / 100 * 1.6) },
+                                  step: { commitSize(min(max(ui.size + Double($0) * 0.016, 0.8), 3.2)) }, testID: "faceCover.size")
+                    SliderRowView(label: tr("faceCover.opacity"), unit: opacityDraft ?? ui.opacity, display: "\(Int(((opacityDraft ?? ui.opacity) * 100).rounded()))%",
+                                  parse: NumberParse.number, onBegin: {}, onChange: { opacityDraft = $0 },
+                                  onEnd: { commitOpacity(opacityDraft ?? ui.opacity) },
+                                  commit: { commitOpacity(min(max($0, 0), 100) / 100) },
+                                  step: { commitOpacity(min(max(ui.opacity + Double($0) * 0.01, 0), 1)) }, testID: "faceCover.opacity")
+                }
+                HintText(text: tr(choice.stickerID(ui) != nil ? "faceCover.stickerHint" : "faceCover.hint"))
             }
-            if choice.stickerID(ui) != nil {
-                SliderRowView(label: tr("faceCover.size"), unit: ((sizeDraft ?? ui.size) - 0.8) / 2.4, originUnit: 0, display: "\(Int(((sizeDraft ?? ui.size) / 1.6 * 100).rounded()))%",
-                              parse: NumberParse.number, onBegin: {}, onChange: { sizeDraft = 0.8 + $0 * 2.4 },
-                              onEnd: { commitSize(sizeDraft ?? ui.size) },
-                              commit: { commitSize(min(max($0, 50), 200) / 100 * 1.6) },
-                              step: { commitSize(min(max(ui.size + Double($0) * 0.016, 0.8), 3.2)) }, testID: "faceCover.size")
-                SliderRowView(label: tr("faceCover.opacity"), unit: opacityDraft ?? ui.opacity, display: "\(Int(((opacityDraft ?? ui.opacity) * 100).rounded()))%",
-                              parse: NumberParse.number, onBegin: {}, onChange: { opacityDraft = $0 },
-                              onEnd: { commitOpacity(opacityDraft ?? ui.opacity) },
-                              commit: { commitOpacity(min(max($0, 0), 100) / 100) },
-                              step: { commitOpacity(min(max(ui.opacity + Double($0) * 0.01, 0), 1)) }, testID: "faceCover.opacity")
-            }
-            HintText(text: tr(choice.stickerID(ui) != nil ? "faceCover.stickerHint" : "faceCover.hint"))
         }
     }
 

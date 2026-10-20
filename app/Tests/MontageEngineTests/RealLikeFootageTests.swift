@@ -1,7 +1,7 @@
 @preconcurrency import AVFoundation
 import Foundation
 import Testing
-import Vision
+@preconcurrency import Vision
 import MontageCore
 import MontageEngine
 import MontageTestSupport

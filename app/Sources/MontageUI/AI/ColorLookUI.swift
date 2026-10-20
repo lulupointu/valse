@@ -5,6 +5,7 @@ import ImageIO
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Adjust ▸ Basic ▸ ☐ Auto adjust · ☐ Color match · ☐ Color correction (UX_AI §4.12, CL-007/008/009, AI-055).
 // Ticking runs a short background job (frame statistics → generated LUT look on the clip); unticking removes it.
@@ -25,7 +26,7 @@ enum ColorLookInspector {
 
     @MainActor static func chrome(_ ctx: InspectorContext, _ k: ColorLooks.Kind) -> InspectorSectionChrome {
         let store = ctx.store
-        return InspectorSectionChrome(isEnabled: Binding(get: {
+        return InspectorSectionChrome(isEnabled: Binding.perceived(get: {
             guard let c = ctx.clip else { return false }
             return look(c, k) != nil || store.ai.lookJobs[ColorLookUI.key(c.id, k)] != nil || (k == .match && ColorLookUI.shared.matchOpen == c.id)
         }, set: { on in
@@ -40,7 +41,7 @@ enum ColorLookInspector {
     }
 }
 
-@MainActor @Observable final class ColorLookUI {
+@MainActor @Perceptible final class ColorLookUI {
     static let shared = ColorLookUI()
     /// Clip whose Color match section is open before a look exists.
     var matchOpen: ClipID?
@@ -54,15 +55,17 @@ struct LookStrengthSection: View {
     let ctx: InspectorContext
     let kind: ColorLooks.Kind
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
-            if let id = ctx.clip?.id, let job = ctx.store.ai.lookJobs[ColorLookUI.key(id, kind)] {
-                let p = ctx.store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr(kind == .match ? "look.matching" : "look.applying"), progress: p) { ctx.store.removeLook(id, kind: kind) }
-            }
-            if let inst = ColorLookInspector.look(ctx.clip, kind) {
-                Bind.row(ctx, tr("fx.param.strength"), key: ParamKey.effect(inst.id, "intensity"),
-                         spec: RowSpec(range: 0...100, format: Fmt.percentValue), toUI: { $0 * 100 }, fromUI: { $0 / 100 },
-                         gestureName: "cmd.effect")
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
+                if let id = ctx.clip?.id, let job = ctx.store.ai.lookJobs[ColorLookUI.key(id, kind)] {
+                    let p = ctx.store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr(kind == .match ? "look.matching" : "look.applying"), progress: p) { ctx.store.removeLook(id, kind: kind) }
+                }
+                if let inst = ColorLookInspector.look(ctx.clip, kind) {
+                    Bind.row(ctx, tr("fx.param.strength"), key: ParamKey.effect(inst.id, "intensity"),
+                             spec: RowSpec(range: 0...100, format: Fmt.percentValue), toUI: { $0 * 100 }, fromUI: { $0 / 100 },
+                             gestureName: "cmd.effect")
+                }
             }
         }
     }
@@ -71,22 +74,24 @@ struct LookStrengthSection: View {
 struct ColorMatchSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let st = ColorLookUI.shared
-        let others = referenceClips
-        VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
-            HintText(text: tr("look.match.hint"))
-            InlineRow(label: tr("look.match.source")) {
-                Dropdown(items: [(nil, tr("look.match.select"))] + others.map { (Optional($0.id), $0.title) },
-                         selection: st.referenceImage == nil ? st.referenceClip : nil) { st.referenceClip = $0; st.referenceImage = nil }
+        WithPerceptionTracking {
+            let st = ColorLookUI.shared
+            let others = referenceClips
+            VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
+                HintText(text: tr("look.match.hint"))
+                InlineRow(label: tr("look.match.source")) {
+                    Dropdown(items: [(nil, tr("look.match.select"))] + others.map { (Optional($0.id), $0.title) },
+                             selection: st.referenceImage == nil ? st.referenceClip : nil) { st.referenceClip = $0; st.referenceImage = nil }
+                }
+                HStack {
+                    if let u = st.referenceImage { Text(verbatim: u.lastPathComponent).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary).lineLimit(1) }
+                    Spacer()
+                    PillButton(title: tr("look.match.import"), symbol: "photo") { importImage() }
+                    PillButton(title: tr("look.match.apply"), accent: true, enabled: st.referenceClip != nil || st.referenceImage != nil) { apply() }
+                        .testID("look.match.apply")
+                }
+                LookStrengthSection(ctx: ctx, kind: .match)
             }
-            HStack {
-                if let u = st.referenceImage { Text(verbatim: u.lastPathComponent).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary).lineLimit(1) }
-                Spacer()
-                PillButton(title: tr("look.match.import"), symbol: "photo") { importImage() }
-                PillButton(title: tr("look.match.apply"), accent: true, enabled: st.referenceClip != nil || st.referenceImage != nil) { apply() }
-                    .testID("look.match.apply")
-            }
-            LookStrengthSection(ctx: ctx, kind: .match)
         }
     }
 

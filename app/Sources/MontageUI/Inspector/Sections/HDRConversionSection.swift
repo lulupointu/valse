@@ -1,5 +1,6 @@
 import SwiftUI
 import MontageCore
+import Perception
 
 // Video ▸ Basic ▸ ☐ HDR conversion (CL-014): shown for a video whose transfer differs from the project's (HDR footage in
 // an SDR project, or SDR footage in an HDR project). Off = the default conversion (Apple-matched curve). On = BT.2390
@@ -21,7 +22,7 @@ enum HDRConversionInspector {
                          appliesTo: { direction($0).applies }, chrome: { ctx in
             let store = ctx.store
             let toSDR = direction(ctx).toSDR
-            return InspectorSectionChrome(isEnabled: Binding(get: { ctx.clip?.hdrConversion?.method == .bt2390 }, set: { on in
+            return InspectorSectionChrome(isEnabled: Binding.perceived(get: { ctx.clip?.hdrConversion?.method == .bt2390 }, set: { on in
                 guard let id = ctx.clip?.id else { return }
                 store.perform(UpdateClip(id, nameKey: "cmd.hdrConversion") { c in
                     c.hdrConversion = on ? HDRConversion(method: .bt2390, peakNits: c.hdrConversion?.peakNits ?? defaultPeak(toSDR: toSDR)) : nil
@@ -39,17 +40,19 @@ enum HDRConversionInspector {
 struct HDRConversionSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let toSDR = HDRConversionInspector.direction(ctx).toSDR
-        let store = ctx.store
-        let range = toSDR ? HDRConversion.sourcePeakRange : HDRConversion.targetPeakRange
-        VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
-            HintText(text: tr(toSDR ? "hdrConv.hint.toSDR" : "hdrConv.hint.toHDR"))
-            if let h = ctx.clip?.hdrConversion, let id = ctx.clip?.id {
-                SliderRow(tr(toSDR ? "hdrConv.sourcePeak" : "hdrConv.targetPeak"), range: range,
-                          display: { tr("hdrConv.nits", Int($0.rounded())) }, testID: "slider.hdrConv.peak",
-                          get: { h.peakNits },
-                          set: { v in Bind.apply(store, id, "cmd.hdrConversion") { $0.hdrConversion?.peakNits = min(max(v, range.lowerBound), range.upperBound) } },
-                          onBegin: { store.beginGesture("cmd.hdrConversion") }, onEnd: { store.endGesture() })
+        WithPerceptionTracking {
+            let toSDR = HDRConversionInspector.direction(ctx).toSDR
+            let store = ctx.store
+            let range = toSDR ? HDRConversion.sourcePeakRange : HDRConversion.targetPeakRange
+            VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
+                HintText(text: tr(toSDR ? "hdrConv.hint.toSDR" : "hdrConv.hint.toHDR"))
+                if let h = ctx.clip?.hdrConversion, let id = ctx.clip?.id {
+                    SliderRow(tr(toSDR ? "hdrConv.sourcePeak" : "hdrConv.targetPeak"), range: range,
+                              display: { tr("hdrConv.nits", Int($0.rounded())) }, testID: "slider.hdrConv.peak",
+                              get: { h.peakNits },
+                              set: { v in Bind.apply(store, id, "cmd.hdrConversion") { $0.hdrConversion?.peakNits = min(max(v, range.lowerBound), range.upperBound) } },
+                              onBegin: { store.beginGesture("cmd.hdrConversion") }, onEnd: { store.endGesture() })
+                }
             }
         }
     }

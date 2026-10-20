@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 // Inspector UI for the W6/W9 render features: Video ▸ Basic ▸ ☐ Stabilize / ☐ Motion blur (UX.md §5.1) and the
 // Speed ▸ Normal ▸ ☐ Smooth slow-mo method. Optional sections use the header checkbox (`chrome.isEnabled`).
@@ -18,13 +19,15 @@ struct StabilizeSection: View {
     }
 
     var body: some View {
-        InlineRow(label: tr("inspector.stabilize.level")) {
-            Dropdown(items: StabilizationLevel.allCases.map { ($0, tr($0.nameKey)) },
-                     selection: ctx.clip?.stabilization?.level ?? .recommended) { l in
-                // C2: the settings show while unticked; picking a level there turns stabilization on with it
-                if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.stabilize") { c in
-                    var s = c.stabilization ?? Stabilization(); s.level = l; c.stabilization = s
-                } }
+        WithPerceptionTracking {
+            InlineRow(label: tr("inspector.stabilize.level")) {
+                Dropdown(items: StabilizationLevel.allCases.map { ($0, tr($0.nameKey)) },
+                         selection: ctx.clip?.stabilization?.level ?? .recommended) { l in
+                    // C2: the settings show while unticked; picking a level there turns stabilization on with it
+                    if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.stabilize") { c in
+                        var s = c.stabilization ?? Stabilization(); s.level = l; c.stabilization = s
+                    } }
+                }
             }
         }
     }
@@ -40,24 +43,26 @@ struct MotionBlurSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ClipParamRow(ctx: ctx, label: tr("inspector.motionBlur.amount"), spec: RowSpec(range: 0...100, format: Fmt.percentValue),
-                         get: { c, _ in (c.motionBlur ?? MotionBlur()).amount * 100 },
-                         set: { c, v, _ in var m = c.motionBlur ?? MotionBlur(); m.amount = v / 100; c.motionBlur = m },   // edit while off = on
-                         keyframeKeys: [], gestureName: "cmd.motionBlur")
-            InlineRow(label: tr("inspector.motionBlur.direction")) {   // CV-014 (F3)
-                SegmentedTabs(MotionBlurDirection.allCases.map { ($0.rawValue, tr($0.nameKey)) },
-                              selection: Binding(get: { (ctx.clip?.motionBlur?.direction ?? .backward).rawValue }, set: { v in
-                                  guard let id = ctx.clip?.id, let d = MotionBlurDirection(rawValue: v) else { return }
-                                  Bind.apply(ctx.store, id, "cmd.motionBlur") { $0.motionBlur?.direction = d == .backward ? nil : d }
-                              }))
-                .testID("motionBlur.direction")
-            }
-            InlineRow(label: tr("inspector.motionBlur.times")) {
-                Dropdown(items: [2, 4, 6].map { ($0, "\($0)x") }, selection: ctx.clip?.motionBlur?.clampedSamples ?? 2) { n in
-                    if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.motionBlur") { c in
-                        var m = c.motionBlur ?? MotionBlur(); m.samples = n; c.motionBlur = m
-                    } }
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 0) {
+                ClipParamRow(ctx: ctx, label: tr("inspector.motionBlur.amount"), spec: RowSpec(range: 0...100, format: Fmt.percentValue),
+                             get: { c, _ in (c.motionBlur ?? MotionBlur()).amount * 100 },
+                             set: { c, v, _ in var m = c.motionBlur ?? MotionBlur(); m.amount = v / 100; c.motionBlur = m },   // edit while off = on
+                             keyframeKeys: [], gestureName: "cmd.motionBlur")
+                InlineRow(label: tr("inspector.motionBlur.direction")) {   // CV-014 (F3)
+                    SegmentedTabs(MotionBlurDirection.allCases.map { ($0.rawValue, tr($0.nameKey)) },
+                                  selection: Binding.perceived(get: { (ctx.clip?.motionBlur?.direction ?? .backward).rawValue }, set: { v in
+                                      guard let id = ctx.clip?.id, let d = MotionBlurDirection(rawValue: v) else { return }
+                                      Bind.apply(ctx.store, id, "cmd.motionBlur") { $0.motionBlur?.direction = d == .backward ? nil : d }
+                                  }))
+                    .testID("motionBlur.direction")
+                }
+                InlineRow(label: tr("inspector.motionBlur.times")) {
+                    Dropdown(items: [2, 4, 6].map { ($0, "\($0)x") }, selection: ctx.clip?.motionBlur?.clampedSamples ?? 2) { n in
+                        if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.motionBlur") { c in
+                            var m = c.motionBlur ?? MotionBlur(); m.samples = n; c.motionBlur = m
+                        } }
+                    }
                 }
             }
         }
@@ -77,22 +82,24 @@ struct SmoothSlowMoRow: View {
     }
 
     var body: some View {
-        let on = ctx.clip?.smoothSlowMo != nil
-        let available = Self.applies(ctx.clip)
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                CapCheckbox(isOn: Bind.binding(ctx, "cmd.slowmo", get: { $0.smoothSlowMo != nil },
-                                               set: { c, v in c.smoothSlowMo = v ? .frameBlending : nil }, default: false),
-                            enabled: available)
-                Text(loc: "inspector.smoothSlowmo").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-                Text(loc: "inspector.smoothSlowmo.hint").font(.system(size: 12)).foregroundStyle(IStyle.caption).lineLimit(1)
-            }
-            .opacity(available ? 1 : 0.4)
-            if on && available {
-                InlineRow(label: tr("inspector.slowmo.method")) {
-                    Dropdown(items: SlowMotionMethod.allCases.map { ($0, tr($0.nameKey)) },
-                             selection: ctx.clip?.smoothSlowMo ?? .frameBlending) { m in
-                        if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.slowmo") { $0.smoothSlowMo = m } }
+        WithPerceptionTracking {
+            let on = ctx.clip?.smoothSlowMo != nil
+            let available = Self.applies(ctx.clip)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    CapCheckbox(isOn: Bind.binding(ctx, "cmd.slowmo", get: { $0.smoothSlowMo != nil },
+                                                   set: { c, v in c.smoothSlowMo = v ? .frameBlending : nil }, default: false),
+                                enabled: available)
+                    Text(loc: "inspector.smoothSlowmo").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                    Text(loc: "inspector.smoothSlowmo.hint").font(.system(size: 12)).foregroundStyle(IStyle.caption).lineLimit(1)
+                }
+                .opacity(available ? 1 : 0.4)
+                if on && available {
+                    InlineRow(label: tr("inspector.slowmo.method")) {
+                        Dropdown(items: SlowMotionMethod.allCases.map { ($0, tr($0.nameKey)) },
+                                 selection: ctx.clip?.smoothSlowMo ?? .frameBlending) { m in
+                            if let id = ctx.clip?.id { Bind.apply(ctx.store, id, "cmd.slowmo") { $0.smoothSlowMo = m } }
+                        }
                     }
                 }
             }

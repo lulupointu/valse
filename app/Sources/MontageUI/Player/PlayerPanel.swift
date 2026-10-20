@@ -2,129 +2,138 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Top-centre player (UX.md §4.1): header ("Player" + ☰ menu), Metal preview with the canvas overlay, transport bar
 /// (timecode · play · quality · zoom · ratio · full screen).
 public struct PlayerPanel: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     public init(store: EditorStore) { self.store = store }
 
     public var body: some View {
-        Panel {
-            HStack {
-                if let pv = store.playerUI.preview {
-                    // "Previewing — Effects" (UX.md §4.1): library / source preview, Esc or ✕ returns to the timeline
-                    Text(verbatim: tr("player.previewing", tr(pv.titleKey))).font(Theme.Fonts.panelTitle)
-                        .foregroundStyle(Theme.textPrimary).testID("player.previewTitle")
-                    IconButton("xmark", help: tr("player.preview.exit")) { store.exitPreview() }.testID("player.exitPreview")
-                } else {
-                    Text(loc: "panel.player").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
+        WithPerceptionTracking {
+            Panel {
+                HStack {
+                    if let pv = store.playerUI.preview {
+                        // "Previewing — Effects" (UX.md §4.1): library / source preview, Esc or ✕ returns to the timeline
+                        Text(verbatim: tr("player.previewing", tr(pv.titleKey))).font(Theme.Fonts.panelTitle)
+                            .foregroundStyle(Theme.textPrimary).testID("player.previewTitle")
+                        IconButton("xmark", help: tr("player.preview.exit")) { store.exitPreview() }.testID("player.exitPreview")
+                    } else {
+                        Text(loc: "panel.player").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
+                    }
+                    Spacer()
+                    PlayerMenuButton(store: store)
                 }
-                Spacer()
-                PlayerMenuButton(store: store)
+                .padding(.horizontal, 12)
+            } content: {
+                VStack(spacing: 0) {
+                    PlayerCanvasArea(store: store)
+                    TransportBar(store: store, transport: store.transport, ui: store.playerUI)
+                }
             }
-            .padding(.horizontal, 12)
-        } content: {
-            VStack(spacing: 0) {
-                PlayerCanvasArea(store: store)
-                TransportBar(store: store, transport: store.transport, ui: store.playerUI)
-            }
+            .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { AssetPanelFocus.playerFrame = $0 }
         }
-        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { AssetPanelFocus.playerFrame = $0 }
     }
 }
 
 /// Preview + overlay + floating zoom bar.
 struct PlayerCanvasArea: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     var body: some View {
-        ZStack(alignment: .bottom) {
-            PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay(alignment: .bottomLeading) { KeystrokeOverlay() }
-                .overlay(alignment: .top) { GuidePositionPopover(store: store, ui: store.playerUI).padding(.top, 40) }
-                .overlay(alignment: .topTrailing) { HDRDisplayNotice(store: store) }
-                .overlay { MulticamGrid(store: store, ui: store.playerUI) }   // PB-016
-            if store.playerUI.isZoomBarVisible {
-                ZoomBar(ui: store.playerUI, store: store).padding(.bottom, 10)
-            } else {
-                DroppedFramesBanner(store: store, health: store.playerUI.health)
+        WithPerceptionTracking {
+            ZStack(alignment: .bottom) {
+                PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .bottomLeading) { KeystrokeOverlay() }
+                    .overlay(alignment: .top) { GuidePositionPopover(store: store, ui: store.playerUI).padding(.top, 40) }
+                    .overlay(alignment: .topTrailing) { HDRDisplayNotice(store: store) }
+                    .overlay { MulticamGrid(store: store, ui: store.playerUI) }   // PB-016
+                if store.playerUI.isZoomBarVisible {
+                    ZoomBar(ui: store.playerUI, store: store).padding(.bottom, 10)
+                } else {
+                    DroppedFramesBanner(store: store, health: store.playerUI.health)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 /// ⊖ ──●── ⊕ 100 % [fit] (UX.md §4.1, screenshot 105). Logarithmic slider over `PlayerViewport.zoomRange`.
 struct ZoomBar: View {
-    @Bindable var ui: PlayerUIState
+    @Perception.Bindable var ui: PlayerUIState
     let store: EditorStore
     var body: some View {
-        HStack(spacing: 8) {
-            IconButton("minus.magnifyingglass", help: tr("shortcut.playerZoomOut")) { store.zoomPlayer(by: 0.8) }
-            Slider(value: Binding(get: { log2(ui.zoom) }, set: { v in
-                ui.zoom = pow(2, v)
-                if ui.zoom <= 1 { ui.pan = .zero }
-            }), in: log2(PlayerViewport.zoomRange.lowerBound)...log2(PlayerViewport.zoomRange.upperBound))
-            .controlSize(.mini).frame(width: 120)
-            IconButton("plus.magnifyingglass", help: tr("shortcut.playerZoomIn")) { store.zoomPlayer(by: 1.25) }
-            Text(verbatim: "\(Int((ui.zoom * 100).rounded()))%").font(.system(size: 11).monospacedDigit())
-                .foregroundStyle(Theme.textSecondary).frame(width: 40)
-            Button(tr("player.zoom.fit")) { store.resetPlayerZoom() }.buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+        WithPerceptionTracking {
+            HStack(spacing: 8) {
+                IconButton("minus.magnifyingglass", help: tr("shortcut.playerZoomOut")) { store.zoomPlayer(by: 0.8) }
+                Slider(value: Binding.perceived(get: { log2(ui.zoom) }, set: { v in
+                    ui.zoom = pow(2, v)
+                    if ui.zoom <= 1 { ui.pan = .zero }
+                }), in: log2(PlayerViewport.zoomRange.lowerBound)...log2(PlayerViewport.zoomRange.upperBound))
+                .controlSize(.mini).frame(width: 120)
+                IconButton("plus.magnifyingglass", help: tr("shortcut.playerZoomIn")) { store.zoomPlayer(by: 1.25) }
+                Text(verbatim: "\(Int((ui.zoom * 100).rounded()))%").font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(Theme.textSecondary).frame(width: 40)
+                Button(tr("player.zoom.fit")) { store.resetPlayerZoom() }.buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(Theme.menu, in: RoundedRectangle(cornerRadius: 8))
+            .shadow(color: .black.opacity(0.4), radius: 8)
         }
-        .padding(.horizontal, 10).padding(.vertical, 4)
-        .background(Theme.menu, in: RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(0.4), radius: 8)
     }
 }
 
 struct TransportBar: View {
-    @Bindable var store: EditorStore
-    @Bindable var transport: TransportState
-    @Bindable var ui: PlayerUIState
+    @Perception.Bindable var store: EditorStore
+    @Perception.Bindable var transport: TransportState
+    @Perception.Bindable var ui: PlayerUIState
 
     var body: some View {
-        let rate = store.projectSettings.frameRate
-        ZStack {
-            HStack(spacing: 4) {
-                // while previewing a library item the timecode shows the item's own time / duration
-                let pv = ui.preview
-                let now = pv.map { (ui.previewTime - $0.range.start).clamped(.zero, $0.range.duration) } ?? transport.playhead
-                TimecodeEntry(store: store, time: now, rate: rate, editable: pv == nil)
-                Text(verbatim: "/").foregroundStyle(Theme.textTertiary)
-                Text(verbatim: Timecode.display(pv?.range.duration ?? store.projectDuration, rate: rate)).foregroundStyle(Theme.textSecondary)
-                    .testID("player.duration")
-                Spacer()
-                PopupButton(help: tr("player.quality")) { BoxLabel(text: tr(PlayerMenus.qualityShortKey(store.previewQuality))) }
-                    menu: { PlayerMenus.quality(store) }
-                IconButton("plus.magnifyingglass", help: tr("player.zoom"), active: ui.isZoomBarVisible || ui.isZoomed) {
-                    ui.isZoomBarVisible.toggle()
+        WithPerceptionTracking {
+            let rate = store.projectSettings.frameRate
+            ZStack {
+                HStack(spacing: 4) {
+                    // while previewing a library item the timecode shows the item's own time / duration
+                    let pv = ui.preview
+                    let now = pv.map { (ui.previewTime - $0.range.start).clamped(.zero, $0.range.duration) } ?? transport.playhead
+                    TimecodeEntry(store: store, time: now, rate: rate, editable: pv == nil)
+                    Text(verbatim: "/").foregroundStyle(Theme.textTertiary)
+                    Text(verbatim: Timecode.display(pv?.range.duration ?? store.projectDuration, rate: rate)).foregroundStyle(Theme.textSecondary)
+                        .testID("player.duration")
+                    Spacer()
+                    PopupButton(help: tr("player.quality")) { BoxLabel(text: tr(PlayerMenus.qualityShortKey(store.previewQuality))) }
+                        menu: { PlayerMenus.quality(store) }
+                    IconButton("plus.magnifyingglass", help: tr("player.zoom"), active: ui.isZoomBarVisible || ui.isZoomed) {
+                        ui.isZoomBarVisible.toggle()
+                    }
+                    PopupButton(help: tr("player.ratio")) { BoxLabel(text: tr("player.ratio")) } menu: { PlayerMenus.ratio(store) }
+                    Rectangle().fill(Theme.separator).frame(width: 1, height: 14).padding(.horizontal, 2)
+                    IconButton(ui.isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                               help: tr(ui.isFullscreen ? "player.exitFullscreen" : "player.fullscreen")) {
+                        store.togglePlayerFullscreen()
+                    }
                 }
-                PopupButton(help: tr("player.ratio")) { BoxLabel(text: tr("player.ratio")) } menu: { PlayerMenus.ratio(store) }
-                Rectangle().fill(Theme.separator).frame(width: 1, height: 14).padding(.horizontal, 2)
-                IconButton(ui.isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
-                           help: tr(ui.isFullscreen ? "player.exitFullscreen" : "player.fullscreen")) {
-                    store.togglePlayerFullscreen()
+                .font(.system(size: 11).monospacedDigit())
+                HStack(spacing: 2) {
+                    IconButton(transport.isPlaying ? "pause.fill" : "play.fill", help: tr("player.playPause")) { store.togglePlay() }.testID("player.play")
+                    if ui.loopEnabled {
+                        IconButton("repeat", help: tr("player.loop"), active: true) { store.toggleLoop() }
+                    }
                 }
             }
-            .font(.system(size: 11).monospacedDigit())
-            HStack(spacing: 2) {
-                IconButton(transport.isPlaying ? "pause.fill" : "play.fill", help: tr("player.playPause")) { store.togglePlay() }.testID("player.play")
-                if ui.loopEnabled {
-                    IconButton("repeat", help: tr("player.loop"), active: true) { store.toggleLoop() }
-                }
-            }
+            .padding(.horizontal, 10)
+            .frame(height: 36)
+            .opacity(store.isPlayerEmpty ? 0.35 : 1)
+            .disabled(store.isPlayerEmpty)
         }
-        .padding(.horizontal, 10)
-        .frame(height: 36)
-        .opacity(store.isPlayerEmpty ? 0.35 : 1)
-        .disabled(store.isPlayerEmpty)
     }
 }
 
 /// Current-time timecode of the player (TL-037): click to type a timecode (HH:MM:SS:FF, digits right-aligned, `+10` /
 /// `-1:00` relative), Return seeks there (clamped to the project), Esc cancels. Format follows Settings ▸ Edit ▸ Time code.
 struct TimecodeEntry: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     let time: Time
     let rate: FrameRate
     var editable = true
@@ -133,28 +142,30 @@ struct TimecodeEntry: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        let label = Timecode.display(time, rate: rate)
-        if editing {
-            TextField("", text: $text)
-                .textFieldStyle(.plain)
-                .font(.system(size: 11).monospacedDigit())
-                .foregroundStyle(Theme.accent)
-                .frame(width: CGFloat(label.count) * 7 + 8)
-                .padding(.horizontal, 2)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 3))
-                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accent.opacity(0.8), lineWidth: 1))
-                .focused($focused)
-                .onSubmit { commit() }
-                .onExitCommand { editing = false }
-                .onChange(of: focused) { _, f in if !f { editing = false } }
-                .onAppear { text = label; focused = true }
-                .testID("player.timecode.field")
-        } else {
-            Text(verbatim: label).foregroundStyle(Theme.accent)
-                .contentShape(Rectangle())
-                .onTapGesture { if editable && !store.isPlayerEmpty { store.engine.pause(); editing = true } }
-                .help(tr("player.timecode.help"))
-                .testID("player.timecode")
+        WithPerceptionTracking {
+            let label = Timecode.display(time, rate: rate)
+            if editing {
+                TextField("", text: $text)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: CGFloat(label.count) * 7 + 8)
+                    .padding(.horizontal, 2)
+                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 3))
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accent.opacity(0.8), lineWidth: 1))
+                    .focused($focused)
+                    .onSubmit { commit() }
+                    .onExitCommand { editing = false }
+                    .onValueChange(of: focused) { _, f in if !f { editing = false } }
+                    .onAppear { text = label; focused = true }
+                    .testID("player.timecode.field")
+            } else {
+                Text(verbatim: label).foregroundStyle(Theme.accent)
+                    .contentShape(Rectangle())
+                    .onTapGesture { if editable && !store.isPlayerEmpty { store.engine.pause(); editing = true } }
+                    .help(tr("player.timecode.help"))
+                    .testID("player.timecode")
+            }
         }
     }
 
@@ -178,12 +189,14 @@ extension EditorStore {
 struct BoxLabel: View {
     let text: String
     var body: some View {
-        Text(verbatim: text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .padding(.horizontal, 3).frame(height: 15)
-            .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.textPrimary.opacity(0.85), lineWidth: 1))
-            .padding(.horizontal, 4)
+        WithPerceptionTracking {
+            Text(verbatim: text)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 3).frame(height: 15)
+                .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.textPrimary.opacity(0.85), lineWidth: 1))
+                .padding(.horizontal, 4)
+        }
     }
 }
 
@@ -193,12 +206,14 @@ struct PopupButton<Label: View>: View {
     @ViewBuilder let label: () -> Label
     let menu: () -> NSMenu
     var body: some View {
-        Button {
-            let m = menu()
-            m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-        } label: { label().contentShape(Rectangle()) }
-            .buttonStyle(.plain)
-            .help(help)
+        WithPerceptionTracking {
+            Button {
+                let m = menu()
+                m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+            } label: { label().contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .help(help)
+        }
     }
 }
 
@@ -206,10 +221,12 @@ struct PopupButton<Label: View>: View {
 struct PlayerMenuButton: View {
     let store: EditorStore
     var body: some View {
-        PopupButton(help: tr("player.menu")) {
-            Image(systemName: "line.3.horizontal").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
-                .frame(width: 24, height: 24)
-        } menu: { PlayerMenus.main(store) }
+        WithPerceptionTracking {
+            PopupButton(help: tr("player.menu")) {
+                Image(systemName: "line.3.horizontal").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
+                    .frame(width: 24, height: 24)
+            } menu: { PlayerMenus.main(store) }
+        }
     }
 }
 
@@ -384,18 +401,20 @@ final class PlayerContainerView: NSView {
 struct HDRDisplayNotice: View {
     let store: EditorStore
     var body: some View {
-        if store.projectSettings.colorSpace.isHDR,
-           (NSApp.mainWindow?.screen ?? NSScreen.main)?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1 <= 1 {
-            HStack(spacing: 4) {
-                Image(systemName: "sun.max.trianglebadge.exclamationmark").font(.system(size: 10))
-                Text(loc: "player.hdr.unsupported").font(.system(size: 10.5))
+        WithPerceptionTracking {
+            if store.projectSettings.colorSpace.isHDR,
+               (NSApp.mainWindow?.screen ?? NSScreen.main)?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1 <= 1 {
+                HStack(spacing: 4) {
+                    Image(systemName: "sun.max.trianglebadge.exclamationmark").font(.system(size: 10))
+                    Text(loc: "player.hdr.unsupported").font(.system(size: 10.5))
+                }
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(Color.black.opacity(0.55), in: Capsule())
+                .padding(8)
+                .allowsHitTesting(false)
+                .testID("player.hdrUnsupported")
             }
-            .foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(Color.black.opacity(0.55), in: Capsule())
-            .padding(8)
-            .allowsHitTesting(false)
-            .testID("player.hdrUnsupported")
         }
     }
 }

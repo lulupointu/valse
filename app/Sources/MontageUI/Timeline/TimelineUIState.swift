@@ -1,10 +1,10 @@
 import Foundation
-import Observation
+import Perception
 import MontageCore
 
 /// Timeline view state that isn't part of the document (not undoable, not saved): tool mode, scroll, clipboard,
 /// selected transition / marker / keyframe, preview axis. Owned by `EditorStore.timelineUI`.
-@Observable
+@Perceptible
 public final class TimelineUIState {
     public enum Tool: String, Sendable { case select, split }
 

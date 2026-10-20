@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import MontageCore
+import Perception
 
 // Shared asset-panel browser (UX.md §3.1–3.2), used by Media ▸ Library, Audio, Templates and the registry tabs:
 // category rail (Favorites · Recent · sections), debounced search over every section, lazy grid (square / wide
@@ -169,16 +170,18 @@ struct LibraryBrowser<Header: View>: View {
     }
 
     var body: some View {
-        let nav = state.navBinding(tab, default: defaultNav)
-        HStack(spacing: 0) {
-            CategoryRail(tab: tab, entries: navItems, selection: nav)
-            VStack(spacing: 0) {
-                header()
-                AssetSearchField(tab: tab, placeholder: searchPlaceholder)
-                    .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6)
-                content(nav.wrappedValue)
+        WithPerceptionTracking {
+            let nav = state.navBinding(tab, default: defaultNav)
+            HStack(spacing: 0) {
+                CategoryRail(tab: tab, entries: navItems, selection: nav)
+                VStack(spacing: 0) {
+                    header()
+                    AssetSearchField(tab: tab, placeholder: searchPlaceholder)
+                        .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6)
+                    content(nav.wrappedValue)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -257,40 +260,46 @@ struct LibraryItemsView: View {
     }
 
     var body: some View {
-        Group {
-            if items.isEmpty {
-                EmptyState(symbol: "tray", title: empty).testID("asset.empty")
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if !title.isEmpty {
-                            Text(verbatim: title).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
-                        }
-                        if case .list = style {
-                            LazyVStack(spacing: 8) {
-                                ForEach(items) { item in
-                                    LibraryRow(tab: tab, namespace: namespace, item: item).testID("asset.tile.\(item.id)")
+        WithPerceptionTracking {
+            Group {
+                if items.isEmpty {
+                    EmptyState(symbol: "tray", title: empty).testID("asset.empty")
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !title.isEmpty {
+                                Text(verbatim: title).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
+                            }
+                            if case .list = style {
+                                LazyVStack(spacing: 8) {
+                                    ForEach(items) { item in
+                                        WithPerceptionTracking {
+                                            LibraryRow(tab: tab, namespace: namespace, item: item).testID("asset.tile.\(item.id)")
+                                        }
+                                    }
+                                }
+                            } else {
+                                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.spacing, alignment: .top), count: columns),
+                                          spacing: 12) {
+                                    ForEach(items) { item in
+                                        WithPerceptionTracking {
+                                            LibraryTile(tab: tab, namespace: namespace, item: item, style: style).testID("asset.tile.\(item.id)")
+                                        }
+                                    }
                                 }
                             }
-                        } else {
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.spacing, alignment: .top), count: columns),
-                                      spacing: 12) {
-                                ForEach(items) { item in
-                                    LibraryTile(tab: tab, namespace: namespace, item: item, style: style).testID("asset.tile.\(item.id)")
-                                }
-                            }
                         }
+                        .padding(.horizontal, 12).padding(.bottom, 12)
                     }
-                    .padding(.horizontal, 12).padding(.bottom, 12)
+                    .testID("asset.grid")
                 }
-                .testID("asset.grid")
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width = $0 }
+            .onAppear { register() }
+            .onValueChange(of: items.map(\.id)) { register() }
+            .onValueChange(of: columns) { register() }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width = $0 }
-        .onAppear { register() }
-        .onChange(of: items.map(\.id)) { register() }
-        .onChange(of: columns) { register() }
     }
 
     /// Publishes the order / columns / actions for keyboard navigation and the state dump.
@@ -318,30 +327,32 @@ struct LibraryTile: View {
     var aspect: CGFloat { if case .wide(let a) = style { return a }; return 1 }
 
     var body: some View {
-        VStack(spacing: 5) {
-            Color.clear
-                .aspectRatio(aspect, contentMode: .fit)
-                .overlay { LibraryArtView(art: item.art, hoverFrames: hover ? item.hoverFrames : nil) }
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(alignment: .topTrailing) { if let b = item.badge { DurationBadge(text: b) } }
-                .overlay(alignment: .topLeading) { if item.added { AddedChip() } }
-                .overlay { if item.busy { ProgressView().controlSize(.small).tint(.white) } }
-                .overlay(alignment: .bottomTrailing) {
-                    if hover || selected {
-                        TileButtons(tab: tab, namespace: namespace, item: item)
+        WithPerceptionTracking {
+            VStack(spacing: 5) {
+                Color.clear
+                    .aspectRatio(aspect, contentMode: .fit)
+                    .overlay { LibraryArtView(art: item.art, hoverFrames: hover ? item.hoverFrames : nil) }
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(alignment: .topTrailing) { if let b = item.badge { DurationBadge(text: b) } }
+                    .overlay(alignment: .topLeading) { if item.added { AddedChip() } }
+                    .overlay { if item.busy { ProgressView().controlSize(.small).tint(.white) } }
+                    .overlay(alignment: .bottomTrailing) {
+                        if hover || selected {
+                            TileButtons(tab: tab, namespace: namespace, item: item)
+                        }
                     }
-                }
-                .overlay(RoundedRectangle(cornerRadius: 6)
-                    .stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear), lineWidth: selected ? 2 : 1.5))
-            Text(verbatim: item.title).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                .lineLimit(1).truncationMode(.middle).frame(maxWidth: .infinity)
+                    .overlay(RoundedRectangle(cornerRadius: 6)
+                        .stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear), lineWidth: selected ? 2 : 1.5))
+                Text(verbatim: item.title).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1).truncationMode(.middle).frame(maxWidth: .infinity)
+            }
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .assetTap(item.id, single: { select() }, double: { addNow() })
+            .modifier(OptionalDrag(payload: item.payload))
+            .contextMenu { TileMenu(namespace: namespace, item: item) }
+            .help(item.title)
         }
-        .contentShape(Rectangle())
-        .onHover { hover = $0 }
-        .assetTap(item.id, single: { select() }, double: { addNow() })
-        .modifier(OptionalDrag(payload: item.payload))
-        .contextMenu { TileMenu(namespace: namespace, item: item) }
-        .help(item.title)
     }
 
     func select() {
@@ -364,23 +375,25 @@ struct TileButtons: View {
     private var lib: AssetLibraryStore { AssetLibraryStore.shared }
 
     var body: some View {
-        let fav = lib.isFavorite(namespace, item.id)
-        HStack(spacing: 4) {
-            Button { lib.toggleFavorite(namespace, item.id) } label: {
-                Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
-                    .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
+        WithPerceptionTracking {
+            let fav = lib.isFavorite(namespace, item.id)
+            HStack(spacing: 4) {
+                Button { lib.toggleFavorite(namespace, item.id) } label: {
+                    Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
+                        .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
+                }
+                .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
+                .testID("asset.tile.\(item.id).favorite")
+                Button { item.add(); lib.noteUsed(namespace, item.id) } label: {
+                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
+                }
+                .buttonStyle(.plain).help(tr("asset.addToTrack")).disabled(item.busy)
+                .testID("asset.tile.\(item.id).add")
             }
-            .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
-            .testID("asset.tile.\(item.id).favorite")
-            Button { item.add(); lib.noteUsed(namespace, item.id) } label: {
-                Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                    .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
-            }
-            .buttonStyle(.plain).help(tr("asset.addToTrack")).disabled(item.busy)
-            .testID("asset.tile.\(item.id).add")
+            .padding(4)
         }
-        .padding(4)
     }
 }
 
@@ -388,11 +401,13 @@ struct TileMenu: View {
     let namespace: String
     let item: LibraryItem
     var body: some View {
-        let fav = AssetLibraryStore.shared.isFavorite(namespace, item.id)
-        Button(tr("asset.addToTrack")) { item.add(); AssetLibraryStore.shared.noteUsed(namespace, item.id) }
-        Button(tr(fav ? "asset.unfavorite" : "asset.favorite")) { AssetLibraryStore.shared.toggleFavorite(namespace, item.id) }
-        if let similar = item.similar { Button(tr("audio.similar.find")) { similar() } }
-        if item.license != nil { Button(tr("audio.license.show")) { LicenseCardState.shared.toggle(item.id) } }
+        WithPerceptionTracking {
+            let fav = AssetLibraryStore.shared.isFavorite(namespace, item.id)
+            Button(tr("asset.addToTrack")) { item.add(); AssetLibraryStore.shared.noteUsed(namespace, item.id) }
+            Button(tr(fav ? "asset.unfavorite" : "asset.favorite")) { AssetLibraryStore.shared.toggleFavorite(namespace, item.id) }
+            if let similar = item.similar { Button(tr("audio.similar.find")) { similar() } }
+            if item.license != nil { Button(tr("audio.license.show")) { LicenseCardState.shared.toggle(item.id) } }
+        }
     }
 }
 
@@ -407,70 +422,72 @@ struct LibraryRow: View {
     var selected: Bool { state.cursor[tab] == item.id }
 
     var body: some View {
-        let fav = lib.isFavorite(namespace, item.id)
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Color.clear.frame(width: 40, height: 40)
-                    .overlay { LibraryArtView(art: item.art, hoverFrames: nil) }
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .overlay {
-                        if item.busy { ProgressView().controlSize(.small).tint(.white) }
-                        else if item.playing || hover {
-                            ZStack {
-                                Color.black.opacity(0.45)
-                                Image(systemName: item.playing ? "pause.fill" : "play.fill").font(.system(size: 14)).foregroundStyle(.white)
+        WithPerceptionTracking {
+            let fav = lib.isFavorite(namespace, item.id)
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Color.clear.frame(width: 40, height: 40)
+                        .overlay { LibraryArtView(art: item.art, hoverFrames: nil) }
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .overlay {
+                            if item.busy { ProgressView().controlSize(.small).tint(.white) }
+                            else if item.playing || hover {
+                                ZStack {
+                                    Color.black.opacity(0.45)
+                                    Image(systemName: item.playing ? "pause.fill" : "play.fill").font(.system(size: 14)).foregroundStyle(.white)
+                                }
                             }
                         }
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 5) {
+                            Text(verbatim: item.title).font(.system(size: 13)).foregroundStyle(item.playing ? Theme.accent : Theme.textPrimary).lineLimit(1)
+                            if let l = item.license { SafeForSocialBadge(itemID: item.id, needsCredit: l.credit != nil) }
+                            if item.added { AddedChip(inline: true) }
+                        }
+                        if let s = item.subtitle {
+                            Text(verbatim: s).font(.system(size: 11)).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                        }
                     }
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 5) {
-                        Text(verbatim: item.title).font(.system(size: 13)).foregroundStyle(item.playing ? Theme.accent : Theme.textPrimary).lineLimit(1)
-                        if let l = item.license { SafeForSocialBadge(itemID: item.id, needsCredit: l.credit != nil) }
-                        if item.added { AddedChip(inline: true) }
+                    Spacer(minLength: 4)
+                    if let similar = item.similar, hover || selected || item.playing {
+                        Button { similar() } label: {
+                            Image(systemName: "waveform.and.magnifyingglass").font(.system(size: 12))
+                                .foregroundStyle(Theme.textSecondary).frame(width: 22, height: 22)
+                        }
+                        .buttonStyle(.plain).help(tr("audio.similar.find"))
+                        .testID("asset.tile.\(item.id).similar")
                     }
-                    if let s = item.subtitle {
-                        Text(verbatim: s).font(.system(size: 11)).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                    Button { lib.toggleFavorite(namespace, item.id) } label: {
+                        Image(systemName: fav ? "star.fill" : "star").font(.system(size: 12))
+                            .foregroundStyle(fav ? Color(hex: 0xF5C451) : Theme.textTertiary).frame(width: 22, height: 22)
                     }
-                }
-                Spacer(minLength: 4)
-                if let similar = item.similar, hover || selected || item.playing {
-                    Button { similar() } label: {
-                        Image(systemName: "waveform.and.magnifyingglass").font(.system(size: 12))
-                            .foregroundStyle(Theme.textSecondary).frame(width: 22, height: 22)
+                    .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
+                    .testID("asset.tile.\(item.id).favorite")
+                    Button { item.add(); lib.noteUsed(namespace, item.id) } label: {
+                        Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                            .frame(width: 22, height: 22).background(Theme.accent, in: Circle())
                     }
-                    .buttonStyle(.plain).help(tr("audio.similar.find"))
-                    .testID("asset.tile.\(item.id).similar")
+                    .buttonStyle(.plain).help(tr("asset.addToTrack")).disabled(item.busy)
+                    .testID("asset.tile.\(item.id).add")
                 }
-                Button { lib.toggleFavorite(namespace, item.id) } label: {
-                    Image(systemName: fav ? "star.fill" : "star").font(.system(size: 12))
-                        .foregroundStyle(fav ? Color(hex: 0xF5C451) : Theme.textTertiary).frame(width: 22, height: 22)
+                .padding(8)
+                if item.playing { AudioPreviewStrip(id: item.id).padding(.horizontal, 8).padding(.bottom, 6) }
+                if let l = item.license, LicenseCardState.shared.shownID == item.id {
+                    LicenseCard(itemID: item.id, title: item.title, license: l).padding(.horizontal, 8).padding(.bottom, 8)
                 }
-                .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
-                .testID("asset.tile.\(item.id).favorite")
-                Button { item.add(); lib.noteUsed(namespace, item.id) } label: {
-                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 22, height: 22).background(Theme.accent, in: Circle())
-                }
-                .buttonStyle(.plain).help(tr("asset.addToTrack")).disabled(item.busy)
-                .testID("asset.tile.\(item.id).add")
             }
-            .padding(8)
-            if item.playing { AudioPreviewStrip(id: item.id).padding(.horizontal, 8).padding(.bottom, 6) }
-            if let l = item.license, LicenseCardState.shared.shownID == item.id {
-                LicenseCard(itemID: item.id, title: item.title, license: l).padding(.horizontal, 8).padding(.bottom, 8)
-            }
+            .background(Color(white: selected ? 0.2 : 0.165), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : .clear, lineWidth: 1.5))
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .assetTap(item.id, single: {
+                state.cursor[tab] = item.id
+                state.keyboardTab = tab
+                item.click?()
+            }, double: { item.add(); lib.noteUsed(namespace, item.id) })
+            .modifier(OptionalDrag(payload: item.payload))
+            .contextMenu { TileMenu(namespace: namespace, item: item) }
         }
-        .background(Color(white: selected ? 0.2 : 0.165), in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : .clear, lineWidth: 1.5))
-        .contentShape(Rectangle())
-        .onHover { hover = $0 }
-        .assetTap(item.id, single: {
-            state.cursor[tab] = item.id
-            state.keyboardTab = tab
-            item.click?()
-        }, double: { item.add(); lib.noteUsed(namespace, item.id) })
-        .modifier(OptionalDrag(payload: item.payload))
-        .contextMenu { TileMenu(namespace: namespace, item: item) }
     }
 }
 
@@ -505,11 +522,13 @@ struct OptionalDrag: ViewModifier {
 struct DurationBadge: View {
     let text: String
     var body: some View {
-        Text(verbatim: text).font(.system(size: 10, weight: .medium).monospacedDigit()).foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.8), radius: 1.5)
-            .padding(.horizontal, 4).padding(.vertical, 1)
-            .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 3))
-            .padding(4)
+        WithPerceptionTracking {
+            Text(verbatim: text).font(.system(size: 10, weight: .medium).monospacedDigit()).foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.8), radius: 1.5)
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 3))
+                .padding(4)
+        }
     }
 }
 
@@ -517,10 +536,12 @@ struct DurationBadge: View {
 struct AddedChip: View {
     var inline = false
     var body: some View {
-        Text(loc: "asset.added").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white)
-            .padding(.horizontal, 4).padding(.vertical, 1)
-            .background(Theme.accentDim, in: RoundedRectangle(cornerRadius: 3))
-            .padding(inline ? 0 : 4)
+        WithPerceptionTracking {
+            Text(loc: "asset.added").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(Theme.accentDim, in: RoundedRectangle(cornerRadius: 3))
+                .padding(inline ? 0 : 4)
+        }
     }
 }
 
@@ -531,20 +552,24 @@ struct LibraryArtView: View {
     @State private var frames: [CGImage] = []
 
     var body: some View {
-        ZStack {
-            base
-            if hoverFrames != nil, !frames.isEmpty {
-                SwiftUI.TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
-                    let i = Int(ctx.date.timeIntervalSinceReferenceDate * 10) % frames.count
-                    Image(decorative: frames[i], scale: 2).resizable().interpolation(.high)
-                        .aspectRatio(contentMode: letterboxed ? .fit : .fill)
+        WithPerceptionTracking {
+            ZStack {
+                base
+                if hoverFrames != nil, !frames.isEmpty {
+                    SwiftUI.TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
+                        WithPerceptionTracking {
+                            let i = Int(ctx.date.timeIntervalSinceReferenceDate * 10) % frames.count
+                            Image(decorative: frames[i], scale: 2).resizable().interpolation(.high)
+                                .aspectRatio(contentMode: letterboxed ? .fit : .fill)
+                        }
+                    }
                 }
             }
-        }
-        .task(id: hoverFrames != nil) {
-            guard let load = hoverFrames else { frames = []; return }
-            let f = await load()
-            if !Task.isCancelled { frames = f }
+            .task(id: hoverFrames != nil) {
+                guard let load = hoverFrames else { frames = []; return }
+                let f = await load()
+                if !Task.isCancelled { frames = f }
+            }
         }
     }
 
@@ -586,22 +611,24 @@ struct AsyncArt: View {
     @State private var image: CGImage?
 
     var body: some View {
-        ZStack {
-            if letterbox { Color.black } else { Theme.inset }
-            if let img = image ?? LibraryArtCache.shared.get(key) {
-                Image(decorative: img, scale: 2).resizable().interpolation(.high)
-                    .aspectRatio(contentMode: fit || letterbox ? .fit : .fill).padding(fit ? 6 : 0)
-            } else {
-                Image(systemName: placeholder).font(.system(size: 18)).foregroundStyle(Theme.textTertiary)
+        WithPerceptionTracking {
+            ZStack {
+                if letterbox { Color.black } else { Theme.inset }
+                if let img = image ?? LibraryArtCache.shared.get(key) {
+                    Image(decorative: img, scale: 2).resizable().interpolation(.high)
+                        .aspectRatio(contentMode: fit || letterbox ? .fit : .fill).padding(fit ? 6 : 0)
+                } else {
+                    Image(systemName: placeholder).font(.system(size: 18)).foregroundStyle(Theme.textTertiary)
+                }
             }
-        }
-        .task(id: key) {
-            if LibraryArtCache.shared.get(key) != nil { return }
-            // Debounce: cards flying past during a fast scroll never start loading.
-            try? await Task.sleep(for: .milliseconds(60))
-            guard !Task.isCancelled, let img = await load() else { return }
-            LibraryArtCache.shared.set(key, img)
-            if !Task.isCancelled { image = img }
+            .task(id: key) {
+                if LibraryArtCache.shared.get(key) != nil { return }
+                // Debounce: cards flying past during a fast scroll never start loading.
+                try? await Task.sleep(for: .milliseconds(60))
+                guard !Task.isCancelled, let img = await load() else { return }
+                LibraryArtCache.shared.set(key, img)
+                if !Task.isCancelled { image = img }
+            }
         }
     }
 }
@@ -634,21 +661,25 @@ struct CategoryRail: View {
     @State private var collapsed: Set<String> = []
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(entries) { e in
-                    if e.isGroup {
-                        groupHeader(e)
-                    } else if e.group == nil || !collapsed.contains(e.group!) {
-                        item(e)
+        WithPerceptionTracking {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(entries) { e in
+                        WithPerceptionTracking {
+                            if e.isGroup {
+                                groupHeader(e)
+                            } else if e.group == nil || !collapsed.contains(e.group!) {
+                                item(e)
+                            }
+                        }
                     }
                 }
+                .padding(.horizontal, 6).padding(.vertical, 8)
             }
-            .padding(.horizontal, 6).padding(.vertical, 8)
+            .frame(width: 120)
+            .background(Theme.panel)
+            .overlay(alignment: .trailing) { Rectangle().fill(Theme.separator).frame(width: 1) }
         }
-        .frame(width: 120)
-        .background(Theme.panel)
-        .overlay(alignment: .trailing) { Rectangle().fill(Theme.separator).frame(width: 1) }
     }
 
     func groupHeader(_ e: Entry) -> some View {
@@ -695,23 +726,25 @@ struct AssetSearchField: View {
     @State private var task: Task<Void, Never>?
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
-            TextField(placeholder, text: $text).textFieldStyle(.plain).font(.system(size: 12))
-                .onSubmit { commit(now: true) }
-                .testID("asset.search")
-            if !text.isEmpty {
-                Button { text = ""; commit(now: true) } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+        WithPerceptionTracking {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                TextField(placeholder, text: $text).textFieldStyle(.plain).font(.system(size: 12))
+                    .onSubmit { commit(now: true) }
+                    .testID("asset.search")
+                if !text.isEmpty {
+                    Button { text = ""; commit(now: true) } label: {
+                        Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                    }
+                    .buttonStyle(.plain).help(tr("asset.search.clear")).testID("asset.search.clear")
                 }
-                .buttonStyle(.plain).help(tr("asset.search.clear")).testID("asset.search.clear")
             }
+            .padding(.horizontal, 10).frame(height: 28)
+            .background(Color(hex: 0x141414), in: RoundedRectangle(cornerRadius: 4))
+            .onAppear { text = AssetPanelState.shared.query[tab] ?? "" }
+            .onValueChange(of: text) { commit(now: false) }
+            .onValueChange(of: AssetPanelState.shared.query[tab] ?? "") { _, q in if q.isEmpty && !text.isEmpty && task == nil { text = "" } }
         }
-        .padding(.horizontal, 10).frame(height: 28)
-        .background(Color(hex: 0x141414), in: RoundedRectangle(cornerRadius: 4))
-        .onAppear { text = AssetPanelState.shared.query[tab] ?? "" }
-        .onChange(of: text) { commit(now: false) }
-        .onChange(of: AssetPanelState.shared.query[tab] ?? "") { _, q in if q.isEmpty && !text.isEmpty && task == nil { text = "" } }
     }
 
     func commit(now: Bool) {

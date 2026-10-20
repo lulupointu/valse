@@ -2,14 +2,14 @@
 @preconcurrency import Speech
 import Foundation
 import MontageCore
-import Observation
+import Perception
 
 /// Dictate (TX-034): streaming speech input into a text field. Microphone → AVAudioEngine tap → Apple's on-device
 /// speech recognizer (`requiresOnDeviceRecognition`, nothing leaves the Mac) with partial results, so words appear
 /// while the user speaks. One session at a time; it ends on `stop()`, after 2.5 s of silence following speech, or after
 /// 60 s (the recognizer's limit).
 @MainActor
-@Observable
+@Perceptible
 public final class Dictation {
     public static let shared = Dictation()
 
@@ -31,11 +31,11 @@ public final class Dictation {
     /// Microphone level 0…1 while listening (for the button's pulse).
     public private(set) var level: Double = 0
 
-    @ObservationIgnored private var engine: AVAudioEngine?
-    @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
-    @ObservationIgnored private var task: SFSpeechRecognitionTask?
-    @ObservationIgnored private var silenceTimer: Task<Void, Never>?
-    @ObservationIgnored private var onEnd: (() -> Void)?
+    @PerceptionIgnored private var engine: AVAudioEngine?
+    @PerceptionIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
+    @PerceptionIgnored private var task: SFSpeechRecognitionTask?
+    @PerceptionIgnored private var silenceTimer: Task<Void, Never>?
+    @PerceptionIgnored private var onEnd: (() -> Void)?
     private var heardSpeech = false
 
     /// Starts dictating; `onText(text, isFinal)` receives the full text so far of this session (append it to what the

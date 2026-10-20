@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 // MARK: Store (TL-024)
 
@@ -73,35 +74,41 @@ enum MulticamShortcuts {
 /// 2×2 / 3×3 angle grid (top-left of the player, the program output stays visible) while a multi-camera clip is selected: each cell shows its angle at the
 /// playhead (thumbnail, refreshed as it moves), the live angle is outlined; a click (or 1–9) cuts to it.
 struct MulticamGrid: View {
-    @Bindable var store: EditorStore
-    @Bindable var ui: PlayerUIState
+    @Perception.Bindable var store: EditorStore
+    @Perception.Bindable var ui: PlayerUIState
     var body: some View {
-        if ui.multicamGrid, let id = store.selectedMulticam, let comp = Multicam.compound(of: id, in: store.project) {
-            let n = Multicam.angleTracks(comp.timeline).count
-            let cols = n <= 4 ? 2 : 3
-            let t = store.transport.playhead
-            let active = Multicam.activeAngle(id, at: t, in: store.project)
-            VStack(spacing: 4) {
-                ForEach(0..<Int((Double(n) / Double(cols)).rounded(.up)), id: \.self) { r in
-                    HStack(spacing: 4) {
-                        ForEach(0..<cols, id: \.self) { c in
-                            let k = r * cols + c
-                            if k < n {
-                                AngleCell(store: store, clipID: id, angle: k, time: t, active: active == k)
-                            } else {
-                                Color.clear
+        WithPerceptionTracking {
+            if ui.multicamGrid, let id = store.selectedMulticam, let comp = Multicam.compound(of: id, in: store.project) {
+                let n = Multicam.angleTracks(comp.timeline).count
+                let cols = n <= 4 ? 2 : 3
+                let t = store.transport.playhead
+                let active = Multicam.activeAngle(id, at: t, in: store.project)
+                VStack(spacing: 4) {
+                    ForEach(0..<Int((Double(n) / Double(cols)).rounded(.up)), id: \.self) { r in
+                        WithPerceptionTracking {
+                            HStack(spacing: 4) {
+                                ForEach(0..<cols, id: \.self) { c in
+                                    WithPerceptionTracking {
+                                        let k = r * cols + c
+                                        if k < n {
+                                            AngleCell(store: store, clipID: id, angle: k, time: t, active: active == k)
+                                        } else {
+                                            Color.clear
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
+                .padding(4)
+                .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
+                .frame(maxWidth: 380, maxHeight: 230)   // compact angle viewer; the program output stays visible
+                .aspectRatio(16 / 10, contentMode: .fit)
+                .padding(10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .testID("multicam.grid")
             }
-            .padding(4)
-            .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
-            .frame(maxWidth: 380, maxHeight: 230)   // compact angle viewer; the program output stays visible
-            .aspectRatio(16 / 10, contentMode: .fit)
-            .padding(10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .testID("multicam.grid")
         }
     }
 }
@@ -114,20 +121,22 @@ struct AngleCell: View {
     let active: Bool
     @State private var image: CGImage?
     var body: some View {
-        Button { store.switchMulticamAngle(angle) } label: {
-            ZStack(alignment: .topLeading) {
-                Rectangle().fill(Color(white: 0.12))
-                if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fit) }
-                Text(verbatim: "\(angle + 1)").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                    .padding(.horizontal, 5).padding(.vertical, 1).background(active ? Theme.accent : Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
-                    .padding(4)
+        WithPerceptionTracking {
+            Button { store.switchMulticamAngle(angle) } label: {
+                ZStack(alignment: .topLeading) {
+                    Rectangle().fill(Color(white: 0.12))
+                    if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fit) }
+                    Text(verbatim: "\(angle + 1)").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 5).padding(.vertical, 1).background(active ? Theme.accent : Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
+                        .padding(4)
+                }
+                .overlay(RoundedRectangle(cornerRadius: 2).stroke(active ? Theme.accent : Color.white.opacity(0.15), lineWidth: active ? 2 : 1))
+                .contentShape(Rectangle())
             }
-            .overlay(RoundedRectangle(cornerRadius: 2).stroke(active ? Theme.accent : Color.white.opacity(0.15), lineWidth: active ? 2 : 1))
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .testID("multicam.angle.\(angle)")
+            .task(id: Int(time.seconds * 4)) { await load() }
         }
-        .buttonStyle(.plain)
-        .testID("multicam.angle.\(angle)")
-        .task(id: Int(time.seconds * 4)) { await load() }
     }
 
     func load() async {

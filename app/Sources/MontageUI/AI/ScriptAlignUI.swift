@@ -2,9 +2,10 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// TX-030 "Align to speech" (Text ▸ Local captions ▸ script): the typed script becomes captions timed on the speech.
-@MainActor @Observable final class ScriptAlignState {
+@MainActor @Perceptible final class ScriptAlignState {
     static let shared = ScriptAlignState()
     var job: JobID?
     var progress: Double = 0
@@ -50,19 +51,21 @@ struct AlignScriptRow: View {
     let store: EditorStore
     @Binding var script: String
     var body: some View {
-        let st = ScriptAlignState.shared
-        VStack(alignment: .leading, spacing: 6) {
-            if st.job != nil {
-                JobProgressLine(text: tr("align.progress", Int(st.progress * 100)), progress: st.progress) { store.cancelScriptAlignment() }
-                    .testID("align.progress")
-            } else {
-                Button { store.alignScriptToSpeech(script) } label: {
-                    Label(tr("align.button"), systemImage: "waveform.and.magnifyingglass")
+        WithPerceptionTracking {
+            let st = ScriptAlignState.shared
+            VStack(alignment: .leading, spacing: 6) {
+                if st.job != nil {
+                    JobProgressLine(text: tr("align.progress", Int(st.progress * 100)), progress: st.progress) { store.cancelScriptAlignment() }
+                        .testID("align.progress")
+                } else {
+                    Button { store.alignScriptToSpeech(script) } label: {
+                        Label(tr("align.button"), systemImage: "waveform.and.magnifyingglass")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(script.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .help(tr("align.help"))
+                    .testID("align.button")
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(script.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .help(tr("align.help"))
-                .testID("align.button")
             }
         }
     }

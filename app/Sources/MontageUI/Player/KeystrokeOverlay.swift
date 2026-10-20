@@ -1,11 +1,11 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 import MontageCore
 
 /// "Show keystrokes" (PB-015, View menu): the keys pressed in the editor appear as pills over the bottom-left of the
 /// preview for ~2 s (for tutorials / screen recordings). Plain typing into text fields is not shown, only combos.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class KeystrokeFeed {
     public static let shared = KeystrokeFeed()
     static let defaultsKey = "montage.view.showKeystrokes"
@@ -14,7 +14,7 @@ public final class KeystrokeFeed {
     public private(set) var items: [Item] = []
     public private(set) var enabled = false
     /// Seconds a pill stays; nil = 2 s, or 30 s in UI tests (read at push time: the feed may exist before the driver).
-    @ObservationIgnored var lifetimeOverride: TimeInterval?
+    @PerceptionIgnored var lifetimeOverride: TimeInterval?
     var lifetime: TimeInterval { lifetimeOverride ?? (TestAnchors.isEnabled ? 30 : 2) }
 
     init() {
@@ -57,23 +57,27 @@ public final class KeystrokeFeed {
 }
 
 struct KeystrokeOverlay: View {
-    @Bindable var feed: KeystrokeFeed = .shared
+    @Perception.Bindable var feed: KeystrokeFeed = .shared
     var body: some View {
-        if feed.enabled && !feed.items.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(feed.items) { it in
-                    Text(verbatim: it.count > 1 ? "\(it.text)  ×\(it.count)" : it.text)
-                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10).frame(height: 30)
-                        .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(0.25), lineWidth: 1))
-                        .transition(.opacity)
+        WithPerceptionTracking {
+            if feed.enabled && !feed.items.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(feed.items) { it in
+                        WithPerceptionTracking {
+                            Text(verbatim: it.count > 1 ? "\(it.text)  ×\(it.count)" : it.text)
+                                .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10).frame(height: 30)
+                                .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
+                                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(0.25), lineWidth: 1))
+                                .transition(.opacity)
+                        }
+                    }
                 }
+                .padding(12)
+                .allowsHitTesting(false)
+                .testID("player.keystrokes")
             }
-            .padding(12)
-            .allowsHitTesting(false)
-            .testID("player.keystrokes")
         }
     }
 }

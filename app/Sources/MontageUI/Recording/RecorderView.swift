@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 
@@ -8,7 +8,7 @@ import MontageEngine
 /// Setup (source, camera + layout, microphone, cursor) → 3-2-1 countdown → recording (timer, pause/resume, stop) →
 /// the files are imported into the bin and placed on the timeline at the playhead (camera as a picture-in-picture
 /// overlay on its own track, or nested with the screen into one compound clip for "Single track").
-@MainActor @Observable
+@MainActor @Perceptible
 public final class RecorderModel {
     public enum Phase: String, Sendable { case setup, countdown, recording, saving }
 
@@ -29,9 +29,9 @@ public final class RecorderModel {
     public var elapsed: Double = 0
     public var paused = false
     public var errorKey: String?
-    @ObservationIgnored var session: RecordingSession?
-    @ObservationIgnored var timer: Timer?
-    @ObservationIgnored var task: Task<Void, Never>?
+    @PerceptionIgnored var session: RecordingSession?
+    @PerceptionIgnored var timer: Timer?
+    @PerceptionIgnored var task: Task<Void, Never>?
 
     init(mode: RecordingSession.Mode) {
         self.mode = mode
@@ -90,7 +90,7 @@ public final class RecorderModel {
 }
 
 /// Global recorder state (one recording at a time), read by the editor overlay and the state dump.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class RecordingUI {
     public static let shared = RecordingUI()
     public var model: RecorderModel?
@@ -222,35 +222,39 @@ enum RecordingShortcuts {
 // MARK: - View
 
 struct RecorderModal: View {
-    @Bindable var store: EditorStore
-    @Bindable var model: RecorderModel
+    @Perception.Bindable var store: EditorStore
+    @Perception.Bindable var model: RecorderModel
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea()
-                .onTapGesture {}
-            DialogCard(title: tr(model.mode == .screen ? "record.title.screen" : "record.title.camera"), width: 520,
-                       onClose: model.phase == .setup ? { store.closeRecorder() } : nil) {
-                VStack(alignment: .leading, spacing: 14) {
-                    switch model.phase {
-                    case .setup: setup
-                    case .countdown: big(Text(verbatim: "\(model.countdown)").font(.system(size: 64, weight: .bold)).foregroundStyle(Theme.accent),
-                                         caption: tr("record.countdown")).testID("record.countdown")
-                    case .recording: recording
-                    case .saving: big(ProgressView().controlSize(.large), caption: tr("record.saving"))
+        WithPerceptionTracking {
+            ZStack {
+                Color.black.opacity(0.45).ignoresSafeArea()
+                    .onTapGesture {}
+                DialogCard(title: tr(model.mode == .screen ? "record.title.screen" : "record.title.camera"), width: 520,
+                           onClose: model.phase == .setup ? { store.closeRecorder() } : nil) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        switch model.phase {
+                        case .setup: setup
+                        case .countdown: big(Text(verbatim: "\(model.countdown)").font(.system(size: 64, weight: .bold)).foregroundStyle(Theme.accent),
+                                             caption: tr("record.countdown")).testID("record.countdown")
+                        case .recording: recording
+                        case .saving: big(ProgressView().controlSize(.large), caption: tr("record.saving"))
+                        }
                     }
+                    .padding(16)
                 }
-                .padding(16)
+                .testID("record.dialog")
+                // offscreen snapshots redraw the modal above the panels / Metal views (SnapshotRegistry.modalFrame)
+                .background(GeometryReader { g in
+                    WithPerceptionTracking {
+                        Color.clear
+                            .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
+                            .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
+                    }
+                })
             }
-            .testID("record.dialog")
-            // offscreen snapshots redraw the modal above the panels / Metal views (SnapshotRegistry.modalFrame)
-            .background(GeometryReader { g in
-                Color.clear
-                    .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
-                    .onChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
-            })
+            .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
         }
-        .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
     }
 
     func big<V: View>(_ v: V, caption: String) -> some View {
@@ -396,18 +400,20 @@ struct RecorderModal: View {
 struct RecordTools: View {
     let store: EditorStore
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Rectangle().fill(Theme.separator).frame(height: 1)
-                Text(loc: "record.tools.caption").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize()
-                Rectangle().fill(Theme.separator).frame(height: 1)
+        WithPerceptionTracking {
+            VStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Rectangle().fill(Theme.separator).frame(height: 1)
+                    Text(loc: "record.tools.caption").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize()
+                    Rectangle().fill(Theme.separator).frame(height: 1)
+                }
+                HStack(spacing: 10) {
+                    tool("record.tool.screen", "rectangle.dashed.badge.record", id: "media.record.screen") { store.openRecorder(.screen) }
+                    tool("record.tool.camera", "web.camera", id: "media.record.camera") { store.openRecorder(.camera) }
+                }
             }
-            HStack(spacing: 10) {
-                tool("record.tool.screen", "rectangle.dashed.badge.record", id: "media.record.screen") { store.openRecorder(.screen) }
-                tool("record.tool.camera", "web.camera", id: "media.record.camera") { store.openRecorder(.camera) }
-            }
+            .padding(.horizontal, 12).padding(.bottom, 12)
         }
-        .padding(.horizontal, 12).padding(.bottom, 12)
     }
 
     func tool(_ key: String, _ symbol: String, id: String, _ action: @escaping () -> Void) -> some View {

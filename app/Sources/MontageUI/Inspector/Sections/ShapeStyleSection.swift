@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 import MontageCore
 import MontageEffects
 import MontageEngine
@@ -41,98 +41,100 @@ struct ShapeStyleSection: View {
     }
 
     var body: some View {
-        if let clip = ctx.clip, let base = Self.baseLayers(clip)?.first, let s0 = Self.style(clip) {
-            let store = ctx.store, id = clip.id
-            let s = clip.shapeStyle != nil ? (clip.resolved(at: ctx.localTime).shapeStyle ?? s0) : s0
-            let lineOnly = base.isStrokeOnly
-            VStack(alignment: .leading, spacing: 2) {
-                if !lineOnly {
-                    InlineRow(label: tr("shape.fill"), triplet: AnyView(KeyframeTriplet(ctx: ctx, keys: [.shapeFill], enabled: clip.shapeStyle?.fill != nil))) {
-                        CapCheckbox(isOn: Binding(get: { s.fill != nil }, set: { on in
-                            Self.update(store, id) { c, _ in c.shapeStyle?.fill = on ? (base.shapeStyle.fill ?? .white) : nil
-                                if !on { c.clearKeyframes([.shapeFill]) } }
-                        })).testID("shape.fill.toggle")
-                        Spacer().frame(width: 10)
-                        if let f = s.fill {
-                            ColorSwatchButton(color: f, eyedropper: store, testID: "shape.fill") { col in
-                                Self.update(store, id) { c, t in c.setValue(.shapeFill, .color(col), at: t) }
-                            }
-                        }
-                    }
-                    InlineRow(label: tr("shape.gradient"), enabled: s.fill != nil) {
-                        CapCheckbox(isOn: Binding(get: { s.fillEnd != nil }, set: { on in
-                            Self.update(store, id) { c, _ in c.shapeStyle?.fillEnd = on ? Self.gradientEnd(s.fill ?? .white) : nil }
-                        }), enabled: s.fill != nil).testID("shape.gradient.toggle")
-                        Spacer().frame(width: 10)
-                        if let e = s.fillEnd {
-                            ColorSwatchButton(color: e, eyedropper: store, testID: "shape.gradient") { col in
-                                Self.update(store, id) { c, _ in c.shapeStyle?.fillEnd = col }
-                            }
-                        }
-                    }
-                }
-                InlineRow(label: tr(lineOnly ? "shape.color" : "shape.stroke"),
-                          triplet: AnyView(KeyframeTriplet(ctx: ctx, keys: [.shapeStroke], enabled: clip.shapeStyle?.stroke != nil))) {
+        WithPerceptionTracking {
+            if let clip = ctx.clip, let base = Self.baseLayers(clip)?.first, let s0 = Self.style(clip) {
+                let store = ctx.store, id = clip.id
+                let s = clip.shapeStyle != nil ? (clip.resolved(at: ctx.localTime).shapeStyle ?? s0) : s0
+                let lineOnly = base.isStrokeOnly
+                VStack(alignment: .leading, spacing: 2) {
                     if !lineOnly {
-                        CapCheckbox(isOn: Binding(get: { s.stroke != nil }, set: { on in
-                            Self.update(store, id) { c, _ in
-                                c.shapeStyle?.stroke = on ? (base.shapeStyle.stroke ?? Self.contrast(s.fill)) : nil
-                                if on, (c.shapeStyle?.strokeWidth ?? 0) < 0.005 { c.shapeStyle?.strokeWidth = 0.04 }
-                                if !on { c.clearKeyframes([.shapeStroke, .shapeStrokeWidth]) }
+                        InlineRow(label: tr("shape.fill"), triplet: AnyView(KeyframeTriplet(ctx: ctx, keys: [.shapeFill], enabled: clip.shapeStyle?.fill != nil))) {
+                            CapCheckbox(isOn: Binding.perceived(get: { s.fill != nil }, set: { on in
+                                Self.update(store, id) { c, _ in c.shapeStyle?.fill = on ? (base.shapeStyle.fill ?? .white) : nil
+                                    if !on { c.clearKeyframes([.shapeFill]) } }
+                            })).testID("shape.fill.toggle")
+                            Spacer().frame(width: 10)
+                            if let f = s.fill {
+                                ColorSwatchButton(color: f, eyedropper: store, testID: "shape.fill") { col in
+                                    Self.update(store, id) { c, t in c.setValue(.shapeFill, .color(col), at: t) }
+                                }
                             }
-                        })).testID("shape.stroke.toggle")
-                        Spacer().frame(width: 10)
-                    }
-                    if let st = s.stroke {
-                        ColorSwatchButton(color: st, eyedropper: store, testID: "shape.stroke") { col in
-                            Self.update(store, id) { c, t in c.setValue(.shapeStroke, .color(col), at: t) }
+                        }
+                        InlineRow(label: tr("shape.gradient"), enabled: s.fill != nil) {
+                            CapCheckbox(isOn: Binding.perceived(get: { s.fillEnd != nil }, set: { on in
+                                Self.update(store, id) { c, _ in c.shapeStyle?.fillEnd = on ? Self.gradientEnd(s.fill ?? .white) : nil }
+                            }), enabled: s.fill != nil).testID("shape.gradient.toggle")
+                            Spacer().frame(width: 10)
+                            if let e = s.fillEnd {
+                                ColorSwatchButton(color: e, eyedropper: store, testID: "shape.gradient") { col in
+                                    Self.update(store, id) { c, _ in c.shapeStyle?.fillEnd = col }
+                                }
+                            }
                         }
                     }
-                }
-                if s.stroke != nil {
-                    ClipParamRow(ctx: ctx, label: tr("shape.strokeWidth"),
-                                 spec: RowSpec(range: 1...(ShapeStickerStyle.maxStrokeWidth * 100), format: { String(Int($0.rounded())) }),
-                                 get: { c, t in (c.value(.shapeStrokeWidth, at: t)?.scalar ?? Self.style(c)?.strokeWidth ?? 0.04) * 100 },
-                                 set: { c, v, t in
-                                     if c.shapeStyle == nil { c.shapeStyle = Self.style(c) }
-                                     c.setValue(.shapeStrokeWidth, .scalar(v / 100), at: t)
-                                 },
-                                 dependsOnTime: { $0.hasKeyframes(.shapeStrokeWidth) }, keyframeKeys: [.shapeStrokeWidth],
-                                 gestureName: "cmd.shapeStyle", testID: "slider.shape.strokeWidth")
-                    InlineRow(label: tr("shape.dash")) {
-                        SegmentedTabs(ShapeStickerStyle.Dash.allCases.map { ($0.rawValue, tr("shape.dash.\($0.rawValue)")) },
-                                      selection: Binding(get: { s.dash.rawValue }, set: { v in
-                                          guard let d = ShapeStickerStyle.Dash(rawValue: v), d != s.dash else { return }
-                                          Self.update(store, id) { c, _ in c.shapeStyle?.dash = d }
-                                      }))
-                        .frame(maxWidth: 200)
-                        .testID("shape.dash")
+                    InlineRow(label: tr(lineOnly ? "shape.color" : "shape.stroke"),
+                              triplet: AnyView(KeyframeTriplet(ctx: ctx, keys: [.shapeStroke], enabled: clip.shapeStyle?.stroke != nil))) {
+                        if !lineOnly {
+                            CapCheckbox(isOn: Binding.perceived(get: { s.stroke != nil }, set: { on in
+                                Self.update(store, id) { c, _ in
+                                    c.shapeStyle?.stroke = on ? (base.shapeStyle.stroke ?? Self.contrast(s.fill)) : nil
+                                    if on, (c.shapeStyle?.strokeWidth ?? 0) < 0.005 { c.shapeStyle?.strokeWidth = 0.04 }
+                                    if !on { c.clearKeyframes([.shapeStroke, .shapeStrokeWidth]) }
+                                }
+                            })).testID("shape.stroke.toggle")
+                            Spacer().frame(width: 10)
+                        }
+                        if let st = s.stroke {
+                            ColorSwatchButton(color: st, eyedropper: store, testID: "shape.stroke") { col in
+                                Self.update(store, id) { c, t in c.setValue(.shapeStroke, .color(col), at: t) }
+                            }
+                        }
                     }
-                }
-                if s.points == nil, base.shape == .rect || base.shape == .roundedRect {
-                    ClipParamRow(ctx: ctx, label: tr("shape.corner"), spec: RowSpec(range: 0...50, format: { String(Int($0.rounded())) }),
-                                 get: { c, _ in (Self.style(c)?.cornerRadius ?? (base.shape == .roundedRect ? 0.16 : 0)) * 100 },
-                                 set: { c, v, _ in
-                                     if c.shapeStyle == nil { c.shapeStyle = Self.style(c) }
-                                     c.shapeStyle?.cornerRadius = v / 100
-                                 }, gestureName: "cmd.shapeStyle", testID: "slider.shape.corner")
-                }
-                let drawing = store.shapeDrawTool?.clipID == id
-                Button {
-                    if drawing { store.endShapeDraw() } else { store.beginShapeDraw(id) }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: drawing ? "xmark" : "pencil.tip").font(.system(size: 12, weight: .semibold))
-                        Text(loc: drawing ? "shape.draw.cancel" : "shape.draw").font(.system(size: 12, weight: .semibold))
+                    if s.stroke != nil {
+                        ClipParamRow(ctx: ctx, label: tr("shape.strokeWidth"),
+                                     spec: RowSpec(range: 1...(ShapeStickerStyle.maxStrokeWidth * 100), format: { String(Int($0.rounded())) }),
+                                     get: { c, t in (c.value(.shapeStrokeWidth, at: t)?.scalar ?? Self.style(c)?.strokeWidth ?? 0.04) * 100 },
+                                     set: { c, v, t in
+                                         if c.shapeStyle == nil { c.shapeStyle = Self.style(c) }
+                                         c.setValue(.shapeStrokeWidth, .scalar(v / 100), at: t)
+                                     },
+                                     dependsOnTime: { $0.hasKeyframes(.shapeStrokeWidth) }, keyframeKeys: [.shapeStrokeWidth],
+                                     gestureName: "cmd.shapeStyle", testID: "slider.shape.strokeWidth")
+                        InlineRow(label: tr("shape.dash")) {
+                            SegmentedTabs(ShapeStickerStyle.Dash.allCases.map { ($0.rawValue, tr("shape.dash.\($0.rawValue)")) },
+                                          selection: Binding.perceived(get: { s.dash.rawValue }, set: { v in
+                                              guard let d = ShapeStickerStyle.Dash(rawValue: v), d != s.dash else { return }
+                                              Self.update(store, id) { c, _ in c.shapeStyle?.dash = d }
+                                          }))
+                            .frame(maxWidth: 200)
+                            .testID("shape.dash")
+                        }
                     }
-                    .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
-                    .background(drawing ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                    if s.points == nil, base.shape == .rect || base.shape == .roundedRect {
+                        ClipParamRow(ctx: ctx, label: tr("shape.corner"), spec: RowSpec(range: 0...50, format: { String(Int($0.rounded())) }),
+                                     get: { c, _ in (Self.style(c)?.cornerRadius ?? (base.shape == .roundedRect ? 0.16 : 0)) * 100 },
+                                     set: { c, v, _ in
+                                         if c.shapeStyle == nil { c.shapeStyle = Self.style(c) }
+                                         c.shapeStyle?.cornerRadius = v / 100
+                                     }, gestureName: "cmd.shapeStyle", testID: "slider.shape.corner")
+                    }
+                    let drawing = store.shapeDrawTool?.clipID == id
+                    Button {
+                        if drawing { store.endShapeDraw() } else { store.beginShapeDraw(id) }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: drawing ? "xmark" : "pencil.tip").font(.system(size: 12, weight: .semibold))
+                            Text(loc: drawing ? "shape.draw.cancel" : "shape.draw").font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
+                        .background(drawing ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                    .testID("shape.draw")
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 6)
-                .testID("shape.draw")
+                .onDisappear { store.endShapeDraw() }
             }
-            .onDisappear { store.endShapeDraw() }
         }
     }
 
@@ -172,15 +174,15 @@ nonisolated enum ShapeDrawing {
     }
 }
 
-@Observable
+@Perceptible
 @MainActor
 final class ShapeDrawTool: CanvasTool {
     private(set) var revision = 0
-    @ObservationIgnored let clipID: ClipID
-    @ObservationIgnored weak var store: EditorStore?
+    @PerceptionIgnored let clipID: ClipID
+    @PerceptionIgnored weak var store: EditorStore?
     private(set) var points: [Vec2] = []
     private(set) var hover: Vec2?
-    @ObservationIgnored private var viewScale = 1.0
+    @PerceptionIgnored private var viewScale = 1.0
 
     init(clipID: ClipID, store: EditorStore) { self.clipID = clipID; self.store = store }
 

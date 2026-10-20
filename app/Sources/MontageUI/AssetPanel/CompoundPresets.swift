@@ -1,9 +1,9 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 
 /// Saved compound presets (TL-021), one JSON file each in Application Support/Montage/CompoundPresets.
-@MainActor @Observable
+@MainActor @Perceptible
 final class CompoundPresetLibrary {
     static let shared = CompoundPresetLibrary()
     private(set) var presets: [CompoundPreset] = []

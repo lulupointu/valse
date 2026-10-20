@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Multi-timeline (TL-023): new / switch / rename / duplicate / delete timelines. Each is one undo step; the active
 /// timeline lives in `project.timeline`, so the rest of the editor is unaware of the others.
@@ -147,29 +148,33 @@ extension EditorStore {
 /// Timeline tab strip (TL-023) above the timeline toolbar, shown when the project has several timelines: click =
 /// switch, double-click = rename, right-click = Rename / Duplicate / Delete, "+" = new timeline.
 struct TimelineTabs: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     @State private var renaming: TimelineSlotID?
     @State private var draft = ""
     @FocusState private var focused: Bool
 
     var body: some View {
-        let slots = store.timelineSlots
-        let active = store.project.activeTimelineID
-        HStack(spacing: 2) {
-            ForEach(Array(slots.enumerated()), id: \.element.id) { i, s in
-                tab(s, index: i, active: s.id == active, canDelete: slots.count > 1)
+        WithPerceptionTracking {
+            let slots = store.timelineSlots
+            let active = store.project.activeTimelineID
+            HStack(spacing: 2) {
+                ForEach(Array(slots.enumerated()), id: \.element.id) { i, s in
+                    WithPerceptionTracking {
+                        tab(s, index: i, active: s.id == active, canDelete: slots.count > 1)
+                    }
+                }
+                Button { store.newTimeline() } label: {
+                    Image(systemName: "plus").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                        .frame(width: 22, height: 22).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).help(tr("timelines.new")).testID("timelines.new")
+                Spacer(minLength: 0)
             }
-            Button { store.newTimeline() } label: {
-                Image(systemName: "plus").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
-                    .frame(width: 22, height: 22).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain).help(tr("timelines.new")).testID("timelines.new")
-            Spacer(minLength: 0)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(Theme.panel)
+            .testID("timelines.tabs")
         }
-        .padding(.horizontal, 8)
-        .frame(height: 28)
-        .background(Theme.panel)
-        .testID("timelines.tabs")
     }
 
     @ViewBuilder
@@ -212,19 +217,21 @@ struct FrameRatePrompt: View {
     let store: EditorStore
     let rate: FrameRate
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "speedometer").foregroundStyle(Theme.accent)
-            Text(verbatim: tr("framerate.prompt", HomeFormat.fps(rate), HomeFormat.fps(store.project.settings.frameRate)))
-                .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-            Spacer()
-            Button(tr("framerate.change", HomeFormat.fps(rate))) { store.changeProjectFrameRate(rate) }
-                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("framerate.change")
-            Button(tr("framerate.keep")) { store.timelineUI.frameRatePrompt = nil }
-                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("framerate.keep")
+        WithPerceptionTracking {
+            HStack(spacing: 10) {
+                Image(systemName: "speedometer").foregroundStyle(Theme.accent)
+                Text(verbatim: tr("framerate.prompt", HomeFormat.fps(rate), HomeFormat.fps(store.project.settings.frameRate)))
+                    .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Spacer()
+                Button(tr("framerate.change", HomeFormat.fps(rate))) { store.changeProjectFrameRate(rate) }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("framerate.change")
+                Button(tr("framerate.keep")) { store.timelineUI.frameRatePrompt = nil }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("framerate.keep")
+            }
+            .padding(.horizontal, 12).frame(height: 34)
+            .background(Theme.accent.opacity(0.12))
+            .testID("framerate.prompt")
         }
-        .padding(.horizontal, 12).frame(height: 34)
-        .background(Theme.accent.opacity(0.12))
-        .testID("framerate.prompt")
     }
 }
 
@@ -233,26 +240,30 @@ struct CompoundBreadcrumb: View {
     let store: EditorStore
     let path: [String]
     var body: some View {
-        HStack(spacing: 6) {
-            Button { store.exitCompound() } label: {
-                HStack(spacing: 3) {
-                    Image(systemName: "chevron.left").font(.system(size: 10, weight: .semibold))
-                    Text(loc: "compound.back")
+        WithPerceptionTracking {
+            HStack(spacing: 6) {
+                Button { store.exitCompound() } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "chevron.left").font(.system(size: 10, weight: .semibold))
+                        Text(loc: "compound.back")
+                    }
                 }
+                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("compound.back")
+                Button { store.exitCompound(all: true) } label: { Text(loc: "compound.root") }
+                    .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).testID("compound.root")
+                ForEach(Array(path.enumerated()), id: \.offset) { i, name in
+                    WithPerceptionTracking {
+                        Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+                        Text(verbatim: name).font(.system(size: 12, weight: i == path.count - 1 ? .semibold : .regular))
+                            .foregroundStyle(i == path.count - 1 ? Theme.textPrimary : Theme.textSecondary)
+                    }
+                }
+                Spacer()
+                Text(loc: "compound.editingHint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
             }
-            .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("compound.back")
-            Button { store.exitCompound(all: true) } label: { Text(loc: "compound.root") }
-                .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).testID("compound.root")
-            ForEach(Array(path.enumerated()), id: \.offset) { i, name in
-                Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
-                Text(verbatim: name).font(.system(size: 12, weight: i == path.count - 1 ? .semibold : .regular))
-                    .foregroundStyle(i == path.count - 1 ? Theme.textPrimary : Theme.textSecondary)
-            }
-            Spacer()
-            Text(loc: "compound.editingHint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+            .padding(.horizontal, 10).frame(height: 30)
+            .background(Theme.accent.opacity(0.1))
+            .testID("compound.breadcrumb")
         }
-        .padding(.horizontal, 10).frame(height: 30)
-        .background(Theme.accent.opacity(0.1))
-        .testID("compound.breadcrumb")
     }
 }

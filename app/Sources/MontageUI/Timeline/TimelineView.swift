@@ -12,7 +12,8 @@ import MontageEngine
 final class TimelineView: NSView {
     let store: EditorStore
     let renderer = Canvas2DRenderer()
-    var link: CADisplayLink?
+    /// CADisplayLink (macOS 14+) or LegacyDisplayLink (macOS 13).
+    var link: AnyObject?
     var fallbackTimer: Timer?
     var dirty = true
     var metalLayer: CAMetalLayer { layer as! CAMetalLayer }
@@ -134,11 +135,17 @@ final class TimelineView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        link?.invalidate(); link = nil
+        if #available(macOS 14, *), let l = link as? CADisplayLink { l.invalidate() }
+        (link as? LegacyDisplayLink)?.invalidate()
+        link = nil
         guard window != nil else { return }
-        let l = displayLink(target: self, selector: #selector(tick))
-        l.add(to: .main, forMode: .common)
-        link = l
+        if #available(macOS 14, *) {
+            let l = displayLink(target: self, selector: #selector(tick))
+            l.add(to: .main, forMode: .common)
+            link = l
+        } else {
+            link = LegacyDisplayLink(screen: window?.screen) { [weak self] _ in self?.tick() }
+        }
         updateTrackingAreas()
         // The display link pauses while the window is occluded (e.g. launched behind other apps for screenshots):
         // keep drawing at a low rate then.

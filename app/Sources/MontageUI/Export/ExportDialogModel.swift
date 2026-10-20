@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import AppKit
 import MontageCore
 import MontageEngine
@@ -11,7 +11,7 @@ public enum ExportScope: String, Codable, Sendable, CaseIterable {
 }
 
 /// Export dialog state (CapCut "Export" window, UX.md §7.1). The last choices are remembered per user.
-@Observable
+@Perceptible
 public final class ExportDialogModel {
     /// Persisted part (UserDefaults JSON).
     public struct Remembered: Codable, Equatable {

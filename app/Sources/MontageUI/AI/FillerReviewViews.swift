@@ -1,50 +1,53 @@
 import SwiftUI
 import MontageCore
 import MontageEngine
+import Perception
 
 /// "Remove filler words" bar of `TranscriptWorkspace` (C4): the one-click action with its scope ("Everywhere" /
 /// "In the 2 selected clips"), the kinds and minimum pause (options), and while a review is open what was found.
 struct FillerBar: View {
     let store: EditorStore
     var body: some View {
-        let ai = store.ai
-        let f = ai.fillers
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                if f.reviewing {
-                    let n = f.candidates.count
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: tr("fillers.found", n)).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-                        Text(verbatim: tr(f.style == .inline ? "fillers.inlineHint" : "fillers.reviewHint"))
-                            .font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).fixedSize(horizontal: false, vertical: true)
-                    }
-                } else {
-                    Button { store.removeFillerWords() } label: {
-                        HStack(spacing: 6) {
-                            if ai.fillers.pendingRemove { ProgressView().controlSize(.small).scaleEffect(0.7) }
-                            else { Image(systemName: "wand.and.stars").font(.system(size: 12, weight: .semibold)) }
-                            Text(loc: "transcript.removeFillers").font(.system(size: 12.5, weight: .semibold))
+        WithPerceptionTracking {
+            let ai = store.ai
+            let f = ai.fillers
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    if f.reviewing {
+                        let n = f.candidates.count
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: tr("fillers.found", n)).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                            Text(verbatim: tr(f.style == .inline ? "fillers.inlineHint" : "fillers.reviewHint"))
+                                .font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).fixedSize(horizontal: false, vertical: true)
                         }
-                        .foregroundStyle(.white).padding(.horizontal, 12).frame(height: 28)
-                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
-                        .contentShape(Rectangle())
+                    } else {
+                        Button { store.removeFillerWords() } label: {
+                            HStack(spacing: 6) {
+                                if ai.fillers.pendingRemove { ProgressView().controlSize(.small).scaleEffect(0.7) }
+                                else { Image(systemName: "wand.and.stars").font(.system(size: 12, weight: .semibold)) }
+                                Text(loc: "transcript.removeFillers").font(.system(size: 12.5, weight: .semibold))
+                            }
+                            .foregroundStyle(.white).padding(.horizontal, 12).frame(height: 28)
+                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.transcriptStatus == .noMedia || ai.fillers.pendingRemove)
+                        .help(tr(FillerRemovalStyle.current.hintKey))
+                        .testID("fillers.remove")
+                        Text(verbatim: scopeText).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).lineLimit(1)
+                            .testID("fillers.scope")
                     }
-                    .buttonStyle(.plain)
-                    .disabled(store.transcriptStatus == .noMedia || ai.fillers.pendingRemove)
-                    .help(tr(FillerRemovalStyle.current.hintKey))
-                    .testID("fillers.remove")
-                    Text(verbatim: scopeText).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).lineLimit(1)
-                        .testID("fillers.scope")
+                    Spacer(minLength: 4)
+                    SmallIconButton(symbol: "slider.horizontal.3", help: tr("fillers.options"), active: f.showOptions) { f.showOptions.toggle() }
+                        .testID("fillers.options")
                 }
-                Spacer(minLength: 4)
-                SmallIconButton(symbol: "slider.horizontal.3", help: tr("fillers.options"), active: f.showOptions) { f.showOptions.toggle() }
-                    .testID("fillers.options")
+                if f.showOptions { options }
             }
-            if f.showOptions { options }
+            .padding(10)
+            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+            .padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 4)
         }
-        .padding(10)
-        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-        .padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 4)
     }
 
     var scopeText: String {
@@ -58,8 +61,10 @@ struct FillerBar: View {
             HStack(spacing: 12) {
                 check("pause", on: ai.cleanupPauses) { ai.cleanupPauses.toggle() }
                 ForEach([FillerWords.Kind.hesitation, .filler, .repetition], id: \.self) { k in
-                    check(k.rawValue, on: ai.cleanupKinds.contains(k)) {
-                        if ai.cleanupKinds.contains(k) { ai.cleanupKinds.remove(k) } else { ai.cleanupKinds.insert(k) }
+                    WithPerceptionTracking {
+                        check(k.rawValue, on: ai.cleanupKinds.contains(k)) {
+                            if ai.cleanupKinds.contains(k) { ai.cleanupKinds.remove(k) } else { ai.cleanupKinds.insert(k) }
+                        }
                     }
                 }
             }
@@ -97,18 +102,22 @@ struct FillerBar: View {
 struct FillerChecklist: View {
     let store: EditorStore
     var body: some View {
-        let ai = store.ai
-        let f = ai.fillers
-        let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: store.project.timeline)
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(f.candidates.enumerated()), id: \.element.id) { i, c in
-                    row(i, c, words)
+        WithPerceptionTracking {
+            let ai = store.ai
+            let f = ai.fillers
+            let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: store.project.timeline)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(f.candidates.enumerated()), id: \.element.id) { i, c in
+                        WithPerceptionTracking {
+                            row(i, c, words)
+                        }
+                    }
                 }
+                .padding(.horizontal, 10).padding(.vertical, 6)
             }
-            .padding(.horizontal, 10).padding(.vertical, 6)
+            .testID("fillers.list")
         }
-        .testID("fillers.list")
     }
 
     func row(_ i: Int, _ c: FillerCleanup.Candidate, _ words: [TranscriptEditing.PlacedWord]) -> some View {
@@ -158,10 +167,12 @@ struct FillerChecklist: View {
 struct FillerKindBadge: View {
     let kind: FillerCleanup.Kind
     var body: some View {
-        Text(loc: "fillers.badge.\(kind.rawValue)")
-            .font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.black.opacity(0.8))
-            .padding(.horizontal, 5).frame(height: 15)
-            .background(Self.color(kind), in: RoundedRectangle(cornerRadius: 3))
+        WithPerceptionTracking {
+            Text(loc: "fillers.badge.\(kind.rawValue)")
+                .font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.black.opacity(0.8))
+                .padding(.horizontal, 5).frame(height: 15)
+                .background(Self.color(kind), in: RoundedRectangle(cornerRadius: 3))
+        }
     }
     static func color(_ k: FillerCleanup.Kind) -> Color {
         switch k {
@@ -180,18 +191,20 @@ struct FillerWordChip: View {
     let kind: FillerCleanup.Kind
     let toggle: () -> Void
     var body: some View {
-        Button(action: toggle) {
-            Text(verbatim: text)
-                .font(.system(size: 13, weight: .medium))
-                .strikethrough(dropped, color: .white.opacity(0.85))
-                .foregroundStyle(dropped ? Color.white : FillerKindBadge.color(kind))
-                .padding(.horizontal, 3).padding(.vertical, 1)
-                .background(dropped ? Color(hex: 0xC24040).opacity(0.85) : .clear, in: RoundedRectangle(cornerRadius: 3))
-                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(dropped ? .clear : FillerKindBadge.color(kind).opacity(0.8), lineWidth: 1))
-                .contentShape(Rectangle())
+        WithPerceptionTracking {
+            Button(action: toggle) {
+                Text(verbatim: text)
+                    .font(.system(size: 13, weight: .medium))
+                    .strikethrough(dropped, color: .white.opacity(0.85))
+                    .foregroundStyle(dropped ? Color.white : FillerKindBadge.color(kind))
+                    .padding(.horizontal, 3).padding(.vertical, 1)
+                    .background(dropped ? Color(hex: 0xC24040).opacity(0.85) : .clear, in: RoundedRectangle(cornerRadius: 3))
+                    .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(dropped ? .clear : FillerKindBadge.color(kind).opacity(0.8), lineWidth: 1))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(tr(dropped ? "fillers.clickToKeep" : "fillers.clickToRemove"))
         }
-        .buttonStyle(.plain)
-        .help(tr(dropped ? "fillers.clickToKeep" : "fillers.clickToRemove"))
     }
 }
 
@@ -201,17 +214,19 @@ struct FillerPauseChip: View {
     let dropped: Bool
     let toggle: () -> Void
     var body: some View {
-        Button(action: toggle) {
-            Text(verbatim: String(format: "%.2fs", seconds)).font(.system(size: 10, weight: .semibold).monospacedDigit())
-                .strikethrough(dropped, color: .white)
-                .foregroundStyle(dropped ? .white : Theme.textSecondary)
-                .padding(.horizontal, 6).frame(height: 17)
-                .background(dropped ? Color(hex: 0xC24040).opacity(0.85) : Theme.buttonSecondary, in: Capsule())
-                .overlay(Capsule().strokeBorder(dropped ? .clear : Color(hex: 0x9AA3AD), lineWidth: 1))
-                .contentShape(Capsule())
+        WithPerceptionTracking {
+            Button(action: toggle) {
+                Text(verbatim: String(format: "%.2fs", seconds)).font(.system(size: 10, weight: .semibold).monospacedDigit())
+                    .strikethrough(dropped, color: .white)
+                    .foregroundStyle(dropped ? .white : Theme.textSecondary)
+                    .padding(.horizontal, 6).frame(height: 17)
+                    .background(dropped ? Color(hex: 0xC24040).opacity(0.85) : Theme.buttonSecondary, in: Capsule())
+                    .overlay(Capsule().strokeBorder(dropped ? .clear : Color(hex: 0x9AA3AD), lineWidth: 1))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help(tr(dropped ? "fillers.clickToKeep" : "fillers.clickToRemove"))
         }
-        .buttonStyle(.plain)
-        .help(tr(dropped ? "fillers.clickToKeep" : "fillers.clickToRemove"))
     }
 }
 
@@ -219,23 +234,25 @@ struct FillerPauseChip: View {
 struct FillerReviewFooter: View {
     let store: EditorStore
     var body: some View {
-        let f = store.ai.fillers
-        let chosen = f.candidates.filter { f.dropped.contains($0.id) }
-        let seconds = FillerCleanup.totalDuration(chosen).seconds
-        HStack(spacing: 8) {
-            Button(tr(chosen.count == f.candidates.count ? "fillers.keepAll" : "fillers.removeAll")) {
-                f.dropped = chosen.count == f.candidates.count ? [] : Set(f.candidates.map(\.id))
+        WithPerceptionTracking {
+            let f = store.ai.fillers
+            let chosen = f.candidates.filter { f.dropped.contains($0.id) }
+            let seconds = FillerCleanup.totalDuration(chosen).seconds
+            HStack(spacing: 8) {
+                Button(tr(chosen.count == f.candidates.count ? "fillers.keepAll" : "fillers.removeAll")) {
+                    f.dropped = chosen.count == f.candidates.count ? [] : Set(f.candidates.map(\.id))
+                }
+                .buttonStyle(.link).font(Theme.Fonts.hint).testID("fillers.toggleAll")
+                Text(verbatim: tr("fillers.saves", Fmt.num(seconds, 1))).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).lineLimit(1)
+                Spacer()
+                PillButton(title: tr("common.cancel")) { store.cancelFillerReview() }.testID("fillers.cancel")
+                PillButton(title: tr(f.style == .inline ? "fillers.applyN" : "fillers.removeN", chosen.count), accent: true, enabled: !chosen.isEmpty) {
+                    store.applyFillerReview()
+                }
+                .testID("fillers.apply")
             }
-            .buttonStyle(.link).font(Theme.Fonts.hint).testID("fillers.toggleAll")
-            Text(verbatim: tr("fillers.saves", Fmt.num(seconds, 1))).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).lineLimit(1)
-            Spacer()
-            PillButton(title: tr("common.cancel")) { store.cancelFillerReview() }.testID("fillers.cancel")
-            PillButton(title: tr(f.style == .inline ? "fillers.applyN" : "fillers.removeN", chosen.count), accent: true, enabled: !chosen.isEmpty) {
-                store.applyFillerReview()
-            }
-            .testID("fillers.apply")
+            .padding(10)
+            .background(Theme.panelHeader.opacity(0.6))
         }
-        .padding(10)
-        .background(Theme.panelHeader.opacity(0.6))
     }
 }

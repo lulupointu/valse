@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageAI
+import Perception
 
 /// Dictate (TX-034): a mic button next to a text field. Click → speak → the words stream into the field (appended to
 /// what it held), click again (or pause 2.5 s) to stop. On-device speech recognition only. `onStart` / `onEnd` let a
@@ -15,23 +16,25 @@ struct DictateButton: View {
     @State private var error: String?
 
     var body: some View {
-        let d = Dictation.shared
-        let active = d.owner == testID
-        Button { toggle() } label: {
-            ZStack {
-                if active {
-                    Circle().fill(Color.red.opacity(0.25 + 0.5 * d.level)).frame(width: 24, height: 24)
+        WithPerceptionTracking {
+            let d = Dictation.shared
+            let active = d.owner == testID
+            Button { toggle() } label: {
+                ZStack {
+                    if active {
+                        Circle().fill(Color.red.opacity(0.25 + 0.5 * d.level)).frame(width: 24, height: 24)
+                    }
+                    Image(systemName: active ? "mic.fill" : "mic")
+                        .font(.system(size: 13))
+                        .foregroundStyle(active ? Color.red : (error == nil ? IStyle.icon : IStyle.warning))
                 }
-                Image(systemName: active ? "mic.fill" : "mic")
-                    .font(.system(size: 13))
-                    .foregroundStyle(active ? Color.red : (error == nil ? IStyle.icon : IStyle.warning))
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
             }
-            .frame(width: 26, height: 26)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .help(error ?? tr(active ? "dictate.stop" : "dictate.start"))
+            .testID(testID)
         }
-        .buttonStyle(.plain)
-        .help(error ?? tr(active ? "dictate.stop" : "dictate.start"))
-        .testID(testID)
     }
 
     func toggle() {
@@ -60,7 +63,7 @@ extension EditorStore {
     /// Binding to a text clip's string for dictation: every partial result updates the clip live inside one gesture
     /// (`DictateButton` onStart/onEnd), so a whole dictation is one undo step "Dictate".
     func dictationBinding(for clipID: ClipID) -> Binding<String> {
-        Binding(get: { [weak self] in
+        Binding.perceived(get: { [weak self] in
             guard case .text(let t)? = self?.project.timeline.clip(clipID)?.content else { return "" }
             return t.string
         }, set: { [weak self] s in

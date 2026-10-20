@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 @preconcurrency import AVFoundation
 import MontageCore
 import MontageEngine
@@ -13,28 +13,32 @@ import MontageAI
 enum CutoutInspector {
     static func autoKinds(_ c: Clip?) -> Bool { c?.matte.map { !$0.isBodyOnly && ($0.kind == "person" || $0.kind == "subject") } ?? false }
     static func isCustom(_ c: Clip?) -> Bool { c?.matte?.kind.hasPrefix("custom.") ?? false }
+    /// "Main subject" / "Customized" need Vision foreground instance segmentation (macOS 14+).
+    static var subjectAvailable: Bool { MatteGenerator.supportsInstanceSegmentation }
 
     @MainActor static let sections: [InspectorSection] = [
         InspectorSection(id: "cutout.auto", tab: "video", subTab: "cutout", order: 0, titleKey: "inspector.cutout.auto",
                          appliesTo: { $0.clip?.mediaID != nil }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: { autoKinds(ctx.clip) }, set: { on in
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: { autoKinds(ctx.clip) }, set: { on in
                 guard let id = ctx.clip?.id else { return }
-                ctx.store.setCutout(id, mode: on ? (CutoutUIState.shared.subject ? .subject : .person) : nil)
+                ctx.store.setCutout(id, mode: on ? (CutoutUIState.shared.subject && subjectAvailable ? .subject : .person) : nil)
             }))
         }) { AnyView(AutoCutoutSection(ctx: $0)) },
         InspectorSection(id: "cutout.custom", tab: "video", subTab: "cutout", order: 1, titleKey: "inspector.cutout.custom",
                          appliesTo: { $0.clip?.mediaID != nil }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: { isCustom(ctx.clip) || ctx.store.ai.brush?.clipID == ctx.clip?.id && ctx.clip != nil },
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: { isCustom(ctx.clip) || ctx.store.ai.brush?.clipID == ctx.clip?.id && ctx.clip != nil },
                                                       set: { on in
                 guard let id = ctx.clip?.id else { return }
                 if on { ctx.store.beginCutoutBrush(id) } else { ctx.store.endCutoutBrush(); if isCustom(ctx.clip) { ctx.store.setCutout(id, mode: nil) } }
-            }), reset: { ctx.store.ai.brush?.clear() })
+            }), reset: { ctx.store.ai.brush?.clear() },
+               // macOS 13: no Vision instance segmentation, so objects can't be picked with the brush
+               disabledReason: subjectAvailable ? nil : tr("cutout.needsMacOS14"))
         }) { AnyView(CustomCutoutSection(ctx: $0)) },
     ]
 }
 
 /// Session-only UI choice of the auto cutout detector.
-@MainActor @Observable final class CutoutUIState {
+@MainActor @Perceptible final class CutoutUIState {
     static let shared = CutoutUIState()
     var subject = false
 }
@@ -42,19 +46,24 @@ enum CutoutInspector {
 struct AutoCutoutSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let clip = ctx.clip
-        VStack(alignment: .leading, spacing: 4) {
-            if let id = clip?.id, let p = ctx.store.cutoutProgress(id) {
-                JobProgressLine(text: tr("cutout.applying", JobInfo.percent(p)), progress: p) { ctx.store.setCutout(id, mode: nil) }
-            }
-            InlineRow(label: tr("cutout.detect")) {
-                Dropdown(items: [(false, tr("cutout.detect.people")), (true, tr("cutout.detect.subject"))],
-                         selection: clip?.matte?.kind == "subject") { subj in
-                    CutoutUIState.shared.subject = subj
-                    if let id = clip?.id { ctx.store.setCutout(id, mode: subj ? .subject : .person) }
+        WithPerceptionTracking {
+            let clip = ctx.clip
+            VStack(alignment: .leading, spacing: 4) {
+                if let id = clip?.id, let p = ctx.store.cutoutProgress(id) {
+                    JobProgressLine(text: tr("cutout.applying", JobInfo.percent(p)), progress: p) { ctx.store.setCutout(id, mode: nil) }
                 }
+                InlineRow(label: tr("cutout.detect")) {
+                    Dropdown(items: CutoutInspector.subjectAvailable ? [(false, tr("cutout.detect.people")), (true, tr("cutout.detect.subject"))]
+                                                                     : [(false, tr("cutout.detect.people"))],
+                             selection: clip?.matte?.kind == "subject") { subj in
+                        CutoutUIState.shared.subject = subj
+                        if let id = clip?.id { ctx.store.setCutout(id, mode: subj ? .subject : .person) }
+                    }
+                }
+                // macOS 13: only people can be detected (no Vision foreground instance segmentation)
+                if !CutoutInspector.subjectAvailable { HintText(text: tr("cutout.subject.needsMacOS14")) }
+                MatteRefineRows(ctx: ctx)
             }
-            MatteRefineRows(ctx: ctx)
         }
     }
 }
@@ -63,16 +72,18 @@ struct AutoCutoutSection: View {
 struct MatteRefineRows: View {
     let ctx: InspectorContext
     var body: some View {
-        ClipParamRow(ctx: ctx, label: tr("cutout.feather"), spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
-                     get: { c, _ in (c.matte?.feather ?? 0) * 100 }, set: { c, v, _ in c.matte?.feather = v / 100 }, gestureName: "cmd.cutout")
-        ClipParamRow(ctx: ctx, label: tr("cutout.expand"), spec: RowSpec(range: -100...100, origin: 0, step: 1, format: Fmt.int),
-                     get: { c, _ in (c.matte?.expand ?? 0) * 100 }, set: { c, v, _ in c.matte?.expand = v / 100 }, gestureName: "cmd.cutout")
-        // Matting blend (CK-008): smooths the cut-out edge along image edges and removes background colour spill.
-        ClipParamRow(ctx: ctx, label: tr("cutout.edgeBlend"), spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
-                     get: { c, _ in (c.matte?.edgeBlend ?? 0) * 100 }, set: { c, v, _ in c.matte?.edgeBlend = v > 0 ? v / 100 : nil },
-                     gestureName: "cmd.cutout")
-        ToggleLine(label: tr("cutout.invert"), isOn: Bind.binding(ctx, "cmd.cutout", get: { $0.matte?.inverted ?? false },
-                                                                  set: { $0.matte?.inverted = $1 }, default: false))
+        WithPerceptionTracking {
+            ClipParamRow(ctx: ctx, label: tr("cutout.feather"), spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+                         get: { c, _ in (c.matte?.feather ?? 0) * 100 }, set: { c, v, _ in c.matte?.feather = v / 100 }, gestureName: "cmd.cutout")
+            ClipParamRow(ctx: ctx, label: tr("cutout.expand"), spec: RowSpec(range: -100...100, origin: 0, step: 1, format: Fmt.int),
+                         get: { c, _ in (c.matte?.expand ?? 0) * 100 }, set: { c, v, _ in c.matte?.expand = v / 100 }, gestureName: "cmd.cutout")
+            // Matting blend (CK-008): smooths the cut-out edge along image edges and removes background colour spill.
+            ClipParamRow(ctx: ctx, label: tr("cutout.edgeBlend"), spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+                         get: { c, _ in (c.matte?.edgeBlend ?? 0) * 100 }, set: { c, v, _ in c.matte?.edgeBlend = v > 0 ? v / 100 : nil },
+                         gestureName: "cmd.cutout")
+            ToggleLine(label: tr("cutout.invert"), isOn: Bind.binding(ctx, "cmd.cutout", get: { $0.matte?.inverted ?? false },
+                                                                      set: { $0.matte?.inverted = $1 }, default: false))
+        }
     }
 }
 
@@ -82,47 +93,51 @@ struct JobProgressLine: View {
     let progress: Double
     var cancel: (() -> Void)? = nil
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(verbatim: text).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-                Spacer()
-                if let cancel { SmallIconButton(symbol: "xmark.circle.fill", help: tr("ai.cancel"), size: 13, action: cancel).testID("job.cancel") }
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(verbatim: text).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    if let cancel { SmallIconButton(symbol: "xmark.circle.fill", help: tr("ai.cancel"), size: 13, action: cancel).testID("job.cancel") }
+                }
+                ProgressView(value: progress).progressViewStyle(.linear).tint(Theme.accent)
             }
-            ProgressView(value: progress).progressViewStyle(.linear).tint(Theme.accent)
+            .padding(.vertical, 6)
         }
-        .padding(.vertical, 6)
     }
 }
 
 struct CustomCutoutSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let store = ctx.store
-        VStack(alignment: .leading, spacing: 10) {
-            if let id = ctx.clip?.id, let p = store.cutoutProgress(id) {
-                JobProgressLine(text: tr("cutout.applyingCustom", JobInfo.percent(p)), progress: p) { store.setCutout(id, mode: nil) }
-            }
-            if let brush = store.ai.brush, brush.clipID == ctx.clip?.id {
-                HStack(spacing: 10) {
-                    toolButton(brush, .quickBrush, "paintbrush.pointed.fill", tr("cutout.quickBrush"))
-                    toolButton(brush, .quickEraser, "eraser.fill", tr("cutout.quickEraser"))
-                    Spacer()
+        WithPerceptionTracking {
+            let store = ctx.store
+            VStack(alignment: .leading, spacing: 10) {
+                if let id = ctx.clip?.id, let p = store.cutoutProgress(id) {
+                    JobProgressLine(text: tr("cutout.applyingCustom", JobInfo.percent(p)), progress: p) { store.setCutout(id, mode: nil) }
                 }
-                SliderRowView(label: tr("cutout.size"), unit: (brush.size - 1) / 99, originUnit: 0, gradient: nil, ticks: [],
-                              display: Fmt.int(brush.size), enabled: true, labelAccessory: nil, parse: NumberParse.number,
-                              onBegin: {}, onChange: { brush.size = 1 + $0 * 99 }, onEnd: {},
-                              commit: { brush.size = min(max($0, 1), 100) }, step: { brush.size = min(max(brush.size + Double($0), 1), 100) },
-                              triplet: nil)
-                HintText(text: tr(brush.strokes.isEmpty ? "cutout.brushHint" : (brush.previewing ? "cutout.previewing" : "cutout.brushReady")))
-                HStack {
-                    Spacer()
-                    PillButton(title: tr("ai.cancel")) { store.endCutoutBrush() }
-                    PillButton(title: tr("cutout.apply"), accent: true, enabled: !brush.strokes.isEmpty) { store.applyCutoutBrush() }
-                        .testID("cutout.apply")
+                if let brush = store.ai.brush, brush.clipID == ctx.clip?.id {
+                    HStack(spacing: 10) {
+                        toolButton(brush, .quickBrush, "paintbrush.pointed.fill", tr("cutout.quickBrush"))
+                        toolButton(brush, .quickEraser, "eraser.fill", tr("cutout.quickEraser"))
+                        Spacer()
+                    }
+                    SliderRowView(label: tr("cutout.size"), unit: (brush.size - 1) / 99, originUnit: 0, gradient: nil, ticks: [],
+                                  display: Fmt.int(brush.size), enabled: true, labelAccessory: nil, parse: NumberParse.number,
+                                  onBegin: {}, onChange: { brush.size = 1 + $0 * 99 }, onEnd: {},
+                                  commit: { brush.size = min(max($0, 1), 100) }, step: { brush.size = min(max(brush.size + Double($0), 1), 100) },
+                                  triplet: nil)
+                    HintText(text: tr(brush.strokes.isEmpty ? "cutout.brushHint" : (brush.previewing ? "cutout.previewing" : "cutout.brushReady")))
+                    HStack {
+                        Spacer()
+                        PillButton(title: tr("ai.cancel")) { store.endCutoutBrush() }
+                        PillButton(title: tr("cutout.apply"), accent: true, enabled: !brush.strokes.isEmpty) { store.applyCutoutBrush() }
+                            .testID("cutout.apply")
+                    }
+                } else if CutoutInspector.isCustom(ctx.clip) {
+                    MatteRefineRows(ctx: ctx)
+                    PillButton(title: tr("cutout.editSelection"), symbol: "paintbrush.pointed") { if let id = ctx.clip?.id { store.beginCutoutBrush(id) } }
                 }
-            } else if CutoutInspector.isCustom(ctx.clip) {
-                MatteRefineRows(ctx: ctx)
-                PillButton(title: tr("cutout.editSelection"), symbol: "paintbrush.pointed") { if let id = ctx.clip?.id { store.beginCutoutBrush(id) } }
             }
         }
     }
@@ -142,7 +157,7 @@ struct CustomCutoutSection: View {
 
 /// Customized cutout brush (canvas tool): paint over objects on the current frame (Quick brush selects whole objects,
 /// Quick eraser deselects), see the selection tinted live, then Apply → the selection is propagated through the clip.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class CutoutBrushTool: CanvasTool {
     public enum Tool: Sendable { case quickBrush, quickEraser }
     public let clipID: ClipID
@@ -152,12 +167,12 @@ public final class CutoutBrushTool: CanvasTool {
     public private(set) var strokes: [BrushStroke] = []
     public private(set) var revision = 0
     public private(set) var previewing = false
-    @ObservationIgnored weak var store: EditorStore?
-    @ObservationIgnored private var current: [Vec2] = []
-    @ObservationIgnored private var currentCanvas: [Vec2] = []
-    @ObservationIgnored private var preview: CGImage?
-    @ObservationIgnored private var frame: CGImage?
-    @ObservationIgnored private var previewTask: Task<Void, Never>?
+    @PerceptionIgnored weak var store: EditorStore?
+    @PerceptionIgnored private var current: [Vec2] = []
+    @PerceptionIgnored private var currentCanvas: [Vec2] = []
+    @PerceptionIgnored private var preview: CGImage?
+    @PerceptionIgnored private var frame: CGImage?
+    @PerceptionIgnored private var previewTask: Task<Void, Never>?
     let mediaTime: Time
 
     init(clipID: ClipID, store: EditorStore) {

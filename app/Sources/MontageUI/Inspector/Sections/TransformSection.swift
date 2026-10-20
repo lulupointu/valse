@@ -1,5 +1,6 @@
 import SwiftUI
 import MontageCore
+import Perception
 
 /// Video/Text/Sticker ▸ Position & Size (UX.md §5.1): Scale (+ Uniform scale / Scale X·Y), Position X·Y, Rotate with
 /// dial, alignment strip. Header: reset + group diamond over scale/position/rotation.
@@ -19,51 +20,53 @@ struct TransformSection: View {
     }
 
     var body: some View {
-        let canvas = ctx.store.projectSettings.canvasSize   // observation slice (perf)
-        let uniform = UniformScaleState.isUniform(ctx)
-        let pct = RowSpec(range: 1...500, step: 1, fieldRange: 1...1000, format: Fmt.percentValue)
-        VStack(alignment: .leading, spacing: 6) {
-            if uniform {
-                ClipParamRow(ctx: ctx, label: tr("prop.scale"), spec: pct,
-                             get: { c, t in (c.value(.scale, at: t)?.vec2?.x ?? 1) * 100 },
-                             set: { c, v, t in c.setValue(.scale, .vec2(Vec2(v / 100, v / 100)), at: t) },
-                             dependsOnTime: { $0.hasKeyframes(.scale) }, keyframeKeys: [.scale], gestureName: "cmd.transform")
-            } else {
-                Bind.row(ctx, tr("inspector.scaleX"), key: .scale, component: 0, spec: pct, toUI: { $0 * 100 }, fromUI: { $0 / 100 },
-                         gestureName: "cmd.transform")
-                Bind.row(ctx, tr("inspector.scaleY"), key: .scale, component: 1, spec: pct, toUI: { $0 * 100 }, fromUI: { $0 / 100 },
-                         gestureName: "cmd.transform")
-            }
-            ToggleLine(label: tr("inspector.uniformScale"), isOn: Binding(get: { uniform }, set: { UniformScaleState.set(ctx, $0) }))
-            InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [.position])) {
-                HStack(spacing: 14) {
-                    Bind.field(ctx, key: .position, component: 0, prefix: "X",
-                               spec: RowSpec(range: -canvas.width * 4...canvas.width * 4, step: 1, format: Fmt.int),
-                               toUI: { $0 * canvas.width }, fromUI: { $0 / canvas.width }, gestureName: "cmd.transform")
-                    // CapCut: Y grows upward.
-                    Bind.field(ctx, key: .position, component: 1, prefix: "Y",
-                               spec: RowSpec(range: -canvas.height * 4...canvas.height * 4, step: 1, format: Fmt.int),
-                               toUI: { -$0 * canvas.height }, fromUI: { -$0 / canvas.height }, gestureName: "cmd.transform")
+        WithPerceptionTracking {
+            let canvas = ctx.store.projectSettings.canvasSize   // observation slice (perf)
+            let uniform = UniformScaleState.isUniform(ctx)
+            let pct = RowSpec(range: 1...500, step: 1, fieldRange: 1...1000, format: Fmt.percentValue)
+            VStack(alignment: .leading, spacing: 6) {
+                if uniform {
+                    ClipParamRow(ctx: ctx, label: tr("prop.scale"), spec: pct,
+                                 get: { c, t in (c.value(.scale, at: t)?.vec2?.x ?? 1) * 100 },
+                                 set: { c, v, t in c.setValue(.scale, .vec2(Vec2(v / 100, v / 100)), at: t) },
+                                 dependsOnTime: { $0.hasKeyframes(.scale) }, keyframeKeys: [.scale], gestureName: "cmd.transform")
+                } else {
+                    Bind.row(ctx, tr("inspector.scaleX"), key: .scale, component: 0, spec: pct, toUI: { $0 * 100 }, fromUI: { $0 / 100 },
+                             gestureName: "cmd.transform")
+                    Bind.row(ctx, tr("inspector.scaleY"), key: .scale, component: 1, spec: pct, toUI: { $0 * 100 }, fromUI: { $0 / 100 },
+                             gestureName: "cmd.transform")
                 }
-            }
-            InlineRow(label: tr(rotateLabelKey), triplet: Bind.triplet(ctx, [.rotation])) {
-                HStack(spacing: 18) {
-                    Bind.field(ctx, key: .rotation, spec: RowSpec(range: -360...360, step: 1, format: Fmt.degrees),
-                               gestureName: "cmd.transform").testID("transform.rotate")
-                    RotationDialBinding(ctx: ctx, key: .rotation)
+                ToggleLine(label: tr("inspector.uniformScale"), isOn: Binding.perceived(get: { uniform }, set: { UniformScaleState.set(ctx, $0) }))
+                InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [.position])) {
+                    HStack(spacing: 14) {
+                        Bind.field(ctx, key: .position, component: 0, prefix: "X",
+                                   spec: RowSpec(range: -canvas.width * 4...canvas.width * 4, step: 1, format: Fmt.int),
+                                   toUI: { $0 * canvas.width }, fromUI: { $0 / canvas.width }, gestureName: "cmd.transform")
+                        // CapCut: Y grows upward.
+                        Bind.field(ctx, key: .position, component: 1, prefix: "Y",
+                                   spec: RowSpec(range: -canvas.height * 4...canvas.height * 4, step: 1, format: Fmt.int),
+                                   toUI: { -$0 * canvas.height }, fromUI: { -$0 / canvas.height }, gestureName: "cmd.transform")
+                    }
                 }
-            }
-            // CV-018: 3D rotation (tilt around the horizontal / vertical axis, perspective), keyframeable.
-            InlineRow(label: tr("inspector.rotate3D"), triplet: Bind.triplet(ctx, [.tilt])) {
-                HStack(spacing: 14) {
-                    Bind.field(ctx, key: .tilt, component: 0, prefix: "X", spec: RowSpec(range: -85...85, step: 1, format: { "\(Int($0.rounded()))°" }),
-                               gestureName: "cmd.transform").testID("transform.tilt.x")
-                    Bind.field(ctx, key: .tilt, component: 1, prefix: "Y", spec: RowSpec(range: -85...85, step: 1, format: { "\(Int($0.rounded()))°" }),
-                               gestureName: "cmd.transform").testID("transform.tilt.y")
+                InlineRow(label: tr(rotateLabelKey), triplet: Bind.triplet(ctx, [.rotation])) {
+                    HStack(spacing: 18) {
+                        Bind.field(ctx, key: .rotation, spec: RowSpec(range: -360...360, step: 1, format: Fmt.degrees),
+                                   gestureName: "cmd.transform").testID("transform.rotate")
+                        RotationDialBinding(ctx: ctx, key: .rotation)
+                    }
                 }
+                // CV-018: 3D rotation (tilt around the horizontal / vertical axis, perspective), keyframeable.
+                InlineRow(label: tr("inspector.rotate3D"), triplet: Bind.triplet(ctx, [.tilt])) {
+                    HStack(spacing: 14) {
+                        Bind.field(ctx, key: .tilt, component: 0, prefix: "X", spec: RowSpec(range: -85...85, step: 1, format: { "\(Int($0.rounded()))°" }),
+                                   gestureName: "cmd.transform").testID("transform.tilt.x")
+                        Bind.field(ctx, key: .tilt, component: 1, prefix: "Y", spec: RowSpec(range: -85...85, step: 1, format: { "\(Int($0.rounded()))°" }),
+                                   gestureName: "cmd.transform").testID("transform.tilt.y")
+                    }
+                }
+                .help(tr("inspector.rotate3D.help"))
+                AlignmentStrip(ctx: ctx)
             }
-            .help(tr("inspector.rotate3D.help"))
-            AlignmentStrip(ctx: ctx)
         }
     }
 }
@@ -73,16 +76,18 @@ struct RotationDialBinding: View {
     let ctx: InspectorContext
     let key: ParamKey
     var body: some View {
-        let store = ctx.store
-        let clip = ctx.clip
-        let deg = clip.map { $0.value(key, at: $0.hasKeyframes(key) ? ctx.localTime : .zero)?.scalar ?? 0 } ?? 0
-        RotationDial(degrees: deg, enabled: clip != nil,
-                     onBegin: { store.beginGesture("cmd.transform") },
-                     onChange: { v in
-                         guard let id = clip?.id else { return }
-                         Bind.apply(store, id, "cmd.transform") { c in c.setValue(key, .scalar((v * 100).rounded() / 100), at: Bind.local(store, c)) }
-                     },
-                     onEnd: { store.endGesture() })
+        WithPerceptionTracking {
+            let store = ctx.store
+            let clip = ctx.clip
+            let deg = clip.map { $0.value(key, at: $0.hasKeyframes(key) ? ctx.localTime : .zero)?.scalar ?? 0 } ?? 0
+            RotationDial(degrees: deg, enabled: clip != nil,
+                         onBegin: { store.beginGesture("cmd.transform") },
+                         onChange: { v in
+                             guard let id = clip?.id else { return }
+                             Bind.apply(store, id, "cmd.transform") { c in c.setValue(key, .scalar((v * 100).rounded() / 100), at: Bind.local(store, c)) }
+                         },
+                         onEnd: { store.endGesture() })
+        }
     }
 }
 
@@ -115,44 +120,46 @@ struct AlignmentStrip: View {
     enum Edge { case left, hCenter, right, top, vCenter, bottom }
 
     var body: some View {
-        let canAlign = geometry() != nil
-        HStack(spacing: 10) {
-            HStack(spacing: 0) {
-                button("align.horizontal.left", "inspector.align.left", .left, canAlign)
-                button("align.horizontal.center", "inspector.align.hCenter", .hCenter, canAlign)
-                button("align.horizontal.right", "inspector.align.right", .right, canAlign)
-                button("align.vertical.top", "inspector.align.top", .top, canAlign)
-                button("align.vertical.center", "inspector.align.vCenter", .vCenter, canAlign)
-                button("align.vertical.bottom", "inspector.align.bottom", .bottom, canAlign)
-                Rectangle().fill(Color.black.opacity(0.45)).frame(width: 1, height: 16).padding(.horizontal, 4)
-                // CV-009 (F3): live once several layers are selected
-                let canDistribute = ctx.store.selection.count >= 2 && ctx.store.canDistribute
-                SmallIconButton(symbol: "distribute.horizontal.center", help: tr("inspector.align.distributeH"), enabled: canDistribute, size: 13) {
-                    ctx.store.distributeSelection(.horizontal)
+        WithPerceptionTracking {
+            let canAlign = geometry() != nil
+            HStack(spacing: 10) {
+                HStack(spacing: 0) {
+                    button("align.horizontal.left", "inspector.align.left", .left, canAlign)
+                    button("align.horizontal.center", "inspector.align.hCenter", .hCenter, canAlign)
+                    button("align.horizontal.right", "inspector.align.right", .right, canAlign)
+                    button("align.vertical.top", "inspector.align.top", .top, canAlign)
+                    button("align.vertical.center", "inspector.align.vCenter", .vCenter, canAlign)
+                    button("align.vertical.bottom", "inspector.align.bottom", .bottom, canAlign)
+                    Rectangle().fill(Color.black.opacity(0.45)).frame(width: 1, height: 16).padding(.horizontal, 4)
+                    // CV-009 (F3): live once several layers are selected
+                    let canDistribute = ctx.store.selection.count >= 2 && ctx.store.canDistribute
+                    SmallIconButton(symbol: "distribute.horizontal.center", help: tr("inspector.align.distributeH"), enabled: canDistribute, size: 13) {
+                        ctx.store.distributeSelection(.horizontal)
+                    }
+                    .frame(width: 30).testID("align.distributeH")
+                    SmallIconButton(symbol: "distribute.vertical.center", help: tr("inspector.align.distributeV"), enabled: canDistribute, size: 13) {
+                        ctx.store.distributeSelection(.vertical)
+                    }
+                    .frame(width: 30).testID("align.distributeV")
                 }
-                .frame(width: 30).testID("align.distributeH")
-                SmallIconButton(symbol: "distribute.vertical.center", help: tr("inspector.align.distributeV"), enabled: canDistribute, size: 13) {
-                    ctx.store.distributeSelection(.vertical)
+                .padding(.horizontal, 4)
+                .frame(height: 26)
+                .background(IStyle.strip, in: RoundedRectangle(cornerRadius: 4))
+                HStack(spacing: 0) {
+                    SmallIconButton(symbol: "arrow.left.and.right.righttriangle.left.righttriangle.right", help: tr("inspector.flipH"),
+                                    active: ctx.clip?.transform.flipH ?? false, size: 13) { flip(h: true) }
+                        .frame(width: 30)
+                    SmallIconButton(symbol: "arrow.up.and.down.righttriangle.up.righttriangle.down", help: tr("inspector.flipV"),
+                                    active: ctx.clip?.transform.flipV ?? false, size: 13) { flip(h: false) }
+                        .frame(width: 30)
                 }
-                .frame(width: 30).testID("align.distributeV")
+                .padding(.horizontal, 4)
+                .frame(height: 26)
+                .background(IStyle.strip, in: RoundedRectangle(cornerRadius: 4))
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 4)
-            .frame(height: 26)
-            .background(IStyle.strip, in: RoundedRectangle(cornerRadius: 4))
-            HStack(spacing: 0) {
-                SmallIconButton(symbol: "arrow.left.and.right.righttriangle.left.righttriangle.right", help: tr("inspector.flipH"),
-                                active: ctx.clip?.transform.flipH ?? false, size: 13) { flip(h: true) }
-                    .frame(width: 30)
-                SmallIconButton(symbol: "arrow.up.and.down.righttriangle.up.righttriangle.down", help: tr("inspector.flipV"),
-                                active: ctx.clip?.transform.flipV ?? false, size: 13) { flip(h: false) }
-                    .frame(width: 30)
-            }
-            .padding(.horizontal, 4)
-            .frame(height: 26)
-            .background(IStyle.strip, in: RoundedRectangle(cornerRadius: 4))
-            Spacer(minLength: 0)
+            .padding(.top, 4)
         }
-        .padding(.top, 4)
     }
 
     func button(_ symbol: String, _ help: String, _ edge: Edge, _ enabled: Bool) -> some View {

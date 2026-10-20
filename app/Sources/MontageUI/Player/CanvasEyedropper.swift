@@ -1,5 +1,5 @@
 import AppKit
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 
@@ -7,14 +7,14 @@ import MontageEngine
 /// samples the frame — only the video, never the rest of the screen (W2-8, replaces the system `NSColorSampler`).
 /// The frame is rendered once when the tool starts, with the effect being edited switched off (picking the key colour
 /// of an already keyed clip samples the original pixels, not the transparent hole).
-@Observable
+@Perceptible
 @MainActor
 final class CanvasEyedropperTool: CanvasTool {
     private(set) var revision = 0
-    @ObservationIgnored private var pixels: [UInt8] = []
-    @ObservationIgnored private var size = (w: 0, h: 0)
-    @ObservationIgnored let canvas: Size2
-    @ObservationIgnored private let onPick: (RGBA) -> Void
+    @PerceptionIgnored private var pixels: [UInt8] = []
+    @PerceptionIgnored private var size = (w: 0, h: 0)
+    @PerceptionIgnored let canvas: Size2
+    @PerceptionIgnored private let onPick: (RGBA) -> Void
     private(set) var hover: Vec2?
 
     init(canvas: Size2, onPick: @escaping (RGBA) -> Void) {

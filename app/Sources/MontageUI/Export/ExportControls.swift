@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import MontageCore
+import Perception
 
 /// Export dialog palette (UX.md §7.1, screenshots 110–113).
 enum ExportStyle {
@@ -47,23 +48,25 @@ struct ExportDropdown<ID: Hashable>: View {
     let onSelect: (ID) -> Void
 
     var body: some View {
-        Button {
-            ExportMenuPresenter.show(items: items, selection: selection, onSelect: onSelect)
-        } label: {
-            HStack {
-                Text(verbatim: items.first { $0.id == selection }?.title ?? "")
-                    .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+        WithPerceptionTracking {
+            Button {
+                ExportMenuPresenter.show(items: items, selection: selection, onSelect: onSelect)
+            } label: {
+                HStack {
+                    Text(verbatim: items.first { $0.id == selection }?.title ?? "")
+                        .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                }
+                .padding(.horizontal, 8)
+                .frame(maxWidth: .infinity, minHeight: 22, maxHeight: 22)
+                .background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: 22, maxHeight: 22)
-            .background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+            .opacity(enabled ? 1 : 0.35)
         }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.35)
     }
 }
 
@@ -93,12 +96,14 @@ struct ExportRow<Content: View>: View {
     var enabled = true
     @ViewBuilder let content: () -> Content
     var body: some View {
-        HStack(spacing: 12) {
-            Text(verbatim: label).font(.system(size: 12.5)).foregroundStyle(enabled ? ExportStyle.label : ExportStyle.disabledLabel)
-                .frame(width: ExportStyle.labelWidth, alignment: .leading).lineLimit(1).minimumScaleFactor(0.85)
-            content().frame(maxWidth: .infinity, alignment: .leading)
+        WithPerceptionTracking {
+            HStack(spacing: 12) {
+                Text(verbatim: label).font(.system(size: 12.5)).foregroundStyle(enabled ? ExportStyle.label : ExportStyle.disabledLabel)
+                    .frame(width: ExportStyle.labelWidth, alignment: .leading).lineLimit(1).minimumScaleFactor(0.85)
+                content().frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(minHeight: ExportStyle.rowHeight)
         }
-        .frame(minHeight: ExportStyle.rowHeight)
     }
 }
 
@@ -110,22 +115,24 @@ struct ExportSectionHeader: View {
     @Binding var expanded: Bool
     var enabled = true
     var body: some View {
-        HStack(spacing: 8) {
-            Button { isOn.toggle() } label: {
-                HStack(spacing: 8) {
-                    ExportCheckboxBox(isOn: isOn)
-                    Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(enabled ? .white : ExportStyle.disabledLabel)
-                }.contentShape(Rectangle())
+        WithPerceptionTracking {
+            HStack(spacing: 8) {
+                Button { isOn.toggle() } label: {
+                    HStack(spacing: 8) {
+                        ExportCheckboxBox(isOn: isOn)
+                        Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(enabled ? .white : ExportStyle.disabledLabel)
+                    }.contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).disabled(!enabled).testID("export.section.\(id)")
+                Button { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
+                    Image(systemName: expanded ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill").font(.system(size: 7))
+                        .foregroundStyle(enabled ? Theme.textSecondary : ExportStyle.disabledLabel).frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain).testID("export.section.\(id).expand")
+                Spacer()
             }
-            .buttonStyle(.plain).disabled(!enabled).testID("export.section.\(id)")
-            Button { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
-                Image(systemName: expanded ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill").font(.system(size: 7))
-                    .foregroundStyle(enabled ? Theme.textSecondary : ExportStyle.disabledLabel).frame(width: 16, height: 16)
-            }
-            .buttonStyle(.plain).testID("export.section.\(id).expand")
-            Spacer()
+            .frame(height: 32)
         }
-        .frame(height: 32)
     }
 }
 
@@ -134,19 +141,23 @@ struct ExportCheckbox: View {
     @Binding var isOn: Bool
     var enabled = true
     var body: some View {
-        Button { isOn.toggle() } label: { ExportCheckboxBox(isOn: isOn) }
-            .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.4)
+        WithPerceptionTracking {
+            Button { isOn.toggle() } label: { ExportCheckboxBox(isOn: isOn) }
+                .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.4)
+        }
     }
 }
 
 struct ExportCheckboxBox: View {
     let isOn: Bool
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
-            if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+        WithPerceptionTracking {
+            ZStack {
+                RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
+                if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+            }
+            .frame(width: 16, height: 16)
         }
-        .frame(width: 16, height: 16)
     }
 }
 
@@ -156,15 +167,17 @@ struct ExportToggle: View {
     var enabled = true
     var label = ""   // SE-017
     var body: some View {
-        Button { withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() } } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule().fill(isOn ? Theme.accent : Theme.stepper).frame(width: 36, height: 20)
-                Circle().fill(Color.white).frame(width: 14, height: 14).padding(.horizontal, 3)
+        WithPerceptionTracking {
+            Button { withAnimation(.easeOut(duration: 0.12)) { isOn.toggle() } } label: {
+                ZStack(alignment: isOn ? .trailing : .leading) {
+                    Capsule().fill(isOn ? Theme.accent : Theme.stepper).frame(width: 36, height: 20)
+                    Circle().fill(Color.white).frame(width: 14, height: 14).padding(.horizontal, 3)
+                }
+                .frame(width: 36, height: 20).contentShape(Capsule())
             }
-            .frame(width: 36, height: 20).contentShape(Capsule())
+            .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.4)
+            .accessibilityLabel(Text(verbatim: label.isEmpty ? tr("ax.switch") : label))
+            .accessibilityValue(Text(verbatim: tr(isOn ? "ax.on" : "ax.off")))
         }
-        .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.4)
-        .accessibilityLabel(Text(verbatim: label.isEmpty ? tr("ax.switch") : label))
-        .accessibilityValue(Text(verbatim: tr(isOn ? "ax.on" : "ax.off")))
     }
 }

@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageEffects
+import Perception
 
 // Canvas finisher rows: Video ▸ Basic ▸ ☐ Lens correction (CV-015). 3D rotation (CV-018) lives in TransformSection;
 // shape-sticker colour adjustments (CV-017) reuse the Adjust tab (see `BuiltinInspector`).
@@ -27,7 +28,7 @@ struct LensCorrectionSection: View {
         let store = ctx.store
         let inst = instance(ctx)
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { inst != nil }, set: { on in
+            isEnabled: Binding.perceived(get: { inst != nil }, set: { on in
                 guard let id = ctx.clip?.id else { return }
                 store.performInspector(UpdateClip(id, nameKey: "cmd.lensCorrection") { c in
                     if on {
@@ -52,10 +53,12 @@ struct LensCorrectionSection: View {
     }
 
     var body: some View {
-        if let inst = Self.instance(ctx) {
-            EffectParamRows(ctx: ctx, instance: inst, descriptor: BuiltinLensCorrection.descriptor)
-        } else {
-            HintText(text: tr("lens.hint"))
+        WithPerceptionTracking {
+            if let inst = Self.instance(ctx) {
+                EffectParamRows(ctx: ctx, instance: inst, descriptor: BuiltinLensCorrection.descriptor)
+            } else {
+                HintText(text: tr("lens.hint"))
+            }
         }
     }
 }

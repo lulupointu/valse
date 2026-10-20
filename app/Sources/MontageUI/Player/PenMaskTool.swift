@@ -1,5 +1,5 @@
 import AppKit
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 
@@ -7,18 +7,18 @@ import MontageEngine
 /// double-click — to close the outline). While drawing, a drag after a click moves the point just placed. Closing
 /// replaces the selected mask's outline, box and rotation in one undo step (`cmd.mask`); the inspector's Pen tile
 /// (or "Redraw") starts the tool, leaving the Mask tab cancels it.
-@Observable
+@Perceptible
 @MainActor
 final class PenMaskTool: CanvasTool {
     private(set) var revision = 0
-    @ObservationIgnored let clipID: ClipID
-    @ObservationIgnored let target: MaskTarget
-    @ObservationIgnored weak var store: EditorStore?
+    @PerceptionIgnored let clipID: ClipID
+    @PerceptionIgnored let target: MaskTarget
+    @PerceptionIgnored weak var store: EditorStore?
     /// Clicked points, canvas pixels.
     private(set) var points: [Vec2] = []
     private(set) var hover: Vec2?
     /// View points per canvas pixel, from the last draw (closing distance is in view points).
-    @ObservationIgnored private var viewScale = 1.0
+    @PerceptionIgnored private var viewScale = 1.0
     static let closeRadius = 9.0
 
     init(clipID: ClipID, target: MaskTarget, store: EditorStore) {

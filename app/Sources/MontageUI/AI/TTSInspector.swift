@@ -4,6 +4,7 @@ import NaturalLanguage
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// Text clip ▸ Text to speech (UX_AI §7, [131], AU-030/TX-016): search, language pills, voice tiles (click = preview),
 /// Speed / Pitch, ☐ Update speech according to script, footer [Generate speech] (+ Apply to all).
@@ -17,7 +18,7 @@ enum TTSInspector {
     ]
 }
 
-@MainActor @Observable final class TTSUIState {
+@MainActor @Perceptible final class TTSUIState {
     static let shared = TTSUIState()
     var voice: String?
     var rate: Double = 1
@@ -56,54 +57,62 @@ struct TTSVoicesSection: View {
         localizedNames.contains(v.name) ? tr("tts.voiceName.\(v.name)") : v.name
     }
     var body: some View {
-        let st = TTSUIState.shared
-        let langs = st.language == "auto" ? ["fr", "en"] : [st.language]
-        let voices = SpeechSynthesis.voices(languages: langs).filter { st.query.isEmpty || $0.name.localizedCaseInsensitiveContains(st.query) }
-        let current = st.voice ?? existing?.voice ?? SpeechSynthesis.defaultVoice(L10n.shared.language)?.id
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(IStyle.caption)
-                TextField(tr("tts.search"), text: Binding(get: { st.query }, set: { st.query = $0 })).textFieldStyle(.plain).font(Theme.Fonts.row)
-            }
-            .padding(.horizontal, 8).frame(height: 28).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
-            HStack(spacing: 8) {
-                ForEach([("auto", tr("tts.lang.all")), ("fr", tr("tts.lang.fr")), ("en", tr("tts.lang.en"))], id: \.0) { id, title in
-                    Text(verbatim: title).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
-                        .padding(.horizontal, 14).frame(height: 28)
-                        .background(st.language == id ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
-                        .onTapGesture { st.language = id }
+        WithPerceptionTracking {
+            let st = TTSUIState.shared
+            let langs = st.language == "auto" ? ["fr", "en"] : [st.language]
+            let voices = SpeechSynthesis.voices(languages: langs).filter { st.query.isEmpty || $0.name.localizedCaseInsensitiveContains(st.query) }
+            let current = st.voice ?? existing?.voice ?? SpeechSynthesis.defaultVoice(L10n.shared.language)?.id
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(IStyle.caption)
+                    TextField(tr("tts.search"), text: Binding.perceived(get: { st.query }, set: { st.query = $0 })).textFieldStyle(.plain).font(Theme.Fonts.row)
                 }
-            }
-            // one group per locale ("Français (Canada)"), each voice name once per group (best quality kept)
-            ForEach(Self.groups(voices), id: \.locale) { g in
-                GroupCaption(title: Self.localeTitle(g.locale))
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 96), spacing: 10)], spacing: 10) {
-                    ForEach(g.voices) { v in
-                        Button { st.voice = v.id; sample(v) } label: {
-                            VStack(spacing: 4) {
-                                Text(verbatim: Self.displayName(v)).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                                    .multilineTextAlignment(.center).lineLimit(2)
-                                if v.quality >= 1 { Text(verbatim: tr("tts.voice.hqBadge")).font(.system(size: 10)).foregroundStyle(IStyle.caption) }
-                            }
-                            .frame(width: 84, height: 64)
-                            .background(IStyle.tile, in: RoundedRectangle(cornerRadius: 8))
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(current == v.id ? Theme.accent : .clear, lineWidth: 2))
-                            .contentShape(Rectangle())
+                .padding(.horizontal, 8).frame(height: 28).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                HStack(spacing: 8) {
+                    ForEach([("auto", tr("tts.lang.all")), ("fr", tr("tts.lang.fr")), ("en", tr("tts.lang.en"))], id: \.0) { id, title in
+                        WithPerceptionTracking {
+                            Text(verbatim: title).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                                .padding(.horizontal, 14).frame(height: 28)
+                                .background(st.language == id ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                                .onTapGesture { st.language = id }
                         }
-                        .buttonStyle(.plain)
-                        .help(tr(v.quality >= 1 ? "tts.voice.hq" : "tts.voice.compact"))
-                        .testID("tts.voice.\(v.name.replacingOccurrences(of: " ", with: "_")).\(v.language)")
                     }
                 }
+                // one group per locale ("Français (Canada)"), each voice name once per group (best quality kept)
+                ForEach(Self.groups(voices), id: \.locale) { g in
+                    WithPerceptionTracking {
+                        GroupCaption(title: Self.localeTitle(g.locale))
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 96), spacing: 10)], spacing: 10) {
+                            ForEach(g.voices) { v in
+                                WithPerceptionTracking {
+                                    Button { st.voice = v.id; sample(v) } label: {
+                                        VStack(spacing: 4) {
+                                            Text(verbatim: Self.displayName(v)).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                                .multilineTextAlignment(.center).lineLimit(2)
+                                            if v.quality >= 1 { Text(verbatim: tr("tts.voice.hqBadge")).font(.system(size: 10)).foregroundStyle(IStyle.caption) }
+                                        }
+                                        .frame(width: 84, height: 64)
+                                        .background(IStyle.tile, in: RoundedRectangle(cornerRadius: 8))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(current == v.id ? Theme.accent : .clear, lineWidth: 2))
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(tr(v.quality >= 1 ? "tts.voice.hq" : "tts.voice.compact"))
+                                    .testID("tts.voice.\(v.name.replacingOccurrences(of: " ", with: "_")).\(v.language)")
+                                }
+                            }
+                        }
+                    }
+                }
+                GroupCaption(title: tr("tts.adjust"))
+                SliderRowView(label: tr("tts.speed"), unit: (st.rate - 0.5) / 1.5, originUnit: 0, gradient: nil, ticks: [], display: Fmt.speed(st.rate),
+                              enabled: true, labelAccessory: nil, parse: NumberParse.number, onBegin: {}, onChange: { st.rate = 0.5 + $0 * 1.5 }, onEnd: {},
+                              commit: { st.rate = min(max($0, 0.5), 2) }, step: { st.rate = min(max(st.rate + Double($0) * 0.1, 0.5), 2) }, triplet: nil)
+                SliderRowView(label: tr("tts.pitch"), unit: (st.pitch - 0.5) / 1.5, originUnit: 1.0 / 3, gradient: nil, ticks: [], display: Fmt.speed(st.pitch),
+                              enabled: true, labelAccessory: nil, parse: NumberParse.number, onBegin: {}, onChange: { st.pitch = 0.5 + $0 * 1.5 }, onEnd: {},
+                              commit: { st.pitch = min(max($0, 0.5), 2) }, step: { st.pitch = min(max(st.pitch + Double($0) * 0.1, 0.5), 2) }, triplet: nil)
+                ToggleLine(label: tr("tts.updateWithScript"), isOn: Binding.perceived(get: { st.autoUpdate }, set: { st.autoUpdate = $0 }))
             }
-            GroupCaption(title: tr("tts.adjust"))
-            SliderRowView(label: tr("tts.speed"), unit: (st.rate - 0.5) / 1.5, originUnit: 0, gradient: nil, ticks: [], display: Fmt.speed(st.rate),
-                          enabled: true, labelAccessory: nil, parse: NumberParse.number, onBegin: {}, onChange: { st.rate = 0.5 + $0 * 1.5 }, onEnd: {},
-                          commit: { st.rate = min(max($0, 0.5), 2) }, step: { st.rate = min(max(st.rate + Double($0) * 0.1, 0.5), 2) }, triplet: nil)
-            SliderRowView(label: tr("tts.pitch"), unit: (st.pitch - 0.5) / 1.5, originUnit: 1.0 / 3, gradient: nil, ticks: [], display: Fmt.speed(st.pitch),
-                          enabled: true, labelAccessory: nil, parse: NumberParse.number, onBegin: {}, onChange: { st.pitch = 0.5 + $0 * 1.5 }, onEnd: {},
-                          commit: { st.pitch = min(max($0, 0.5), 2) }, step: { st.pitch = min(max(st.pitch + Double($0) * 0.1, 0.5), 2) }, triplet: nil)
-            ToggleLine(label: tr("tts.updateWithScript"), isOn: Binding(get: { st.autoUpdate }, set: { st.autoUpdate = $0 }))
         }
     }
 
@@ -125,15 +134,17 @@ struct TTSVoicesSection: View {
 struct TTSFooter: View {
     let ctx: InspectorContext
     var body: some View {
-        let st = TTSUIState.shared
-        HStack {
-            PillButton(title: tr("inspector.applyToAll")) { ctx.store.generateSpeechForAllTexts() }
-            Spacer()
-            if let id = ctx.clip?.id, st.generating.contains(id) { ProgressView().controlSize(.small); Text(loc: "tts.generating").font(Theme.Fonts.hint) }
-            PillButton(title: tr("tts.generate"), accent: true, enabled: ctx.clip.map { !st.generating.contains($0.id) } ?? false) {
-                if let id = ctx.clip?.id { ctx.store.generateSpeech(for: id) }
+        WithPerceptionTracking {
+            let st = TTSUIState.shared
+            HStack {
+                PillButton(title: tr("inspector.applyToAll")) { ctx.store.generateSpeechForAllTexts() }
+                Spacer()
+                if let id = ctx.clip?.id, st.generating.contains(id) { ProgressView().controlSize(.small); Text(loc: "tts.generating").font(Theme.Fonts.hint) }
+                PillButton(title: tr("tts.generate"), accent: true, enabled: ctx.clip.map { !st.generating.contains($0.id) } ?? false) {
+                    if let id = ctx.clip?.id { ctx.store.generateSpeech(for: id) }
+                }
+                .testID("tts.generate")
             }
-            .testID("tts.generate")
         }
     }
 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Perception
 import MontageCore
 
 /// Multi-line text editor bound to a text clip (Text ▸ Basic text area, the inline canvas editor). Typing is one undo
@@ -31,7 +32,8 @@ struct ClipTextEditor: NSViewRepresentable {
         tv.insertionPointColor = NSColor(Theme.accent)
         tv.alignment = alignment
         tv.textContainerInset = NSSize(width: 4, height: 4)
-        tv.string = context.coordinator.currentString()
+        // later changes come through updateNSView (RepresentableTracking); this first read needn't be tracked
+        tv.string = _PerceptionLocals.$skipPerceptionChecking.withValue(true) { context.coordinator.currentString() }
         context.coordinator.textView = tv
         if focusOnAppear {
             DispatchQueue.main.async {
@@ -45,11 +47,15 @@ struct ClipTextEditor: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
         guard let tv = scroll.documentView as? NSTextView else { return }
-        let s = context.coordinator.currentString()
-        if tv.string != s, !context.coordinator.isTyping {
-            let sel = tv.selectedRange()
-            tv.string = s
-            tv.setSelectedRange(NSRange(location: min(sel.location, (s as NSString).length), length: 0))
+        let c = context.coordinator
+        c.tracking.run { [weak c, weak tv] in
+            guard let c, let tv else { return }
+            let s = c.currentString()
+            if tv.string != s, !c.isTyping {
+                let sel = tv.selectedRange()
+                tv.string = s
+                tv.setSelectedRange(NSRange(location: min(sel.location, (s as NSString).length), length: 0))
+            }
         }
         tv.alignment = alignment
     }
@@ -59,6 +65,7 @@ struct ClipTextEditor: NSViewRepresentable {
     @MainActor final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: ClipTextEditor
         weak var textView: NSTextView?
+        let tracking = RepresentableTracking()
         var isTyping = false
         private var idle: Task<Void, Never>?
 

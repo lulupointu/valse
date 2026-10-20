@@ -1,6 +1,6 @@
 import Foundation
 import AppKit
-import Observation
+import Perception
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
@@ -8,7 +8,7 @@ import MontageEngine
 /// App-level state (W12): which screen shows (Home or editor), the project library listing, modal dialogs, and every
 /// project-management flow (new / open / back to home / rename / duplicate / trash / folders / import / pack).
 /// One `EditorStore` (and its playback engine) is reused for every project.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class AppModel {
     public enum Screen: Equatable { case home, editor }
 
@@ -48,7 +48,7 @@ public final class AppModel {
     public let store: EditorStore
     public let preferences: AppPreferences
     public var library: ProjectLibrary { libraryOverride ?? ProjectLibrary.shared }
-    @ObservationIgnored var libraryOverride: ProjectLibrary?
+    @PerceptionIgnored var libraryOverride: ProjectLibrary?
 
     // Home state
     public private(set) var entries: [LibraryEntry] = []
@@ -72,10 +72,10 @@ public final class AppModel {
     public private(set) var lastTrashed: [URL] = []
     /// PM-009: the Save-to folder is on an external / network drive, or its drive isn't connected (Home banner).
     public private(set) var saveFolderWarning: StorageLocation?
-    @ObservationIgnored private var volumeObservers: [NSObjectProtocol] = []
+    @PerceptionIgnored private var volumeObservers: [NSObjectProtocol] = []
 
-    @ObservationIgnored private var scanTask: Task<Void, Never>?
-    @ObservationIgnored private var checkedRecovery = false
+    @PerceptionIgnored private var scanTask: Task<Void, Never>?
+    @PerceptionIgnored private var checkedRecovery = false
     /// P1: title-bar project switcher (⌘⇧O).
     public let switcher = ProjectSwitcher()
 

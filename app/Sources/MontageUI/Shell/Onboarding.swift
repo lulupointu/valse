@@ -1,11 +1,11 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 
 /// Tutorials & onboarding (PM-016): a first-run walkthrough of the editor — one tip per panel (import → player →
 /// edit → timeline → export) shown as a coach card on that panel with Next / Skip, remembered once done; Help ▸ Show
 /// editor tips replays it. "What's new" lists the latest features once per version.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class Onboarding {
     public static let shared = Onboarding()
     static let seenKey = "montage.onboarding.editorTipsSeen"
@@ -65,56 +65,62 @@ public final class Onboarding {
 
 /// Coach card shown on the panel of the current tip.
 struct CoachCard: View {
-    @Bindable var onboarding = Onboarding.shared
+    @Perception.Bindable var onboarding = Onboarding.shared
     let step: Onboarding.Step
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(loc: step.titleKey).font(.system(size: 13, weight: .semibold)).foregroundStyle(.black)
-                Spacer()
-                Text(verbatim: "\(step.rawValue + 1)/\(Onboarding.Step.allCases.count)").font(.system(size: 11).monospacedDigit())
-                    .foregroundStyle(.black.opacity(0.6))
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(loc: step.titleKey).font(.system(size: 13, weight: .semibold)).foregroundStyle(.black)
+                    Spacer()
+                    Text(verbatim: "\(step.rawValue + 1)/\(Onboarding.Step.allCases.count)").font(.system(size: 11).monospacedDigit())
+                        .foregroundStyle(.black.opacity(0.6))
+                }
+                Text(loc: step.bodyKey).font(.system(size: 12)).foregroundStyle(.black.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button(tr("tips.skip")) { onboarding.finish() }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.black.opacity(0.6))
+                        .testID("tips.skip")
+                    Spacer()
+                    Button(tr(step == Onboarding.Step.allCases.last ? "tips.done" : "tips.next")) { onboarding.next() }
+                        .buttonStyle(.plain).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                        .padding(.horizontal, 12).padding(.vertical, 5).background(Color.black.opacity(0.85), in: Capsule())
+                        .testID("tips.next")
+                }
             }
-            Text(loc: step.bodyKey).font(.system(size: 12)).foregroundStyle(.black.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Button(tr("tips.skip")) { onboarding.finish() }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.black.opacity(0.6))
-                    .testID("tips.skip")
-                Spacer()
-                Button(tr(step == Onboarding.Step.allCases.last ? "tips.done" : "tips.next")) { onboarding.next() }
-                    .buttonStyle(.plain).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                    .padding(.horizontal, 12).padding(.vertical, 5).background(Color.black.opacity(0.85), in: Capsule())
-                    .testID("tips.next")
-            }
+            .padding(12)
+            .frame(width: 280)
+            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
+            .shadow(color: .black.opacity(0.4), radius: 10)
+            .testID("tips.card")
         }
-        .padding(12)
-        .frame(width: 280)
-        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(0.4), radius: 10)
-        .testID("tips.card")
     }
 }
 
 /// "What's new" card (once per `whatsNewVersion`).
 struct WhatsNewCard: View {
-    @Bindable var onboarding = Onboarding.shared
+    @Perception.Bindable var onboarding = Onboarding.shared
     var body: some View {
-        DialogCard(title: tr("whatsnew.title"), width: 440, onClose: { onboarding.closeWhatsNew() }) {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(Onboarding.whatsNew, id: \.self) { k in
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "sparkle").foregroundStyle(Theme.accent).font(.system(size: 11))
-                        Text(loc: k).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
+        WithPerceptionTracking {
+            DialogCard(title: tr("whatsnew.title"), width: 440, onClose: { onboarding.closeWhatsNew() }) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Onboarding.whatsNew, id: \.self) { k in
+                        WithPerceptionTracking {
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "sparkle").foregroundStyle(Theme.accent).font(.system(size: 11))
+                                Text(loc: k).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    HStack {
+                        Button(tr("tips.replay")) { onboarding.closeWhatsNew(); onboarding.start() }
+                            .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+                        Spacer()
+                        Button(tr("common.ok")) { onboarding.closeWhatsNew() }.buttonStyle(AccentButtonStyle()).testID("whatsnew.ok")
                     }
                 }
-                HStack {
-                    Button(tr("tips.replay")) { onboarding.closeWhatsNew(); onboarding.start() }
-                        .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
-                    Spacer()
-                    Button(tr("common.ok")) { onboarding.closeWhatsNew() }.buttonStyle(AccentButtonStyle()).testID("whatsnew.ok")
-                }
+                .padding(16)
             }
-            .padding(16)
+            .testID("whatsnew")
         }
-        .testID("whatsnew")
     }
 }

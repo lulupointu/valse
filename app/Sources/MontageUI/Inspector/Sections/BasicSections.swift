@@ -2,6 +2,7 @@ import SwiftUI
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 // MARK: - Blend
 
@@ -11,7 +12,7 @@ struct BlendSection: View {
 
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         InspectorSectionChrome(
-            isEnabled: Binding(get: { !(ctx.clip.map { InspectorUIState.shared.blendOff.contains($0.id) } ?? false) },
+            isEnabled: Binding.perceived(get: { !(ctx.clip.map { InspectorUIState.shared.blendOff.contains($0.id) } ?? false) },
                                set: { on in
                                    guard let id = ctx.clip?.id else { return }
                                    if on { InspectorUIState.shared.blendOff.remove(id) } else {
@@ -29,14 +30,16 @@ struct BlendSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            InlineRow(label: tr("inspector.blendMode")) {
-                Dropdown(items: BlendMode.allCases.map { ($0, tr($0.nameKey)) }, selection: ctx.clip?.blendMode ?? .normal) { m in
-                    guard let id = ctx.clip?.id else { return }
-                    ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.blend") { $0.blendMode = m })
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 6) {
+                InlineRow(label: tr("inspector.blendMode")) {
+                    Dropdown(items: BlendMode.allCases.map { ($0, tr($0.nameKey)) }, selection: ctx.clip?.blendMode ?? .normal) { m in
+                        guard let id = ctx.clip?.id else { return }
+                        ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.blend") { $0.blendMode = m })
+                    }
                 }
+                OpacityRow(ctx: ctx)
             }
-            OpacityRow(ctx: ctx)
         }
     }
 }
@@ -44,8 +47,10 @@ struct BlendSection: View {
 struct OpacityRow: View {
     let ctx: InspectorContext
     var body: some View {
-        Bind.row(ctx, tr("prop.opacity"), key: .opacity, spec: RowSpec(range: 0...100, step: 1, format: Fmt.percentValue),
-                 toUI: { $0 * 100 }, fromUI: { $0 / 100 }, gestureName: "cmd.opacity")
+        WithPerceptionTracking {
+            Bind.row(ctx, tr("prop.opacity"), key: .opacity, spec: RowSpec(range: 0...100, step: 1, format: Fmt.percentValue),
+                     toUI: { $0 * 100 }, fromUI: { $0 / 100 }, gestureName: "cmd.opacity")
+        }
     }
 }
 
@@ -69,16 +74,18 @@ struct CropSection: View {
     }
 
     var body: some View {
-        let sel = ctx.clip.flatMap { InspectorUIState.shared.cropRatio[$0.id] } ?? "free"
-        VStack(alignment: .leading, spacing: 6) {
-            InlineRow(label: tr("inspector.crop.ratio")) {
-                Dropdown(items: Self.ratios.map { ($0.id, $0.id == "free" ? tr("inspector.crop.free") : ($0.id == "original" ? tr("player.ratio.original") : $0.id)) },
-                         selection: sel) { applyRatio($0) }
+        WithPerceptionTracking {
+            let sel = ctx.clip.flatMap { InspectorUIState.shared.cropRatio[$0.id] } ?? "free"
+            VStack(alignment: .leading, spacing: 6) {
+                InlineRow(label: tr("inspector.crop.ratio")) {
+                    Dropdown(items: Self.ratios.map { ($0.id, $0.id == "free" ? tr("inspector.crop.free") : ($0.id == "original" ? tr("player.ratio.original") : $0.id)) },
+                             selection: sel) { applyRatio($0) }
+                }
+                edge(.cropLeft, "prop.cropLeft", other: \.right)
+                edge(.cropRight, "prop.cropRight", other: \.left)
+                edge(.cropTop, "prop.cropTop", other: \.bottom)
+                edge(.cropBottom, "prop.cropBottom", other: \.top)
             }
-            edge(.cropLeft, "prop.cropLeft", other: \.right)
-            edge(.cropRight, "prop.cropRight", other: \.left)
-            edge(.cropTop, "prop.cropTop", other: \.bottom)
-            edge(.cropBottom, "prop.cropBottom", other: \.top)
         }
     }
 
@@ -122,7 +129,7 @@ struct CanvasSection: View {
 
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         InspectorSectionChrome(
-            isEnabled: Binding(get: { !(ctx.clip.map { InspectorUIState.shared.canvasOff.contains($0.id) } ?? false) },
+            isEnabled: Binding.perceived(get: { !(ctx.clip.map { InspectorUIState.shared.canvasOff.contains($0.id) } ?? false) },
                                set: { on in
                                    guard let id = ctx.clip?.id else { return }
                                    if on { InspectorUIState.shared.canvasOff.remove(id) } else {
@@ -143,23 +150,25 @@ struct CanvasSection: View {
     }
 
     var body: some View {
-        let canvas = ctx.clip?.canvas
-        let kind = canvas?.kindID ?? "none"
-        VStack(alignment: .leading, spacing: 12) {
-            Dropdown(items: [("none", tr("canvas.none")), ("blur", tr("canvas.blur")), ("color", tr("canvas.color")), ("style", tr("canvas.style"))],
-                     selection: kind) { k in
-                switch k {
-                case "blur": set(.blur(level: 2))
-                case "color": set(.color(.black))
-                case "style": set(.style(id: Registries.effects(in: .canvas).first { $0.groupKey != "library.group.generator" }?.id ?? ""))
-                default: set(nil)
+        WithPerceptionTracking {
+            let canvas = ctx.clip?.canvas
+            let kind = canvas?.kindID ?? "none"
+            VStack(alignment: .leading, spacing: 12) {
+                Dropdown(items: [("none", tr("canvas.none")), ("blur", tr("canvas.blur")), ("color", tr("canvas.color")), ("style", tr("canvas.style"))],
+                         selection: kind) { k in
+                    switch k {
+                    case "blur": set(.blur(level: 2))
+                    case "color": set(.color(.black))
+                    case "style": set(.style(id: Registries.effects(in: .canvas).first { $0.groupKey != "library.group.generator" }?.id ?? ""))
+                    default: set(nil)
+                    }
                 }
-            }
-            switch canvas {
-            case .blur(let level): blurSwatches(level)
-            case .color(let c): colorGrid(c)
-            case .style(let id): styleGrid(id)
-            case nil: EmptyView()
+                switch canvas {
+                case .blur(let level): blurSwatches(level)
+                case .color(let c): colorGrid(c)
+                case .style(let id): styleGrid(id)
+                case nil: EmptyView()
+                }
             }
         }
     }
@@ -173,17 +182,19 @@ struct CanvasSection: View {
         let thumb = ctx.asset.flatMap { ThumbnailCache.shared.cached($0, at: ctx.clip?.sourceStart ?? .zero, height: 96) }
         return HStack(spacing: 10) {
             ForEach(Array(CanvasBackground.blurLevels), id: \.self) { l in
-                Tile(title: tr("canvas.blur.level", l), selected: l == level) { set(.blur(level: l)) } content: {
-                    ZStack {
-                        if let thumb {
-                            Image(decorative: thumb, scale: 1).resizable().aspectRatio(contentMode: .fill)
-                                .blur(radius: Double(l) * 2.2)
-                        } else {
-                            LinearGradient(colors: [Color(hex: 0x57BECB), Color(hex: 0x8E44AD)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                .blur(radius: Double(l) * 2.2)
+                WithPerceptionTracking {
+                    Tile(title: tr("canvas.blur.level", l), selected: l == level) { set(.blur(level: l)) } content: {
+                        ZStack {
+                            if let thumb {
+                                Image(decorative: thumb, scale: 1).resizable().aspectRatio(contentMode: .fill)
+                                    .blur(radius: Double(l) * 2.2)
+                            } else {
+                                LinearGradient(colors: [Color(hex: 0x57BECB), Color(hex: 0x8E44AD)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    .blur(radius: Double(l) * 2.2)
+                            }
                         }
+                        .frame(width: 62, height: 62).clipped()
                     }
-                    .frame(width: 62, height: 62).clipped()
                 }
             }
         }
@@ -193,13 +204,15 @@ struct CanvasSection: View {
         VStack(alignment: .leading, spacing: 10) {
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(26), spacing: 8), count: 8), alignment: .leading, spacing: 8) {
                 ForEach(Self.palette, id: \.self) { hex in
-                    let c = RGBA(hex: hex)
-                    let selected = abs(c.r - current.r) + abs(c.g - current.g) + abs(c.b - current.b) < 0.01
-                    RoundedRectangle(cornerRadius: 4).fill(Color(c))
-                        .frame(width: 26, height: 26)
-                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : Color.white.opacity(0.12), lineWidth: selected ? 2 : 1))
-                        .contentShape(Rectangle())
-                        .onTapGesture { set(.color(c)) }
+                    WithPerceptionTracking {
+                        let c = RGBA(hex: hex)
+                        let selected = abs(c.r - current.r) + abs(c.g - current.g) + abs(c.b - current.b) < 0.01
+                        RoundedRectangle(cornerRadius: 4).fill(Color(c))
+                            .frame(width: 26, height: 26)
+                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : Color.white.opacity(0.12), lineWidth: selected ? 2 : 1))
+                            .contentShape(Rectangle())
+                            .onTapGesture { set(.color(c)) }
+                    }
                 }
             }
             HStack(spacing: 8) {
@@ -212,8 +225,10 @@ struct CanvasSection: View {
     func styleGrid(_ selected: String) -> some View {
         TileGrid {
             ForEach(Registries.effects(in: .canvas).filter { $0.groupKey != "library.group.generator" }) { d in   // W13 library generators hidden
-                Tile(title: tr(d.nameKey), selected: d.id == selected) { set(.style(id: d.id)) } content: {
-                    CanvasStylePreview(id: d.id).frame(width: 62, height: 62)
+                WithPerceptionTracking {
+                    Tile(title: tr(d.nameKey), selected: d.id == selected) { set(.style(id: d.id)) } content: {
+                        CanvasStylePreview(id: d.id).frame(width: 62, height: 62)
+                    }
                 }
             }
         }
@@ -224,49 +239,51 @@ struct CanvasSection: View {
 struct CanvasStylePreview: View {
     let id: String
     var body: some View {
-        switch id.replacingOccurrences(of: "montage.canvas.", with: "") {
-        case "sunset": LinearGradient(colors: [Color(hex: 0xFA9E5C), Color(hex: 0x8C3885)], startPoint: .top, endPoint: .bottom)
-        case "ocean": LinearGradient(colors: [Color(hex: 0x33BFCC), Color(hex: 0x122B6B)], startPoint: .top, endPoint: .bottom)
-        case "mint": RadialGradient(colors: [Color(hex: 0xCCF5DB), Color(hex: 0x6BC7A8)], center: .center, startRadius: 2, endRadius: 50)
-        case "stripes":
-            Canvas { g, size in
-                g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0xFAEDB3)))
-                for i in stride(from: -size.height, to: size.width + size.height, by: 7) {
-                    var p = Path(); p.move(to: CGPoint(x: i, y: 0)); p.addLine(to: CGPoint(x: i + size.height, y: size.height))
-                    g.stroke(p, with: .color(Color(hex: 0xF5D966)), lineWidth: 3.5)
+        WithPerceptionTracking {
+            switch id.replacingOccurrences(of: "montage.canvas.", with: "") {
+            case "sunset": LinearGradient(colors: [Color(hex: 0xFA9E5C), Color(hex: 0x8C3885)], startPoint: .top, endPoint: .bottom)
+            case "ocean": LinearGradient(colors: [Color(hex: 0x33BFCC), Color(hex: 0x122B6B)], startPoint: .top, endPoint: .bottom)
+            case "mint": RadialGradient(colors: [Color(hex: 0xCCF5DB), Color(hex: 0x6BC7A8)], center: .center, startRadius: 2, endRadius: 50)
+            case "stripes":
+                Canvas { g, size in
+                    g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0xFAEDB3)))
+                    for i in stride(from: -size.height, to: size.width + size.height, by: 7) {
+                        var p = Path(); p.move(to: CGPoint(x: i, y: 0)); p.addLine(to: CGPoint(x: i + size.height, y: size.height))
+                        g.stroke(p, with: .color(Color(hex: 0xF5D966)), lineWidth: 3.5)
+                    }
                 }
-            }
-        case "dots":
-            Canvas { g, size in
-                g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0xFACCD6)))
-                for x in stride(from: 4.0, to: size.width, by: 8) { for y in stride(from: 4.0, to: size.height, by: 8) {
-                    g.fill(Path(ellipseIn: CGRect(x: x - 1.6, y: y - 1.6, width: 3.2, height: 3.2)), with: .color(.white))
-                } }
-            }
-        case "grid":
-            Canvas { g, size in
-                g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0x293352)))
-                for x in stride(from: 0.0, to: size.width, by: 9) { for y in stride(from: 0.0, to: size.height, by: 9) {
-                    g.fill(Path(CGRect(x: x + 0.6, y: y + 0.6, width: 7.8, height: 7.8)), with: .color(Color(hex: 0xD9E3F7)))
-                } }
-            }
-        case "checker":
-            Canvas { g, size in
-                for x in 0..<8 { for y in 0..<8 {
-                    g.fill(Path(CGRect(x: Double(x) * size.width / 8, y: Double(y) * size.height / 8, width: size.width / 8, height: size.height / 8)),
-                           with: .color((x + y) % 2 == 0 ? Color(white: 0.93) : Color(white: 0.8)))
-                } }
-            }
-        case "waves":
-            Canvas { g, size in
-                g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0x6B5CD6)))
-                for row in stride(from: 4.0, to: size.height, by: 10) {
-                    var p = Path(); p.move(to: CGPoint(x: 0, y: row))
-                    for x in stride(from: 0.0, through: size.width, by: 2) { p.addLine(to: CGPoint(x: x, y: row + sin(x / 5) * 2.5)) }
-                    g.stroke(p, with: .color(Color(hex: 0xB385F2)), lineWidth: 3)
+            case "dots":
+                Canvas { g, size in
+                    g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0xFACCD6)))
+                    for x in stride(from: 4.0, to: size.width, by: 8) { for y in stride(from: 4.0, to: size.height, by: 8) {
+                        g.fill(Path(ellipseIn: CGRect(x: x - 1.6, y: y - 1.6, width: 3.2, height: 3.2)), with: .color(.white))
+                    } }
                 }
+            case "grid":
+                Canvas { g, size in
+                    g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0x293352)))
+                    for x in stride(from: 0.0, to: size.width, by: 9) { for y in stride(from: 0.0, to: size.height, by: 9) {
+                        g.fill(Path(CGRect(x: x + 0.6, y: y + 0.6, width: 7.8, height: 7.8)), with: .color(Color(hex: 0xD9E3F7)))
+                    } }
+                }
+            case "checker":
+                Canvas { g, size in
+                    for x in 0..<8 { for y in 0..<8 {
+                        g.fill(Path(CGRect(x: Double(x) * size.width / 8, y: Double(y) * size.height / 8, width: size.width / 8, height: size.height / 8)),
+                               with: .color((x + y) % 2 == 0 ? Color(white: 0.93) : Color(white: 0.8)))
+                    } }
+                }
+            case "waves":
+                Canvas { g, size in
+                    g.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0x6B5CD6)))
+                    for row in stride(from: 4.0, to: size.height, by: 10) {
+                        var p = Path(); p.move(to: CGPoint(x: 0, y: row))
+                        for x in stride(from: 0.0, through: size.width, by: 2) { p.addLine(to: CGPoint(x: x, y: row + sin(x / 5) * 2.5)) }
+                        g.stroke(p, with: .color(Color(hex: 0xB385F2)), lineWidth: 3)
+                    }
+                }
+            default: Color.gray
             }
-        default: Color.gray
         }
     }
 }

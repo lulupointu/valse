@@ -23,6 +23,16 @@ MontageTestSupport → Core, Effects, Engine          (test helpers, never linke
 
 Swift 6 language mode everywhere. UI and App use `defaultIsolation(MainActor)`. Core, Effects, Engine and AI are nonisolated by default.
 
+**Deployment target: macOS 13.** Observable UI state uses Point-Free's **swift-perception** (the package's only
+dependency): `@Perceptible` / `@PerceptionIgnored` / `@Perception.Bindable` / `withPerceptionTracking` instead of
+Observation (native Observation is used underneath on macOS 14+). Rules: every view `body` reading perceptible state is
+wrapped in `WithPerceptionTracking { … }`, and so is every escaping view-builder closure SwiftUI calls later (`ForEach`
+rows, `GeometryReader`, `ScrollViewReader`, `SwiftUI.TimelineView`, `List` rows, `.sheet` / `.popover` content).
+Custom `Binding`s over perceptible state use `Binding.perceived(get:set:)`; representables reading state in `updateNSView`
+go through `RepresentableTracking`. A miss is silent on macOS 13 (the view stops updating); debug builds report
+"Perceptible state … accessed from a view but is not being tracked" (a unit-test failure). macOS 14 APIs are used behind
+`if #available(macOS 14, *)` with the macOS 13 fallback next to them (`Support/Compat13.swift`).
+
 ## 2. Data model (MontageCore/Model)
 
 - `Project` (value type, Codable, Equatable): `schemaVersion`, `id`, `name`, `settings` (canvas size, `FrameRate`, background, aspect preset), `media: [MediaAsset]` (the bin), `timeline`.
@@ -354,7 +364,7 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 ## 17e. AI (W10) — MontageAI + MontageUI/AI
 
 - **Models** (`MontageAI/Models`): `ModelCatalog` (spec: url, bytes, SHA-256, licence, runtime MB) and `ModelManager` (@MainActor
-  @Observable: notInstalled / downloading(p) / verifying / installed / failed; download via URLSession with progress + cancel,
+  @Perceptible: notInstalled / downloading(p) / verifying / installed / failed; download via URLSession with progress + cancel,
   streamed SHA-256 check, "Use an existing file…" import = verified APFS clone). Files live in
   `~/Library/Application Support/Montage/Models` (`MONTAGE_MODELS_DIR` overrides). Never bundled or committed. The download is the
   only network access and is always user-initiated. `WhisperRuntime.cliURL` finds `whisper-cli` (`MONTAGE_WHISPER_CLI`,

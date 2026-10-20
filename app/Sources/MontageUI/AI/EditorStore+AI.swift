@@ -1,12 +1,12 @@
 import SwiftUI
-import Observation
+import Perception
 import NaturalLanguage
 import MontageCore
 import MontageEngine
 import MontageAI
 
 /// State of the AI panels and jobs (UX_AI §0 shared job pattern). Lives in `store.ai`.
-@Observable
+@Perceptible
 public final class AIUIState {
     // Auto captions
     public var captionLanguage: String? = nil
@@ -62,7 +62,7 @@ public final class AIUIState {
     public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false
-    @ObservationIgnored var ttsRefresh: Task<Void, Never>?
+    @PerceptionIgnored var ttsRefresh: Task<Void, Never>?
     // Transcript-based editing
     /// EditPilot chat (AI-048, EditorStore+EditPilot.swift).
     public let pilot = PilotState()

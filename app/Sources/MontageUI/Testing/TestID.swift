@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Perception
 
 /// Stable identifiers for UI tests (docs/TESTING.md).
 ///
@@ -19,11 +20,20 @@ struct TestIDModifier: ViewModifier {
     /// Last frame, so an id change without a geometry change (index-based ids in a re-sorted list) re-registers.
     @State private var frame: CGRect?
     func body(content: Content) -> some View {
-        if TestAnchors.isEnabled && TestAnchors.live.tracking {
+        if TestAnchors.isEnabled {
+            // UI-test runs only: `TestAnchors.live` is perceptible (macOS 13 needs the tracking scope)
+            WithPerceptionTracking { tracked(content) }
+        } else {
+            content.accessibilityIdentifier(id)
+        }
+    }
+
+    @ViewBuilder private func tracked(_ content: Content) -> some View {
+        if TestAnchors.live.tracking {
             content
                 .accessibilityIdentifier(id)
                 .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { frame = $0; TestAnchors.shared.set(id, $0, token: token) }
-                .onChange(of: id) { old, new in
+                .onValueChange(of: id) { old, new in
                     TestAnchors.shared.remove(old, token: token)
                     if let frame { TestAnchors.shared.set(new, frame, token: token) }
                 }
@@ -37,7 +47,7 @@ struct TestIDModifier: ViewModifier {
 /// Perf steps pause geometry tracking while they measure (`"anchors": "frozen"`, the default): every `.testID` view's
 /// `onGeometryChange` otherwise runs on each layout pass, a test-only cost that would inflate interaction timings.
 /// Frames recorded before the pause stay valid (the steps don't move views).
-@Observable @MainActor
+@Perceptible @MainActor
 public final class TestAnchorTracking {
     public var tracking = true
 }

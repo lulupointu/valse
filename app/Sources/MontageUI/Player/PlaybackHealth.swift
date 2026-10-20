@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 
@@ -39,14 +39,14 @@ public struct FrameDropMeter: Sendable, Equatable {
 
 /// Playback health shown by the player (PB-013) and acted on by auto optimization (PB-003): Smart lowers the preview
 /// quality one step when frames drop; Deep also turns proxies on and goes down to quarter quality.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class PlaybackHealth {
     public private(set) var level: FrameDropMeter.Level = .ok
     /// Banner dismissed for this session.
     public var dismissed = false
-    @ObservationIgnored var meter = FrameDropMeter()
-    @ObservationIgnored weak var store: EditorStore?
-    @ObservationIgnored private var lastOptimized: Date?
+    @PerceptionIgnored var meter = FrameDropMeter()
+    @PerceptionIgnored weak var store: EditorStore?
+    @PerceptionIgnored private var lastOptimized: Date?
 
     func presented(_ t: Time, playing: Bool) {
         guard let store else { return }
@@ -101,25 +101,27 @@ public enum PlaybackPriority: String, CaseIterable, Sendable {
 
 /// "There are dropped frames" / "Video lags a lot" banner over the bottom of the preview, with [Optimize] and ✕.
 struct DroppedFramesBanner: View {
-    @Bindable var store: EditorStore
-    @Bindable var health: PlaybackHealth
+    @Perception.Bindable var store: EditorStore
+    @Perception.Bindable var health: PlaybackHealth
     var body: some View {
-        if health.level != .ok && !health.dismissed {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(red: 0.91, green: 0.70, blue: 0.23))
-                Text(verbatim: tr(health.level == .lagging ? "playback.lagging" : "playback.dropping"))
-                    .font(.system(size: 11.5)).foregroundStyle(Theme.textPrimary)
-                Button(tr("playback.optimize")) {
-                    if !health.optimize(store, deep: health.level == .lagging) { store.showToast(tr("playback.nothingToOptimize")) }
+        WithPerceptionTracking {
+            if health.level != .ok && !health.dismissed {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(red: 0.91, green: 0.70, blue: 0.23))
+                    Text(verbatim: tr(health.level == .lagging ? "playback.lagging" : "playback.dropping"))
+                        .font(.system(size: 11.5)).foregroundStyle(Theme.textPrimary)
+                    Button(tr("playback.optimize")) {
+                        if !health.optimize(store, deep: health.level == .lagging) { store.showToast(tr("playback.nothingToOptimize")) }
+                    }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("player.optimize")
+                    IconButton("xmark", help: tr("common.close")) { health.dismissed = true }
                 }
-                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("player.optimize")
-                IconButton("xmark", help: tr("common.close")) { health.dismissed = true }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Theme.menu, in: RoundedRectangle(cornerRadius: 6))
+                .shadow(color: .black.opacity(0.35), radius: 6)
+                .padding(.bottom, 10)
+                .testID("player.droppedFrames")
             }
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Theme.menu, in: RoundedRectangle(cornerRadius: 6))
-            .shadow(color: .black.opacity(0.35), radius: 6)
-            .padding(.bottom, 10)
-            .testID("player.droppedFrames")
         }
     }
 }

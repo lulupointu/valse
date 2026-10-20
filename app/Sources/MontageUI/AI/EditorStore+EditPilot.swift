@@ -1,11 +1,11 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 import MontageAI
 
 /// EditPilot chat state (AI-048). Lives in `store.ai.pilot`.
-@Observable
+@Perceptible
 public final class PilotState {
     public enum CardState: Equatable { case planning, preparing, ready, applied, discarded, failed, empty }
 
@@ -37,9 +37,9 @@ public final class PilotState {
     public var progress: Double = 0
     /// Message whose plan is shown live in the player (a store gesture: discarded unless applied).
     public var previewing: UUID?
-    @ObservationIgnored var task: Task<Void, Never>?
-    @ObservationIgnored var job: JobID?
-    @ObservationIgnored var executions: [UUID: PilotExecution] = [:]
+    @PerceptionIgnored var task: Task<Void, Never>?
+    @PerceptionIgnored var job: JobID?
+    @PerceptionIgnored var executions: [UUID: PilotExecution] = [:]
     public var isBusy: Bool { messages.last?.card.map { $0.state == .planning || $0.state == .preparing } ?? false }
     public init() {}
 }

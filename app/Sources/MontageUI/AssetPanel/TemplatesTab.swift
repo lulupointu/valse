@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageEffects
+import Perception
 
 /// A video template card (TP-001). The templates team registers these with `TemplateLibrary.register`; the tab
 /// (search, categories, Orientation / Clips / Duration filters, favourites, recent, hover preview) is generic.
@@ -83,26 +84,28 @@ struct TemplatesTab: View {
     @State private var length: TemplateLibrary.Length = .any
 
     var body: some View {
-        let list = TemplateLibrary.all.filter { TemplateLibrary.matches($0, orientation, clips, length) }
-        // Until video templates ship (TP), the tab offers the local animated text templates (W7) so it is never empty
-        // (UX_GAPS W13-7); video template categories appear as soon as one is registered.
-        let videoSections = TemplateLibrary.all.isEmpty ? [] : TemplateLibrary.categories.map { cat in
-            LibrarySection(id: cat, title: tr(cat), items: list.filter { $0.categoryKey == cat }.map(item))
-        }
-        let textSections = BuiltinAssetTabs.grouped(Registries.textTemplates.all, \.groupKey).map { g, items in
-            LibrarySection(id: "text.\(g)", title: tr(g), items: items.map(textItem), group: tr("templates.group.text"))
-        }
-        LibraryBrowser(tab: "templates", namespace: "templates", sections: videoSections + textSections,
-                       style: TemplateLibrary.all.isEmpty ? .square : .wide(9.0 / 16.0),
-                       searchPlaceholder: tr("templates.search"),
-                       emptyHint: TemplateLibrary.all.isEmpty ? tr("templates.empty") : tr("templates.empty.filtered")) {
-            HStack(spacing: 10) {
-                filterMenu("templates.filter.orientation", $orientation, TemplateLibrary.Orientation.allCases)
-                filterMenu("templates.filter.clips", $clips, TemplateLibrary.Clips.allCases)
-                filterMenu("templates.filter.duration", $length, TemplateLibrary.Length.allCases)
-                Spacer()
+        WithPerceptionTracking {
+            let list = TemplateLibrary.all.filter { TemplateLibrary.matches($0, orientation, clips, length) }
+            // Until video templates ship (TP), the tab offers the local animated text templates (W7) so it is never empty
+            // (UX_GAPS W13-7); video template categories appear as soon as one is registered.
+            let videoSections = TemplateLibrary.all.isEmpty ? [] : TemplateLibrary.categories.map { cat in
+                LibrarySection(id: cat, title: tr(cat), items: list.filter { $0.categoryKey == cat }.map(item))
             }
-            .padding(.horizontal, 12).padding(.top, 8)
+            let textSections = BuiltinAssetTabs.grouped(Registries.textTemplates.all, \.groupKey).map { g, items in
+                LibrarySection(id: "text.\(g)", title: tr(g), items: items.map(textItem), group: tr("templates.group.text"))
+            }
+            LibraryBrowser(tab: "templates", namespace: "templates", sections: videoSections + textSections,
+                           style: TemplateLibrary.all.isEmpty ? .square : .wide(9.0 / 16.0),
+                           searchPlaceholder: tr("templates.search"),
+                           emptyHint: TemplateLibrary.all.isEmpty ? tr("templates.empty") : tr("templates.empty.filtered")) {
+                HStack(spacing: 10) {
+                    filterMenu("templates.filter.orientation", $orientation, TemplateLibrary.Orientation.allCases)
+                    filterMenu("templates.filter.clips", $clips, TemplateLibrary.Clips.allCases)
+                    filterMenu("templates.filter.duration", $length, TemplateLibrary.Length.allCases)
+                    Spacer()
+                }
+                .padding(.horizontal, 12).padding(.top, 8)
+            }
         }
     }
 
@@ -126,7 +129,7 @@ struct TemplatesTab: View {
     func filterMenu<V: RawRepresentable & Hashable>(_ key: String, _ value: Binding<V>, _ all: [V]) -> some View where V.RawValue == String {
         Menu {
             Picker(tr(key), selection: value) {
-                ForEach(all, id: \.self) { v in Text(loc: "\(key).\(v.rawValue)").tag(v) }
+                ForEach(all, id: \.self) { v in WithPerceptionTracking { Text(loc: "\(key).\(v.rawValue)").tag(v) } }
             }
             .pickerStyle(.inline)
         } label: {

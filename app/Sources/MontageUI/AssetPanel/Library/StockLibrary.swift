@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 /// One Media ▸ Library entry (MI-023 local substitute / MI-026): a colour clip, a still (gradient) or a short video
 /// (animated background, countdown, green-screen element). Everything is generated locally from a recipe
@@ -43,7 +44,7 @@ nonisolated struct StockItem: Identifiable, Sendable, Hashable {
 }
 
 /// Observable state for the asset panel (cards show a progress ring while their file renders).
-@MainActor @Observable
+@MainActor @Perceptible
 final class StockLibraryState {
     static let shared = StockLibraryState()
     var rendering: Set<String> = []

@@ -1,12 +1,12 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
 
 /// Export state owned by the store: the background queue and the scope the next dialog opens with.
-@Observable
+@Perceptible
 public final class ExportCenter {
     public let queue = ExportQueue()
     /// Set by "Export selected clips" / "Export in/out range" before presenting the dialog.

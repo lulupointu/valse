@@ -1,11 +1,12 @@
 import SwiftUI
 import AppKit
 import MontageCore
+import Perception
 
 /// Per-user asset-panel state shared by every tab (UX.md §3.1–3.2): favourites (☆ on cards → "Favorites" rail entry),
 /// recently used items ("Recent"), and the panel's view preferences. Persisted in UserDefaults; ids are namespaced
 /// per library (`"media"`, `"stock"`, `"music"`, `"sfx"`, `"effects"`, `"stickers"`, `"transitions"`…).
-@MainActor @Observable
+@MainActor @Perceptible
 public final class AssetLibraryStore {
     public static let shared = AssetLibraryStore(defaults: AssetDefaults.session)
     static let favoritesKey = "montage.assets.favorites"
@@ -14,7 +15,7 @@ public final class AssetLibraryStore {
 
     public private(set) var favorites: [String: [String]] = [:]
     public private(set) var recents: [String: [String]] = [:]
-    @ObservationIgnored private let defaults: UserDefaults
+    @PerceptionIgnored private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -68,7 +69,7 @@ enum AssetDefaults {
 }
 
 /// Media tab view preferences (grid/list, sort, type filter), remembered per user.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class MediaBrowserPrefs {
     public static let shared = MediaBrowserPrefs(defaults: AssetDefaults.session)
     public enum Layout: String, CaseIterable, Sendable { case grid, list }
@@ -79,7 +80,7 @@ public final class MediaBrowserPrefs {
     public var sort: Sort { didSet { save() } }
     public var ascending: Bool { didSet { save() } }
     public var filter: Filter { didSet { save() } }
-    @ObservationIgnored private let defaults: UserDefaults
+    @PerceptionIgnored private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -98,7 +99,7 @@ public final class MediaBrowserPrefs {
 }
 
 /// Which rail entry / search each tab shows, kept across tab switches (and readable by the UI-test state dump).
-@MainActor @Observable
+@MainActor @Perceptible
 public final class AssetPanelState {
     public static let shared = AssetPanelState()
     /// Tab id → selected rail entry.
@@ -112,14 +113,14 @@ public final class AssetPanelState {
     /// Tab id → highlighted item id (keyboard cursor; also the last clicked card).
     public var cursor: [String: String] = [:]
     /// Tab id → ordered ids of the listed items and the grid's column count (for ←/→/↑/↓).
-    @ObservationIgnored var layout: [String: (ids: [String], columns: Int)] = [:]
+    @PerceptionIgnored var layout: [String: (ids: [String], columns: Int)] = [:]
     /// Tab id → actions for the keyboard cursor.
-    @ObservationIgnored var actions: [String: (add: (String) -> Void, favorite: ((String) -> Void)?)] = [:]
+    @PerceptionIgnored var actions: [String: (add: (String) -> Void, favorite: ((String) -> Void)?)] = [:]
     /// Media tab multi-selection (bin card ids).
     public var mediaSelection: [MediaID] = []
 
     func navBinding(_ tab: String, default d: String) -> Binding<String> {
-        Binding(get: { self.nav[tab] ?? d }, set: { self.nav[tab] = $0 })
+        Binding.perceived(get: { self.nav[tab] ?? d }, set: { self.nav[tab] = $0 })
     }
 
     /// Arrow keys / Return / F while a tab's grid has keyboard focus. Returns true when handled.

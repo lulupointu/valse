@@ -1,19 +1,19 @@
 import Foundation
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 
 /// The app settings on the main actor (Settings window). Applying them pushes values to the places that use them:
 /// `EditDefaults` (model), `ProxyManager.policy`, the open editor (preview quality, proxies), path overrides
 /// (`MontagePaths`), render-cache limits, export defaults (`exportDefaults(for:)`).
-@MainActor @Observable
+@MainActor @Perceptible
 public final class AppPreferences {
     public static let shared = AppPreferences(url: AppSettings.defaultURL)
 
     public private(set) var settings: AppSettings
-    @ObservationIgnored let url: URL?
+    @PerceptionIgnored let url: URL?
     /// Editor to keep in sync (preview quality / proxies), set by `AppModel`.
-    @ObservationIgnored weak var store: EditorStore?
+    @PerceptionIgnored weak var store: EditorStore?
 
     public init(url: URL?) {
         self.url = url

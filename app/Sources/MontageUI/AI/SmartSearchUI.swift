@@ -2,21 +2,24 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// Media ▸ smart search (AI-028): "Search by content or dialogue" field over the media grid. Typing indexes the
 /// project's media in the background (Vision labels + on-screen text, cached) and filters/sorts the cards.
 struct SmartSearchField: View {
     let store: EditorStore
     var body: some View {
-        let ai = store.ai
-        HStack(spacing: 6) {
-            Image(systemName: "sparkle.magnifyingglass").foregroundStyle(IStyle.caption)
-            TextField(tr("media.smartSearch"), text: Binding(get: { ai.mediaQuery }, set: { store.setMediaQuery($0) }))
-                .textFieldStyle(.plain).font(Theme.Fonts.row).testID("media.search")
-            if ai.mediaIndexing { ProgressView().controlSize(.mini) }
-            if !ai.mediaQuery.isEmpty { SmallIconButton(symbol: "xmark.circle.fill", help: tr("ai.cancel")) { store.setMediaQuery("") } }
+        WithPerceptionTracking {
+            let ai = store.ai
+            HStack(spacing: 6) {
+                Image(systemName: "sparkle.magnifyingglass").foregroundStyle(IStyle.caption)
+                TextField(tr("media.smartSearch"), text: Binding.perceived(get: { ai.mediaQuery }, set: { store.setMediaQuery($0) }))
+                    .textFieldStyle(.plain).font(Theme.Fonts.row).testID("media.search")
+                if ai.mediaIndexing { ProgressView().controlSize(.mini) }
+                if !ai.mediaQuery.isEmpty { SmallIconButton(symbol: "xmark.circle.fill", help: tr("ai.cancel")) { store.setMediaQuery("") } }
+            }
+            .padding(.horizontal, 8).frame(height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
         }
-        .padding(.horizontal, 8).frame(height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
     }
 }
 
@@ -26,29 +29,31 @@ struct SmartSearchField: View {
 struct ClipSearchBanner: View {
     let store: EditorStore
     var body: some View {
-        let mm = ModelManager.shared
-        let _ = mm.states
-        let state = mm.state(ModelCatalog.clip)
-        VStack(spacing: 0) {
-            if !store.ai.mediaQuery.trimmingCharacters(in: .whitespaces).isEmpty && !state.isInstalled {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "sparkle.magnifyingglass").foregroundStyle(Theme.accent)
-                        HintText(text: tr("f4ai.clip.offer"))
+        WithPerceptionTracking {
+            let mm = ModelManager.shared
+            let _ = mm.states
+            let state = mm.state(ModelCatalog.clip)
+            VStack(spacing: 0) {
+                if !store.ai.mediaQuery.trimmingCharacters(in: .whitespaces).isEmpty && !state.isInstalled {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "sparkle.magnifyingglass").foregroundStyle(Theme.accent)
+                            HintText(text: tr("f4ai.clip.offer"))
+                        }
+                        ModelStateControls(spec: ModelCatalog.clip)
                     }
-                    ModelStateControls(spec: ModelCatalog.clip)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                    .padding(.horizontal, 12).padding(.top, 8)
+                    .testID("media.clipOffer")
                 }
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-                .padding(.horizontal, 12).padding(.top, 8)
-                .testID("media.clipOffer")
             }
-        }
-        .onChange(of: state.isInstalled) { _, ok in
-            guard ok else { return }
-            store.indexMediaIfNeeded()
-            store.prepareClipSearch(store.ai.mediaQuery)
+            .onValueChange(of: state.isInstalled) { _, ok in
+                guard ok else { return }
+                store.indexMediaIfNeeded()
+                store.prepareClipSearch(store.ai.mediaQuery)
+            }
         }
     }
 }

@@ -4,10 +4,11 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 /// UI state of the text engine that must survive re-renders: inline canvas editing, the rich-text selection, caption
 /// editor search, font favourites / recents.
-@MainActor @Observable
+@MainActor @Perceptible
 final class TextUIState {
     static let shared = TextUIState()
     /// UTF-16 selection in the inspector text editor (styles apply to it when non-empty, CapCut "multiple values").
@@ -56,7 +57,7 @@ final class TextUIState {
 }
 
 /// Text presets saved by the user ("Save as preset", Text tab ▸ Yours). JSON in Application Support.
-@MainActor @Observable
+@MainActor @Perceptible
 final class TextPresetStore {
     static let shared = TextPresetStore()
     struct Preset: Codable, Identifiable, Equatable { var id = UUID(); var name: String; var content: TextContent; var animations: ClipAnimations? }

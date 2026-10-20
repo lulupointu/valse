@@ -1,5 +1,6 @@
 import SwiftUI
 import MontageCore
+import Perception
 
 /// Guide position in canvas pixels or percent (PB-011 "edit guide position").
 enum GuidePositionMath {
@@ -18,40 +19,42 @@ enum GuidePositionMath {
 /// Small card under the player header: "Horizontal guide  [540] px | %  [Delete] [OK]".
 struct GuidePositionPopover: View {
     let store: EditorStore
-    @Bindable var ui: PlayerUIState
+    @Perception.Bindable var ui: PlayerUIState
     @State private var text = ""
     @State private var percent = false
     @State private var invalid = false
 
     var body: some View {
-        if let id = ui.editingGuide, let g = ui.guides.first(where: { $0.id == id }) {
-            let length = Double(g.axis == .vertical ? store.projectSettings.canvasSize.width : store.projectSettings.canvasSize.height)
-            HStack(spacing: 8) {
-                Text(loc: g.axis == .vertical ? "player.guide.vertical" : "player.guide.horizontal")
-                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                TextField("", text: $text)
-                    .textFieldStyle(.roundedBorder).frame(width: 70).font(.system(size: 12).monospacedDigit())
-                    .onSubmit { commit(id, length) }
-                    .testID("guide.position")
-                SubTabBar(items: [("px", "px"), ("pct", "%")], selection: percent ? "pct" : "px") { v in
-                    let pos = GuidePositionMath.parse(text, length: length, percent: percent) ?? g.position
-                    percent = v == "pct"
-                    text = format(pos, length)
+        WithPerceptionTracking {
+            if let id = ui.editingGuide, let g = ui.guides.first(where: { $0.id == id }) {
+                let length = Double(g.axis == .vertical ? store.projectSettings.canvasSize.width : store.projectSettings.canvasSize.height)
+                HStack(spacing: 8) {
+                    Text(loc: g.axis == .vertical ? "player.guide.vertical" : "player.guide.horizontal")
+                        .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                    TextField("", text: $text)
+                        .textFieldStyle(.roundedBorder).frame(width: 70).font(.system(size: 12).monospacedDigit())
+                        .onSubmit { commit(id, length) }
+                        .testID("guide.position")
+                    SubTabBar(items: [("px", "px"), ("pct", "%")], selection: percent ? "pct" : "px") { v in
+                        let pos = GuidePositionMath.parse(text, length: length, percent: percent) ?? g.position
+                        percent = v == "pct"
+                        text = format(pos, length)
+                    }
+                    .frame(width: 80)
+                    Button(tr("tlmenu.delete")) { ui.guides.removeAll { $0.id == id }; ui.editingGuide = nil }
+                        .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("guide.delete")
+                    Button(tr("common.ok")) { commit(id, length) }
+                        .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("guide.ok")
+                    IconButton("xmark", help: tr("common.close")) { ui.editingGuide = nil }
                 }
-                .frame(width: 80)
-                Button(tr("tlmenu.delete")) { ui.guides.removeAll { $0.id == id }; ui.editingGuide = nil }
-                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("guide.delete")
-                Button(tr("common.ok")) { commit(id, length) }
-                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("guide.ok")
-                IconButton("xmark", help: tr("common.close")) { ui.editingGuide = nil }
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Theme.menu, in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(invalid ? Color.red.opacity(0.7) : Color.white.opacity(0.08)))
+                .shadow(color: .black.opacity(0.35), radius: 6)
+                .onAppear { text = format(g.position, length) }
+                .onValueChange(of: id) { _, _ in text = format(g.position, length) }
+                .testID("guide.dialog")
             }
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(Theme.menu, in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(invalid ? Color.red.opacity(0.7) : Color.white.opacity(0.08)))
-            .shadow(color: .black.opacity(0.35), radius: 6)
-            .onAppear { text = format(g.position, length) }
-            .onChange(of: id) { _, _ in text = format(g.position, length) }
-            .testID("guide.dialog")
         }
     }
 

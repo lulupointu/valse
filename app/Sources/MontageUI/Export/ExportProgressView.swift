@@ -3,6 +3,7 @@ import AppKit
 import AVFoundation
 import MontageCore
 import MontageEngine
+import Perception
 
 /// The export window after "Export" (screenshot 114): left, the cover with "Generating… N %" then the result playing;
 /// right, the outputs with progress / ETA; footer [Open folder] … [Close] [Share] (local share sheet only).
@@ -19,39 +20,41 @@ struct ExportProgressView: View {
     var firstVideo: URL? { jobs.lazy.flatMap { $0.written }.first { ["mov", "mp4", "m4v"].contains($0.pathExtension.lowercased()) } }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 24) {
-                preview
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(loc: allDone ? "export.saved" : (running ? "export.generating.title" : "export.stopped"))
-                        .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
-                            ForEach(jobs) { job in JobRow(job: job, queue: store.exports.queue) }
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 24) {
+                    preview
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(loc: allDone ? "export.saved" : (running ? "export.generating.title" : "export.stopped"))
+                            .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(jobs) { job in WithPerceptionTracking { JobRow(job: job, queue: store.exports.queue) } }
+                            }
                         }
                     }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(Color(hex: 0x141414), in: RoundedRectangle(cornerRadius: 8))
                 }
                 .padding(16)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(Color(hex: 0x141414), in: RoundedRectangle(cornerRadius: 8))
-            }
-            .padding(16)
-            Rectangle().fill(ExportStyle.separator).frame(height: 1)
-            HStack(spacing: 10) {
-                Button { reveal() } label: { Label(tr("export.openFolder"), systemImage: "folder") }
-                    .buttonStyle(ExportButtonStyle(accent: false)).disabled(jobs.allSatisfy { $0.written.isEmpty }).testID("export.openFolder")
-                Spacer()
-                if running {
-                    Button(tr("export.stop")) { jobs.forEach(store.exports.queue.cancel) }.buttonStyle(ExportButtonStyle(accent: false)).testID("export.stop")
+                Rectangle().fill(ExportStyle.separator).frame(height: 1)
+                HStack(spacing: 10) {
+                    Button { reveal() } label: { Label(tr("export.openFolder"), systemImage: "folder") }
+                        .buttonStyle(ExportButtonStyle(accent: false)).disabled(jobs.allSatisfy { $0.written.isEmpty }).testID("export.openFolder")
+                    Spacer()
+                    if running {
+                        Button(tr("export.stop")) { jobs.forEach(store.exports.queue.cancel) }.buttonStyle(ExportButtonStyle(accent: false)).testID("export.stop")
+                    }
+                    Button(tr(running ? "export.hide" : "export.close")) { onClose() }
+                        .buttonStyle(ExportButtonStyle(accent: false)).keyboardShortcut(.cancelAction).testID("export.close")
+                    ShareButton(urls: jobs.flatMap(\.written)).disabled(!allDone).frame(width: 96).testID("export.share")
                 }
-                Button(tr(running ? "export.hide" : "export.close")) { onClose() }
-                    .buttonStyle(ExportButtonStyle(accent: false)).keyboardShortcut(.cancelAction).testID("export.close")
-                ShareButton(urls: jobs.flatMap(\.written)).disabled(!allDone).frame(width: 96).testID("export.share")
+                .padding(.horizontal, 16).frame(height: 60)
             }
-            .padding(.horizontal, 16).frame(height: 60)
+            // finished (or stopped with some files written): play the first exported video
+            .onValueChange(of: running) { if !running, let u = firstVideo { player = AVPlayer(url: u); if allDone { player?.play() } } }
         }
-        // finished (or stopped with some files written): play the first exported video
-        .onChange(of: running) { if !running, let u = firstVideo { player = AVPlayer(url: u); if allDone { player?.play() } } }
     }
 
     var preview: some View {
@@ -90,27 +93,31 @@ struct JobRow: View {
     let job: ExportJobItem
     let queue: ExportQueue
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(verbatim: job.title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(.white).lineLimit(1)
-                Spacer()
-                Text(verbatim: status).font(Theme.Fonts.hint).foregroundStyle(statusColor)
-                if job.isActive {
-                    Button { queue.cancel(job) } label: { Image(systemName: "xmark.circle.fill") }
-                        .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.stop"))
-                } else if job.state == .done {
-                    Button { NSWorkspace.shared.activateFileViewerSelecting(job.written) } label: { Image(systemName: "magnifyingglass.circle.fill") }
-                        .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.reveal"))
-                }
-            }
-            if job.isActive { ProgressView(value: job.progress).tint(Theme.accent).controlSize(.small) }
-            ForEach(job.outputs, id: \.url) { o in
-                HStack(spacing: 6) {
-                    Image(systemName: Self.icon(o.kind)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).frame(width: 14)
-                    Text(verbatim: o.url.lastPathComponent).font(.system(size: 11.5)).foregroundStyle(ExportStyle.label).lineLimit(1).truncationMode(.middle)
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text(verbatim: job.title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(.white).lineLimit(1)
                     Spacer()
-                    if job.written.contains(o.url), let size = Self.size(o.url) {
-                        Text(verbatim: size).font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textTertiary)
+                    Text(verbatim: status).font(Theme.Fonts.hint).foregroundStyle(statusColor)
+                    if job.isActive {
+                        Button { queue.cancel(job) } label: { Image(systemName: "xmark.circle.fill") }
+                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.stop"))
+                    } else if job.state == .done {
+                        Button { NSWorkspace.shared.activateFileViewerSelecting(job.written) } label: { Image(systemName: "magnifyingglass.circle.fill") }
+                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.reveal"))
+                    }
+                }
+                if job.isActive { ProgressView(value: job.progress).tint(Theme.accent).controlSize(.small) }
+                ForEach(job.outputs, id: \.url) { o in
+                    WithPerceptionTracking {
+                        HStack(spacing: 6) {
+                            Image(systemName: Self.icon(o.kind)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).frame(width: 14)
+                            Text(verbatim: o.url.lastPathComponent).font(.system(size: 11.5)).foregroundStyle(ExportStyle.label).lineLimit(1).truncationMode(.middle)
+                            Spacer()
+                            if job.written.contains(o.url), let size = Self.size(o.url) {
+                                Text(verbatim: size).font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textTertiary)
+                            }
+                        }
                     }
                 }
             }
@@ -173,36 +180,42 @@ struct ShareButton: NSViewRepresentable {
 
 /// Title-bar export indicator (next to the Export button): progress ring while jobs run; click → queue popover.
 struct ExportQueueButton: View {
-    @Bindable var queue: ExportQueue
+    @Perception.Bindable var queue: ExportQueue
     @State private var open = false
     var body: some View {
-        if !queue.items.isEmpty {
-            Button { open.toggle() } label: {
-                ZStack {
-                    Circle().stroke(Theme.control, lineWidth: 2.5)
-                    if let p = queue.overallProgress {
-                        Circle().trim(from: 0, to: p).stroke(Theme.accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round)).rotationEffect(.degrees(-90))
-                    } else {
-                        Image(systemName: "checkmark").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.accent)
+        WithPerceptionTracking {
+            if !queue.items.isEmpty {
+                Button { open.toggle() } label: {
+                    ZStack {
+                        Circle().stroke(Theme.control, lineWidth: 2.5)
+                        if let p = queue.overallProgress {
+                            Circle().trim(from: 0, to: p).stroke(Theme.accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round)).rotationEffect(.degrees(-90))
+                        } else {
+                            Image(systemName: "checkmark").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.accent)
+                        }
+                    }
+                    .frame(width: 16, height: 16).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(tr("export.queue"))
+                .testID("titlebar.exportQueue")
+                .popover(isPresented: $open, arrowEdge: .bottom) {
+                    WithPerceptionTracking {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text(loc: "export.queue").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                                Spacer()
+                                Button(tr("export.queue.clear")) { queue.clearFinished() }.buttonStyle(.plain).font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
+                            }
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    ForEach(queue.items.reversed()) { job in WithPerceptionTracking { JobRow(job: job, queue: queue) } }
+                                }
+                            }.frame(maxHeight: 320)
+                        }
+                        .padding(14).frame(width: 360).background(Theme.menu)
                     }
                 }
-                .frame(width: 16, height: 16).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(tr("export.queue"))
-            .testID("titlebar.exportQueue")
-            .popover(isPresented: $open, arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text(loc: "export.queue").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                        Spacer()
-                        Button(tr("export.queue.clear")) { queue.clearFinished() }.buttonStyle(.plain).font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
-                    }
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) { ForEach(queue.items.reversed()) { JobRow(job: $0, queue: queue) } }
-                    }.frame(maxHeight: 320)
-                }
-                .padding(14).frame(width: 360).background(Theme.menu)
             }
         }
     }

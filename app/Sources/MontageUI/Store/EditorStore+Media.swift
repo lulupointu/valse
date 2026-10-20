@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Media pipeline flows of the editor: import (breadth, folders, sequences, Live Photos, captions, fonts),
 /// background conversion, media bin folders, relinking and consolidation.
@@ -249,20 +250,22 @@ struct PlaybackLagPrompt: View {
     let store: EditorStore
     let ids: [MediaID]
     var body: some View {
-        let assets = store.project.media.filter { ids.contains($0.id) }
-        let reasons = Array(Set(assets.flatMap(PlaybackLagAdvisor.reasons))).sorted { $0.rawValue < $1.rawValue }
-        HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(red: 0.91, green: 0.70, blue: 0.23))
-            Text(verbatim: tr("lag.prompt", assets.count) + " (" + reasons.map { tr($0.nameKey) }.joined(separator: ", ") + ")")
-                .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.tail)
-            Spacer()
-            Button(tr("lag.transcode")) { store.transcodeForPlayback(ids) }
-                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("lag.transcode")
-            Button(tr("lag.ignore")) { store.timelineUI.lagPrompt = nil }
-                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("lag.ignore")
+        WithPerceptionTracking {
+            let assets = store.project.media.filter { ids.contains($0.id) }
+            let reasons = Array(Set(assets.flatMap(PlaybackLagAdvisor.reasons))).sorted { $0.rawValue < $1.rawValue }
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(red: 0.91, green: 0.70, blue: 0.23))
+                Text(verbatim: tr("lag.prompt", assets.count) + " (" + reasons.map { tr($0.nameKey) }.joined(separator: ", ") + ")")
+                    .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.tail)
+                Spacer()
+                Button(tr("lag.transcode")) { store.transcodeForPlayback(ids) }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("lag.transcode")
+                Button(tr("lag.ignore")) { store.timelineUI.lagPrompt = nil }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("lag.ignore")
+            }
+            .padding(.horizontal, 12).frame(height: 34)
+            .background(Color(red: 0.91, green: 0.70, blue: 0.23).opacity(0.12))
+            .testID("lag.prompt")
         }
-        .padding(.horizontal, 12).frame(height: 34)
-        .background(Color(red: 0.91, green: 0.70, blue: 0.23).opacity(0.12))
-        .testID("lag.prompt")
     }
 }

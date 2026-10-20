@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 // Stickers ▸ Yours ▸ Import (ST-003): still / animated images and Lottie files become custom stickers; 3–49 still
 // images can be imported as one frame-sequence sticker (fps 1–50, once / repeat), CapCut's "Import as frame sequence
@@ -101,21 +102,23 @@ struct ImportStickerCard: View {
     let action: () -> Void
     @State private var hover = false
     var body: some View {
-        Button(action: action) {
-            RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
-                .overlay {
-                    VStack(spacing: 6) {
-                        Image(systemName: "plus").font(.system(size: 20, weight: .medium))
-                        Text(loc: "sticker.import").font(.system(size: 11))
+        WithPerceptionTracking {
+            Button(action: action) {
+                RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                    .overlay {
+                        VStack(spacing: 6) {
+                            Image(systemName: "plus").font(.system(size: 20, weight: .medium))
+                            Text(loc: "sticker.import").font(.system(size: 11))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
                     }
-                    .foregroundStyle(Theme.textPrimary)
-                }
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent.opacity(0.6) : .clear, lineWidth: 1.5))
-                .contentShape(Rectangle())
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent.opacity(0.6) : .clear, lineWidth: 1.5))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .aspectRatio(1, contentMode: .fit)
+            .onHover { hover = $0 }
+            .help(tr("sticker.import.help"))
         }
-        .buttonStyle(.plain)
-        .aspectRatio(1, contentMode: .fit)
-        .onHover { hover = $0 }
-        .help(tr("sticker.import.help"))
     }
 }

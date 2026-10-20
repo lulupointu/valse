@@ -1,5 +1,5 @@
 import AppKit
-import Observation
+import Perception
 import MontageCore
 
 /// A key + modifiers, as stored in the keymap (`keymap.json`) and compared with key events.
@@ -152,7 +152,7 @@ nonisolated public enum KeymapPreset: String, Codable, CaseIterable, Sendable {
 
 /// The user keymap: preset + per-command overrides, persisted in `~/Library/Application Support/Montage/keymap.json`.
 /// `ShortcutRegistry.handle` and the menu bar read `binding(for:)`, so a rebind takes effect immediately.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class Keymap {
     public static let shared = Keymap(url: MontagePaths.supportDirectory.appendingPathComponent("keymap.json"))
 
@@ -167,8 +167,8 @@ public final class Keymap {
     public private(set) var overrides: [String: KeyBinding?] = [:]
     /// Bumped on every change (menu bar rebuild).
     public private(set) var revision = 0
-    @ObservationIgnored let url: URL?
-    @ObservationIgnored private var effectiveCache: [String: KeyBinding?] = [:]
+    @PerceptionIgnored let url: URL?
+    @PerceptionIgnored private var effectiveCache: [String: KeyBinding?] = [:]
 
     public init(url: URL?) {
         self.url = url
