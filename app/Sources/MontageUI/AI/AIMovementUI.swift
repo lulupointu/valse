@@ -12,7 +12,7 @@ enum AIMovementInspector {
     @MainActor static let sections: [InspectorSection] = [
         InspectorSection(id: "video.aiMovement", tab: "video", subTab: "basic", order: 46, titleKey: "aiMovement.title",
                          appliesTo: { $0.isMediaVideo || $0.asset?.kind == .image }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: {
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: {
                 ctx.clip?.aiMovement != nil || ctx.clip.map { ctx.store.ai.movementJobs[$0.id] != nil } ?? false
             }, set: { on in
                 guard let id = ctx.clip?.id else { return }
@@ -71,7 +71,7 @@ struct AIMovementSection: View {
                               step: { d in update { $0.strength = min(max($0.strength + Double(d) * 0.01, 0), 1) } }, triplet: nil)
                     .testID("aiMovement.strength")
                 if hasBeats {
-                    ToggleLine(label: tr("aiMovement.beats"), isOn: Binding(get: { o.syncToBeats }, set: { v in update { $0.syncToBeats = v } }))
+                    ToggleLine(label: tr("aiMovement.beats"), isOn: Binding.perceived(get: { o.syncToBeats }, set: { v in update { $0.syncToBeats = v } }))
                         .testID("aiMovement.beats")
                 }
                 HintText(text: tr("aiMovement.hint"))

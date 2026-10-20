@@ -66,7 +66,7 @@ struct ModalHost: View {
             case .versions: VersionHistoryDialog(app: app)
             case .relink: RelinkDialog(app: app)
             case .recovery(let urls): RecoveryDialog(app: app, urls: urls)
-            case .projectSettings: ProjectSettingsSheet(store: app.store, isPresented: Binding(get: { true }, set: { if !$0 { app.modal = nil } }))
+            case .projectSettings: ProjectSettingsSheet(store: app.store, isPresented: Binding.perceived(get: { true }, set: { if !$0 { app.modal = nil } }))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             case .newFolder: TextPromptDialog(title: tr("home.folder.create"), initial: tr("home.folder.new")) { app.createFolder(named: $0) } onClose: { app.modal = nil }
             case .renameFolder(let f): TextPromptDialog(title: tr("home.folder.rename"), initial: f.name) { app.renameFolder(f, to: $0) } onClose: { app.modal = nil }

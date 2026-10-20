@@ -17,7 +17,7 @@ enum ColorCardInspector {
 extension ColorLookInspector {
     @MainActor static func chromeCard(_ ctx: InspectorContext) -> InspectorSectionChrome {
         let store = ctx.store
-        return InspectorSectionChrome(isEnabled: Binding(get: {
+        return InspectorSectionChrome(isEnabled: Binding.perceived(get: {
             guard let c = ctx.clip else { return false }
             return look(c, .card) != nil || store.ai.lookJobs[ColorLookUI.key(c.id, .card)] != nil
         }, set: { on in

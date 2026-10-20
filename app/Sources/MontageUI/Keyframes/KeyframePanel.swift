@@ -221,7 +221,7 @@ struct KeyframeCurveEditor: View {
                         Text(verbatim: tr("keyframes.curve.title", KeyframePanel.name(ref.key, in: clip)))
                             .font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
                         Spacer()
-                        Picker("", selection: Binding(get: { store.keyframeUI.graphMode }, set: { store.keyframeUI.graphMode = $0 })) {
+                        Picker("", selection: Binding.perceived(get: { store.keyframeUI.graphMode }, set: { store.keyframeUI.graphMode = $0 })) {
                             ForEach(KeyframeUIState.GraphMode.allCases, id: \.self) { m in WithPerceptionTracking { Text(verbatim: tr("keyframes.graph.\(m.rawValue)")).tag(m) } }
                         }
                         .pickerStyle(.segmented).labelsHidden().frame(width: 150)

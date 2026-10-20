@@ -143,9 +143,19 @@ private struct WindowWidthReader: NSViewRepresentable {
 /// just calls `update` (unchanged); macOS 13 records what it read and runs it again when that changes.
 final class RepresentableTracking {
     private var generation = 0
+    /// Tests: take the macOS 13 path on a newer host.
+    var forceTracking = false
 
     func run(_ update: @escaping @MainActor () -> Void) {
-        if #available(macOS 14, *) { update(); return }
+        if #available(macOS 14, *), !forceTracking {
+            #if DEBUG
+            // tracked by SwiftUI here; silence Perception's debug check (it can't tell)
+            _PerceptionLocals.$skipPerceptionChecking.withValue(true) { update() }
+            #else
+            update()
+            #endif
+            return
+        }
         generation &+= 1
         let g = generation
         withPerceptionTracking { update() } onChange: { [weak self] in
@@ -154,5 +164,20 @@ final class RepresentableTracking {
                 self.run(update)
             }
         }
+    }
+}
+
+extension Binding {
+    /// `Binding(get:set:)` whose getter reads perceptible state. SwiftUI controls call the getter outside the view body:
+    /// macOS 14+ tracks it there (unchanged); Perception (macOS 13) doesn't, so on 13 the getter also runs once here, in
+    /// the creating view's tracked body, which then re-renders (and refreshes the control) when that state changes.
+    static func perceived(get: @escaping @MainActor () -> Value, set: @escaping @MainActor (Value) -> Void) -> Binding<Value> {
+        if #unavailable(macOS 14) { _ = get() }
+        #if DEBUG
+        // Perception's debug check would flag the control's read; it is covered as described above.
+        return Binding(get: { _PerceptionLocals.$skipPerceptionChecking.withValue(true) { get() } }, set: set)
+        #else
+        return Binding(get: get, set: set)
+        #endif
     }
 }

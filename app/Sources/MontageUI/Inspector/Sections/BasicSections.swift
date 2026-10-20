@@ -12,7 +12,7 @@ struct BlendSection: View {
 
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         InspectorSectionChrome(
-            isEnabled: Binding(get: { !(ctx.clip.map { InspectorUIState.shared.blendOff.contains($0.id) } ?? false) },
+            isEnabled: Binding.perceived(get: { !(ctx.clip.map { InspectorUIState.shared.blendOff.contains($0.id) } ?? false) },
                                set: { on in
                                    guard let id = ctx.clip?.id else { return }
                                    if on { InspectorUIState.shared.blendOff.remove(id) } else {
@@ -129,7 +129,7 @@ struct CanvasSection: View {
 
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         InspectorSectionChrome(
-            isEnabled: Binding(get: { !(ctx.clip.map { InspectorUIState.shared.canvasOff.contains($0.id) } ?? false) },
+            isEnabled: Binding.perceived(get: { !(ctx.clip.map { InspectorUIState.shared.canvasOff.contains($0.id) } ?? false) },
                                set: { on in
                                    guard let id = ctx.clip?.id else { return }
                                    if on { InspectorUIState.shared.canvasOff.remove(id) } else {

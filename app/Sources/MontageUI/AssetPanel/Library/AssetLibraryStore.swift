@@ -120,7 +120,7 @@ public final class AssetPanelState {
     public var mediaSelection: [MediaID] = []
 
     func navBinding(_ tab: String, default d: String) -> Binding<String> {
-        Binding(get: { self.nav[tab] ?? d }, set: { self.nav[tab] = $0 })
+        Binding.perceived(get: { self.nav[tab] ?? d }, set: { self.nav[tab] = $0 })
     }
 
     /// Arrow keys / Return / F while a tab's grid has keyboard focus. Returns true when handled.

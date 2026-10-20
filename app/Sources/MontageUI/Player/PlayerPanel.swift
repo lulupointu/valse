@@ -67,7 +67,7 @@ struct ZoomBar: View {
         WithPerceptionTracking {
             HStack(spacing: 8) {
                 IconButton("minus.magnifyingglass", help: tr("shortcut.playerZoomOut")) { store.zoomPlayer(by: 0.8) }
-                Slider(value: Binding(get: { log2(ui.zoom) }, set: { v in
+                Slider(value: Binding.perceived(get: { log2(ui.zoom) }, set: { v in
                     ui.zoom = pow(2, v)
                     if ui.zoom <= 1 { ui.pan = .zero }
                 }), in: log2(PlayerViewport.zoomRange.lowerBound)...log2(PlayerViewport.zoomRange.upperBound))

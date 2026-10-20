@@ -72,7 +72,7 @@ struct EffectParamRow: View {
                     ColorSwatchButton(color: c, eyedropper: ctx.store, testID: "effect.\(spec.key)") { v in setParam(.color(v)) }
                 }
             case .bool(let d):
-                ToggleLine(label: tr(spec.nameKey), isOn: Binding(get: {
+                ToggleLine(label: tr(spec.nameKey), isOn: Binding.perceived(get: {
                     if case .bool(let b) = param() { return b }; return d
                 }, set: { setParam(.bool($0)) }), enabled: enabled)
             case .choice(let keys, let d):
@@ -104,7 +104,7 @@ enum EffectChrome {
         let clipID = ctx.clip?.id
         let iid = instance.id, typeID = instance.typeID
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { instance.isEnabled }, set: { v in
+            isEnabled: Binding.perceived(get: { instance.isEnabled }, set: { v in
                 guard let clipID else { return }
                 store.performInspector(UpdateClip(clipID, nameKey: "cmd.effect") { c in
                     if let r = EffectParamRow.resolve(c, iid, typeID), let i = c.effects.firstIndex(where: { $0.id == r }) { c.effects[i].isEnabled = v }
@@ -178,7 +178,7 @@ struct ChromaKeySection: View {
         let store = ctx.store
         let inst = instance(ctx)
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { inst != nil }, set: { on in
+            isEnabled: Binding.perceived(get: { inst != nil }, set: { on in
                 guard let id = ctx.clip?.id else { return }
                 store.performInspector(UpdateClip(id, nameKey: "cmd.chromaKey") { c in
                     if on {

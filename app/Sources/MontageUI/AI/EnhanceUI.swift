@@ -34,7 +34,7 @@ enum EnhanceInspector {
 
     @MainActor static func chrome(_ ctx: InspectorContext, get: @escaping (VideoEnhancement?) -> Bool,
                                   set: @escaping (inout VideoEnhancement, Bool) -> Void, disabled: String? = nil) -> InspectorSectionChrome {
-        var c = InspectorSectionChrome(isEnabled: Binding(get: { get(ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance) }, set: { on in
+        var c = InspectorSectionChrome(isEnabled: Binding.perceived(get: { get(ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance) }, set: { on in
             guard let id = ctx.clip?.id else { return }
             ctx.store.updateEnhancement(id) { set(&$0, on) }
         }))
@@ -65,7 +65,7 @@ struct EnhanceQualitySection: View {
                 EnhanceProgress(ctx: ctx)
                 InlineRow(label: tr("enhance.quality.level")) {
                     // HD = ×2, UHD = up to 4K: tiled low-latency ML super resolution (TiledScaler), faster than real time
-                    SegmentedTabs(UpscaleTarget.allCases.map { (id: $0.rawValue, title: tr($0.nameKey)) }, selection: Binding(get: { target.rawValue }, set: { v in
+                    SegmentedTabs(UpscaleTarget.allCases.map { (id: $0.rawValue, title: tr($0.nameKey)) }, selection: Binding.perceived(get: { target.rawValue }, set: { v in
                         guard let id = ctx.clip?.id, let t = UpscaleTarget(rawValue: v), e?.upscale != nil else { return }
                         ctx.store.updateEnhancement(id) { $0.upscale = t }
                     }))

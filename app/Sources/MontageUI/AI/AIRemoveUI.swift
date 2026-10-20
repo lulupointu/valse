@@ -15,7 +15,7 @@ enum AIRemoveInspector {
             guard let c = ctx.clip, let a = (c.removal?.original ?? c.mediaID).flatMap(ctx.store.project.asset) else { return false }
             return ObjectRemover.canProcess(a, clipSource: c.sourceRange)   // AI-041: the clip's used part ≤ 30 s
         }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: {
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: {
                 guard let c = ctx.clip else { return false }
                 return c.removal != nil || ctx.store.ai.removeTool?.clipID == c.id || ctx.store.ai.removeJobs[c.id] != nil
             }, set: { on in
@@ -54,7 +54,7 @@ struct AIRemoveSection: View {
                     HintText(text: tr("remove.hint"))
                     if isVideo {   // AI2 AI-041: the mask follows a moving object
                         ToggleLine(label: tr("remove.track"), detail: tr("remove.track.hint"),
-                                   isOn: Binding(get: { tool.track }, set: { tool.track = $0 }))
+                                   isOn: Binding.perceived(get: { tool.track }, set: { tool.track = $0 }))
                             .testID("remove.track")
                     }
                     HStack {

@@ -693,7 +693,7 @@ struct ColorSwatchButton: View {
                     }
                     .testID("\(testID).eyedropper")
                 }
-                ColorPicker(tr("ax.color"), selection: Binding(get: { Color(color) }, set: { c in
+                ColorPicker(tr("ax.color"), selection: Binding.perceived(get: { Color(color) }, set: { c in
                     if let ns = NSColor(c).usingColorSpace(.sRGB) {
                         onChange(RGBA(Double(ns.redComponent), Double(ns.greenComponent), Double(ns.blueComponent), Double(ns.alphaComponent)))
                     }

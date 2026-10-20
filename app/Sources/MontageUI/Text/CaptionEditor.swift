@@ -224,7 +224,8 @@ struct CaptionTextField: NSViewRepresentable {
         tv.textContainer?.lineFragmentPadding = 0
         tv.isVerticallyResizable = true
         tv.textContainer?.widthTracksTextView = true
-        tv.string = context.coordinator.current()
+        // later changes come through updateNSView (RepresentableTracking); this first read needn't be tracked
+        tv.string = _PerceptionLocals.$skipPerceptionChecking.withValue(true) { context.coordinator.current() }
         return tv
     }
 

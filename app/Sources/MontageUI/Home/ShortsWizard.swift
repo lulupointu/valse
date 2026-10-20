@@ -193,10 +193,10 @@ struct ShortsWizardView: View {
             Text(loc: "shorts.selectPart").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
             VStack(spacing: 4) {
                 HStack { Text(loc: "shorts.from").frame(width: 44, alignment: .leading)
-                    Slider(value: Binding(get: { st.rangeStart }, set: { st.rangeStart = min($0, st.rangeEnd - 30) }), in: 0...a.duration.seconds)
+                    Slider(value: Binding.perceived(get: { st.rangeStart }, set: { st.rangeStart = min($0, st.rangeEnd - 30) }), in: 0...a.duration.seconds)
                     Text(verbatim: Self.clock(st.rangeStart)).font(Theme.Fonts.numeric).frame(width: 64, alignment: .trailing) }
                 HStack { Text(loc: "shorts.to").frame(width: 44, alignment: .leading)
-                    Slider(value: Binding(get: { st.rangeEnd }, set: { st.rangeEnd = max($0, st.rangeStart + 30) }), in: 0...a.duration.seconds)
+                    Slider(value: Binding.perceived(get: { st.rangeEnd }, set: { st.rangeEnd = max($0, st.rangeStart + 30) }), in: 0...a.duration.seconds)
                     Text(verbatim: Self.clock(st.rangeEnd)).font(Theme.Fonts.numeric).frame(width: 64, alignment: .trailing) }
             }
             .font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
@@ -217,7 +217,7 @@ struct ShortsWizardView: View {
                 }
             }
             HStack(spacing: 8) {
-                CapCheckbox(isOn: Binding(get: { st.captions }, set: { st.captions = $0 })).testID("shorts.captions")
+                CapCheckbox(isOn: Binding.perceived(get: { st.captions }, set: { st.captions = $0 })).testID("shorts.captions")
                 Text(loc: "shorts.captions").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
             }
             HintText(text: tr("shorts.hint"))

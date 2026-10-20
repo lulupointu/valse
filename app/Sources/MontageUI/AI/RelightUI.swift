@@ -13,7 +13,7 @@ enum RelightInspector {
     @MainActor static let sections: [InspectorSection] = [
         InspectorSection(id: "video.relight", tab: "video", subTab: "basic", order: 50, titleKey: "relight.title",
                          appliesTo: { $0.isMediaVideo || $0.asset?.kind == .image }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: {
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: {
                 ctx.clip?.relight != nil
             }, set: { on in
                 guard let id = ctx.clip?.id else { return }

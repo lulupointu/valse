@@ -51,7 +51,7 @@ struct MotionBlurSection: View {
                              keyframeKeys: [], gestureName: "cmd.motionBlur")
                 InlineRow(label: tr("inspector.motionBlur.direction")) {   // CV-014 (F3)
                     SegmentedTabs(MotionBlurDirection.allCases.map { ($0.rawValue, tr($0.nameKey)) },
-                                  selection: Binding(get: { (ctx.clip?.motionBlur?.direction ?? .backward).rawValue }, set: { v in
+                                  selection: Binding.perceived(get: { (ctx.clip?.motionBlur?.direction ?? .backward).rawValue }, set: { v in
                                       guard let id = ctx.clip?.id, let d = MotionBlurDirection(rawValue: v) else { return }
                                       Bind.apply(ctx.store, id, "cmd.motionBlur") { $0.motionBlur?.direction = d == .backward ? nil : d }
                                   }))

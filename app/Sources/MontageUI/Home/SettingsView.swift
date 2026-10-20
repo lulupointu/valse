@@ -463,7 +463,7 @@ struct EditSettings: View {
     var body: some View {
         WithPerceptionTracking {
             SettingsRow(tr("settings.stepFrames"), hint: tr("settings.stepFrames.hint")) {
-                NumberSetting(value: Binding(get: { Double(draft.stepFrames) }, set: { draft.stepFrames = Int($0) }), range: 2...100,
+                NumberSetting(value: Binding.perceived(get: { Double(draft.stepFrames) }, set: { draft.stepFrames = Int($0) }), range: 2...100,
                               unit: tr("settings.unit.frames"), id: "stepFrames")
             }
             SettingsRow(tr("settings.imageDuration")) {
@@ -477,10 +477,10 @@ struct EditSettings: View {
             }
             SettingsRow(tr("settings.transitionDuration"), hint: draft.transitionDuration == nil ? tr("settings.transitionDuration.hint") : nil) {
                 HStack(spacing: 10) {
-                    CheckLine(label: tr("settings.transitionDuration.custom"), isOn: Binding(get: { draft.transitionDuration != nil },
+                    CheckLine(label: tr("settings.transitionDuration.custom"), isOn: Binding.perceived(get: { draft.transitionDuration != nil },
                                                                                         set: { draft.transitionDuration = $0 ? 0.5 : nil }), id: "transitionCustom")
                     if draft.transitionDuration != nil {
-                        NumberSetting(value: Binding(get: { draft.transitionDuration ?? 0.5 }, set: { draft.transitionDuration = $0 }),
+                        NumberSetting(value: Binding.perceived(get: { draft.transitionDuration ?? 0.5 }, set: { draft.transitionDuration = $0 }),
                                       range: 0.1...10, step: 0.1, decimals: 1, unit: tr("settings.unit.seconds"), id: "transitionDuration")
                     }
                 }
@@ -552,7 +552,7 @@ struct AudioSettings: View {
             }
             SettingsDivider()
             SettingsRow(tr("settings.audio.monitor"), hint: tr("settings.audio.monitor.hint")) {
-                NumberSetting(value: Binding(get: { (draft.monitorVolume * 100).rounded() }, set: { draft.monitorVolume = $0 / 100 }),
+                NumberSetting(value: Binding.perceived(get: { (draft.monitorVolume * 100).rounded() }, set: { draft.monitorVolume = $0 / 100 }),
                               range: 0...100, unit: "%", id: "monitorVolume")
             }
             SettingsRow(tr("settings.scrubAudio"), hint: tr("settings.scrubAudio.hint")) {
@@ -586,7 +586,7 @@ struct PerformanceSettings: View {
                 }
                 // EX-016: CapCut's "Faster exporting, but may have color differences" (needs the hardware encoder)
                 HStack(spacing: 5) {
-                    CheckLine(label: tr("ex.hw.fastExport"), isOn: Binding(get: { draft.hardwareEncoding && draft.fastExport },
+                    CheckLine(label: tr("ex.hw.fastExport"), isOn: Binding.perceived(get: { draft.hardwareEncoding && draft.fastExport },
                                                                              set: { draft.fastExport = $0 }), id: "fastExport")
                     SettingsHelp(text: tr("ex.hw.fastExport.help"), id: "fastExport")
                 }

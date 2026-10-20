@@ -101,7 +101,7 @@ public struct EditorView: View {
                 }
             }
         }
-        .sheet(isPresented: Binding(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
+        .sheet(isPresented: Binding.perceived(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
             WithPerceptionTracking {
                 ModelManagerSheet { store.ai.isModelSheetPresented = false }   // W10 AI models
             }

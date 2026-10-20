@@ -13,7 +13,7 @@ struct SmartSearchField: View {
             let ai = store.ai
             HStack(spacing: 6) {
                 Image(systemName: "sparkle.magnifyingglass").foregroundStyle(IStyle.caption)
-                TextField(tr("media.smartSearch"), text: Binding(get: { ai.mediaQuery }, set: { store.setMediaQuery($0) }))
+                TextField(tr("media.smartSearch"), text: Binding.perceived(get: { ai.mediaQuery }, set: { store.setMediaQuery($0) }))
                     .textFieldStyle(.plain).font(Theme.Fonts.row).testID("media.search")
                 if ai.mediaIndexing { ProgressView().controlSize(.mini) }
                 if !ai.mediaQuery.isEmpty { SmallIconButton(symbol: "xmark.circle.fill", help: tr("ai.cancel")) { store.setMediaQuery("") } }

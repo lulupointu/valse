@@ -203,7 +203,7 @@ struct MaskBrushControls: View {
                 let tabs: [(id: String, title: String)] = clip.mediaID != nil
                     ? [("brush", tr("mask.brush.paint")), ("smart", tr("mask.brush.smart")), ("erase", tr("mask.brush.erase"))]
                     : [("brush", tr("mask.brush.paint")), ("erase", tr("mask.brush.erase"))]
-                SegmentedTabs(tabs, selection: Binding(get: { clip.mediaID == nil && st.smart ? "brush" : st.mode }, set: { st.mode = $0 }))
+                SegmentedTabs(tabs, selection: Binding.perceived(get: { clip.mediaID == nil && st.smart ? "brush" : st.mode }, set: { st.mode = $0 }))
                     .testID("mask.brush.mode")
                 SliderRow(tr("mask.brush.size"), range: 1...100, display: { String(Int($0.rounded())) }, testID: "slider.mask.brush.size",
                           get: { st.size }, set: { st.size = $0 }, onBegin: {}, onEnd: {})

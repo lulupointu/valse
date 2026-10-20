@@ -39,7 +39,7 @@ enum AudioInspector {
         var s: [InspectorSection] = []
         s += both("processing", order: 1, titleKey: nil, appliesTo: { pending($0) != nil }) { AnyView(ProcessingRow(ctx: $0)) }
         s += both("loudness", order: 10, titleKey: "audio.loudness", chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: { ctx.clip?.audio.loudness != nil }, set: { ctx.store.setLoudnessNormalization($0) }))
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: { ctx.clip?.audio.loudness != nil }, set: { ctx.store.setLoudnessNormalization($0) }))
         }) { AnyView(LoudnessSection(ctx: $0)) }
         s += both("enhance", order: 20, titleKey: "audio.enhance", chrome: { strengthChrome($0, \.enhanceVoice, 0.7, "cmd.audioEffect") }) {
             AnyView(StrengthRow(ctx: $0, path: \.enhanceVoice, defaultValue: 0.7, hint: "audio.enhance.hint"))
@@ -51,7 +51,7 @@ enum AudioInspector {
             InspectorSectionChrome(isEnabled: clipBinding(ctx, "cmd.separation", get: { $0.audio.separation != nil }, set: { c, v in c.audio.separation = v ? .keepVocals : nil }))
         }) { AnyView(SeparationSection(ctx: $0)) }
         s += both("beats", order: 50, titleKey: "audio.beats", chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: { ctx.clip?.beats?.isEmpty == false }, set: { ctx.store.autoBeats(level: $0 ? 1 : nil) }))
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: { ctx.clip?.beats?.isEmpty == false }, set: { ctx.store.autoBeats(level: $0 ? 1 : nil) }))
         }) { AnyView(BeatsSection(ctx: $0)) }
         s += both("ducking", order: 60, titleKey: "audio.ducking", chrome: { ctx in
             InspectorSectionChrome(isEnabled: clipBinding(ctx, "cmd.ducking", get: { $0.audio.ducking != nil }, set: { c, v in c.audio.ducking = v ? AudioDucking() : nil }))
@@ -86,7 +86,7 @@ enum AudioInspector {
     where T: Equatable {
         let store = ctx.store, id = ctx.clip?.id
         let fallback = get(ctx.clip ?? placeholderClip)
-        return Binding(get: { id.flatMap { store.project.timeline.clip($0) }.map(get) ?? fallback },
+        return Binding.perceived(get: { id.flatMap { store.project.timeline.clip($0) }.map(get) ?? fallback },
                        set: { v in if let id, store.project.timeline.clip(id) != nil { Bind.apply(store, id, name) { set(&$0, v) } } })
     }
 
@@ -119,7 +119,7 @@ struct LoudnessSection: View {
                 HStack {
                     Text(loc: "audio.loudness.targetLabel").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker(tr("audio.loudness.targetLabel"), selection: Binding(get: { l?.targetLUFS ?? -23 }, set: { ctx.store.setLoudnessTarget($0) })) {
+                    Picker(tr("audio.loudness.targetLabel"), selection: Binding.perceived(get: { l?.targetLUFS ?? -23 }, set: { ctx.store.setLoudnessTarget($0) })) {
                         ForEach(LoudnessNormalization.targets, id: \.self) { t in WithPerceptionTracking { Text(loc: "audio.loudness.target.\(Int(-t))").tag(t) } }
                     }
                     .labelsHidden().frame(width: 180)
@@ -255,7 +255,7 @@ struct EQEditor: View {
                 HStack {
                     Text(loc: "audio.eq.preset").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker(tr("audio.eq.preset"), selection: Binding(get: { eq.presetID ?? "custom" }, set: { id in
+                    Picker(tr("audio.eq.preset"), selection: Binding.perceived(get: { eq.presetID ?? "custom" }, set: { id in
                         guard let p = Self.presets.first(where: { $0.id == id }), let cid = ctx.clip?.id else { return }
                         Bind.apply(store, cid, "cmd.eq") { $0.audio.eq = AudioEQ(gains: p.gains, presetID: p.id) }
                     })) {
@@ -269,7 +269,7 @@ struct EQEditor: View {
                         WithPerceptionTracking {
                             VStack(spacing: 4) {
                                 Text(verbatim: String(format: "%+.0f", eq.gains[i])).font(.system(size: 9).monospacedDigit()).foregroundStyle(Theme.textTertiary)
-                                Slider(value: Binding(get: { eq.gains[i] }, set: { v in
+                                Slider(value: Binding.perceived(get: { eq.gains[i] }, set: { v in
                                     guard let id = ctx.clip?.id else { return }
                                     Bind.apply(store, id, "cmd.eq") { c in
                                         if c.audio.eq == nil { c.audio.eq = AudioEQ() }
@@ -307,7 +307,7 @@ struct VoiceChangerView: View {
             let items = VoiceEffects.all.filter { $0.category.rawValue == category }
                 .filter { query.isEmpty || tr($0.nameKey).localizedCaseInsensitiveContains(query) }
             VStack(alignment: .leading, spacing: 12) {
-                Toggle(tr("audio.voice.applyToAll"), isOn: Binding(get: { applyToAll }, set: { v in
+                Toggle(tr("audio.voice.applyToAll"), isOn: Binding.perceived(get: { applyToAll }, set: { v in
                     applyToAll = v
                     if v { store.applyVoice(current, toAll: true) }
                 }))

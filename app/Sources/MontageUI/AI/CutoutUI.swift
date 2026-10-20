@@ -19,14 +19,14 @@ enum CutoutInspector {
     @MainActor static let sections: [InspectorSection] = [
         InspectorSection(id: "cutout.auto", tab: "video", subTab: "cutout", order: 0, titleKey: "inspector.cutout.auto",
                          appliesTo: { $0.clip?.mediaID != nil }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: { autoKinds(ctx.clip) }, set: { on in
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: { autoKinds(ctx.clip) }, set: { on in
                 guard let id = ctx.clip?.id else { return }
                 ctx.store.setCutout(id, mode: on ? (CutoutUIState.shared.subject && subjectAvailable ? .subject : .person) : nil)
             }))
         }) { AnyView(AutoCutoutSection(ctx: $0)) },
         InspectorSection(id: "cutout.custom", tab: "video", subTab: "cutout", order: 1, titleKey: "inspector.cutout.custom",
                          appliesTo: { $0.clip?.mediaID != nil }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: { isCustom(ctx.clip) || ctx.store.ai.brush?.clipID == ctx.clip?.id && ctx.clip != nil },
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: { isCustom(ctx.clip) || ctx.store.ai.brush?.clipID == ctx.clip?.id && ctx.clip != nil },
                                                       set: { on in
                 guard let id = ctx.clip?.id else { return }
                 if on { ctx.store.beginCutoutBrush(id) } else { ctx.store.endCutoutBrush(); if isCustom(ctx.clip) { ctx.store.setCutout(id, mode: nil) } }

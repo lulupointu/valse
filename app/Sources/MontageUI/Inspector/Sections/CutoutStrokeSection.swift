@@ -22,7 +22,7 @@ struct CutoutStrokeSection: View {
         let store = ctx.store
         let inst = instance(ctx)
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { inst != nil }, set: { on in
+            isEnabled: Binding.perceived(get: { inst != nil }, set: { on in
                 guard let id = ctx.clip?.id else { return }
                 store.performInspector(UpdateClip(id, nameKey: "cmd.cutoutStroke") { c in
                     if on {

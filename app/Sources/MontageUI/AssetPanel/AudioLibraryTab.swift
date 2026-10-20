@@ -249,6 +249,7 @@ struct AudioPreviewStrip: View {
             SwiftUI.TimelineView(.periodic(from: .now, by: 0.1)) { _ in
                 WithPerceptionTracking {
                     let pk = preview.peaks[id] ?? []
+                    let beats = preview.beatMarks[id] ?? []   // read here (tracked), not in the Canvas renderer
                     let progress = preview.duration > 0 ? preview.currentTime / preview.duration : 0
                     GeometryReader { g in
                         WithPerceptionTracking {
@@ -264,7 +265,7 @@ struct AudioPreviewStrip: View {
                                     ctx.fill(Path(CGRect(x: 0, y: size.height / 2 - 1, width: size.width * progress, height: 2)), with: .color(Theme.accent))
                                 }
                                 // pre-computed beat markers (library music): small ticks under the waveform
-                                for b in preview.beatMarks[id] ?? [] {
+                                for b in beats {
                                     ctx.fill(Path(CGRect(x: CGFloat(b) * size.width, y: size.height - 3, width: 1, height: 3)),
                                              with: .color(Color(hex: 0xF5C451).opacity(0.8)))
                                 }

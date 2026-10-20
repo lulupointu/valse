@@ -49,7 +49,7 @@ struct ShapeStyleSection: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if !lineOnly {
                         InlineRow(label: tr("shape.fill"), triplet: AnyView(KeyframeTriplet(ctx: ctx, keys: [.shapeFill], enabled: clip.shapeStyle?.fill != nil))) {
-                            CapCheckbox(isOn: Binding(get: { s.fill != nil }, set: { on in
+                            CapCheckbox(isOn: Binding.perceived(get: { s.fill != nil }, set: { on in
                                 Self.update(store, id) { c, _ in c.shapeStyle?.fill = on ? (base.shapeStyle.fill ?? .white) : nil
                                     if !on { c.clearKeyframes([.shapeFill]) } }
                             })).testID("shape.fill.toggle")
@@ -61,7 +61,7 @@ struct ShapeStyleSection: View {
                             }
                         }
                         InlineRow(label: tr("shape.gradient"), enabled: s.fill != nil) {
-                            CapCheckbox(isOn: Binding(get: { s.fillEnd != nil }, set: { on in
+                            CapCheckbox(isOn: Binding.perceived(get: { s.fillEnd != nil }, set: { on in
                                 Self.update(store, id) { c, _ in c.shapeStyle?.fillEnd = on ? Self.gradientEnd(s.fill ?? .white) : nil }
                             }), enabled: s.fill != nil).testID("shape.gradient.toggle")
                             Spacer().frame(width: 10)
@@ -75,7 +75,7 @@ struct ShapeStyleSection: View {
                     InlineRow(label: tr(lineOnly ? "shape.color" : "shape.stroke"),
                               triplet: AnyView(KeyframeTriplet(ctx: ctx, keys: [.shapeStroke], enabled: clip.shapeStyle?.stroke != nil))) {
                         if !lineOnly {
-                            CapCheckbox(isOn: Binding(get: { s.stroke != nil }, set: { on in
+                            CapCheckbox(isOn: Binding.perceived(get: { s.stroke != nil }, set: { on in
                                 Self.update(store, id) { c, _ in
                                     c.shapeStyle?.stroke = on ? (base.shapeStyle.stroke ?? Self.contrast(s.fill)) : nil
                                     if on, (c.shapeStyle?.strokeWidth ?? 0) < 0.005 { c.shapeStyle?.strokeWidth = 0.04 }
@@ -102,7 +102,7 @@ struct ShapeStyleSection: View {
                                      gestureName: "cmd.shapeStyle", testID: "slider.shape.strokeWidth")
                         InlineRow(label: tr("shape.dash")) {
                             SegmentedTabs(ShapeStickerStyle.Dash.allCases.map { ($0.rawValue, tr("shape.dash.\($0.rawValue)")) },
-                                          selection: Binding(get: { s.dash.rawValue }, set: { v in
+                                          selection: Binding.perceived(get: { s.dash.rawValue }, set: { v in
                                               guard let d = ShapeStickerStyle.Dash(rawValue: v), d != s.dash else { return }
                                               Self.update(store, id) { c, _ in c.shapeStyle?.dash = d }
                                           }))

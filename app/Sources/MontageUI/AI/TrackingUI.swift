@@ -54,7 +54,7 @@ struct TrackingSection: View {
                     JobProgressLine(text: tr("tracking.applying", JobInfo.percent(p)), progress: p) { store.cancelTracking(id) }
                 }
                 if on {
-                    ToggleLine(label: tr("tracking.scale"), isOn: Binding(get: { TrackingUIState.shared.scaleWithObject },
+                    ToggleLine(label: tr("tracking.scale"), isOn: Binding.perceived(get: { TrackingUIState.shared.scaleWithObject },
                                                                           set: { TrackingUIState.shared.scaleWithObject = $0 }))
                     if let tool {
                         HintText(text: tr(tool.referenceAvailable ? "tracking.hint" : "tracking.noVideo"))

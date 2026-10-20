@@ -35,7 +35,7 @@ struct AnimationPickerSection: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(IStyle.caption)
-                    TextField(tr("inspector.animation.search"), text: Binding(get: { ui.animationSearch }, set: { ui.animationSearch = $0 }))
+                    TextField(tr("inspector.animation.search"), text: Binding.perceived(get: { ui.animationSearch }, set: { ui.animationSearch = $0 }))
                         .textFieldStyle(.plain).font(.system(size: 12)).testID("anim.search")
                 }
                 .padding(.horizontal, 10).frame(height: 28)

@@ -13,7 +13,7 @@ struct ColorSpaceSection: View {
                 HStack {
                     Text(loc: "details.colorSpace").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                         .frame(width: 110, alignment: .leading)
-                    Picker(tr("details.colorSpace"), selection: Binding(get: { current },
+                    Picker(tr("details.colorSpace"), selection: Binding.perceived(get: { current },
                                                   set: { cs in store.perform(UpdateSettings { $0.colorSpace = cs }) })) {
                         ForEach(ProjectColorSpace.allCases, id: \.self) { Text(loc: $0.nameKey).tag($0) }
                     }

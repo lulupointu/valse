@@ -246,7 +246,7 @@ struct CoverEditorView: View {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: 12) {
                         SegmentedTabs([("frame", tr("cover.source.frame")), ("image", tr("cover.source.image"))],
-                                      selection: Binding(get: { model.source.rawValue }, set: { v in
+                                      selection: Binding.perceived(get: { model.source.rawValue }, set: { v in
                                           if v == "image" && model.imageAsset == nil { pickImage() } else {
                                               model.source = CoverEditorModel.Source(rawValue: v) ?? .frame; model.render(debounce: false)
                                           }
@@ -417,7 +417,7 @@ struct CoverEditorView: View {
 
     @ViewBuilder
     func textControls(_ i: Int, _ t: TextContent) -> some View {
-        TextField("", text: Binding(get: { model.textContent(i)?.string ?? "" }, set: { s in model.updateText(i) { $0.string = s } }),
+        TextField("", text: Binding.perceived(get: { model.textContent(i)?.string ?? "" }, set: { s in model.updateText(i) { $0.string = s } }),
                   axis: .vertical)
             .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(.white)
             .lineLimit(2...4)
@@ -426,7 +426,7 @@ struct CoverEditorView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(loc: "cover.fontSize").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
             HStack {
-                Slider(value: Binding(get: { (model.textContent(i)?.fontSize ?? 0.1) * 250 },
+                Slider(value: Binding.perceived(get: { (model.textContent(i)?.fontSize ?? 0.1) * 250 },
                                       set: { v in model.updateText(i) { $0.fontSize = v / 250 } }), in: 5...80)
                     .controlSize(.small).tint(.white).testID("cover.fontSizeSlider")
                 Text(verbatim: "\(Int(((model.textContent(i)?.fontSize ?? 0.1) * 250).rounded()))")

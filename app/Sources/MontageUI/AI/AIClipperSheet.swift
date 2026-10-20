@@ -62,11 +62,11 @@ struct AIClipperSheet: View {
                 Dropdown(items: ClipperStyle.allCases.map { ($0, tr($0.nameKey)) }, selection: st.style) { st.style = $0 }
             }
             Text(loc: "clipper.requirements").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-            TextField(tr("clipper.requirements.placeholder"), text: Binding(get: { st.requirements }, set: { st.requirements = $0 }), axis: .vertical)
+            TextField(tr("clipper.requirements.placeholder"), text: Binding.perceived(get: { st.requirements }, set: { st.requirements = $0 }), axis: .vertical)
                 .textFieldStyle(.plain).font(Theme.Fonts.row).lineLimit(2...3)
                 .padding(8).background(IStyle.field, in: RoundedRectangle(cornerRadius: 6))
                 .disabled(!OnDeviceLLM.isAvailable)
-            ToggleLine(label: tr("clipper.captions"), isOn: Binding(get: { st.addCaptions }, set: { st.addCaptions = $0 }))
+            ToggleLine(label: tr("clipper.captions"), isOn: Binding.perceived(get: { st.addCaptions }, set: { st.addCaptions = $0 }))
             HintText(text: tr(OnDeviceLLM.isAvailable ? "clipper.hint.llm" : "clipper.hint.local"))
             if let job = st.job {
                 let p = store.jobProgress(job) ?? 0
@@ -83,7 +83,7 @@ struct AIClipperSheet: View {
                     ForEach(st.highlights) { h in
                         WithPerceptionTracking {
                             HStack(alignment: .top, spacing: 10) {
-                                CapCheckbox(isOn: Binding(get: { st.selected.contains(h.id) }, set: { on in
+                                CapCheckbox(isOn: Binding.perceived(get: { st.selected.contains(h.id) }, set: { on in
                                     if on { st.selected.insert(h.id) } else { st.selected.remove(h.id) }
                                 }))
                                 VStack(alignment: .leading, spacing: 2) {

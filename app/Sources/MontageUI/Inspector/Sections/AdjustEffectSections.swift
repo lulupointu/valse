@@ -25,7 +25,7 @@ struct AdjustBasicSection: View {
         let store = ctx.store
         let inst = instance(ctx.clip)
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { inst?.isEnabled ?? true }, set: { v in
+            isEnabled: Binding.perceived(get: { inst?.isEnabled ?? true }, set: { v in
                 guard let id = ctx.clip?.id, inst != nil else { return }
                 let tid = descriptor.id   // by type: the same panel on every selected clip (C2)
                 store.performInspector(UpdateClip(id, nameKey: "cmd.adjust") { c in

@@ -33,14 +33,14 @@ struct AIWriterPanel: View {
                             Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(SecondaryButtonStyle())
                         }
                         label("writer.topic")
-                        TextField(tr("writer.topic.placeholder"), text: Binding(get: { st.topic }, set: { st.topic = $0 }), axis: .vertical)
+                        TextField(tr("writer.topic.placeholder"), text: Binding.perceived(get: { st.topic }, set: { st.topic = $0 }), axis: .vertical)
                             .textFieldStyle(.plain).font(Theme.Fonts.row).lineLimit(2...4)
                             .padding(8).padding(.trailing, 22).background(IStyle.field, in: RoundedRectangle(cornerRadius: 6)).testID("writer.topic")
                             .overlay(alignment: .trailing) {   // AI2 TX-034
-                                DictateButton(text: Binding(get: { st.topic }, set: { st.topic = $0 }), testID: "writer.dictate").padding(.trailing, 2)
+                                DictateButton(text: Binding.perceived(get: { st.topic }, set: { st.topic = $0 }), testID: "writer.dictate").padding(.trailing, 2)
                             }
                         label("writer.requirements")
-                        TextField(tr("writer.requirements.placeholder"), text: Binding(get: { st.requirements }, set: { st.requirements = $0 }), axis: .vertical)
+                        TextField(tr("writer.requirements.placeholder"), text: Binding.perceived(get: { st.requirements }, set: { st.requirements = $0 }), axis: .vertical)
                             .textFieldStyle(.plain).font(Theme.Fonts.row).lineLimit(2...4)
                             .padding(8).background(IStyle.field, in: RoundedRectangle(cornerRadius: 6))
                         HStack {
@@ -57,7 +57,7 @@ struct AIWriterPanel: View {
                         if let e = st.error { HintText(text: e, color: IStyle.warning) }
                         if !st.script.isEmpty || st.busy {
                             label("writer.script")
-                            TextEditor(text: Binding(get: { st.script }, set: { st.script = $0 }))
+                            TextEditor(text: Binding.perceived(get: { st.script }, set: { st.script = $0 }))
                                 .font(Theme.Fonts.row).scrollContentBackground(.hidden).frame(minHeight: 160)
                                 .padding(6).background(IStyle.field, in: RoundedRectangle(cornerRadius: 6))
                                 .overlay { if st.busy { ProgressView().controlSize(.small) } }

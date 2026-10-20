@@ -39,7 +39,7 @@ struct TransitionsTab: View {
             let selectedType = store.selectedTransition.flatMap { store.project.timeline.clip($0)?.transitionOut?.typeID }
             HStack(spacing: 0) {
                 // while searching no category is highlighted (results span all of them)
-                SubNav(items: nav, selection: Binding(get: { q.isEmpty ? current : "" }, set: { group = $0; query = "" }))
+                SubNav(items: nav, selection: Binding.perceived(get: { q.isEmpty ? current : "" }, set: { group = $0; query = "" }))
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
@@ -274,7 +274,7 @@ struct TransitionParamRows: View {
                 ColorSwatchButton(color: { if case .color(let c) = value { return c }; return .white }()) { c in write(.color(c), false) }
             }
         case .bool:
-            ToggleLine(label: tr(spec.nameKey), isOn: Binding(get: { value.scalar == 1 }, set: { write(.bool($0), false) }))
+            ToggleLine(label: tr(spec.nameKey), isOn: Binding.perceived(get: { value.scalar == 1 }, set: { write(.bool($0), false) }))
         case .choice(let keys, _):
             InlineRow(label: tr(spec.nameKey)) {
                 Dropdown(items: keys.enumerated().map { ($0.offset, tr($0.element)) },

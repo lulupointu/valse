@@ -28,7 +28,7 @@ struct LensCorrectionSection: View {
         let store = ctx.store
         let inst = instance(ctx)
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { inst != nil }, set: { on in
+            isEnabled: Binding.perceived(get: { inst != nil }, set: { on in
                 guard let id = ctx.clip?.id else { return }
                 store.performInspector(UpdateClip(id, nameKey: "cmd.lensCorrection") { c in
                     if on {

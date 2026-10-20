@@ -108,7 +108,7 @@ struct StickerLibraryTab: View {
             let listed = searching ? StickerCatalog.search(query) : StickerCatalog.entries(nav: current, favorites: favorites.ids, recents: recents)
             let items = recentNav && !searching ? listed : StickerCatalog.sorted(listed, by: sort, favorites: favorites.ids, recents: recents)
             HStack(spacing: 0) {
-                SubNav(items: navItems.map { ($0.id, tr($0.titleKey)) }, selection: Binding(get: { current }, set: { nav = $0; query = "" }))
+                SubNav(items: navItems.map { ($0.id, tr($0.titleKey)) }, selection: Binding.perceived(get: { current }, set: { nav = $0; query = "" }))
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)

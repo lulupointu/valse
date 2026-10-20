@@ -145,7 +145,7 @@ struct TimelineToolbarBar: View, Equatable {
                 divider
                 IconButton("arrow.left.and.right.square", help: tr("toolbar.zoomFit")) { store.zoomTimelineToFit() }.testID("toolbar.zoomFit")
                 IconButton("minus.magnifyingglass", help: tr("toolbar.zoomOut")) { store.zoomTimeline(by: 1 / 1.25) }.testID("toolbar.zoomOut")
-                Slider(value: Binding(get: { log(m.pixelsPerSecond) }, set: { v in store.zoomTimeline(by: exp(v) / store.pixelsPerSecond) }),
+                Slider(value: Binding.perceived(get: { log(m.pixelsPerSecond) }, set: { v in store.zoomTimeline(by: exp(v) / store.pixelsPerSecond) }),
                        in: log(2)...log(1200))
                     .controlSize(.mini).frame(width: 90).tint(.white).testID("toolbar.zoomSlider")
                 IconButton("plus.magnifyingglass", help: tr("toolbar.zoomIn")) { store.zoomTimeline(by: 1.25) }.testID("toolbar.zoomIn")
@@ -170,7 +170,7 @@ struct LinkageSettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(LinkageCategory.allCases, id: \.self) { c in
                     WithPerceptionTracking {
-                        Toggle(isOn: Binding(get: { !excluded.contains(c) }, set: { store.setLinkage(c, enabled: $0) })) {
+                        Toggle(isOn: Binding.perceived(get: { !excluded.contains(c) }, set: { store.setLinkage(c, enabled: $0) })) {
                             Text(verbatim: tr(c.nameKey)).font(Theme.Fonts.row)
                         }
                         .toggleStyle(.checkbox)

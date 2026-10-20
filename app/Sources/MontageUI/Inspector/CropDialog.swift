@@ -310,7 +310,7 @@ struct CropDialogView: View {
             }
             HStack(spacing: 10) {
                 Text(loc: "crop.rotate").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary).frame(width: 70, alignment: .leading)
-                Slider(value: Binding(get: { model.crop.rotation ?? 0 }, set: { model.crop.rotation = ($0 * 10).rounded() / 10 }), in: -45...45)
+                Slider(value: Binding.perceived(get: { model.crop.rotation ?? 0 }, set: { model.crop.rotation = ($0 * 10).rounded() / 10 }), in: -45...45)
                     .frame(width: 300).testID("crop.rotate")
                 Text(verbatim: String(format: "%.1f°", model.crop.rotation ?? 0)).font(.system(size: 12).monospacedDigit())
                     .foregroundStyle(Theme.textPrimary).frame(width: 52, alignment: .trailing)

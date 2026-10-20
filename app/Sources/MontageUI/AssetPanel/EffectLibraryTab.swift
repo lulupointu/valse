@@ -215,7 +215,7 @@ struct EffectLibraryTab: View {
                 : EffectLibraryCatalog.entries(category, nav: current, favorites: favorites.ids)
             let title = searching ? tr("fxlib.results") : tr(navItems.first { $0.id == current }?.titleKey ?? current)
             HStack(spacing: 0) {
-                SubNav(items: navItems.map { ($0.id, tr($0.titleKey)) }, selection: Binding(get: { current }, set: { nav = $0; query = "" }))
+                SubNav(items: navItems.map { ($0.id, tr($0.titleKey)) }, selection: Binding.perceived(get: { current }, set: { nav = $0; query = "" }))
                 VStack(alignment: .leading, spacing: 8) {
                     searchField
                     Text(verbatim: title).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)

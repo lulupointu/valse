@@ -36,7 +36,7 @@ struct TransformSection: View {
                     Bind.row(ctx, tr("inspector.scaleY"), key: .scale, component: 1, spec: pct, toUI: { $0 * 100 }, fromUI: { $0 / 100 },
                              gestureName: "cmd.transform")
                 }
-                ToggleLine(label: tr("inspector.uniformScale"), isOn: Binding(get: { uniform }, set: { UniformScaleState.set(ctx, $0) }))
+                ToggleLine(label: tr("inspector.uniformScale"), isOn: Binding.perceived(get: { uniform }, set: { UniformScaleState.set(ctx, $0) }))
                 InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [.position])) {
                     HStack(spacing: 14) {
                         Bind.field(ctx, key: .position, component: 0, prefix: "X",

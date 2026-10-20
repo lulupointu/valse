@@ -14,7 +14,7 @@ enum FaceCoverInspector {
         InspectorSection(id: "video.faceCover", tab: "video", subTab: "basic", order: 49, titleKey: "faceCover.title",
                          appliesTo: { ctx in (ctx.isMediaVideo || ctx.asset?.kind == .image) && ctx.clip?.matte?.kind != CutoutMode.faces.kind },
                          chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: {
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: {
                 guard let c = ctx.clip else { return false }
                 return ctx.store.hasFaceCover(c.id) || ctx.store.ai.faceJobs[c.id] != nil
             }, set: { on in

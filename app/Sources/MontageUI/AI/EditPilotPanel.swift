@@ -101,7 +101,7 @@ struct EditPilotPanel: View {
     var inputBar: some View {
         let pilot = store.ai.pilot
         return HStack(alignment: .bottom, spacing: 8) {
-            TextField(tr("pilot.placeholder"), text: Binding(get: { pilot.input }, set: { pilot.input = $0 }), axis: .vertical)
+            TextField(tr("pilot.placeholder"), text: Binding.perceived(get: { pilot.input }, set: { pilot.input = $0 }), axis: .vertical)
                 .textFieldStyle(.plain).font(Theme.Fonts.row).lineLimit(1...4)
                 .focused($inputFocused)
                 .onSubmit { store.sendPilot() }
@@ -109,7 +109,7 @@ struct EditPilotPanel: View {
                 .background(IStyle.field, in: RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(inputFocused ? Theme.accent.opacity(0.7) : Theme.separator))
                 .testID("pilot.input")
-            DictateButton(text: Binding(get: { pilot.input }, set: { pilot.input = $0 }), testID: "pilot.dictate")
+            DictateButton(text: Binding.perceived(get: { pilot.input }, set: { pilot.input = $0 }), testID: "pilot.dictate")
             Button { store.sendPilot() } label: {
                 Image(systemName: "arrow.up.circle.fill").font(.system(size: 24))
                     .foregroundStyle(pilot.input.trimmingCharacters(in: .whitespaces).isEmpty || pilot.isBusy ? Theme.textTertiary : Theme.accent)
@@ -219,7 +219,7 @@ private struct PlanCardView: View {
                     let result = card.results.first { $0.id == i }
                     HStack(alignment: .top, spacing: 8) {
                         if card.state == .ready || card.state == .preparing {
-                            CapCheckbox(isOn: Binding(get: { on }, set: { store.setPilotStep(id, index: i, enabled: $0) }),
+                            CapCheckbox(isOn: Binding.perceived(get: { on }, set: { store.setPilotStep(id, index: i, enabled: $0) }),
                                         enabled: card.state == .ready)
                                 .testID("pilot.step.\(i)")
                         } else {

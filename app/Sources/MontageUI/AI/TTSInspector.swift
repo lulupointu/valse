@@ -65,7 +65,7 @@ struct TTSVoicesSection: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").foregroundStyle(IStyle.caption)
-                    TextField(tr("tts.search"), text: Binding(get: { st.query }, set: { st.query = $0 })).textFieldStyle(.plain).font(Theme.Fonts.row)
+                    TextField(tr("tts.search"), text: Binding.perceived(get: { st.query }, set: { st.query = $0 })).textFieldStyle(.plain).font(Theme.Fonts.row)
                 }
                 .padding(.horizontal, 8).frame(height: 28).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
                 HStack(spacing: 8) {
@@ -111,7 +111,7 @@ struct TTSVoicesSection: View {
                 SliderRowView(label: tr("tts.pitch"), unit: (st.pitch - 0.5) / 1.5, originUnit: 1.0 / 3, gradient: nil, ticks: [], display: Fmt.speed(st.pitch),
                               enabled: true, labelAccessory: nil, parse: NumberParse.number, onBegin: {}, onChange: { st.pitch = 0.5 + $0 * 1.5 }, onEnd: {},
                               commit: { st.pitch = min(max($0, 0.5), 2) }, step: { st.pitch = min(max(st.pitch + Double($0) * 0.1, 0.5), 2) }, triplet: nil)
-                ToggleLine(label: tr("tts.updateWithScript"), isOn: Binding(get: { st.autoUpdate }, set: { st.autoUpdate = $0 }))
+                ToggleLine(label: tr("tts.updateWithScript"), isOn: Binding.perceived(get: { st.autoUpdate }, set: { st.autoUpdate = $0 }))
             }
         }
     }

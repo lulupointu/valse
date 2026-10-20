@@ -26,7 +26,7 @@ enum ColorLookInspector {
 
     @MainActor static func chrome(_ ctx: InspectorContext, _ k: ColorLooks.Kind) -> InspectorSectionChrome {
         let store = ctx.store
-        return InspectorSectionChrome(isEnabled: Binding(get: {
+        return InspectorSectionChrome(isEnabled: Binding.perceived(get: {
             guard let c = ctx.clip else { return false }
             return look(c, k) != nil || store.ai.lookJobs[ColorLookUI.key(c.id, k)] != nil || (k == .match && ColorLookUI.shared.matchOpen == c.id)
         }, set: { on in

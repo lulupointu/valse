@@ -11,7 +11,7 @@ enum VideoAIInspector {
     @MainActor static let sections: [InspectorSection] = [
         InspectorSection(id: "video.reframe", tab: "video", subTab: "basic", order: 45, titleKey: "inspector.reframe",
                          appliesTo: { $0.kind == .video }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: { ctx.clip?.reframe != nil || ctx.clip.map { ctx.store.ai.reframeJobs[$0.id] != nil } ?? false },
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: { ctx.clip?.reframe != nil || ctx.clip.map { ctx.store.ai.reframeJobs[$0.id] != nil } ?? false },
                                                       set: { on in
                 guard let id = ctx.clip?.id else { return }
                 if on { ctx.store.autoReframe(id, options: ReframeUIState.shared.options) } else { ctx.store.removeReframe(id) }

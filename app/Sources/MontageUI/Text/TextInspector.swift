@@ -92,7 +92,7 @@ enum TextInspector {
     static func chrome(_ ctx: InspectorContext, isOn: @escaping (TextContent) -> Bool, toggle: @escaping (inout TextContent, Bool) -> Void,
                        reset: @escaping (inout TextContent) -> Void) -> InspectorSectionChrome {
         InspectorSectionChrome(
-            isEnabled: Binding(get: { text(ctx).map(isOn) ?? false }, set: { v in
+            isEnabled: Binding.perceived(get: { text(ctx).map(isOn) ?? false }, set: { v in
                 guard let id = ctx.clip?.id else { return }
                 ctx.store.updateText(id) { toggle(&$0, v) }
             }),
@@ -297,7 +297,7 @@ struct TextTemplateSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(1..<max(d?.slotKeys.count ?? 1, 1), id: \.self) { i in
                         WithPerceptionTracking {
-                            TextField(tr("text.template.slot", i + 1), text: Binding(
+                            TextField(tr("text.template.slot", i + 1), text: Binding.perceived(
                                 get: { TextTemplateDescriptor.text(slot: i, of: t, descriptor: d) },
                                 set: { v in
                                     ctx.store.updateText(clip.id, nameKey: "cmd.text") { tt in
@@ -343,7 +343,7 @@ struct TextStrokeSection: View {
                 TextInspector.row(ctx, tr("text.stroke.width"), range: 0...100, get: { $0.strokeWidth / 0.3 * 100 }, set: { t, v in t.strokeWidth = v / 100 * 0.3 })
                 InlineRow(label: tr("text.stroke.position")) {
                     SegmentedTabs(TextStrokePosition.allCases.map { ($0.rawValue, tr("text.stroke.position.\($0.rawValue)")) },
-                                  selection: Binding(get: { (TextInspector.text(ctx)?.strokePosition ?? .outside).rawValue }, set: { v in
+                                  selection: Binding.perceived(get: { (TextInspector.text(ctx)?.strokePosition ?? .outside).rawValue }, set: { v in
                                       guard let id = ctx.clip?.id, let p = TextStrokePosition(rawValue: v) else { return }
                                       ctx.store.updateText(id) { $0.strokePosition = p }
                                   }))
@@ -544,7 +544,7 @@ struct TextEffectsSection: View {
             let cur = TextInspector.text(ctx)?.styleID
             let q = ui.effectSearch.trimmingCharacters(in: .whitespaces).lowercased()
             VStack(alignment: .leading, spacing: 10) {
-                SearchField(text: Binding(get: { ui.effectSearch }, set: { ui.effectSearch = $0 }), placeholder: tr("text.effects.search"))
+                SearchField(text: Binding.perceived(get: { ui.effectSearch }, set: { ui.effectSearch = $0 }), placeholder: tr("text.effects.search"))
                 ForEach(BuiltinTextStyles.effectGroups, id: \.self) { g in
                     WithPerceptionTracking {
                         let items = Registries.textStyles(.effect).filter { $0.groupKey == g && (q.isEmpty || $0.displayName.lowercased().contains(q) || tr(g).lowercased().contains(q)) }

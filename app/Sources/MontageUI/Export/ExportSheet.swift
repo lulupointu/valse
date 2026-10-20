@@ -179,7 +179,7 @@ struct ExportSheet: View {
     }
 
     func expandedBinding(_ key: String) -> Binding<Bool> {
-        Binding(get: { model.expanded.contains(key) }, set: { if $0 { model.expanded.insert(key) } else { model.expanded.remove(key) } })
+        Binding.perceived(get: { model.expanded.contains(key) }, set: { if $0 { model.expanded.insert(key) } else { model.expanded.remove(key) } })
     }
 
     // MARK: Video
@@ -207,7 +207,7 @@ struct ExportSheet: View {
                 if v.bitrateMode == .custom && !v.codec.isProRes {
                     ExportRow(label: tr("export.kbps"), enabled: on) {
                         HStack(spacing: 8) {
-                            TextField("", value: Binding(get: { Int(model.remembered.video.customBitrateMbps * 1000) },
+                            TextField("", value: Binding.perceived(get: { Int(model.remembered.video.customBitrateMbps * 1000) },
                                                          set: { k in model.editVideo { $0.customBitrateMbps = min(800, max(0.5, Double(k) / 1000)) } }),
                                       format: .number)
                                 .textFieldStyle(.plain).font(Theme.Fonts.numeric).foregroundStyle(.white)
@@ -244,19 +244,19 @@ struct ExportSheet: View {
                         .foregroundStyle(on ? ExportStyle.label : ExportStyle.disabledLabel)
                 }
                 if hdr {
-                    toggleRow(tr("export.hdrToSDR"), detail: tr("export.hdrToSDR.hint"), isOn: Binding(
+                    toggleRow(tr("export.hdrToSDR"), detail: tr("export.hdrToSDR.hint"), isOn: Binding.perceived(
                         get: { model.remembered.video.toneMapToSDR }, set: { b in model.editVideo { $0.toneMapToSDR = b } }), enabled: on)
                 }
                 if v.codec.supportsAlpha {
-                    toggleRow(tr("export.alpha"), detail: tr("export.alpha.hint"), isOn: Binding(
+                    toggleRow(tr("export.alpha"), detail: tr("export.alpha.hint"), isOn: Binding.perceived(
                         get: { model.remembered.video.alpha }, set: { b in model.editVideo { $0.alpha = b } }), enabled: on)
                 }
                 if model.hasBurnableCaptions {
-                    toggleRow(tr("export.burnCaptions"), detail: nil, isOn: Binding(
+                    toggleRow(tr("export.burnCaptions"), detail: nil, isOn: Binding.perceived(
                         get: { model.remembered.video.burnCaptions }, set: { b in model.editVideo { $0.burnCaptions = b } }), enabled: on)
                 }
                 // EX-025: motion blur rendered by frame accumulation (Times 2× / 4× / 6×)
-                toggleRow(tr("export.motionBlur"), detail: tr("export.motionBlur.hint"), isOn: Binding(
+                toggleRow(tr("export.motionBlur"), detail: tr("export.motionBlur.hint"), isOn: Binding.perceived(
                     get: { model.remembered.video.motionBlur != .off },
                     set: { b in model.editVideo { $0.motionBlur = b ? .medium : .off } }), enabled: on)
                     .testID("export.motionBlur")
@@ -267,7 +267,7 @@ struct ExportSheet: View {
                     }
                 }
                 // EX-018: AI ultra HD (on-device super resolution of low-resolution clips before rendering)
-                toggleRow(tr("export.aiUltraHD"), detail: tr("export.aiUltraHD.hint"), isOn: Binding(
+                toggleRow(tr("export.aiUltraHD"), detail: tr("export.aiUltraHD.hint"), isOn: Binding.perceived(
                     get: { model.remembered.video.aiUltraHD }, set: { b in model.editVideo { $0.aiUltraHD = b } }), enabled: on)
                     .testID("export.aiUltraHD")
             }
@@ -346,7 +346,7 @@ struct ExportSheet: View {
         let available = model.hasCaptions
         let on = model.remembered.captionsEnabled && available
         return VStack(alignment: .leading, spacing: 4) {
-            ExportSectionHeader(id: "captions", title: tr("export.captions"), isOn: Binding(get: { on }, set: { model.remembered.captionsEnabled = $0 }),
+            ExportSectionHeader(id: "captions", title: tr("export.captions"), isOn: Binding.perceived(get: { on }, set: { model.remembered.captionsEnabled = $0 }),
                                 expanded: expandedBinding("captions"), enabled: available)
             if model.expanded.contains("captions") {
                 ExportRow(label: tr("export.format"), enabled: on) {
@@ -430,7 +430,7 @@ struct CoverEditor: View {
                     Button(tr("export.cover.import")) { importImage() }.buttonStyle(SecondaryButtonStyle())
                 }
                 HStack(spacing: 8) {
-                    ExportCheckbox(isOn: Binding(get: { model.remembered.video.prependCover }, set: { b in model.editVideo { $0.prependCover = b } }))
+                    ExportCheckbox(isOn: Binding.perceived(get: { model.remembered.video.prependCover }, set: { b in model.editVideo { $0.prependCover = b } }))
                     Text(loc: "export.cover.prepend").font(.system(size: 12)).foregroundStyle(ExportStyle.label)
                 }
             }

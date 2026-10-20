@@ -83,7 +83,7 @@ public struct SliderRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: label).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                 HStack(spacing: 8) {
-                    Slider(value: Binding(get: { min(max(get(), range.lowerBound), range.upperBound) }, set: set), in: range) { editing in
+                    Slider(value: Binding.perceived(get: { min(max(get(), range.lowerBound), range.upperBound) }, set: { set($0) }), in: range) { editing in
                         editing ? onBegin() : onEnd()
                     }
                     .controlSize(.small)

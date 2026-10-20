@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Perception
 import MontageCore
 
 /// Multi-line text editor bound to a text clip (Text ▸ Basic text area, the inline canvas editor). Typing is one undo
@@ -31,7 +32,8 @@ struct ClipTextEditor: NSViewRepresentable {
         tv.insertionPointColor = NSColor(Theme.accent)
         tv.alignment = alignment
         tv.textContainerInset = NSSize(width: 4, height: 4)
-        tv.string = context.coordinator.currentString()
+        // later changes come through updateNSView (RepresentableTracking); this first read needn't be tracked
+        tv.string = _PerceptionLocals.$skipPerceptionChecking.withValue(true) { context.coordinator.currentString() }
         context.coordinator.textView = tv
         if focusOnAppear {
             DispatchQueue.main.async {

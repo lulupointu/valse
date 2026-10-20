@@ -53,7 +53,7 @@ enum ColorGradingInspector {
         let store = ctx.store
         let inst = instance(ctx.clip, d)
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { inst?.isEnabled ?? true }, set: { v in
+            isEnabled: Binding.perceived(get: { inst?.isEnabled ?? true }, set: { v in
                 guard let id = ctx.clip?.id, inst != nil else { return }
                 let tid = d.id   // by type: the same panel on every selected clip (C2)
                 store.performInspector(UpdateClip(id, nameKey: "cmd.adjust") { c in
@@ -494,7 +494,7 @@ struct AutoAdjustSection: View {
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         let inst = ColorGradingInspector.instance(ctx.clip, AutoColor.descriptor)
         return InspectorSectionChrome(
-            isEnabled: Binding(get: { inst?.isEnabled ?? false }, set: { on in
+            isEnabled: Binding.perceived(get: { inst?.isEnabled ?? false }, set: { on in
                 guard let clip = ctx.clip else { return }
                 if on && inst == nil { run(ctx, clip) }
                 else if let iid = inst?.id {

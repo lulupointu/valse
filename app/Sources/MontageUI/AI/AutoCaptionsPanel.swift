@@ -42,12 +42,12 @@ struct AutoCaptionsPanel: View {
                             Dropdown(items: sources, selection: sourceKey(ai.captionSource)) { k in ai.captionSource = source(for: k) }
                         }
                         HStack(spacing: 8) {
-                            CapCheckbox(isOn: Binding(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
+                            CapCheckbox(isOn: Binding.perceived(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
                             Text(loc: "captions.identifyFillers").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                         }
                         // AI-005: speaker ID (diarization) → captions split and coloured per speaker
                         HStack(spacing: 8) {
-                            CapCheckbox(isOn: Binding(get: { ai.identifySpeakers }, set: { ai.identifySpeakers = $0 })).testID("captions.identifySpeakers")
+                            CapCheckbox(isOn: Binding.perceived(get: { ai.identifySpeakers }, set: { ai.identifySpeakers = $0 })).testID("captions.identifySpeakers")
                             Text(loc: "speakers.identifyOption").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                             Spacer()
                             if ai.identifySpeakers {
@@ -85,7 +85,7 @@ struct AutoCaptionsPanel: View {
             }
             HStack {
                 if store.hasAutoCaptions {
-                    CapCheckbox(isOn: Binding(get: { ai.replaceCaptions }, set: { ai.replaceCaptions = $0 }))
+                    CapCheckbox(isOn: Binding.perceived(get: { ai.replaceCaptions }, set: { ai.replaceCaptions = $0 }))
                     Text(loc: "captions.deleteCurrent").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                 }
                 Spacer()

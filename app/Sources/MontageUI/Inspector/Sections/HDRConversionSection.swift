@@ -22,7 +22,7 @@ enum HDRConversionInspector {
                          appliesTo: { direction($0).applies }, chrome: { ctx in
             let store = ctx.store
             let toSDR = direction(ctx).toSDR
-            return InspectorSectionChrome(isEnabled: Binding(get: { ctx.clip?.hdrConversion?.method == .bt2390 }, set: { on in
+            return InspectorSectionChrome(isEnabled: Binding.perceived(get: { ctx.clip?.hdrConversion?.method == .bt2390 }, set: { on in
                 guard let id = ctx.clip?.id else { return }
                 store.perform(UpdateClip(id, nameKey: "cmd.hdrConversion") { c in
                     c.hdrConversion = on ? HDRConversion(method: .bt2390, peakNits: c.hdrConversion?.peakNits ?? defaultPeak(toSDR: toSDR)) : nil

@@ -63,7 +63,7 @@ extension EditorStore {
     /// Binding to a text clip's string for dictation: every partial result updates the clip live inside one gesture
     /// (`DictateButton` onStart/onEnd), so a whole dictation is one undo step "Dictate".
     func dictationBinding(for clipID: ClipID) -> Binding<String> {
-        Binding(get: { [weak self] in
+        Binding.perceived(get: { [weak self] in
             guard case .text(let t)? = self?.project.timeline.clip(clipID)?.content else { return "" }
             return t.string
         }, set: { [weak self] s in

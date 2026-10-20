@@ -22,7 +22,7 @@ struct LUTSection: View {
                 HStack {
                     Text(loc: "inspector.lut.name").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker(tr("inspector.lut.name"), selection: Binding(get: { current?.typeID ?? "" }, set: { choose($0) })) {
+                    Picker(tr("inspector.lut.name"), selection: Binding.perceived(get: { current?.typeID ?? "" }, set: { choose($0) })) {
                         Text(loc: "inspector.lut.none").tag("")
                         ForEach(LUTLibrary.shared.all, id: \.id) { Text(verbatim: $0.name).tag($0.id) }
                     }

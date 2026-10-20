@@ -11,7 +11,7 @@ enum CameraLockInspector {
     @MainActor static let sections: [InspectorSection] = [
         InspectorSection(id: "video.cameraLock", tab: "video", subTab: "basic", order: 44, titleKey: "cameraLock.title",
                          appliesTo: { $0.isMediaVideo }, chrome: { ctx in
-            InspectorSectionChrome(isEnabled: Binding(get: {
+            InspectorSectionChrome(isEnabled: Binding.perceived(get: {
                 ctx.clip?.cameraLock != nil || ctx.clip.map { ctx.store.ai.cameraJobs[$0.id] != nil || CameraLockUIState.shared.boxTool?.clipID == $0.id } ?? false
             }, set: { on in
                 guard let id = ctx.clip?.id else { return }
@@ -63,7 +63,7 @@ struct CameraLockSection: View {
                     }.testID("cameraLock.customBox")
                 }
                 ToggleLine(label: tr(o.target.keepSizeKey),
-                           isOn: Binding(get: { o.keepSize }, set: { v in update { $0.keepSize = v } }))
+                           isOn: Binding.perceived(get: { o.keepSize }, set: { v in update { $0.keepSize = v } }))
                 InlineRow(label: tr("cameraLock.fill")) {
                     Dropdown(items: CameraLockOptions.Fill.allCases.map { ($0, tr($0.nameKey)) }, selection: o.fill) { v in update { $0.fill = v } }
                 }

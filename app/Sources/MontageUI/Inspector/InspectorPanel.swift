@@ -221,7 +221,7 @@ struct SectionHeaderBar: View {
         WithPerceptionTracking {
             HStack(spacing: 8) {
                 if let b = chrome?.isEnabled {
-                    CapCheckbox(isOn: Binding(get: { b.wrappedValue }, set: { v in
+                    CapCheckbox(isOn: Binding.perceived(get: { b.wrappedValue }, set: { v in
                         b.wrappedValue = v
                         onCheck?(v)
                     }), enabled: chrome?.disabledReason == nil, label: title)
@@ -407,7 +407,7 @@ enum Bind {
                            default d: V) -> Binding<V> {
         let store = ctx.store
         let id = ctx.clip?.id
-        return Binding(get: {
+        return Binding.perceived(get: {
             // the selected clip comes from its slice (no observation of every project edit)
             if let s = store.selectedClipSlice, s.id == id { return get(s) }
             return id.flatMap { store.project.timeline.clip($0) }.map(get) ?? d

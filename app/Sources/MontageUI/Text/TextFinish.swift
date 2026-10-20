@@ -148,7 +148,7 @@ struct TextCounterSection: View {
                     }
                 }
                 if k.kind == .number {
-                    ToggleLine(label: tr("counter.separator"), isOn: Binding(get: { k.thousandsSeparator }, set: { v in set { $0.thousandsSeparator = v } }), enabled: on)
+                    ToggleLine(label: tr("counter.separator"), isOn: Binding.perceived(get: { k.thousandsSeparator }, set: { v in set { $0.thousandsSeparator = v } }), enabled: on)
                     InlineRow(label: tr("counter.prefix"), enabled: on) {
                         CounterTextField(text: k.prefix) { v in set { $0.prefix = v } }.testID("counter.prefix")
                     }
@@ -160,7 +160,7 @@ struct TextCounterSection: View {
                     Dropdown(items: [0.25, 0.5, 0.8, 1.0].map { ($0, "\(Int($0 * 100)) %") }, selection: k.countFraction) { v in set { $0.countFraction = v } }
                         .frame(width: 100)
                 }
-                ToggleLine(label: tr("counter.easeOut"), isOn: Binding(get: { k.easeOut }, set: { v in set { $0.easeOut = v } }), enabled: on)
+                ToggleLine(label: tr("counter.easeOut"), isOn: Binding.perceived(get: { k.easeOut }, set: { v in set { $0.easeOut = v } }), enabled: on)
                 HintText(text: tr("counter.hint"))
             }
         }
@@ -220,7 +220,7 @@ struct CounterDateField: View {
     let onCommit: (Double) -> Void
     var body: some View {
         WithPerceptionTracking {
-            DatePicker("", selection: Binding(
+            DatePicker("", selection: Binding.perceived(
                 get: { Date(timeIntervalSinceReferenceDate: days * 86_400) },
                 set: { d in
                     var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
