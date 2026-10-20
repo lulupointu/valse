@@ -71,6 +71,67 @@ import MontageCore
         #expect(cell.cellSize(forBounds: CGRect(x: 0, y: 0, width: w.labelFrame.width, height: 10_000)).height <= w.labelFrame.height + 0.5)
     }
 
+    /// `MONTAGE_U1_SHOTS=<dir>`: writes the French caption tooltip pill as a PNG (docs/ux/parity/u1_tooltip.png).
+    @Test func captionTooltipPillImage() throws {
+        MontageBootstrap.registerResources()
+        let lang = L10n.shared.language
+        defer { L10n.shared.setLanguageForSession(lang) }
+        L10n.shared.setLanguageForSession("fr")
+        let text = CaptionRow.playFromHelp(Time(3.4))
+        #expect(text == "Double-cliquez pour lire à partir de 00:00:03")
+        L10n.shared.setLanguageForSession("en")
+        #expect(CaptionRow.playFromHelp(Time(65)) == "Double-click to play from 00:01:05")
+        guard let dir = ProcessInfo.processInfo.environment["MONTAGE_U1_SHOTS"] else { return }
+        for (name, s) in [("tooltip-fr", text), ("tooltip-long-fr", "Double-cliquez pour lire à partir de cette légende (texte de l’info-bulle plus long que la largeur maximale)")] {
+            let w = TooltipWindow()
+            w.setText(s)
+            let v = try #require(w.contentView)
+            v.wantsLayer = true
+            let rep = try #require(v.bitmapImageRepForCachingDisplay(in: v.bounds))
+            v.cacheDisplay(in: v.bounds, to: rep)
+            try rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
+        }
+    }
+
+    // MARK: 7. marquee: edge autoscroll + content-anchored rectangle
+
+    @Test func autoscrollSpeedRampsWithDistancePastTheEdge() {
+        let lo: CGFloat = 120, hi: CGFloat = 1200, z = EdgeAutoscroll.zone
+        #expect(EdgeAutoscroll.speed(600, lower: lo, upper: hi) == 0)              // middle
+        #expect(EdgeAutoscroll.speed(hi - z - 1, lower: lo, upper: hi) == 0)       // just outside the band
+        let atBand = EdgeAutoscroll.speed(hi - z + 1, lower: lo, upper: hi)
+        let atEdge = EdgeAutoscroll.speed(hi, lower: lo, upper: hi)
+        let past = EdgeAutoscroll.speed(hi + 60, lower: lo, upper: hi)
+        #expect(atBand > 0 && atBand < atEdge && atEdge < past)                    // ramps
+        #expect(EdgeAutoscroll.speed(hi + 10_000, lower: lo, upper: hi) == EdgeAutoscroll.maxSpeed)
+        // symmetric at the start
+        #expect(EdgeAutoscroll.speed(lo - 60, lower: lo, upper: hi) == -past)
+        // speed is per second, independent of mouse events: 60 frames of 1/60 s = one second of scrolling
+        let oneSecond = (0..<60).map { _ in EdgeAutoscroll.step(speed: atEdge, dt: 1.0 / 60) }.reduce(0, +)
+        #expect(abs(oneSecond - atEdge) < 1e-6)
+        // a stalled frame doesn't jump
+        #expect(EdgeAutoscroll.step(speed: atEdge, dt: 2) == atEdge * EdgeAutoscroll.maxStep)
+    }
+
+    @Test func marqueeStartStaysOnItsTimeAndTrackWhileTheViewScrolls() {
+        let size = CGSize(width: 1300, height: 400)
+        let l0 = TimelineLayout(timeline: Timeline(), pixelsPerSecond: 100, scrollTime: 0, scrollY: 0, viewSize: size)
+        let start = CGPoint(x: TimelineLayout.headerWidth + 300, y: 150)   // 3 s
+        let a = MarqueeAnchor(viewPoint: start, layout: l0)
+        #expect(abs(a.time - 3) < 1e-9)
+        #expect(a.rect(to: CGPoint(x: 1280, y: 200), l0).minX == start.x)
+        // the view scrolled 5 s right and 40 pt down, pointer still at the right edge
+        let l1 = TimelineLayout(timeline: Timeline(), pixelsPerSecond: 100, scrollTime: 5, scrollY: 40, viewSize: size)
+        let r = a.rect(to: CGPoint(x: 1280, y: 200), l1)
+        #expect(abs(r.minX - (start.x - 500)) < 1e-9)   // the start moved left with its content: the rectangle EXTENDS
+        #expect(abs(r.minY - 110) < 1e-9)
+        #expect(abs(r.maxX - 1280) < 1e-9)
+        // and the time span it covers grew by the 5 s scrolled: it still starts at 3 s
+        let end0 = l0.time(atX: 1280).seconds, end1 = l1.time(atX: r.maxX).seconds
+        #expect(abs(l1.time(atX: r.minX).seconds - 3) < 1e-6)
+        #expect(abs(end1 - end0 - 5) < 1e-6)
+    }
+
     // MARK: 6. playback follow
 
     /// 100 px/s, 1000 px of clip area → 10 s visible, padding 40 px = 0.4 s.

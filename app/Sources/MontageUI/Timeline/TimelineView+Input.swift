@@ -20,6 +20,7 @@ extension TimelineView {
         let l = layoutNow
         let tl = store.project.timeline
         let mods = e.modifierFlags
+        lastDrag = nil; lastAutoscrollTime = nil   // U1-7
         if let anchor = previewAnchor { previewAnchor = nil; _ = anchor }
         // Clicking the timeline ends inspector field editing so shortcuts (⇧⌥K, ⌘B…) reach the editor again.
         if window?.firstResponder is NSTextView { window?.makeFirstResponder(nil) }
@@ -72,7 +73,7 @@ extension TimelineView {
         case .track, .newTrack, .none:
             let additive = mods.contains(.shift) || mods.contains(.command)
             if !additive { store.deselectAll() }
-            drag = .marquee(origin: pt, current: pt, base: additive ? store.selection : [])
+            drag = .marquee(anchor: MarqueeAnchor(viewPoint: pt, layout: l), current: pt, base: additive ? store.selection : [])
         case .header(let ri):
             headerMouseDown(ri, pt: pt, layout: l, event: e)
         case .transition(let left, let edge, _):
@@ -115,10 +116,14 @@ extension TimelineView {
 
     override func mouseDragged(with e: NSEvent) {
         let pt = point(e)
+        lastDrag = (pt, e.modifierFlags)
+        dragUpdate(to: pt, mods: e.modifierFlags)
+    }
+
+    /// One drag step at view point `pt` — from a mouse event, or replayed by the edge autoscroll after it scrolled.
+    func dragUpdate(to pt: CGPoint, mods: NSEvent.ModifierFlags) {
         let l = layoutNow
-        let mods = e.modifierFlags
         let freeSnap = snappingOn && !mods.contains(.command)
-        autoscroll(pt)
         defer { dirty = true }
         if case .pending(let p0, let id, let region, let ri) = drag {
             guard hypot(pt.x - p0.x, pt.y - p0.y) > 3 else { return }
@@ -136,9 +141,9 @@ extension TimelineView {
             let total = scrollableDuration, vis = l.visibleRange.duration.seconds
             noteUserScroll()
             scrollTime = Double((pt.x - grab - TimelineLayout.headerWidth - 4) / max(trackW, 1)) * max(total - vis, 0)
-        case .marquee(let o, _, let base):
-            drag = .marquee(origin: o, current: pt, base: base)
-            let r = CGRect(x: min(o.x, pt.x), y: min(o.y, pt.y), width: abs(pt.x - o.x), height: abs(pt.y - o.y))
+        case .marquee(let a, _, let base):
+            drag = .marquee(anchor: a, current: pt, base: base)
+            let r = a.rect(to: pt, l)   // U1-7: grows from its anchored start while the view scrolls (live selection)
             if r.width > 2 || r.height > 2 {
                 store.selection = base.union(TimelineOps.expandGroups(l.clips(in: r, timeline: tl), in: tl))
             }
@@ -361,6 +366,7 @@ extension TimelineView {
         let l = layoutNow
         defer {
             drag = .none; snapLine = nil; snapIndex = nil; trimLabel = nil; insertionSlot = nil; dirty = true
+            lastDrag = nil; lastAutoscrollTime = nil
         }
         switch drag {
         case .pending(_, let id, _, _):
@@ -374,7 +380,8 @@ extension TimelineView {
                 store.seek(to: c.start)
             }
         case .scrub: store.seek(to: l.time(atX: pt.x), exact: true)
-        case .marquee(let o, _, _):
+        case .marquee(let a, _, _):
+            let o = a.viewPoint(l)
             if hypot(pt.x - o.x, pt.y - o.y) <= 3, pt.x > TimelineLayout.headerWidth { store.seek(to: l.time(atX: pt.x), exact: true) }
         case .move(let m) where m.lifted != nil:
             let plan = dropPlan
@@ -478,13 +485,34 @@ extension TimelineView {
         if !row.isMain, track.kind.isVisual { drag = .trackReorder(track.id, y: pt.y) }
     }
 
-    private func autoscroll(_ pt: CGPoint) {
+    /// U1-7: display-link edge autoscroll (see `EdgeAutoscroll`): horizontal for every positional drag, vertical too for
+    /// the marquee and clip moves; the drag step is replayed at the same pointer so the marquee / clip / trim edge keeps up.
+    func autoscrollTick() {
+        guard let (pt, mods) = lastDrag else { lastAutoscrollTime = nil; return }
+        let vertical: Bool
         switch drag {
-        case .move, .trim, .roll, .marquee, .keyframe, .marker, .scrub: break
-        default: return
+        case .marquee, .move: vertical = true
+        case .trim, .roll, .keyframe, .marker, .scrub: vertical = false
+        default: lastAutoscrollTime = nil; return
         }
-        if pt.x > bounds.width - 20 { scrollTime += 8 / store.pixelsPerSecond }
-        else if pt.x < TimelineLayout.headerWidth + 10 && scrollTime > 0 { scrollTime = max(0, scrollTime - 8 / store.pixelsPerSecond) }
+        let now = CACurrentMediaTime()
+        let dt = lastAutoscrollTime.map { now - $0 } ?? 0
+        lastAutoscrollTime = now
+        let vx = EdgeAutoscroll.speed(pt.x, lower: TimelineLayout.headerWidth, upper: bounds.width)
+        let vy = vertical ? EdgeAutoscroll.speed(pt.y, lower: TimelineLayout.rulerHeight, upper: bounds.height) : 0
+        guard vx != 0 || vy != 0, dt > 0 else { return }
+        var moved = false
+        if vx != 0 {
+            let t0 = scrollTime
+            scrollTime = min(max(0, t0 + EdgeAutoscroll.step(speed: vx, dt: dt) / store.pixelsPerSecond), scrollableDuration)
+            moved = moved || scrollTime != t0
+        }
+        if vy != 0 {
+            let y0 = scrollY, maxY = max(0, layoutNow.contentHeight - bounds.height)
+            scrollY = min(max(0, y0 + CGFloat(EdgeAutoscroll.step(speed: vy, dt: dt))), maxY)
+            moved = moved || scrollY != y0
+        }
+        if moved { dragUpdate(to: pt, mods: mods) }
     }
 
     // MARK: Scroll & zoom

@@ -103,7 +103,7 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 | click / doubleClick / rightClick | `{"click": "id:inspector.tab.speed"}` · `{"click": "clip:main/0", "modifiers": ["shift"]}` |
 | timeline context-menu item | `{"rightClick": "clip:main/0", "menuItem": "tlmenu.separateAudio/stem.vocals"}` (l10n keys or titles; the menu is captured, not popped up) |
 | drag (press, N moves, release) | `{"drag": "clip:main/0:trailing", "by": [-60, 0]}` · `{"drag": "id:slider.opacity", "at": [0.9, 0.5], "to": "id:slider.opacity", "toAt": [0.2, 0.5], "steps": 12}` |
-| scroll | `{"scroll": "id:timeline", "dx": -200, "dy": 0}` · zoom: `{"scroll": "id:timeline", "dy": 10, "modifiers": ["cmd"]}` |
+| scroll | `{"scroll": "id:timeline", "dx": -200, "dy": 0}` · zoom: `{"scroll": "id:timeline", "dy": 10, "modifiers": ["cmd"]}` · trackpad gesture (U1): `"phase": "began" \| "changed" \| "ended"` (continuous events, rubber-band checks; `u1_settings_no_hscroll.json`) |
 | hover | `{"hover": "clip:main/0"}` |
 | key (with modifiers) | `{"key": "cmd+b"}` `{"key": "space"}` `{"key": "shift+left", "repeat": 3}` `{"key": "delete"}` |
 | type text (first responder) | `{"type": "Hello"}` · `{"type": "30", "replace": true}` (select all first) |
@@ -156,6 +156,11 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   selected, settings, keymap.bindings, renderedRanges…}` (StateDump.appHook).
 - asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>` (grid tile or list filmstrip row; `"at": [fx, fy]` clicks at a source time, C6), `media.import`, `media.layout`; state `ui.assets.media.{layout, columns}`, `ui.assets.preview.{kind, time}`
 - tooltips (C6, custom: `Support/Tooltips.swift`): `{"hover": "id:toolbar.split", "settle": 0}` then `ui.tooltipPending` (waiting for the 0.2 s delay) / `ui.tooltip` (visible text, null when none) — see `c6_tooltips.json`. The driver resolves the hovered `.help()` element itself (tracking areas only fire for real moves)
+- U1: Settings sideways scroll `ui.settings.{overflow, innerOverflow, scrollX, innerScrollX, horizontallyElastic}` (Settings open only);
+  playback follow `ui.followManual` (the user scrolled during playback: no auto follow, `u1_playhead_follow.json`); splitters
+  `ui.layout.{left,right,top}` after a `drag` on the gutter (`u1_splitter_drag.json`). Record a real on-screen run (behind other
+  windows, never activated, in-process events only): `MONTAGE_UITEST_ORIGIN=0,40 MONTAGE_UITEST_VISIBLE=1 Montage --uitest …`
+  + `screencapture -v -l <windowID>`
 - animation search field: `anim.search`
 - inspector sub-tabs: `inspector.sub.<subTabID>` (e.g. `inspector.sub.out`); asset sub-nav: `asset.nav.<itemID>`
 - transitions (W5): `transitions.search`, `transition.tile.<id>` / `transition.add.<id>` (id without `montage.transition.`),

@@ -52,7 +52,8 @@ final class TimelineView: NSView {
         case trim(ids: [ClipID], anchor: ClipID, edge: TrimEdge, origin: Time)
         case roll(left: ClipID)
         case slip(id: ClipID, startX: CGFloat)
-        case marquee(origin: CGPoint, current: CGPoint, base: Set<ClipID>)
+        /// U1-7: the start is anchored in content coordinates (time + content y), the pointer in view coordinates.
+        case marquee(anchor: MarqueeAnchor, current: CGPoint, base: Set<ClipID>)
         case transition(left: ClipID, edge: TrimEdge, startX: CGFloat, original: Time)
         case keyframe(KeyframeRef, startX: CGFloat)
         case marker(MarkerID, startX: CGFloat, original: Time)
@@ -93,6 +94,9 @@ final class TimelineView: NSView {
     var requestedWaves: Set<String> = []
     /// U1-6 playback follow state.
     var follow = PlayheadFollow()
+    /// U1-7: last pointer of the running drag (view coordinates + modifiers), replayed after each autoscroll step.
+    var lastDrag: (point: CGPoint, mods: NSEvent.ModifierFlags)?
+    var lastAutoscrollTime: CFTimeInterval?
     /// Per-revision drawing data (asset map, duration, labels) — see TimelineView+LOD.swift.
     let drawCache = TimelineDrawCache()
     /// Display-list storage reused across frames (no per-frame array growth); see `recycle(_:)`.
@@ -173,6 +177,7 @@ final class TimelineView: NSView {
     }
 
     @objc func tick() {
+        autoscrollTick()   // U1-7: edge autoscroll keeps going while the mouse stands still
         guard dirty, bounds.width > 0 else { return }
         dirty = false
         draw()
@@ -320,8 +325,8 @@ final class TimelineView: NSView {
             else { y = (l.rows[slot - 1].maxY + l.rows[slot].y) / 2 - 1 }
             c.rect(CGRect(x: headerW, y: y, width: W - headerW, height: 2), accent)
         }
-        if case .marquee(let o, let cur, _) = drag {
-            let r = CGRect(x: min(o.x, cur.x), y: min(o.y, cur.y), width: abs(cur.x - o.x), height: abs(cur.y - o.y))
+        if case .marquee(let a, let cur, _) = drag {
+            let r = a.rect(to: cur, l)
             c.rect(r, RGBA(0.34, 0.75, 0.8, 0.12))
             c.rect(r, accent, border: 1)
         }

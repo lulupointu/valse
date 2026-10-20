@@ -481,6 +481,10 @@ after about 1.5 s (see §8.3).
   dark outline). Click or drag on the ruler = scrub. Click on an empty part of a track = move the playhead there (and deselect).
 - With **preview axis ON**, hovering over the timeline shows a second, thinner grey line that follows the mouse, and the player shows that
   frame (hover scrubbing).
+- **Follow during playback** (Montage, owner U1, 2026-10-20): the timeline never fights a scroll — wheel / trackpad / scrollbar / pinch
+  while playing turns the follow off until the next play or seek. On play, an off-screen playhead is brought in: off the left → the line
+  40 pt from the left edge; off the right → 40 pt from the right edge. While playing, when the line reaches the right edge the timeline
+  pages (line back 40 pt from the left) (`PlayheadFollow`). CapCut's own follow was not re-observed live in U1 (agents send no real input).
 
 ### 6.3 Track headers (left column, 120 pt wide, `#1F1F20`)
 - Each header: type icon (TT text, ✦ effect, ☁ filter, ⚙ adjust, ◷ sticker, ▶ video, ♪ audio) · **🔒 lock** · **👁 hide** (visual
@@ -720,7 +724,7 @@ the worst option. Some CapCut FR translations are poor (marked ⚠). Prefer the 
 | Stickers | Stickers | |
 | Effects / Video effects / Body effects | Effets / Effets vidéo / Effets corporels | |
 | Transitions | Transitions | |
-| Captions / Auto captions | Légendes / Légendes automatiques (also "Sous-titres") | "Sous-titres" reads more naturally in FR-FR. CapCut uses both |
+| Captions / Auto captions | Légendes / Légendes automatiques (also "Sous-titres") | **Montage: "Sous-titres" everywhere** (owner, 2026-10-20, U1: tab, inspector, list, commands; masculine: "ce sous-titre", "tous les sous-titres"). Only a social-media *post* caption stays "légende" |
 | Filters | Filtres | |
 | Adjustment | Ajustement | |
 | Templates | Modèles | |
@@ -786,7 +790,7 @@ the worst option. Some CapCut FR translations are poor (marked ⚠). Prefer the 
 | Font / Stroke / Shadow / Background / Spacing / Line spacing / Alignment / Bold / Case | Police / Trait (Contour) / Ombre / Arrière-plan / Espacement / Espacement des lignes / Alignement / Gras / Casse | |
 | Bubble / Text effects / Shape | Bulle / Effets de texte / Forme | |
 | Text to speech | Synthèse vocale (also "Texte en discours" ⚠) | use "Synthèse vocale" |
-| Generate captions / Spoken language / Identify filler words / Bilingual captions / Auto lyrics | Générer des sous-titres / Langue source / Identifier les tics de langage / Légendes bilingues / Paroles automatiques | |
+| Generate captions / Spoken language / Identify filler words / Bilingual captions / Auto lyrics | Générer des sous-titres / Langue source / Identifier les tics de langage / Sous-titres bilingues (CapCut: Légendes bilingues) / Paroles automatiques | |
 | Transcript | Transcription | |
 | Music / Sound effects / Extract audio / Voiceover / Record | Musique / Effets sonores / Extraire le son / Voix off / Enregistrer | |
 | Group / Ungroup / Compound clip / Create compound clip | Grouper / Séparer (⚠ use "Dissocier") / Clip combiné / Créer un clip combiné | |
