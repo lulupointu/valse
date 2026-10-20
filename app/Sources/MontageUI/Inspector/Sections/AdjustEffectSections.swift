@@ -243,7 +243,8 @@ struct TransitionSection: View {
             let value = t?.duration.seconds ?? 0.5
             let scale = SliderScale.linear(0.1...maxD)
             @MainActor func write(_ v: Double, live: Bool) {
-                guard let a, var nt = a.transitionOut else { return }
+                // the current transition (not the captured one: see TransitionParamRows — stale closures on macOS 13)
+                guard let a, var nt = store.project.timeline.clip(a.id)?.transitionOut ?? a.transitionOut else { return }
                 nt.duration = Time(min(max(v, 0.1), maxD))
                 let id = a.id, inst = nt
                 if live { store.updateGesture { p in try TimelineOps.setTransition(id, inst, in: &p.timeline) } }

@@ -229,6 +229,11 @@ public final class UITestDriver {
                 guard let step = raw as? [String: Any] else { throw Failure("step \(i + 1) is not an object") }
                 let s0 = Date()
                 let label = Self.describe(step)
+                if let why = Self.osConditionUnmet(step) {
+                    report.append(["index": i + 1, "step": label, "ok": true, "skipped": why])
+                    log("  ⏭ \(i + 1). \(label) (\(why))")
+                    continue
+                }
                 do {
                     try await perform(step, index: i + 1)
                     report.append(["index": i + 1, "step": label, "ok": true, "ms": Int(Date().timeIntervalSince(s0) * 1000)])
@@ -268,6 +273,10 @@ public final class UITestDriver {
     /// inference declares `"requires": {"models": ["coreml.lama-800"]}`: it then uses the user's models folder
     /// (`MONTAGE_MODELS_DIR` or ~/Library/Application Support/Montage/Models) and is SKIPPED (reason returned) when one is missing.
     static func applyModelPolicy(_ script: [String: Any]) -> String? {
+        // `"requires": {"minOS": 14}`: the feature under test needs that macOS major version (e.g. a 14+ Vision API)
+        if let min = ((script["requires"] as? [String: Any])?["minOS"] as? NSNumber)?.intValue, osMajor < min {
+            return "requires macOS \(min)+ (running \(osMajor))"
+        }
         // `"requires": {"content": true}`: the bundled music/SFX library audio (scripts/fetch_music_pack.sh cache)
         if (script["requires"] as? [String: Any])?["content"] as? Bool == true, ContentLibrary.availableMusic.isEmpty {
             return "requires the music/SFX library (run scripts/fetch_music_pack.sh)"
@@ -290,6 +299,42 @@ public final class UITestDriver {
         guard !missing.isEmpty else { return nil }
         return "requires model(s) \(missing.joined(separator: ", ")) not installed in \(ModelCatalog.modelsDirectory.path) "
             + "(download in Settings ▸ AI models, or set MONTAGE_MODELS_DIR)"
+    }
+
+    /// Machine settings that change pixels but not behaviour, pinned for the test process only (before NSApplication
+    /// exists) so snapshots compare across machines: overlay scroll bars (a Mac with a mouse, or a VM, shows legacy
+    /// 15 pt scrollers that narrow every scroll view) and the time zone the baselines were recorded in (dates in Home /
+    /// the project switcher come from a fixed UTC clock).
+    public nonisolated static func prepareProcess() {
+        let d = UserDefaults.standard
+        var args = d.volatileDomain(forName: UserDefaults.argumentDomain)
+        args["AppleShowScrollBars"] = "WhenScrolling"
+        d.setVolatileDomain(args, forName: UserDefaults.argumentDomain)
+        let tz = ProcessInfo.processInfo.environment["MONTAGE_UITEST_TZ"] ?? "Europe/Paris"
+        if let z = TimeZone(identifier: tz) { NSTimeZone.default = z }
+    }
+
+    /// Major version of the running macOS (`MONTAGE_UITEST_OS_MAJOR` overrides it, to check OS-conditional scripts).
+    static var osMajor: Int {
+        if let v = ProcessInfo.processInfo.environment["MONTAGE_UITEST_OS_MAJOR"].flatMap(Int.init) { return v }
+        return ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+    }
+
+    /// Per-step environment condition: `"minOS": 14` runs the step only on macOS 14+, `"maxOS": 13` only up to macOS
+    /// 13 — expected differences of older systems (a feature that needs a newer API); `"ffmpeg": true|false` only when
+    /// the FFmpeg sidecar (MP3 export, exotic formats) is / isn't installed. Returns why the step is skipped.
+    static func osConditionUnmet(_ step: [String: Any]) -> String? {
+        if let v = (step["minOS"] as? NSNumber)?.intValue, osMajor < v { return "macOS \(v)+ only" }
+        if let v = (step["maxOS"] as? NSNumber)?.intValue, osMajor > v { return "macOS ≤ \(v) only" }
+        if let v = step["ffmpeg"] as? Bool, v != FFmpegSidecar.isAvailable { return v ? "needs FFmpeg" : "without FFmpeg only" }
+        return nil
+    }
+
+    /// Baseline for a snapshot: `Baselines/macos<N>/<name>.png` when running on macOS N and that file exists (rendering
+    /// differences of an older system: fonts, controls), else `Baselines/<name>.png`.
+    func baselineURL(_ dir: URL, _ name: String) -> URL {
+        let os = dir.appendingPathComponent("macos\(Self.osMajor)", isDirectory: true).appendingPathComponent("\(name).png")
+        return FileManager.default.fileExists(atPath: os.path) ? os : dir.appendingPathComponent("\(name).png")
     }
 
     static func loadScript(_ url: URL) throws -> [String: Any] {
@@ -798,6 +843,7 @@ public final class UITestDriver {
         guard var img = SnapshotRegistry.shared.snapshot(window: window), let host = window.contentView else { throw Failure("snapshot failed") }
         let k = CGFloat(img.width) / host.bounds.width
         var cropOrigin = CGPoint.zero
+        var cropTarget: (Int, Int)?
         if let el = step["element"] as? String {
             let rect: CGRect
             let id = el.hasPrefix("id:") ? String(el.dropFirst(3)) : el
@@ -806,7 +852,16 @@ public final class UITestDriver {
                 let r = v.convert(v.bounds, to: host)
                 rect = host.isFlipped ? r : CGRect(x: r.minX, y: host.bounds.height - r.maxY, width: r.width, height: r.height)
             } else { throw Failure("no element \(el) to snapshot") }
-            let px = CGRect(x: rect.minX * k, y: rect.minY * k, width: rect.width * k, height: rect.height * k).integral
+            var px = CGRect(x: rect.minX * k, y: rect.minY * k, width: rect.width * k, height: rect.height * k).integral
+            if step["baseline"] != nil, abs(k - 2) > 0.01 {
+                // Baselines are recorded on Retina (2 px/pt, then halved). On another backing scale (a 1x display / VM)
+                // crop to the size that path would give, so fractional-point frames don't change the size by a pixel.
+                let r2 = CGRect(x: rect.minX * 2, y: rect.minY * 2, width: rect.width * 2, height: rect.height * 2).integral
+                let t = (Int(r2.width * 0.5), Int(r2.height * 0.5))
+                cropTarget = t
+                px = CGRect(x: (rect.minX * k).rounded(.down), y: (rect.minY * k).rounded(.down),
+                            width: (CGFloat(t.0) * k).rounded(), height: (CGFloat(t.1) * k).rounded())
+            }
             guard let c = img.cropping(to: px) else { throw Failure("crop failed") }
             img = c
             cropOrigin = CGPoint(x: px.minX, y: px.minY)
@@ -829,18 +884,23 @@ public final class UITestDriver {
         }
         let baseline = step["baseline"].map { ($0 as? String) ?? name }
         let scale = (step["scale"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? (baseline != nil ? 1 / k : 1)
-        if abs(scale - 1) > 0.001, let s = Self.resize(img, scale) { img = s }
+        if let t = cropTarget, step["scale"] == nil {
+            if img.width != t.0 || img.height != t.1, let s = Self.resize(img, to: t) { img = s }
+        } else if abs(scale - 1) > 0.001, let s = Self.resize(img, scale) { img = s }
         let url = out.appendingPathComponent("\(name).png")
         ImageDiff.writePNG(img, to: url)
         guard let baseline else { return }
         guard let dir = config.baselines else { warnings.append("no --baselines dir; \(name) not compared"); return }
-        let base = dir.appendingPathComponent("\(baseline).png")
+        let base = baselineURL(dir, baseline)
         if config.updateBaselines || !FileManager.default.fileExists(atPath: base.path) {
             ImageDiff.writePNG(img, to: base)
             warnings.append("baseline \(config.updateBaselines ? "updated" : "created"): \(base.path) — LOOK at it and commit it")
             return
         }
-        let diff = ImageDiff(threshold: (step["threshold"] as? Int) ?? 16, tolerance: (step["tolerance"] as? NSNumber)?.doubleValue ?? 0.005)
+        var tolerance = (step["tolerance"] as? NSNumber)?.doubleValue ?? 0.005
+        // a per-OS baseline (recorded in the 1x macOS 13 VM) sees run-to-run sub-pixel text jitter of ~0.7 %
+        if base.deletingLastPathComponent().lastPathComponent.hasPrefix("macos") { tolerance = max(tolerance, 0.01) }
+        let diff = ImageDiff(threshold: (step["threshold"] as? Int) ?? 16, tolerance: tolerance)
         guard let r = diff.compare(url, base, diffURL: out.appendingPathComponent("\(name).diff.png")) else { throw Failure("cannot read \(base.path)") }
         metrics["snapshot_\(name)_diff_fraction"] = r.fraction
         if !r.passed {
@@ -851,7 +911,11 @@ public final class UITestDriver {
     }
 
     static func resize(_ img: CGImage, _ k: CGFloat) -> CGImage? {
-        let w = max(1, Int(CGFloat(img.width) * k)), h = max(1, Int(CGFloat(img.height) * k))
+        resize(img, to: (Int(CGFloat(img.width) * k), Int(CGFloat(img.height) * k)))
+    }
+
+    static func resize(_ img: CGImage, to size: (Int, Int)) -> CGImage? {
+        let w = max(1, size.0), h = max(1, size.1)
         guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.interpolationQuality = .high

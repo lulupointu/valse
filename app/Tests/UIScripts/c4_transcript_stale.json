@@ -8,6 +8,9 @@
                 {"path": "ui.anchors", "contains": "transcript.language"}]},
     {"snapshot": "transcript-stale", "element": "id:transcript.status"},
     {"click": "id:fillers.remove"},
-    {"expect": {"path": "ui.fillers.pending", "equals": true}}
+    // the missing clip is being transcribed. Before macOS 26 the engine is SFSpeechRecognizer, which needs the Speech
+    // Recognition permission (never granted to a test process): the job is started, then fails at once
+    {"minOS": 26, "expect": {"path": "ui.fillers.pending", "equals": true}},
+    {"maxOS": 25, "waitFor": {"path": "ui.jobs.0.title", "equals": "transcript.job", "timeout": 5}}
   ]
 }

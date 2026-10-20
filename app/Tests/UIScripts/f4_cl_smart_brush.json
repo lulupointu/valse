@@ -14,12 +14,16 @@
     {"snapshot": "smart-brush-player-before", "element": "id:panel.player"},
     {"click": "id:mask.brush.start"},
     {"drag": "player:0.24,0.5", "to": "player:0.27,0.5", "steps": 4},
-    {"waitFor": {"path": "selectedClips.0.adjustMask.strokes.count", "equals": 1, "timeout": 20}},
-    {"expect": [{"path": "selectedClips.0.adjustMask.strokes.0.region", "gt": 0}, {"path": "undo.name", "equals": "cmd.maskSmartBrush"}]},
+    // object selection uses Vision foreground instances (macOS 14). On 13 only people are found (person segmentation):
+    // the demo's white box is not a person, so nothing is added and the user is told to use the quick brush
+    {"maxOS": 13, "waitFor": {"path": "ui.toast", "contains": "Quick brush", "timeout": 20}},
+    {"maxOS": 13, "expect": [{"path": "selectedClips.0.adjustMask.strokes.count", "equals": 0}, {"path": "undo.name", "notEquals": "cmd.maskSmartBrush"}]},
+    {"minOS": 14, "waitFor": {"path": "selectedClips.0.adjustMask.strokes.count", "equals": 1, "timeout": 20}},
+    {"minOS": 14, "expect": [{"path": "selectedClips.0.adjustMask.strokes.0.region", "gt": 0}, {"path": "undo.name", "equals": "cmd.maskSmartBrush"}]},
     {"snapshot": "smart-brush-player", "element": "id:panel.player"},
     {"click": "id:mask.brush.start"},
     {"snapshot": "smart-brush-inspector", "element": "id:panel.inspector"},
-    {"key": "cmd+z"},
+    {"minOS": 14, "key": "cmd+z"},
     {"expect": {"path": "selectedClips.0.adjustMask.strokes", "count": 0}}
   ]
 }

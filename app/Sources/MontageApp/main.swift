@@ -242,6 +242,7 @@ if let i = CommandLine.arguments.firstIndex(of: "--imgdiff") { exit(ImageDiffCLI
 // scripts/fetch_music_pack.sh: offline analysis of the content library (beats, key, peaks, similarity features)
 if let i = CommandLine.arguments.firstIndex(of: "--analyze-content") { exit(ContentAnalyzer.runCLI(Array(CommandLine.arguments[(i + 1)...]))) }
 Tooltips.install()   // hover tooltips after 0.4 s app-wide (CapCut-like), C3
+if CommandLine.arguments.contains("--uitest") { UITestDriver.prepareProcess() }
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

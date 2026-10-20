@@ -114,6 +114,29 @@ Owner, by hand: (1) Apple Translation packs (System Settings ▸ General ▸ Lan
 English) for bilingual captions; (2) re-apply Auto adjust / Color correction and Reduce noise / Enhance quality on clips of HDR
 projects processed before this fix (face covers refresh themselves when the project opens).
 
+## macOS 13 UI results (m13-uifix, 2026-10-21)
+macOS 13.7.4 VM (Apple Silicon guest, Mac2 paravirtual GPU, 1x display, en_US, UTC, 8 GB, no FFmpeg): the universal release
+build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta). After m13-uifix: the 35 pass on arm64, a
+14-script sample on x86_64. Causes:
+- **Export from the UI was blocked** (export_dialog, _fr, export_range, export_selected_cancel): `canExport` required MP3 to be
+  usable even with Export audio off; MP3 needs the FFmpeg sidecar (not bundled, absent on a fresh Mac). Fixed for every OS: the
+  audio format only matters when audio is exported, and without FFmpeg the format falls back to AAC. Not a 13 issue.
+- **Transition param edits wrote back a stale transition** (w5_transition_drop: Softness 40 reset Duration 1.0 → 0.5). The row's
+  commit closure held the instance captured at render time; it now starts from the current transition. Present on the host
+  too (the new expect failed there); only visible in the 13 snapshot.
+- Expected 13 differences, tests OS-aware (`minOS` / `maxOS` steps, docs/TESTING.md): Enhance quality is macOS 26+ (VT super
+  resolution); relight has no depth-model offer on 13 (pseudo-depth only); smart brush finds people only on 13 (no
+  `VNGenerateForegroundInstanceMaskRequest`; non-person object → "No object found…" toast); transcription before 26 is
+  SFSpeech, which needs the Speech Recognition permission (job fails at once in a test process).
+- Relight pseudo-depth pass: ~65 s for the 6 s demo clip in the VM (×11 real time; timeout raised to 150 s). VM GPU/ANE, not
+  measured on real 13 hardware.
+- Snapshot-only differences (27 scripts, 31 baselines in `app/Tests/Baselines/macos13/`, used on 13 only): text rasterised at
+  1x, native slider / segmented control / placeholder / link-button (inactive window) looks, en_US decimal point, no offline
+  music section in a `--no-content` build, the relight download card (14+). Harness fixes for all machines: overlay scroll bars
+  and Europe/Paris time zone in the test process, crop size on non-Retina displays.
+- Not 13-specific, noticed: the timeline toolbar's `magnet` SF Symbol doesn't exist on any macOS (empty button); several host
+  baselines predate current UI (asset tab bar with Templates, relight Cutout tab) and pass only within tolerance.
+
 ## Cross-team requests / blockers (open)
 | From | Needs from | What | Feature IDs |
 |---|---|---|---|
