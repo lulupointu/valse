@@ -21,11 +21,13 @@ public enum FrameGrabber {
         reader.add(out)
         guard reader.startReading() else { throw reader.error ?? MediaProbeError.unreadable(asset.url, "reader") }
         var chosen: CVPixelBuffer?
-        while let sb = out.copyNextSampleBuffer() {
-            guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            let pts = Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb))
-            if pts > t + Time(ticks: 1) { if chosen == nil { chosen = pb }; break }
-            chosen = pb
+        try await OffPool.run { _ in
+            while let sb = out.copyNextSampleBuffer() {
+                guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                let pts = Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb))
+                if pts > t + Time(ticks: 1) { if chosen == nil { chosen = pb }; break }
+                chosen = pb
+            }
         }
         reader.cancelReading()
         guard let pb = chosen else { throw MediaProbeError.unreadable(asset.url, "no frame") }

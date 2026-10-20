@@ -28,34 +28,37 @@ public enum CameraTracker {
         var next = -Double.infinity
         var prev: CGRect?
         let total = max(range.duration.seconds, 0.001)
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
-            guard t >= next, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            next = t + 0.1
-            let boxes: [CGRect] = try autoreleasepool {
-                let h = VNImageRequestHandler(cvPixelBuffer: pb, orientation: orientation)
-                if target == .face {
-                    let r = VNDetectFaceRectanglesRequest(); try h.perform([r])
-                    return (r.results ?? []).filter { $0.confidence > 0.5 }.map(\.boundingBox)
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
+                guard t >= next, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                next = t + 0.1
+                let boxes: [CGRect] = try autoreleasepool {
+                    let h = VNImageRequestHandler(cvPixelBuffer: pb, orientation: orientation)
+                    if target == .face {
+                        let r = VNDetectFaceRectanglesRequest(); try h.perform([r])
+                        return (r.results ?? []).filter { $0.confidence > 0.5 }.map(\.boundingBox)
+                    }
+                    if target == .hand {
+                        let r = VNDetectHumanHandPoseRequest(); r.maximumHandCount = 2; try h.perform([r])
+                        return (r.results ?? []).compactMap { Self.handRect($0) }
+                    }
+                    let r = VNDetectHumanRectanglesRequest(); r.upperBodyOnly = false; try h.perform([r])
+                    return (r.results ?? []).filter { $0.confidence > 0.4 }.map(\.boundingBox)
                 }
-                if target == .hand {
-                    let r = VNDetectHumanHandPoseRequest(); r.maximumHandCount = 2; try h.perform([r])
-                    return (r.results ?? []).compactMap { Self.handRect($0) }
+                // stick to the subject followed so far (nearest), else the largest
+                let pick = prev.flatMap { p in boxes.min { hypot($0.midX - p.midX, $0.midY - p.midY) < hypot($1.midX - p.midX, $1.midY - p.midY) } }
+                    ?? boxes.max { $0.width * $0.height < $1.width * $1.height }
+                if let b = pick {
+                    prev = b
+                    result.append(LockSample(time: t, x: Double(b.midX), y: 1 - Double(b.midY), size: Double(b.height)))
+                } else {
+                    result.append(LockSample(time: t, x: 0.5, y: 0.5, size: 0))
                 }
-                let r = VNDetectHumanRectanglesRequest(); r.upperBodyOnly = false; try h.perform([r])
-                return (r.results ?? []).filter { $0.confidence > 0.4 }.map(\.boundingBox)
+                progress?(min(1, (t - range.start.seconds) / total))
             }
-            // stick to the subject followed so far (nearest), else the largest
-            let pick = prev.flatMap { p in boxes.min { hypot($0.midX - p.midX, $0.midY - p.midY) < hypot($1.midX - p.midX, $1.midY - p.midY) } }
-                ?? boxes.max { $0.width * $0.height < $1.width * $1.height }
-            if let b = pick {
-                prev = b
-                result.append(LockSample(time: t, x: Double(b.midX), y: 1 - Double(b.midY), size: Double(b.height)))
-            } else {
-                result.append(LockSample(time: t, x: 0.5, y: 0.5, size: 0))
-            }
-            progress?(min(1, (t - range.start.seconds) / total))
         }
         return result
     }

@@ -55,22 +55,25 @@ public final class ActivityAnalyzer: @unchecked Sendable {
         let window = Int(16000 * ActivityProfile.audioStep)
         var pending: [Float] = []
         var levels: [Float] = []
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            guard let block = CMSampleBufferGetDataBuffer(sb) else { continue }
-            let n = CMBlockBufferGetDataLength(block) / 4
-            var chunk = [Float](repeating: 0, count: n)
-            chunk.withUnsafeMutableBytes { _ = CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: n * 4, destination: $0.baseAddress!) }
-            pending += chunk
-            var i = 0
-            while pending.count - i >= window {
-                var rms: Float = 0
-                pending.withUnsafeBufferPointer { vDSP_rmsqv($0.baseAddress! + i, 1, &rms, vDSP_Length(window)) }
-                levels.append(rms > 1e-5 ? 20 * log10(rms) : -100)
-                i += window
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                guard let block = CMSampleBufferGetDataBuffer(sb) else { continue }
+                let n = CMBlockBufferGetDataLength(block) / 4
+                var chunk = [Float](repeating: 0, count: n)
+                chunk.withUnsafeMutableBytes { _ = CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: n * 4, destination: $0.baseAddress!) }
+                pending += chunk
+                var i = 0
+                while pending.count - i >= window {
+                    var rms: Float = 0
+                    pending.withUnsafeBufferPointer { vDSP_rmsqv($0.baseAddress! + i, 1, &rms, vDSP_Length(window)) }
+                    levels.append(rms > 1e-5 ? 20 * log10(rms) : -100)
+                    i += window
+                }
+                pending.removeFirst(i)
+                if duration > 0 { progress?(min(1, Double(levels.count) * ActivityProfile.audioStep / duration)) }
             }
-            pending.removeFirst(i)
-            if duration > 0 { progress?(min(1, Double(levels.count) * ActivityProfile.audioStep / duration)) }
         }
         return levels
     }
@@ -93,28 +96,31 @@ public final class ActivityAnalyzer: @unchecked Sendable {
         var result: [Float] = []
         var previous: [UInt8]?
         var next = 0.0
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
-            guard t + 1e-3 >= next, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            next += ActivityProfile.motionStep
-            CVPixelBufferLockBaseAddress(pb, .readOnly)
-            let pw = CVPixelBufferGetWidthOfPlane(pb, 0), ph = CVPixelBufferGetHeightOfPlane(pb, 0)
-            let stride = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
-            var luma = [UInt8](repeating: 0, count: pw * ph)
-            if let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)?.assumingMemoryBound(to: UInt8.self) {
-                for y in 0..<ph { for x in 0..<pw { luma[y * pw + x] = base[y * stride + x] } }
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
+                guard t + 1e-3 >= next, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                next += ActivityProfile.motionStep
+                CVPixelBufferLockBaseAddress(pb, .readOnly)
+                let pw = CVPixelBufferGetWidthOfPlane(pb, 0), ph = CVPixelBufferGetHeightOfPlane(pb, 0)
+                let stride = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
+                var luma = [UInt8](repeating: 0, count: pw * ph)
+                if let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)?.assumingMemoryBound(to: UInt8.self) {
+                    for y in 0..<ph { for x in 0..<pw { luma[y * pw + x] = base[y * stride + x] } }
+                }
+                CVPixelBufferUnlockBaseAddress(pb, .readOnly)
+                if let p = previous, p.count == luma.count {
+                    var sum = 0
+                    for i in luma.indices { sum += abs(Int(luma[i]) - Int(p[i])) }
+                    result.append(Float(sum) / Float(luma.count * 255))
+                } else {
+                    result.append(0)
+                }
+                previous = luma
+                if duration > 0 { progress?(min(1, t / duration)) }
             }
-            CVPixelBufferUnlockBaseAddress(pb, .readOnly)
-            if let p = previous, p.count == luma.count {
-                var sum = 0
-                for i in luma.indices { sum += abs(Int(luma[i]) - Int(p[i])) }
-                result.append(Float(sum) / Float(luma.count * 255))
-            } else {
-                result.append(0)
-            }
-            previous = luma
-            if duration > 0 { progress?(min(1, t / duration)) }
         }
         // value k describes the change from k-1 to k; shift so it describes the window [k, k+1)
         if result.count > 1 { result.removeFirst(); result.append(result.last ?? 0) }

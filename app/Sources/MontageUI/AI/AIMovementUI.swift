@@ -90,7 +90,7 @@ extension EditorStore {
         let box = CommandBox()
         let wasOn = project.timeline.clip(clipID)?.aiMovement != nil
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "aiMovement.job", priority: 1, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "aiMovement.job", priority: 1, heavy: true, subject: clipID.description) { progress in
                 box.command = try await AIMovementJob.run(project: project, clipID: clipID, options: options) { progress.report($0) }
             }
             ai.movementJobs[clipID] = id

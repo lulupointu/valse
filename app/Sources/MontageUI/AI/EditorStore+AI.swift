@@ -107,7 +107,7 @@ extension EditorStore {
                 guard let a = c.mediaID.flatMap(project.asset), seen.insert(a.contentHash).inserted,
                       MatteGenerator.isStaleFaceMatte(a) else { continue }
                 Task {
-                    let id = await JobQueue.shared.enqueue(titleKey: "faceCover.job", priority: 0, subject: c.id.description) { progress in
+                    let id = await JobQueue.shared.enqueue(titleKey: "faceCover.job", priority: 0, heavy: true, subject: c.id.description) { progress in
                         try await MatteGenerator.generate(a, mode: .faces) { progress.report($0) }
                     }
                     if await JobQueue.shared.wait(id) == .done {
@@ -164,7 +164,7 @@ extension EditorStore {
         let target = ai.bilingualTarget
         Task {
             let opts = options
-            let id = await JobQueue.shared.enqueue(titleKey: lyrics ? "cmd.lyrics" : "ai.captions", priority: 1) { [weak self] progress in
+            let id = await JobQueue.shared.enqueue(titleKey: lyrics ? "cmd.lyrics" : "ai.captions", priority: 1, heavy: true) { [weak self] progress in
                 box.result = try await CaptionGenerator.run(project: project, options: opts, progress: { p in
                     progress.report(p)
                     Task { @MainActor in self?.ai.captionProgress = p }
@@ -276,21 +276,23 @@ extension EditorStore {
 
     /// Ticks / unticks Auto cutout (or applies a customized selection) on a clip: sets `Clip.matte` (one undo step)
     /// and starts the matte job if the matte isn't cached yet. Progress shows on the clip in the timeline.
-    public func setCutout(_ clipID: ClipID, mode: CutoutMode?) {
-        guard let clip = project.timeline.clip(clipID) else { return }
+    /// Returns the task that runs the job and applies its result (tests await it), nil when no job was needed.
+    @discardableResult
+    public func setCutout(_ clipID: ClipID, mode: CutoutMode?) -> Task<Void, Never>? {
+        guard let clip = project.timeline.clip(clipID) else { return nil }
         if let job = ai.cutoutJobs[clipID] { ai.cutoutJobs[clipID] = nil; Task { await JobQueue.shared.cancel(job) } }
         guard let mode else {
             perform(UpdateClip(clipID, nameKey: "cmd.cutout") { $0.matte = nil })
-            return
+            return nil
         }
         let keep = clip.matte
         perform(UpdateClip(clipID, nameKey: mode.isCustom ? "cmd.cutoutCustom" : "cmd.cutout") { c in
             c.matte = ClipMatte(kind: mode.kind, feather: keep?.feather ?? 0, expand: keep?.expand ?? 0, inverted: false)
         })
-        guard let asset = clip.mediaID.flatMap(project.asset), !MatteGenerator.isReady(asset, mode) else { return }
+        guard let asset = clip.mediaID.flatMap(project.asset), !MatteGenerator.isReady(asset, mode) else { return nil }
         let titleKey = mode.isCustom ? "cutout.job.custom" : "cutout.job.auto"
-        Task {
-            let id = await JobQueue.shared.enqueue(titleKey: titleKey, priority: 0, subject: clipID.description) { progress in
+        return Task {
+            let id = await JobQueue.shared.enqueue(titleKey: titleKey, priority: 0, heavy: true, subject: clipID.description) { progress in
                 try await MatteGenerator.generate(asset, mode: mode) { progress.report($0) }
             }
             ai.cutoutJobs[clipID] = id
@@ -319,7 +321,7 @@ extension EditorStore {
         guard let clip = project.timeline.clip(clipID), let asset = clip.mediaID.flatMap(project.asset), asset.hasAudio,
               !VoiceIsolator.Stem.allCases.allSatisfy({ VoiceIsolator.isReady(asset, $0) }) else { return }
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "audio.job.isolate", priority: 0, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "audio.job.isolate", priority: 0, heavy: true, subject: clipID.description) { progress in
                 try await VoiceIsolator.separate(asset) { progress.report($0) }
             }
             if await JobQueue.shared.wait(id) == .done {

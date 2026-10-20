@@ -58,10 +58,8 @@ import MontageTestSupport
         let (s, v) = try await store()
         let ctx = InspectorContext(store: s)
         s.transport.playhead = Time(1)
-        AutoAdjustSection.run(ctx, s.project.timeline.clip(v)!)
-        for _ in 0..<500 where !(s.project.timeline.clip(v)!.effects.contains { $0.typeID == AutoColor.descriptor.id }) {   // up to 15 s: decode + analysis under full-suite load
-            try await Task.sleep(for: .milliseconds(30))
-        }
+        // awaited (B1): a 15 s poll budget for decode + analysis ran out under full-suite load
+        await AutoAdjustSection.run(ctx, s.project.timeline.clip(v)!)?.value
         let inst = try #require(s.project.timeline.clip(v)!.effects.first { $0.typeID == AutoColor.descriptor.id })
         #expect(inst.isEnabled && inst.params["exposure"]?.scalar != nil)
         #expect(AutoAdjustSection.chrome(ctx).isEnabled?.wrappedValue == true)

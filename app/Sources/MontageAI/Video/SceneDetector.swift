@@ -36,19 +36,22 @@ public enum SceneDetector {
         var times: [Double] = [], dist: [Double] = []
         var prevHist: [Float]?, prevLuma: Float = 0
         let start = range?.start.seconds ?? 0
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
-            let (hist, luma) = features(pb)
-            if let ph = prevHist {
-                var inter: Float = 0
-                for i in hist.indices { inter += min(hist[i], ph[i]) }
-                dist.append(Double(1 - inter) * 0.8 + Double(abs(luma - prevLuma)) * 0.2)
-                times.append(t)
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
+                let (hist, luma) = features(pb)
+                if let ph = prevHist {
+                    var inter: Float = 0
+                    for i in hist.indices { inter += min(hist[i], ph[i]) }
+                    dist.append(Double(1 - inter) * 0.8 + Double(abs(luma - prevLuma)) * 0.2)
+                    times.append(t)
+                }
+                prevHist = hist; prevLuma = luma
+                progress?(min(1, (t - start) / max(total, 0.001)))
             }
-            prevHist = hist; prevLuma = luma
-            progress?(min(1, (t - start) / max(total, 0.001)))
         }
         return pick(times: times, dist: dist, options: options)
     }

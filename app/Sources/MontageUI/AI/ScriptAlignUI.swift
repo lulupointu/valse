@@ -18,7 +18,7 @@ extension EditorStore {
         let box = AlignBox()
         st.progress = 0
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "align.job", priority: 1) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "align.job", priority: 1, heavy: true) { progress in
                 box.output = try await ScriptAligner.run(script: script, project: project, language: nil) { p in
                     progress.report(p)
                     Task { @MainActor in ScriptAlignState.shared.progress = p }

@@ -345,7 +345,7 @@ extension EditorStore {
         ai.transcriptProgress = 0
         let gate = ProgressGate()
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "transcript.job", priority: 1) { [weak self] progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "transcript.job", priority: 1, heavy: true) { [weak self] progress in
                 for (i, a) in assets.enumerated() {
                     try Task.checkCancellation()
                     let key = TranscriptStore.key(hash: a.contentHash, range: nil, language: lang, engine: engine, fillers: true)

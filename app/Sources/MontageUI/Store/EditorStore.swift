@@ -579,7 +579,7 @@ public final class EditorStore {
         Task {
             guard await tool.isAvailable() else { showToast(tr("ai.error.unavailable"), error: true); return }
             let box = OutputBox()
-            let id = await JobQueue.shared.enqueue(titleKey: tool.nameKey, priority: 1, subject: input.clipID?.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: tool.nameKey, priority: 1, heavy: true, subject: input.clipID?.description) { progress in
                 box.output = try await tool.run(input, progress)
             }
             let state = await JobQueue.shared.wait(id)

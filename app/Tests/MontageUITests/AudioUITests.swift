@@ -92,8 +92,8 @@ import MontageTestSupport
         let s = EditorStore(project: p.project)
         s.autosaveEnabled = false
         s.selection = [a]
-        s.autoBeats(level: 2)
-        await waitUntil { s.project.timeline.clip(a)?.beats != nil }
+        // deterministic: await the analysis job + edit (under load it queues behind other tests' jobs)
+        await s.autoBeats(level: 2)?.value
         let beats = try #require(s.project.timeline.clip(a)?.beats)
         #expect(beats.count >= 9, "\(beats.count) beats")
         let inner = beats.filter { $0.seconds > 1 && $0.seconds < 5 }

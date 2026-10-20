@@ -73,7 +73,7 @@ public final class ShortsWizardState {
         error = nil
         let box = ShortsBox()
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "shorts.title", priority: 1) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "shorts.title", priority: 1, heavy: true) { progress in
                 box.projects = try await LongToShorts.run(a, options: opts, progress: { p in
                     progress.report(p)
                     Task { @MainActor in ShortsWizardState.shared.progress = p }

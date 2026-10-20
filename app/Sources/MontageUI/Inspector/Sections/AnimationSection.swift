@@ -123,7 +123,7 @@ struct AnimationTile: View {
             GlyphAnimationPreview(descriptor: descriptor, playing: hover, start: start)
           } else {
             // CapCut tiles show a sample picture caught mid-animation on black; hover plays the animation.
-            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover)) { tl in
+            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover || TestAnchors.isEnabled)) { tl in
                 let state = state(at: tl.date)
                 // one Canvas: transforms, reveal mask, blur and clipping are rasterised together (never overflow the tile)
                 Canvas { ctx, size in
@@ -163,7 +163,9 @@ struct AnimationTile: View {
         }
         let d = max(descriptor.defaultDuration.seconds, 0.3)
         let cycle = d + 0.4
-        let t = date.timeIntervalSince(start).truncatingRemainder(dividingBy: cycle)
+        // UI tests: the hovered tile (the one just clicked) holds the end pose instead of playing, so snapshots don't
+        // depend on how long the step took (w5_animation_apply was 1 % off under load)
+        let t = TestAnchors.isEnabled ? d : date.timeIntervalSince(start).truncatingRemainder(dividingBy: cycle)
         let p = min(t / d, 1)
         descriptor.apply(descriptor.phase == .combo ? (t / d).truncatingRemainder(dividingBy: 1) : p, &s)
         return s

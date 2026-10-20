@@ -249,7 +249,7 @@ extension EditorStore {
         let project = self.project
         let box = CommandBox()
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "tracking.job", priority: 1, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "tracking.job", priority: 1, heavy: true, subject: clipID.description) { progress in
                 box.command = try await MotionTrackingJob.run(project: project, follower: clipID, info: info) { progress.report($0) }
             }
             ai.trackingJobs[clipID] = id

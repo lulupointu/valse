@@ -37,9 +37,11 @@ public final class ScrubAudio {
         let sources = Self.sources(in: project, at: t)
         guard !sources.isEmpty else { return }
         busy = true
-        Task.detached(priority: .userInitiated) { [format] in
-            let buffer = Self.mix(sources, format: format)
-            await MainActor.run { self.finish(buffer) }
+        // `mix` blocks (semaphore around the track load, copyNextSampleBuffer): a GCD thread, not the cooperative pool
+        let fmt = UncheckedSendable(format)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let buffer = UncheckedSendable(Self.mix(sources, format: fmt.value))
+            Task { @MainActor in self.finish(buffer.value) }
         }
     }
 

@@ -85,7 +85,7 @@ extension EditorStore {
         guard !todo.isEmpty, !ai.mediaIndexing else { return }
         ai.mediaIndexing = true
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "media.indexing", priority: 0) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "media.indexing", priority: 0, heavy: true) { progress in
                 for (i, a) in todo.enumerated() {
                     try Task.checkCancellation()
                     try? await MediaIndex.shared.index(a)

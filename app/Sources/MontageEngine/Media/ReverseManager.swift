@@ -146,11 +146,12 @@ public final class ReverseManager: @unchecked Sendable {
                 try Task.checkCancellation()
                 var progressed = false
                 if let v = video, !v.finished, v.input.isReadyForMoreMediaData {
-                    try v.appendNext(); progressed = true
+                    // appendNext decodes a chunk (blocking copyNextSampleBuffer loop): off the cooperative pool
+                    try await OffPool.run { _ in try v.appendNext() }; progressed = true
                     progress?.report(v.progress)
                 }
                 if let a = audio, !a.finished, a.input.isReadyForMoreMediaData {
-                    try a.appendNext(); progressed = true
+                    try await OffPool.run { _ in try a.appendNext() }; progressed = true
                     if video == nil { progress?.report(a.progress) }
                 }
                 if (video?.finished ?? true) && (audio?.finished ?? true) { break }

@@ -56,15 +56,18 @@ public enum GIFExporter {
         enc.dither = settings.dither
         let expected = settings.frameCount(duration: r.duration)
         do {
-            while let sb = out.copyNextSampleBuffer() {
-                try Task.checkCancellation()
-                guard enc.framesWritten < expected, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-                CVPixelBufferLockBaseAddress(pb, .readOnly)
-                if let base = CVPixelBufferGetBaseAddress(pb) {
-                    enc.addFrame(bgra: base, bytesPerRow: CVPixelBufferGetBytesPerRow(pb))
+            // blocking read loop: off the cooperative pool (OffPool)
+            try await OffPool.run { ctx in
+                while let sb = out.copyNextSampleBuffer() {
+                    try ctx.checkCancellation()
+                    guard enc.framesWritten < expected, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                    CVPixelBufferLockBaseAddress(pb, .readOnly)
+                    if let base = CVPixelBufferGetBaseAddress(pb) {
+                        enc.addFrame(bgra: base, bytesPerRow: CVPixelBufferGetBytesPerRow(pb))
+                    }
+                    CVPixelBufferUnlockBaseAddress(pb, .readOnly)
+                    progress?(min(0.999, Double(enc.framesWritten) / Double(expected)))
                 }
-                CVPixelBufferUnlockBaseAddress(pb, .readOnly)
-                progress?(min(0.999, Double(enc.framesWritten) / Double(expected)))
             }
             if reader.status == .failed { throw ExportError.failed(reader.error?.localizedDescription ?? "read failed") }
         } catch {

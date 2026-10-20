@@ -466,7 +466,7 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   `AIInspector` (tabs/sections appended to `BuiltinInspector`). All AI work runs in `JobQueue` (progress, cancel; subject = clip id
   → progress overlay on the clip). Tests: `MontageAITests` (WER, segmentation on generated frames, compositor, TTS round trip,
   voice isolation SNR, optical flow, scenes, reframe) + `AIUITests` (flows, snapshots with `MONTAGE_SNAPSHOT_DIR`).
-  GPU/ANE-heavy tests and real-time probes (PlaybackTests) run inside `HeavyWorkGate.run` (TestSupport) so they never overlap.
+  GPU/ANE-heavy tests and real-time probes (PlaybackTests) run inside `HeavyWorkGate.run` (MontageEngine/Jobs; ML `JobQueue` jobs with `heavy: true` take it too in test processes) so they never overlap.
 
 ## 17f. Effects, filters, colour & stickers content (W4)
 

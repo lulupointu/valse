@@ -293,7 +293,7 @@ public enum ObjectRemover {
         guard reader.startReading(), writer.startWriting() else { throw reader.error ?? writer.error ?? AIToolError.noInput }
         writer.startSession(atSourceTime: .zero)
         let audio: Task<Void, Error>? = (aIn != nil && aOut != nil) ? Task.detached { [i = UncheckedSendable(aIn!), o = UncheckedSendable(aOut!)] in
-            while let sb = o.value.copyNextSampleBuffer() {
+            while let sb = await OffPool.next(o.value) {
                 while !i.value.isReadyForMoreMediaData { try Task.checkCancellation(); try await Task.sleep(nanoseconds: 2_000_000) }
                 i.value.append(sb)
             }
@@ -303,7 +303,7 @@ public enum ObjectRemover {
         let duration = max(a.duration.seconds, 0.001)
         let smoother = RemovalTemporalSmoother(width: w, height: h)
         do {
-            while let sb = vOut.copyNextSampleBuffer() {
+            while let sb = await OffPool.next(vOut) {
                 try Task.checkCancellation()
                 guard let pb = CMSampleBufferGetImageBuffer(sb), let frame = LaMaInpainter.cgImage(pb) else { continue }
                 let pts = CMSampleBufferGetPresentationTimeStamp(sb)

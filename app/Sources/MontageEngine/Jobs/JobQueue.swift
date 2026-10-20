@@ -39,16 +39,32 @@ public actor JobQueue {
     private var subscribers: [UUID: AsyncStream<[JobInfo]>.Continuation] = [:]
     private var waiters: [JobID: [CheckedContinuation<JobInfo.State, Never>]] = [:]
     private var isShutDown = false
+    /// Heavy jobs waiting for `HeavyWorkGate` (not schedulable yet) / holding it until they end (test processes).
+    private var awaitingGate: Set<JobID> = []
+    private var holdingGate: Set<JobID> = []
 
     public init(maxConcurrent: Int) { self.maxConcurrent = maxConcurrent }
 
+    /// `heavy`: ML / GPU-saturating work (Vision, Core ML, whisper, demucs …). In a unit-test process it runs inside
+    /// `HeavyWorkGate` (serialized with the other heavy tests and away from the real-time probes) unless the enqueuing
+    /// task already holds the gate.
     @discardableResult
-    public func enqueue(titleKey: String, detail: String = "", priority: Int = 0, subject: String? = nil,
+    public func enqueue(titleKey: String, detail: String = "", priority: Int = 0, heavy: Bool = false, subject: String? = nil,
                         _ body: @escaping @Sendable (JobProgress) async throws -> Void) -> JobID {
         let id = JobID()
         jobs[id] = JobInfo(id: id, titleKey: titleKey, detail: detail, priority: priority, progress: 0, state: .queued, subject: subject)
         order.append(id)
         work[id] = body
+        // `isHeld` is read in the caller's task (the job runs in a detached task, which doesn't inherit task-locals).
+        // The gate is taken BEFORE the job may take a slot: a job waiting for the gate must not hold one of the
+        // `maxConcurrent` slots that the gate holder's own job needs.
+        if heavy && HeavyWorkGate.gatesJobs && !HeavyWorkGate.isHeld {
+            awaitingGate.insert(id)
+            Task.detached { [weak self] in
+                await HeavyWorkGate.shared.acquire()
+                if let self { await self.gateAcquired(id) } else { await HeavyWorkGate.shared.release() }
+            }
+        }
         publish()
         schedule()
         return id
@@ -98,6 +114,13 @@ public actor JobQueue {
 
     private func unsubscribe(_ key: UUID) { subscribers[key] = nil }
 
+    private func gateAcquired(_ id: JobID) {
+        awaitingGate.remove(id)
+        guard jobs[id]?.state == .queued else { Task { await HeavyWorkGate.shared.release() }; return }   // cancelled meanwhile
+        holdingGate.insert(id)
+        schedule()
+    }
+
     func setProgress(_ id: JobID, _ p: Double) {
         guard jobs[id]?.state == .running else { return }
         jobs[id]?.progress = min(max(p, 0), 1)
@@ -111,7 +134,7 @@ public actor JobQueue {
         }
         let running = jobs.values.filter { $0.state == .running }.count
         guard running < maxConcurrent else { return }
-        let next = order.compactMap { jobs[$0] }.filter { $0.state == .queued }.max { $0.priority < $1.priority }
+        let next = order.compactMap { jobs[$0] }.filter { $0.state == .queued && !awaitingGate.contains($0.id) }.max { $0.priority < $1.priority }
         guard let job = next, let body = work[job.id] else { return }
         jobs[job.id]?.state = .running
         let handle = JobProgress(id: job.id, queue: self)
@@ -132,6 +155,7 @@ public actor JobQueue {
         if state == .done { jobs[id]?.progress = 1 }
         tasks[id] = nil
         work[id] = nil
+        if holdingGate.remove(id) != nil { Task { await HeavyWorkGate.shared.release() } }
         for w in waiters.removeValue(forKey: id) ?? [] { w.resume(returning: state) }
         // keep finished jobs visible briefly; trim history
         let finished = order.filter { if let s = jobs[$0]?.state { return s != .queued && s != .running }; return false }

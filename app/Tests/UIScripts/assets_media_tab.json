@@ -4,14 +4,17 @@
   "project": "demo-bin",
   "settle": 2.5,
   "steps": [
-    {"expect": [{"path": "media.count", "equals": 5}, {"path": "ui.assets.tab", "equals": "media"}]},
+    // state-based waits, not sleeps: under load the bin import / the 250 ms search debounce take longer
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}},
+    {"expect": {"path": "ui.assets.tab", "equals": "media"}},
     {"wait": 1.5},
     {"snapshot": "media-grid", "element": "id:panel.assets"},
     {"click": "id:media.card.0"},
     {"click": "id:media.card.1", "modifiers": ["cmd"]},
     {"expect": [{"path": "ui.assets.mediaSelection.count", "equals": 2}, {"path": "ui.assets.keyboardTab", "equals": "media"}]},
     {"key": "return"},
-    {"expect": [{"path": "main.clips.count", "equals": 2}, {"path": "selectedClips.count", "equals": 2}]},
+    {"waitFor": {"path": "main.clips.count", "equals": 2, "timeout": 30}},
+    {"expect": {"path": "selectedClips.count", "equals": 2}},
     {"wait": 0.5},
     {"snapshot": "media-added", "element": "id:panel.assets"},
     // ☆ on the cursor card (buttons show on the keyboard cursor too)
@@ -25,8 +28,8 @@
     // search (debounced) lists matching bin items
     {"click": "id:asset.search"},
     {"type": "Music"},
-    {"wait": 0.5},
-    {"expect": [{"path": "ui.assets.query.media", "equals": "Music"}, {"path": "ui.assets.count.media", "equals": 1}]},
+    {"waitFor": {"path": "ui.assets.query.media", "equals": "Music", "timeout": 30}},
+    {"waitFor": {"path": "ui.assets.count.media", "equals": 1, "timeout": 30}},
     {"snapshot": "media-search", "element": "id:panel.assets"},
     {"click": "id:asset.search.clear"},
     {"expect": {"path": "ui.assets.query.media", "equals": ""}},

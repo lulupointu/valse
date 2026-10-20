@@ -295,7 +295,7 @@ extension EditorStore {
         guard st.jobs[clipID] == nil, let clip = project.timeline.clip(clipID), let settings = clip.relight,
               let asset = clip.mediaID.flatMap(project.asset), !RelightDepth.isReady(asset, settings) else { return }
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "relight.job", priority: 0, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "relight.job", priority: 0, heavy: true, subject: clipID.description) { progress in
                 try await RelightJob.run(asset, settings: settings) { progress.report($0) }
             }
             st.jobs[clipID] = id

@@ -52,16 +52,18 @@ extension EditorStore {
 
     /// CapCut "Beats ▾ None / Beats 1 / Beats 2": auto-detects beats of the selected clip(s) and stores them as
     /// clip beat markers (`Clip.beats`, clip-local), which the timeline draws and snaps to. `level` nil = remove.
-    public func autoBeats(level: Int?) {
+    /// Returns the task that runs the analysis job and writes the beats (tests await it), nil when nothing runs.
+    @discardableResult
+    public func autoBeats(level: Int?) -> Task<Void, Never>? {
         let clips = audioClips
-        guard !clips.isEmpty else { showToast(tr("audio.beats.needAudio"), error: true); return }
+        guard !clips.isEmpty else { showToast(tr("audio.beats.needAudio"), error: true); return nil }
         guard let level else {
             perform(Edit("cmd.beat") { p in for c in clips { p.timeline[clip: c.id]?.beats = nil } })
-            return
+            return nil
         }
         let items = clips.compactMap { c in c.mediaID.flatMap(project.asset).map { (c, $0) } }
         let box = AudioResultBox<[ClipID: [Time]]>([:])
-        Task {
+        return Task {
             let job = await JobQueue.shared.enqueue(titleKey: "job.beats", priority: 1) { progress in
                 for (i, (c, a)) in items.enumerated() {
                     let b = try await Task.detached { try await AudioAnalysis.clipBeats(c, asset: a, level: level) }.value

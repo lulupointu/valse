@@ -86,7 +86,7 @@ extension EditorStore {
         let project = self.project
         let box = CommandBox()
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "cameraLock.job", priority: 1, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "cameraLock.job", priority: 1, heavy: true, subject: clipID.description) { progress in
                 box.command = try await CameraLockJob.run(project: project, clipID: clipID, options: options) { progress.report($0) }
             }
             ai.cameraJobs[clipID] = id

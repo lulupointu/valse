@@ -64,7 +64,7 @@ struct MaskTrackingSection: View {
         let brush = clip[keyPath: t.mask]?.shape == .brush
         let box = CommandBox()
         Task {
-            let job = await JobQueue.shared.enqueue(titleKey: "maskTrack.job", priority: 1, subject: id.description) { progress in
+            let job = await JobQueue.shared.enqueue(titleKey: "maskTrack.job", priority: 1, heavy: true, subject: id.description) { progress in
                 if brush {
                     // MK-004: a brushed region is segmented and propagated frame by frame (shape follows the object)
                     box.command = try await SmartMask.propagate(project: project, clipID: id, mask: t.mask, center: t.center, size: t.size,

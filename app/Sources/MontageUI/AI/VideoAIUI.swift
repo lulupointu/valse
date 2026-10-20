@@ -110,7 +110,7 @@ extension EditorStore {
     public func separateAudio(_ clipID: ClipID, part: SeparatedPart) {
         guard let clip = project.timeline.clip(clipID), let asset = clip.mediaID.flatMap(project.asset), asset.hasAudio else { return }
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "audio.job.separate", priority: 0, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "audio.job.separate", priority: 0, heavy: true, subject: clipID.description) { progress in
                 if case .stem = part { try await StemSeparator.separate(asset) { progress.report($0) } }
                 else { try await VoiceIsolator.separate(asset) { progress.report($0) } }
             }
@@ -153,7 +153,7 @@ extension EditorStore {
         let project = self.project
         let box = CommandBox()
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "reframe.job", priority: 1, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "reframe.job", priority: 1, heavy: true, subject: clipID.description) { progress in
                 box.command = try await AutoReframe.run(project: project, clipID: clipID, options: options) { progress.report($0) }
             }
             ai.reframeJobs[clipID] = id

@@ -146,7 +146,7 @@ extension EditorStore {
         let box = CommandBox()
         ai.speakerProgress = 0
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "speakers.job", priority: 1) { [weak self] progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "speakers.job", priority: 1, heavy: true) { [weak self] progress in
                 box.command = try await SpeakerIdentification.run(project: project, speakerCount: count) { f in
                     progress.report(f)
                     Task { @MainActor in self?.ai.speakerProgress = f }

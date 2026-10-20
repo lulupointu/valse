@@ -102,8 +102,11 @@ public enum Exporter {
             let t = min(max(options.coverTime, .zero), project.duration - frameDur)
             r.timeRange = TimeRange(start: t, duration: frameDur).cmTimeRange
             let o = videoOutput(); r.add(o)
-            if r.startReading() { coverSample = o.copyNextSampleBuffer() }
-            r.cancelReading()
+            // blocking read: off the cooperative pool (OffPool)
+            try await OffPool.run { _ in
+                if r.startReading() { coverSample = o.copyNextSampleBuffer() }
+                r.cancelReading()
+            }
         }
         let lead: Time = coverSample == nil ? .zero : frameDur
 

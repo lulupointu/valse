@@ -112,18 +112,20 @@ public final class StabilizationStore: @unchecked Sendable {
         var prev: LumaImage?
         var cx = 0.0, cy = 0.0, cr = 0.0
         var aspect = 16.0 / 9
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            let cur = LumaImage(pb, targetWidth: 256)
-            aspect = Double(cur.width) / Double(max(cur.height, 1))
-            if let prev {
-                let m = estimateMotion(prev, cur)
-                cx += m.tx / Double(cur.width); cy += m.ty / Double(cur.height); cr += m.roll
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                let cur = LumaImage(pb, targetWidth: 256)
+                aspect = Double(cur.width) / Double(max(cur.height, 1))
+                if let prev {
+                    let m = estimateMotion(prev, cur)
+                    cx += m.tx / Double(cur.width); cy += m.ty / Double(cur.height); cr += m.roll
+                }
+                px.append(cx); py.append(cy); pr.append(cr)
+                prev = cur
+                progress?.report(CMSampleBufferGetPresentationTimeStamp(sb).seconds / max(duration, 0.001))
             }
-            px.append(cx); py.append(cy); pr.append(cr)
-            prev = cur
-            progress?.report(CMSampleBufferGetPresentationTimeStamp(sb).seconds / max(duration, 0.001))
         }
         if reader.status == .failed { throw reader.error ?? NSError(domain: "Montage", code: 101) }
         return Path(frameDuration: FrameRate.nearest(to: Double(max(rate, 1))).frameDuration, x: px, y: py, r: pr, aspect: aspect)

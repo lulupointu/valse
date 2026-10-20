@@ -130,7 +130,7 @@ public enum VideoEnhancer {
         writer.startSession(atSourceTime: .zero)
 
         let audioTask: Task<Void, Error>? = (aIn != nil && aOut != nil) ? Task.detached { [aIn = UncheckedSendable(aIn!), aOut = UncheckedSendable(aOut!)] in
-            while let sb = aOut.value.copyNextSampleBuffer() {
+            while let sb = await OffPool.next(aOut.value) {
                 while !aIn.value.isReadyForMoreMediaData { try Task.checkCancellation(); try await Task.sleep(nanoseconds: 2_000_000) }
                 aIn.value.append(sb)
             }
@@ -157,7 +157,7 @@ public enum VideoEnhancer {
         do {
             while true {
                 var t0 = clock.now
-                guard let sb = vOut.copyNextSampleBuffer() else { break }
+                guard let sb = await OffPool.next(vOut) else { break }
                 lap(&st.decode, t0)
                 try Task.checkCancellation()
                 guard let src = CMSampleBufferGetImageBuffer(sb) else { continue }
@@ -240,18 +240,21 @@ public enum VideoEnhancer {
         reader.add(o)
         guard reader.startReading() else { throw reader.error ?? AIToolError.noInput }
         var means: [Double] = []
-        while let sb = o.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            CVPixelBufferLockBaseAddress(pb, .readOnly)
-            let pw = CVPixelBufferGetWidthOfPlane(pb, 0), ph = CVPixelBufferGetHeightOfPlane(pb, 0), bpr = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
-            var acc = 0
-            if let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)?.assumingMemoryBound(to: UInt8.self) {
-                for y in 0..<ph { let row = base + y * bpr; for x in 0..<pw { acc += Int(row[x]) } }
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = o.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                CVPixelBufferLockBaseAddress(pb, .readOnly)
+                let pw = CVPixelBufferGetWidthOfPlane(pb, 0), ph = CVPixelBufferGetHeightOfPlane(pb, 0), bpr = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
+                var acc = 0
+                if let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)?.assumingMemoryBound(to: UInt8.self) {
+                    for y in 0..<ph { let row = base + y * bpr; for x in 0..<pw { acc += Int(row[x]) } }
+                }
+                CVPixelBufferUnlockBaseAddress(pb, .readOnly)
+                means.append(max(1, Double(acc) / Double(max(pw * ph, 1)) - 16))
+                progress(min(1, CMSampleBufferGetPresentationTimeStamp(sb).seconds / max(duration, 0.001)))
             }
-            CVPixelBufferUnlockBaseAddress(pb, .readOnly)
-            means.append(max(1, Double(acc) / Double(max(pw * ph, 1)) - 16))
-            progress(min(1, CMSampleBufferGetPresentationTimeStamp(sb).seconds / max(duration, 0.001)))
         }
         return means
     }
