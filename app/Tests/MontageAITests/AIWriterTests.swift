@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import MontageAI
 import MontageCore
+import MontageEngine
 import MontageTestSupport
 
 /// AI writer (AI-029): script cleaning + caption segmentation; opt-in generation with the local LLM.

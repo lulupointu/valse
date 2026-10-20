@@ -108,7 +108,7 @@ struct AIClipperSheet: View {
         let box = HighlightBox()
         st.error = nil
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "clipper.job", priority: 1, subject: c.id.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "clipper.job", priority: 1, heavy: true, subject: c.id.description) { progress in
                 box.value = try await AIClipper.highlights(a, options: opts) { progress.report($0) }
             }
             st.job = id

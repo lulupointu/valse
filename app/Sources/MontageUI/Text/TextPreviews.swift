@@ -128,7 +128,7 @@ struct GlyphAnimationPreview: View {
 
     var body: some View {
         if let frames = cache.frames(for: descriptor), !frames.isEmpty {
-            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !playing)) { tl in
+            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !playing || TestAnchors.isEnabled)) { tl in
                 Image(nsImage: frames[min(index(at: tl.date, count: frames.count), frames.count - 1)])
                     .resizable().interpolation(.high).aspectRatio(contentMode: .fit)
                     .padding(.horizontal, 4)
@@ -141,7 +141,8 @@ struct GlyphAnimationPreview: View {
     func index(at date: Date, count: Int) -> Int {
         guard playing else { return GlyphAnimationFrames.stillIndex(descriptor.phase) }
         let d = max(descriptor.defaultDuration.seconds, 0.3)
-        let t = date.timeIntervalSince(start)
+        // UI tests: hold the end pose (deterministic snapshots, see AnimationTile)
+        let t = TestAnchors.isEnabled ? d : date.timeIntervalSince(start)
         if descriptor.phase == .combo { return Int((t / d).truncatingRemainder(dividingBy: 1) * Double(count)) }
         // play once, hold the end pose 0.5 s, repeat
         return Int(min(t.truncatingRemainder(dividingBy: d + 0.5) / d, 1) * Double(count - 1))

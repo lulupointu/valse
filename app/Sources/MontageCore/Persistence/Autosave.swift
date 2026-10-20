@@ -90,8 +90,31 @@ public enum MontagePaths {
     /// Settings ▸ Performance ▸ Cache location overrides it (engine caches pick it up at the next launch).
     public static var cacheDirectory: URL {
         if let o = override(cacheOverrideKey) { return o }
+        if let t = testRunCacheDirectory { return t }
         return defaultCacheDirectory
     }
+
+    /// Unit-test processes get a cache folder of their own (`$TMPDIR/montage-test-cache/run-<pid>`, B1): concurrent
+    /// test runs (several checkouts) use the same synthetic media, so content-hash-keyed entries (mattes, stems,
+    /// enhanced copies) were shared and one run deleted / rewrote what another was rendering. Compiled AI models stay
+    /// shared (`models` links to the user cache: compiling them is slow). Folders of runs that ended are removed.
+    static let testRunCacheDirectory: URL? = {
+        guard MontageProcess.isUnitTest else { return nil }
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("montage-test-cache", isDirectory: true)
+        try? fm.createDirectory(at: root, withIntermediateDirectories: true)
+        for name in (try? fm.contentsOfDirectory(atPath: root.path)) ?? [] where name.hasPrefix("run-") {
+            guard let pid = Int32(name.dropFirst(4)), pid != getpid() else { continue }
+            if kill(pid, 0) != 0 && errno == ESRCH { try? fm.removeItem(at: root.appendingPathComponent(name)) }
+        }
+        let dir = root.appendingPathComponent("run-\(getpid())", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let models = defaultCacheDirectory.appendingPathComponent("models", isDirectory: true)
+        try? fm.createDirectory(at: models, withIntermediateDirectories: true)
+        try? fm.createSymbolicLink(at: dir.appendingPathComponent("models"), withDestinationURL: models)
+        atexit { if let d = MontagePaths.testRunCacheDirectory { try? FileManager.default.removeItem(at: d) } }
+        return dir
+    }()
 
     public static var defaultCacheDirectory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!

@@ -71,7 +71,7 @@ extension EditorStore {
         let project = self.project, selection = self.selection, useModel = pilotUsesModel
         pilot.task = Task {
             let box = PilotPlanBox()
-            let jid = await JobQueue.shared.enqueue(titleKey: "pilot.job.plan", priority: 1) { _ in
+            let jid = await JobQueue.shared.enqueue(titleKey: "pilot.job.plan", priority: 1, heavy: true) { _ in
                 box.plan = await EditPilotPlanner.plan(request, project: project, selection: selection, history: history, useModel: useModel)
             }
             pilot.job = jid
@@ -97,7 +97,7 @@ extension EditorStore {
         let actions = card.enabledActions, project = self.project, selection = self.selection
         let box = PilotExecutionBox()
         pilot.progress = 0
-        let jid = await JobQueue.shared.enqueue(titleKey: "pilot.job.prepare", priority: 1) { [weak self] progress in
+        let jid = await JobQueue.shared.enqueue(titleKey: "pilot.job.prepare", priority: 1, heavy: true) { [weak self] progress in
             box.execution = try await EditPilotExecutor.run(actions, project: project, selection: selection, progress: { p in
                 progress.report(p)
                 Task { @MainActor in self?.pilot.progress = p }

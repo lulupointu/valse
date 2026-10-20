@@ -164,7 +164,7 @@ extension EditorStore {
         let project = self.project
         let box = CommandBox()
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "remove.job", priority: 1, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "remove.job", priority: 1, heavy: true, subject: clipID.description) { progress in
                 box.command = try await ObjectRemovalJob.run(project: project, clipID: clipID, strokes: strokes, tracking: tracking) { progress.report($0) }
             }
             ai.removeJobs[clipID] = id

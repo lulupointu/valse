@@ -28,7 +28,7 @@ extension EditorStore {
                   let asset = clip.mediaID.flatMap(project.asset), ai.cutoutJobs[clipID] == nil,
                   !MatteGenerator.isReady(asset, .person) else { continue }
             Task {
-                let id = await JobQueue.shared.enqueue(titleKey: "fx.body.job", priority: 0, subject: clipID.description) { progress in
+                let id = await JobQueue.shared.enqueue(titleKey: "fx.body.job", priority: 0, heavy: true, subject: clipID.description) { progress in
                     try await MatteGenerator.generate(asset, mode: .person) { progress.report($0) }
                 }
                 ai.cutoutJobs[clipID] = id

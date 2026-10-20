@@ -158,7 +158,7 @@ extension EditorStore {
         if let j = ai.faceJobs[clipID] { Task { await JobQueue.shared.cancel(j) } }
         if let style = choice.effectStyle {
             Task {
-                let id = await JobQueue.shared.enqueue(titleKey: "faceCover.job", priority: 0, subject: clipID.description) { progress in
+                let id = await JobQueue.shared.enqueue(titleKey: "faceCover.job", priority: 0, heavy: true, subject: clipID.description) { progress in
                     try await MatteGenerator.generate(asset, mode: .faces) { progress.report($0) }
                 }
                 ai.faceJobs[clipID] = id
@@ -197,7 +197,7 @@ extension EditorStore {
         if let cached = FaceTrackCache.shared[key] { finish(cached); return }
         Task {
             let box = TracksBox()
-            let id = await JobQueue.shared.enqueue(titleKey: "faceCover.job", priority: 0, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "faceCover.job", priority: 0, heavy: true, subject: clipID.description) { progress in
                 box.tracks = try await FaceTracker.analyze(asset, range: range) { progress.report($0) }
             }
             ai.faceJobs[clipID] = id

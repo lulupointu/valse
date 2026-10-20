@@ -45,22 +45,25 @@ import MontageTestSupport
     }
 
     @Test func cutoutToggleRunsJobAndComposites() async throws {
-        var p = TestProject(canvas: Size2(320, 180))
-        _ = try await p.addVideo(.solid(RGBA(0.1, 0.2, 0.9)), seconds: 1)
-        let url = try await TestMedia.video(.movingBox(RGBA(0.55, 0.55, 0.55), RGBA(0.9, 0.1, 0.1)), seconds: 1)
-        let top = try await p.addMedia(url, at: .zero, target: .newTrack)
-        let s = EditorStore(project: p.project); s.autosaveEnabled = false
-        let asset = s.project.asset(s.project.timeline.clip(top)!.mediaID!)!
-        try? FileManager.default.removeItem(at: MatteStore.shared.matteVideoURL(media: asset, kind: "subject"))
-        s.setCutout(top, mode: .subject)
-        #expect(s.project.timeline.clip(top)?.matte?.kind == "subject")
-        // the job shows on the clip (timeline overlay uses the job subject)
-        for _ in 0..<600 where !MatteGenerator.isReady(asset, .subject) { try await Task.sleep(nanoseconds: 50_000_000) }
-        #expect(MatteGenerator.isReady(asset, .subject))
-        s.undo()
-        #expect(s.project.timeline.clip(top)?.matte == nil)
-        s.redo()
-        #expect(s.project.timeline.clip(top)?.matte?.kind == "subject")
+        // Vision job: inside the heavy-work gate (the store's job is re-entrant through it) and awaited, no poll budget
+        try await HeavyWorkGate.run {
+            var p = TestProject(canvas: Size2(320, 180))
+            _ = try await p.addVideo(.solid(RGBA(0.1, 0.2, 0.9)), seconds: 1)
+            let url = try await TestMedia.video(.movingBox(RGBA(0.55, 0.55, 0.55), RGBA(0.9, 0.1, 0.1)), seconds: 1)
+            let top = try await p.addMedia(url, at: .zero, target: .newTrack)
+            let s = EditorStore(project: p.project); s.autosaveEnabled = false
+            let asset = s.project.asset(s.project.timeline.clip(top)!.mediaID!)!
+            try? FileManager.default.removeItem(at: MatteStore.shared.matteVideoURL(media: asset, kind: "subject"))
+            let job = s.setCutout(top, mode: .subject)
+            #expect(job != nil)
+            #expect(s.project.timeline.clip(top)?.matte?.kind == "subject")
+            await job?.value
+            #expect(MatteGenerator.isReady(asset, .subject))
+            s.undo()
+            #expect(s.project.timeline.clip(top)?.matte == nil)
+            s.redo()
+            #expect(s.project.timeline.clip(top)?.matte?.kind == "subject")
+        }
     }
 
     @Test func brushToolMapsCanvasToSource() async throws {

@@ -123,7 +123,7 @@ extension EditorStore {
         let box = CommandBox()
         let target = e
         Task {
-            let id = await JobQueue.shared.enqueue(titleKey: "enhance.job", priority: 1, subject: clipID.description) { progress in
+            let id = await JobQueue.shared.enqueue(titleKey: "enhance.job", priority: 1, heavy: true, subject: clipID.description) { progress in
                 box.command = try await VideoEnhanceJob.run(project: project, clipID: clipID, enhancement: target) { progress.report($0) }
             }
             ai.enhanceJobs[clipID] = (id, target)
