@@ -30,7 +30,8 @@ minutes: a hung run, its tree is killed. `MONTAGE_NO_SLOTS=1` disables locking (
 
 **Retries, flaky tests, quarantine.** `test.sh` re-runs every failed test once, alone (`--filter Suite/test()`; the
 `--xunit-output` report names it); `uitest.sh` re-runs a failed script once (first attempt kept in
-`<out>/<name>.attempt1`). A pass on the retry is reported **"flaky (passed on retry)"** and does not fail the run; two
+`<out>/<name>.attempt1`; before the retry it waits ≤ 60 s, `MONTAGE_RETRY_WAIT`, for the 1-min load to drop below the
+core count). A pass on the retry is reported **"flaky (passed on retry)"** and does not fail the run; two
 failures in a row fail it — unless the test is listed in `app/Tests/quarantine.txt` (`<unit|ui> <id> <date> <reason>`,
 validated by `python3 scripts/testlib.py check-quarantine`): quarantined tests still run and are reported, but don't
 gate. `--no-retry` disables retries. A crash (no test summary) or a hang is never retried.

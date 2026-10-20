@@ -77,6 +77,12 @@ for s in "${SCRIPTS[@]}"; do
   CODE=0; run_one "$ABS" "$NAME" || CODE=$?
   if [[ $CODE != 0 && $CODE != 3 && $RETRY == 1 ]]; then
     echo "↻ $NAME failed (exit $CODE) — retrying once"
+    # let a load spike from other checkouts pass first (≤ MONTAGE_RETRY_WAIT s, default 60): the retry must still pass
+    for ((w = 0; w < ${MONTAGE_RETRY_WAIT:-60}; w += 5)); do
+      L="$(sysctl -n vm.loadavg | awk '{ printf "%d", $2 }')"
+      (( L < $(sysctl -n hw.ncpu) )) && break
+      sleep 5
+    done
     rm -rf "$OUT/$NAME.attempt1"; mv "$OUT/$NAME" "$OUT/$NAME.attempt1"
     CODE2=0; run_one "$ABS" "$NAME" || CODE2=$?
     if [[ $CODE2 == 0 ]]; then FLAKY+=("$NAME (attempt 1: exit $CODE → $OUT/$NAME.attempt1)"); CODE=0
