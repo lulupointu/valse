@@ -19,7 +19,7 @@ import MontageTestSupport
 
     /// Every engine library (core, Mac2 core, features, finish, F4, relight, text, effect preview) + every registered
     /// effect / filter / adjustment / transition. MontageUI's timeline canvas is checked in `Mac2UIShaderTests`.
-    @Test func everyLibraryCompilesWithMSL30() {
+    static func allEngineSources() -> [(String, String)] {
         var sources: [(String, String)] = [
             ("core", CoreShaders.source), ("core-mac2", CoreShaders.mac2Source), ("feature", FeatureShaders.source),
             ("finish", FinishShaders.source), ("f4", F4Shaders.source), ("relight", RelightShaders.source),
@@ -28,6 +28,11 @@ import MontageTestSupport
         ]
         for d in Registries.effects.all { sources.append((d.id, EffectPipelines.source(d))) }
         for d in Registries.transitions.all { sources.append((d.id, EffectPipelines.source(d))) }
+        return sources
+    }
+
+    @Test func everyLibraryCompilesWithMSL30() {
+        let sources = Self.allEngineSources()
         final class Box: @unchecked Sendable { let lock = NSLock(); var failures: [String: String] = [:] }
         let box = Box(), all = sources
         DispatchQueue.concurrentPerform(iterations: all.count) { i in
@@ -170,6 +175,9 @@ import MontageTestSupport
         let url = URL(fileURLWithPath: dir)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         func write(_ name: String, _ data: Data) throws { try data.write(to: url.appendingPathComponent(name.replacingOccurrences(of: "/", with: "_"))) }
+        if ProcessInfo.processInfo.environment["MONTAGE_MAC2_DUMP_SOURCES"] == "1" {   // MSL for an external harness
+            for (id, src) in Self.allEngineSources() { try write("src-" + id + ".metal", Data(src.utf8)) }
+        }
         let fx = EffectPreviewRenderer()
         for d in Registries.effects.all {
             guard let px = fx.render(d, time: 1.1, width: 192, height: 108) else { continue }
