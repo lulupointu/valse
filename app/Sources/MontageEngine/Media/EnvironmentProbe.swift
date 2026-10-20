@@ -34,8 +34,10 @@ public enum EnvironmentProbe {
         c.append(Check(id: "memory", titleKey: "env.memory", value: String(format: "%.0f GB", ram),
                        status: ram < 7.5 ? .warning : .ok, adviceKey: ram < 7.5 ? "env.memory.advice" : nil))
         let os = ProcessInfo.processInfo.operatingSystemVersion
+        // macOS 13 runs Montage with fewer AI features (subject cutout, translation, Apple Intelligence…): a warning, not missing.
         c.append(Check(id: "os", titleKey: "env.os", value: "macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)",
-                       status: os.majorVersion >= 14 ? .ok : .missing, adviceKey: os.majorVersion >= 14 ? nil : "env.os.advice"))
+                       status: os.majorVersion >= 14 ? .ok : (os.majorVersion == 13 ? .warning : .missing),
+                       adviceKey: os.majorVersion >= 14 ? nil : (os.majorVersion == 13 ? "env.os.advice13" : "env.os.advice")))
         let hevcDec = VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)
         let h264Dec = VTIsHardwareDecodeSupported(kCMVideoCodecType_H264)
         c.append(Check(id: "decode", titleKey: "env.decode", value: codecList([("H.264", h264Dec), ("HEVC", hevcDec),

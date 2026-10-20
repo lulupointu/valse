@@ -46,7 +46,7 @@ struct RelightSection: View {
                 JobProgressLine(text: tr("relight.applying", JobInfo.percent(p)), progress: p) { ctx.store.setRelight(id, on: false) }
                     .testID("relight.progress")
             }
-            if !RelightDepth.hasModel {
+            if !RelightDepth.hasModel, ModelCatalog.depthModelSupported {
                 HintText(text: tr("relight.betterDepth")).testID("relight.needsModel")
                 ModelStateControls(spec: ModelCatalog.depthAnything)
             }

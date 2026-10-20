@@ -65,6 +65,11 @@ public enum SpeechSynthesis {
         let tmp = directory.appendingPathComponent("tmp-\(UUID().uuidString).caf")
         let synth = AVSpeechSynthesizer()
         let writer = TTSWriter(url: tmp)
+        // macOS 13: `write` may never deliver the final empty buffer, which would leave this job waiting forever;
+        // the synthesizer's didFinish ends the file there instead (14+ keeps ending on the empty buffer only).
+        let finished = TTSFinishDelegate(writer)
+        if #unavailable(macOS 14) { synth.delegate = finished }
+        defer { withExtendedLifetime(finished) {} }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
                 writer.continuation = c
@@ -89,7 +94,7 @@ final class TTSWriter: @unchecked Sendable {
 
     func append(_ buffer: AVAudioBuffer) {
         lock.withLock {
-            guard let pcm = buffer as? AVAudioPCMBuffer else { return }
+            guard !ended, let pcm = buffer as? AVAudioPCMBuffer else { return }
             if pcm.frameLength == 0 { finish(nil); return }
             do {
                 if file == nil { file = try AVAudioFile(forWriting: url, settings: pcm.format.settings, commonFormat: pcm.format.commonFormat,
@@ -101,11 +106,23 @@ final class TTSWriter: @unchecked Sendable {
     }
 
     func fail(_ e: Error) { lock.withLock { finish(e) } }
+    func end() { lock.withLock { finish(nil) } }
+
+    private var ended = false
 
     private func finish(_ e: Error?) {
+        ended = true
         file = nil   // closes the file
         guard let c = continuation else { return }
         continuation = nil
         if let e { c.resume(throwing: e) } else { c.resume() }
     }
+}
+
+/// Ends a `TTSWriter` when the synthesizer reports the utterance finished (see `SpeechSynthesis.synthesize`).
+final class TTSFinishDelegate: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
+    let writer: TTSWriter
+    init(_ writer: TTSWriter) { self.writer = writer }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) { writer.end() }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) { writer.end() }
 }
