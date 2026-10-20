@@ -73,7 +73,7 @@ public enum RelightDepth {
         var norm = DepthNormalizer()
         var previous: DepthMap?
         var next = -Double.infinity
-        while let sb = out.copyNextSampleBuffer() {
+        while let sb = await OffPool.next(out) {
             try Task.checkCancellation()
             let t = CMSampleBufferGetPresentationTimeStamp(sb)
             guard t.seconds >= next, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }

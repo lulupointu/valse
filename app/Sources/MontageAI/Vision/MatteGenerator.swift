@@ -156,7 +156,7 @@ public enum MatteGenerator {
         if case .custom(let sel) = mode {
             tracker = try await InstanceTracker(seed: sel, asset: av, track: track, size: CGSize(width: w, height: h))
         }
-        while let sb = out.copyNextSampleBuffer() {
+        while let sb = await OffPool.next(out) {
             try Task.checkCancellation()
             guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
             let t = CMSampleBufferGetPresentationTimeStamp(sb)

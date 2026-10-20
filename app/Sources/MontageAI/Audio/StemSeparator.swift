@@ -116,7 +116,7 @@ public enum StemSeparator {
         w.add(wi)
         guard reader.startReading() else { throw reader.error ?? AIToolError.noInput }
         w.startWriting(); w.startSession(atSourceTime: .zero)
-        while let sb = ro.copyNextSampleBuffer() {
+        while let sb = await OffPool.next(ro) {
             try Task.checkCancellation()
             while !wi.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
             wi.append(sb)

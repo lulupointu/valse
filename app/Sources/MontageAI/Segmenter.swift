@@ -2,6 +2,7 @@
 import Vision
 import Foundation
 import MontageCore
+import MontageEngine
 
 /// Person segmentation with Vision (runs on ANE/GPU). Masks are IOSurface-backed OneComponent8 CVPixelBuffers that
 /// can be wrapped as Metal textures without a copy (ported from the prototype: ~50 fps `.balanced` at 1080p on M1 Pro).
@@ -32,16 +33,19 @@ public enum PersonSegmenter {
         req.outputPixelFormat = kCVPixelFormatType_OneComponent8
         let handler = VNSequenceRequestHandler()
         defer { reader.cancelReading() }
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            let t = CMSampleBufferGetPresentationTimeStamp(sb)
-            try autoreleasepool {
-                try handler.perform([req], on: pb)
-                guard let mask = req.results?.first?.pixelBuffer else { return }
-                try body(Time(cmTime: t), mask)
+        // blocking read loop (and Vision): off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                let t = CMSampleBufferGetPresentationTimeStamp(sb)
+                try autoreleasepool {
+                    try handler.perform([req], on: pb)
+                    guard let mask = req.results?.first?.pixelBuffer else { return }
+                    try body(Time(cmTime: t), mask)
+                }
+                progress?(t.seconds / max(total, 0.001))
             }
-            progress?(t.seconds / max(total, 0.001))
         }
     }
 

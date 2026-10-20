@@ -30,14 +30,17 @@ public enum SubjectAnalyzer {
         var result: [SubjectSample] = []
         var next = -Double.infinity
         let start = range?.start.seconds ?? 0
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
-            guard t >= next, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            next = t + 1 / fps
-            let s = try autoreleasepool { try subject(pb, orientation: orientation) }
-            result.append(SubjectSample(time: t, x: s.x, y: s.y, confidence: s.c))
-            progress?(min(1, (t - start) / max(total, 0.001)))
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
+                guard t >= next, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                next = t + 1 / fps
+                let s = try autoreleasepool { try subject(pb, orientation: orientation) }
+                result.append(SubjectSample(time: t, x: s.x, y: s.y, confidence: s.c))
+                progress?(min(1, (t - start) / max(total, 0.001)))
+            }
         }
         return result
     }

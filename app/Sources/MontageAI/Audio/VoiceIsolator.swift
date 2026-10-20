@@ -56,19 +56,22 @@ public enum VoiceIsolator {
         let dst = FileManager.default.temporaryDirectory.appendingPathComponent("montage-iso-\(UUID().uuidString).caf")
         let file = try AVAudioFile(forWriting: dst, settings: format.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
         let interleaved = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: true)!
-        while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
-            let n = AVAudioFrameCount(CMSampleBufferGetNumSamples(sb))
-            guard n > 0, let src = AVAudioPCMBuffer(pcmFormat: interleaved, frameCapacity: n),
-                  let dstBuf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: n) else { continue }
-            src.frameLength = n
-            try CMSampleBufferCopyPCMDataIntoAudioBufferList(sb, at: 0, frameCount: Int32(n), into: src.mutableAudioBufferList)
-            // de-interleave
-            let s = src.floatChannelData![0], l = dstBuf.floatChannelData![0], r = dstBuf.floatChannelData![1]
-            for i in 0..<Int(n) { l[i] = s[2 * i]; r[i] = s[2 * i + 1] }
-            dstBuf.frameLength = n
-            try file.write(from: dstBuf)
-            progress(CMSampleBufferGetPresentationTimeStamp(sb).seconds / total)
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            while let sb = out.copyNextSampleBuffer() {
+                try ctx.checkCancellation()
+                let n = AVAudioFrameCount(CMSampleBufferGetNumSamples(sb))
+                guard n > 0, let src = AVAudioPCMBuffer(pcmFormat: interleaved, frameCapacity: n),
+                      let dstBuf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: n) else { continue }
+                src.frameLength = n
+                try CMSampleBufferCopyPCMDataIntoAudioBufferList(sb, at: 0, frameCount: Int32(n), into: src.mutableAudioBufferList)
+                // de-interleave
+                let s = src.floatChannelData![0], l = dstBuf.floatChannelData![0], r = dstBuf.floatChannelData![1]
+                for i in 0..<Int(n) { l[i] = s[2 * i]; r[i] = s[2 * i + 1] }
+                dstBuf.frameLength = n
+                try file.write(from: dstBuf)
+                progress(CMSampleBufferGetPresentationTimeStamp(sb).seconds / total)
+            }
         }
         return dst
     }

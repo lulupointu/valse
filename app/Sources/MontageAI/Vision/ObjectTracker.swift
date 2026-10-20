@@ -22,34 +22,36 @@ public enum ObjectTracker {
         let done = Counter()
         let report: @Sendable (Double) -> Void = { dt in progress?(min(1, done.add(dt) / total)) }
 
-        // forward
-        var fwd: [TrackSample] = []
-        var tracker = Session(box: box)
-        try forEachFrame(av, track: track, size: size, from: s0, to: hi) { t, pb, dt in
-            report(dt)
-            guard let b = try tracker.step(pb) else { return false }
-            fwd.append(TrackSample(time: t, box: b))
-            return true
-        }
-        // backward, chunk by chunk
-        var bwd: [TrackSample] = []
-        tracker = Session(box: box)
-        var chunkEnd = s0
-        var lost = false
-        while chunkEnd > lo + 1e-3, !lost {
-            try Task.checkCancellation()
-            let chunkStart = max(lo, chunkEnd - 1)
-            var frames: [(Double, CVPixelBuffer)] = []
-            try forEachFrame(av, track: track, size: size, from: chunkStart, to: chunkEnd, copy: true) { t, pb, _ in
-                if t < chunkEnd - 1e-4 { frames.append((t, pb)) }
+        var fwd: [TrackSample] = [], bwd: [TrackSample] = []
+        // decoding + Vision tracking block: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            // forward
+            var tracker = Session(box: box)
+            try forEachFrame(av, track: track, size: size, from: s0, to: hi, ctx: ctx) { t, pb, dt in
+                report(dt)
+                guard let b = try tracker.step(pb) else { return false }
+                fwd.append(TrackSample(time: t, box: b))
                 return true
             }
-            for (t, pb) in frames.reversed() {
-                report((chunkEnd - chunkStart) / Double(max(frames.count, 1)))
-                guard let b = try tracker.step(pb) else { lost = true; break }
-                bwd.append(TrackSample(time: t, box: b))
+            // backward, chunk by chunk
+            tracker = Session(box: box)
+            var chunkEnd = s0
+            var lost = false
+            while chunkEnd > lo + 1e-3, !lost {
+                try ctx.checkCancellation()
+                let chunkStart = max(lo, chunkEnd - 1)
+                var frames: [(Double, CVPixelBuffer)] = []
+                try forEachFrame(av, track: track, size: size, from: chunkStart, to: chunkEnd, copy: true, ctx: ctx) { t, pb, _ in
+                    if t < chunkEnd - 1e-4 { frames.append((t, pb)) }
+                    return true
+                }
+                for (t, pb) in frames.reversed() {
+                    report((chunkEnd - chunkStart) / Double(max(frames.count, 1)))
+                    guard let b = try tracker.step(pb) else { lost = true; break }
+                    bwd.append(TrackSample(time: t, box: b))
+                }
+                chunkEnd = chunkStart
             }
-            chunkEnd = chunkStart
         }
         progress?(1)
         return bwd.reversed() + fwd
@@ -82,7 +84,10 @@ public enum ObjectTracker {
     }
 
     /// Decodes frames in [from, to] (BGRA, scaled); `body` returns false to stop. `copy` keeps buffers past the call.
+    /// Blocking (`copyNextSampleBuffer`): call it off the cooperative pool (`OffPool.run`, passing its context for
+    /// cancellation) or from a GCD thread.
     static func forEachFrame(_ av: AVURLAsset, track: AVAssetTrack, size: (Int, Int), from: Double, to: Double, copy: Bool = false,
+                             ctx: OffPool.Context? = nil,
                              _ body: (Double, CVPixelBuffer, Double) throws -> Bool) throws {
         let reader = try AVAssetReader(asset: av)
         reader.timeRange = CMTimeRange(start: CMTime(seconds: from, preferredTimescale: 600),
@@ -96,7 +101,7 @@ public enum ObjectTracker {
         defer { reader.cancelReading() }
         var prev = from
         while let sb = out.copyNextSampleBuffer() {
-            try Task.checkCancellation()
+            if let ctx { try ctx.checkCancellation() } else { try Task.checkCancellation() }
             let t = CMSampleBufferGetPresentationTimeStamp(sb).seconds
             guard t >= from - 1e-4, t <= to + 1e-4, let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
             let keep = try autoreleasepool { try body(t, pb, max(0, t - prev)) }

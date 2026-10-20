@@ -31,14 +31,17 @@ public enum FaceTracker {
         let lo = range.start.seconds, hi = range.end.seconds
         var assoc = Associator()
         var lastDetect = -1.0
-        try ObjectTracker.forEachFrame(av, track: track, size: size, from: lo, to: hi) { t, pb, _ in
-            guard t - lastDetect >= 0.1 - 1e-4 else { return true }
-            lastDetect = t
-            let req = VNDetectFaceRectanglesRequest()
-            try VNImageRequestHandler(cvPixelBuffer: pb).perform([req])
-            assoc.update(time: t, boxes: Array(detections(req).prefix(maxPerFrame)))
-            progress?(min(0.99, (t - lo) / max(hi - lo, 0.001)))
-            return true
+        // blocking read loop: off the cooperative pool (OffPool)
+        try await OffPool.run { ctx in
+            try ObjectTracker.forEachFrame(av, track: track, size: size, from: lo, to: hi, ctx: ctx) { t, pb, _ in
+                guard t - lastDetect >= 0.1 - 1e-4 else { return true }
+                lastDetect = t
+                let req = VNDetectFaceRectanglesRequest()
+                try VNImageRequestHandler(cvPixelBuffer: pb).perform([req])
+                assoc.update(time: t, boxes: Array(detections(req).prefix(maxPerFrame)))
+                progress?(min(0.99, (t - lo) / max(hi - lo, 0.001)))
+                return true
+            }
         }
         progress?(1)
         return assoc.tracks()

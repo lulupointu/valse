@@ -1,3 +1,4 @@
+@preconcurrency import AVFoundation
 import Foundation
 
 /// Blocking AVFoundation work (an `AVAssetReader` `copyNextSampleBuffer` loop, …) must not run on Swift's cooperative
@@ -19,6 +20,16 @@ public enum OffPool {
     private final class Slot<V>: @unchecked Sendable {
         var value: V?
         init(_ v: V) { value = v }
+    }
+
+    /// One blocking `copyNextSampleBuffer()` on a GCD thread, for read loops that `await` between samples (ML
+    /// inference, writer back-pressure …). Costs one thread hop per sample; pure loops use `run` around the whole loop.
+    public static func next(_ out: AVAssetReaderOutput, qos: DispatchQoS.QoSClass = .userInitiated) async -> CMSampleBuffer? {
+        let o = UncheckedSendable(out)
+        let r: UncheckedSendable<CMSampleBuffer?> = await withCheckedContinuation { c in
+            DispatchQueue.global(qos: qos).async { c.resume(returning: UncheckedSendable(o.value.copyNextSampleBuffer())) }
+        }
+        return r.value
     }
 
     public static func run<T: Sendable>(qos: DispatchQoS.QoSClass = .userInitiated,
