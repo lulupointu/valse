@@ -127,6 +127,7 @@ struct TTSVoicesSection: View {
         u.voice = AVSpeechSynthesisVoice(identifier: v.id)
         u.rate = Float(Double(AVSpeechUtteranceDefaultSpeechRate) * st.rate)
         u.pitchMultiplier = Float(st.pitch)
+        u.volume = AudioOutput.volume(1)
         st.preview.speak(u)
     }
 }

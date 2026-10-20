@@ -67,7 +67,7 @@ public final class AppPreferences {
         // Settings ▸ Audio: preview output device + monitor volume (a missing device falls back to the default)
         let uid = AudioDevices.id(forUID: settings.audioOutputDeviceUID, in: AudioDevices.outputs()) != nil ? settings.audioOutputDeviceUID : nil
         if store.engine.player.audioOutputDeviceUniqueID != uid { store.engine.player.audioOutputDeviceUniqueID = uid }
-        store.engine.player.volume = Float(min(max(settings.monitorVolume, 0), 1))
+        store.engine.player.volume = AudioOutput.volume(Float(min(max(settings.monitorVolume, 0), 1)))
         if previous?.proxyPolicy != settings.proxyPolicy || previous?.proxyOnlyAbove != settings.proxyOnlyAbove { Task { await ProxyManager.shared.request(store.project.media) } }
     }
 

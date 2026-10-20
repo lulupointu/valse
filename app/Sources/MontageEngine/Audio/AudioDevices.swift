@@ -2,6 +2,16 @@
 import CoreAudio
 import Foundation
 
+/// Tests run silently: `MONTAGE_MUTE_AUDIO=1` (exported by the test scripts) or a UI-test run (`--uitest`) silences every
+/// sound the app plays (preview, scrub grains, library previews, TTS sample, notification sounds). Renders and exports
+/// are unaffected.
+public enum AudioOutput {
+    public static let isSilenced = ProcessInfo.processInfo.environment["MONTAGE_MUTE_AUDIO"] == "1"
+        || CommandLine.arguments.contains("--uitest")
+    /// `v`, or 0 when silenced.
+    public static func volume(_ v: Float) -> Float { isSilenced ? 0 : v }
+}
+
 /// CoreAudio device lists for Settings ▸ Audio (SE-011 / AU-024): output device of the preview, default input of the
 /// voice-over recorder.
 public enum AudioDevices {
@@ -59,7 +69,7 @@ public enum NotificationSounds {
 
     public static func play(_ kind: Kind) {
         guard let data = wav(kind), let p = try? AVAudioPlayer(data: data) else { return }
-        p.volume = 0.6
+        p.volume = AudioOutput.volume(0.6)
         players.removeAll { !$0.isPlaying }
         players.append(p)
         p.play()

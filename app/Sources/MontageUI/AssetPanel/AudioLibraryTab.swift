@@ -144,6 +144,7 @@ final class LibraryAudioPreview {
         stop()
         let p = AVPlayer(url: url)
         p.automaticallyWaitsToMinimizeStalling = false
+        p.volume = AudioOutput.volume(1)
         streamer = p
         streamDuration = duration
         playingID = id
@@ -179,6 +180,7 @@ final class LibraryAudioPreview {
         stop()
         guard let p = try? AVAudioPlayer(contentsOf: url) else { return }
         player = p
+        p.volume = AudioOutput.volume(1)
         p.play()
         playingID = id
         if peaks[id] == nil {

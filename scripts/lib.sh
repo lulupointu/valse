@@ -35,6 +35,8 @@ require_free_disk() {
 export MONTAGE_REAL_TMPDIR="${MONTAGE_REAL_TMPDIR:-${TMPDIR:-/tmp}}"
 MONTAGE_REAL_TMPDIR="${MONTAGE_REAL_TMPDIR%/}"
 # Synthetic test media is content-addressed and reused across runs (MontageTestSupport.TestMedia).
+# tests never make sound on the user's speakers (AudioOutput.isSilenced in the app; UI-test runs are silent anyway)
+export MONTAGE_MUTE_AUDIO=1
 export MONTAGE_TEST_MEDIA_DIR="${MONTAGE_TEST_MEDIA_DIR:-$MONTAGE_REAL_TMPDIR/montage-test-media-v1}"
 
 use_private_tmpdir() {

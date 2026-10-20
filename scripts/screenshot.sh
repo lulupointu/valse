@@ -7,6 +7,7 @@
 #   (`--snapshot`), which needs no permission.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export MONTAGE_MUTE_AUDIO=1   # silent app (AudioOutput.isSilenced)
 OUT=""; WAIT=4; OFFSCREEN=0; APPARGS=(); LANGTAG="default"
 while [[ $# -gt 0 ]]; do
   case "$1" in

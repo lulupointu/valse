@@ -59,6 +59,7 @@ public final class ScrubAudio {
 
     private func play(_ buffer: AVAudioPCMBuffer) {
         if !started {
+            engine.mainMixerNode.outputVolume = AudioOutput.volume(1)
             do { try engine.start(); started = true } catch { EngineLog.error("scrub audio: \(error)"); return }
         }
         node.stop()

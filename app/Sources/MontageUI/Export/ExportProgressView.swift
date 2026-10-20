@@ -53,7 +53,9 @@ struct ExportProgressView: View {
                 .padding(.horizontal, 16).frame(height: 60)
             }
             // finished (or stopped with some files written): play the first exported video
-            .onValueChange(of: running) { if !running, let u = firstVideo { player = AVPlayer(url: u); if allDone { player?.play() } } }
+            .onValueChange(of: running) { if !running, let u = firstVideo {
+                let p = AVPlayer(url: u); p.volume = AudioOutput.volume(1); player = p; if allDone { p.play() }
+            } }
         }
     }
 

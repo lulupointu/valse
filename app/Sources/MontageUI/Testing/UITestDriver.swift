@@ -24,6 +24,8 @@ public final class UITestWindow: NSWindow {
     public override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
     public override func center() { setFrameOrigin(Self.offscreenOrigin) }
     public override func makeKeyAndOrderFront(_ sender: Any?) { orderBack(sender) }
+    /// Unhandled synthetic keys would NSBeep through the user's speakers: tests stay silent.
+    public override func noResponder(for eventSelector: Selector) {}
     static let debug = ProcessInfo.processInfo.environment["MONTAGE_UITEST_DEBUG"] == "1"
     private var mouseTarget: NSView?
 

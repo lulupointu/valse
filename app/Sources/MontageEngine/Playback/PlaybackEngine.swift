@@ -97,6 +97,7 @@ public final class PlaybackEngine {
         MemoryPressure.shared.start()
         player.actionAtItemEnd = .pause
         player.automaticallyWaitsToMinimizeStalling = false
+        player.volume = AudioOutput.volume(player.volume)
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] t in
             MainActor.assumeIsolated {
                 guard let self, self.player.rate != 0 else { return }
