@@ -24,12 +24,37 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
   (use `git -c user.name=Montage -c user.email=dev@montage.local commit ...`)
 
+## Testing: two-stage gate (T1)
+- **Stage 1 — while iterating: `scripts/check_fast.sh`** (typically 5–12 min). Incremental build of your working tree
+  (uncommitted changes included), every unit test, and only the UI scripts relevant to `git diff main...HEAD` + your
+  uncommitted files: a smoke set + `app/Tests/ui_map.txt` (source dir → scripts) + scripts that use a test ID / l10n key
+  found in a changed Swift file + changed scripts / fixtures / baselines. `--list` shows what it would run and why;
+  `--unit-filter <re>` narrows the unit tests; `--all-ui` runs every script (still incremental). Run it as often as you like.
+  Single files: `scripts/test.sh --filter X`, `scripts/uitest.sh app/Tests/UIScripts/x.json`.
+- **Stage 2 — once, just before "ready to merge": `scripts/check_clean.sh --ui`** (fresh clean checkout, ~970 unit tests,
+  every UI script, 16–33 min). Only this one proves the branch; it writes `build/check_clean.ok` for the merge.
+  Don't run stage 2 repeatedly to debug: fix with stage 1 / single scripts, then run stage 2 once more.
+- **Flaky vs failing.** Every failed unit test / UI script is retried once, alone. Passing on the retry prints
+  "flaky (passed on retry)" and does not fail the gate. Failing twice fails it, unless the test is in
+  `app/Tests/quarantine.txt` (still run and reported, not gating; each entry has a date and a reason). Don't quarantine
+  your own new failures; a test you broke is a failure. Fix flaky tests when you own them and remove their entry.
+- **Hangs.** test.sh / uitest.sh / check_clean kill a run with no output and ~0 % CPU for 10 min (`MONTAGE_HANG_MINUTES`).
+  They dump `sample` stacks into the log and fail with "HUNG". A UI script past its timeout is sampled (`hang-sample.txt`).
+- **Slots / disk.** Heavy runs share machine-wide slots. `scripts/slots.sh status` shows who holds them; dead holders,
+  and holders idle for 20 min, are reclaimed automatically (with a printed line). The gates fail fast below 5 GB free:
+  run `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh`. Test temp files are deleted on exit (private TMPDIR per run).
+- **Real-like media.** `RealLikeMedia` (MontageTestSupport) and `fixtures/real/` (iPhone HEVC Main10 HLG portrait with a
+  face and speech, English speech with a pause, 120 BPM music) cover player / colour / thumbnail / waveform / beat
+  paths. Prefer them over testsrc patterns for media features. Owner clips are opt-in only (`MONTAGE_REAL_FOOTAGE`), never commit them.
+
 ## Integrating (you do it yourself, at least once at the end; earlier for big milestones)
 1. `git fetch` is not needed (same repo). In your worktree: `git rebase main` (main = the main repo's branch), resolve conflicts
-   preserving BOTH sides' intent, run `scripts/test.sh` (must be green).
-   Then commit everything and run `scripts/check_clean.sh` (must print CLEAN CHECKOUT OK). It fails when a file under
+   preserving BOTH sides' intent, run `scripts/check_fast.sh` (must print FAST CHECK OK).
+   Then commit everything and run `scripts/check_clean.sh --ui` (must print CLEAN CHECKOUT OK). It fails when a file under
    app/ or scripts/ is git-ignored, and it builds and tests a fresh worktree of HEAD, so a build that only works
    because of uncommitted or ignored local files is caught. Do this before reporting "ready to merge".
+   The orchestrator merges with `scripts/merge_agent.sh <branch>`: it checks the gate stamp, ff-merges, runs build_app
+   and removes the worktree's .build.
 2. Try to fast-forward main to your branch: `git -C /Users/lulupointu/Development/local-capcut merge --ff-only <your-branch>`.
    If it fails because main moved, repeat from 1. Never force-push, never reset main, never merge with failing tests.
    If the ff-merge is blocked by a permission check, don't retry or work around it: just report "ready to merge: <branch> @ <hash>, rebased on <main hash>, tests green" and the orchestrator merges it.

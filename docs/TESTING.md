@@ -12,13 +12,56 @@ inside its own process. Safe to run while other agents (or the user) use the mac
 | a screenshot test | a `snapshot` step with `"baseline"` in a UI script |
 | compare two PNGs | `scripts/imgdiff.sh a.png b.png [--tolerance 0.005] [--threshold 16]` |
 | perf numbers / regressions | `scripts/perf.sh` (`--air` = MacBook Air approximation) |
-| check a clean checkout builds + tests (before "ready to merge") | `scripts/check_clean.sh [--ui]` |
+| gate stage 1 while iterating: incremental build + unit tests + the UI scripts relevant to your diff | `scripts/check_fast.sh` (`--list` = what/why) |
+| gate stage 2, once before "ready to merge": clean checkout, everything | `scripts/check_clean.sh --ui` |
+| who holds the test slots / reclaim dead or hung ones | `scripts/slots.sh status` / `scripts/slots.sh reclaim` |
+| free disk (merged worktrees' .build, `$TMPDIR/montage-*` > 3 h) | `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh` |
+| merge a branch that passed stage 2 (orchestrator) | `scripts/merge_agent.sh <branch>` |
+| regenerate the real-like fixtures | `scripts/make_fixtures.sh` |
 | just look at the UI | `scripts/screenshot.sh --demo --offscreen` |
 
-**Machine-wide test slots.** `test.sh`, `uitest.sh` and `check_clean.sh` take one of 2 slots shared by every checkout
-(mkdir locks in `/tmp/montage-locks`, stale ones reclaimed by PID); `perf.sh` takes all of them (exclusive, and new
-runs queue behind it). A blocked run prints "waiting for test slot…". Nested scripts reuse their parent's slot.
-`MONTAGE_SLOTS=<n>` changes the count, `MONTAGE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
+**Machine-wide test slots.** `test.sh`, `uitest.sh`, `check_fast.sh` and `check_clean.sh` take one slot shared by every
+checkout (mkdir locks in `/tmp/montage-locks` holding PID, start time, command, cwd); `perf.sh` takes all of them
+(exclusive, and new runs queue behind it). A blocked run prints "waiting for test slot…". Nested scripts reuse their
+parent's slot. Count: `MONTAGE_SLOTS`, default max(2, cores / 5); slots beyond the first are only handed out while the
+1-min load is below `MONTAGE_SLOT_MAX_LOAD` (3 × cores). A slot is **reclaimed** (and the reclaim printed) when its
+holder is dead / its PID reused, or its whole process tree used < 2 CPU-seconds for `MONTAGE_SLOT_IDLE_MIN` (20)
+minutes: a hung run, its tree is killed. `MONTAGE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
+
+**Retries, flaky tests, quarantine.** `test.sh` re-runs every failed test once, alone (`--filter Suite/test()`; the
+`--xunit-output` report names it); `uitest.sh` re-runs a failed script once (first attempt kept in
+`<out>/<name>.attempt1`). A pass on the retry is reported **"flaky (passed on retry)"** and does not fail the run; two
+failures in a row fail it — unless the test is listed in `app/Tests/quarantine.txt` (`<unit|ui> <id> <date> <reason>`,
+validated by `python3 scripts/testlib.py check-quarantine`): quarantined tests still run and are reported, but don't
+gate. `--no-retry` disables retries. A crash (no test summary) or a hang is never retried.
+
+**Hang watchdog.** `swift build`/`swift test` in test.sh, uitest.sh and check_clean.sh run under a watchdog: no new log
+output AND < 1 % CPU (whole process tree) for `MONTAGE_HANG_MINUTES` (default 10) → the process tree, then `sample`
+stacks of its processes are appended to the log (`build/test.log`), the tree is killed and the run fails with
+**"HUNG"**. A UI script past `--timeout` is `sample`d into `<out>/<name>/hang-sample.txt` before being killed.
+
+**Temp files and disk.** test.sh and uitest.sh run tests / apps with a private `TMPDIR`
+(`$TMPDIR/montage-run-*`) deleted on exit, even on failure or Ctrl-C, so sandboxes (`montage-sandbox-*`), exports, project
+copies and mock downloads never pile up; the synthetic media cache stays shared (`MONTAGE_TEST_MEDIA_DIR`, default
+`$TMPDIR/montage-test-media-v1`). check_clean removes its `montage-clean.*` worktree on exit. check_fast / check_clean
+fail fast with "DISK FULL" below 5 GB free (`MONTAGE_MIN_FREE_GB`). `MONTAGE_KEEP_TMP=1` keeps the temp dirs to debug.
+
+**Real-like fixtures (T1).** `app/Tests/UIScripts/fixtures/real/` (`RealLikeMedia` in Swift), made by
+`scripts/make_fixtures.sh`, fully synthetic:
+- `iphone_hlg_portrait.mov`: HEVC Main10, BT.2020 HLG, coded 1920×1080 with an iPhone −90° matrix (1080×1920
+  upright), 30 fps, B-frames, a drawn face (Vision detects it), a highlight above SDR white, AAC 44.1 kHz speech.
+- `speech_en.m4a`: speech with a ~0.9 s pause.
+- `music_120bpm.m4a`: kick / hat / chords.
+
+`RealLikeFootageTests` cover probe, the player, export, thumbnails, Vision face, waveform and beats.
+`ColorSpaceLookTests.realFootageMatchesApple` runs on the clip in every project space; UI script `real_footage_import`.
+Owner footage stays opt-in and uncommitted: `MONTAGE_REAL_FOOTAGE="/path/a.MOV@2|/path/b.MOV"`. These clips are added
+to the colour tests and `RealLikeFootageTests.ownerFootageProbesAndPlays`, as are `MONTAGE_C1_FOOTAGE`,
+`MONTAGE_QA_PROJECT` (playback stress on a real project) and `MONTAGE_QA_VIDEO` (AI QA).
+
+**Stage-1 UI selection.** `scripts/ui_select.py --explain [--files …]` prints what `check_fast.sh` would run and why.
+Add a rule to `app/Tests/ui_map.txt` when you create a new area or the heuristics miss your scripts; put a script in
+the `smoke:` line only if it is fast and broad.
 
 **No exact timing budgets in the unit suite.** Wall-clock checks in `scripts/test.sh` use `TimingBudget`
 (MontageTestSupport): they assert only gross regressions (3× the budget, `MONTAGE_TIMING_FACTOR`) and are skipped with a
@@ -48,7 +91,7 @@ Create `app/Tests/UIScripts/<name>.json` (`//` line comments allowed):
 
 Run `scripts/uitest.sh app/Tests/UIScripts/<name>.json`. Output goes to `build/uitest/<name>/`: `report.json` (steps,
 errors, metrics), `final.json` (state dump), every `snapshot` PNG, and on failure `failure.json` + `failure.png`.
-**Open the PNGs and look at them.** Exit code 0 = pass (3 = skipped; `uitest.sh` exits 1 if any script failed or timed out). `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
+**Open the PNGs and look at them.** Exit code 0 = pass (3 = skipped; `uitest.sh` exits 1 if any script failed or timed out twice and is not quarantined). `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
 
 Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`; per area: `timeline_edit` (move, ⌫, W, magnet), `canvas_drag` (select + drag on the preview), `inspector_tabs` (Scale + Speed fields), `audio_volume`, `text_add`, `ai_tts`, `ai_transcript_panel`.
 

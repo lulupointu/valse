@@ -5,8 +5,12 @@ import MontageEngine
 
 /// Synthetic media generated on demand into a per-user temp cache (reused across runs by content key).
 public enum TestMedia {
+    /// `MONTAGE_TEST_MEDIA_DIR` (set by scripts/test.sh, which runs tests in a private TMPDIR removed afterwards) keeps
+    /// the cache in the machine temp dir across runs.
     public static let directory: URL = {
-        let d = FileManager.default.temporaryDirectory.appendingPathComponent("montage-test-media-v1", isDirectory: true)
+        let env = ProcessInfo.processInfo.environment["MONTAGE_TEST_MEDIA_DIR"].flatMap { $0.isEmpty ? nil : $0 }
+        let d = env.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent("montage-test-media-v1", isDirectory: true)
         try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
         return d
     }()
