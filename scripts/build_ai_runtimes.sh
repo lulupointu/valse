@@ -33,11 +33,12 @@ DEMUCS_REV=main
 LLAMA_TAG=b11700
 MINOS=13.0
 JOBS="$(sysctl -n hw.ncpu)"
-# demucs.cpp hard-codes -march=native in CMAKE_CXX_FLAGS_RELEASE before project(): rewritten after project() for x86_64.
-printf '%s\n' 'string(REPLACE "-march=native" "-march=haswell -mtune=skylake" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")' \
-  > "$WORK/demucs-x86.cmake"
-printf '%s\n' 'string(REPLACE "-march=native" "-march=nehalem" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")' \
-  > "$WORK/demucs-sse42.cmake"
+# demucs.cpp hard-codes "-Ofast -march=native …" in CMAKE_CXX_FLAGS_RELEASE before project(): replaced after project()
+# for x86_64. -Ofast (finite-math-only) makes the x86_64 build output all-NaN stems (measured under Rosetta, AVX2 and
+# SSE4.2 builds alike), so x86_64 uses -O3 with the remaining fast-math bits (reciprocal math, no signed zeros).
+DM_X86='-O3 -fno-math-errno -freciprocal-math -fno-signed-zeros -DNDEBUG -DEIGEN_USE_BLAS'
+printf 'set(CMAKE_CXX_FLAGS_RELEASE "%s %s")\n' "$DM_X86" "-march=haswell -mtune=skylake" > "$WORK/demucs-x86.cmake"
+printf 'set(CMAKE_CXX_FLAGS_RELEASE "%s %s")\n' "$DM_X86" "-march=nehalem" > "$WORK/demucs-sse42.cmake"
 
 # variant: arm64 | x86_64 | sse42 (x86_64 without AVX, test-only)
 osx_flags() {
