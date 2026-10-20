@@ -384,7 +384,7 @@ struct OnlineAudioView: View {
                       secondary: (tr("online.browseOffline"), { AssetPanelState.shared.nav["audio"] = AudioLibrarySections.defaultNav }),
                       id: "online.state.offline")
         case .invalidKey(let p):
-            StateCard(symbol: "key.slash", title: tr("online.badKey.title", p), message: tr("online.badKey.message"),
+            StateCard(symbol: SFSymbolCompat.compat("key.slash"), title: tr("online.badKey.title", p), message: tr("online.badKey.message"),
                       primary: (tr("online.openSettings"), { OnlineAudioState.openSettings?() }), id: "online.state.invalidKey")
         case .rateLimited:
             StateCard(symbol: "hourglass", title: tr("online.error.rate"), message: "",

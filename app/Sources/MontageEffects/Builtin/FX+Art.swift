@@ -294,7 +294,7 @@ enum FXArt {
     """)
 
     /// Duotone: maps luminance between two colours. p: amount · c: dark rgb, light rgb.
-    static let duotone = FXBase("duotone", params: [FXKit.amount(1.0)], symbol: "circle.lefthalf.filled.righthalf.striped.horizontal", """
+    static let duotone = FXBase("duotone", params: [FXKit.amount(1.0)], symbol: SFSymbolCompat.compat("circle.lefthalf.filled.righthalf.striped.horizontal"), """
     float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx) {
         constant float* c = p + 1;
         float4 o = src.sample(s, uv);

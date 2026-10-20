@@ -439,7 +439,7 @@ struct MaskSettingsSection: View {
                 })
             },
             keyframeKeys: t.group,
-            accessory: AnyView(SmallIconButton(symbol: "circle.lefthalf.striped.horizontal.inverse", help: tr("inspector.mask.invert"),
+            accessory: AnyView(SmallIconButton(symbol: SFSymbolCompat.compat("circle.lefthalf.striped.horizontal.inverse"), help: tr("inspector.mask.invert"),
                                                active: inverted, size: 14) {
                 guard let id = ctx.clip?.id else { return }
                 store.performInspector(UpdateClip(id, nameKey: "cmd.mask") { $0[keyPath: t.mask]?.inverted.toggle() })

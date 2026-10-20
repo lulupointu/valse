@@ -273,8 +273,13 @@ public enum ObjectRemover {
         let tmp = directory.appendingPathComponent(".\(UUID().uuidString).mov")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let writer = try AVAssetWriter(outputURL: tmp, fileType: .mov)
-        let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoWidthKey: w, AVVideoHeightKey: h,
-                                                                          AVVideoCompressionPropertiesKey: [AVVideoQualityKey: 0.8]])
+        var vSettings: [String: Any] = [AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoWidthKey: w, AVVideoHeightKey: h,
+                                        AVVideoCompressionPropertiesKey: [AVVideoQualityKey: 0.8]]
+        if !writer.canApply(outputSettings: vSettings, forMediaType: .video) {
+            // an encoder without constant-quality mode (Intel / macOS 13) would make AVAssetWriterInput throw: bit rate instead
+            vSettings[AVVideoCompressionPropertiesKey] = [AVVideoAverageBitRateKey: max(4_000_000, w * h * 6)]
+        }
+        let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: vSettings)
         vIn.transform = transform
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: vIn, sourcePixelBufferAttributes: [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA, kCVPixelBufferWidthKey as String: w, kCVPixelBufferHeightKey as String: h])

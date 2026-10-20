@@ -100,7 +100,7 @@ public enum VoiceEffects {
                                                            .compressor(thresholdDB: -22, ratio: 1 + 2 * s, attackMs: 8, releaseMs: 120, makeupDB: 3 * s), .limiter] }),
         fx("helium", "balloon", params: [.pitch, .timbre], shifted(4, 1.38)),
         fx("micEcho", "mic", live { s, _ in [.highPass(hz: 120), .echo(seconds: 0.16, feedback: 0.35, mix: 0.45 * s)] }),
-        fx("clearVocals", "waveform.badge.magnifyingglass", live { s, _ in [.highPass(hz: 90), .lowShelf(hz: 220, db: -2 * s), .peak(hz: 3000, q: 0.9, db: 3.5 * s),
+        fx("clearVocals", "waveform.and.magnifyingglass", live { s, _ in [.highPass(hz: 90), .lowShelf(hz: 220, db: -2 * s), .peak(hz: 3000, q: 0.9, db: 3.5 * s),
                                                                               .highShelf(hz: 9000, db: 2.5 * s), .compressor(thresholdDB: -20, ratio: 2.5, attackMs: 5, releaseMs: 100, makeupDB: 2 * s), .limiter] }),
         fx("cosmicBot", "sparkles", params: [.strength]) { p in
             var d = VoiceDesign(); d.robotHz = 92
@@ -189,7 +189,7 @@ public enum VoiceEffects {
         character("giant", "figure.stand", pitch: -6, formant: 0.8, live: [.reverb(room: 0.65, damp: 0.4, wet: 0.2, width: 1)]),
         character("elf", "leaf", pitch: 6, formant: 1.25),
         character("squirrel", "hare.fill", pitch: 10, formant: 1.5),
-        character("littleGirl", "figure.child", pitch: 5, formant: 1.2),
+        character("littleGirl", SFSymbolCompat.compat("figure.child"), pitch: 5, formant: 1.2),
         character("lady", "figure.dress.line.vertical.figure", pitch: 4, formant: 1.14),
         character("youngMan", "figure.walk", pitch: -3, formant: 0.92),
         character("uncle", "mustache", pitch: -4, formant: 0.88),

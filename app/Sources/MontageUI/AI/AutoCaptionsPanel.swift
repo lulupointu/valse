@@ -152,7 +152,7 @@ struct SpeechModelCard: View {
         let runtime = WhisperRuntime.cliURL != nil
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: state.isInstalled && runtime ? "checkmark.seal.fill" : "waveform.badge.mic")
+                Image(systemName: state.isInstalled && runtime ? "checkmark.seal.fill" : SFSymbolCompat.compat("waveform.badge.mic"))
                     .foregroundStyle(state.isInstalled && runtime ? Theme.accent : Theme.textSecondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(loc: "captions.engine").font(Theme.Fonts.row).foregroundStyle(IStyle.label)

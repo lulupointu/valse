@@ -111,7 +111,7 @@ public enum BuiltinColor {
             + (0..<ColorCurveMath.maxPoints).map { k in ParamSpec.scalar("\(ch).x\(k)", "curves.\(ch)", 0, 1, k < 5 ? curveKnots[k] : 1, display: 100) }
             + (0..<ColorCurveMath.maxPoints).map { k in ParamSpec.scalar("\(ch).y\(k)", "curves.\(ch)", 0, 1, k < 5 ? curveKnots[k] : 1, display: 100) }
         },
-        symbol: "point.topleft.down.to.point.bottomright.curvepath",
+        symbol: "point.topleft.down.curvedto.point.bottomright.up",
         shader: """
         // Perf (1080p budget, EffectsPerfTests): tangents depend only on the params, so they are built once per channel
         // (not once per evaluation) and identity channels (every point on the diagonal, the default) are skipped.

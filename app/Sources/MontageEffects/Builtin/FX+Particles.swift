@@ -88,7 +88,7 @@ enum FXParticles {
     """)
 
     /// Fireworks bursts. p: density, size, speed · c: colour mode (0 multicolour, 1 gold).
-    static let fireworks = FXBase("fireworks", params: [FXKit.density(0.5), FXKit.size(0.5), FXKit.speed(0.5)], symbol: "fireworks", """
+    static let fireworks = FXBase("fireworks", params: [FXKit.density(0.5), FXKit.size(0.5), FXKit.speed(0.5)], symbol: SFSymbolCompat.compat("fireworks"), """
     float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx) {
         constant float* c = p + 3;
         float4 o = src.sample(s, uv);
