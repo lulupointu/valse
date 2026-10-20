@@ -80,7 +80,8 @@ watchdog_start() { # log root-pid
       sleep "$poll"
       kill -0 "$root" 2>/dev/null || break
       now=$(date +%s); s=$(stat -f %z "$log" 2>/dev/null || echo 0); c=$(tree_cpu "$root")
-      if [[ "$s" != "$size" ]] || (( c - base_cpu > (now - since) / 100 + 1 )); then
+      # progress = the log grew, the tree burnt > 1 % of a core, or its CPU total dropped (children replaced)
+      if [[ "$s" != "$size" ]] || (( c - base_cpu > (now - since) / 100 + 1 || base_cpu - c > 1 )); then
         size="$s"; since="$now"; base_cpu="$c"; continue
       fi
       if (( now - since >= limit )); then

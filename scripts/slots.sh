@@ -84,7 +84,9 @@ _slot_try() { # dir → 0 if acquired
 
 slots_sweep() { # check every lock (refreshes idle tracking; reclaims dead / idle holders)
   local d
-  for d in "$SLOTS_DIR"/slot.* "$SLOTS_DIR"/exclusive; do [[ -d "$d" ]] && _slot_check "$d"; done
+  for d in "$SLOTS_DIR"/slot.* "$SLOTS_DIR"/exclusive; do
+    if [[ -d "$d" ]]; then _slot_check "$d" || true; fi   # (a bare `&&` here would trip callers' set -e)
+  done
   return 0
 }
 
