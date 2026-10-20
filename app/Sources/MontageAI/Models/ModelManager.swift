@@ -1,5 +1,5 @@
 import Foundation
-import Observation
+import Perception
 import CryptoKit
 import MontageCore
 import MontageEngine
@@ -34,13 +34,13 @@ public enum ModelError: Error, Sendable, Equatable {
 
 /// Downloads, verifies, imports and removes on-device models (main actor, observable). Files live in
 /// `ModelCatalog.modelsDirectory`; the download is the only network access and is always started by the user.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class ModelManager {
     public static let shared = ModelManager()
 
     public private(set) var states: [String: AIModelState] = [:]
-    @ObservationIgnored private var tasks: [String: Task<Void, Never>] = [:]
-    @ObservationIgnored private var downloads: [String: URLSessionDownloadTask] = [:]
+    @PerceptionIgnored private var tasks: [String: Task<Void, Never>] = [:]
+    @PerceptionIgnored private var downloads: [String: URLSessionDownloadTask] = [:]
 
     init() { refresh() }
 

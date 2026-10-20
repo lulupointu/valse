@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEffects
+import Perception
 
 // MARK: - Generic descriptor rows
 
@@ -15,9 +16,13 @@ struct EffectParamRows: View {
     var enabled = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(descriptor.params.filter { only?.contains($0.key) ?? true }, id: \.key) { spec in
-                EffectParamRow(ctx: ctx, instanceID: instance.id, spec: spec, enabled: enabled)
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(descriptor.params.filter { only?.contains($0.key) ?? true }, id: \.key) { spec in
+                    WithPerceptionTracking {
+                        EffectParamRow(ctx: ctx, instanceID: instance.id, spec: spec, enabled: enabled)
+                    }
+                }
             }
         }
     }
@@ -47,32 +52,34 @@ struct EffectParamRow: View {
     }
 
     var body: some View {
-        let key = ParamKey.effect(instanceID, spec.key)
-        let iid = instanceID, pk = spec.key
-        let typeID = ctx.clip?.effects.first { $0.id == iid }?.typeID
-        switch spec.kind {
-        case .scalar(let lo, let hi, let def):
-            let k = spec.displayScale
-            ClipParamRow(ctx: ctx, label: tr(spec.nameKey),
-                         spec: RowSpec(range: lo * k...hi * k, origin: lo < 0 ? 0 : nil, gradient: Self.gradient(for: spec.key),
-                                       step: 1, format: Fmt.int),
-                         get: { c, t in Self.resolve(c, iid, typeID).map { (c.value(.effect($0, pk), at: t)?.scalar ?? 0) * k } ?? def * k },
-                         set: { c, v, t in if let i = Self.resolve(c, iid, typeID) { c.setValue(.effect(i, pk), .scalar(v / k), at: t) } },
-                         dependsOnTime: { c in Self.resolve(c, iid, typeID).map { c.hasKeyframes(.effect($0, pk)) } ?? false },
-                         keyframeKeys: [key], gestureName: "cmd.effect", enabled: enabled)
-        case .color(let d):
-            let c = ctx.clip?.effects.first { $0.id == instanceID }?.params[spec.key].flatMap { if case .color(let c) = $0 { return c }; return nil } ?? d
-            InlineRow(label: tr(spec.nameKey), enabled: enabled, triplet: Bind.triplet(ctx, [key])) {
-                ColorSwatchButton(color: c, eyedropper: ctx.store, testID: "effect.\(spec.key)") { v in setParam(.color(v)) }
-            }
-        case .bool(let d):
-            ToggleLine(label: tr(spec.nameKey), isOn: Binding(get: {
-                if case .bool(let b) = param() { return b }; return d
-            }, set: { setParam(.bool($0)) }), enabled: enabled)
-        case .choice(let keys, let d):
-            InlineRow(label: tr(spec.nameKey), enabled: enabled) {
-                Dropdown(items: keys.enumerated().map { ($0.offset, tr($0.element)) },
-                         selection: { if case .choice(let i) = param() { return i }; return d }()) { setParam(.choice($0)) }
+        WithPerceptionTracking {
+            let key = ParamKey.effect(instanceID, spec.key)
+            let iid = instanceID, pk = spec.key
+            let typeID = ctx.clip?.effects.first { $0.id == iid }?.typeID
+            switch spec.kind {
+            case .scalar(let lo, let hi, let def):
+                let k = spec.displayScale
+                ClipParamRow(ctx: ctx, label: tr(spec.nameKey),
+                             spec: RowSpec(range: lo * k...hi * k, origin: lo < 0 ? 0 : nil, gradient: Self.gradient(for: spec.key),
+                                           step: 1, format: Fmt.int),
+                             get: { c, t in Self.resolve(c, iid, typeID).map { (c.value(.effect($0, pk), at: t)?.scalar ?? 0) * k } ?? def * k },
+                             set: { c, v, t in if let i = Self.resolve(c, iid, typeID) { c.setValue(.effect(i, pk), .scalar(v / k), at: t) } },
+                             dependsOnTime: { c in Self.resolve(c, iid, typeID).map { c.hasKeyframes(.effect($0, pk)) } ?? false },
+                             keyframeKeys: [key], gestureName: "cmd.effect", enabled: enabled)
+            case .color(let d):
+                let c = ctx.clip?.effects.first { $0.id == instanceID }?.params[spec.key].flatMap { if case .color(let c) = $0 { return c }; return nil } ?? d
+                InlineRow(label: tr(spec.nameKey), enabled: enabled, triplet: Bind.triplet(ctx, [key])) {
+                    ColorSwatchButton(color: c, eyedropper: ctx.store, testID: "effect.\(spec.key)") { v in setParam(.color(v)) }
+                }
+            case .bool(let d):
+                ToggleLine(label: tr(spec.nameKey), isOn: Binding(get: {
+                    if case .bool(let b) = param() { return b }; return d
+                }, set: { setParam(.bool($0)) }), enabled: enabled)
+            case .choice(let keys, let d):
+                InlineRow(label: tr(spec.nameKey), enabled: enabled) {
+                    Dropdown(items: keys.enumerated().map { ($0.offset, tr($0.element)) },
+                             selection: { if case .choice(let i) = param() { return i }; return d }()) { setParam(.choice($0)) }
+                }
             }
         }
     }
@@ -133,17 +140,19 @@ struct EffectBlock: View {
     /// nil = follow the checkbox (C2: ▼ expands a switched-off effect too).
     @State private var expandedChoice: Bool?
     var body: some View {
-        let chrome = EffectChrome.make(ctx, instance, descriptor, removable: removable)
-        let expanded = expandedChoice ?? instance.isEnabled
-        VStack(alignment: .leading, spacing: 10) {
-            SectionHeaderBar(title: tr(descriptor.nameKey), chrome: chrome, expanded: expanded, ctx: ctx,
-                             toggle: { withAnimation(.easeOut(duration: 0.15)) { expandedChoice = !expanded } },
-                             onCheck: { on in if on { expandedChoice = nil } })
-            if expanded {
-                EffectParamRows(ctx: ctx, instance: instance, descriptor: descriptor)
+        WithPerceptionTracking {
+            let chrome = EffectChrome.make(ctx, instance, descriptor, removable: removable)
+            let expanded = expandedChoice ?? instance.isEnabled
+            VStack(alignment: .leading, spacing: 10) {
+                SectionHeaderBar(title: tr(descriptor.nameKey), chrome: chrome, expanded: expanded, ctx: ctx,
+                                 toggle: { withAnimation(.easeOut(duration: 0.15)) { expandedChoice = !expanded } },
+                                 onCheck: { on in if on { expandedChoice = nil } })
+                if expanded {
+                    EffectParamRows(ctx: ctx, instance: instance, descriptor: descriptor)
+                }
             }
+            .padding(.vertical, 6)
         }
-        .padding(.vertical, 6)
     }
 }
 
@@ -194,27 +203,29 @@ struct ChromaKeySection: View {
     }
 
     var body: some View {
-        let inst = Self.instance(ctx)
-        let color: RGBA? = inst.flatMap { i in if case .color(let c) = i.params["color"], c.a > 0.5 { return c }; return nil }
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(loc: "key.chroma.color").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                Button { pick() } label: {
-                    Image(systemName: "eyedropper").font(.system(size: 13)).foregroundStyle(.white)
-                        .frame(width: 26, height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+        WithPerceptionTracking {
+            let inst = Self.instance(ctx)
+            let color: RGBA? = inst.flatMap { i in if case .color(let c) = i.params["color"], c.a > 0.5 { return c }; return nil }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(loc: "key.chroma.color").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                    Button { pick() } label: {
+                        Image(systemName: "eyedropper").font(.system(size: 13)).foregroundStyle(.white)
+                            .frame(width: 26, height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                    }
+                    .buttonStyle(.plain).help(tr("inspector.chroma.pickHelp")).testID("inspector.chroma.pick")
+                    if let color {
+                        RoundedRectangle(cornerRadius: 4).fill(Color(color)).frame(width: 26, height: 26)
+                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.2)))
+                    }
+                    Spacer()
+                    if color == nil { HintText(text: tr("inspector.chroma.hint")) }
                 }
-                .buttonStyle(.plain).help(tr("inspector.chroma.pickHelp")).testID("inspector.chroma.pick")
-                if let color {
-                    RoundedRectangle(cornerRadius: 4).fill(Color(color)).frame(width: 26, height: 26)
-                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.2)))
-                }
-                Spacer()
-                if color == nil { HintText(text: tr("inspector.chroma.hint")) }
+                .frame(minHeight: IStyle.rowHeight)
+                // C2: expanded while unticked → the settings show (greyed until a colour is picked, which turns it on)
+                EffectParamRows(ctx: ctx, instance: inst ?? Self.placeholder, descriptor: BuiltinKeying.chromaKey,
+                                only: ["intensity", "shadow", "feather", "cleanup"], enabled: inst != nil && color != nil)
             }
-            .frame(minHeight: IStyle.rowHeight)
-            // C2: expanded while unticked → the settings show (greyed until a colour is picked, which turns it on)
-            EffectParamRows(ctx: ctx, instance: inst ?? Self.placeholder, descriptor: BuiltinKeying.chromaKey,
-                            only: ["intensity", "shadow", "feather", "cleanup"], enabled: inst != nil && color != nil)
         }
     }
 
@@ -307,81 +318,87 @@ struct MaskShapesSection: View {
     }
 
     var body: some View {
-        let target = self.target.resolved(ctx.clip)
-        let mask = ctx.clip?[keyPath: target.mask]
-        VStack(alignment: .leading, spacing: 12) {
-            if let mask, let clip = ctx.clip {
-                // one chip per mask ("Mask 2 · Circle"), the edited one highlighted; ＋ adds another (up to 4, MK-005)
-                let count = target.index >= 1 ? clip.maskCount : 1
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(1...max(count, 1), id: \.self) { n in
-                            let m = target.index >= 1 ? clip.mask(n) : mask
-                            let selected = target.index == 0 || n == target.index
-                            Button {
-                                if target.index >= 1 { InspectorUIState.shared.maskIndex[clip.id] = n }
-                            } label: {
-                                Text(verbatim: tr("inspector.mask.chip", n, tr((m ?? mask).shape.nameKey)))
-                                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                                    .padding(.horizontal, 12).frame(height: 26)
-                                    .background(selected ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
-                                    .overlay(Capsule().strokeBorder(selected && count > 1 ? Theme.accent : .clear, lineWidth: 1))
+        WithPerceptionTracking {
+            let target = self.target.resolved(ctx.clip)
+            let mask = ctx.clip?[keyPath: target.mask]
+            VStack(alignment: .leading, spacing: 12) {
+                if let mask, let clip = ctx.clip {
+                    // one chip per mask ("Mask 2 · Circle"), the edited one highlighted; ＋ adds another (up to 4, MK-005)
+                    let count = target.index >= 1 ? clip.maskCount : 1
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(1...max(count, 1), id: \.self) { n in
+                                WithPerceptionTracking {
+                                    let m = target.index >= 1 ? clip.mask(n) : mask
+                                    let selected = target.index == 0 || n == target.index
+                                    Button {
+                                        if target.index >= 1 { InspectorUIState.shared.maskIndex[clip.id] = n }
+                                    } label: {
+                                        Text(verbatim: tr("inspector.mask.chip", n, tr((m ?? mask).shape.nameKey)))
+                                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                            .padding(.horizontal, 12).frame(height: 26)
+                                            .background(selected ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                                            .overlay(Capsule().strokeBorder(selected && count > 1 ? Theme.accent : .clear, lineWidth: 1))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .testID("mask.chip.\(n)")
+                                }
                             }
-                            .buttonStyle(.plain)
-                            .testID("mask.chip.\(n)")
+                            if target.index >= 1 && count < Clip.maxMasks {
+                                SmallIconButton(symbol: "plus", help: tr("inspector.mask.addAnother"), size: 12) { addMask(clip) }
+                                    .testID("mask.addAnother")
+                            }
+                            SmallIconButton(symbol: "trash", help: tr("inspector.mask.remove"), size: 12) { setShape(nil) }
+                                .testID("mask.remove")
                         }
-                        if target.index >= 1 && count < Clip.maxMasks {
-                            SmallIconButton(symbol: "plus", help: tr("inspector.mask.addAnother"), size: 12) { addMask(clip) }
-                                .testID("mask.addAnother")
+                    }
+                } else {
+                    Button { setShape(.rectangle) } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus").font(.system(size: 12, weight: .semibold))
+                            Text(loc: "inspector.mask.add").font(.system(size: 12, weight: .semibold))
                         }
-                        SmallIconButton(symbol: "trash", help: tr("inspector.mask.remove"), size: 12) { setShape(nil) }
-                            .testID("mask.remove")
+                        .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
+                        .background(Theme.buttonSecondary, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .testID("mask.add")
+                }
+                if let mask, mask.shape == .brush, let clip = ctx.clip {
+                    MaskBrushControls(ctx: ctx, clip: clip, target: target, strokes: mask.strokes?.count ?? 0)
+                }
+                if let mask, mask.shape == .pen, let clip = ctx.clip {
+                    // MK-002: draw the outline point by point on the canvas (click the first point to close)
+                    let drawing = ctx.store.penMaskTool?.clipID == clip.id
+                    Button {
+                        if drawing { ctx.store.endPenMask() } else { ctx.store.beginPenMask(clip.id, target: target) }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: drawing ? "xmark" : "pencil.tip").font(.system(size: 12, weight: .semibold))
+                            Text(loc: drawing ? "mask.pen.cancel" : "mask.pen.draw").font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
+                        .background(drawing ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .testID("mask.pen.draw")
+                }
+                TileGrid {
+                    // Brush (CL-012 Quick / Smart brush, eraser): Adjust / effect-layer masks, and clip masks of media clips
+                    // (MK-004 custom brush mask tracking)
+                    ForEach(MaskShape.allCases.filter { $0 != .brush || target.index == 0 || ctx.clip?.mediaID != nil }, id: \.self) { s in
+                        WithPerceptionTracking {
+                            Tile(title: tr(s.nameKey), selected: mask?.shape == s) { setShape(s) } content: {
+                                Image(systemName: Self.symbol(s)).font(.system(size: 24, weight: .light)).foregroundStyle(Color(white: 0.85))
+                            }
+                            .opacity(mask == nil ? 0.35 : 1)
+                            .testID("mask.shape.\(s.rawValue)")
+                        }
                     }
                 }
-            } else {
-                Button { setShape(.rectangle) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus").font(.system(size: 12, weight: .semibold))
-                        Text(loc: "inspector.mask.add").font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
-                    .background(Theme.buttonSecondary, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .testID("mask.add")
             }
-            if let mask, mask.shape == .brush, let clip = ctx.clip {
-                MaskBrushControls(ctx: ctx, clip: clip, target: target, strokes: mask.strokes?.count ?? 0)
-            }
-            if let mask, mask.shape == .pen, let clip = ctx.clip {
-                // MK-002: draw the outline point by point on the canvas (click the first point to close)
-                let drawing = ctx.store.penMaskTool?.clipID == clip.id
-                Button {
-                    if drawing { ctx.store.endPenMask() } else { ctx.store.beginPenMask(clip.id, target: target) }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: drawing ? "xmark" : "pencil.tip").font(.system(size: 12, weight: .semibold))
-                        Text(loc: drawing ? "mask.pen.cancel" : "mask.pen.draw").font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
-                    .background(drawing ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .testID("mask.pen.draw")
-            }
-            TileGrid {
-                // Brush (CL-012 Quick / Smart brush, eraser): Adjust / effect-layer masks, and clip masks of media clips
-                // (MK-004 custom brush mask tracking)
-                ForEach(MaskShape.allCases.filter { $0 != .brush || target.index == 0 || ctx.clip?.mediaID != nil }, id: \.self) { s in
-                    Tile(title: tr(s.nameKey), selected: mask?.shape == s) { setShape(s) } content: {
-                        Image(systemName: Self.symbol(s)).font(.system(size: 24, weight: .light)).foregroundStyle(Color(white: 0.85))
-                    }
-                    .opacity(mask == nil ? 0.35 : 1)
-                    .testID("mask.shape.\(s.rawValue)")
-                }
-            }
+            .onDisappear { ctx.store.endPenMask(); ctx.store.endMaskBrush() }
         }
-        .onDisappear { ctx.store.endPenMask(); ctx.store.endMaskBrush() }
     }
 
     /// ＋: a new rectangle mask after the last one, selected for editing.
@@ -447,45 +464,47 @@ struct MaskSettingsSection: View {
     }
 
     var body: some View {
-        let layer = layerSize()
-        let t = target.resolved(ctx.clip)
-        let shape = ctx.clip?[keyPath: t.mask]?.shape
-        let locked = InspectorUIState.shared.maskLock
-        VStack(alignment: .leading, spacing: 4) {
-            if shape == .text { MaskTextField(ctx: ctx, target: t) }
-            if shape == .pen { HintText(text: tr("inspector.mask.penHint")) }
-            InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [t.center])) {
-                HStack(spacing: 14) {
-                    Bind.field(ctx, key: t.center, component: 0, prefix: "X", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
-                               toUI: { $0 * layer.width }, fromUI: { $0 / max(layer.width, 1) }, gestureName: "cmd.mask")
-                    Bind.field(ctx, key: t.center, component: 1, prefix: "Y", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
-                               toUI: { -$0 * layer.height }, fromUI: { -$0 / max(layer.height, 1) }, gestureName: "cmd.mask")
-                }
-            }
-            InlineRow(label: tr("prop.rotation"), triplet: Bind.triplet(ctx, [t.rotation])) {
-                HStack(spacing: 18) {
-                    Bind.field(ctx, key: t.rotation, spec: RowSpec(range: -360...360, step: 1, format: Fmt.degrees1), gestureName: "cmd.mask")
-                    RotationDialBinding(ctx: ctx, key: t.rotation)
-                }
-            }
-            if shape != .linear {
-                InlineRow(label: tr("inspector.size"), triplet: Bind.triplet(ctx, [t.size])) {
-                    HStack(spacing: 4) {
-                        sizeField(0, layer: layer, locked: locked)
-                        Button { InspectorUIState.shared.maskLock.toggle() } label: {
-                            Image(systemName: locked ? "link" : "link").font(.system(size: 11))
-                                .foregroundStyle(locked ? Theme.accent : IStyle.iconDim).frame(width: 20, height: 24)
-                        }
-                        .buttonStyle(.plain).help(tr("inspector.mask.lockRatio"))
-                        sizeField(1, layer: layer, locked: locked)
+        WithPerceptionTracking {
+            let layer = layerSize()
+            let t = target.resolved(ctx.clip)
+            let shape = ctx.clip?[keyPath: t.mask]?.shape
+            let locked = InspectorUIState.shared.maskLock
+            VStack(alignment: .leading, spacing: 4) {
+                if shape == .text { MaskTextField(ctx: ctx, target: t) }
+                if shape == .pen { HintText(text: tr("inspector.mask.penHint")) }
+                InlineRow(label: tr("prop.position"), triplet: Bind.triplet(ctx, [t.center])) {
+                    HStack(spacing: 14) {
+                        Bind.field(ctx, key: t.center, component: 0, prefix: "X", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
+                                   toUI: { $0 * layer.width }, fromUI: { $0 / max(layer.width, 1) }, gestureName: "cmd.mask")
+                        Bind.field(ctx, key: t.center, component: 1, prefix: "Y", spec: RowSpec(range: -100_000...100_000, step: 1, format: Fmt.int),
+                                   toUI: { -$0 * layer.height }, fromUI: { -$0 / max(layer.height, 1) }, gestureName: "cmd.mask")
                     }
                 }
-            }
-            Bind.row(ctx, tr("prop.maskFeather"), key: t.feather, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
-                     toUI: { $0 * 100 }, fromUI: { $0 / 100 }, gestureName: "cmd.mask")
-            if shape == .rectangle {
-                Bind.row(ctx, tr("prop.maskRoundness"), key: t.roundness, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+                InlineRow(label: tr("prop.rotation"), triplet: Bind.triplet(ctx, [t.rotation])) {
+                    HStack(spacing: 18) {
+                        Bind.field(ctx, key: t.rotation, spec: RowSpec(range: -360...360, step: 1, format: Fmt.degrees1), gestureName: "cmd.mask")
+                        RotationDialBinding(ctx: ctx, key: t.rotation)
+                    }
+                }
+                if shape != .linear {
+                    InlineRow(label: tr("inspector.size"), triplet: Bind.triplet(ctx, [t.size])) {
+                        HStack(spacing: 4) {
+                            sizeField(0, layer: layer, locked: locked)
+                            Button { InspectorUIState.shared.maskLock.toggle() } label: {
+                                Image(systemName: locked ? "link" : "link").font(.system(size: 11))
+                                    .foregroundStyle(locked ? Theme.accent : IStyle.iconDim).frame(width: 20, height: 24)
+                            }
+                            .buttonStyle(.plain).help(tr("inspector.mask.lockRatio"))
+                            sizeField(1, layer: layer, locked: locked)
+                        }
+                    }
+                }
+                Bind.row(ctx, tr("prop.maskFeather"), key: t.feather, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
                          toUI: { $0 * 100 }, fromUI: { $0 / 100 }, gestureName: "cmd.mask")
+                if shape == .rectangle {
+                    Bind.row(ctx, tr("prop.maskRoundness"), key: t.roundness, spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+                             toUI: { $0 * 100 }, fromUI: { $0 / 100 }, gestureName: "cmd.mask")
+                }
             }
         }
     }
@@ -524,16 +543,18 @@ struct MaskTextField: View {
     let target: MaskTarget
     @State private var text = ""
     var body: some View {
-        let current = ctx.clip?[keyPath: target.mask]?.text ?? ""
-        InlineRow(label: tr("inspector.mask.text")) {
-            TextField("", text: $text)
-                .textFieldStyle(.plain).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 8).frame(height: 28)
-                .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
-                .onSubmit(commit)
-                .onAppear { text = current }
-                .onChange(of: current) { text = current }
-                .testID("mask.text")
+        WithPerceptionTracking {
+            let current = ctx.clip?[keyPath: target.mask]?.text ?? ""
+            InlineRow(label: tr("inspector.mask.text")) {
+                TextField("", text: $text)
+                    .textFieldStyle(.plain).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
+                    .padding(.horizontal, 8).frame(height: 28)
+                    .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                    .onSubmit(commit)
+                    .onAppear { text = current }
+                    .onValueChange(of: current) { text = current }
+                    .testID("mask.text")
+            }
         }
     }
     func commit() {

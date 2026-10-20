@@ -1,11 +1,11 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 import MontageEffects
 import MontageEngine
 
 /// Inspector UI state that must survive re-renders and selection changes: active sub-tab per tab, collapsed sections.
-@Observable
+@Perceptible
 final class InspectorUIState {
     static let shared = InspectorUIState()
     var subTab: [String: String] = [:]
@@ -31,7 +31,7 @@ final class InspectorUIState {
 /// Top-right inspector (UX.md §5): header tabs for the selection (or "Details"), optional sub-tab segmented control,
 /// the registered sections of the active (sub-)tab, and an optional sticky footer.
 public struct InspectorPanel: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     private let ui = InspectorUIState.shared
     public init(store: EditorStore) { self.store = store }
 
@@ -71,51 +71,57 @@ public struct InspectorPanel: View {
     /// panel depends on `store.inspectorStructureKey` instead, which changes only when tabs / sections / footer change.
     /// Sections still observe the project themselves, so their values stay live.
     public var body: some View {
-        let _ = (store.inspectorStructureKey, store.inspectorTab, ui.subTab)
-        let st = EditorStore.untracked { Self.structure(store) }
-        let ctx = st.ctx, tabs = st.tabs, active = st.active, subs = st.subs, sub = st.sub
-        Panel {
-            HStack(spacing: 22) {
-                ForEach(tabs) { tab in
-                    // a Button (not onTapGesture) so the UI test driver's synthetic clicks reach it
-                    Button { store.inspectorTab = tab.id } label: {
-                        Text(loc: tab.titleKey)
-                            .font(Theme.Fonts.panelTitle)
-                            .foregroundStyle(tab.id == active?.id ? Theme.accent : Theme.textPrimary)
-                            .lineLimit(1)
-                            .fixedSize()
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .testID("inspector.tab.\(tab.id)")
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-        } content: {
-            VStack(spacing: 0) {
-                if let active {
-                    if subs.count >= 2, let sub {
-                        SubTabBar(items: subs.map { ($0.id, tr($0.titleKey)) }, selection: sub.id) { ui.subTab[active.id] = $0 }
-                            .padding(.horizontal, Theme.Metrics.inspectorPadding)
-                            .padding(.top, 12).padding(.bottom, 10)
-                        Rectangle().fill(Theme.separator).frame(height: 2).padding(.horizontal, Theme.Metrics.inspectorPadding)
-                    }
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(st.sections) { section in
-                                InspectorSectionView(section: section, ctx: ctx, ui: ui).testID("inspector.section.\(section.id)")
+        WithPerceptionTracking {
+            let _ = (store.inspectorStructureKey, store.inspectorTab, ui.subTab)
+            let st = EditorStore.untracked { Self.structure(store) }
+            let ctx = st.ctx, tabs = st.tabs, active = st.active, subs = st.subs, sub = st.sub
+            Panel {
+                HStack(spacing: 22) {
+                    ForEach(tabs) { tab in
+                        WithPerceptionTracking {
+                            // a Button (not onTapGesture) so the UI test driver's synthetic clicks reach it
+                            Button { store.inspectorTab = tab.id } label: {
+                                Text(loc: tab.titleKey)
+                                    .font(Theme.Fonts.panelTitle)
+                                    .foregroundStyle(tab.id == active?.id ? Theme.accent : Theme.textPrimary)
+                                    .lineLimit(1)
+                                    .fixedSize()
+                                    .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+                            .testID("inspector.tab.\(tab.id)")
                         }
-                        .padding(.bottom, 16)
                     }
-                    .id("\(store.selection.hashValue)-\(store.selectedTransition?.description ?? "")-\(active.id)-\(sub?.id ?? "")")
-                    if let footer = st.footer {
-                        HStack(spacing: 8) { Spacer(); footer }
-                            .padding(.horizontal, Theme.Metrics.inspectorPadding)
-                            .frame(height: 46)
-                            .frame(maxWidth: .infinity)
-                            .background(Theme.panelHeader)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+            } content: {
+                VStack(spacing: 0) {
+                    if let active {
+                        if subs.count >= 2, let sub {
+                            SubTabBar(items: subs.map { ($0.id, tr($0.titleKey)) }, selection: sub.id) { ui.subTab[active.id] = $0 }
+                                .padding(.horizontal, Theme.Metrics.inspectorPadding)
+                                .padding(.top, 12).padding(.bottom, 10)
+                            Rectangle().fill(Theme.separator).frame(height: 2).padding(.horizontal, Theme.Metrics.inspectorPadding)
+                        }
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(st.sections) { section in
+                                    WithPerceptionTracking {
+                                        InspectorSectionView(section: section, ctx: ctx, ui: ui).testID("inspector.section.\(section.id)")
+                                    }
+                                }
+                            }
+                            .padding(.bottom, 16)
+                        }
+                        .id("\(store.selection.hashValue)-\(store.selectedTransition?.description ?? "")-\(active.id)-\(sub?.id ?? "")")
+                        if let footer = st.footer {
+                            HStack(spacing: 8) { Spacer(); footer }
+                                .padding(.horizontal, Theme.Metrics.inspectorPadding)
+                                .frame(height: 46)
+                                .frame(maxWidth: .infinity)
+                                .background(Theme.panelHeader)
+                        }
                     }
                 }
             }
@@ -129,38 +135,44 @@ struct SubTabBar: View {
     let selection: String
     let onSelect: (String) -> Void
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(items, id: \.id) { item in
-                Button { onSelect(item.id) } label: {
-                    Text(verbatim: item.title)
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textSecondary)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, minHeight: 26)
-                        .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
-                        .contentShape(Rectangle())
+        WithPerceptionTracking {
+            HStack(spacing: 0) {
+                ForEach(items, id: \.id) { item in
+                    WithPerceptionTracking {
+                        Button { onSelect(item.id) } label: {
+                            Text(verbatim: item.title)
+                                .font(.system(size: 12.5, weight: .medium))
+                                .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textSecondary)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, minHeight: 26)
+                                .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .testID("inspector.sub.\(item.id)")
+                    }
                 }
-                .buttonStyle(.plain)
-                .testID("inspector.sub.\(item.id)")
             }
+            .padding(1)
+            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
         }
-        .padding(1)
-        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
 struct InspectorSectionView: View {
     let section: InspectorSection
     let ctx: InspectorContext
-    @Bindable var ui: InspectorUIState
+    @Perception.Bindable var ui: InspectorUIState
 
     /// Perf (W14 round 2): the chrome / content builders run untracked — many read `store.project`, which would
     /// re-render every section on every edit tick. The section depends on the selection slices instead (its clip,
     /// track kind, media, settings); child views (rows, toggles) still observe what they read themselves.
     var body: some View {
-        let store = ctx.store
-        let _ = (store.selectedClipSlice, store.selectedTrackKindSlice, store.mediaBin, store.projectSettings, store.canUndo, store.canRedo)
-        return EditorStore.untracked { content }
+        WithPerceptionTracking {
+            let store = ctx.store
+            let _ = (store.selectedClipSlice, store.selectedTrackKindSlice, store.mediaBin, store.projectSettings, store.canUndo, store.canRedo)
+            return EditorStore.untracked { content }
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -206,36 +218,38 @@ struct SectionHeaderBar: View {
     var onCheck: ((Bool) -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 8) {
-            if let b = chrome?.isEnabled {
-                CapCheckbox(isOn: Binding(get: { b.wrappedValue }, set: { v in
-                    b.wrappedValue = v
-                    onCheck?(v)
-                }), enabled: chrome?.disabledReason == nil, label: title)
-                .testID(checkID ?? "inspector.check")
+        WithPerceptionTracking {
+            HStack(spacing: 8) {
+                if let b = chrome?.isEnabled {
+                    CapCheckbox(isOn: Binding(get: { b.wrappedValue }, set: { v in
+                        b.wrappedValue = v
+                        onCheck?(v)
+                    }), enabled: chrome?.disabledReason == nil, label: title)
+                    .testID(checkID ?? "inspector.check")
+                }
+                HStack(spacing: 6) {
+                    Text(verbatim: title).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    if let s = chrome?.subtitle { Text(verbatim: s).font(.system(size: 12)).foregroundStyle(IStyle.caption).lineLimit(1) }
+                    Image(systemName: expanded ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+                        .font(.system(size: 7)).foregroundStyle(Theme.textSecondary)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture(perform: toggle)
+                // SE-017: the title expands / collapses the section with VoiceOver too
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityValue(Text(verbatim: tr(expanded ? "ax.expanded" : "ax.collapsed")))
+                .accessibilityAction { toggle() }
+                Spacer(minLength: 4)
+                if let a = chrome?.accessory { a.accessibilityLabel(Text(verbatim: title)) }   // SE-017: header switch speaks the section
+                if let reset = chrome?.reset {
+                    SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"), enabled: chrome?.disabledReason == nil,
+                                    size: 13, action: reset)
+                }
+                if let keys = chrome?.keyframeKeys { KeyframeTriplet(ctx: ctx, keys: keys, enabled: chrome?.disabledReason == nil) }
             }
-            HStack(spacing: 6) {
-                Text(verbatim: title).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                if let s = chrome?.subtitle { Text(verbatim: s).font(.system(size: 12)).foregroundStyle(IStyle.caption).lineLimit(1) }
-                Image(systemName: expanded ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
-                    .font(.system(size: 7)).foregroundStyle(Theme.textSecondary)
-            }
-            .contentShape(Rectangle())
-            .onTapGesture(perform: toggle)
-            // SE-017: the title expands / collapses the section with VoiceOver too
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityValue(Text(verbatim: tr(expanded ? "ax.expanded" : "ax.collapsed")))
-            .accessibilityAction { toggle() }
-            Spacer(minLength: 4)
-            if let a = chrome?.accessory { a.accessibilityLabel(Text(verbatim: title)) }   // SE-017: header switch speaks the section
-            if let reset = chrome?.reset {
-                SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"), enabled: chrome?.disabledReason == nil,
-                                size: 13, action: reset)
-            }
-            if let keys = chrome?.keyframeKeys { KeyframeTriplet(ctx: ctx, keys: keys, enabled: chrome?.disabledReason == nil) }
+            .frame(minHeight: 26)
         }
-        .frame(minHeight: 26)
     }
 }
 
@@ -283,33 +297,35 @@ struct ClipParamRow: View {
     @State private var live: Double?
 
     var body: some View {
-        let store = ctx.store
-        let clip = ctx.clip
-        let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
-        let value = live ?? (clip.map { get($0, local) } ?? spec.range.lowerBound)
-        // C2: several clips edited together → "-" when they disagree
-        let mixed = live == nil && ctx.isMulti
-            && InspectorMultiEdit.isMixed(ctx.clips.map { get($0, dependsOnTime($0) ? Bind.local(store, $0) : .zero) })
-        let liveBox = $live
-        let scale = spec.sliderScale
-        let id = clip?.id
-        let spec = self.spec, set = self.set, name = gestureName
-        func write(_ v: Double) {
-            guard let id else { return }
-            Bind.apply(store, id, name) { c in set(&c, v, Bind.local(store, c)) }
+        WithPerceptionTracking {
+            let store = ctx.store
+            let clip = ctx.clip
+            let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
+            let value = live ?? (clip.map { get($0, local) } ?? spec.range.lowerBound)
+            // C2: several clips edited together → "-" when they disagree
+            let mixed = live == nil && ctx.isMulti
+                && InspectorMultiEdit.isMixed(ctx.clips.map { get($0, dependsOnTime($0) ? Bind.local(store, $0) : .zero) })
+            let liveBox = $live
+            let scale = spec.sliderScale
+            let id = clip?.id
+            let spec = self.spec, set = self.set, name = gestureName
+            @MainActor func write(_ v: Double) {
+                guard let id else { return }
+                Bind.apply(store, id, name) { c in set(&c, v, Bind.local(store, c)) }
+            }
+            return SliderRowView(
+                label: label, unit: scale.toUnit(spec.clampSlider(value)),
+                originUnit: spec.origin.map { scale.toUnit($0) } ?? 0, gradient: spec.gradient, ticks: spec.ticks,
+                display: mixed ? InspectorMultiEdit.mixedText : spec.format(value), enabled: enabled && clip != nil,
+                labelAccessory: labelAccessory, parse: spec.parse,
+                onBegin: { store.beginInspectorGesture(name) },
+                onChange: { u in let v = spec.clampSlider(scale.fromUnit(u)); liveBox.wrappedValue = v; write(v) },
+                onEnd: { liveBox.wrappedValue = nil; store.endGesture() },
+                commit: { v in write(spec.clampField(v)) },
+                step: { d in write(spec.clampField(value + Double(d) * spec.step)) },
+                triplet: keyframeKeys.map { AnyView(KeyframeTriplet(ctx: ctx, keys: $0, enabled: !$0.isEmpty)) }, testID: testID)
+                .equatable()
         }
-        return SliderRowView(
-            label: label, unit: scale.toUnit(spec.clampSlider(value)),
-            originUnit: spec.origin.map { scale.toUnit($0) } ?? 0, gradient: spec.gradient, ticks: spec.ticks,
-            display: mixed ? InspectorMultiEdit.mixedText : spec.format(value), enabled: enabled && clip != nil,
-            labelAccessory: labelAccessory, parse: spec.parse,
-            onBegin: { store.beginInspectorGesture(name) },
-            onChange: { u in let v = spec.clampSlider(scale.fromUnit(u)); liveBox.wrappedValue = v; write(v) },
-            onEnd: { liveBox.wrappedValue = nil; store.endGesture() },
-            commit: { v in write(spec.clampField(v)) },
-            step: { d in write(spec.clampField(value + Double(d) * spec.step)) },
-            triplet: keyframeKeys.map { AnyView(KeyframeTriplet(ctx: ctx, keys: $0, enabled: !$0.isEmpty)) }, testID: testID)
-            .equatable()
     }
 }
 
@@ -325,20 +341,22 @@ struct ClipNumberField: View {
     var dependsOnTime: (Clip) -> Bool = { _ in false }
     var gestureName = "cmd.editClip"
     var body: some View {
-        let store = ctx.store
-        let clip = ctx.clip
-        let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
-        let value = clip.map { get($0, local) } ?? 0
-        let spec = self.spec, set = self.set, name = gestureName
-        let mixed = ctx.isMulti
-            && InspectorMultiEdit.isMixed(ctx.clips.map { get($0, dependsOnTime($0) ? Bind.local(store, $0) : .zero) })
-        func write(_ v: Double) {
-            guard let id = clip?.id else { return }
-            Bind.apply(store, id, name) { c in set(&c, v, Bind.local(store, c)) }
+        WithPerceptionTracking {
+            let store = ctx.store
+            let clip = ctx.clip
+            let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
+            let value = clip.map { get($0, local) } ?? 0
+            let spec = self.spec, set = self.set, name = gestureName
+            let mixed = ctx.isMulti
+                && InspectorMultiEdit.isMixed(ctx.clips.map { get($0, dependsOnTime($0) ? Bind.local(store, $0) : .zero) })
+            @MainActor func write(_ v: Double) {
+                guard let id = clip?.id else { return }
+                Bind.apply(store, id, name) { c in set(&c, v, Bind.local(store, c)) }
+            }
+            return NumericField(display: mixed ? InspectorMultiEdit.mixedText : spec.format(value), prefix: prefix, prefixSymbol: prefixSymbol, width: width,
+                                enabled: clip != nil, parse: spec.parse,
+                                commit: { write(spec.clampField($0)) }, step: { write(spec.clampField(value + Double($0) * spec.step)) })
         }
-        return NumericField(display: mixed ? InspectorMultiEdit.mixedText : spec.format(value), prefix: prefix, prefixSymbol: prefixSymbol, width: width,
-                            enabled: clip != nil, parse: spec.parse,
-                            commit: { write(spec.clampField($0)) }, step: { write(spec.clampField(value + Double($0) * spec.step)) })
     }
 }
 

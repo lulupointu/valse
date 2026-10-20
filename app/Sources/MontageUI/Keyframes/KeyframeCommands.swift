@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
 import MontageCore
+import Perception
 
 /// Keyframe tools state (W5): keyframe clipboard, keyframe panel visibility, graph mode. Owned by `store.keyframeUI`.
-@Observable
+@Perceptible
 public final class KeyframeUIState {
     /// Last keyframes copied (⌘C on a selected keyframe); ⌘V pastes them while `clipboardActive`.
     public var clipboard: KeyframeClipboard?

@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 import MontageEffects
 
@@ -69,7 +69,7 @@ struct AdjustPreset: Codable, Identifiable, Equatable {
 }
 
 /// User adjustment presets, persisted in UserDefaults (UI tests get a throw-away store).
-@MainActor @Observable
+@MainActor @Perceptible
 final class AdjustPresets {
     static let shared = AdjustPresets(defaults: TestAnchors.isEnabled ? testDefaults() : .standard)
     static func testDefaults() -> UserDefaults {
@@ -79,7 +79,7 @@ final class AdjustPresets {
     }
     static let defaultsKey = "montage.inspector.adjustPresets"
     private(set) var all: [AdjustPreset]
-    @ObservationIgnored private let defaults: UserDefaults
+    @PerceptionIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
@@ -114,10 +114,12 @@ final class AdjustPresets {
 struct AdjustFooter: View {
     let ctx: InspectorContext
     var body: some View {
-        let has = AdjustTools.hasGrading(ctx.clip)
-        HStack(spacing: 8) {
-            PillButton(title: tr("inspector.applyToAll"), enabled: has) { AdjustTools.applyToAll(ctx) }.testID("adjust.applyAll")
-            PillButton(title: tr("inspector.saveAsPreset"), accent: true, enabled: has) { AdjustTools.saveAsPreset(ctx) }.testID("adjust.savePreset")
+        WithPerceptionTracking {
+            let has = AdjustTools.hasGrading(ctx.clip)
+            HStack(spacing: 8) {
+                PillButton(title: tr("inspector.applyToAll"), enabled: has) { AdjustTools.applyToAll(ctx) }.testID("adjust.applyAll")
+                PillButton(title: tr("inspector.saveAsPreset"), accent: true, enabled: has) { AdjustTools.saveAsPreset(ctx) }.testID("adjust.savePreset")
+            }
         }
     }
 }
@@ -127,20 +129,22 @@ struct AdjustPresetsSection: View {
     let ctx: InspectorContext
     @State private var presets = AdjustPresets.shared
     var body: some View {
-        FlowChips(items: presets.all) { p in
-            Button { AdjustTools.apply(p, ctx) } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "slider.horizontal.3").font(.system(size: 10))
-                    Text(verbatim: p.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
+        WithPerceptionTracking {
+            FlowChips(items: presets.all) { p in
+                Button { AdjustTools.apply(p, ctx) } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "slider.horizontal.3").font(.system(size: 10))
+                        Text(verbatim: p.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    }
+                    .foregroundStyle(.white).padding(.horizontal, 10).frame(height: 24)
+                    .background(Theme.buttonSecondary, in: Capsule())
+                    .contentShape(Capsule())
                 }
-                .foregroundStyle(.white).padding(.horizontal, 10).frame(height: 24)
-                .background(Theme.buttonSecondary, in: Capsule())
-                .contentShape(Capsule())
+                .buttonStyle(.plain)
+                .help(tr("adjust.preset.applyHelp"))
+                .contextMenu { Button(tr("adjust.preset.delete")) { presets.remove(p.id) } }
+                .testID("adjust.preset.\(presets.all.firstIndex(of: p) ?? 0)")
             }
-            .buttonStyle(.plain)
-            .help(tr("adjust.preset.applyHelp"))
-            .contextMenu { Button(tr("adjust.preset.delete")) { presets.remove(p.id) } }
-            .testID("adjust.preset.\(presets.all.firstIndex(of: p) ?? 0)")
         }
     }
 }
@@ -149,5 +153,5 @@ struct AdjustPresetsSection: View {
 struct FlowChips<Item: Identifiable, Chip: View>: View {
     let items: [Item]
     @ViewBuilder let chip: (Item) -> Chip
-    var body: some View { FlowLayout(spacing: 6) { ForEach(items) { chip($0) } } }
+    var body: some View { WithPerceptionTracking { FlowLayout(spacing: 6) { ForEach(items) { item in WithPerceptionTracking { chip(item) } } } } }
 }

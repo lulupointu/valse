@@ -3,6 +3,7 @@ import Metal
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 /// Asset panel ▸ Transitions (UX.md §3.8, [64]): category sub-nav, search, 86 pt tiles whose thumbnail is rendered by the
 /// real shader (A → B sample pictures) and **plays the transition on hover**; ⊕ / double-click / drag onto a cut adds it
@@ -21,51 +22,55 @@ struct TransitionsTab: View {
     private var favorites: EffectFavorites { EffectFavorites.shared }
 
     var body: some View {
-        let byGroup = BuiltinAssetTabs.grouped(Registries.transitions.all, \.groupKey)
-        let nav: [(String, String)] = [(EffectLibraryCatalog.favoritesNav, tr("fxlib.favorites")), (EffectLibraryCatalog.curatedNav, tr("fxlib.trending"))]
-            + byGroup.map { ($0.0, tr($0.0)) }
-        let groups: [(String, [TransitionDescriptor])] = [
-            (EffectLibraryCatalog.favoritesNav, Registries.transitions.all.filter { favorites.contains($0.id) }),
-            (EffectLibraryCatalog.curatedNav, Self.trending.compactMap { Registries.transitions[$0] }),
-        ] + byGroup
-        let current = group.isEmpty ? EffectLibraryCatalog.curatedNav : group
-        let title = current == EffectLibraryCatalog.favoritesNav ? tr("fxlib.favorites")
-            : current == EffectLibraryCatalog.curatedNav ? tr("fxlib.trending") : tr(current)
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let items = q.isEmpty ? (groups.first { $0.0 == current }?.1 ?? [])
-            : Registries.transitions.all.filter { tr($0.nameKey).lowercased().contains(q) || tr($0.groupKey).lowercased().contains(q) }
-        let selectedType = store.selectedTransition.flatMap { store.project.timeline.clip($0)?.transitionOut?.typeID }
-        HStack(spacing: 0) {
-            // while searching no category is highlighted (results span all of them)
-            SubNav(items: nav, selection: Binding(get: { q.isEmpty ? current : "" }, set: { group = $0; query = "" }))
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
-                    TextField(tr("transitions.search"), text: $query).textFieldStyle(.plain).font(.system(size: 12))
-                        .testID("transitions.search")
-                    if !query.isEmpty {
-                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
-                    }
-                }
-                .padding(.horizontal, 10).frame(height: 28)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
-                .padding(.horizontal, 12).padding(.top, 10)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(verbatim: q.isEmpty ? title : tr("transitions.results"))
-                            .font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
-                        if items.isEmpty { Text(loc: current == EffectLibraryCatalog.favoritesNav && q.isEmpty ? "fxlib.favorites.empty" : "transitions.noResults").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
-                        // UX.md §3.2: 86 pt squares, 16 pt gaps (4 per row at the default panel width)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 86, maximum: 104), spacing: 16)], spacing: 12) {
-                            ForEach(items) { d in
-                                TransitionTile(descriptor: d, selected: selectedType == d.id, highlighted: highlighted == d.id,
-                                               add: { store.applyTransition(d) },
-                                               select: { highlighted = d.id; if store.selectedTransition != nil { store.applyTransition(d) } else { store.previewTransition(d) } })   // click = "Previewing — Transitions" (W13)
-                            }
+        WithPerceptionTracking {
+            let byGroup = BuiltinAssetTabs.grouped(Registries.transitions.all, \.groupKey)
+            let nav: [(String, String)] = [(EffectLibraryCatalog.favoritesNav, tr("fxlib.favorites")), (EffectLibraryCatalog.curatedNav, tr("fxlib.trending"))]
+                + byGroup.map { ($0.0, tr($0.0)) }
+            let groups: [(String, [TransitionDescriptor])] = [
+                (EffectLibraryCatalog.favoritesNav, Registries.transitions.all.filter { favorites.contains($0.id) }),
+                (EffectLibraryCatalog.curatedNav, Self.trending.compactMap { Registries.transitions[$0] }),
+            ] + byGroup
+            let current = group.isEmpty ? EffectLibraryCatalog.curatedNav : group
+            let title = current == EffectLibraryCatalog.favoritesNav ? tr("fxlib.favorites")
+                : current == EffectLibraryCatalog.curatedNav ? tr("fxlib.trending") : tr(current)
+            let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+            let items = q.isEmpty ? (groups.first { $0.0 == current }?.1 ?? [])
+                : Registries.transitions.all.filter { tr($0.nameKey).lowercased().contains(q) || tr($0.groupKey).lowercased().contains(q) }
+            let selectedType = store.selectedTransition.flatMap { store.project.timeline.clip($0)?.transitionOut?.typeID }
+            HStack(spacing: 0) {
+                // while searching no category is highlighted (results span all of them)
+                SubNav(items: nav, selection: Binding(get: { q.isEmpty ? current : "" }, set: { group = $0; query = "" }))
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                        TextField(tr("transitions.search"), text: $query).textFieldStyle(.plain).font(.system(size: 12))
+                            .testID("transitions.search")
+                        if !query.isEmpty {
+                            Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
+                                .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
                         }
                     }
-                    .padding(12)
+                    .padding(.horizontal, 10).frame(height: 28)
+                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
+                    .padding(.horizontal, 12).padding(.top, 10)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(verbatim: q.isEmpty ? title : tr("transitions.results"))
+                                .font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
+                            if items.isEmpty { Text(loc: current == EffectLibraryCatalog.favoritesNav && q.isEmpty ? "fxlib.favorites.empty" : "transitions.noResults").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
+                            // UX.md §3.2: 86 pt squares, 16 pt gaps (4 per row at the default panel width)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 86, maximum: 104), spacing: 16)], spacing: 12) {
+                                ForEach(items) { d in
+                                    WithPerceptionTracking {
+                                        TransitionTile(descriptor: d, selected: selectedType == d.id, highlighted: highlighted == d.id,
+                                                       add: { store.applyTransition(d) },
+                                                       select: { highlighted = d.id; if store.selectedTransition != nil { store.applyTransition(d) } else { store.previewTransition(d) } })   // click = "Previewing — Transitions" (W13)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(12)
+                    }
                 }
             }
         }
@@ -85,50 +90,54 @@ struct TransitionTile: View {
     var shortID: String { descriptor.id.replacingOccurrences(of: "montage.transition.", with: "") }
 
     var body: some View {
-        let thumbs = TransitionThumbnails.shared
-        let _ = thumbs.revision
-        VStack(spacing: 5) {
-            ZStack(alignment: .bottomTrailing) {
-                Button(action: select) {
-                    SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover)) { tl in
-                        picture(at: tl.date, thumbs)
+        WithPerceptionTracking {
+            let thumbs = TransitionThumbnails.shared
+            let _ = thumbs.revision
+            VStack(spacing: 5) {
+                ZStack(alignment: .bottomTrailing) {
+                    Button(action: select) {
+                        SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover)) { tl in
+                            WithPerceptionTracking {
+                                picture(at: tl.date, thumbs)
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(selected || highlighted ? Theme.accent : (hover ? Theme.accent.opacity(0.7) : .clear),
+                                          lineWidth: selected ? 2 : 1.5))
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(selected || highlighted ? Theme.accent : (hover ? Theme.accent.opacity(0.7) : .clear),
-                                      lineWidth: selected ? 2 : 1.5))
-                }
-                .buttonStyle(.plain)
-                .testID("transition.tile.\(shortID)")
-                let fav = EffectFavorites.shared.contains(descriptor.id)
-                if hover || highlighted {
-                    // UX.md §3.2: ☆ favourite + ⊕ add, bottom-right
-                    HStack(spacing: 4) {
-                        RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
-                                   help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
-                            .testID("transition.favorite.\(shortID)")
-                        RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
-                            .testID("transition.add.\(shortID)")
+                    .buttonStyle(.plain)
+                    .testID("transition.tile.\(shortID)")
+                    let fav = EffectFavorites.shared.contains(descriptor.id)
+                    if hover || highlighted {
+                        // UX.md §3.2: ☆ favourite + ⊕ add, bottom-right
+                        HStack(spacing: 4) {
+                            RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
+                                       help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
+                                .testID("transition.favorite.\(shortID)")
+                            RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
+                                .testID("transition.add.\(shortID)")
+                        }
+                        .padding(4)
+                    } else if fav {
+                        Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                            .allowsHitTesting(false)
                     }
-                    .padding(4)
-                } else if fav {
-                    Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
-                        .allowsHitTesting(false)
                 }
+                .aspectRatio(1, contentMode: .fit)
+                Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1).truncationMode(.middle)
             }
-            .aspectRatio(1, contentMode: .fit)
-            Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                .lineLimit(1).truncationMode(.middle)
+            .contentShape(Rectangle())
+            .onHover { h in hover = h; if h { start = Date() } }
+            .simultaneousGesture(TapGesture(count: 2).onEnded(add))
+            .onDrag { NSItemProvider(object: DragPayload.transition(descriptor.id) as NSString) }
+            .contextMenu {
+                Button(tr(EffectFavorites.shared.contains(descriptor.id) ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
+                Button(tr("asset.addToTrack"), action: add)
+            }
+            .help(tr(descriptor.nameKey))
         }
-        .contentShape(Rectangle())
-        .onHover { h in hover = h; if h { start = Date() } }
-        .simultaneousGesture(TapGesture(count: 2).onEnded(add))
-        .onDrag { NSItemProvider(object: DragPayload.transition(descriptor.id) as NSString) }
-        .contextMenu {
-            Button(tr(EffectFavorites.shared.contains(descriptor.id) ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
-            Button(tr("asset.addToTrack"), action: add)
-        }
-        .help(tr(descriptor.nameKey))
     }
 
     /// Hover: 1.2 s A → B then a 0.4 s hold on B, looping. Idle: the still at 40 %.
@@ -151,7 +160,7 @@ struct TransitionTile: View {
 /// Transition tile pictures, rendered off the main thread through the real transition shaders between two sample
 /// pictures (`PresetPreviewRenderer`), cached for the session (a still ≈ 80 KB, a 20-frame loop ≈ 1.6 MB, loops are
 /// only made for hovered tiles and the cache keeps the 24 most recent).
-@MainActor @Observable final class TransitionThumbnails {
+@MainActor @Perceptible final class TransitionThumbnails {
     static let shared = TransitionThumbnails()
     nonisolated static let px = 144
     nonisolated static let loopFrames = 20
@@ -159,12 +168,12 @@ struct TransitionTile: View {
 
     /// Bumped when a picture lands (tiles observe it).
     var revision = 0
-    @ObservationIgnored private var stills: [String: CGImage] = [:]
-    @ObservationIgnored private var loops: [String: [CGImage]] = [:]
-    @ObservationIgnored private var loopOrder: [String] = []
-    @ObservationIgnored private var pending: Set<String> = []
-    @ObservationIgnored private var idleWaiters: [CheckedContinuation<Void, Never>] = []
-    @ObservationIgnored private let queue: OperationQueue = {
+    @PerceptionIgnored private var stills: [String: CGImage] = [:]
+    @PerceptionIgnored private var loops: [String: [CGImage]] = [:]
+    @PerceptionIgnored private var loopOrder: [String] = []
+    @PerceptionIgnored private var pending: Set<String> = []
+    @PerceptionIgnored private var idleWaiters: [CheckedContinuation<Void, Never>] = []
+    @PerceptionIgnored private let queue: OperationQueue = {
         let q = OperationQueue()
         q.maxConcurrentOperationCount = 3
         q.qualityOfService = .utility
@@ -227,9 +236,11 @@ struct TransitionParamRows: View {
     let ctx: InspectorContext
 
     var body: some View {
-        if let a = ctx.transitionClip, let t = a.transitionOut, let d = Registries.transitions[t.typeID], !d.params.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(d.params, id: \.key) { spec in row(spec, clip: a.id, instance: t) }
+        WithPerceptionTracking {
+            if let a = ctx.transitionClip, let t = a.transitionOut, let d = Registries.transitions[t.typeID], !d.params.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(d.params, id: \.key) { spec in WithPerceptionTracking { row(spec, clip: a.id, instance: t) } }
+                }
             }
         }
     }

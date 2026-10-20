@@ -56,6 +56,14 @@ public struct CutoutSelection: Hashable, Codable, Sendable {
 public enum MatteGenerator {
     public static let maxDecodeSide: CGFloat = 960
 
+    /// Vision foreground instance segmentation (`VNGenerateForegroundInstanceMaskRequest`) needs macOS 14. Without it,
+    /// "Main subject" and "Customized" cutouts are unavailable (the UI disables them; "People" still works) and the smart
+    /// brush / brush-mask tracking fall back to their people / box-tracking paths (`SmartMask`).
+    public static var supportsInstanceSegmentation: Bool {
+        if #available(macOS 14, *) { return true }
+        return false
+    }
+
     /// Matte already cached for this media/mode?
     public static func isReady(_ asset: MediaAsset, _ mode: CutoutMode) -> Bool {
         if asset.kind == .image { return MatteStore.shared.hasStill(media: asset, kind: mode.kind) }
@@ -105,6 +113,7 @@ public enum MatteGenerator {
             return FaceMatte.image(width: min(image.width, 960), height: min(image.width, 960) * image.height / max(image.width, 1),
                                    faces: (req.results ?? []).map(\.boundingBox))
         case .subject, .custom:
+            guard #available(macOS 14, *) else { throw AIToolError.unavailable("instanceSegmentation") }
             let req = VNGenerateForegroundInstanceMaskRequest()
             try handler.perform([req])
             guard let obs = req.results?.first else { return MaskBuffer(width: 16, height: 16).cgImage() }   // nothing found: empty matte
@@ -127,6 +136,10 @@ public enum MatteGenerator {
     }
 
     static func video(_ asset: MediaAsset, mode: CutoutMode, progress: (@Sendable (Double) -> Void)?) async throws {
+        switch mode {
+        case .subject, .custom: if !supportsInstanceSegmentation { throw AIToolError.unavailable("instanceSegmentation") }
+        case .person, .faces: break
+        }
         let av = AVURLAsset(url: asset.url)
         guard let track = try await av.loadTracks(withMediaType: .video).first else { throw AIToolError.noInput }
         let natural = try await track.load(.naturalSize)
@@ -152,8 +165,8 @@ public enum MatteGenerator {
         var previous: MaskBuffer?
         var faces = FaceMatte.Holder()
         let faceOrientation = SubjectAnalyzer.orientation(asset.sourceRotation)
-        var tracker: InstanceTracker?
-        if case .custom(let sel) = mode {
+        var tracker: (any MaskFollower)?
+        if case .custom(let sel) = mode, #available(macOS 14, *) {
             tracker = try await InstanceTracker(seed: sel, asset: av, track: track, size: CGSize(width: w, height: h))
         }
         while let sb = await OffPool.next(out) {
@@ -175,6 +188,7 @@ public enum MatteGenerator {
                     try sequence.perform([personReq], on: pb)
                     return (personReq.results?.first?.pixelBuffer).flatMap { MaskBuffer($0) }
                 case .subject:
+                    guard #available(macOS 14, *) else { return nil }   // unreachable: rejected above
                     let handler = VNImageRequestHandler(cvPixelBuffer: pb)
                     let req = VNGenerateForegroundInstanceMaskRequest()
                     try handler.perform([req])
@@ -203,6 +217,7 @@ public enum MatteGenerator {
     }
 
     /// Instances of a foreground-instance observation under keep-strokes and not under erase-strokes.
+    @available(macOS 14, *)
     static func pick(_ strokes: [BrushStroke], in obs: VNInstanceMaskObservation) -> IndexSet {
         let labels = MaskBuffer(obs.instanceMask)
         guard let labels else { return [] }
@@ -216,7 +231,12 @@ public enum MatteGenerator {
 
 /// Follows the objects picked on the seed frame through the video: each frame's instance labels are matched to the
 /// previous frame's matte by overlap (IoU-style), so the selection survives the objects moving.
-final class InstanceTracker {
+protocol MaskFollower: AnyObject {
+    func mask(for pb: CVPixelBuffer) throws -> MaskBuffer?
+}
+
+@available(macOS 14, *)
+final class InstanceTracker: MaskFollower {
     private var previous: MaskBuffer?
     private let seed: CutoutSelection
 

@@ -3,6 +3,7 @@ import AppKit
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Video AI in the editor: Split scenes (clip menu), Separate audio (clip menu), Video ▸ Basic ▸ ☐ Auto reframe.
 
@@ -19,7 +20,7 @@ enum VideoAIInspector {
     ]
 }
 
-@MainActor @Observable final class ReframeUIState {
+@MainActor @Perceptible final class ReframeUIState {
     static let shared = ReframeUIState()
     var options = ReframeOptions()
 }
@@ -29,23 +30,25 @@ enum VideoAIInspector {
 struct ReframeSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let st = ReframeUIState.shared
-        let current = ctx.clip?.reframe ?? st.options
-        VStack(alignment: .leading, spacing: 4) {
-            if let id = ctx.clip?.id, let job = ctx.store.ai.reframeJobs[id] {
-                let p = ctx.store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr("reframe.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeReframe(id) }
+        WithPerceptionTracking {
+            let st = ReframeUIState.shared
+            let current = ctx.clip?.reframe ?? st.options
+            VStack(alignment: .leading, spacing: 4) {
+                if let id = ctx.clip?.id, let job = ctx.store.ai.reframeJobs[id] {
+                    let p = ctx.store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr("reframe.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeReframe(id) }
+                }
+                InlineRow(label: tr("reframe.ratio")) {
+                    Dropdown(items: ["9:16", "16:9", "1:1", "4:3", "3:4", "2.35:1"].map { ($0, $0) }, selection: current.ratio) { r in update { $0.ratio = r } }
+                }
+                InlineRow(label: tr("reframe.speed")) {
+                    Dropdown(items: ReframeOptions.Speed.allCases.map { ($0, tr($0.nameKey)) }, selection: current.speed) { v in update { $0.speed = v } }
+                }
+                InlineRow(label: tr("reframe.stability")) {
+                    Dropdown(items: ReframeOptions.Stability.allCases.map { ($0, tr($0.nameKey)) }, selection: current.stability) { v in update { $0.stability = v } }
+                }
+                HintText(text: tr("reframe.hint"))
             }
-            InlineRow(label: tr("reframe.ratio")) {
-                Dropdown(items: ["9:16", "16:9", "1:1", "4:3", "3:4", "2.35:1"].map { ($0, $0) }, selection: current.ratio) { r in update { $0.ratio = r } }
-            }
-            InlineRow(label: tr("reframe.speed")) {
-                Dropdown(items: ReframeOptions.Speed.allCases.map { ($0, tr($0.nameKey)) }, selection: current.speed) { v in update { $0.speed = v } }
-            }
-            InlineRow(label: tr("reframe.stability")) {
-                Dropdown(items: ReframeOptions.Stability.allCases.map { ($0, tr($0.nameKey)) }, selection: current.stability) { v in update { $0.stability = v } }
-            }
-            HintText(text: tr("reframe.hint"))
         }
     }
 

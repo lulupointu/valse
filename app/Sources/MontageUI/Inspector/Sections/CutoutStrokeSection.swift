@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageEffects
+import Perception
 
 /// Video ▸ Cutout ▸ ☐ Stroke (CK-005): outline around the cut-out subject — colour (swatch + canvas eyedropper), Size,
 /// Opacity, Glow. Shown once the clip is cut out (auto / customized cutout or chroma key). The stroke effect goes last
@@ -47,23 +48,27 @@ struct CutoutStrokeSection: View {
     static let presets: [RGBA] = [RGBA(1, 1, 1), RGBA(0, 0, 0), RGBA(hex: 0x57BECB), RGBA(hex: 0xFFD400), RGBA(hex: 0xFF5FA2)]
 
     var body: some View {
-        if let inst = Self.instance(ctx) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    ForEach(Array(Self.presets.enumerated()), id: \.offset) { i, c in
-                        Circle().fill(Color(c)).frame(width: 22, height: 22)
-                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25)))
-                            .contentShape(Circle())
-                            .onTapGesture { setColor(c, inst) }
-                            .testID("cutout.stroke.preset.\(i)")
+        WithPerceptionTracking {
+            if let inst = Self.instance(ctx) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(Self.presets.enumerated()), id: \.offset) { i, c in
+                            WithPerceptionTracking {
+                                Circle().fill(Color(c)).frame(width: 22, height: 22)
+                                    .overlay(Circle().strokeBorder(Color.white.opacity(0.25)))
+                                    .contentShape(Circle())
+                                    .onTapGesture { setColor(c, inst) }
+                                    .testID("cutout.stroke.preset.\(i)")
+                            }
+                        }
+                        Spacer()
                     }
-                    Spacer()
+                    .frame(minHeight: IStyle.rowHeight)
+                    EffectParamRows(ctx: ctx, instance: inst, descriptor: BuiltinCutoutStroke.stroke)
                 }
-                .frame(minHeight: IStyle.rowHeight)
-                EffectParamRows(ctx: ctx, instance: inst, descriptor: BuiltinCutoutStroke.stroke)
+            } else {
+                HintText(text: tr("cutout.stroke.hint"))
             }
-        } else {
-            HintText(text: tr("cutout.stroke.hint"))
         }
     }
 

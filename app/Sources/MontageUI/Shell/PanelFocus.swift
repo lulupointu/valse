@@ -1,19 +1,19 @@
 import AppKit
-import Observation
+import Perception
 import MontageCore
 
 /// SE-017 keyboard navigation between panels: View ▸ Next panel (⌥⌘]) / Previous panel (⌥⌘[) moves keyboard focus
 /// Media → Player → Inspector → Timeline (in that order, skipping detached panels), draws an accent focus ring around
 /// the focused panel and tells VoiceOver which panel it is. A mouse click hides the ring (focus follows the click).
-@MainActor @Observable
+@MainActor @Perceptible
 public final class PanelFocus {
     public static let shared = PanelFocus()
     public static let order: [DetachablePanel] = [.assets, .player, .inspector, .timeline]
 
     /// Panel with the keyboard focus ring (nil = no ring).
     public private(set) var current: DetachablePanel?
-    @ObservationIgnored private var hosts: [DetachablePanel: WeakView] = [:]
-    @ObservationIgnored private var monitor: Any?
+    @PerceptionIgnored private var hosts: [DetachablePanel: WeakView] = [:]
+    @PerceptionIgnored private var monitor: Any?
 
     final class WeakView { weak var view: NSView?; init(_ v: NSView) { view = v } }
 

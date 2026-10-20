@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import AppKit
 import UniformTypeIdentifiers
 import MontageCore
@@ -8,7 +8,7 @@ import MontageEngine
 import MontageAI
 
 /// Playhead + transport, kept separate from `EditorStore` so 30 Hz playhead updates only re-render what shows time.
-@Observable
+@Perceptible
 public final class TransportState {
     public var playhead: Time = .zero
     public var isPlaying = false
@@ -30,9 +30,9 @@ public struct Toast: Equatable, Identifiable {
 ///   `endGesture`); both funnel into `didChangeProject()` which updates the playback engine, autosave and observers.
 /// - Views read `project`, `selection`, `transport`… (Observation); AppKit views use `observe(_:)`.
 /// - Long work (import probing, export, AI) runs off-main and reports back here.
-@Observable
+@Perceptible
 public final class EditorStore {
-    @ObservationIgnored private var sessionStorage: EditSession
+    @PerceptionIgnored private var sessionStorage: EditSession
     /// Observation-tracked like a stored property, except inside `EditorStore.untracked { }` (perf: lets a container
     /// view compute its structure from the project without re-rendering on every edit; see InspectorPanel).
     public private(set) var session: EditSession {
@@ -42,14 +42,14 @@ public final class EditorStore {
         }
         _modify {
             access(keyPath: \.session)
-            _$observationRegistrar.willSet(self, keyPath: \.session)
-            defer { _$observationRegistrar.didSet(self, keyPath: \.session) }
+            _$perceptionRegistrar.willSet(self, keyPath: \.session)
+            defer { _$perceptionRegistrar.didSet(self, keyPath: \.session) }
             yield &sessionStorage
         }
     }
     public var project: Project { session.project }
 
-    @ObservationIgnored private static var trackingSuspended = 0
+    @PerceptionIgnored private static var trackingSuspended = 0
     /// Runs `body` without registering SwiftUI/Observation dependencies on `session`/`project`/`selectedClipSlice`. The caller must depend
     /// on something else that changes when what it computes changes (e.g. `inspectorStructureKey`).
     public static func untracked<T>(_ body: () throws -> T) rethrows -> T {
@@ -71,8 +71,8 @@ public final class EditorStore {
     public private(set) var inspectorStructureKey = 0
     /// The single selected clip / its track kind (InspectorContext reads these: editing another clip doesn't re-render
     /// the inspector).
-    @ObservationIgnored private var selectedClipStorage: Clip?
-    @ObservationIgnored private var selectedTrackKindStorage: TrackKind?
+    @PerceptionIgnored private var selectedClipStorage: Clip?
+    @PerceptionIgnored private var selectedTrackKindStorage: TrackKind?
     public private(set) var selectedClipSlice: Clip? {
         get { if EditorStore.trackingSuspended == 0 { access(keyPath: \.selectedClipSlice) }; return selectedClipStorage }
         set { withMutation(keyPath: \.selectedClipSlice) { selectedClipStorage = newValue } }
@@ -84,13 +84,13 @@ public final class EditorStore {
     /// C2 multi-select editing: every selected clip (timeline order) when 2+ clips of one inspector kind are selected
     /// (media/media, text/text, audio/audio…), else empty. `selectedClipSlice` is then the first of them ("primary"):
     /// the inspector shows its values and inspector edits apply to all of them (InspectorMultiEdit.swift).
-    @ObservationIgnored private var selectedClipsStorage: [Clip] = []
+    @PerceptionIgnored private var selectedClipsStorage: [Clip] = []
     public private(set) var selectedClipsSlice: [Clip] {
         get { if EditorStore.trackingSuspended == 0 { access(keyPath: \.selectedClipsSlice) }; return selectedClipsStorage }
         set { withMutation(keyPath: \.selectedClipsSlice) { selectedClipsStorage = newValue } }
     }
     /// Inspector kind shared by the multi-selection (nil = none / mixed → "Properties").
-    @ObservationIgnored public private(set) var multiEditKind: InspectorSelectionKind?
+    @PerceptionIgnored public private(set) var multiEditKind: InspectorSelectionKind?
     private var projectNameSlice = ""
     /// Media used by at least one timeline clip ("Added" badges). A slice, so the asset panels don't observe
     /// `project` (an inspector drag would re-render the 300-item media bin on every tick).
@@ -127,22 +127,22 @@ public final class EditorStore {
     public var activeAssetTab = "media"
     public var inspectorTab: String?
     /// Last inspector tab per selection kind (CapCut remembers it per clip type, UX.md §9), and the kind it belongs to.
-    @ObservationIgnored var inspectorTabByKind: [InspectorSelectionKind: String] = [:]
-    @ObservationIgnored var inspectorKind: InspectorSelectionKind = .none
+    @PerceptionIgnored var inspectorTabByKind: [InspectorSelectionKind: String] = [:]
+    @PerceptionIgnored var inspectorKind: InspectorSelectionKind = .none
     public var previewQuality: PreviewQuality = .auto { didSet { engine.previewQuality = previewQuality; performancePreferencesChanged() } }
     /// Media hash → proxy generating.
     public var proxyPending: Set<String> = []
     /// Media hash → being converted to a playable file (GIF, image sequence, FFmpeg-only format).
     public var convertPending: Set<String> = []
 
-    @ObservationIgnored public let engine: PlaybackEngine
-    @ObservationIgnored private var autosaveTask: Task<Void, Never>?
-    @ObservationIgnored private var firstUnsavedEdit: Date?
-    @ObservationIgnored private var jobsTask: Task<Void, Never>?
-    @ObservationIgnored public var autosavePolicy = AutosavePolicy()
-    @ObservationIgnored public var autosaveEnabled = true
+    @PerceptionIgnored public let engine: PlaybackEngine
+    @PerceptionIgnored private var autosaveTask: Task<Void, Never>?
+    @PerceptionIgnored private var firstUnsavedEdit: Date?
+    @PerceptionIgnored private var jobsTask: Task<Void, Never>?
+    @PerceptionIgnored public var autosavePolicy = AutosavePolicy()
+    @PerceptionIgnored public var autosaveEnabled = true
     /// The app's editor (not a test/preview store): player-menu performance choices are saved to Settings (W12).
-    @ObservationIgnored public var persistsPreferences = false
+    @PerceptionIgnored public var persistsPreferences = false
 
     public init(project: Project = Project(), packageURL: URL? = nil) {
         MontageBootstrap.registerResources()
@@ -214,11 +214,11 @@ public final class EditorStore {
         session.beginGesture(nameKey)
         inspectorGestureActive = true
     }
-    @ObservationIgnored private var inspectorGestureActive = false
+    @PerceptionIgnored private var inspectorGestureActive = false
     /// Other gestures (canvas / timeline drags) refresh the inspector at most this often (trailing update guaranteed).
-    @ObservationIgnored static let gestureInspectorInterval: Double = 0.1
-    @ObservationIgnored private var lastGestureSliceSync: Double = 0
-    @ObservationIgnored private var pendingSliceSync: Task<Void, Never>?
+    @PerceptionIgnored static let gestureInspectorInterval: Double = 0.1
+    @PerceptionIgnored private var lastGestureSliceSync: Double = 0
+    @PerceptionIgnored private var pendingSliceSync: Task<Void, Never>?
 
     /// Live update during a gesture (applied to the gesture's base snapshot → idempotent drags).
     public func updateGesture(_ body: (inout Project) throws -> Void) {
@@ -609,7 +609,7 @@ public final class EditorStore {
 
     /// Calls `apply` now and again whenever an observed property it read changes (main actor).
     public func observe(_ apply: @escaping @MainActor () -> Void) {
-        withObservationTracking { apply() } onChange: { [weak self] in
+        withPerceptionTracking { apply() } onChange: { [weak self] in
             Task { @MainActor in self?.observe(apply) }
         }
     }

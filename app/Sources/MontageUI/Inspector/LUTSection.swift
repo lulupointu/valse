@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 /// Adjust ▸ Basic ▸ LUT (CapCut): Name dropdown ("None" + imported LUTs), Import…, Strength.
 /// A chosen LUT is one `user.lut.<hash>` effect instance on the clip (kept first in the stack so later adjustments
@@ -15,28 +16,30 @@ struct LUTSection: View {
     static func isLUT(_ e: EffectInstance) -> Bool { e.typeID.hasPrefix(LUTLibrary.idPrefix) }
 
     var body: some View {
-        let current = ctx.clip?.effects.first(where: Self.isLUT)
-        VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
-            HStack {
-                Text(loc: "inspector.lut.name").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-                Spacer()
-                Picker(tr("inspector.lut.name"), selection: Binding(get: { current?.typeID ?? "" }, set: { choose($0) })) {
-                    Text(loc: "inspector.lut.none").tag("")
-                    ForEach(LUTLibrary.shared.all, id: \.id) { Text(verbatim: $0.name).tag($0.id) }
+        WithPerceptionTracking {
+            let current = ctx.clip?.effects.first(where: Self.isLUT)
+            VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
+                HStack {
+                    Text(loc: "inspector.lut.name").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Picker(tr("inspector.lut.name"), selection: Binding(get: { current?.typeID ?? "" }, set: { choose($0) })) {
+                        Text(loc: "inspector.lut.none").tag("")
+                        ForEach(LUTLibrary.shared.all, id: \.id) { Text(verbatim: $0.name).tag($0.id) }
+                    }
+                    .labelsHidden().frame(width: 150).id(revision)
+                    Button(tr("inspector.lut.import")) { importLUT() }.buttonStyle(SecondaryButtonStyle())
                 }
-                .labelsHidden().frame(width: 150).id(revision)
-                Button(tr("inspector.lut.import")) { importLUT() }.buttonStyle(SecondaryButtonStyle())
+                if let current {
+                    Bind.row(ctx, tr("fx.param.strength"), key: ParamKey.effect(current.id, "intensity"),
+                             spec: RowSpec(range: 0...100, format: Fmt.percentValue), toUI: { $0 * 100 }, fromUI: { $0 / 100 },
+                             gestureName: "cmd.effect")
+                }
+                // CapCut [115]: "Skin tone protection (Turn it on to make skin tone more natural)" — CL-010
+                ToggleLine(label: tr("adjust.skinProtect"), detail: tr("adjust.skinProtect.detail"),
+                           isOn: Bind.binding(ctx, "cmd.skinProtect", get: { $0.skinToneProtection ?? false },
+                                              set: { $0.skinToneProtection = $1 ? true : nil }, default: false))
+                    .testID("adjust.skinProtect")
             }
-            if let current {
-                Bind.row(ctx, tr("fx.param.strength"), key: ParamKey.effect(current.id, "intensity"),
-                         spec: RowSpec(range: 0...100, format: Fmt.percentValue), toUI: { $0 * 100 }, fromUI: { $0 / 100 },
-                         gestureName: "cmd.effect")
-            }
-            // CapCut [115]: "Skin tone protection (Turn it on to make skin tone more natural)" — CL-010
-            ToggleLine(label: tr("adjust.skinProtect"), detail: tr("adjust.skinProtect.detail"),
-                       isOn: Bind.binding(ctx, "cmd.skinProtect", get: { $0.skinToneProtection ?? false },
-                                          set: { $0.skinToneProtection = $1 ? true : nil }, default: false))
-                .testID("adjust.skinProtect")
         }
     }
 

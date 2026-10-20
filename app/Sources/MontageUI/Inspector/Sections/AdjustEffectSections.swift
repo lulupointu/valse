@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageEffects
+import Perception
 
 // MARK: - Adjust ▸ Basic ▸ ☑ Adjust
 
@@ -46,15 +47,19 @@ struct AdjustBasicSection: View {
     }
 
     var body: some View {
-        let d = Self.descriptor
-        let known = Set(Self.groups.flatMap(\.keys))
-        let extra = d.params.filter { !known.contains($0.key) }
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Self.groups, id: \.titleKey) { g in
-                let specs = g.keys.compactMap { k in d.params.first { $0.key == k } } + (g.titleKey == "adjust.caption.effects" ? extra : [])
-                if !specs.isEmpty {
-                    GroupCaption(title: tr(g.titleKey))
-                    ForEach(specs, id: \.key) { spec in row(spec) }
+        WithPerceptionTracking {
+            let d = Self.descriptor
+            let known = Set(Self.groups.flatMap(\.keys))
+            let extra = d.params.filter { !known.contains($0.key) }
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Self.groups, id: \.titleKey) { g in
+                    WithPerceptionTracking {
+                        let specs = g.keys.compactMap { k in d.params.first { $0.key == k } } + (g.titleKey == "adjust.caption.effects" ? extra : [])
+                        if !specs.isEmpty {
+                            GroupCaption(title: tr(g.titleKey))
+                            ForEach(specs, id: \.key) { spec in WithPerceptionTracking { row(spec) } }
+                        }
+                    }
                 }
             }
         }
@@ -90,11 +95,15 @@ struct AdjustBasicSection: View {
 struct ClipFilterBlocks: View {
     let ctx: InspectorContext
     var body: some View {
-        let filters = (ctx.clip?.effects ?? []).filter { Registries.effects[$0.typeID]?.category == .filter }
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(filters) { inst in
-                if let d = Registries.effects[inst.typeID] {
-                    FilterDetailsBlock(ctx: ctx, instance: inst, descriptor: d, title: tr("inspector.filter"), removable: true)
+        WithPerceptionTracking {
+            let filters = (ctx.clip?.effects ?? []).filter { Registries.effects[$0.typeID]?.category == .filter }
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(filters) { inst in
+                    WithPerceptionTracking {
+                        if let d = Registries.effects[inst.typeID] {
+                            FilterDetailsBlock(ctx: ctx, instance: inst, descriptor: d, title: tr("inspector.filter"), removable: true)
+                        }
+                    }
                 }
             }
         }
@@ -108,16 +117,18 @@ struct FilterDetailsBlock: View {
     let title: String
     var removable = false
     var body: some View {
-        var chrome = EffectChrome.make(ctx, instance, descriptor, removable: removable)
-        chrome.isEnabled = nil
-        return VStack(alignment: .leading, spacing: 8) {
-            SectionHeaderBar(title: title, chrome: chrome, expanded: true, ctx: ctx) {}
-            InlineRow(label: tr("inspector.name")) {
-                Text(verbatim: tr(descriptor.nameKey)).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
+        WithPerceptionTracking {
+            var chrome = EffectChrome.make(ctx, instance, descriptor, removable: removable)
+            chrome.isEnabled = nil
+            return VStack(alignment: .leading, spacing: 8) {
+                SectionHeaderBar(title: title, chrome: chrome, expanded: true, ctx: ctx) {}
+                InlineRow(label: tr("inspector.name")) {
+                    Text(verbatim: tr(descriptor.nameKey)).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
+                }
+                EffectParamRows(ctx: ctx, instance: instance, descriptor: descriptor)
             }
-            EffectParamRows(ctx: ctx, instance: instance, descriptor: descriptor)
+            .padding(.vertical, 6)
         }
-        .padding(.vertical, 6)
     }
 }
 
@@ -130,11 +141,15 @@ struct OtherAdjustmentBlocks: View {
             && !e.typeID.hasPrefix("ai.look.") && Registries.effects[e.typeID]?.category == .adjustment
     }
     var body: some View {
-        let list = (ctx.clip?.effects ?? []).filter(Self.listed)
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in
-                if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
-                if let d = Registries.effects[inst.typeID] { EffectBlock(ctx: ctx, instance: inst, descriptor: d) }
+        WithPerceptionTracking {
+            let list = (ctx.clip?.effects ?? []).filter(Self.listed)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in
+                    WithPerceptionTracking {
+                        if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
+                        if let d = Registries.effects[inst.typeID] { EffectBlock(ctx: ctx, instance: inst, descriptor: d) }
+                    }
+                }
             }
         }
     }
@@ -147,11 +162,15 @@ struct ClipEffectBlocks: View {
         (ctx.clip?.effects ?? []).contains { Registries.effects[$0.typeID]?.category == .effect }
     }
     var body: some View {
-        let list = (ctx.clip?.effects ?? []).filter { Registries.effects[$0.typeID]?.category == .effect }
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in
-                if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
-                if let d = Registries.effects[inst.typeID] { EffectBlock(ctx: ctx, instance: inst, descriptor: d) }
+        WithPerceptionTracking {
+            let list = (ctx.clip?.effects ?? []).filter { Registries.effects[$0.typeID]?.category == .effect }
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(list.enumerated()), id: \.element.id) { i, inst in
+                    WithPerceptionTracking {
+                        if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
+                        if let d = Registries.effects[inst.typeID] { EffectBlock(ctx: ctx, instance: inst, descriptor: d) }
+                    }
+                }
             }
         }
     }
@@ -164,19 +183,23 @@ struct ClipEffectBlocks: View {
 struct EffectClipSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let effects = ctx.clip?.effects ?? []
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(effects.enumerated()), id: \.element.id) { i, inst in
-                if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
-                if let d = Registries.effects[inst.typeID] {
-                    if i == 0 {
-                        FilterDetailsBlock(ctx: ctx, instance: inst, descriptor: d, title: tr("inspector.details"))
-                    } else {
-                        EffectBlock(ctx: ctx, instance: inst, descriptor: d)
+        WithPerceptionTracking {
+            let effects = ctx.clip?.effects ?? []
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(effects.enumerated()), id: \.element.id) { i, inst in
+                    WithPerceptionTracking {
+                        if i > 0 { Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 6) }
+                        if let d = Registries.effects[inst.typeID] {
+                            if i == 0 {
+                                FilterDetailsBlock(ctx: ctx, instance: inst, descriptor: d, title: tr("inspector.details"))
+                            } else {
+                                EffectBlock(ctx: ctx, instance: inst, descriptor: d)
+                            }
+                        }
                     }
                 }
+                if !effects.isEmpty { EffectScopeRow(ctx: ctx) }   // FX-004 "Apply to" (F4Effects.swift)
             }
-            if !effects.isEmpty { EffectScopeRow(ctx: ctx) }   // FX-004 "Apply to" (F4Effects.swift)
         }
     }
 }
@@ -212,32 +235,34 @@ struct TransitionSection: View {
     }
 
     var body: some View {
-        let store = ctx.store
-        let a = ctx.transitionClip
-        let t = a?.transitionOut
-        let maxD = Self.maxDuration(ctx)
-        let value = t?.duration.seconds ?? 0.5
-        let scale = SliderScale.linear(0.1...maxD)
-        func write(_ v: Double, live: Bool) {
-            guard let a, var nt = a.transitionOut else { return }
-            nt.duration = Time(min(max(v, 0.1), maxD))
-            let id = a.id, inst = nt
-            if live { store.updateGesture { p in try TimelineOps.setTransition(id, inst, in: &p.timeline) } }
-            else { store.perform(SetTransition(id, inst)) }
-        }
-        return VStack(alignment: .leading, spacing: 8) {
-            InlineRow(label: tr("inspector.name")) {
-                Text(verbatim: t.flatMap { Registries.transitions[$0.typeID] }.map { tr($0.nameKey) } ?? "—")
-                    .font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
+        WithPerceptionTracking {
+            let store = ctx.store
+            let a = ctx.transitionClip
+            let t = a?.transitionOut
+            let maxD = Self.maxDuration(ctx)
+            let value = t?.duration.seconds ?? 0.5
+            let scale = SliderScale.linear(0.1...maxD)
+            @MainActor func write(_ v: Double, live: Bool) {
+                guard let a, var nt = a.transitionOut else { return }
+                nt.duration = Time(min(max(v, 0.1), maxD))
+                let id = a.id, inst = nt
+                if live { store.updateGesture { p in try TimelineOps.setTransition(id, inst, in: &p.timeline) } }
+                else { store.perform(SetTransition(id, inst)) }
             }
-            SliderRowView(label: tr("inspector.duration"), unit: scale.toUnit(min(value, maxD)), display: Fmt.seconds(value),
-                          enabled: t != nil, parse: NumberParse.number,
-                          onBegin: { store.beginGesture("cmd.transition") },
-                          onChange: { u in write(scale.fromUnit(u), live: true) },
-                          onEnd: { store.endGesture() },
-                          commit: { write($0, live: false) },
-                          step: { write(value + Double($0) * 0.1, live: false) }, testID: "transition.duration")
-            TransitionParamRows(ctx: ctx)   // W5: direction / colour / softness… (MontageUI/Transitions)
+            return VStack(alignment: .leading, spacing: 8) {
+                InlineRow(label: tr("inspector.name")) {
+                    Text(verbatim: t.flatMap { Registries.transitions[$0.typeID] }.map { tr($0.nameKey) } ?? "—")
+                        .font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
+                }
+                SliderRowView(label: tr("inspector.duration"), unit: scale.toUnit(min(value, maxD)), display: Fmt.seconds(value),
+                              enabled: t != nil, parse: NumberParse.number,
+                              onBegin: { store.beginGesture("cmd.transition") },
+                              onChange: { u in write(scale.fromUnit(u), live: true) },
+                              onEnd: { store.endGesture() },
+                              commit: { write($0, live: false) },
+                              step: { write(value + Double($0) * 0.1, live: false) }, testID: "transition.duration")
+                TransitionParamRows(ctx: ctx)   // W5: direction / colour / softness… (MontageUI/Transitions)
+            }
         }
     }
 }

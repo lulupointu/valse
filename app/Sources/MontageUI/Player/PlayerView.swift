@@ -13,7 +13,8 @@ final class PlayerView: NSView {
     let engine: PlaybackEngine
     var letterbox: RGBA = RGBA(hex: 0x1B1B1C)
     private let ctx = MetalContext.shared
-    private var link: CADisplayLink?
+    /// CADisplayLink (macOS 14+) or LegacyDisplayLink (macOS 13).
+    private var link: AnyObject?
     private var fallbackTimer: Timer?
     private var needsRerender = true
     private var lastFrame: MTLTexture?
@@ -47,11 +48,15 @@ final class PlayerView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        link?.invalidate(); link = nil
+        invalidateLink()
         guard window != nil else { return }
-        let l = displayLink(target: self, selector: #selector(tick(_:)))
-        l.add(to: .main, forMode: .common)
-        link = l
+        if #available(macOS 14, *) {
+            let l = displayLink(target: self, selector: #selector(tick(_:)))
+            l.add(to: .main, forMode: .common)
+            link = l
+        } else {
+            link = LegacyDisplayLink(screen: window?.screen) { [weak self] t in self?.tick(targetTimestamp: t) }
+        }
         needsRerender = true
         fallbackTimer?.invalidate()
         fallbackTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -106,8 +111,24 @@ final class PlayerView: NSView {
         contentRect.map { CGRect(x: $0.minX * s, y: $0.minY * s, width: $0.width * s, height: $0.height * s) }
     }
 
-    @objc private func tick(_ l: CADisplayLink) {
-        if let (pb, t) = engine.pixelBuffer(forHostTime: l.targetTimestamp) {
+    /// HLG EDR metadata with the footage's ambient viewing environment (macOS 14+). macOS 13 has no such initializer:
+    /// plain `CAEDRMetadata.hlg` (Apple's default ambient), so HLG previews show brighter than AVPlayer (≈ 1.5×, C1).
+    static func hlgMetadata(ambient: Data?) -> CAEDRMetadata {
+        if #available(macOS 14, *), let ambient { return CAEDRMetadata.hlg(ambientViewingEnvironment: ambient) }
+        return CAEDRMetadata.hlg
+    }
+
+    private func invalidateLink() {
+        if #available(macOS 14, *), let l = link as? CADisplayLink { l.invalidate() }
+        (link as? LegacyDisplayLink)?.invalidate()
+        link = nil
+    }
+
+    @available(macOS 14, *)
+    @objc private func tick(_ l: CADisplayLink) { tick(targetTimestamp: l.targetTimestamp) }
+
+    private func tick(targetTimestamp: CFTimeInterval) {
+        if let (pb, t) = engine.pixelBuffer(forHostTime: targetTimestamp) {
             lastPixelBuffer = pb
             onFramePresented?(t)
             if let (tex, cv) = frameTexture(pb) {
@@ -163,7 +184,7 @@ final class PlayerView: NSView {
             // lux), like AVPlayer / QuickTime — without it the preview is ≈ 1.5 × brighter than Apple shows the clip (C1).
             metalLayer.edrMetadata = space == .hdrPQ
                 ? CAEDRMetadata.hdr10(minLuminance: 0.005, maxLuminance: 1000, opticalOutputScale: Float(ColorMath.referenceWhiteNits))
-                : ambient.map { CAEDRMetadata.hlg(ambientViewingEnvironment: $0) } ?? CAEDRMetadata.hlg
+                : Self.hlgMetadata(ambient: ambient)
             presentMode = .passthrough
         } else {
             metalLayer.pixelFormat = .bgra8Unorm

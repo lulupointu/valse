@@ -2,6 +2,7 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Video ▸ Basic ▸ ☐ Camera tracking (UX_AI §4.8, AI-013): target Face / Body, ☐ Keep face size, canvas Fit / Blur.
 // Ticking (or changing an option) runs the analysis in the background (progress on the clip); the result is the clip's
@@ -23,7 +24,7 @@ enum CameraLockInspector {
     ]
 }
 
-@MainActor @Observable final class CameraLockUIState {
+@MainActor @Perceptible final class CameraLockUIState {
     static let shared = CameraLockUIState()
     var options = CameraLockOptions()
     /// Custom box target: the box being drawn on the canvas.
@@ -33,39 +34,41 @@ enum CameraLockInspector {
 struct CameraLockSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let o = ctx.clip?.cameraLock ?? CameraLockUIState.shared.options
-        VStack(alignment: .leading, spacing: 4) {
-            if let id = ctx.clip?.id, let job = ctx.store.ai.cameraJobs[id] {
-                let p = ctx.store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr("cameraLock.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeCameraLock(id) }
-            }
-            InlineRow(label: tr("cameraLock.target")) {
-                Dropdown(items: CameraLockOptions.Target.allCases.map { ($0, tr($0.nameKey)) }, selection: o.target) { v in update { $0.target = v } }
-            }
-            if o.target == .custom || (ctx.clip.map { CameraLockUIState.shared.boxTool?.clipID == $0.id } ?? false), let id = ctx.clip?.id {   // AI2: custom box
-                if CameraLockUIState.shared.boxTool?.clipID == id {
-                    HintText(text: tr("cameraLock.box.hint"))
-                    HStack {
-                        Spacer()
-                        PillButton(title: tr("cameraLock.box.track"), accent: true) { ctx.store.trackLockBox() }.testID("cameraLock.track")
-                    }
-                } else {
-                    PillButton(title: tr("cameraLock.box.edit"), symbol: "viewfinder") { ctx.store.beginLockBox(id) }.testID("cameraLock.editBox")
+        WithPerceptionTracking {
+            let o = ctx.clip?.cameraLock ?? CameraLockUIState.shared.options
+            VStack(alignment: .leading, spacing: 4) {
+                if let id = ctx.clip?.id, let job = ctx.store.ai.cameraJobs[id] {
+                    let p = ctx.store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr("cameraLock.applying", JobInfo.percent(p)), progress: p) { ctx.store.removeCameraLock(id) }
                 }
-            } else if let id = ctx.clip?.id {
-                // UX_AI §4.8 "(+ a custom box)": one click to draw a box instead of a detected subject
-                PillButton(title: tr("cameraLock.target.custom"), symbol: "viewfinder") {
-                    CameraLockUIState.shared.options.target = .custom
-                    CameraLockUIState.shared.options.customBox = nil
-                    ctx.store.beginLockBox(id)
-                }.testID("cameraLock.customBox")
+                InlineRow(label: tr("cameraLock.target")) {
+                    Dropdown(items: CameraLockOptions.Target.allCases.map { ($0, tr($0.nameKey)) }, selection: o.target) { v in update { $0.target = v } }
+                }
+                if o.target == .custom || (ctx.clip.map { CameraLockUIState.shared.boxTool?.clipID == $0.id } ?? false), let id = ctx.clip?.id {   // AI2: custom box
+                    if CameraLockUIState.shared.boxTool?.clipID == id {
+                        HintText(text: tr("cameraLock.box.hint"))
+                        HStack {
+                            Spacer()
+                            PillButton(title: tr("cameraLock.box.track"), accent: true) { ctx.store.trackLockBox() }.testID("cameraLock.track")
+                        }
+                    } else {
+                        PillButton(title: tr("cameraLock.box.edit"), symbol: "viewfinder") { ctx.store.beginLockBox(id) }.testID("cameraLock.editBox")
+                    }
+                } else if let id = ctx.clip?.id {
+                    // UX_AI §4.8 "(+ a custom box)": one click to draw a box instead of a detected subject
+                    PillButton(title: tr("cameraLock.target.custom"), symbol: "viewfinder") {
+                        CameraLockUIState.shared.options.target = .custom
+                        CameraLockUIState.shared.options.customBox = nil
+                        ctx.store.beginLockBox(id)
+                    }.testID("cameraLock.customBox")
+                }
+                ToggleLine(label: tr(o.target.keepSizeKey),
+                           isOn: Binding(get: { o.keepSize }, set: { v in update { $0.keepSize = v } }))
+                InlineRow(label: tr("cameraLock.fill")) {
+                    Dropdown(items: CameraLockOptions.Fill.allCases.map { ($0, tr($0.nameKey)) }, selection: o.fill) { v in update { $0.fill = v } }
+                }
+                HintText(text: tr("cameraLock.hint"))
             }
-            ToggleLine(label: tr(o.target.keepSizeKey),
-                       isOn: Binding(get: { o.keepSize }, set: { v in update { $0.keepSize = v } }))
-            InlineRow(label: tr("cameraLock.fill")) {
-                Dropdown(items: CameraLockOptions.Fill.allCases.map { ($0, tr($0.nameKey)) }, selection: o.fill) { v in update { $0.fill = v } }
-            }
-            HintText(text: tr("cameraLock.hint"))
         }
     }
 
@@ -111,11 +114,11 @@ extension EditorStore {
 
 /// Custom box target (AI-013): the yellow box tool of motion tracking, drawn over the clip's own layer; Track converts
 /// it to raw source coordinates at the playhead's media time.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class LockBoxTool: CanvasTool {
     public let clipID: ClipID
     let box: MotionTrackBoxTool
-    @ObservationIgnored weak var store: EditorStore?
+    @PerceptionIgnored weak var store: EditorStore?
     init(clipID: ClipID, store: EditorStore) {
         self.clipID = clipID; self.store = store
         box = MotionTrackBoxTool(clipID: clipID, store: store)

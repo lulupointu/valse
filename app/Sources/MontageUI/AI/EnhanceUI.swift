@@ -2,6 +2,7 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Video ▸ Basic ▸ ☐ Enhance quality · ☐ Reduce image noise · ☐ Remove flickers (UX_AI §4.2–4.4, CL-017/018/019).
 // Ticking (or changing a level) re-renders the processed copy from the original in the background (progress on the
@@ -45,9 +46,11 @@ enum EnhanceInspector {
 struct EnhanceProgress: View {
     let ctx: InspectorContext
     var body: some View {
-        if let id = ctx.clip?.id, let job = ctx.store.ai.enhanceJobs[id]?.job {
-            let p = ctx.store.jobProgress(job) ?? 0
-            JobProgressLine(text: tr("enhance.applying", JobInfo.percent(p)), progress: p) { ctx.store.cancelEnhancement(id) }
+        WithPerceptionTracking {
+            if let id = ctx.clip?.id, let job = ctx.store.ai.enhanceJobs[id]?.job {
+                let p = ctx.store.jobProgress(job) ?? 0
+                JobProgressLine(text: tr("enhance.applying", JobInfo.percent(p)), progress: p) { ctx.store.cancelEnhancement(id) }
+            }
         }
     }
 }
@@ -55,19 +58,21 @@ struct EnhanceProgress: View {
 struct EnhanceQualitySection: View {
     let ctx: InspectorContext
     var body: some View {
-        let e = ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance
-        let target = e?.upscale ?? .hd
-        VStack(alignment: .leading, spacing: 4) {
-            EnhanceProgress(ctx: ctx)
-            InlineRow(label: tr("enhance.quality.level")) {
-                // HD = ×2, UHD = up to 4K: tiled low-latency ML super resolution (TiledScaler), faster than real time
-                SegmentedTabs(UpscaleTarget.allCases.map { (id: $0.rawValue, title: tr($0.nameKey)) }, selection: Binding(get: { target.rawValue }, set: { v in
-                    guard let id = ctx.clip?.id, let t = UpscaleTarget(rawValue: v), e?.upscale != nil else { return }
-                    ctx.store.updateEnhancement(id) { $0.upscale = t }
-                }))
-                .testID("enhance.quality.target")
+        WithPerceptionTracking {
+            let e = ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance
+            let target = e?.upscale ?? .hd
+            VStack(alignment: .leading, spacing: 4) {
+                EnhanceProgress(ctx: ctx)
+                InlineRow(label: tr("enhance.quality.level")) {
+                    // HD = ×2, UHD = up to 4K: tiled low-latency ML super resolution (TiledScaler), faster than real time
+                    SegmentedTabs(UpscaleTarget.allCases.map { (id: $0.rawValue, title: tr($0.nameKey)) }, selection: Binding(get: { target.rawValue }, set: { v in
+                        guard let id = ctx.clip?.id, let t = UpscaleTarget(rawValue: v), e?.upscale != nil else { return }
+                        ctx.store.updateEnhancement(id) { $0.upscale = t }
+                    }))
+                    .testID("enhance.quality.target")
+                }
+                HintText(text: tr(target == .hd ? "enhance.quality.hint" : "enhance.quality.hintUHD"))
             }
-            HintText(text: tr(target == .hd ? "enhance.quality.hint" : "enhance.quality.hintUHD"))
         }
     }
 }
@@ -75,12 +80,14 @@ struct EnhanceQualitySection: View {
 struct EnhanceDenoiseSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let e = ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance
-        VStack(alignment: .leading, spacing: 4) {
-            EnhanceProgress(ctx: ctx)
-            InlineRow(label: tr("enhance.level")) {
-                Dropdown(items: EnhanceLevel.allCases.map { ($0, tr($0.nameKey)) }, selection: e?.denoise ?? .normal) { l in
-                    if let id = ctx.clip?.id { ctx.store.updateEnhancement(id) { $0.denoise = l } }
+        WithPerceptionTracking {
+            let e = ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance
+            VStack(alignment: .leading, spacing: 4) {
+                EnhanceProgress(ctx: ctx)
+                InlineRow(label: tr("enhance.level")) {
+                    Dropdown(items: EnhanceLevel.allCases.map { ($0, tr($0.nameKey)) }, selection: e?.denoise ?? .normal) { l in
+                        if let id = ctx.clip?.id { ctx.store.updateEnhancement(id) { $0.denoise = l } }
+                    }
                 }
             }
         }
@@ -90,17 +97,19 @@ struct EnhanceDenoiseSection: View {
 struct EnhanceFlickerSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let e = ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance
-        VStack(alignment: .leading, spacing: 4) {
-            EnhanceProgress(ctx: ctx)
-            InlineRow(label: tr("enhance.flicker.mode")) {
-                Dropdown(items: DeflickerMode.allCases.map { ($0, tr($0.nameKey)) }, selection: e?.deflicker ?? .flashlight) { m in
-                    if let id = ctx.clip?.id { ctx.store.updateEnhancement(id) { $0.deflicker = m } }
+        WithPerceptionTracking {
+            let e = ctx.store.pendingEnhancement(ctx.clip?.id) ?? ctx.clip?.enhance
+            VStack(alignment: .leading, spacing: 4) {
+                EnhanceProgress(ctx: ctx)
+                InlineRow(label: tr("enhance.flicker.mode")) {
+                    Dropdown(items: DeflickerMode.allCases.map { ($0, tr($0.nameKey)) }, selection: e?.deflicker ?? .flashlight) { m in
+                        if let id = ctx.clip?.id { ctx.store.updateEnhancement(id) { $0.deflicker = m } }
+                    }
                 }
-            }
-            InlineRow(label: tr("enhance.level")) {
-                Dropdown(items: EnhanceLevel.allCases.map { ($0, tr($0.nameKey)) }, selection: e?.deflickerLevel ?? .normal) { l in
-                    if let id = ctx.clip?.id { ctx.store.updateEnhancement(id) { $0.deflickerLevel = l; if $0.deflicker == nil { $0.deflicker = .flashlight } } }
+                InlineRow(label: tr("enhance.level")) {
+                    Dropdown(items: EnhanceLevel.allCases.map { ($0, tr($0.nameKey)) }, selection: e?.deflickerLevel ?? .normal) { l in
+                        if let id = ctx.clip?.id { ctx.store.updateEnhancement(id) { $0.deflickerLevel = l; if $0.deflicker == nil { $0.deflicker = .flashlight } } }
+                    }
                 }
             }
         }

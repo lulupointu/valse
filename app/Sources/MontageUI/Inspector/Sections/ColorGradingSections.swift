@@ -3,6 +3,7 @@ import AppKit
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 // Adjust ▸ HSL · Curves · Color wheel sub-tabs (UX.md §5.1 Adjust, [37] [38] [39] [41]) and Adjust ▸ Basic ▸
 // ☐ Auto adjust. Each control edits one descriptor instance on the clip (created on the first edit, like Basic):
@@ -104,38 +105,42 @@ struct HSLSection: View {
                                   Color(hex: 0x35C6D3), Color(hex: 0x2F6BE0), Color(hex: 0x8A4FE0), Color(hex: 0xE04FC4)]
 
     var body: some View {
-        let d = BuiltinColor.hsl
-        let r = BuiltinColor.hslRanges[range]
-        let c = Self.colors[range]
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                // eyedropper (UX.md §5.1 HSL): pick a colour on the video → select the nearest colour ring
-                SmallIconButton(symbol: "eyedropper", help: tr("inspector.hsl.pickHelp"), size: 13) {
-                    ctx.store.pickCanvasColor(disabling: nil) { c in range = Self.nearestRange(c) }
-                }
-                .testID("hsl.pick")
-                ForEach(0..<8, id: \.self) { i in
-                    let edited = abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).hue"))
-                        + abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).sat"))
-                        + abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).light")) > 1e-4
-                    Button { range = i } label: {
-                        ZStack {
-                            Circle().strokeBorder(Self.colors[i], lineWidth: 3)
-                            if i == range { Circle().fill(Self.colors[i]).padding(5) }
-                            if edited && i != range { Circle().fill(Self.colors[i]).frame(width: 5, height: 5) }
-                        }
-                        .frame(width: 26, height: 26).contentShape(Circle())
+        WithPerceptionTracking {
+            let d = BuiltinColor.hsl
+            let r = BuiltinColor.hslRanges[range]
+            let c = Self.colors[range]
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    // eyedropper (UX.md §5.1 HSL): pick a colour on the video → select the nearest colour ring
+                    SmallIconButton(symbol: "eyedropper", help: tr("inspector.hsl.pickHelp"), size: 13) {
+                        ctx.store.pickCanvasColor(disabling: nil) { c in range = Self.nearestRange(c) }
                     }
-                    .buttonStyle(.plain)
-                    .help(tr("hsl.range.\(BuiltinColor.hslRanges[i].key)"))
-                    .testID("hsl.range.\(BuiltinColor.hslRanges[i].key)")
+                    .testID("hsl.pick")
+                    ForEach(0..<8, id: \.self) { i in
+                        WithPerceptionTracking {
+                            let edited = abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).hue"))
+                                + abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).sat"))
+                                + abs(ColorGradingInspector.value(ctx.clip, d, "\(BuiltinColor.hslRanges[i].key).light")) > 1e-4
+                            Button { range = i } label: {
+                                ZStack {
+                                    Circle().strokeBorder(Self.colors[i], lineWidth: 3)
+                                    if i == range { Circle().fill(Self.colors[i]).padding(5) }
+                                    if edited && i != range { Circle().fill(Self.colors[i]).frame(width: 5, height: 5) }
+                                }
+                                .frame(width: 26, height: 26).contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help(tr("hsl.range.\(BuiltinColor.hslRanges[i].key)"))
+                            .testID("hsl.range.\(BuiltinColor.hslRanges[i].key)")
+                        }
+                    }
                 }
+                .padding(.vertical, 4)
+                ColorGradingInspector.row(ctx, d, key: "\(r.key).hue", label: tr("inspector.hsl.hue"),
+                                          gradient: [Self.colors[(range + 7) % 8], c, Self.colors[(range + 1) % 8]])
+                ColorGradingInspector.row(ctx, d, key: "\(r.key).sat", label: tr("inspector.hsl.saturation"), gradient: [Color(white: 0.45), c])
+                ColorGradingInspector.row(ctx, d, key: "\(r.key).light", label: tr("inspector.hsl.lightness"), gradient: [.black, c, .white])
             }
-            .padding(.vertical, 4)
-            ColorGradingInspector.row(ctx, d, key: "\(r.key).hue", label: tr("inspector.hsl.hue"),
-                                      gradient: [Self.colors[(range + 7) % 8], c, Self.colors[(range + 1) % 8]])
-            ColorGradingInspector.row(ctx, d, key: "\(r.key).sat", label: tr("inspector.hsl.saturation"), gradient: [Color(white: 0.45), c])
-            ColorGradingInspector.row(ctx, d, key: "\(r.key).light", label: tr("inspector.hsl.lightness"), gradient: [.black, c, .white])
         }
     }
 }
@@ -163,9 +168,11 @@ struct CurvesSection: View {
     static let channels: [(key: String, color: Color)] = [("luma", .white), ("red", Color(hex: 0xE5484D)),
                                                          ("green", Color(hex: 0x46C35B)), ("blue", Color(hex: 0x4C8DF6))]
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(Self.channels, id: \.key) { ch in CurveEditor(ctx: ctx, channel: ch.key, color: ch.color).testID("curves.\(ch.key)") }
-            HintText(text: tr("inspector.curves.hint"))
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(Self.channels, id: \.key) { ch in WithPerceptionTracking { CurveEditor(ctx: ctx, channel: ch.key, color: ch.color).testID("curves.\(ch.key)") } }
+                HintText(text: tr("inspector.curves.hint"))
+            }
         }
     }
 }
@@ -188,36 +195,42 @@ struct CurveEditor: View {
     var isIdentity: Bool { Self.isIdentity(points) }
 
     var body: some View {
-        let pts = points
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 8, height: 8)
-                Text(verbatim: tr("curves.\(channel)")).font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                Spacer()
-                SmallIconButton(symbol: "eyedropper", help: tr("inspector.curves.pickHelp"), size: 12) { pickColor() }
-                    .testID("curves.\(channel).pick")
-                SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"), enabled: !isIdentity, size: 12) { write(Self.endpoints, live: false) }
-            }
-            GeometryReader { geo in
-                let side = geo.size.width
-                ZStack {
-                    Canvas { g, size in draw(g, size, pts) }
-                        .background(IStyle.graph, in: RoundedRectangle(cornerRadius: 4))
-                    ForEach(Array(pts.enumerated()), id: \.offset) { i, p in
-                        Circle().fill(dragIndex == i ? color : Color.black).overlay(Circle().stroke(color, lineWidth: 1.5))
-                            .frame(width: 10, height: 10)
-                            .position(x: p.x * side, y: (1 - p.y) * side)
-                            .allowsHitTesting(false)
+        WithPerceptionTracking {
+            let pts = points
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Circle().fill(color).frame(width: 8, height: 8)
+                    Text(verbatim: tr("curves.\(channel)")).font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                    Spacer()
+                    SmallIconButton(symbol: "eyedropper", help: tr("inspector.curves.pickHelp"), size: 12) { pickColor() }
+                        .testID("curves.\(channel).pick")
+                    SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"), enabled: !isIdentity, size: 12) { write(Self.endpoints, live: false) }
+                }
+                GeometryReader { geo in
+                    WithPerceptionTracking {
+                        let side = geo.size.width
+                        ZStack {
+                            Canvas { g, size in draw(g, size, pts) }
+                                .background(IStyle.graph, in: RoundedRectangle(cornerRadius: 4))
+                            ForEach(Array(pts.enumerated()), id: \.offset) { i, p in
+                                WithPerceptionTracking {
+                                    Circle().fill(dragIndex == i ? color : Color.black).overlay(Circle().stroke(color, lineWidth: 1.5))
+                                        .frame(width: 10, height: 10)
+                                        .position(x: p.x * side, y: (1 - p.y) * side)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                        }
+                        .frame(width: side, height: side)
+                        .contentShape(Rectangle())
+                        .gesture(drag(side: side))
+                        .onTapGesture(count: 2, coordinateSpace: .local) { loc in removePoint(near: loc, side: side) }
+                        .onTapGesture(count: 1, coordinateSpace: .local) { loc in addPoint(at: loc, side: side) }
                     }
                 }
-                .frame(width: side, height: side)
-                .contentShape(Rectangle())
-                .gesture(drag(side: side))
-                .onTapGesture(count: 2, coordinateSpace: .local) { loc in removePoint(near: loc, side: side) }
-                .onTapGesture(count: 1, coordinateSpace: .local) { loc in addPoint(at: loc, side: side) }
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: .infinity)
             }
-            .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: .infinity)
         }
     }
 
@@ -333,19 +346,23 @@ struct CurveEditor: View {
 struct ColorWheelsSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let d = BuiltinColor.colorWheels
-        let inst = ColorGradingInspector.instance(ctx.clip, d)
-        let mode: Int = { if case .choice(let m)? = inst?.params["mode"] { return m }; return 0 }()
-        VStack(alignment: .leading, spacing: 10) {
-            InlineRow(label: tr("wheels.mode")) {
-                Dropdown(items: [(0, tr("wheels.mode.primary")), (1, tr("wheels.mode.log"))], selection: mode) { m in
-                    ColorGradingInspector.edit(ctx, d) { $0.params["mode"] = .choice(m) }
+        WithPerceptionTracking {
+            let d = BuiltinColor.colorWheels
+            let inst = ColorGradingInspector.instance(ctx.clip, d)
+            let mode: Int = { if case .choice(let m)? = inst?.params["mode"] { return m }; return 0 }()
+            VStack(alignment: .leading, spacing: 10) {
+                InlineRow(label: tr("wheels.mode")) {
+                    Dropdown(items: [(0, tr("wheels.mode.primary")), (1, tr("wheels.mode.log"))], selection: mode) { m in
+                        ColorGradingInspector.edit(ctx, d) { $0.params["mode"] = .choice(m) }
+                    }
                 }
-            }
-            ColorGradingInspector.row(ctx, d, key: "strength", label: tr("fx.param.strength"))
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 14) {
-                ForEach(BuiltinColor.wheelNames, id: \.self) { w in
-                    WheelControl(ctx: ctx, wheel: w, title: tr(mode == 1 ? "wheels.log.\(w)" : "wheels.primary.\(w)")).testID("wheels.\(w)")
+                ColorGradingInspector.row(ctx, d, key: "strength", label: tr("fx.param.strength"))
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 14) {
+                    ForEach(BuiltinColor.wheelNames, id: \.self) { w in
+                        WithPerceptionTracking {
+                            WheelControl(ctx: ctx, wheel: w, title: tr(mode == 1 ? "wheels.log.\(w)" : "wheels.primary.\(w)")).testID("wheels.\(w)")
+                        }
+                    }
                 }
             }
         }
@@ -362,38 +379,40 @@ struct WheelControl: View {
     func v(_ k: String) -> Double { ColorGradingInspector.value(ctx.clip, BuiltinColor.colorWheels, "\(wheel).\(k)", at: ctx.localTime) }
 
     var body: some View {
-        let hue = v("hue"), amount = v("amount"), luma = v("luma")
-        let rgb = Self.offset(hue: hue, amount: amount, luma: luma)
-        VStack(spacing: 6) {
-            HStack(spacing: 4) {
-                Text(verbatim: title).font(.system(size: 11, weight: .medium)).foregroundStyle(IStyle.label).lineLimit(1)
-                Spacer(minLength: 0)
-                SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"),
-                                enabled: amount > 1e-4 || abs(luma) > 1e-4, size: 11) { reset() }
-            }
-            HStack(spacing: 6) {
-                ZStack {
-                    Circle().fill(AngularGradient(colors: (0...12).map { Color(hue: Double($0) / 12, saturation: 0.85, brightness: 0.85) },
-                                                  center: .center, startAngle: .degrees(0), endAngle: .degrees(360)))
-                    Circle().fill(RadialGradient(colors: [Color(white: 0.55), Color(white: 0.55).opacity(0)], center: .center,
-                                                 startRadius: 0, endRadius: Self.size / 2))
-                    Circle().strokeBorder(Color.black.opacity(0.5), lineWidth: 1)
-                    Path { p in
-                        p.move(to: CGPoint(x: Self.size / 2 - 4, y: Self.size / 2)); p.addLine(to: CGPoint(x: Self.size / 2 + 4, y: Self.size / 2))
-                        p.move(to: CGPoint(x: Self.size / 2, y: Self.size / 2 - 4)); p.addLine(to: CGPoint(x: Self.size / 2, y: Self.size / 2 + 4))
-                    }
-                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                    Circle().fill(Color.white).frame(width: 10, height: 10).shadow(radius: 1)
-                        .offset(x: cos(hue * .pi / 180) * amount * Self.size / 2, y: sin(hue * .pi / 180) * amount * Self.size / 2)
+        WithPerceptionTracking {
+            let hue = v("hue"), amount = v("amount"), luma = v("luma")
+            let rgb = Self.offset(hue: hue, amount: amount, luma: luma)
+            VStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Text(verbatim: title).font(.system(size: 11, weight: .medium)).foregroundStyle(IStyle.label).lineLimit(1)
+                    Spacer(minLength: 0)
+                    SmallIconButton(symbol: "arrow.counterclockwise", help: tr("inspector.reset"),
+                                    enabled: amount > 1e-4 || abs(luma) > 1e-4, size: 11) { reset() }
                 }
-                .frame(width: Self.size, height: Self.size)
-                .contentShape(Circle())
-                .gesture(DragGesture(minimumDistance: 0).onChanged { g in puck(g.location) }.onEnded { _ in end() })
-                .onTapGesture(count: 2) { reset() }
-                LumaBar(value: luma, height: Self.size) { set(["luma": $0], live: true) } onEnd: { end() }
+                HStack(spacing: 6) {
+                    ZStack {
+                        Circle().fill(AngularGradient(colors: (0...12).map { Color(hue: Double($0) / 12, saturation: 0.85, brightness: 0.85) },
+                                                      center: .center, startAngle: .degrees(0), endAngle: .degrees(360)))
+                        Circle().fill(RadialGradient(colors: [Color(white: 0.55), Color(white: 0.55).opacity(0)], center: .center,
+                                                     startRadius: 0, endRadius: Self.size / 2))
+                        Circle().strokeBorder(Color.black.opacity(0.5), lineWidth: 1)
+                        Path { p in
+                            p.move(to: CGPoint(x: Self.size / 2 - 4, y: Self.size / 2)); p.addLine(to: CGPoint(x: Self.size / 2 + 4, y: Self.size / 2))
+                            p.move(to: CGPoint(x: Self.size / 2, y: Self.size / 2 - 4)); p.addLine(to: CGPoint(x: Self.size / 2, y: Self.size / 2 + 4))
+                        }
+                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                        Circle().fill(Color.white).frame(width: 10, height: 10).shadow(radius: 1)
+                            .offset(x: cos(hue * .pi / 180) * amount * Self.size / 2, y: sin(hue * .pi / 180) * amount * Self.size / 2)
+                    }
+                    .frame(width: Self.size, height: Self.size)
+                    .contentShape(Circle())
+                    .gesture(DragGesture(minimumDistance: 0).onChanged { g in puck(g.location) }.onEnded { _ in end() })
+                    .onTapGesture(count: 2) { reset() }
+                    LumaBar(value: luma, height: Self.size) { set(["luma": $0], live: true) } onEnd: { end() }
+                }
+                Text(verbatim: String(format: "%.2f  %.2f  %.2f", rgb.0, rgb.1, rgb.2))
+                    .font(.system(size: 10).monospacedDigit()).foregroundStyle(IStyle.caption)
             }
-            Text(verbatim: String(format: "%.2f  %.2f  %.2f", rgb.0, rgb.1, rgb.2))
-                .font(.system(size: 10).monospacedDigit()).foregroundStyle(IStyle.caption)
         }
     }
 
@@ -450,17 +469,19 @@ struct LumaBar: View {
     let onChange: (Double) -> Void
     let onEnd: () -> Void
     var body: some View {
-        ZStack(alignment: .top) {
-            RoundedRectangle(cornerRadius: 3).fill(LinearGradient(colors: [.white, Color(white: 0.35), .black], startPoint: .top, endPoint: .bottom))
-                .frame(width: 6)
-            Capsule().fill(Color.white).frame(width: 12, height: 5).shadow(radius: 1)
-                .offset(y: CGFloat(1 - (value + 1) / 2) * (height - 5))
+        WithPerceptionTracking {
+            ZStack(alignment: .top) {
+                RoundedRectangle(cornerRadius: 3).fill(LinearGradient(colors: [.white, Color(white: 0.35), .black], startPoint: .top, endPoint: .bottom))
+                    .frame(width: 6)
+                Capsule().fill(Color.white).frame(width: 12, height: 5).shadow(radius: 1)
+                    .offset(y: CGFloat(1 - (value + 1) / 2) * (height - 5))
+            }
+            .frame(width: 14, height: height)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { g in
+                onChange(min(max(1 - Double(g.location.y / height) * 2, -1), 1))
+            }.onEnded { _ in onEnd() })
         }
-        .frame(width: 14, height: height)
-        .contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 0).onChanged { g in
-            onChange(min(max(1 - Double(g.location.y / height) * 2, -1), 1))
-        }.onEnded { _ in onEnd() })
     }
 }
 
@@ -511,10 +532,12 @@ struct AutoAdjustSection: View {
     }
 
     var body: some View {
-        if ColorGradingInspector.instance(ctx.clip, AutoColor.descriptor)?.isEnabled == true {
-            ColorGradingInspector.row(ctx, AutoColor.descriptor, key: "strength", label: tr("fx.param.strength"))
-        } else {
-            HintText(text: tr("autoAdjust.hint"))
+        WithPerceptionTracking {
+            if ColorGradingInspector.instance(ctx.clip, AutoColor.descriptor)?.isEnabled == true {
+                ColorGradingInspector.row(ctx, AutoColor.descriptor, key: "strength", label: tr("fx.param.strength"))
+            } else {
+                HintText(text: tr("autoAdjust.hint"))
+            }
         }
     }
 }

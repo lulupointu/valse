@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 // Cover editor (TL-045 + TX-036, UX.md §6.3): opened by the main-track "Cover" button. Pick a frame of the video
 // (filmstrip + slider) or import a local image, add text layers in the cover styles (drag them on the preview), save.
@@ -32,7 +33,7 @@ enum CoverRenderer {
     }
 }
 
-@MainActor @Observable
+@MainActor @Perceptible
 final class CoverEditorModel {
     enum Source: String { case frame, image }
 
@@ -45,7 +46,7 @@ final class CoverEditorModel {
     var isRendering = false
     let project: Project
 
-    @ObservationIgnored private var renderTask: Task<Void, Never>?
+    @PerceptionIgnored private var renderTask: Task<Void, Never>?
     static let filmstripCount = 10
 
     init(project: Project) {
@@ -197,68 +198,74 @@ extension EditorStore {
 /// In-window modal like Export: dimmed editor, centred dialog.
 struct CoverEditorModal: View {
     let store: EditorStore
-    @Bindable var model: CoverEditorModel
+    @Perception.Bindable var model: CoverEditorModel
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea().onTapGesture {}
-            CoverEditorView(store: store, model: model)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .background(GeometryReader { g in
-                    // offscreen snapshots redraw the modal above the Metal views (see SnapshotRegistry.modalFrame)
-                    Color.clear
-                        .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
-                        .onChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
-                })
-                .shadow(color: .black.opacity(0.5), radius: 20)
-        }
-        .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
-        .onExitCommand { store.closeCoverEditor() }
+        WithPerceptionTracking {
+            ZStack {
+                Color.black.opacity(0.45).ignoresSafeArea().onTapGesture {}
+                CoverEditorView(store: store, model: model)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .background(GeometryReader { g in
+                        WithPerceptionTracking {
+                            // offscreen snapshots redraw the modal above the Metal views (see SnapshotRegistry.modalFrame)
+                            Color.clear
+                                .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
+                                .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
+                        }
+                    })
+                    .shadow(color: .black.opacity(0.5), radius: 20)
+            }
+            .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
+            .onExitCommand { store.closeCoverEditor() }
 
+        }
     }
 }
 
 struct CoverEditorView: View {
     let store: EditorStore
-    @Bindable var model: CoverEditorModel
+    @Perception.Bindable var model: CoverEditorModel
     @State private var dragOrigin: Vec2?
 
     static let size = CGSize(width: 860, height: 600)
     static let previewSize = CGSize(width: 560, height: 315)
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(loc: "cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                Spacer()
-                Button { store.closeCoverEditor() } label: {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
-                }.buttonStyle(.plain).testID("cover.close")
-            }
-            .padding(.horizontal, 16).frame(height: 40)
-            Rectangle().fill(Theme.separator).frame(height: 1)
-            HStack(alignment: .top, spacing: 0) {
-                VStack(alignment: .leading, spacing: 12) {
-                    SegmentedTabs([("frame", tr("cover.source.frame")), ("image", tr("cover.source.image"))],
-                                  selection: Binding(get: { model.source.rawValue }, set: { v in
-                                      if v == "image" && model.imageAsset == nil { pickImage() } else {
-                                          model.source = CoverEditorModel.Source(rawValue: v) ?? .frame; model.render(debounce: false)
-                                      }
-                                  }))
-                        .frame(width: 260).testID("cover.source")
-                    preview
-                    if model.source == .frame { framePicker } else { imageRow }
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                HStack {
+                    Text(loc: "cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Spacer()
+                    Button { store.closeCoverEditor() } label: {
+                        Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                    }.buttonStyle(.plain).testID("cover.close")
                 }
-                .padding(16)
-                Rectangle().fill(Theme.separator).frame(width: 1)
-                textPanel.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.horizontal, 16).frame(height: 40)
+                Rectangle().fill(Theme.separator).frame(height: 1)
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SegmentedTabs([("frame", tr("cover.source.frame")), ("image", tr("cover.source.image"))],
+                                      selection: Binding(get: { model.source.rawValue }, set: { v in
+                                          if v == "image" && model.imageAsset == nil { pickImage() } else {
+                                              model.source = CoverEditorModel.Source(rawValue: v) ?? .frame; model.render(debounce: false)
+                                          }
+                                      }))
+                            .frame(width: 260).testID("cover.source")
+                        preview
+                        if model.source == .frame { framePicker } else { imageRow }
+                    }
+                    .padding(16)
+                    Rectangle().fill(Theme.separator).frame(width: 1)
+                    textPanel.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+                Rectangle().fill(Theme.separator).frame(height: 1)
+                footer
             }
-            Rectangle().fill(Theme.separator).frame(height: 1)
-            footer
+            .frame(width: Self.size.width, height: Self.size.height)
+            .background(Theme.panel)
+            .testID("cover.dialog")
         }
-        .frame(width: Self.size.width, height: Self.size.height)
-        .background(Theme.panel)
-        .testID("cover.dialog")
     }
 
     // MARK: Preview (drag a text to move it; click one to select it)
@@ -306,31 +313,35 @@ struct CoverEditorView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(loc: "cover.frame.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
             GeometryReader { geo in
-                let n = max(model.filmstrip.count, 1)
-                let d = max(model.duration.seconds, 0.001)
-                ZStack(alignment: .leading) {
-                    HStack(spacing: 0) {
-                        ForEach(0..<n, id: \.self) { i in
-                            ZStack {
-                                Color(hex: 0x2A2A2A)
-                                if i < model.filmstrip.count, let img = model.filmstrip[i] {
-                                    Image(decorative: img, scale: 1).resizable().aspectRatio(contentMode: .fill)
+                WithPerceptionTracking {
+                    let n = max(model.filmstrip.count, 1)
+                    let d = max(model.duration.seconds, 0.001)
+                    ZStack(alignment: .leading) {
+                        HStack(spacing: 0) {
+                            ForEach(0..<n, id: \.self) { i in
+                                WithPerceptionTracking {
+                                    ZStack {
+                                        Color(hex: 0x2A2A2A)
+                                        if i < model.filmstrip.count, let img = model.filmstrip[i] {
+                                            Image(decorative: img, scale: 1).resizable().aspectRatio(contentMode: .fill)
+                                        }
+                                    }
+                                    .frame(width: geo.size.width / CGFloat(n), height: 48).clipped()
                                 }
                             }
-                            .frame(width: geo.size.width / CGFloat(n), height: 48).clipped()
                         }
+                        let x = CGFloat(model.cover.time.seconds / d) * geo.size.width
+                        RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.accent, lineWidth: 2)
+                            .frame(width: 30, height: 52)
+                            .offset(x: min(max(x - 15, 0), geo.size.width - 30), y: 0)
+                            .allowsHitTesting(false)
                     }
-                    let x = CGFloat(model.cover.time.seconds / d) * geo.size.width
-                    RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.accent, lineWidth: 2)
-                        .frame(width: 30, height: 52)
-                        .offset(x: min(max(x - 15, 0), geo.size.width - 30), y: 0)
-                        .allowsHitTesting(false)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 0).onChanged { v in
+                        model.setTime(Time(Double(min(max(v.location.x / geo.size.width, 0), 1)) * d))
+                    })
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0).onChanged { v in
-                    model.setTime(Time(Double(min(max(v.location.x / geo.size.width, 0), 1)) * d))
-                })
             }
             .frame(width: Self.previewSize.width, height: 52)
             .testID("cover.filmstrip")
@@ -389,15 +400,17 @@ struct CoverEditorView: View {
     var layerChips: some View {
         FlowLayout(spacing: 6, lineSpacing: 6) {
             ForEach(model.cover.texts.indices, id: \.self) { i in
-                let sel = model.selectedText == i
-                Text(verbatim: model.textContent(i)?.string.replacingOccurrences(of: "\n", with: " ") ?? "")
-                    .font(.system(size: 11)).lineLimit(1).frame(maxWidth: 110)
-                    .padding(.horizontal, 8).frame(height: 22)
-                    .foregroundStyle(sel ? Theme.accent : Theme.textPrimary)
-                    .background(Theme.control, in: RoundedRectangle(cornerRadius: 4))
-                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(sel ? Theme.accent : .clear, lineWidth: 1))
-                    .onTapGesture { model.selectedText = i }
-                    .testID("cover.textLayer.\(i)")
+                WithPerceptionTracking {
+                    let sel = model.selectedText == i
+                    Text(verbatim: model.textContent(i)?.string.replacingOccurrences(of: "\n", with: " ") ?? "")
+                        .font(.system(size: 11)).lineLimit(1).frame(maxWidth: 110)
+                        .padding(.horizontal, 8).frame(height: 22)
+                        .foregroundStyle(sel ? Theme.accent : Theme.textPrimary)
+                        .background(Theme.control, in: RoundedRectangle(cornerRadius: 4))
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(sel ? Theme.accent : .clear, lineWidth: 1))
+                        .onTapGesture { model.selectedText = i }
+                        .testID("cover.textLayer.\(i)")
+                }
             }
         }
     }
@@ -425,9 +438,11 @@ struct CoverEditorView: View {
             Text(loc: "cover.position").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
             HStack(spacing: 6) {
                 ForEach([("top", -0.32), ("middle", 0.0), ("bottom", 0.32)], id: \.0) { item in
-                    Button(tr("cover.position.\(item.0)")) {
-                        model.moveText(i, to: Vec2(0, item.1))
-                    }.buttonStyle(SecondaryButtonStyle()).testID("cover.position.\(item.0)")
+                    WithPerceptionTracking {
+                        Button(tr("cover.position.\(item.0)")) {
+                            model.moveText(i, to: Vec2(0, item.1))
+                        }.buttonStyle(SecondaryButtonStyle()).testID("cover.position.\(item.0)")
+                    }
                 }
             }
         }
@@ -436,15 +451,17 @@ struct CoverEditorView: View {
             Text(loc: "cover.styles").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(52), spacing: 6), count: 4), alignment: .leading, spacing: 6) {
                 ForEach(Array(Registries.textStyles(.preset).prefix(16)), id: \.id) { d in
-                    let sel = t.styleID == d.id
-                    TextPreviewImage(key: "style:\(d.id)", content: TextPreviewImage.style(d, sample: "Aa"), padding: 6)
-                        .frame(width: 52, height: 52)
-                        .background(Theme.control, in: RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(sel ? Theme.accent : .clear, lineWidth: 2))
-                        .contentShape(Rectangle())
-                        .onTapGesture { model.updateText(i) { d.restyle(&$0) } }
-                        .help(d.displayName)
-                        .testID("cover.style.\(d.id)")
+                    WithPerceptionTracking {
+                        let sel = t.styleID == d.id
+                        TextPreviewImage(key: "style:\(d.id)", content: TextPreviewImage.style(d, sample: "Aa"), padding: 6)
+                            .frame(width: 52, height: 52)
+                            .background(Theme.control, in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(sel ? Theme.accent : .clear, lineWidth: 2))
+                            .contentShape(Rectangle())
+                            .onTapGesture { model.updateText(i) { d.restyle(&$0) } }
+                            .help(d.displayName)
+                            .testID("cover.style.\(d.id)")
+                    }
                 }
             }
         }

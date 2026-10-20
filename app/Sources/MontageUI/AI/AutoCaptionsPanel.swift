@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// Spoken / translation languages offered in the captions UI (English name · own name, like CapCut).
 enum CaptionLanguages {
@@ -23,52 +24,54 @@ struct AutoCaptionsPanel: View {
     let store: EditorStore
 
     var body: some View {
-        let ai = store.ai
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    HintText(text: tr("captions.hint"))
-                    label("captions.spokenLanguage")
-                    Dropdown(items: [(Optional<String>.none, tr("captions.autoDetect"))] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
-                             selection: ai.captionLanguage) { ai.captionLanguage = $0 }
-                    label("captions.bilingual")
-                    Dropdown(items: [(Optional<String>.none, tr("captions.none"))] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
-                             selection: ai.bilingualTarget) { ai.bilingualTarget = $0 }
-                    let sources = sourceItems
-                    if sources.count > 2 {
-                        label("captions.selectTrack")
-                        Dropdown(items: sources, selection: sourceKey(ai.captionSource)) { k in ai.captionSource = source(for: k) }
-                    }
-                    HStack(spacing: 8) {
-                        CapCheckbox(isOn: Binding(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
-                        Text(loc: "captions.identifyFillers").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                    }
-                    // AI-005: speaker ID (diarization) → captions split and coloured per speaker
-                    HStack(spacing: 8) {
-                        CapCheckbox(isOn: Binding(get: { ai.identifySpeakers }, set: { ai.identifySpeakers = $0 })).testID("captions.identifySpeakers")
-                        Text(loc: "speakers.identifyOption").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                        Spacer()
-                        if ai.identifySpeakers {
-                            Dropdown(items: SpeakersInspector.countItems, selection: ai.speakerCount) { ai.speakerCount = $0 }
-                                .frame(width: 96).testID("captions.speakerCount")
+        WithPerceptionTracking {
+            let ai = store.ai
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HintText(text: tr("captions.hint"))
+                        label("captions.spokenLanguage")
+                        Dropdown(items: [(Optional<String>.none, tr("captions.autoDetect"))] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
+                                 selection: ai.captionLanguage) { ai.captionLanguage = $0 }
+                        label("captions.bilingual")
+                        Dropdown(items: [(Optional<String>.none, tr("captions.none"))] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
+                                 selection: ai.bilingualTarget) { ai.bilingualTarget = $0 }
+                        let sources = sourceItems
+                        if sources.count > 2 {
+                            label("captions.selectTrack")
+                            Dropdown(items: sources, selection: sourceKey(ai.captionSource)) { k in ai.captionSource = source(for: k) }
+                        }
+                        HStack(spacing: 8) {
+                            CapCheckbox(isOn: Binding(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
+                            Text(loc: "captions.identifyFillers").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                        }
+                        // AI-005: speaker ID (diarization) → captions split and coloured per speaker
+                        HStack(spacing: 8) {
+                            CapCheckbox(isOn: Binding(get: { ai.identifySpeakers }, set: { ai.identifySpeakers = $0 })).testID("captions.identifySpeakers")
+                            Text(loc: "speakers.identifyOption").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                            Spacer()
+                            if ai.identifySpeakers {
+                                Dropdown(items: SpeakersInspector.countItems, selection: ai.speakerCount) { ai.speakerCount = $0 }
+                                    .frame(width: 96).testID("captions.speakerCount")
+                            }
+                        }
+                        AdvancedSpeechSection(store: store)
+                        if let err = ai.captionError { HintText(text: err, color: IStyle.warning) }
+                        HStack {
+                            Spacer()
+                            Button(tr("captions.autoLyrics")) { store.generateCaptions(lyrics: true) }
+                                .buttonStyle(SecondaryButtonStyle()).disabled(ai.captionJob != nil || !hasAudio).testID("captions.autoLyrics")
                         }
                     }
-                    AdvancedSpeechSection(store: store)
-                    if let err = ai.captionError { HintText(text: err, color: IStyle.warning) }
-                    HStack {
-                        Spacer()
-                        Button(tr("captions.autoLyrics")) { store.generateCaptions(lyrics: true) }
-                            .buttonStyle(SecondaryButtonStyle()).disabled(ai.captionJob != nil || !hasAudio).testID("captions.autoLyrics")
-                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                footer
             }
-            footer
+            .background(Theme.panel)
+            .background(TranslationHost(store: store))
+            .testID("captions.panel")
         }
-        .background(Theme.panel)
-        .background(TranslationHost(store: store))
-        .testID("captions.panel")
     }
 
     var hasAudio: Bool { !CaptionGenerator.sourceClips(store.project, .allTracks).isEmpty }
@@ -127,17 +130,19 @@ struct AdvancedSpeechSection: View {
     let store: EditorStore
     @State private var open = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button { open.toggle() } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .semibold))
-                    Text(loc: "captions.advanced").font(Theme.Fonts.row)
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 8) {
+                Button { open.toggle() } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .semibold))
+                        Text(loc: "captions.advanced").font(Theme.Fonts.row)
+                    }
+                    .foregroundStyle(IStyle.label).contentShape(Rectangle())
                 }
-                .foregroundStyle(IStyle.label).contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .testID("captions.advanced")
+                if open { SpeechModelCard(store: store) }
             }
-            .buttonStyle(.plain)
-            .testID("captions.advanced")
-            if open { SpeechModelCard(store: store) }
         }
     }
 }
@@ -145,32 +150,34 @@ struct AdvancedSpeechSection: View {
 struct SpeechModelCard: View {
     let store: EditorStore
     var body: some View {
-        let mm = ModelManager.shared
-        let spec = ModelCatalog.whisperTurbo
-        let _ = mm.states
-        let state = mm.state(spec)
-        let runtime = WhisperRuntime.cliURL != nil
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: state.isInstalled && runtime ? "checkmark.seal.fill" : "waveform.badge.mic")
-                    .foregroundStyle(state.isInstalled && runtime ? Theme.accent : Theme.textSecondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(loc: "captions.engine").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                    Text(verbatim: engineLine(state, runtime)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
-                        .fixedSize(horizontal: false, vertical: true)
+        WithPerceptionTracking {
+            let mm = ModelManager.shared
+            let spec = ModelCatalog.whisperTurbo
+            let _ = mm.states
+            let state = mm.state(spec)
+            let runtime = WhisperRuntime.cliURL != nil
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: state.isInstalled && runtime ? "checkmark.seal.fill" : "waveform.badge.mic")
+                        .foregroundStyle(state.isInstalled && runtime ? Theme.accent : Theme.textSecondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(loc: "captions.engine").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                        Text(verbatim: engineLine(state, runtime)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
                 }
-                Spacer()
-            }
-            ModelStateControls(spec: spec)
-            if state.isInstalled && runtime {
-                InlineRow(label: tr("captions.engineChoice")) {
-                    Dropdown(items: SpeechEngine.allCases.map { ($0, tr($0.nameKey)) }, selection: store.ai.captionEngine) { store.ai.captionEngine = $0 }
+                ModelStateControls(spec: spec)
+                if state.isInstalled && runtime {
+                    InlineRow(label: tr("captions.engineChoice")) {
+                        Dropdown(items: SpeechEngine.allCases.map { ($0, tr($0.nameKey)) }, selection: store.ai.captionEngine) { store.ai.captionEngine = $0 }
+                    }
                 }
+                Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(.link).font(Theme.Fonts.hint)
             }
-            Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(.link).font(Theme.Fonts.hint)
+            .padding(10)
+            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
         }
-        .padding(10)
-        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
     }
 
     func engineLine(_ s: AIModelState, _ runtime: Bool) -> String {
@@ -184,25 +191,27 @@ struct SpeechModelCard: View {
 struct ModelStateControls: View {
     let spec: AIModelSpec
     var body: some View {
-        let mm = ModelManager.shared
-        switch mm.state(spec) {
-        case .notInstalled:
-            HStack(spacing: 8) {
-                PillButton(title: tr("models.download", ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)),
-                           symbol: "arrow.down.circle", accent: true) { mm.download(spec) }
-                    .testID("model.download.\(spec.id)")
-                Button(tr("models.locate")) { locate() }.buttonStyle(.link).font(Theme.Fonts.hint)
-            }
-        case .downloading(let p):
-            JobProgressLine(text: tr("models.downloading", Int(p * 100)), progress: p) { mm.cancel(spec) }
-        case .verifying:
-            HStack(spacing: 6) { ProgressView().controlSize(.small); Text(loc: "models.verifying").font(Theme.Fonts.hint).foregroundStyle(IStyle.caption) }
-        case .installed:
-            EmptyView()
-        case .failed(let msg):
-            VStack(alignment: .leading, spacing: 6) {
-                HintText(text: msg, color: IStyle.warning)
-                PillButton(title: tr("models.retry"), symbol: "arrow.clockwise") { mm.download(spec) }
+        WithPerceptionTracking {
+            let mm = ModelManager.shared
+            switch mm.state(spec) {
+            case .notInstalled:
+                HStack(spacing: 8) {
+                    PillButton(title: tr("models.download", ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)),
+                               symbol: "arrow.down.circle", accent: true) { mm.download(spec) }
+                        .testID("model.download.\(spec.id)")
+                    Button(tr("models.locate")) { locate() }.buttonStyle(.link).font(Theme.Fonts.hint)
+                }
+            case .downloading(let p):
+                JobProgressLine(text: tr("models.downloading", Int(p * 100)), progress: p) { mm.cancel(spec) }
+            case .verifying:
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text(loc: "models.verifying").font(Theme.Fonts.hint).foregroundStyle(IStyle.caption) }
+            case .installed:
+                EmptyView()
+            case .failed(let msg):
+                VStack(alignment: .leading, spacing: 6) {
+                    HintText(text: msg, color: IStyle.warning)
+                    PillButton(title: tr("models.retry"), symbol: "arrow.clockwise") { mm.download(spec) }
+                }
             }
         }
     }
@@ -221,38 +230,42 @@ struct ModelStateControls: View {
 struct ModelManagerSheet: View {
     let close: () -> Void
     var body: some View {
-        let mm = ModelManager.shared
-        VStack(alignment: .leading, spacing: 14) {
-            Text(loc: "models.title").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-            HintText(text: tr("models.privacy"))
-            ForEach(ModelCatalog.all) { spec in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(loc: spec.nameKey).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-                        Spacer()
-                        Text(verbatim: ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
-                        if mm.state(spec).isInstalled {
-                            Label(tr("models.installed"), systemImage: "checkmark.circle.fill").font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
-                            SmallIconButton(symbol: "trash", help: tr("models.remove")) { mm.remove(spec) }
+        WithPerceptionTracking {
+            let mm = ModelManager.shared
+            VStack(alignment: .leading, spacing: 14) {
+                Text(loc: "models.title").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                HintText(text: tr("models.privacy"))
+                ForEach(ModelCatalog.all) { spec in
+                    WithPerceptionTracking {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(loc: spec.nameKey).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Text(verbatim: ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
+                                if mm.state(spec).isInstalled {
+                                    Label(tr("models.installed"), systemImage: "checkmark.circle.fill").font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
+                                    SmallIconButton(symbol: "trash", help: tr("models.remove")) { mm.remove(spec) }
+                                }
+                            }
+                            HintText(text: tr(spec.descriptionKey) + " · " + tr("models.license", spec.license))
+                            ModelStateControls(spec: spec)
                         }
+                        .padding(10)
+                        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
                     }
-                    HintText(text: tr(spec.descriptionKey) + " · " + tr("models.license", spec.license))
-                    ModelStateControls(spec: spec)
                 }
-                .padding(10)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                HStack(spacing: 6) {
+                    Image(systemName: WhisperRuntime.cliURL != nil ? "checkmark.circle" : "exclamationmark.triangle").foregroundStyle(WhisperRuntime.cliURL != nil ? Theme.accent : IStyle.warning)
+                    HintText(text: WhisperRuntime.cliURL != nil ? tr("models.runtimeOK") : tr("models.runtimeMissing"))
+                }
+                HStack { Spacer(); Button(tr("models.done"), action: close).buttonStyle(AccentButtonStyle()) }
             }
-            HStack(spacing: 6) {
-                Image(systemName: WhisperRuntime.cliURL != nil ? "checkmark.circle" : "exclamationmark.triangle").foregroundStyle(WhisperRuntime.cliURL != nil ? Theme.accent : IStyle.warning)
-                HintText(text: WhisperRuntime.cliURL != nil ? tr("models.runtimeOK") : tr("models.runtimeMissing"))
-            }
-            HStack { Spacer(); Button(tr("models.done"), action: close).buttonStyle(AccentButtonStyle()) }
+            .padding(20)
+            .frame(width: 460)
+            .testID("models.sheet")
+            .background(Theme.panel)
+            .onAppear { mm.refresh() }
         }
-        .padding(20)
-        .frame(width: 460)
-        .testID("models.sheet")
-        .background(Theme.panel)
-        .onAppear { mm.refresh() }
     }
 }
 
@@ -261,22 +274,24 @@ struct ModelManagerSheet: View {
 struct TranslationHost: View {
     let store: EditorStore
     var body: some View {
-        if #available(macOS 15.0, *), let req = store.ai.translationRequest {
-            Color.clear.frame(width: 0, height: 0)
-                .translationTask(TranslationSession.Configuration(source: Locale.Language(identifier: req.source),
-                                                                  target: Locale.Language(identifier: req.target))) { session in
-                    let caps = SpeechCaptions.captions(in: store.project.timeline).map { ($0.id, CaptionOps.text($0)?.string ?? "") }
-                    do {
-                        let map = try await CaptionTranslator.translate(caps, with: session)
-                        store.applyTranslations(map, display: req.display)
-                    } catch {
-                        store.ai.translating = false
-                        store.ai.translationRequest = nil
-                        store.showToast(tr("captions.translateFailed"), error: true)
+        WithPerceptionTracking {
+            if #available(macOS 15.0, *), let req = store.ai.translationRequest {
+                Color.clear.frame(width: 0, height: 0)
+                    .translationTask(TranslationSession.Configuration(source: Locale.Language(identifier: req.source),
+                                                                      target: Locale.Language(identifier: req.target))) { session in
+                        let caps = SpeechCaptions.captions(in: store.project.timeline).map { ($0.id, CaptionOps.text($0)?.string ?? "") }
+                        do {
+                            let map = try await CaptionTranslator.translate(caps, with: session)
+                            store.applyTranslations(map, display: req.display)
+                        } catch {
+                            store.ai.translating = false
+                            store.ai.translationRequest = nil
+                            store.showToast(tr("captions.translateFailed"), error: true)
+                        }
                     }
-                }
-        } else {
-            Color.clear.frame(width: 0, height: 0)
+            } else {
+                Color.clear.frame(width: 0, height: 0)
+            }
         }
     }
 }

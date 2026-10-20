@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import AppKit
 import UniformTypeIdentifiers
 import ImageIO
@@ -17,7 +17,7 @@ public struct CanvasGuide: Hashable, Identifiable, Sendable {
 }
 
 /// Player-only UI state (viewport, overlays, modes). Kept out of the project: none of it is undoable or exported.
-@Observable
+@Perceptible
 public final class PlayerUIState {
     /// Player zoom (1 = fit) and pan in view points (PB-007).
     public var zoom: Double = 1
@@ -31,10 +31,10 @@ public final class PlayerUIState {
     public var guidesLocked = false
     public var guides: [CanvasGuide] = [] { didSet { if !loadingGuides { onGuidesChanged?() } } }
     /// Called when the guides change (the store keeps them in the project, PB-011).
-    @ObservationIgnored var onGuidesChanged: (() -> Void)?
+    @PerceptionIgnored var onGuidesChanged: (() -> Void)?
     /// Guide whose position dialog is open (double-click a guide, PB-011).
     public var editingGuide: UUID?
-    @ObservationIgnored private var loadingGuides = false
+    @PerceptionIgnored private var loadingGuides = false
 
     /// Guides as saved in the project.
     public var projectGuides: [ProjectGuide]? {
@@ -76,7 +76,7 @@ public final class PlayerUIState {
 }
 
 /// A modal tool that takes over the canvas (points are in canvas pixels, origin top-left). Implementations are
-/// @Observable and bump `revision` when their overlay changes.
+/// @Perceptible and bump `revision` when their overlay changes.
 @MainActor public protocol CanvasTool: AnyObject {
     var revision: Int { get }
     func mouseDown(at p: Vec2)

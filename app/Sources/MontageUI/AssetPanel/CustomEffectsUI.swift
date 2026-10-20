@@ -4,10 +4,11 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 /// FX-018 Effects ▸ Custom: import an effect package (folder / ZIP), create one from a template and edit its Metal
 /// shader in any text editor (Reload picks the changes up), export a ZIP to share, delete. See `CustomEffectLibrary`.
-@MainActor @Observable
+@MainActor @Perceptible
 final class CustomEffectsState {
     static let shared = CustomEffectsState()
     /// Bumped after every library change so the grid re-lists.
@@ -74,34 +75,36 @@ struct CustomEffectsHeader: View {
     let store: EditorStore
     let isEmpty: Bool
     var body: some View {
-        let st = CustomEffectsState.shared
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Button { store.importCustomEffectPanel() } label: { Label(tr("fx.custom.import"), systemImage: "square.and.arrow.down") }
-                    .testID("fx.custom.import")
-                Button { store.newCustomEffect() } label: { Label(tr("fx.custom.new"), systemImage: "plus") }
-                    .testID("fx.custom.new")
-                Button { store.reloadCustomEffects() } label: { Label(tr("fx.custom.reload"), systemImage: "arrow.clockwise") }
-                    .testID("fx.custom.reload")
-                Button { NSWorkspace.shared.activateFileViewerSelecting([CustomEffectLibrary.shared.directory]) } label: {
-                    Image(systemName: "folder")
+        WithPerceptionTracking {
+            let st = CustomEffectsState.shared
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Button { store.importCustomEffectPanel() } label: { Label(tr("fx.custom.import"), systemImage: "square.and.arrow.down") }
+                        .testID("fx.custom.import")
+                    Button { store.newCustomEffect() } label: { Label(tr("fx.custom.new"), systemImage: "plus") }
+                        .testID("fx.custom.new")
+                    Button { store.reloadCustomEffects() } label: { Label(tr("fx.custom.reload"), systemImage: "arrow.clockwise") }
+                        .testID("fx.custom.reload")
+                    Button { NSWorkspace.shared.activateFileViewerSelecting([CustomEffectLibrary.shared.directory]) } label: {
+                        Image(systemName: "folder")
+                    }
+                    .help(tr("fx.custom.folder")).accessibilityLabel(Text(verbatim: tr("fx.custom.folder")))
+                    .testID("fx.custom.folder")
                 }
-                .help(tr("fx.custom.folder")).accessibilityLabel(Text(verbatim: tr("fx.custom.folder")))
-                .testID("fx.custom.folder")
+                .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+                if isEmpty {
+                    Text(verbatim: tr("fx.custom.empty")).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .testID("fx.custom.empty")
+                }
+                if let p = st.problem {
+                    Text(verbatim: p).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Color(hex: 0xE8A93C))
+                        .lineLimit(6).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                        .testID("fx.custom.problem")
+                }
             }
-            .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
-            if isEmpty {
-                Text(verbatim: tr("fx.custom.empty")).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .testID("fx.custom.empty")
-            }
-            if let p = st.problem {
-                Text(verbatim: p).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Color(hex: 0xE8A93C))
-                    .lineLimit(6).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                    .testID("fx.custom.problem")
-            }
+            .padding(.horizontal, 12)
         }
-        .padding(.horizontal, 12)
     }
 }
 
@@ -109,20 +112,22 @@ struct CustomEffectsHeader: View {
 struct CustomEffectMenuItems: View {
     let effectID: String
     var body: some View {
-        Divider()
-        Button(tr("fx.custom.showInFinder")) {
-            if let e = CustomEffectLibrary.shared.entry(effectID) { NSWorkspace.shared.activateFileViewerSelecting([e.folder]) }
-        }
-        Button(tr("fx.custom.export")) {
-            guard let e = CustomEffectLibrary.shared.entry(effectID) else { return }
-            let p = NSSavePanel()
-            p.allowedContentTypes = [.zip]
-            p.nameFieldStringValue = "\(e.manifest.id).zip"
-            if p.runModal() == .OK, let u = p.url { try? CustomEffectLibrary.shared.exportZIP(effectID, to: u) }
-        }
-        Button(tr("fx.custom.delete"), role: .destructive) {
-            CustomEffectLibrary.shared.remove(effectID)
-            CustomEffectsState.shared.changed([effectID])
+        WithPerceptionTracking {
+            Divider()
+            Button(tr("fx.custom.showInFinder")) {
+                if let e = CustomEffectLibrary.shared.entry(effectID) { NSWorkspace.shared.activateFileViewerSelecting([e.folder]) }
+            }
+            Button(tr("fx.custom.export")) {
+                guard let e = CustomEffectLibrary.shared.entry(effectID) else { return }
+                let p = NSSavePanel()
+                p.allowedContentTypes = [.zip]
+                p.nameFieldStringValue = "\(e.manifest.id).zip"
+                if p.runModal() == .OK, let u = p.url { try? CustomEffectLibrary.shared.exportZIP(effectID, to: u) }
+            }
+            Button(tr("fx.custom.delete"), role: .destructive) {
+                CustomEffectLibrary.shared.remove(effectID)
+                CustomEffectsState.shared.changed([effectID])
+            }
         }
     }
 }

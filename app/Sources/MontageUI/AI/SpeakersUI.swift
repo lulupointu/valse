@@ -2,6 +2,7 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Speaker ID in captions (AI-005 / TX-038). Text ▸ Auto captions ▸ ☐ Identify speakers (+ number of speakers) tags
 // and splits the generated captions per speaker; Inspector ▸ Captions ▸ Speakers lists them: rename, colour per
@@ -28,45 +29,49 @@ func speakerName(_ id: String, in p: Project) -> String {
 struct SpeakersSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let store = ctx.store
-        let p = store.project
-        let ids = SpeakerCaptions.speakerIDs(in: p.timeline)
-        let selectedSpeaker = store.singleSelectedClip.flatMap { CaptionOps.text($0)?.caption?.speaker }
-        VStack(alignment: .leading, spacing: 8) {
-            if store.ai.speakerJob != nil {
-                JobProgressLine(text: tr("speakers.progress", Int(store.ai.speakerProgress * 100)), progress: store.ai.speakerProgress) {
-                    store.cancelSpeakerIdentification()
-                }
-                .testID("speakers.progress")
-            }
-            if ids.isEmpty {
-                HintText(text: tr("speakers.hint"))
-                HStack(spacing: 8) {
-                    Dropdown(items: SpeakersInspector.countItems, selection: store.ai.speakerCount) { store.ai.speakerCount = $0 }
-                        .frame(width: 110)
-                    PillButton(title: tr("speakers.identify"), symbol: "person.2.wave.2", accent: true,
-                               enabled: store.ai.speakerJob == nil) { store.identifySpeakers() }
-                        .testID("speakers.identify")
-                }
-            } else {
-                ForEach(ids, id: \.self) { id in
-                    SpeakerRow(store: store, id: id, count: count(id, p), isSelected: selectedSpeaker == id)
-                }
-                HStack(spacing: 8) {
-                    if let s = selectedSpeaker {
-                        PillButton(title: tr("speakers.applyStyle", speakerName(s, in: p))) { store.applyCaptionLookToSpeaker() }
-                            .help(tr("speakers.applyStyle.help"))
-                            .testID("speakers.applyStyle")
+        WithPerceptionTracking {
+            let store = ctx.store
+            let p = store.project
+            let ids = SpeakerCaptions.speakerIDs(in: p.timeline)
+            let selectedSpeaker = store.singleSelectedClip.flatMap { CaptionOps.text($0)?.caption?.speaker }
+            VStack(alignment: .leading, spacing: 8) {
+                if store.ai.speakerJob != nil {
+                    JobProgressLine(text: tr("speakers.progress", Int(store.ai.speakerProgress * 100)), progress: store.ai.speakerProgress) {
+                        store.cancelSpeakerIdentification()
                     }
-                    Spacer()
-                    SmallIconButton(symbol: "arrow.clockwise", help: tr("speakers.reidentify"), enabled: store.ai.speakerJob == nil) { store.identifySpeakers() }
-                        .testID("speakers.reidentify")
-                    SmallIconButton(symbol: "trash", help: tr("speakers.remove")) { store.clearSpeakers() }
-                        .testID("speakers.remove")
+                    .testID("speakers.progress")
+                }
+                if ids.isEmpty {
+                    HintText(text: tr("speakers.hint"))
+                    HStack(spacing: 8) {
+                        Dropdown(items: SpeakersInspector.countItems, selection: store.ai.speakerCount) { store.ai.speakerCount = $0 }
+                            .frame(width: 110)
+                        PillButton(title: tr("speakers.identify"), symbol: "person.2.wave.2", accent: true,
+                                   enabled: store.ai.speakerJob == nil) { store.identifySpeakers() }
+                            .testID("speakers.identify")
+                    }
+                } else {
+                    ForEach(ids, id: \.self) { id in
+                        WithPerceptionTracking {
+                            SpeakerRow(store: store, id: id, count: count(id, p), isSelected: selectedSpeaker == id)
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        if let s = selectedSpeaker {
+                            PillButton(title: tr("speakers.applyStyle", speakerName(s, in: p))) { store.applyCaptionLookToSpeaker() }
+                                .help(tr("speakers.applyStyle.help"))
+                                .testID("speakers.applyStyle")
+                        }
+                        Spacer()
+                        SmallIconButton(symbol: "arrow.clockwise", help: tr("speakers.reidentify"), enabled: store.ai.speakerJob == nil) { store.identifySpeakers() }
+                            .testID("speakers.reidentify")
+                        SmallIconButton(symbol: "trash", help: tr("speakers.remove")) { store.clearSpeakers() }
+                            .testID("speakers.remove")
+                    }
                 }
             }
+            .testID("speakers.section")
         }
-        .testID("speakers.section")
     }
 
     func count(_ id: String, _ p: Project) -> Int {
@@ -83,35 +88,39 @@ struct SpeakerRow: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        let p = store.project
-        let color = p.speakers?.first { $0.id == id }?.color ?? SpeakerCaptions.defaultColor((Int(id) ?? 1) - 1)
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Circle().fill(Color(color)).frame(width: 12, height: 12)
-                TextField(tr("speakers.default", Int(id) ?? 0), text: $name)
-                    .textFieldStyle(.plain).font(Theme.Fonts.row).focused($focused)
-                    .padding(.horizontal, 8).frame(height: 26).background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
-                    .onSubmit { commit() }
-                    .onChange(of: focused) { _, f in if !f { commit() } }
-                    .testID("speakers.name.\(id)")
-                Text(verbatim: tr("speakers.captions", count)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).fixedSize()
-            }
-            HStack(spacing: 6) {
-                ForEach(Array(SpeakerCaptions.palette.enumerated()), id: \.offset) { k, c in
-                    Circle().fill(Color(c))
-                        .frame(width: 14, height: 14)
-                        .overlay(Circle().strokeBorder(c == color ? Theme.accent : Color.black.opacity(0.4), lineWidth: c == color ? 2 : 1))
-                        .contentShape(Circle())
-                        .onTapGesture { store.setSpeakerColor(id, c) }
-                        .testID("speakers.color.\(id).\(k)")
+        WithPerceptionTracking {
+            let p = store.project
+            let color = p.speakers?.first { $0.id == id }?.color ?? SpeakerCaptions.defaultColor((Int(id) ?? 1) - 1)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Circle().fill(Color(color)).frame(width: 12, height: 12)
+                    TextField(tr("speakers.default", Int(id) ?? 0), text: $name)
+                        .textFieldStyle(.plain).font(Theme.Fonts.row).focused($focused)
+                        .padding(.horizontal, 8).frame(height: 26).background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
+                        .onSubmit { commit() }
+                        .onValueChange(of: focused) { _, f in if !f { commit() } }
+                        .testID("speakers.name.\(id)")
+                    Text(verbatim: tr("speakers.captions", count)).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).fixedSize()
                 }
+                HStack(spacing: 6) {
+                    ForEach(Array(SpeakerCaptions.palette.enumerated()), id: \.offset) { k, c in
+                        WithPerceptionTracking {
+                            Circle().fill(Color(c))
+                                .frame(width: 14, height: 14)
+                                .overlay(Circle().strokeBorder(c == color ? Theme.accent : Color.black.opacity(0.4), lineWidth: c == color ? 2 : 1))
+                                .contentShape(Circle())
+                                .onTapGesture { store.setSpeakerColor(id, c) }
+                                .testID("speakers.color.\(id).\(k)")
+                        }
+                    }
+                }
+                .padding(.leading, 20)
             }
-            .padding(.leading, 20)
+            .padding(8)
+            .background(isSelected ? Theme.accentDim.opacity(0.28) : IStyle.field.opacity(0.5), in: RoundedRectangle(cornerRadius: 5))
+            .onAppear { name = p.speakers?.first { $0.id == id }?.name ?? "" }
+            .onValueChange(of: p.speakers) { _, s in if !focused { name = s?.first { $0.id == id }?.name ?? "" } }
         }
-        .padding(8)
-        .background(isSelected ? Theme.accentDim.opacity(0.28) : IStyle.field.opacity(0.5), in: RoundedRectangle(cornerRadius: 5))
-        .onAppear { name = p.speakers?.first { $0.id == id }?.name ?? "" }
-        .onChange(of: p.speakers) { _, s in if !focused { name = s?.first { $0.id == id }?.name ?? "" } }
     }
 
     func commit() {
@@ -125,14 +134,16 @@ struct SpeakerChip: View {
     let store: EditorStore
     let speaker: String
     var body: some View {
-        let p = store.project
-        let color = p.speakers?.first { $0.id == speaker }?.color ?? SpeakerCaptions.defaultColor((Int(speaker) ?? 1) - 1)
-        HStack(spacing: 4) {
-            Circle().fill(Color(color)).frame(width: 7, height: 7)
-            Text(verbatim: speakerName(speaker, in: p)).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+        WithPerceptionTracking {
+            let p = store.project
+            let color = p.speakers?.first { $0.id == speaker }?.color ?? SpeakerCaptions.defaultColor((Int(speaker) ?? 1) - 1)
+            HStack(spacing: 4) {
+                Circle().fill(Color(color)).frame(width: 7, height: 7)
+                Text(verbatim: speakerName(speaker, in: p)).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+            }
+            .padding(.horizontal, 6).frame(height: 16)
+            .background(Theme.control.opacity(0.6), in: Capsule())
         }
-        .padding(.horizontal, 6).frame(height: 16)
-        .background(Theme.control.opacity(0.6), in: Capsule())
     }
 }
 

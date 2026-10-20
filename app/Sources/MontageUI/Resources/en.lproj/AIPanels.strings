@@ -67,6 +67,8 @@
 "cutout.cancelled" = "Background removal canceled";
 "cutout.detect" = "Detect";
 "cutout.detect.people" = "People";
+"cutout.needsMacOS14" = "Needs macOS 14 or later (object segmentation).";
+"cutout.subject.needsMacOS14" = "Main subject detection needs macOS 14 or later. People detection works on this Mac.";
 "cutout.detect.subject" = "Main subject";
 "cutout.feather" = "Feather edge";
 "cutout.expand" = "Expand";

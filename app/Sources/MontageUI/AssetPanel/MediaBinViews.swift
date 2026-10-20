@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Media-bin folder UI pieces used by `MediaTab` (MI-002/004/005/006/007/012/026).
 
@@ -10,15 +11,19 @@ struct BinBreadcrumb: View {
     let store: EditorStore
     @Binding var folder: MediaFolderID?
     var body: some View {
-        HStack(spacing: 4) {
-            crumb(tr("media.folder.root"), nil)
-            ForEach(BinOps.path(to: folder, in: store.mediaBin)) { f in
-                Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
-                crumb(f.name, f.id)
+        WithPerceptionTracking {
+            HStack(spacing: 4) {
+                crumb(tr("media.folder.root"), nil)
+                ForEach(BinOps.path(to: folder, in: store.mediaBin)) { f in
+                    WithPerceptionTracking {
+                        Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+                        crumb(f.name, f.id)
+                    }
+                }
+                Spacer()
             }
-            Spacer()
+            .padding(.horizontal, 12).frame(height: 22)
         }
-        .padding(.horizontal, 12).frame(height: 22)
     }
 
     func crumb(_ title: String, _ id: MediaFolderID?) -> some View {
@@ -43,34 +48,36 @@ struct FolderCard: View {
     var count: Int { BinOps.media(in: folder.id, of: store.mediaBin).count + BinOps.children(of: folder.id, in: store.mediaBin).count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 4).fill(Theme.inset)
-                Image(systemName: "folder.fill").font(.system(size: 26)).foregroundStyle(Theme.accent.opacity(0.8))
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 4) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4).fill(Theme.inset)
+                    Image(systemName: "folder.fill").font(.system(size: 26)).foregroundStyle(Theme.accent.opacity(0.8))
+                }
+                .aspectRatio(16 / 10, contentMode: .fit)
+                .overlay(alignment: .bottomTrailing) {
+                    Text(verbatim: "\(count)").font(.system(size: 10).monospacedDigit())
+                        .padding(.horizontal, 4).padding(.vertical, 1).background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3)).padding(4)
+                }
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(hover || targeted ? Theme.accent : .clear, lineWidth: 1.5))
+                Text(verbatim: folder.name).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
             }
-            .aspectRatio(16 / 10, contentMode: .fit)
-            .overlay(alignment: .bottomTrailing) {
-                Text(verbatim: "\(count)").font(.system(size: 10).monospacedDigit())
-                    .padding(.horizontal, 4).padding(.vertical, 1).background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3)).padding(4)
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .onTapGesture(count: 2) { current = folder.id }
+            .onDrag { NSItemProvider(object: BinPayload.folder(folder.id) as NSString) }
+            .onDrop(of: [.text], isTargeted: $targeted) { providers in dropMedia(providers, into: folder.id, store: store) }
+            .contextMenu {
+                Button(tr("media.folder.open")) { current = folder.id }
+                Button(tr("media.folder.rename")) { newName = folder.name; renaming = true }
+                Divider()
+                Button(tr("media.folder.delete"), role: .destructive) { store.deleteFolder(folder.id) }
             }
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(hover || targeted ? Theme.accent : .clear, lineWidth: 1.5))
-            Text(verbatim: folder.name).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
-        }
-        .contentShape(Rectangle())
-        .onHover { hover = $0 }
-        .onTapGesture(count: 2) { current = folder.id }
-        .onDrag { NSItemProvider(object: BinPayload.folder(folder.id) as NSString) }
-        .onDrop(of: [.text], isTargeted: $targeted) { providers in dropMedia(providers, into: folder.id, store: store) }
-        .contextMenu {
-            Button(tr("media.folder.open")) { current = folder.id }
-            Button(tr("media.folder.rename")) { newName = folder.name; renaming = true }
-            Divider()
-            Button(tr("media.folder.delete"), role: .destructive) { store.deleteFolder(folder.id) }
-        }
-        .alert(tr("media.folder.rename"), isPresented: $renaming) {
-            TextField(tr("media.folder.name"), text: $newName)
-            Button(tr("common.ok")) { store.renameFolder(folder.id, to: newName) }
-            Button(tr("common.cancel"), role: .cancel) {}
+            .alert(tr("media.folder.rename"), isPresented: $renaming) {
+                TextField(tr("media.folder.name"), text: $newName)
+                Button(tr("common.ok")) { store.renameFolder(folder.id, to: newName) }
+                Button(tr("common.cancel"), role: .cancel) {}
+            }
         }
     }
 }
@@ -108,27 +115,31 @@ struct MediaCardMenu: View {
     let asset: MediaAsset
     @Binding var showInfo: Bool
     var body: some View {
-        Button(tr("asset.addToTrack")) { store.addToTimeline(asset.id) }
-        if asset.livePhotoVideoURL != nil {
-            Button(tr("media.livePhoto.apply")) { store.addLivePhotoVideo(asset.id) }
-        }
-        if store.isMissing(asset) {
-            Button(tr("media.link")) { LinkMediaPanel.run(store, asset) }
-            Button(tr("media.linkFolder")) { LinkMediaPanel.runFolder(store) }
-        }
-        if asset.kind == .video {
-            Button(tr("lag.transcodeMenu")) { store.transcodeForPlayback([asset.id]) }   // MI-009
-        }
-        Button(tr("media.info")) { showInfo = true }
-        Button(tr("media.showInFinder")) { NSWorkspace.shared.activateFileViewerSelecting([asset.url]) }
-        Divider()
-        Menu(tr("media.moveTo")) {
-            Button(tr("media.folder.root")) { store.moveMedia([asset.id], to: nil) }
-            ForEach(store.mediaBin.folders) { f in
-                Button(BinOps.path(to: f.id, in: store.mediaBin).map(\.name).joined(separator: " › ")) { store.moveMedia([asset.id], to: f.id) }
+        WithPerceptionTracking {
+            Button(tr("asset.addToTrack")) { store.addToTimeline(asset.id) }
+            if asset.livePhotoVideoURL != nil {
+                Button(tr("media.livePhoto.apply")) { store.addLivePhotoVideo(asset.id) }
             }
+            if store.isMissing(asset) {
+                Button(tr("media.link")) { LinkMediaPanel.run(store, asset) }
+                Button(tr("media.linkFolder")) { LinkMediaPanel.runFolder(store) }
+            }
+            if asset.kind == .video {
+                Button(tr("lag.transcodeMenu")) { store.transcodeForPlayback([asset.id]) }   // MI-009
+            }
+            Button(tr("media.info")) { showInfo = true }
+            Button(tr("media.showInFinder")) { NSWorkspace.shared.activateFileViewerSelecting([asset.url]) }
+            Divider()
+            Menu(tr("media.moveTo")) {
+                Button(tr("media.folder.root")) { store.moveMedia([asset.id], to: nil) }
+                ForEach(store.mediaBin.folders) { f in
+                    WithPerceptionTracking {
+                        Button(BinOps.path(to: f.id, in: store.mediaBin).map(\.name).joined(separator: " › ")) { store.moveMedia([asset.id], to: f.id) }
+                    }
+                }
+            }
+            Button(tr("media.copyToProject")) { store.copyMediaToProject() }
         }
-        Button(tr("media.copyToProject")) { store.copyMediaToProject() }
     }
 }
 
@@ -152,11 +163,13 @@ struct MediaInfoView: View {
         return r
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(loc: "media.info").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-            ForEach(rows, id: \.0) { InfoRow($0.0, $0.1) }
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(loc: "media.info").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                ForEach(rows, id: \.0) { InfoRow($0.0, $0.1) }
+            }
+            .padding(14).frame(width: 340)
         }
-        .padding(14).frame(width: 340)
     }
 }
 

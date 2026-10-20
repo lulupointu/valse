@@ -3,6 +3,7 @@ import AppKit
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 /// Inspector ▸ Captions (UX_AI.md §1.4, TX-019/037/024/022/023/025; C4 follows CapCut [17]): a search field and the
 /// caption tools, then one numbered row per caption with its text, edited in place. Hovering a row shows ＋ (add a
@@ -11,25 +12,29 @@ import MontageEngine
 /// ⌘Enter = new line, ⌫ at the start = merge up, Fn-⌫ (forward delete) at the end = merge down.
 struct CaptionEditorSection: View {
     let ctx: InspectorContext
-    @Bindable private var ui = TextUIState.shared
+    @Perception.Bindable private var ui = TextUIState.shared
 
     var body: some View {
-        let store = ctx.store
-        if let ti = store.activeCaptionTrackIndex, ti < store.project.timeline.tracks.count {
-            let track = store.project.timeline.tracks[ti]
-            let matches = ui.findText.isEmpty ? [] : CaptionOps.find(ui.findText, in: track, caseSensitive: ui.caseSensitive)
-            let matchIDs = Set(matches.map(\.clipID))
-            VStack(alignment: .leading, spacing: 8) {
-                toolbar(track, matches: matches.count)
-                if ui.showReplace { replaceBar(matches.count) }
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(track.clips.enumerated()), id: \.element.id) { i, c in
-                        CaptionRow(store: store, index: i + 1, clip: c, isSelected: store.selection.contains(c.id),
-                                   isMatch: matchIDs.contains(c.id), isFirst: i == 0, isLast: i == track.clips.count - 1,
-                                   previousID: i > 0 ? track.clips[i - 1].id : nil)
+        WithPerceptionTracking {
+            let store = ctx.store
+            if let ti = store.activeCaptionTrackIndex, ti < store.project.timeline.tracks.count {
+                let track = store.project.timeline.tracks[ti]
+                let matches = ui.findText.isEmpty ? [] : CaptionOps.find(ui.findText, in: track, caseSensitive: ui.caseSensitive)
+                let matchIDs = Set(matches.map(\.clipID))
+                VStack(alignment: .leading, spacing: 8) {
+                    toolbar(track, matches: matches.count)
+                    if ui.showReplace { replaceBar(matches.count) }
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(track.clips.enumerated()), id: \.element.id) { i, c in
+                            WithPerceptionTracking {
+                                CaptionRow(store: store, index: i + 1, clip: c, isSelected: store.selection.contains(c.id),
+                                           isMatch: matchIDs.contains(c.id), isFirst: i == 0, isLast: i == track.clips.count - 1,
+                                           previousID: i > 0 ? track.clips[i - 1].id : nil)
+                            }
+                        }
                     }
+                    HintText(text: tr("captions.tip"))
                 }
-                HintText(text: tr("captions.tip"))
             }
         }
     }
@@ -58,14 +63,18 @@ struct CaptionEditorSection: View {
                 Button(tr("captions.keywords.clear")) { store.clearCaptionKeywords() }
                 Divider()
                 ForEach([(16, 1), (24, 1), (24, 2), (32, 2), (42, 2)], id: \.0) { c, l in
-                    Button(tr("captions.wrap.option", c, l)) { store.wrapCaptions(maxChars: c, maxLines: l) }
+                    WithPerceptionTracking {
+                        Button(tr("captions.wrap.option", c, l)) { store.wrapCaptions(maxChars: c, maxLines: l) }
+                    }
                 }
             } label: { Image(systemName: "highlighter").font(.system(size: 13)) }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.keywords"))
             // W10: on-device translation (Apple Translation) → bilingual captions
             Menu {
                 ForEach(CaptionLanguages.codes, id: \.self) { code in
-                    Button(CaptionLanguages.title(code)) { store.translateCaptions(to: code, display: .both) }
+                    WithPerceptionTracking {
+                        Button(CaptionLanguages.title(code)) { store.translateCaptions(to: code, display: .both) }
+                    }
                 }
                 if hasTranslation {
                     Divider()
@@ -77,7 +86,9 @@ struct CaptionEditorSection: View {
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.translateTo"))
             Menu {
                 ForEach(CaptionFormat.allCases, id: \.self) { f in
-                    Button(f.rawValue.uppercased()) { store.chooseCaptionExport(format: f) }
+                    WithPerceptionTracking {
+                        Button(f.rawValue.uppercased()) { store.chooseCaptionExport(format: f) }
+                    }
                 }
             } label: { Image(systemName: "square.and.arrow.up").font(.system(size: 13)) }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.export"))
@@ -110,31 +121,33 @@ struct CaptionRow: View {
     @State private var hover = false
 
     var body: some View {
-        let t = CaptionOps.text(clip)
-        HStack(alignment: .center, spacing: 10) {
-            Text(verbatim: "\(index)").font(.system(size: 12).monospacedDigit())
-                .foregroundStyle(isSelected ? Theme.accent : IStyle.caption).frame(minWidth: 20, alignment: .leading)
-                .onTapGesture(count: 2) { store.seek(to: clip.start); if !store.transport.isPlaying { store.togglePlay() } }
-                .help(CaptionRow.playFromHelp(clip.start))   // U1-5: "… from 00:00:03"
-            CaptionTextField(store: store, clipID: clip.id, previousID: previousID, isLast: isLast)
-                .frame(minHeight: 20)
-            if let sp = t?.caption?.speaker, !sp.isEmpty { SpeakerChip(store: store, speaker: sp) }   // AI-005
-            if let tr2 = t?.caption?.translation, !tr2.isEmpty {
-                Image(systemName: "character.bubble").font(.system(size: 10)).foregroundStyle(IStyle.caption).help(tr2)
+        WithPerceptionTracking {
+            let t = CaptionOps.text(clip)
+            HStack(alignment: .center, spacing: 10) {
+                Text(verbatim: "\(index)").font(.system(size: 12).monospacedDigit())
+                    .foregroundStyle(isSelected ? Theme.accent : IStyle.caption).frame(minWidth: 20, alignment: .leading)
+                    .onTapGesture(count: 2) { store.seek(to: clip.start); if !store.transport.isPlaying { store.togglePlay() } }
+                    .help(CaptionRow.playFromHelp(clip.start))   // U1-5: "… from 00:00:03"
+                CaptionTextField(store: store, clipID: clip.id, previousID: previousID, isLast: isLast)
+                    .frame(minHeight: 20)
+                if let sp = t?.caption?.speaker, !sp.isEmpty { SpeakerChip(store: store, speaker: sp) }   // AI-005
+                if let tr2 = t?.caption?.translation, !tr2.isEmpty {
+                    Image(systemName: "character.bubble").font(.system(size: 10)).foregroundStyle(IStyle.caption).help(tr2)
+                }
+                HStack(spacing: 6) {
+                    rowButton("plus", tr("captions.addAfter")) { store.addCaption(after: clip.id) }.testID("captions.add.\(index)")
+                    rowButton("trash", tr("captions.delete")) { store.deleteCaption(clip.id) }.testID("captions.delete.\(index)")
+                }
+                .opacity(hover || isSelected ? 1 : 0)
             }
-            HStack(spacing: 6) {
-                rowButton("plus", tr("captions.addAfter")) { store.addCaption(after: clip.id) }.testID("captions.add.\(index)")
-                rowButton("trash", tr("captions.delete")) { store.deleteCaption(clip.id) }.testID("captions.delete.\(index)")
-            }
-            .opacity(hover || isSelected ? 1 : 0)
+            .padding(.horizontal, 8).padding(.vertical, 9)
+            .background(isSelected ? Theme.accentDim.opacity(0.28) : (isMatch ? IStyle.curve.opacity(0.12) : (hover ? Color.white.opacity(0.04) : .clear)))
+            .overlay(alignment: .bottom) { Rectangle().fill(Theme.separator).frame(height: 1).padding(.horizontal, 4) }
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .onTapGesture { store.selection = [clip.id]; store.seek(to: clip.start) }
+            .testID("captions.row.\(index)")
         }
-        .padding(.horizontal, 8).padding(.vertical, 9)
-        .background(isSelected ? Theme.accentDim.opacity(0.28) : (isMatch ? IStyle.curve.opacity(0.12) : (hover ? Color.white.opacity(0.04) : .clear)))
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.separator).frame(height: 1).padding(.horizontal, 4) }
-        .contentShape(Rectangle())
-        .onHover { hover = $0 }
-        .onTapGesture { store.selection = [clip.id]; store.seek(to: clip.start) }
-        .testID("captions.row.\(index)")
     }
 
     /// Tooltip of the caption number: where a double-click starts playback. U1-5: the owner read "Double-cliquez pour
@@ -165,24 +178,26 @@ struct CaptionRow: View {
 /// made on this caption restyles the other captions of its track in the same undo step (`CaptionStyleSync`).
 struct ApplyToAllCaptionsRow: View {
     let ctx: InspectorContext
-    @Bindable private var ui = TextUIState.shared
+    @Perception.Bindable private var ui = TextUIState.shared
     var body: some View {
-        Button { ui.applyToAllCaptions.toggle() } label: {
-            HStack(spacing: 8) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 3).fill(ui.applyToAllCaptions ? Theme.accent : Theme.stepper)
-                    if ui.applyToAllCaptions { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+        WithPerceptionTracking {
+            Button { ui.applyToAllCaptions.toggle() } label: {
+                HStack(spacing: 8) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 3).fill(ui.applyToAllCaptions ? Theme.accent : Theme.stepper)
+                        if ui.applyToAllCaptions { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+                    }
+                    .frame(width: 16, height: 16)
+                    Text(loc: "captions.applyAllMain").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
+                    Spacer()
                 }
-                .frame(width: 16, height: 16)
-                Text(loc: "captions.applyAllMain").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                Spacer()
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .help(tr("captions.applyAllMain.help"))
+            .padding(.top, 2).padding(.bottom, 4)
+            .testID("captions.applyAllMain")
         }
-        .buttonStyle(.plain)
-        .help(tr("captions.applyAllMain.help"))
-        .padding(.top, 2).padding(.bottom, 4)
-        .testID("captions.applyAllMain")
     }
 }
 
@@ -215,8 +230,12 @@ struct CaptionTextField: NSViewRepresentable {
 
     func updateNSView(_ tv: CaptionNSTextView, context: Context) {
         context.coordinator.parent = self
-        let s = context.coordinator.current()
-        if tv.string != s, tv.window?.firstResponder !== tv { tv.string = s }
+        let c = context.coordinator
+        c.tracking.run { [weak c, weak tv] in
+            guard let c, let tv else { return }
+            let s = c.current()
+            if tv.string != s, tv.window?.firstResponder !== tv { tv.string = s }
+        }
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView tv: CaptionNSTextView, context: Context) -> CGSize? {
@@ -229,6 +248,7 @@ struct CaptionTextField: NSViewRepresentable {
 
     @MainActor final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CaptionTextField
+        let tracking = RepresentableTracking()
         init(_ p: CaptionTextField) { parent = p }
         func current() -> String { parent.store.project.timeline.clip(parent.clipID).flatMap(CaptionOps.text)?.string ?? "" }
 
@@ -288,10 +308,14 @@ final class CaptionNSTextView: NSTextView {
 struct CaptionTemplatesSection: View {
     let ctx: InspectorContext
     var body: some View {
-        TileGrid {
-            ForEach(Registries.captionTemplates.all) { d in
-                Tile(title: tr(d.nameKey)) { ctx.store.applyCaptionTemplate(d) } content: {
-                    TextPreviewImage(key: "captionTemplate:\(d.id)", content: Self.preview(d), fontPx: 30, padding: 4)
+        WithPerceptionTracking {
+            TileGrid {
+                ForEach(Registries.captionTemplates.all) { d in
+                    WithPerceptionTracking {
+                        Tile(title: tr(d.nameKey)) { ctx.store.applyCaptionTemplate(d) } content: {
+                            TextPreviewImage(key: "captionTemplate:\(d.id)", content: Self.preview(d), fontPx: 30, padding: 4)
+                        }
+                    }
                 }
             }
         }

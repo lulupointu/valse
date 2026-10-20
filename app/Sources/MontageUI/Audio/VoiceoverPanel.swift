@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Voice-over recorder popover (timeline toolbar 🎙, MI-016): input device, live level meter, echo reduction, mute the
 /// project while recording, 3-2-1 countdown, then records from the playhead while the timeline plays; Stop inserts
@@ -24,64 +25,68 @@ struct VoiceoverPanel: View {
     enum Phase: Equatable { case idle, countdown(Int), recording }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(loc: "record.title").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-            if permission == .denied {
-                Text(loc: "record.permissionDenied").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button(tr("record.openSettings")) {
-                    if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") { NSWorkspace.shared.open(u) }
-                }
-                .buttonStyle(SecondaryButtonStyle())
-            } else {
-                HStack {
-                    Text(loc: "record.input").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-                    Spacer()
-                    Picker(tr("record.input"), selection: $device) {
-                        Text(loc: "record.input.default").tag(UInt32(0))
-                        ForEach(devices) { Text(verbatim: $0.name).tag($0.id) }
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(loc: "record.title").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                if permission == .denied {
+                    Text(loc: "record.permissionDenied").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(tr("record.openSettings")) {
+                        if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") { NSWorkspace.shared.open(u) }
                     }
-                    .labelsHidden().frame(width: 180).disabled(phase != .idle)
-                }
-                // level meter
-                GeometryReader { g in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3).fill(Theme.inset)
-                        RoundedRectangle(cornerRadius: 3).fill(level > 0.9 ? Color.red : Theme.accent)
-                            .frame(width: g.size.width * CGFloat(min(1, sqrt(level))))
+                    .buttonStyle(SecondaryButtonStyle())
+                } else {
+                    HStack {
+                        Text(loc: "record.input").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                        Spacer()
+                        Picker(tr("record.input"), selection: $device) {
+                            Text(loc: "record.input.default").tag(UInt32(0))
+                            ForEach(devices) { Text(verbatim: $0.name).tag($0.id) }
+                        }
+                        .labelsHidden().frame(width: 180).disabled(phase != .idle)
                     }
-                }
-                .frame(height: 6)
-                ToggleRow(tr("record.echoReduction"), isOn: $echoReduction).disabled(phase != .idle)
-                ToggleRow(tr("record.muteProject"), isOn: $muteProject).disabled(phase != .idle)
-                HStack {
-                    Spacer()
-                    Button(action: toggle) {
-                        ZStack {
-                            Circle().stroke(Color.white.opacity(0.8), lineWidth: 2).frame(width: 46, height: 46)
-                            if phase == .recording {
-                                RoundedRectangle(cornerRadius: 3).fill(Color.red).frame(width: 18, height: 18)
-                            } else if case .countdown(let n) = phase {
-                                Text(verbatim: "\(n)").font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
-                            } else {
-                                Circle().fill(Color.red).frame(width: 34, height: 34)
+                    // level meter
+                    GeometryReader { g in
+                        WithPerceptionTracking {
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3).fill(Theme.inset)
+                                RoundedRectangle(cornerRadius: 3).fill(level > 0.9 ? Color.red : Theme.accent)
+                                    .frame(width: g.size.width * CGFloat(min(1, sqrt(level))))
                             }
                         }
                     }
-                    .buttonStyle(.plain)
-                    .help(tr(phase == .recording ? "record.stop" : "record.start"))
-                    Spacer()
+                    .frame(height: 6)
+                    ToggleRow(tr("record.echoReduction"), isOn: $echoReduction).disabled(phase != .idle)
+                    ToggleRow(tr("record.muteProject"), isOn: $muteProject).disabled(phase != .idle)
+                    HStack {
+                        Spacer()
+                        Button(action: toggle) {
+                            ZStack {
+                                Circle().stroke(Color.white.opacity(0.8), lineWidth: 2).frame(width: 46, height: 46)
+                                if phase == .recording {
+                                    RoundedRectangle(cornerRadius: 3).fill(Color.red).frame(width: 18, height: 18)
+                                } else if case .countdown(let n) = phase {
+                                    Text(verbatim: "\(n)").font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
+                                } else {
+                                    Circle().fill(Color.red).frame(width: 34, height: 34)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help(tr(phase == .recording ? "record.stop" : "record.start"))
+                        Spacer()
+                    }
+                    Text(verbatim: phase == .recording ? Timecode.shortDuration(Time(elapsed)) : tr("record.hint"))
+                        .font(Theme.Fonts.hint.monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                    if let errorKey { Text(loc: errorKey).font(Theme.Fonts.hint).foregroundStyle(.red) }
                 }
-                Text(verbatim: phase == .recording ? Timecode.shortDuration(Time(elapsed)) : tr("record.hint"))
-                    .font(Theme.Fonts.hint.monospacedDigit()).foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: .infinity)
-                if let errorKey { Text(loc: errorKey).font(Theme.Fonts.hint).foregroundStyle(.red) }
             }
+            .padding(16)
+            .frame(width: 300)
+            .onAppear { Task { await prepare() } }
+            .onDisappear { stopAll(insert: phase == .recording) }
         }
-        .padding(16)
-        .frame(width: 300)
-        .onAppear { Task { await prepare() } }
-        .onDisappear { stopAll(insert: phase == .recording) }
     }
 
     private func prepare() async {
@@ -160,8 +165,10 @@ struct VoiceoverButton: View {
     let store: EditorStore
     @State private var shown = false
     var body: some View {
-        IconButton("mic", help: tr("toolbar.voiceover"), active: shown) { shown.toggle() }
-            .popover(isPresented: $shown, arrowEdge: .bottom) { VoiceoverPanel(store: store) }
+        WithPerceptionTracking {
+            IconButton("mic", help: tr("toolbar.voiceover"), active: shown) { shown.toggle() }
+                .popover(isPresented: $shown, arrowEdge: .bottom) { WithPerceptionTracking { VoiceoverPanel(store: store) } }
+        }
     }
 }
 
@@ -169,16 +176,18 @@ struct VoiceoverButton: View {
 struct BeatsMenu: View {
     let store: EditorStore
     var body: some View {
-        Menu {
-            Button(tr("audio.beats.noneItem")) { store.autoBeats(level: nil) }
-            Button(tr("audio.beats.level1")) { store.autoBeats(level: 1) }
-            Button(tr("audio.beats.level2")) { store.autoBeats(level: 2) }
-            Divider()
-            Button(tr("tlmenu.markBeat")) { store.addMarker() }
-        } label: {
-            Image(systemName: "heart").font(.system(size: 14)).foregroundStyle(Theme.textPrimary.opacity(0.85))
+        WithPerceptionTracking {
+            Menu {
+                Button(tr("audio.beats.noneItem")) { store.autoBeats(level: nil) }
+                Button(tr("audio.beats.level1")) { store.autoBeats(level: 1) }
+                Button(tr("audio.beats.level2")) { store.autoBeats(level: 2) }
+                Divider()
+                Button(tr("tlmenu.markBeat")) { store.addMarker() }
+            } label: {
+                Image(systemName: "heart").font(.system(size: 14)).foregroundStyle(Theme.textPrimary.opacity(0.85))
+            }
+            .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
+            .help(tr("toolbar.beat"))
         }
-        .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
-        .help(tr("toolbar.beat"))
     }
 }

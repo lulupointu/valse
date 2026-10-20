@@ -3,6 +3,7 @@ import AppKit
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Video ▸ Basic ▸ ☐ Relight / Ajout de lumière (UX_AI §4.10, AI-024 / CL-020). Ticking applies the Facial preset and
 // starts the depth pass in the background ("Applying relight... %1%" on the clip and in the section; untick or ⌘Z
@@ -22,7 +23,7 @@ enum RelightInspector {
     ]
 }
 
-@MainActor @Observable final class RelightUIState {
+@MainActor @Perceptible final class RelightUIState {
     static let shared = RelightUIState()
     /// Index of the light being edited.
     var selectedLight = 0
@@ -35,104 +36,110 @@ struct RelightSection: View {
     let ctx: InspectorContext
 
     var body: some View {
-        let st = RelightUIState.shared
-        let _ = ModelManager.shared.states   // re-render when the depth model download finishes (`hasModel` is a disk check)
-        let r = ctx.clip?.relight ?? RelightSettings.preset(.facial)
-        let sel = min(st.selectedLight, max(r.lights.count - 1, 0))
-        VStack(alignment: .leading, spacing: 6) {
-            Color.clear.frame(maxWidth: .infinity).frame(height: 1).testID("relight.top")   // UI tests: header is just above
-            if let id = ctx.clip?.id, let job = st.jobs[id] {
-                let p = ctx.store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr("relight.applying", JobInfo.percent(p)), progress: p) { ctx.store.setRelight(id, on: false) }
-                    .testID("relight.progress")
-            }
-            if !RelightDepth.hasModel {
-                HintText(text: tr("relight.betterDepth")).testID("relight.needsModel")
-                ModelStateControls(spec: ModelCatalog.depthAnything)
-            }
-            // presets
-            HStack(spacing: 4) {
-                ForEach(RelightSettings.Preset.allCases, id: \.self) { p in
-                    let on = r.preset == p
-                    Button { applyPreset(p) } label: {
-                        Text(loc: p.nameKey).font(.system(size: 11, weight: on ? .semibold : .regular)).lineLimit(1)
-                            .foregroundStyle(on ? Theme.accent : Theme.textPrimary)
-                            .padding(.horizontal, 6).frame(maxWidth: .infinity).frame(height: 26)
-                            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
-                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(on ? Theme.accent : Color.clear))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .testID("relight.preset.\(p.rawValue)")
+        WithPerceptionTracking {
+            let st = RelightUIState.shared
+            let _ = ModelManager.shared.states   // re-render when the depth model download finishes (`hasModel` is a disk check)
+            let r = ctx.clip?.relight ?? RelightSettings.preset(.facial)
+            let sel = min(st.selectedLight, max(r.lights.count - 1, 0))
+            VStack(alignment: .leading, spacing: 6) {
+                Color.clear.frame(maxWidth: .infinity).frame(height: 1).testID("relight.top")   // UI tests: header is just above
+                if let id = ctx.clip?.id, let job = st.jobs[id] {
+                    let p = ctx.store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr("relight.applying", JobInfo.percent(p)), progress: p) { ctx.store.setRelight(id, on: false) }
+                        .testID("relight.progress")
                 }
-            }
-            InlineRow(label: tr("relight.target")) {
-                Dropdown(items: RelightSettings.Target.allCases.map { ($0, tr($0.nameKey)) }, selection: r.target) { v in
-                    edit("cmd.relight") { $0.target = v }
-                    if let id = ctx.clip?.id { ctx.store.ensureRelightPass(id) }
+                if !RelightDepth.hasModel {
+                    HintText(text: tr("relight.betterDepth")).testID("relight.needsModel")
+                    ModelStateControls(spec: ModelCatalog.depthAnything)
                 }
-            }
-            row("relight.ambient", get: { $0.ambientDarkening }, set: { $0.ambientDarkening = $1 })
-            row("relight.relief", get: { $0.relief }, set: { $0.relief = $1 })
-            // lights list
-            HStack(spacing: 6) {
-                Text(loc: "relight.lights").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-                Spacer()
-                ForEach(r.lights.indices, id: \.self) { i in
-                    Button { st.selectedLight = i } label: {
-                        Text(verbatim: tr("relight.light", i + 1)).font(.system(size: 11))
-                            .foregroundStyle(i == sel ? Theme.accent : Theme.textSecondary)
-                            .padding(.horizontal, 6).frame(height: 22)
-                            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
-                    }
-                    .buttonStyle(.plain).testID("relight.light.\(i)")
-                }
-                SmallIconButton(symbol: "plus", help: tr("relight.addLight"), enabled: r.lights.count < RelightSettings.maxLights) {
-                    edit("cmd.relight") { s in
-                        var l = s.lights.last ?? RelightLight()
-                        l.x = 1 - l.x
-                        s.lights.append(l)
-                    }
-                    st.selectedLight = r.lights.count
-                }.testID("relight.addLight")
-                SmallIconButton(symbol: "trash", help: tr("relight.removeLight"), enabled: r.lights.count > 1) {
-                    edit("cmd.relight") { s in if s.lights.indices.contains(sel), s.lights.count > 1 { s.lights.remove(at: sel) } }
-                    st.selectedLight = max(0, sel - 1)
-                }.testID("relight.removeLight")
-            }
-            .padding(.top, 4)
-            if r.lights.indices.contains(sel) {
-                let l = r.lights[sel]
-                InlineRow(label: tr("relight.type")) {
-                    Dropdown(items: RelightLight.Kind.allCases.map { ($0, tr($0.nameKey)) }, selection: l.kind) { v in
-                        light(sel) { $0.kind = v }
+                // presets
+                HStack(spacing: 4) {
+                    ForEach(RelightSettings.Preset.allCases, id: \.self) { p in
+                        WithPerceptionTracking {
+                            let on = r.preset == p
+                            Button { applyPreset(p) } label: {
+                                Text(loc: p.nameKey).font(.system(size: 11, weight: on ? .semibold : .regular)).lineLimit(1)
+                                    .foregroundStyle(on ? Theme.accent : Theme.textPrimary)
+                                    .padding(.horizontal, 6).frame(maxWidth: .infinity).frame(height: 26)
+                                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
+                                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(on ? Theme.accent : Color.clear))
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .testID("relight.preset.\(p.rawValue)")
+                        }
                     }
                 }
-                InlineRow(label: tr("relight.color")) {
-                    HStack {
-                        ColorSwatchButton(color: l.color) { c in light(sel) { $0.color = c } }
-                        Spacer()
-                        let active = st.tool != nil && ctx.store.playerUI.canvasTool === st.tool
-                        PillButton(title: tr(active ? "relight.canvasDone" : "relight.canvas"), symbol: "hand.point.up.left",
-                                   accent: active) { toggleTool() }
-                            .testID("relight.canvas")
+                InlineRow(label: tr("relight.target")) {
+                    Dropdown(items: RelightSettings.Target.allCases.map { ($0, tr($0.nameKey)) }, selection: r.target) { v in
+                        edit("cmd.relight") { $0.target = v }
+                        if let id = ctx.clip?.id { ctx.store.ensureRelightPass(id) }
                     }
                 }
-                lightRow(sel, "relight.brightness", \.brightness)
-                lightRow(sel, "relight.intensity", \.intensity)
-                if l.kind == .point { lightRow(sel, "relight.radius", \.radius) }
-                lightRow(sel, "relight.distance", \.distance)
-                lightRow(sel, "relight.highlights", \.highlights)
-                lightRow(sel, "relight.positionX", \.x)
-                lightRow(sel, "relight.positionY", \.y)
-                GroupCaption(title: tr("relight.animation"))
-                lightRow(sel, "relight.moving", \.movingSpeed)
-                lightRow(sel, "relight.blinking", \.blinkingSpeed)
-                lightRow(sel, "relight.colorChanging", \.colorChanging)
+                row("relight.ambient", get: { $0.ambientDarkening }, set: { $0.ambientDarkening = $1 })
+                row("relight.relief", get: { $0.relief }, set: { $0.relief = $1 })
+                // lights list
+                HStack(spacing: 6) {
+                    Text(loc: "relight.lights").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    ForEach(r.lights.indices, id: \.self) { i in
+                        WithPerceptionTracking {
+                            Button { st.selectedLight = i } label: {
+                                Text(verbatim: tr("relight.light", i + 1)).font(.system(size: 11))
+                                    .foregroundStyle(i == sel ? Theme.accent : Theme.textSecondary)
+                                    .padding(.horizontal, 6).frame(height: 22)
+                                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
+                            }
+                            .buttonStyle(.plain).testID("relight.light.\(i)")
+                        }
+                    }
+                    SmallIconButton(symbol: "plus", help: tr("relight.addLight"), enabled: r.lights.count < RelightSettings.maxLights) {
+                        edit("cmd.relight") { s in
+                            var l = s.lights.last ?? RelightLight()
+                            l.x = 1 - l.x
+                            s.lights.append(l)
+                        }
+                        st.selectedLight = r.lights.count
+                    }.testID("relight.addLight")
+                    SmallIconButton(symbol: "trash", help: tr("relight.removeLight"), enabled: r.lights.count > 1) {
+                        edit("cmd.relight") { s in if s.lights.indices.contains(sel), s.lights.count > 1 { s.lights.remove(at: sel) } }
+                        st.selectedLight = max(0, sel - 1)
+                    }.testID("relight.removeLight")
+                }
+                .padding(.top, 4)
+                if r.lights.indices.contains(sel) {
+                    let l = r.lights[sel]
+                    InlineRow(label: tr("relight.type")) {
+                        Dropdown(items: RelightLight.Kind.allCases.map { ($0, tr($0.nameKey)) }, selection: l.kind) { v in
+                            light(sel) { $0.kind = v }
+                        }
+                    }
+                    InlineRow(label: tr("relight.color")) {
+                        HStack {
+                            ColorSwatchButton(color: l.color) { c in light(sel) { $0.color = c } }
+                            Spacer()
+                            let active = st.tool != nil && ctx.store.playerUI.canvasTool === st.tool
+                            PillButton(title: tr(active ? "relight.canvasDone" : "relight.canvas"), symbol: "hand.point.up.left",
+                                       accent: active) { toggleTool() }
+                                .testID("relight.canvas")
+                        }
+                    }
+                    lightRow(sel, "relight.brightness", \.brightness)
+                    lightRow(sel, "relight.intensity", \.intensity)
+                    if l.kind == .point { lightRow(sel, "relight.radius", \.radius) }
+                    lightRow(sel, "relight.distance", \.distance)
+                    lightRow(sel, "relight.highlights", \.highlights)
+                    lightRow(sel, "relight.positionX", \.x)
+                    lightRow(sel, "relight.positionY", \.y)
+                    GroupCaption(title: tr("relight.animation"))
+                    lightRow(sel, "relight.moving", \.movingSpeed)
+                    lightRow(sel, "relight.blinking", \.blinkingSpeed)
+                    lightRow(sel, "relight.colorChanging", \.colorChanging)
+                }
+                HintText(text: tr("relight.hint"))
             }
-            HintText(text: tr("relight.hint"))
+            .onDisappear { if let t = st.tool, ctx.store.playerUI.canvasTool === t { ctx.store.playerUI.canvasTool = nil; st.tool = nil } }
         }
-        .onDisappear { if let t = st.tool, ctx.store.playerUI.canvasTool === t { ctx.store.playerUI.canvasTool = nil; st.tool = nil } }
     }
 
     func edit(_ name: String, _ body: @escaping (inout RelightSettings) -> Void) {
@@ -196,7 +203,7 @@ struct RelightSection: View {
 @MainActor public final class RelightLightTool: CanvasTool {
     public let clipID: ClipID
     public private(set) var revision = 0
-    @ObservationIgnored weak var store: EditorStore?
+    @PerceptionIgnored weak var store: EditorStore?
     private var dragging: Int?
 
     init(clipID: ClipID, store: EditorStore) { self.clipID = clipID; self.store = store }

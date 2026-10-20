@@ -3,6 +3,7 @@ import AppKit
 import MontageCore
 import MontageEffects
 import MontageEngine
+import Perception
 
 /// Rendered thumbnails of text styles / bubbles / templates for tiles. Rendered off the main thread with the real text
 /// engine (what you see on the tile is what the clip will look like) and cached for the session.
@@ -44,9 +45,11 @@ struct TextPreviewImage: View {
     var padding: CGFloat = 6
 
     var body: some View {
-        // Cached, else rendered right away (a 44 px tile costs ~1 ms; lazy grids only build visible tiles).
-        if let image = TextPreviewCache.shared.image(key, content, fontPx: fontPx) {
-            Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(padding)
+        WithPerceptionTracking {
+            // Cached, else rendered right away (a 44 px tile costs ~1 ms; lazy grids only build visible tiles).
+            if let image = TextPreviewCache.shared.image(key, content, fontPx: fontPx) {
+                Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit).padding(padding)
+            }
         }
     }
 
@@ -127,14 +130,18 @@ struct GlyphAnimationPreview: View {
     @ObservedObject private var cache = GlyphAnimationFrames.shared
 
     var body: some View {
-        if let frames = cache.frames(for: descriptor), !frames.isEmpty {
-            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !playing || TestAnchors.isEnabled)) { tl in
-                Image(nsImage: frames[min(index(at: tl.date, count: frames.count), frames.count - 1)])
-                    .resizable().interpolation(.high).aspectRatio(contentMode: .fit)
-                    .padding(.horizontal, 4)
+        WithPerceptionTracking {
+            if let frames = cache.frames(for: descriptor), !frames.isEmpty {
+                SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !playing || TestAnchors.isEnabled)) { tl in
+                    WithPerceptionTracking {
+                        Image(nsImage: frames[min(index(at: tl.date, count: frames.count), frames.count - 1)])
+                            .resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                            .padding(.horizontal, 4)
+                    }
+                }
+            } else {
+                ProgressView().controlSize(.small).opacity(0.5)
             }
-        } else {
-            ProgressView().controlSize(.small).opacity(0.5)
         }
     }
 

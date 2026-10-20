@@ -1,5 +1,6 @@
 import SwiftUI
 import MontageCore
+import Perception
 
 /// Panel container: 42 pt header strip (#303030) over a #1B1B1C body, radius 6 (UX.md §1.1).
 public struct Panel<Header: View, Content: View>: View {
@@ -9,16 +10,18 @@ public struct Panel<Header: View, Content: View>: View {
         self.header = header(); self.content = content()
     }
     public var body: some View {
-        VStack(spacing: 0) {
-            header
-                .frame(height: Theme.Metrics.panelHeader)
-                .frame(maxWidth: .infinity)
-                .background(Theme.panelHeader)
-            Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
-            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                header
+                    .frame(height: Theme.Metrics.panelHeader)
+                    .frame(maxWidth: .infinity)
+                    .background(Theme.panelHeader)
+                Rectangle().fill(Theme.headerSeparator).frame(height: 0.5)
+                content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .background(Theme.panel)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius))
         }
-        .background(Theme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius))
     }
 }
 
@@ -31,18 +34,20 @@ public struct SectionHeader: View {
         self.title = title; self._expanded = expanded; self.onReset = onReset
     }
     public var body: some View {
-        HStack(spacing: 6) {
-            Text(verbatim: title).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
-            Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Theme.textTertiary)
-            Spacer()
-            if let onReset {
-                Button(action: onReset) { Image(systemName: "arrow.counterclockwise").font(.system(size: 11)) }
-                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("inspector.reset"))
+        WithPerceptionTracking {
+            HStack(spacing: 6) {
+                Text(verbatim: title).font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
+                Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                Spacer()
+                if let onReset {
+                    Button(action: onReset) { Image(systemName: "arrow.counterclockwise").font(.system(size: 11)) }
+                        .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("inspector.reset"))
+                }
             }
+            .contentShape(Rectangle())
+            .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } }
         }
-        .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } }
     }
 }
 
@@ -74,32 +79,34 @@ public struct SliderRow: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: label).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-            HStack(spacing: 8) {
-                Slider(value: Binding(get: { min(max(get(), range.lowerBound), range.upperBound) }, set: set), in: range) { editing in
-                    editing ? onBegin() : onEnd()
-                }
-                .controlSize(.small)
-                .tint(.white)
-                .testID(testID ?? "slider.\(label)")
-                TextField("", text: $text)
-                    .textFieldStyle(.plain)
-                    .font(Theme.Fonts.numeric)
-                    .multilineTextAlignment(.center)
-                    .frame(width: 58, height: 24)
-                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
-                    .focused($focused)
-                    .testID((testID ?? "slider.\(label)") + ".field")
-                    .onSubmit {
-                        if let v = parse(text) { onBegin(); set(min(max(v, range.lowerBound), range.upperBound)); onEnd() }
-                        text = display(get())
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: label).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                HStack(spacing: 8) {
+                    Slider(value: Binding(get: { min(max(get(), range.lowerBound), range.upperBound) }, set: set), in: range) { editing in
+                        editing ? onBegin() : onEnd()
                     }
-                if let keyframe { KeyframeButton(state: keyframe) }
+                    .controlSize(.small)
+                    .tint(.white)
+                    .testID(testID ?? "slider.\(label)")
+                    TextField("", text: $text)
+                        .textFieldStyle(.plain)
+                        .font(Theme.Fonts.numeric)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 58, height: 24)
+                        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
+                        .focused($focused)
+                        .testID((testID ?? "slider.\(label)") + ".field")
+                        .onSubmit {
+                            if let v = parse(text) { onBegin(); set(min(max(v, range.lowerBound), range.upperBound)); onEnd() }
+                            text = display(get())
+                        }
+                    if let keyframe { KeyframeButton(state: keyframe) }
+                }
             }
+            .onAppear { text = display(get()) }
+            .onValueChange(of: get()) { _, v in if !focused { text = display(v) } }
         }
-        .onAppear { text = display(get()) }
-        .onChange(of: get()) { _, v in if !focused { text = display(v) } }
     }
 }
 
@@ -114,20 +121,22 @@ public struct KeyframeButton: View {
     }
     let state: State
     public var body: some View {
-        HStack(spacing: 2) {
-            Button { state.previous?() } label: { Image(systemName: "chevron.left").font(.system(size: 8)) }
-                .buttonStyle(.plain).opacity(state.previous == nil ? 0.3 : 0.8).disabled(state.previous == nil)
-            Button(action: state.toggle) {
-                Image(systemName: state.isOnKeyframe ? "diamond.fill" : "diamond")
-                    .font(.system(size: 10))
-                    .foregroundStyle(state.isOnKeyframe ? Theme.accent : Theme.textSecondary)
+        WithPerceptionTracking {
+            HStack(spacing: 2) {
+                Button { state.previous?() } label: { Image(systemName: "chevron.left").font(.system(size: 8)) }
+                    .buttonStyle(.plain).opacity(state.previous == nil ? 0.3 : 0.8).disabled(state.previous == nil)
+                Button(action: state.toggle) {
+                    Image(systemName: state.isOnKeyframe ? "diamond.fill" : "diamond")
+                        .font(.system(size: 10))
+                        .foregroundStyle(state.isOnKeyframe ? Theme.accent : Theme.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .help(tr("inspector.keyframe"))
+                Button { state.next?() } label: { Image(systemName: "chevron.right").font(.system(size: 8)) }
+                    .buttonStyle(.plain).opacity(state.next == nil ? 0.3 : 0.8).disabled(state.next == nil)
             }
-            .buttonStyle(.plain)
-            .help(tr("inspector.keyframe"))
-            Button { state.next?() } label: { Image(systemName: "chevron.right").font(.system(size: 8)) }
-                .buttonStyle(.plain).opacity(state.next == nil ? 0.3 : 0.8).disabled(state.next == nil)
+            .foregroundStyle(Theme.textSecondary)
         }
-        .foregroundStyle(Theme.textSecondary)
     }
 }
 
@@ -137,19 +146,23 @@ public struct SegmentedTabs: View {
     @Binding var selection: String
     public init(_ items: [(id: String, title: String)], selection: Binding<String>) { self.items = items; self._selection = selection }
     public var body: some View {
-        HStack(spacing: 2) {
-            ForEach(items, id: \.id) { item in
-                Text(verbatim: item.title)
-                    .font(.system(size: 12, weight: selection == item.id ? .medium : .regular))
-                    .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textTertiary)
-                    .frame(maxWidth: .infinity, minHeight: 24)
-                    .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
-                    .contentShape(Rectangle())
-                    .onTapGesture { selection = item.id }
+        WithPerceptionTracking {
+            HStack(spacing: 2) {
+                ForEach(items, id: \.id) { item in
+                    WithPerceptionTracking {
+                        Text(verbatim: item.title)
+                            .font(.system(size: 12, weight: selection == item.id ? .medium : .regular))
+                            .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textTertiary)
+                            .frame(maxWidth: .infinity, minHeight: 24)
+                            .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
+                            .contentShape(Rectangle())
+                            .onTapGesture { selection = item.id }
+                    }
+                }
             }
+            .padding(2)
+            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
         }
-        .padding(2)
-        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -186,18 +199,20 @@ public struct IconButton: View {
         self.symbol = symbol; self.help = help; self.active = active; self.enabled = enabled; self.action = action
     }
     public var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 14, weight: .regular))
-                .frame(width: 26, height: 26)
-                .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(enabled ? 0.85 : 0.3))
-                .contentShape(Rectangle())
+        WithPerceptionTracking {
+            Button(action: action) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14, weight: .regular))
+                    .frame(width: 26, height: 26)
+                    .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(enabled ? 0.85 : 0.3))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+            .help(help)
+            .accessibilityLabel(Text(verbatim: help))   // SE-017: icon-only buttons speak their tooltip
+            .accessibilityAddTraits(active ? .isSelected : [])
         }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .help(help)
-        .accessibilityLabel(Text(verbatim: help))   // SE-017: icon-only buttons speak their tooltip
-        .accessibilityAddTraits(active ? .isSelected : [])
     }
 }
 
@@ -207,10 +222,12 @@ public struct ToggleRow: View {
     @Binding var isOn: Bool
     public init(_ label: String, isOn: Binding<Bool>) { self.label = label; self._isOn = isOn }
     public var body: some View {
-        HStack {
-            Text(verbatim: label).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-            Spacer()
-            Toggle("", isOn: $isOn).toggleStyle(.switch).controlSize(.mini).tint(Theme.accent).labelsHidden()
+        WithPerceptionTracking {
+            HStack {
+                Text(verbatim: label).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Toggle("", isOn: $isOn).toggleStyle(.switch).controlSize(.mini).tint(Theme.accent).labelsHidden()
+            }
         }
     }
 }
@@ -221,10 +238,12 @@ public struct InfoRow: View {
     let value: String
     public init(_ label: String, _ value: String) { self.label = label; self.value = value }
     public var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(verbatim: label).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary).frame(width: 110, alignment: .leading)
-            Text(verbatim: value).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.middle)
-            Spacer(minLength: 0)
+        WithPerceptionTracking {
+            HStack(alignment: .firstTextBaseline) {
+                Text(verbatim: label).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary).frame(width: 110, alignment: .leading)
+                Text(verbatim: value).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
         }
     }
 }

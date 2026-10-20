@@ -2,9 +2,10 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// Observable bridge for background audio renders (voice changer, noise reduction…): drives "Processing…" rows.
-@MainActor @Observable
+@MainActor @Perceptible
 final class AudioProcessingMonitor {
     static let shared = AudioProcessingMonitor()
     var revision = 0
@@ -97,11 +98,13 @@ enum AudioInspector {
 struct ProcessingRow: View {
     let ctx: InspectorContext
     var body: some View {
-        let p = AudioInspector.pending(ctx) ?? 0
-        HStack(spacing: 8) {
-            ProgressView(value: p).progressViewStyle(.linear).tint(Theme.accent).frame(width: 90)
-            Text(loc: "audio.processing").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
-            Spacer()
+        WithPerceptionTracking {
+            let p = AudioInspector.pending(ctx) ?? 0
+            HStack(spacing: 8) {
+                ProgressView(value: p).progressViewStyle(.linear).tint(Theme.accent).frame(width: 90)
+                Text(loc: "audio.processing").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary)
+                Spacer()
+            }
         }
     }
 }
@@ -109,21 +112,23 @@ struct ProcessingRow: View {
 struct LoudnessSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let l = ctx.clip?.audio.loudness
-        VStack(alignment: .leading, spacing: 8) {
-            Text(loc: "audio.loudness.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Text(loc: "audio.loudness.targetLabel").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-                Spacer()
-                Picker(tr("audio.loudness.targetLabel"), selection: Binding(get: { l?.targetLUFS ?? -23 }, set: { ctx.store.setLoudnessTarget($0) })) {
-                    ForEach(LoudnessNormalization.targets, id: \.self) { t in Text(loc: "audio.loudness.target.\(Int(-t))").tag(t) }
+        WithPerceptionTracking {
+            let l = ctx.clip?.audio.loudness
+            VStack(alignment: .leading, spacing: 8) {
+                Text(loc: "audio.loudness.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Text(loc: "audio.loudness.targetLabel").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Picker(tr("audio.loudness.targetLabel"), selection: Binding(get: { l?.targetLUFS ?? -23 }, set: { ctx.store.setLoudnessTarget($0) })) {
+                        ForEach(LoudnessNormalization.targets, id: \.self) { t in WithPerceptionTracking { Text(loc: "audio.loudness.target.\(Int(-t))").tag(t) } }
+                    }
+                    .labelsHidden().frame(width: 180)
                 }
-                .labelsHidden().frame(width: 180)
-            }
-            if let m = l?.measuredLUFS, m.isFinite {
-                InfoRow(tr("audio.loudness.measured"), String(format: "%.1f LUFS", m))
-            } else {
-                HStack(spacing: 6) { ProgressView().controlSize(.mini); Text(loc: "audio.analyzing").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
+                if let m = l?.measuredLUFS, m.isFinite {
+                    InfoRow(tr("audio.loudness.measured"), String(format: "%.1f LUFS", m))
+                } else {
+                    HStack(spacing: 6) { ProgressView().controlSize(.mini); Text(loc: "audio.analyzing").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
+                }
             }
         }
     }
@@ -135,13 +140,15 @@ struct StrengthRow: View {
     let defaultValue: Double
     let hint: String?
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let hint { Text(loc: hint).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true) }
-            // the offline render restarts when the drag ends (one undo step per drag)
-            ClipParamRow(ctx: ctx, label: tr("audio.strength"), spec: RowSpec(range: 0...100, step: 5, format: Fmt.int),
-                         get: { [path, defaultValue] c, _ in (c.audio[keyPath: path] ?? defaultValue) * 100 },
-                         set: { [path] c, v, _ in c.audio[keyPath: path] = (v / 5).rounded() * 5 / 100 },
-                         gestureName: "cmd.audioEffect")
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 6) {
+                if let hint { Text(loc: hint).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true) }
+                // the offline render restarts when the drag ends (one undo step per drag)
+                ClipParamRow(ctx: ctx, label: tr("audio.strength"), spec: RowSpec(range: 0...100, step: 5, format: Fmt.int),
+                             get: { [path, defaultValue] c, _ in (c.audio[keyPath: path] ?? defaultValue) * 100 },
+                             set: { [path] c, v, _ in c.audio[keyPath: path] = (v / 5).rounded() * 5 / 100 },
+                             gestureName: "cmd.audioEffect")
+            }
         }
     }
 }
@@ -149,25 +156,27 @@ struct StrengthRow: View {
 struct SeparationSection: View {
     let ctx: InspectorContext
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(loc: "audio.separation.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
-            SegmentedTabs(VocalSeparation.allCases.map { ($0.rawValue, tr($0.nameKey)) },
-                          selection: AudioInspector.clipBinding(ctx, "cmd.separation", get: { $0.audio.separation?.rawValue ?? "keepVocals" },
-                                                                set: { c, v in c.audio.separation = VocalSeparation(rawValue: v) }))
-            // AU-009 (F3): speech (Apple voice isolation) or singing over music (HTDemucs vocals)
-            InlineRow(label: tr("audio.isolate.source")) {
-                SegmentedTabs(IsolateSource.allCases.map { ($0.rawValue, tr($0.nameKey)) },
-                              selection: AudioInspector.clipBinding(ctx, "cmd.separation", get: { ($0.audio.isolateSource ?? .speech).rawValue },
-                                                                    set: { c, v in let s = IsolateSource(rawValue: v); c.audio.isolateSource = s == .music ? .music : nil }))
-                .testID("audio.isolate.source")
-            }
-            if ctx.clip?.audio.isolateSource == .music, !DemucsRuntime.isAvailable {
-                HStack(spacing: 8) {
-                    Text(loc: "audio.isolate.music.needsModel").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer()
-                    Button(tr("audio.isolate.music.getModel")) { ctx.store.ai.isModelSheetPresented = true }
-                        .buttonStyle(SecondaryButtonStyle()).testID("audio.isolate.getModel")
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(loc: "audio.separation.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                SegmentedTabs(VocalSeparation.allCases.map { ($0.rawValue, tr($0.nameKey)) },
+                              selection: AudioInspector.clipBinding(ctx, "cmd.separation", get: { $0.audio.separation?.rawValue ?? "keepVocals" },
+                                                                    set: { c, v in c.audio.separation = VocalSeparation(rawValue: v) }))
+                // AU-009 (F3): speech (Apple voice isolation) or singing over music (HTDemucs vocals)
+                InlineRow(label: tr("audio.isolate.source")) {
+                    SegmentedTabs(IsolateSource.allCases.map { ($0.rawValue, tr($0.nameKey)) },
+                                  selection: AudioInspector.clipBinding(ctx, "cmd.separation", get: { ($0.audio.isolateSource ?? .speech).rawValue },
+                                                                        set: { c, v in let s = IsolateSource(rawValue: v); c.audio.isolateSource = s == .music ? .music : nil }))
+                    .testID("audio.isolate.source")
+                }
+                if ctx.clip?.audio.isolateSource == .music, !DemucsRuntime.isAvailable {
+                    HStack(spacing: 8) {
+                        Text(loc: "audio.isolate.music.needsModel").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        Button(tr("audio.isolate.music.getModel")) { ctx.store.ai.isModelSheetPresented = true }
+                            .buttonStyle(SecondaryButtonStyle()).testID("audio.isolate.getModel")
+                    }
                 }
             }
         }
@@ -177,14 +186,16 @@ struct SeparationSection: View {
 struct BeatsSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let store = ctx.store
-        VStack(alignment: .leading, spacing: 8) {
-            Text(loc: "audio.beats.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) {
-                Button(tr("audio.beats.level1")) { store.autoBeats(level: 1) }.buttonStyle(SecondaryButtonStyle())
-                Button(tr("audio.beats.level2")) { store.autoBeats(level: 2) }.buttonStyle(SecondaryButtonStyle())
-                Spacer()
-                if let n = ctx.clip?.beats?.count { Text(verbatim: tr("audio.beats.count", n)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
+        WithPerceptionTracking {
+            let store = ctx.store
+            VStack(alignment: .leading, spacing: 8) {
+                Text(loc: "audio.beats.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button(tr("audio.beats.level1")) { store.autoBeats(level: 1) }.buttonStyle(SecondaryButtonStyle())
+                    Button(tr("audio.beats.level2")) { store.autoBeats(level: 2) }.buttonStyle(SecondaryButtonStyle())
+                    Spacer()
+                    if let n = ctx.clip?.beats?.count { Text(verbatim: tr("audio.beats.count", n)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary) }
+                }
             }
         }
     }
@@ -193,11 +204,13 @@ struct BeatsSection: View {
 struct DuckingSection: View {
     let ctx: InspectorContext
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(loc: "audio.ducking.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
-            ClipParamRow(ctx: ctx, label: tr("audio.ducking.amount"), spec: RowSpec(range: -30...(-3), step: 1, format: { Fmt.decibels($0, places: 0) }),
-                         get: { c, _ in c.audio.ducking?.amountDB ?? -12 }, set: { c, v, _ in c.audio.ducking?.amountDB = v.rounded() },
-                         gestureName: "cmd.ducking")
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(loc: "audio.ducking.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                ClipParamRow(ctx: ctx, label: tr("audio.ducking.amount"), spec: RowSpec(range: -30...(-3), step: 1, format: { Fmt.decibels($0, places: 0) }),
+                             get: { c, _ in c.audio.ducking?.amountDB ?? -12 }, set: { c, v, _ in c.audio.ducking?.amountDB = v.rounded() },
+                             gestureName: "cmd.ducking")
+            }
         }
     }
 }
@@ -205,16 +218,18 @@ struct DuckingSection: View {
 struct ToneSection: View {
     let ctx: InspectorContext
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ClipParamRow(ctx: ctx, label: tr("audio.pitch"), spec: RowSpec(range: -12...12, origin: 0, step: 0.5, format: { ($0 > 0.04 ? "+" : "") + Fmt.num($0, 1) }),
-                         get: { c, _ in c.audio.pitch }, set: { c, v, _ in c.audio.pitch = (v * 2).rounded() / 2 }, gestureName: "cmd.pitch")
-            HStack {
-                Text(loc: "audio.channels").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-                Spacer()
-                Picker(tr("audio.channels"), selection: AudioInspector.clipBinding(ctx, "cmd.channels", get: { $0.audio.channels }, set: { c, v in c.audio.channels = v })) {
-                    ForEach(ChannelMode.allCases, id: \.self) { Text(loc: $0.nameKey).tag($0) }
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 6) {
+                ClipParamRow(ctx: ctx, label: tr("audio.pitch"), spec: RowSpec(range: -12...12, origin: 0, step: 0.5, format: { ($0 > 0.04 ? "+" : "") + Fmt.num($0, 1) }),
+                             get: { c, _ in c.audio.pitch }, set: { c, v, _ in c.audio.pitch = (v * 2).rounded() / 2 }, gestureName: "cmd.pitch")
+                HStack {
+                    Text(loc: "audio.channels").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Picker(tr("audio.channels"), selection: AudioInspector.clipBinding(ctx, "cmd.channels", get: { $0.audio.channels }, set: { c, v in c.audio.channels = v })) {
+                        ForEach(ChannelMode.allCases, id: \.self) { Text(loc: $0.nameKey).tag($0) }
+                    }
+                    .labelsHidden().frame(width: 180)
                 }
-                .labelsHidden().frame(width: 180)
             }
         }
     }
@@ -233,40 +248,44 @@ struct EQEditor: View {
         ("lofi", [-12, -8, -2, 0, 2, 2, 0, -4, -10, -12]),
     ]
     var body: some View {
-        let store = ctx.store
-        let eq = ctx.clip?.audio.eq ?? AudioEQ()
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(loc: "audio.eq.preset").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-                Spacer()
-                Picker(tr("audio.eq.preset"), selection: Binding(get: { eq.presetID ?? "custom" }, set: { id in
-                    guard let p = Self.presets.first(where: { $0.id == id }), let cid = ctx.clip?.id else { return }
-                    Bind.apply(store, cid, "cmd.eq") { $0.audio.eq = AudioEQ(gains: p.gains, presetID: p.id) }
-                })) {
-                    Text(loc: "audio.eq.custom").tag("custom")
-                    ForEach(Self.presets, id: \.id) { Text(loc: "audio.eq.\($0.id)").tag($0.id) }
-                }
-                .labelsHidden().frame(width: 180)
-            }
-            HStack(alignment: .bottom, spacing: 2) {
-                ForEach(0..<AudioEQ.frequencies.count, id: \.self) { i in
-                    VStack(spacing: 4) {
-                        Text(verbatim: String(format: "%+.0f", eq.gains[i])).font(.system(size: 9).monospacedDigit()).foregroundStyle(Theme.textTertiary)
-                        Slider(value: Binding(get: { eq.gains[i] }, set: { v in
-                            guard let id = ctx.clip?.id else { return }
-                            Bind.apply(store, id, "cmd.eq") { c in
-                                if c.audio.eq == nil { c.audio.eq = AudioEQ() }
-                                c.audio.eq?.gains[i] = v.rounded(); c.audio.eq?.presetID = nil
-                            }
-                        }), in: AudioEQ.gainRange) { editing in editing ? store.beginGesture("cmd.eq") : store.endGesture() }
-                            .controlSize(.mini).tint(.white)
-                            .frame(width: 84)
-                            .rotationEffect(.degrees(-90))
-                            .frame(width: 22, height: 84)
-                        let f = AudioEQ.frequencies[i]
-                        Text(verbatim: f >= 1000 ? "\(Int(f / 1000))k" : "\(Int(f))").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+        WithPerceptionTracking {
+            let store = ctx.store
+            let eq = ctx.clip?.audio.eq ?? AudioEQ()
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(loc: "audio.eq.preset").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Picker(tr("audio.eq.preset"), selection: Binding(get: { eq.presetID ?? "custom" }, set: { id in
+                        guard let p = Self.presets.first(where: { $0.id == id }), let cid = ctx.clip?.id else { return }
+                        Bind.apply(store, cid, "cmd.eq") { $0.audio.eq = AudioEQ(gains: p.gains, presetID: p.id) }
+                    })) {
+                        Text(loc: "audio.eq.custom").tag("custom")
+                        ForEach(Self.presets, id: \.id) { Text(loc: "audio.eq.\($0.id)").tag($0.id) }
                     }
-                    .frame(maxWidth: .infinity)
+                    .labelsHidden().frame(width: 180)
+                }
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(0..<AudioEQ.frequencies.count, id: \.self) { i in
+                        WithPerceptionTracking {
+                            VStack(spacing: 4) {
+                                Text(verbatim: String(format: "%+.0f", eq.gains[i])).font(.system(size: 9).monospacedDigit()).foregroundStyle(Theme.textTertiary)
+                                Slider(value: Binding(get: { eq.gains[i] }, set: { v in
+                                    guard let id = ctx.clip?.id else { return }
+                                    Bind.apply(store, id, "cmd.eq") { c in
+                                        if c.audio.eq == nil { c.audio.eq = AudioEQ() }
+                                        c.audio.eq?.gains[i] = v.rounded(); c.audio.eq?.presetID = nil
+                                    }
+                                }), in: AudioEQ.gainRange) { editing in editing ? store.beginGesture("cmd.eq") : store.endGesture() }
+                                    .controlSize(.mini).tint(.white)
+                                    .frame(width: 84)
+                                    .rotationEffect(.degrees(-90))
+                                    .frame(width: 22, height: 84)
+                                let f = AudioEQ.frequencies[i]
+                                Text(verbatim: f >= 1000 ? "\(Int(f / 1000))k" : "\(Int(f))").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
                 }
             }
         }
@@ -281,45 +300,51 @@ struct VoiceChangerView: View {
     @State private var applyToAll = false
 
     var body: some View {
-        let store = ctx.store
-        let current = ctx.clip?.audio.voice
-        let pending = AudioInspector.pending(ctx)
-        let items = VoiceEffects.all.filter { $0.category.rawValue == category }
-            .filter { query.isEmpty || tr($0.nameKey).localizedCaseInsensitiveContains(query) }
-        VStack(alignment: .leading, spacing: 12) {
-            Toggle(tr("audio.voice.applyToAll"), isOn: Binding(get: { applyToAll }, set: { v in
-                applyToAll = v
-                if v { store.applyVoice(current, toAll: true) }
-            }))
-            .toggleStyle(.checkbox).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(Theme.textTertiary)
-                TextField(tr("audio.voice.search"), text: $query).textFieldStyle(.plain).font(Theme.Fonts.row)
-            }
-            .padding(.horizontal, 8).frame(height: 28)
-            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
-            HStack(spacing: 8) {
-                ForEach(VoiceCategory.allCases, id: \.self) { c in
-                    Text(loc: c.nameKey)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(category == c.rawValue ? Theme.textPrimary : Theme.textSecondary)
-                        .padding(.horizontal, 12).frame(height: 26)
-                        .background(category == c.rawValue ? Theme.segmentSelected : Theme.inset, in: Capsule())
-                        .contentShape(Capsule())
-                        .onTapGesture { category = c.rawValue }
+        WithPerceptionTracking {
+            let store = ctx.store
+            let current = ctx.clip?.audio.voice
+            let pending = AudioInspector.pending(ctx)
+            let items = VoiceEffects.all.filter { $0.category.rawValue == category }
+                .filter { query.isEmpty || tr($0.nameKey).localizedCaseInsensitiveContains(query) }
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(tr("audio.voice.applyToAll"), isOn: Binding(get: { applyToAll }, set: { v in
+                    applyToAll = v
+                    if v { store.applyVoice(current, toAll: true) }
+                }))
+                .toggleStyle(.checkbox).font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.textTertiary)
+                    TextField(tr("audio.voice.search"), text: $query).textFieldStyle(.plain).font(Theme.Fonts.row)
                 }
-            }
-            if pending != nil { ProcessingRow(ctx: ctx) }
-            Text(loc: "audio.voice.all").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 64, maximum: 78), spacing: 8)], spacing: 8) {
-                tile(nil, selected: current == nil)
-                ForEach(items) { d in tile(d, selected: current?.typeID == d.id) }
-            }
-            if let current, let d = VoiceEffects.descriptor(current.typeID) {
-                ForEach(d.params, id: \.key) { spec in
-                    ClipParamRow(ctx: ctx, label: tr(spec.nameKey), spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
-                                 get: { c, _ in c.audio.voice?.params[spec.key] ?? spec.defaultValue },
-                                 set: { c, v, _ in c.audio.voice?.params[spec.key] = v.rounded() }, gestureName: "cmd.voice")
+                .padding(.horizontal, 8).frame(height: 28)
+                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+                HStack(spacing: 8) {
+                    ForEach(VoiceCategory.allCases, id: \.self) { c in
+                        WithPerceptionTracking {
+                            Text(loc: c.nameKey)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(category == c.rawValue ? Theme.textPrimary : Theme.textSecondary)
+                                .padding(.horizontal, 12).frame(height: 26)
+                                .background(category == c.rawValue ? Theme.segmentSelected : Theme.inset, in: Capsule())
+                                .contentShape(Capsule())
+                                .onTapGesture { category = c.rawValue }
+                        }
+                    }
+                }
+                if pending != nil { ProcessingRow(ctx: ctx) }
+                Text(loc: "audio.voice.all").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 64, maximum: 78), spacing: 8)], spacing: 8) {
+                    tile(nil, selected: current == nil)
+                    ForEach(items) { d in WithPerceptionTracking { tile(d, selected: current?.typeID == d.id) } }
+                }
+                if let current, let d = VoiceEffects.descriptor(current.typeID) {
+                    ForEach(d.params, id: \.key) { spec in
+                        WithPerceptionTracking {
+                            ClipParamRow(ctx: ctx, label: tr(spec.nameKey), spec: RowSpec(range: 0...100, step: 1, format: Fmt.int),
+                                         get: { c, _ in c.audio.voice?.params[spec.key] ?? spec.defaultValue },
+                                         set: { c, v, _ in c.audio.voice?.params[spec.key] = v.rounded() }, gestureName: "cmd.voice")
+                        }
+                    }
                 }
             }
         }

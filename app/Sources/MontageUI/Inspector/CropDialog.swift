@@ -2,12 +2,13 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 // Crop dialog (CV-006, CapCut toolbar ▸ Crop): the clip's uncropped frame with a crop box (8 handles + drag inside),
 // ratio presets (Free, Original, 16:9 …), Rotate inside the crop (−45…45°, the window zooms in to stay inside the
 // image), Reset / Cancel / Confirm. Confirm writes crop L/T/R/B (keyframe-aware at the playhead) + rotation in one undo step.
 
-@MainActor @Observable
+@MainActor @Perceptible
 final class CropDialogModel {
     let clipID: ClipID
     let local: Time
@@ -100,7 +101,7 @@ final class CropDialogModel {
     }
 }
 
-@MainActor @Observable
+@MainActor @Perceptible
 public final class CropDialogState {
     public static let shared = CropDialogState()
     var model: CropDialogModel?
@@ -137,50 +138,56 @@ extension EditorStore {
 
 struct CropDialogModal: View {
     let store: EditorStore
-    @Bindable var model: CropDialogModel
+    @Perception.Bindable var model: CropDialogModel
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea().onTapGesture {}
-            CropDialogView(store: store, model: model)
-                .frame(width: 780, height: 600)
-                .background(Theme.panel)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .background(GeometryReader { g in
-                    Color.clear
-                        .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
-                        .onChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
-                })
-                .shadow(color: .black.opacity(0.5), radius: 20)
-                .testID("crop.dialog")
+        WithPerceptionTracking {
+            ZStack {
+                Color.black.opacity(0.45).ignoresSafeArea().onTapGesture {}
+                CropDialogView(store: store, model: model)
+                    .frame(width: 780, height: 600)
+                    .background(Theme.panel)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .background(GeometryReader { g in
+                        WithPerceptionTracking {
+                            Color.clear
+                                .onAppear { SnapshotRegistry.shared.modalFrame = g.frame(in: .global) }
+                                .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
+                        }
+                    })
+                    .shadow(color: .black.opacity(0.5), radius: 20)
+                    .testID("crop.dialog")
+            }
+            .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
+            .onExitCommand { store.closeCropDialog() }
         }
-        .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
-        .onExitCommand { store.closeCropDialog() }
     }
 }
 
 struct CropDialogView: View {
     let store: EditorStore
-    @Bindable var model: CropDialogModel
+    @Perception.Bindable var model: CropDialogModel
     @State private var dragStart: CropRect?
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(loc: "crop.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                Spacer()
-                Button { store.closeCropDialog() } label: {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
-                }.buttonStyle(.plain).testID("crop.close")
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                HStack {
+                    Text(loc: "crop.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Spacer()
+                    Button { store.closeCropDialog() } label: {
+                        Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                    }.buttonStyle(.plain).testID("crop.close")
+                }
+                .padding(.horizontal, 16).frame(height: 40)
+                Rectangle().fill(Theme.separator).frame(height: 1)
+                GeometryReader { g in WithPerceptionTracking { stage(in: g.size) } }
+                    .padding(20)
+                    .background(Color.black.opacity(0.35))
+                    .testID("crop.stage")
+                Rectangle().fill(Theme.separator).frame(height: 1)
+                controls.padding(.horizontal, 16).padding(.vertical, 12)
             }
-            .padding(.horizontal, 16).frame(height: 40)
-            Rectangle().fill(Theme.separator).frame(height: 1)
-            GeometryReader { g in stage(in: g.size) }
-                .padding(20)
-                .background(Color.black.opacity(0.35))
-                .testID("crop.stage")
-            Rectangle().fill(Theme.separator).frame(height: 1)
-            controls.padding(.horizontal, 16).padding(.vertical, 12)
         }
     }
 
@@ -235,7 +242,9 @@ struct CropDialogView: View {
                 .testID("crop.box")
                 .position(x: box.midX, y: box.midY)
             ForEach(CropDialogModel.Handle.allCases.filter { $0 != .body && (model.targetRatio(model.ratio) == nil || [.tl, .tr, .bl, .br].contains($0)) }, id: \.self) { h in
-                handle(h, box: box, img: img)
+                WithPerceptionTracking {
+                    handle(h, box: box, img: img)
+                }
             }
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
@@ -286,15 +295,17 @@ struct CropDialogView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 ForEach(CropSection.ratios, id: \.id) { r in
-                    let title = r.id == "free" ? tr("inspector.crop.free") : (r.id == "original" ? tr("player.ratio.original") : r.id)
-                    Button { model.applyRatio(r.id) } label: {
-                        Text(verbatim: title).font(.system(size: 12, weight: model.ratio == r.id ? .semibold : .regular))
-                            .foregroundStyle(model.ratio == r.id ? Theme.textPrimary : Theme.textSecondary)
-                            .padding(.horizontal, 10).frame(height: 26)
-                            .background(model.ratio == r.id ? Theme.segmentSelected : Theme.inset, in: RoundedRectangle(cornerRadius: 5))
-                            .overlay(RoundedRectangle(cornerRadius: 5).stroke(model.ratio == r.id ? Theme.accent : .clear, lineWidth: 1))
+                    WithPerceptionTracking {
+                        let title = r.id == "free" ? tr("inspector.crop.free") : (r.id == "original" ? tr("player.ratio.original") : r.id)
+                        Button { model.applyRatio(r.id) } label: {
+                            Text(verbatim: title).font(.system(size: 12, weight: model.ratio == r.id ? .semibold : .regular))
+                                .foregroundStyle(model.ratio == r.id ? Theme.textPrimary : Theme.textSecondary)
+                                .padding(.horizontal, 10).frame(height: 26)
+                                .background(model.ratio == r.id ? Theme.segmentSelected : Theme.inset, in: RoundedRectangle(cornerRadius: 5))
+                                .overlay(RoundedRectangle(cornerRadius: 5).stroke(model.ratio == r.id ? Theme.accent : .clear, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain).testID("crop.ratio.\(r.id)")
                     }
-                    .buttonStyle(.plain).testID("crop.ratio.\(r.id)")
                 }
             }
             HStack(spacing: 10) {

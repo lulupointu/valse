@@ -1,5 +1,6 @@
 import SwiftUI
 import MontageCore
+import Perception
 
 // Video ▸ Basic ▸ ☐ HDR conversion (CL-014): shown for a video whose transfer differs from the project's (HDR footage in
 // an SDR project, or SDR footage in an HDR project). Off = the default conversion (Apple-matched curve). On = BT.2390
@@ -39,17 +40,19 @@ enum HDRConversionInspector {
 struct HDRConversionSection: View {
     let ctx: InspectorContext
     var body: some View {
-        let toSDR = HDRConversionInspector.direction(ctx).toSDR
-        let store = ctx.store
-        let range = toSDR ? HDRConversion.sourcePeakRange : HDRConversion.targetPeakRange
-        VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
-            HintText(text: tr(toSDR ? "hdrConv.hint.toSDR" : "hdrConv.hint.toHDR"))
-            if let h = ctx.clip?.hdrConversion, let id = ctx.clip?.id {
-                SliderRow(tr(toSDR ? "hdrConv.sourcePeak" : "hdrConv.targetPeak"), range: range,
-                          display: { tr("hdrConv.nits", Int($0.rounded())) }, testID: "slider.hdrConv.peak",
-                          get: { h.peakNits },
-                          set: { v in Bind.apply(store, id, "cmd.hdrConversion") { $0.hdrConversion?.peakNits = min(max(v, range.lowerBound), range.upperBound) } },
-                          onBegin: { store.beginGesture("cmd.hdrConversion") }, onEnd: { store.endGesture() })
+        WithPerceptionTracking {
+            let toSDR = HDRConversionInspector.direction(ctx).toSDR
+            let store = ctx.store
+            let range = toSDR ? HDRConversion.sourcePeakRange : HDRConversion.targetPeakRange
+            VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
+                HintText(text: tr(toSDR ? "hdrConv.hint.toSDR" : "hdrConv.hint.toHDR"))
+                if let h = ctx.clip?.hdrConversion, let id = ctx.clip?.id {
+                    SliderRow(tr(toSDR ? "hdrConv.sourcePeak" : "hdrConv.targetPeak"), range: range,
+                              display: { tr("hdrConv.nits", Int($0.rounded())) }, testID: "slider.hdrConv.peak",
+                              get: { h.peakNits },
+                              set: { v in Bind.apply(store, id, "cmd.hdrConversion") { $0.hdrConversion?.peakNits = min(max(v, range.lowerBound), range.upperBound) } },
+                              onBegin: { store.beginGesture("cmd.hdrConversion") }, onEnd: { store.endGesture() })
+                }
             }
         }
     }

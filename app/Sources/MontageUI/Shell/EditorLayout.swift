@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 
 /// Editor layouts (SE-005, CapCut menu ▸ Layout): presets that set the panel proportions (and, for Vertical, a
@@ -22,7 +22,7 @@ public enum EditorLayoutPreset: String, CaseIterable, Codable, Sendable {
     }
 }
 
-@MainActor @Observable
+@MainActor @Perceptible
 public final class EditorLayout {
     public static let shared = EditorLayout()
     static let defaultsKey = "montage.editor.layout"
@@ -83,33 +83,39 @@ public final class EditorLayout {
 
 /// Title-bar layout button (UX.md §1.1: icon + chevron) with the same entries as View ▸ Layout.
 struct LayoutMenuButton: View {
-    @Bindable var layout = EditorLayout.shared
+    @Perception.Bindable var layout = EditorLayout.shared
     var body: some View {
-        Menu {
-            ForEach(EditorLayoutPreset.allCases, id: \.self) { p in
-                Button { layout.apply(p) } label: {
-                    if layout.preset == p && layout.activeCustom == nil { Label(tr(p.nameKey), systemImage: "checkmark") } else { Text(verbatim: tr(p.nameKey)) }
+        WithPerceptionTracking {
+            Menu {
+                ForEach(EditorLayoutPreset.allCases, id: \.self) { p in
+                    WithPerceptionTracking {
+                        Button { layout.apply(p) } label: {
+                            if layout.preset == p && layout.activeCustom == nil { Label(tr(p.nameKey), systemImage: "checkmark") } else { Text(verbatim: tr(p.nameKey)) }
+                        }
+                    }
+                }
+                Divider()
+                ForEach(1...3, id: \.self) { i in
+                    WithPerceptionTracking {
+                        if layout.custom[i] != nil {
+                            Button(tr("layout.custom", i)) { layout.applyCustom(i) }
+                        }
+                    }
+                }
+                Menu(tr("layout.saveCustom")) {
+                    ForEach(1...3, id: \.self) { i in WithPerceptionTracking { Button(tr("layout.custom", i)) { layout.saveCustom(i) } } }
+                }
+                Button(tr("layout.reset")) { layout.reset() }
+            } label: {
+                HStack(spacing: 2) {
+                    Image(systemName: layout.preset == .vertical ? "rectangle.split.2x1" : "rectangle.split.3x1")
+                        .font(.system(size: 12))
                 }
             }
-            Divider()
-            ForEach(1...3, id: \.self) { i in
-                if layout.custom[i] != nil {
-                    Button(tr("layout.custom", i)) { layout.applyCustom(i) }
-                }
-            }
-            Menu(tr("layout.saveCustom")) {
-                ForEach(1...3, id: \.self) { i in Button(tr("layout.custom", i)) { layout.saveCustom(i) } }
-            }
-            Button(tr("layout.reset")) { layout.reset() }
-        } label: {
-            HStack(spacing: 2) {
-                Image(systemName: layout.preset == .vertical ? "rectangle.split.2x1" : "rectangle.split.3x1")
-                    .font(.system(size: 12))
-            }
+            .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
+            .foregroundStyle(Theme.textSecondary)
+            .help(tr("layout.title"))
+            .testID("titlebar.layout")
         }
-        .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
-        .foregroundStyle(Theme.textSecondary)
-        .help(tr("layout.title"))
-        .testID("titlebar.layout")
     }
 }

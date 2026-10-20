@@ -1,6 +1,7 @@
 import SwiftUI
 import MontageCore
 import MontageEffects
+import Perception
 
 /// Animation ▸ In · Out · Combo (Loop for text/stickers): search, 62 pt tiles that play the animation on hover, None
 /// first; clicking applies and previews once in the player; then a Duration slider (UX.md §5.1 Animation, [31]).
@@ -26,49 +27,53 @@ struct AnimationPickerSection: View {
     }
 
     var body: some View {
-        let ui = InspectorUIState.shared
-        let cur = current(ctx.clip)
-        let query = ui.animationSearch.trimmingCharacters(in: .whitespaces).lowercased()
-        let items = Registries.animations(phase, for: target).filter { query.isEmpty || tr($0.nameKey).lowercased().contains(query) }
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(IStyle.caption)
-                TextField(tr("inspector.animation.search"), text: Binding(get: { ui.animationSearch }, set: { ui.animationSearch = $0 }))
-                    .textFieldStyle(.plain).font(.system(size: 12)).testID("anim.search")
-            }
-            .padding(.horizontal, 10).frame(height: 28)
-            .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
-            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
-            TileGrid {
-                if query.isEmpty {
-                    Tile(title: tr("anim.none"), selected: cur == nil, testID: "anim.none", titleLines: 2) { apply(nil) } content: {
-                        Image(systemName: "nosign").font(.system(size: 26, weight: .light)).foregroundStyle(Color(white: 0.75))
+        WithPerceptionTracking {
+            let ui = InspectorUIState.shared
+            let cur = current(ctx.clip)
+            let query = ui.animationSearch.trimmingCharacters(in: .whitespaces).lowercased()
+            let items = Registries.animations(phase, for: target).filter { query.isEmpty || tr($0.nameKey).lowercased().contains(query) }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(IStyle.caption)
+                    TextField(tr("inspector.animation.search"), text: Binding(get: { ui.animationSearch }, set: { ui.animationSearch = $0 }))
+                        .textFieldStyle(.plain).font(.system(size: 12)).testID("anim.search")
+                }
+                .padding(.horizontal, 10).frame(height: 28)
+                .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.08)))
+                TileGrid {
+                    if query.isEmpty {
+                        Tile(title: tr("anim.none"), selected: cur == nil, testID: "anim.none", titleLines: 2) { apply(nil) } content: {
+                            Image(systemName: "nosign").font(.system(size: 26, weight: .light)).foregroundStyle(Color(white: 0.75))
+                        }
+                    }
+                    ForEach(items) { d in
+                        WithPerceptionTracking {
+                            AnimationTile(descriptor: d, selected: cur?.typeID == d.id, subject: target) { apply(d) }
+                        }
                     }
                 }
-                ForEach(items) { d in
-                    AnimationTile(descriptor: d, selected: cur?.typeID == d.id, subject: target) { apply(d) }
+                if items.isEmpty && !query.isEmpty { HintText(text: tr("inspector.animation.noResults")) }
+                if cur != nil, let clip = ctx.clip {
+                    let other: Double = {
+                        switch self.phase {
+                        case .in: return clip.animations.outAnim?.duration.seconds ?? 0
+                        case .out: return clip.animations.inAnim?.duration.seconds ?? 0
+                        case .combo: return 0
+                        }
+                    }()
+                    let maxD = max(0.1, clip.duration.seconds - other)
+                    let ph = self.phase
+                    ClipParamRow(ctx: ctx, label: tr("inspector.duration"), spec: RowSpec(range: 0.1...maxD, step: 0.1, format: Fmt.seconds),
+                                 get: { c, _ in current(c)?.duration.seconds ?? 0.5 },
+                                 set: { c, v, _ in
+                                     switch ph {
+                                     case .in: c.animations.inAnim?.duration = Time(v)
+                                     case .out: c.animations.outAnim?.duration = Time(v)
+                                     case .combo: c.animations.combo?.duration = Time(v)
+                                     }
+                                 }, gestureName: "cmd.animation")
                 }
-            }
-            if items.isEmpty && !query.isEmpty { HintText(text: tr("inspector.animation.noResults")) }
-            if cur != nil, let clip = ctx.clip {
-                let other: Double = {
-                    switch self.phase {
-                    case .in: return clip.animations.outAnim?.duration.seconds ?? 0
-                    case .out: return clip.animations.inAnim?.duration.seconds ?? 0
-                    case .combo: return 0
-                    }
-                }()
-                let maxD = max(0.1, clip.duration.seconds - other)
-                let ph = self.phase
-                ClipParamRow(ctx: ctx, label: tr("inspector.duration"), spec: RowSpec(range: 0.1...maxD, step: 0.1, format: Fmt.seconds),
-                             get: { c, _ in current(c)?.duration.seconds ?? 0.5 },
-                             set: { c, v, _ in
-                                 switch ph {
-                                 case .in: c.animations.inAnim?.duration = Time(v)
-                                 case .out: c.animations.outAnim?.duration = Time(v)
-                                 case .combo: c.animations.combo?.duration = Time(v)
-                                 }
-                             }, gestureName: "cmd.animation")
             }
         }
     }
@@ -117,40 +122,44 @@ struct AnimationTile: View {
     @State private var start = Date()
 
     var body: some View {
-        Tile(title: tr(descriptor.nameKey), selected: selected, testID: "anim.\(descriptor.id.replacingOccurrences(of: "montage.anim.", with: ""))", titleLines: 2, action: action) {
-          if descriptor.glyph != nil {
-            // per-glyph text animation (text engine, W7)
-            GlyphAnimationPreview(descriptor: descriptor, playing: hover, start: start)
-          } else {
-            // CapCut tiles show a sample picture caught mid-animation on black; hover plays the animation.
-            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover || TestAnchors.isEnabled)) { tl in
-                let state = state(at: tl.date)
-                // one Canvas: transforms, reveal mask, blur and clipping are rasterised together (never overflow the tile)
-                Canvas { ctx, size in
-                    let w = size.width, h = size.height
-                    ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(subject == .video ? .black : Color(hex: 0x262626)))
-                    let r = state.reveal
-                    ctx.clip(to: Path(CGRect(x: w * r.left, y: h * r.top, width: w * max(0, 1 - r.left - r.right),
-                                             height: h * max(0, 1 - r.top - r.bottom))))
-                    ctx.opacity = state.opacity
-                    if state.blur > 0 { ctx.addFilter(.blur(radius: state.blur * w)) }
-                    ctx.translateBy(x: w / 2 + state.transform.position.x * w, y: h / 2 + state.transform.position.y * h)
-                    ctx.rotate(by: .degrees(state.transform.rotation))
-                    ctx.scaleBy(x: state.transform.scale.x, y: state.transform.scale.y)
-                    ctx.translateBy(x: -w / 2, y: -h / 2)
-                    switch subject {
-                    case .text:
-                        ctx.draw(Text(verbatim: "Abc").font(.system(size: h * 0.32, weight: .bold)).foregroundColor(.white), at: CGPoint(x: w / 2, y: h / 2))
-                    case .sticker:
-                        ctx.draw(Text(verbatim: "⭐️").font(.system(size: h * 0.46)), at: CGPoint(x: w / 2, y: h / 2))
-                    default:
-                        AnimationSampleScene.draw(in: &ctx, size: size)
+        WithPerceptionTracking {
+            Tile(title: tr(descriptor.nameKey), selected: selected, testID: "anim.\(descriptor.id.replacingOccurrences(of: "montage.anim.", with: ""))", titleLines: 2, action: action) {
+              if descriptor.glyph != nil {
+                // per-glyph text animation (text engine, W7)
+                GlyphAnimationPreview(descriptor: descriptor, playing: hover, start: start)
+              } else {
+                // CapCut tiles show a sample picture caught mid-animation on black; hover plays the animation.
+                SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !hover || TestAnchors.isEnabled)) { tl in
+                    WithPerceptionTracking {
+                        let state = state(at: tl.date)
+                        // one Canvas: transforms, reveal mask, blur and clipping are rasterised together (never overflow the tile)
+                        Canvas { ctx, size in
+                            let w = size.width, h = size.height
+                            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(subject == .video ? .black : Color(hex: 0x262626)))
+                            let r = state.reveal
+                            ctx.clip(to: Path(CGRect(x: w * r.left, y: h * r.top, width: w * max(0, 1 - r.left - r.right),
+                                                     height: h * max(0, 1 - r.top - r.bottom))))
+                            ctx.opacity = state.opacity
+                            if state.blur > 0 { ctx.addFilter(.blur(radius: state.blur * w)) }
+                            ctx.translateBy(x: w / 2 + state.transform.position.x * w, y: h / 2 + state.transform.position.y * h)
+                            ctx.rotate(by: .degrees(state.transform.rotation))
+                            ctx.scaleBy(x: state.transform.scale.x, y: state.transform.scale.y)
+                            ctx.translateBy(x: -w / 2, y: -h / 2)
+                            switch subject {
+                            case .text:
+                                ctx.draw(Text(verbatim: "Abc").font(.system(size: h * 0.32, weight: .bold)).foregroundColor(.white), at: CGPoint(x: w / 2, y: h / 2))
+                            case .sticker:
+                                ctx.draw(Text(verbatim: "⭐️").font(.system(size: h * 0.46)), at: CGPoint(x: w / 2, y: h / 2))
+                            default:
+                                AnimationSampleScene.draw(in: &ctx, size: size)
+                            }
+                        }
                     }
                 }
+              }
             }
-          }
+            .onHover { h in hover = h; if h { start = Date() } }
         }
-        .onHover { h in hover = h; if h { start = Date() } }
     }
 
     /// Hover loops the animation (with a short hold at the end); idle shows the clip's resting state.

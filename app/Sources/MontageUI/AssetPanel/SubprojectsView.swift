@@ -3,49 +3,56 @@ import AppKit
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Media ▸ Subprojects (TL-022 / MI-019): the project's compound clips as re-usable items — ⊕ adds one at the playhead,
 /// double-click renames, [Import project…] brings another project in as subprojects.
 struct SubprojectsView: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     @State private var renaming: CompoundID?
     @State private var name = ""
 
     var body: some View {
-        let comps = store.project.compounds ?? []
-        let uses = Subprojects.useCounts(store.project)
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Button { store.importSubprojectPanel() } label: {
-                    HStack(spacing: 4) { Image(systemName: "square.and.arrow.down"); Text(loc: "subprojects.import") }
-                }
-                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("subprojects.import")
-                Spacer()
-            }
-            if comps.isEmpty {
-                Text(loc: "subprojects.empty").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: .center).padding(.top, 40).testID("subprojects.empty")
-            }
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
-                    ForEach(Array(comps.enumerated()), id: \.element.id) { i, c in
-                        card(c, index: i, uses: uses[c.id] ?? 0).testID("subprojects.card.\(i)")
+        WithPerceptionTracking {
+            let comps = store.project.compounds ?? []
+            let uses = Subprojects.useCounts(store.project)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Button { store.importSubprojectPanel() } label: {
+                        HStack(spacing: 4) { Image(systemName: "square.and.arrow.down"); Text(loc: "subprojects.import") }
                     }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("subprojects.import")
+                    Spacer()
                 }
-                let presets = CompoundPresetLibrary.shared.presets
-                if !presets.isEmpty {
-                    Text(loc: "preset.section").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 14)
+                if comps.isEmpty {
+                    Text(loc: "subprojects.empty").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                        .frame(maxWidth: .infinity, alignment: .center).padding(.top, 40).testID("subprojects.empty")
+                }
+                ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
-                        ForEach(Array(presets.enumerated()), id: \.element.id) { i, pr in
-                            presetCard(pr).testID("preset.card.\(i)")
+                        ForEach(Array(comps.enumerated()), id: \.element.id) { i, c in
+                            WithPerceptionTracking {
+                                card(c, index: i, uses: uses[c.id] ?? 0).testID("subprojects.card.\(i)")
+                            }
+                        }
+                    }
+                    let presets = CompoundPresetLibrary.shared.presets
+                    if !presets.isEmpty {
+                        Text(loc: "preset.section").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 14)
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
+                            ForEach(Array(presets.enumerated()), id: \.element.id) { i, pr in
+                                WithPerceptionTracking {
+                                    presetCard(pr).testID("preset.card.\(i)")
+                                }
+                            }
                         }
                     }
                 }
             }
+            .padding(12)
+            .testID("subprojects")
         }
-        .padding(12)
-        .testID("subprojects")
     }
 
     func presetCard(_ pr: CompoundPreset) -> some View {

@@ -2,6 +2,7 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Adjust ▸ Basic ▸ ☐ Color card (CL-028): put the playhead on a frame showing a ColorChecker 24 chart and tick it — the
 // chart is found, its 24 patches fitted to the reference and the correction applied as a look (Strength keyframeable).
@@ -30,18 +31,20 @@ extension ColorLookInspector {
 struct ColorCardSection: View {
     let ctx: InspectorContext
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
-            HintText(text: tr("colorCard.hint"))
-            if ColorLookInspector.look(ctx.clip, .card) != nil {
-                HStack {
-                    Spacer()
-                    PillButton(title: tr("colorCard.recalibrate"), symbol: "eyedropper") {
-                        if let id = ctx.clip?.id { ctx.store.applyColorCard(id) }
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: Theme.Metrics.rowSpacing) {
+                HintText(text: tr("colorCard.hint"))
+                if ColorLookInspector.look(ctx.clip, .card) != nil {
+                    HStack {
+                        Spacer()
+                        PillButton(title: tr("colorCard.recalibrate"), symbol: "eyedropper") {
+                            if let id = ctx.clip?.id { ctx.store.applyColorCard(id) }
+                        }
+                        .testID("colorCard.recalibrate")
                     }
-                    .testID("colorCard.recalibrate")
                 }
+                LookStrengthSection(ctx: ctx, kind: .card)
             }
-            LookStrengthSection(ctx: ctx, kind: .card)
         }
     }
 }

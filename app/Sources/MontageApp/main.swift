@@ -166,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let host = NSHostingView(rootView: RootView(app: app))
         // No title-bar safe area: content runs under the transparent title bar, so the editor's 36 pt TitleBar holds the
         // traffic lights like CapCut's single bar (UX_GAPS W12-2), and Home's sidebar starts at the window top.
-        host.safeAreaRegions = []
+        if #available(macOS 13.3, *) { host.safeAreaRegions = [] }
         w.contentView = host
         w.center()
         if options.uitest != nil {
@@ -176,7 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             w.orderBack(nil)
         } else {
             w.makeKeyAndOrderFront(nil)
-            NSApp.activate()
+            if #available(macOS 14, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
         }
         window = w
         if let f = options.windowIDFile {

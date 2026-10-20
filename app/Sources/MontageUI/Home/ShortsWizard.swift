@@ -4,11 +4,12 @@ import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// Home ▸ Long video to shorts (AI-031, UX_AI §10.1), added by AI2 on top of W12's Home: Upload long video → select the
 /// part → Set duration for shorts + ☐ Add captions → Get shorts ("Analyzing… / Converting shorts… %", Cancel) →
 /// "Shorts (N)": one new 9:16 project per highlight (auto reframed, captioned), each opens in the editor.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class ShortsWizardState {
     public static let shared = ShortsWizardState()
     public enum Step: String { case upload, settings, running, results }
@@ -26,7 +27,7 @@ public final class ShortsWizardState {
     public var progress: Double = 0
     public var error: String?
     public var results: [URL] = []
-    @ObservationIgnored var job: JobID?
+    @PerceptionIgnored var job: JobID?
 
     public func present() { reset(); isPresented = true }
 
@@ -118,33 +119,37 @@ nonisolated final class ShortsBox: @unchecked Sendable { var projects: [Project]
 
 /// The wizard as a centred Home dialog (dimmed backdrop), like W12's modals.
 struct ShortsWizardHost: View {
-    @Bindable var app: AppModel
+    @Perception.Bindable var app: AppModel
     var body: some View {
-        let st = ShortsWizardState.shared
-        if st.isPresented {
-            ZStack {
-                Color.black.opacity(0.55).ignoresSafeArea()
-                DialogCard(title: tr("shorts.title"), width: 560, onClose: { st.close() }) {
-                    ShortsWizardView(app: app).padding(20)
+        WithPerceptionTracking {
+            let st = ShortsWizardState.shared
+            if st.isPresented {
+                ZStack {
+                    Color.black.opacity(0.55).ignoresSafeArea()
+                    DialogCard(title: tr("shorts.title"), width: 560, onClose: { st.close() }) {
+                        ShortsWizardView(app: app).padding(20)
+                    }
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0.55) }
+                    .onDisappear { SnapshotRegistry.shared.modal = nil }
+                    .testID("shorts.dialog")
                 }
-                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0.55) }
-                .onDisappear { SnapshotRegistry.shared.modal = nil }
-                .testID("shorts.dialog")
             }
         }
     }
 }
 
 struct ShortsWizardView: View {
-    @Bindable var app: AppModel
+    @Perception.Bindable var app: AppModel
     var body: some View {
-        let st = ShortsWizardState.shared
-        VStack(alignment: .leading, spacing: 14) {
-            switch st.step {
-            case .upload: upload
-            case .settings: settings
-            case .running: running
-            case .results: results
+        WithPerceptionTracking {
+            let st = ShortsWizardState.shared
+            VStack(alignment: .leading, spacing: 14) {
+                switch st.step {
+                case .upload: upload
+                case .settings: settings
+                case .running: running
+                case .results: results
+                }
             }
         }
     }
@@ -198,15 +203,17 @@ struct ShortsWizardView: View {
             Text(loc: "shorts.setDuration").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
             HStack(spacing: 6) {
                 ForEach(ShortsDuration.allCases, id: \.self) { d in
-                    Button { st.duration = d } label: {
-                        Text(verbatim: tr(d.nameKey)).font(Theme.Fonts.row)
-                            .foregroundStyle(st.duration == d ? Theme.accent : Theme.textPrimary)
-                            .frame(maxWidth: .infinity).frame(height: 30)
-                            .background(Theme.control.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(st.duration == d ? Theme.accent : .clear))
+                    WithPerceptionTracking {
+                        Button { st.duration = d } label: {
+                            Text(verbatim: tr(d.nameKey)).font(Theme.Fonts.row)
+                                .foregroundStyle(st.duration == d ? Theme.accent : Theme.textPrimary)
+                                .frame(maxWidth: .infinity).frame(height: 30)
+                                .background(Theme.control.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+                                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(st.duration == d ? Theme.accent : .clear))
+                        }
+                        .buttonStyle(.plain)
+                        .testID("shorts.duration.\(d.rawValue)")
                     }
-                    .buttonStyle(.plain)
-                    .testID("shorts.duration.\(d.rawValue)")
                 }
             }
             HStack(spacing: 8) {
@@ -238,16 +245,18 @@ struct ShortsWizardView: View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 12)], spacing: 12) {
                 ForEach(Array(st.results.enumerated()), id: \.offset) { i, url in
-                    Button { st.close(); app.open(url) } label: {
-                        VStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 6).fill(Theme.inset).aspectRatio(9 / 16, contentMode: .fit)
-                                .overlay(Image(systemName: "play.rectangle").font(.system(size: 22)).foregroundStyle(Theme.accent))
-                            Text(verbatim: url.deletingPathExtension().lastPathComponent).font(.system(size: 11))
-                                .foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    WithPerceptionTracking {
+                        Button { st.close(); app.open(url) } label: {
+                            VStack(spacing: 6) {
+                                RoundedRectangle(cornerRadius: 6).fill(Theme.inset).aspectRatio(9 / 16, contentMode: .fit)
+                                    .overlay(Image(systemName: "play.rectangle").font(.system(size: 22)).foregroundStyle(Theme.accent))
+                                Text(verbatim: url.deletingPathExtension().lastPathComponent).font(.system(size: 11))
+                                    .foregroundStyle(Theme.textSecondary).lineLimit(1)
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .testID("shorts.result.\(i)")
                     }
-                    .buttonStyle(.plain)
-                    .testID("shorts.result.\(i)")
                 }
             }
         }

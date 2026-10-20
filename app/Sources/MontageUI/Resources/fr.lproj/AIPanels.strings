@@ -67,6 +67,8 @@
 "cutout.cancelled" = "Suppression de l'arrière-plan annulée";
 "cutout.detect" = "Détecter";
 "cutout.detect.people" = "Personnes";
+"cutout.needsMacOS14" = "Nécessite macOS 14 ou une version ultérieure (segmentation d'objets).";
+"cutout.subject.needsMacOS14" = "La détection du sujet principal nécessite macOS 14 ou une version ultérieure. La détection des personnes fonctionne sur ce Mac.";
 "cutout.detect.subject" = "Sujet principal";
 "cutout.feather" = "Adoucir le bord";
 "cutout.expand" = "Développer";

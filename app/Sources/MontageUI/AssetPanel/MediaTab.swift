@@ -3,12 +3,13 @@ import AppKit
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Media tab (UX.md §3.3): rail Import · Favorites · Recent · Library ▾ (local royalty-free stock). Import = the
 /// project bin: [⊕ Import] · new folder · grid/list · sort · type filter, folders, 3:2 cards (duration, "Added",
 /// hover scrub, ☆ / ⊕), multi-select (⌘ / ⇧ click) and drag of the selection to the timeline, Finder drops.
 struct MediaTab: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     /// Kinds listed (the Audio tab reuses this view for "Yours" with `[.audio]`).
     var kinds: Set<MediaKind> = [.video, .image, .audio]
 
@@ -16,20 +17,22 @@ struct MediaTab: View {
     var tabID: String { isFullTab ? "media" : "audio" }
 
     var body: some View {
-        if isFullTab {
-            LibraryBrowser(tab: tabID, namespace: "media", sections: sections, style: .wide(1.5),
-                           searchPlaceholder: tr("media.search"),
-                           customNav: [("import", tr("media.nav.import")), ("subprojects", tr("subprojects.nav"))],
-                           customContent: { id in
-                               id == "subprojects" ? AnyView(SubprojectsView(store: store))   // TL-022
-                                   : AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID))
-                           },
-                           yoursGroup: tr("asset.nav.yours"),
-                           header: { ClipSearchBanner(store: store) })   // AI-028: free-text search model offer
-            // The library search also drives the AI smart search (AI-028): content / on-screen text / dialogue matches.
-            .onChange(of: AssetPanelState.shared.query[tabID] ?? "") { _, q in store.setMediaQuery(q) }
-        } else {
-            MediaBinView(store: store, kinds: kinds, tab: tabID)   // inside the Audio browser (its search lists these too)
+        WithPerceptionTracking {
+            if isFullTab {
+                LibraryBrowser(tab: tabID, namespace: "media", sections: sections, style: .wide(1.5),
+                               searchPlaceholder: tr("media.search"),
+                               customNav: [("import", tr("media.nav.import")), ("subprojects", tr("subprojects.nav"))],
+                               customContent: { id in
+                                   id == "subprojects" ? AnyView(SubprojectsView(store: store))   // TL-022
+                                       : AnyView(MediaBinView(store: store, kinds: kinds, tab: tabID))
+                               },
+                               yoursGroup: tr("asset.nav.yours"),
+                               header: { ClipSearchBanner(store: store) })   // AI-028: free-text search model offer
+                // The library search also drives the AI smart search (AI-028): content / on-screen text / dialogue matches.
+                .onValueChange(of: AssetPanelState.shared.query[tabID] ?? "") { _, q in store.setMediaQuery(q) }
+            } else {
+                MediaBinView(store: store, kinds: kinds, tab: tabID)   // inside the Audio browser (its search lists these too)
+            }
         }
     }
 
@@ -70,10 +73,10 @@ enum MediaLibraryItems {
 
 /// The project bin view (Import entry of the Media tab, and Audio ▸ Yours).
 struct MediaBinView: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     let kinds: Set<MediaKind>
     let tab: String
-    @Bindable private var prefs = MediaBrowserPrefs.shared
+    @Perception.Bindable private var prefs = MediaBrowserPrefs.shared
     @State private var dropTargeted = false
     /// Open bin folder (nil = root). Folders are shown in the full Media tab only.
     @State private var folder: MediaFolderID?
@@ -106,64 +109,72 @@ struct MediaBinView: View {
     var folders: [MediaFolder] { showsFolders && prefs.filter == .all ? BinOps.children(of: currentFolder, in: store.mediaBin) : [] }
 
     var body: some View {
-        let list = items
-        let missing = Set(store.mediaBin.media.filter(store.isMissing).map(\.id))
-        let used = store.usedMediaIDs
-        VStack(spacing: 0) {
-            if store.mediaBin.media.filter({ kinds.contains($0.kind) }).isEmpty {
-                dropZone
-            } else {
-                toolbar(missing: missing.count)
-                if showsFolders && currentFolder == nil {   // CapCut's "All" caption over the grid
-                    Text(loc: "media.filter.\(prefs.filter.rawValue)").font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12).padding(.bottom, 6)
-                }
-                if showsFolders && currentFolder != nil { BinBreadcrumb(store: store, folder: $folder) }
-                ScrollView {
-                    if !showsFolders {
-                        // Audio ▸ Imported: the same 56 pt rows as the music / sound-effect libraries (UX_GAPS W8-1).
-                        LazyVStack(spacing: 8) {
-                            ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
-                                LibraryRow(tab: tab, namespace: "audio", item: audioRowItem(a, used: used.contains(a.id))).testID("media.card.\(i)")
-                            }
-                        }
-                        .padding(.horizontal, 12).padding(.bottom, 12)
-                    } else if prefs.layout == .grid {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: columns), spacing: 12) {
-                            ForEach(folders) { f in FolderCard(store: store, folder: f, current: $folder) }
-                            ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
-                                MediaCard(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id),
-                                          cardWidth: cardWidth)
-                                    .testID("media.card.\(i)")
-                            }
-                        }
-                        .padding(.horizontal, 12).padding(.bottom, 12)
-                    } else {
-                        LazyVStack(spacing: MediaRow.spacing) {
-                            ForEach(folders) { f in FolderCard(store: store, folder: f, current: $folder).frame(height: 60) }
-                            ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
-                                MediaRow(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id),
-                                         stripWidth: max(1, width - 24))
-                                    .testID("media.card.\(i)")
-                            }
-                        }
-                        .padding(.horizontal, 12).padding(.bottom, 12)
+        WithPerceptionTracking {
+            let list = items
+            let missing = Set(store.mediaBin.media.filter(store.isMissing).map(\.id))
+            let used = store.usedMediaIDs
+            VStack(spacing: 0) {
+                if store.mediaBin.media.filter({ kinds.contains($0.kind) }).isEmpty {
+                    dropZone
+                } else {
+                    toolbar(missing: missing.count)
+                    if showsFolders && currentFolder == nil {   // CapCut's "All" caption over the grid
+                        Text(loc: "media.filter.\(prefs.filter.rawValue)").font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12).padding(.bottom, 6)
                     }
+                    if showsFolders && currentFolder != nil { BinBreadcrumb(store: store, folder: $folder) }
+                    ScrollView {
+                        if !showsFolders {
+                            // Audio ▸ Imported: the same 56 pt rows as the music / sound-effect libraries (UX_GAPS W8-1).
+                            LazyVStack(spacing: 8) {
+                                ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
+                                    WithPerceptionTracking {
+                                        LibraryRow(tab: tab, namespace: "audio", item: audioRowItem(a, used: used.contains(a.id))).testID("media.card.\(i)")
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 12).padding(.bottom, 12)
+                        } else if prefs.layout == .grid {
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: columns), spacing: 12) {
+                                ForEach(folders) { f in WithPerceptionTracking { FolderCard(store: store, folder: f, current: $folder) } }
+                                ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
+                                    WithPerceptionTracking {
+                                        MediaCard(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id),
+                                                  cardWidth: cardWidth)
+                                            .testID("media.card.\(i)")
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 12).padding(.bottom, 12)
+                        } else {
+                            LazyVStack(spacing: MediaRow.spacing) {
+                                ForEach(folders) { f in WithPerceptionTracking { FolderCard(store: store, folder: f, current: $folder).frame(height: 60) } }
+                                ForEach(Array(list.enumerated()), id: \.element.id) { i, a in
+                                    WithPerceptionTracking {
+                                        MediaRow(store: store, asset: a, tab: tab, order: list, used: used.contains(a.id), missing: missing.contains(a.id),
+                                                 stripWidth: max(1, width - 24))
+                                            .testID("media.card.\(i)")
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 12).padding(.bottom, 12)
+                        }
+                    }
+                    .testID("media.grid")
+                    .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width = $0 }
                 }
-                .testID("media.grid")
-                .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width = $0 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
+                loadURLs(providers) { store.importMedia($0, folder: showsFolders ? currentFolder : nil) }
+                return true
+            }
+            .overlay { if dropTargeted { RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2).padding(4) } }
+            .onAppear { register(list) }
+            .onValueChange(of: list.map(\.id)) { register(list) }
+            .onValueChange(of: columns) { register(list) }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
-            loadURLs(providers) { store.importMedia($0, folder: showsFolders ? currentFolder : nil) }
-            return true
-        }
-        .overlay { if dropTargeted { RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2).padding(4) } }
-        .onAppear { register(list) }
-        .onChange(of: list.map(\.id)) { register(list) }
-        .onChange(of: columns) { register(list) }
     }
 
     var columns: Int { prefs.layout == .list || !showsFolders ? 1 : MediaGrid.columns(width: width) }
@@ -221,7 +232,7 @@ struct MediaBinView: View {
             }
             Menu {
                 Picker(tr("media.sort"), selection: $prefs.sort) {
-                    ForEach(MediaBrowserPrefs.Sort.allCases, id: \.self) { s in Text(loc: "media.sort.\(s.rawValue)").tag(s) }
+                    ForEach(MediaBrowserPrefs.Sort.allCases, id: \.self) { s in WithPerceptionTracking { Text(loc: "media.sort.\(s.rawValue)").tag(s) } }
                 }
                 .pickerStyle(.inline)
                 Divider()
@@ -238,7 +249,7 @@ struct MediaBinView: View {
             if showsFolders {
                 Menu {
                     Picker(tr("media.filter"), selection: $prefs.filter) {
-                        ForEach(MediaBrowserPrefs.Filter.allCases, id: \.self) { f in Text(loc: "media.filter.\(f.rawValue)").tag(f) }
+                        ForEach(MediaBrowserPrefs.Filter.allCases, id: \.self) { f in WithPerceptionTracking { Text(loc: "media.filter.\(f.rawValue)").tag(f) } }
                     }
                     .pickerStyle(.inline)
                 } label: {
@@ -445,85 +456,87 @@ struct MediaCard: View {
     var isCursor: Bool { state.cursor[tab] == asset.id.description && state.keyboardTab == tab }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Color.clear
-                .aspectRatio(1.5, contentMode: .fit)
-                .overlay { picture }
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(alignment: .topTrailing) {
-                    if asset.kind != .image { DurationBadge(text: Timecode.shortDuration(asset.duration)) }
-                }
-                .overlay(alignment: .topLeading) { statusChip }
-                .overlay(alignment: .bottomTrailing) {
-                    if hover || isCursor {
-                        HStack(spacing: 4) {
-                            let fid = MediaLibraryItems.favoriteID(asset)
-                            let fav = lib.isFavorite("media", fid)
-                            Button { lib.toggleFavorite("media", fid) } label: {
-                                Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
-                                    .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 4) {
+                Color.clear
+                    .aspectRatio(1.5, contentMode: .fit)
+                    .overlay { picture }
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(alignment: .topTrailing) {
+                        if asset.kind != .image { DurationBadge(text: Timecode.shortDuration(asset.duration)) }
+                    }
+                    .overlay(alignment: .topLeading) { statusChip }
+                    .overlay(alignment: .bottomTrailing) {
+                        if hover || isCursor {
+                            HStack(spacing: 4) {
+                                let fid = MediaLibraryItems.favoriteID(asset)
+                                let fav = lib.isFavorite("media", fid)
+                                Button { lib.toggleFavorite("media", fid) } label: {
+                                    Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
+                                        .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
+                                        .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
+                                }
+                                .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
+                                .testID("media.card.favorite")
+                                Button { store.addToTimeline(asset.id) } label: {
+                                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                                        .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
+                                }
+                                .buttonStyle(.plain).help(tr("asset.addToTrack"))
+                                .testID("media.card.add")
                             }
-                            .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
-                            .testID("media.card.favorite")
-                            Button { store.addToTimeline(asset.id) } label: {
-                                Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                                    .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
+                            .padding(4)
+                        }
+                    }
+                    .overlay(alignment: .bottom) {
+                        if let f = scrubFraction, asset.kind != .image { HoverTimeBar(fraction: f) }
+                    }
+                    .overlay {
+                        if missing {
+                            ZStack {
+                                Color.black.opacity(0.6)
+                                Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
                             }
-                            .buttonStyle(.plain).help(tr("asset.addToTrack"))
-                            .testID("media.card.add")
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .onTapGesture { LinkMediaPanel.run(store, asset) }
+                            .help(tr("media.link"))
                         }
-                        .padding(4)
                     }
-                }
-                .overlay(alignment: .bottom) {
-                    if let f = scrubFraction, asset.kind != .image { HoverTimeBar(fraction: f) }
-                }
-                .overlay {
-                    if missing {
-                        ZStack {
-                            Color.black.opacity(0.6)
-                            Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
+                    .overlay {
+                        if selected {
+                            RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2)
+                                .overlay(alignment: .leading) { handle }.overlay(alignment: .trailing) { handle }
+                        } else if hover {
+                            RoundedRectangle(cornerRadius: 6).stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .onTapGesture { LinkMediaPanel.run(store, asset) }
-                        .help(tr("media.link"))
                     }
-                }
-                .overlay {
-                    if selected {
-                        RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2)
-                            .overlay(alignment: .leading) { handle }.overlay(alignment: .trailing) { handle }
-                    } else if hover {
-                        RoundedRectangle(cornerRadius: 6).stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let p):
+                            guard asset.kind != .image else { return }
+                            let f = min(1, max(0, Double(p.x / max(1, cardWidth))))
+                            if asset.kind == .video { updateScrub(f) } else { scrubFraction = f }
+                        case .ended:
+                            scrubFraction = nil; scrub = nil
+                        }
                     }
-                }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let p):
-                        guard asset.kind != .image else { return }
-                        let f = min(1, max(0, Double(p.x / max(1, cardWidth))))
-                        if asset.kind == .video { updateScrub(f) } else { scrubFraction = f }
-                    case .ended:
-                        scrubFraction = nil; scrub = nil
-                    }
-                }
-            Text(verbatim: asset.name).font(.system(size: 11)).foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
-                .lineLimit(1).truncationMode(.middle)
-        }
-        .contentShape(Rectangle())
-        .onHover { hover = $0 }
-        .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
-        .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
-        .mediaTap(asset, store: store, order: order, tab: tab, width: cardWidth)
-        .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
-        .task(id: asset.contentHash) {
-            poster = LibraryArtCache.shared.get(MediaThumbs.posterKey(asset))
-            if poster != nil { return }
-            try? await Task.sleep(for: .milliseconds(40))     // skip cards flying past in a fast scroll
-            guard !Task.isCancelled, let img = await MediaThumbs.poster(asset) else { return }
-            LibraryArtCache.shared.set(MediaThumbs.posterKey(asset), img)
-            poster = img
+                Text(verbatim: asset.name).font(.system(size: 11)).foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
+            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset) } }
+            .mediaTap(asset, store: store, order: order, tab: tab, width: cardWidth)
+            .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
+            .task(id: asset.contentHash) {
+                poster = LibraryArtCache.shared.get(MediaThumbs.posterKey(asset))
+                if poster != nil { return }
+                try? await Task.sleep(for: .milliseconds(40))     // skip cards flying past in a fast scroll
+                guard !Task.isCancelled, let img = await MediaThumbs.poster(asset) else { return }
+                LibraryArtCache.shared.set(MediaThumbs.posterKey(asset), img)
+                poster = img
+            }
         }
     }
 
@@ -576,12 +589,16 @@ struct MediaCard: View {
 struct HoverTimeBar: View {
     let fraction: Double
     var body: some View {
-        GeometryReader { g in
-            Rectangle().fill(.white).frame(width: 1.5)
-                .shadow(color: .black.opacity(0.5), radius: 1)
-                .offset(x: min(g.size.width - 1.5, max(0, g.size.width * fraction - 0.75)))
+        WithPerceptionTracking {
+            GeometryReader { g in
+                WithPerceptionTracking {
+                    Rectangle().fill(.white).frame(width: 1.5)
+                        .shadow(color: .black.opacity(0.5), radius: 1)
+                        .offset(x: min(g.size.width - 1.5, max(0, g.size.width * fraction - 0.75)))
+                }
+            }
+            .allowsHitTesting(false)
         }
-        .allowsHitTesting(false)
     }
 }
 
@@ -642,55 +659,57 @@ struct MediaRow: View {
     var frameHeight: Int { MediaThumbs.stripFrameHeight(asset) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            strip
-                .frame(width: stripWidth, height: Self.stripHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(alignment: .topTrailing) {
-                    if asset.kind != .image { DurationBadge(text: Timecode.shortDuration(asset.duration)) }
-                }
-                .overlay(alignment: .topLeading) {
-                    if used { AddedChip() }
-                }
-                .overlay(alignment: .bottomTrailing) { if hover || isCursor { buttons } }
-                .overlay(alignment: .bottom) {
-                    if let f = hoverFraction { HoverTimeBar(fraction: f) }
-                }
-                .overlay {
-                    if missing {
-                        ZStack {
-                            Color.black.opacity(0.6)
-                            Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 5) {
+                strip
+                    .frame(width: stripWidth, height: Self.stripHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(alignment: .topTrailing) {
+                        if asset.kind != .image { DurationBadge(text: Timecode.shortDuration(asset.duration)) }
+                    }
+                    .overlay(alignment: .topLeading) {
+                        if used { AddedChip() }
+                    }
+                    .overlay(alignment: .bottomTrailing) { if hover || isCursor { buttons } }
+                    .overlay(alignment: .bottom) {
+                        if let f = hoverFraction { HoverTimeBar(fraction: f) }
+                    }
+                    .overlay {
+                        if missing {
+                            ZStack {
+                                Color.black.opacity(0.6)
+                                Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .onTapGesture { LinkMediaPanel.run(store, asset) }
+                            .help(tr("media.link"))
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .onTapGesture { LinkMediaPanel.run(store, asset) }
-                        .help(tr("media.link"))
                     }
-                }
-                .overlay {
-                    if selected {
-                        RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2)
-                            .overlay(alignment: .leading) { handle }.overlay(alignment: .trailing) { handle }
-                    } else if hover {
-                        RoundedRectangle(cornerRadius: 6).stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
+                    .overlay {
+                        if selected {
+                            RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2)
+                                .overlay(alignment: .leading) { handle }.overlay(alignment: .trailing) { handle }
+                        } else if hover {
+                            RoundedRectangle(cornerRadius: 6).stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
+                        }
                     }
-                }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let p): hoverFraction = asset.kind == .image ? nil : min(1, max(0, Double(p.x / stripWidth)))
-                    case .ended: hoverFraction = nil
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let p): hoverFraction = asset.kind == .image ? nil : min(1, max(0, Double(p.x / stripWidth)))
+                        case .ended: hoverFraction = nil
+                        }
                     }
-                }
-            Text(verbatim: asset.name).font(.system(size: 12)).foregroundStyle(missing ? .orange : (selected ? Theme.textPrimary : Theme.textSecondary))
-                .lineLimit(1).truncationMode(.middle)
+                Text(verbatim: asset.name).font(.system(size: 12)).foregroundStyle(missing ? .orange : (selected ? Theme.textPrimary : Theme.textSecondary))
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
+            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset) } }
+            .mediaTap(asset, store: store, order: order, tab: tab, width: stripWidth)
+            .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
+            .task(id: "\(asset.contentHash).\(count)") { await loadFrames() }
         }
-        .contentShape(Rectangle())
-        .onHover { hover = $0 }
-        .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
-        .popover(isPresented: $showInfo) { MediaInfoView(asset: asset) }
-        .mediaTap(asset, store: store, order: order, tab: tab, width: stripWidth)
-        .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
-        .task(id: "\(asset.contentHash).\(count)") { await loadFrames() }
     }
 
     @ViewBuilder var strip: some View {
@@ -704,14 +723,16 @@ struct MediaRow: View {
             let tileW = Self.stripHeight * MediaThumbs.stripTileAspect(asset)
             HStack(spacing: 0) {
                 ForEach(0..<count, id: \.self) { i in
-                    ZStack {
-                        Color.black
-                        if let img = frames[i] ?? frames[asset.kind == .image ? 0 : -1] {
-                            Image(decorative: img, scale: 2).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
+                    WithPerceptionTracking {
+                        ZStack {
+                            Color.black
+                            if let img = frames[i] ?? frames[asset.kind == .image ? 0 : -1] {
+                                Image(decorative: img, scale: 2).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
+                            }
                         }
+                        .frame(width: tileW, height: Self.stripHeight).clipped()
+                        .overlay(alignment: .trailing) { Rectangle().fill(.black.opacity(0.35)).frame(width: 0.5) }
                     }
-                    .frame(width: tileW, height: Self.stripHeight).clipped()
-                    .overlay(alignment: .trailing) { Rectangle().fill(.black.opacity(0.35)).frame(width: 0.5) }
                 }
             }
             .frame(width: stripWidth, alignment: .leading)
@@ -777,7 +798,7 @@ struct MediaRow: View {
 /// Audio tab (UX.md §3.4): local music library, sound effects, your audio, extracted audio, music folder.
 struct AudioTab: View {
     let store: EditorStore
-    var body: some View { AudioLibraryTab(store: store) }
+    var body: some View { WithPerceptionTracking { AudioLibraryTab(store: store) } }
 }
 
 enum ImportPanel {

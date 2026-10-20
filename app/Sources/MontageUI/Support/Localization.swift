@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 import MontageEffects
 import MontageEngine
@@ -7,12 +7,12 @@ import MontageAI
 
 /// Observable mirror of `L10n` so SwiftUI re-renders on language change. The root view uses `revision` as its
 /// identity, so switching language rebuilds the tree with the new strings (no relaunch).
-@Observable
+@Perceptible
 public final class LocaleState {
     public static let shared = LocaleState()
     public private(set) var revision = 0
     public var language: String { L10n.shared.language }
-    @ObservationIgnored private var token: (any NSObjectProtocol)?
+    @PerceptionIgnored private var token: (any NSObjectProtocol)?
 
     init() {
         token = NotificationCenter.default.addObserver(forName: L10n.didChange, object: nil, queue: .main) { _ in

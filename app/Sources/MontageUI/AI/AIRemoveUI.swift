@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 import MontageAI
@@ -33,44 +33,46 @@ struct AIRemoveSection: View {
         return (c.removal?.original ?? c.mediaID).flatMap(ctx.store.project.asset)?.kind == .video
     }
     var body: some View {
-        let store = ctx.store
-        let _ = ModelManager.shared.states   // re-render when the LaMa download finishes (`isAvailable` is a disk check)
-        VStack(alignment: .leading, spacing: 8) {
-            if !LaMaInpainter.isAvailable {
-                HintText(text: tr("remove.needsModel")).testID("remove.needsModel")
-                ModelStateControls(spec: ModelCatalog.lama)
-            }
-            if let id = ctx.clip?.id, let job = store.ai.removeJobs[id] {
-                let p = store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr("remove.applying", JobInfo.percent(p)), progress: p) { store.cancelRemoval(id) }.testID("remove.progress")
-            }
-            if let tool = store.ai.removeTool, tool.clipID == ctx.clip?.id {
-                SliderRowView(label: tr("cutout.size"), unit: (tool.size - 1) / 99, originUnit: 0, gradient: nil, ticks: [],
-                              display: Fmt.int(tool.size), enabled: true, labelAccessory: nil, parse: NumberParse.number,
-                              onBegin: {}, onChange: { tool.size = 1 + $0 * 99 }, onEnd: {},
-                              commit: { tool.size = min(max($0, 1), 100) }, step: { tool.size = min(max(tool.size + Double($0), 1), 100) },
-                              triplet: nil)
-                HintText(text: tr("remove.hint"))
-                if isVideo {   // AI2 AI-041: the mask follows a moving object
-                    ToggleLine(label: tr("remove.track"), detail: tr("remove.track.hint"),
-                               isOn: Binding(get: { tool.track }, set: { tool.track = $0 }))
-                        .testID("remove.track")
+        WithPerceptionTracking {
+            let store = ctx.store
+            let _ = ModelManager.shared.states   // re-render when the LaMa download finishes (`isAvailable` is a disk check)
+            VStack(alignment: .leading, spacing: 8) {
+                if !LaMaInpainter.isAvailable {
+                    HintText(text: tr("remove.needsModel")).testID("remove.needsModel")
+                    ModelStateControls(spec: ModelCatalog.lama)
                 }
-                HStack {
-                    Spacer()
-                    PillButton(title: tr("remove.clear"), enabled: !tool.strokes.isEmpty) { tool.clear() }
-                    PillButton(title: tr("remove.apply"), accent: true, enabled: !tool.strokes.isEmpty && LaMaInpainter.isAvailable) { store.applyRemoveBrush() }
-                        .testID("remove.apply")
+                if let id = ctx.clip?.id, let job = store.ai.removeJobs[id] {
+                    let p = store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr("remove.applying", JobInfo.percent(p)), progress: p) { store.cancelRemoval(id) }.testID("remove.progress")
                 }
-            } else if ctx.clip?.removal != nil {
-                PillButton(title: tr("remove.edit"), symbol: "paintbrush.pointed") { if let id = ctx.clip?.id { store.beginRemoveBrush(id) } }
+                if let tool = store.ai.removeTool, tool.clipID == ctx.clip?.id {
+                    SliderRowView(label: tr("cutout.size"), unit: (tool.size - 1) / 99, originUnit: 0, gradient: nil, ticks: [],
+                                  display: Fmt.int(tool.size), enabled: true, labelAccessory: nil, parse: NumberParse.number,
+                                  onBegin: {}, onChange: { tool.size = 1 + $0 * 99 }, onEnd: {},
+                                  commit: { tool.size = min(max($0, 1), 100) }, step: { tool.size = min(max(tool.size + Double($0), 1), 100) },
+                                  triplet: nil)
+                    HintText(text: tr("remove.hint"))
+                    if isVideo {   // AI2 AI-041: the mask follows a moving object
+                        ToggleLine(label: tr("remove.track"), detail: tr("remove.track.hint"),
+                                   isOn: Binding(get: { tool.track }, set: { tool.track = $0 }))
+                            .testID("remove.track")
+                    }
+                    HStack {
+                        Spacer()
+                        PillButton(title: tr("remove.clear"), enabled: !tool.strokes.isEmpty) { tool.clear() }
+                        PillButton(title: tr("remove.apply"), accent: true, enabled: !tool.strokes.isEmpty && LaMaInpainter.isAvailable) { store.applyRemoveBrush() }
+                            .testID("remove.apply")
+                    }
+                } else if ctx.clip?.removal != nil {
+                    PillButton(title: tr("remove.edit"), symbol: "paintbrush.pointed") { if let id = ctx.clip?.id { store.beginRemoveBrush(id) } }
+                }
             }
         }
     }
 }
 
 /// Red brush on the canvas; strokes in raw source coordinates of the clip's layer.
-@MainActor @Observable
+@MainActor @Perceptible
 public final class RemoveBrushTool: CanvasTool {
     public let clipID: ClipID
     public var size: Double = 25
@@ -78,10 +80,10 @@ public final class RemoveBrushTool: CanvasTool {
     public var track = false
     public private(set) var strokes: [RemovalStroke] = []
     public private(set) var revision = 0
-    @ObservationIgnored weak var store: EditorStore?
-    @ObservationIgnored private var current: [Vec2] = []
-    @ObservationIgnored private var currentCanvas: [Vec2] = []
-    @ObservationIgnored private var painted: [(pts: [Vec2], radius: Double)] = []
+    @PerceptionIgnored weak var store: EditorStore?
+    @PerceptionIgnored private var current: [Vec2] = []
+    @PerceptionIgnored private var currentCanvas: [Vec2] = []
+    @PerceptionIgnored private var painted: [(pts: [Vec2], radius: Double)] = []
 
     init(clipID: ClipID, store: EditorStore) {
         self.clipID = clipID; self.store = store

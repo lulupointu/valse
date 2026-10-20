@@ -2,6 +2,7 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 // Video ▸ Mask / Adjust ▸ Mask ▸ Track mask (MK-003, CapCut "Track mask": forward / backward / both): Vision object
 // tracking of the mask's box from the playhead, in the background (progress + cancel), then mask centre + size
@@ -19,7 +20,7 @@ enum MaskTrackingInspector {
     ]
 }
 
-@MainActor @Observable final class MaskTrackUI {
+@MainActor @Perceptible final class MaskTrackUI {
     static let shared = MaskTrackUI()
     var direction: MaskTracking.Direction = .both
     /// Running job per clip + mask ("<clip>|clip" / "<clip>|adjust").
@@ -32,21 +33,23 @@ struct MaskTrackingSection: View {
     let targetID: String
 
     var body: some View {
-        let ui = MaskTrackUI.shared
-        let key = ctx.clip.map { "\($0.id)|\(targetID)" } ?? ""
-        VStack(alignment: .leading, spacing: 6) {
-            if let job = ui.jobs[key] {
-                let p = ctx.store.jobProgress(job) ?? 0
-                JobProgressLine(text: tr("maskTrack.applying", JobInfo.percent(p)), progress: p) { cancel(key) }
-            }
-            InlineRow(label: tr("maskTrack.direction")) {
-                HStack(spacing: 8) {
-                    Dropdown(items: MaskTracking.Direction.allCases.map { ($0, tr($0.nameKey)) }, selection: ui.direction) { ui.direction = $0 }
-                    PillButton(title: tr("maskTrack.start"), symbol: "scope", accent: true, enabled: ui.jobs[key] == nil) { start(key) }
-                        .testID("maskTrack.start.\(targetID)")
+        WithPerceptionTracking {
+            let ui = MaskTrackUI.shared
+            let key = ctx.clip.map { "\($0.id)|\(targetID)" } ?? ""
+            VStack(alignment: .leading, spacing: 6) {
+                if let job = ui.jobs[key] {
+                    let p = ctx.store.jobProgress(job) ?? 0
+                    JobProgressLine(text: tr("maskTrack.applying", JobInfo.percent(p)), progress: p) { cancel(key) }
                 }
+                InlineRow(label: tr("maskTrack.direction")) {
+                    HStack(spacing: 8) {
+                        Dropdown(items: MaskTracking.Direction.allCases.map { ($0, tr($0.nameKey)) }, selection: ui.direction) { ui.direction = $0 }
+                        PillButton(title: tr("maskTrack.start"), symbol: "scope", accent: true, enabled: ui.jobs[key] == nil) { start(key) }
+                            .testID("maskTrack.start.\(targetID)")
+                    }
+                }
+                HintText(text: tr(ctx.clip?[keyPath: target.resolved(ctx.clip).mask]?.shape == .brush ? "maskTrack.brushHint" : "maskTrack.hint"))
             }
-            HintText(text: tr(ctx.clip?[keyPath: target.resolved(ctx.clip).mask]?.shape == .brush ? "maskTrack.brushHint" : "maskTrack.hint"))
         }
     }
 

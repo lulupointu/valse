@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import MontageCore
+import Perception
 
 /// Detachable panels (PB-006 "Detach player", SE-006 separate windows / dual screen): a panel moves into its own
 /// resizable window (drag it to a second display, or full-screen it there); the editor shows a placeholder with
@@ -108,15 +109,17 @@ struct DetachedPanelPlaceholder: View {
     let store: EditorStore
     let panel: DetachablePanel
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "rectangle.on.rectangle").font(.system(size: 30, weight: .light)).foregroundStyle(Theme.textTertiary)
-            Text(loc: "panel.detached.placeholder").font(.system(size: 12.5)).foregroundStyle(Theme.textSecondary)
-            Button(tr("panel.attach")) { store.setPanel(panel, detached: false) }
-                .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("\(panel.rawValue).attach")
+        WithPerceptionTracking {
+            VStack(spacing: 12) {
+                Image(systemName: "rectangle.on.rectangle").font(.system(size: 30, weight: .light)).foregroundStyle(Theme.textTertiary)
+                Text(loc: "panel.detached.placeholder").font(.system(size: 12.5)).foregroundStyle(Theme.textSecondary)
+                Button(tr("panel.attach")) { store.setPanel(panel, detached: false) }
+                    .buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("\(panel.rawValue).attach")
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.panel)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius))
+            .testID("\(panel.rawValue).detachedPlaceholder")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius))
-        .testID("\(panel.rawValue).detachedPlaceholder")
     }
 }

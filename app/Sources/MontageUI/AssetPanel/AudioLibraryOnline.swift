@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Audio ▸ Online (AU-001 / AU-002, owner exception to local-only — docs/STATUS.md): Instagram / CapCut-like music &
 /// sound-effect search over the user's own provider keys (Freesound, Jamendo; Settings ▸ Music, Keychain).
@@ -9,7 +10,7 @@ import MontageEngine
 /// artist · duration · BPM · provider, ☆, the "Safe ✓" / "Credit" badge + license card, and "Use" (⊕ / double-click /
 /// drag) downloads once into the project's media folder (+ license sidecar) and adds the track at the playhead.
 /// Network: only from here, only while the user opens or searches these entries. UI tests use `MockOnlineAudioHTTP`.
-@MainActor @Observable
+@MainActor @Perceptible
 final class OnlineAudioState {
     static let shared = OnlineAudioState()
 
@@ -61,12 +62,12 @@ final class OnlineAudioState {
     /// Bumped when a key / the enabled switch changes (reloads the visible list).
     private(set) var keysVersion = 0
     /// Every online track seen this session (row id → track): drops, favourites, recents.
-    @ObservationIgnored private(set) var known: [String: OnlineTrack] = [:]
+    @PerceptionIgnored private(set) var known: [String: OnlineTrack] = [:]
     /// Favourited / used tracks, persisted (support folder) so Favorites / Recent list them offline.
     private(set) var saved: [String: OnlineTrack] = [:]
-    @ObservationIgnored private var cache: [OnlineAudioQuery: (Date, [OnlineTrack], [String])] = [:]
-    @ObservationIgnored private var task: Task<Void, Never>?
-    @ObservationIgnored private(set) var lastQuery: OnlineAudioQuery?
+    @PerceptionIgnored private var cache: [OnlineAudioQuery: (Date, [OnlineTrack], [String])] = [:]
+    @PerceptionIgnored private var task: Task<Void, Never>?
+    @PerceptionIgnored private(set) var lastQuery: OnlineAudioQuery?
 
     init(http: OnlineAudioHTTP? = nil, secrets: OnlineAudioSecretStore? = nil,
          providers: [any OnlineAudioProvider] = OnlineAudioProviders.all) {
@@ -272,7 +273,7 @@ final class OnlineAudioState {
         }
     }
 
-    @ObservationIgnored private var sidecarIDs: [URL: String] = [:]
+    @PerceptionIgnored private var sidecarIDs: [URL: String] = [:]
     /// "provider:id" of a file installed by `use` (from its license sidecar, read once per file).
     func trackID(of url: URL) -> String? {
         if let v = sidecarIDs[url] { return v.isEmpty ? nil : v }
@@ -328,17 +329,19 @@ struct OnlineAudioView: View {
     private var state: OnlineAudioState { OnlineAudioState.shared }
 
     var body: some View {
-        let text = AssetPanelState.shared.query["audio"] ?? ""
-        VStack(alignment: .leading, spacing: 0) {
-            chips
-            content(text: text)
-            footer
+        WithPerceptionTracking {
+            let text = AssetPanelState.shared.query["audio"] ?? ""
+            VStack(alignment: .leading, spacing: 0) {
+                chips
+                content(text: text)
+                footer
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .task(id: LoadKey(nav: nav, text: text, mood: state.mood, genre: state.genre, cat: state.sfxCategory, keys: state.keysVersion)) {
+                state.load(nav: nav, text: text)
+            }
+            .testID("online.view")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .task(id: LoadKey(nav: nav, text: text, mood: state.mood, genre: state.genre, cat: state.sfxCategory, keys: state.keysVersion)) {
-            state.load(nav: nav, text: text)
-        }
-        .testID("online.view")
     }
 
     struct LoadKey: Hashable { let nav, text, mood, genre, cat: String; let keys: Int }
@@ -437,23 +440,27 @@ struct ChipRow: View {
     let select: (String) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(ids, id: \.self) { id in
-                    let on = id == selection
-                    Button { select(id) } label: {
-                        Text(verbatim: title(id)).font(.system(size: 11.5, weight: on ? .semibold : .regular))
-                            .foregroundStyle(on ? Color.black : Theme.textPrimary)
-                            .padding(.horizontal, 10).frame(height: 24)
-                            .background(on ? Theme.accent : Color(white: 0.2), in: Capsule())
+        WithPerceptionTracking {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(ids, id: \.self) { id in
+                        WithPerceptionTracking {
+                            let on = id == selection
+                            Button { select(id) } label: {
+                                Text(verbatim: title(id)).font(.system(size: 11.5, weight: on ? .semibold : .regular))
+                                    .foregroundStyle(on ? Color.black : Theme.textPrimary)
+                                    .padding(.horizontal, 10).frame(height: 24)
+                                    .background(on ? Theme.accent : Color(white: 0.2), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .testID("\(idPrefix).\(id.isEmpty ? "popular" : id)")
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .testID("\(idPrefix).\(id.isEmpty ? "popular" : id)")
                 }
+                .padding(.horizontal, 12)
             }
-            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
         }
-        .padding(.bottom, 6)
     }
 }
 
@@ -467,24 +474,26 @@ struct StateCard: View {
     let id: String
 
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol).font(.system(size: 26)).foregroundStyle(Theme.textTertiary)
-            Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary).multilineTextAlignment(.center)
-            if !message.isEmpty {
-                Text(verbatim: message).font(.system(size: 11.5)).foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+        WithPerceptionTracking {
+            VStack(spacing: 10) {
+                Image(systemName: symbol).font(.system(size: 26)).foregroundStyle(Theme.textTertiary)
+                Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary).multilineTextAlignment(.center)
+                if !message.isEmpty {
+                    Text(verbatim: message).font(.system(size: 11.5)).foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                }
+                if let p = primary {
+                    Button(p.0) { p.1() }.buttonStyle(AccentButtonStyle()).testID("\(id).primary")
+                }
+                if let s = secondary {
+                    Button { s.1() } label: { Text(verbatim: s.0).font(.system(size: 11.5, weight: .medium)).foregroundStyle(Theme.accent) }
+                        .buttonStyle(.plain).testID("\(id).secondary")
+                }
             }
-            if let p = primary {
-                Button(p.0) { p.1() }.buttonStyle(AccentButtonStyle()).testID("\(id).primary")
-            }
-            if let s = secondary {
-                Button { s.1() } label: { Text(verbatim: s.0).font(.system(size: 11.5, weight: .medium)).foregroundStyle(Theme.accent) }
-                    .buttonStyle(.plain).testID("\(id).secondary")
-            }
+            .padding(24)
+            .frame(maxWidth: 360)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .testID(id)
         }
-        .padding(24)
-        .frame(maxWidth: 360)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .testID(id)
     }
 }

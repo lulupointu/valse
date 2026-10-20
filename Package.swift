@@ -10,11 +10,15 @@ let mainActorByDefault: [SwiftSetting] = strict + [.defaultIsolation(MainActor.s
 let package = Package(
     name: "Montage",
     defaultLocalization: "en",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v13)],
     products: [
         .executable(name: "Montage", targets: ["MontageApp"]),
         .library(name: "MontageCore", targets: ["MontageCore"]),
         .library(name: "MontageEngine", targets: ["MontageEngine"]),
+    ],
+    dependencies: [
+        // Observation back-port for macOS 13 (native Observation is used on 14+). MIT, Point-Free.
+        .package(url: "https://github.com/pointfreeco/swift-perception", from: "2.0.12"),
     ],
     targets: [
         // Pure Swift model: project/timeline/keyframes/speed/commands/persistence/localization. Foundation only.
@@ -27,10 +31,12 @@ let package = Package(
         .target(name: "MontageEngine", dependencies: ["MontageCore", "MontageEffects"], path: "app/Sources/MontageEngine",
                 resources: [.process("Resources")], swiftSettings: strict),
         // On-device AI: tool protocols, registry, Vision/Speech adapters.
-        .target(name: "MontageAI", dependencies: ["MontageCore", "MontageEngine"], path: "app/Sources/MontageAI",
+        .target(name: "MontageAI", dependencies: ["MontageCore", "MontageEngine",
+                                               .product(name: "Perception", package: "swift-perception")], path: "app/Sources/MontageAI",
                 resources: [.process("Resources")], swiftSettings: strict),
         // SwiftUI + AppKit editor shell (player, timeline canvas, panels, inspector).
-        .target(name: "MontageUI", dependencies: ["MontageCore", "MontageEffects", "MontageEngine", "MontageAI"],
+        .target(name: "MontageUI", dependencies: ["MontageCore", "MontageEffects", "MontageEngine", "MontageAI",
+                                               .product(name: "Perception", package: "swift-perception")],
                 path: "app/Sources/MontageUI", resources: [.process("Resources")], swiftSettings: mainActorByDefault),
         .executableTarget(name: "MontageApp", dependencies: ["MontageUI"], path: "app/Sources/MontageApp",
                           swiftSettings: mainActorByDefault),

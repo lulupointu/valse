@@ -3,6 +3,7 @@ import SwiftUI
 import AppKit
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Asset panel ▸ Audio (UX.md §3.4, AU-001/002/003/025): Yours · Extracted · Music folder · Favorites · Recent ·
 /// (Similar) · Online ▾ (For you · Trending · Moods · Genres · Sound effects — AudioLibraryOnline.swift) ·
@@ -14,7 +15,7 @@ struct AudioLibraryTab: View {
     private var preview: LibraryAudioPreview { LibraryAudioPreview.shared }
     private var rendering: AudioLibraryRendering { AudioLibraryRendering.shared }
 
-    var body: some View { browser() }
+    var body: some View { WithPerceptionTracking { browser() } }
 
     func browser() -> some View {
         let usedURLs = Set(store.mediaBin.media.filter { m in store.usedMediaIDs.contains(m.id) }.map(\.url.standardizedFileURL))
@@ -46,7 +47,7 @@ struct AudioLibraryTab: View {
             SimilarToClipBar(store: store)
         }
         .onDisappear { preview.stop() }
-        .onChange(of: AssetLibraryStore.shared.favoriteIDs("audio") + AssetLibraryStore.shared.recentIDs("audio")) { _, ids in
+        .onValueChange(of: AssetLibraryStore.shared.favoriteIDs("audio") + AssetLibraryStore.shared.recentIDs("audio")) { _, ids in
             online.keepSaved(ids)
         }
     }
@@ -73,7 +74,7 @@ enum AudioLibraryPayload {
 }
 
 /// Synthesizes library audio off-main once, then imports it and inserts it (like CapCut's download-then-add).
-@MainActor @Observable
+@MainActor @Perceptible
 final class AudioLibraryRendering {
     static let shared = AudioLibraryRendering()
     private(set) var busy: Set<String> = []
@@ -106,24 +107,24 @@ final class AudioLibraryRendering {
 }
 
 /// One-at-a-time preview player for library rows, with waveform peaks for the progress strip.
-@MainActor @Observable
+@MainActor @Perceptible
 final class LibraryAudioPreview {
     static let shared = LibraryAudioPreview()
     private(set) var playingID: String?
     private(set) var peaks: [String: [Float]] = [:]
     /// Pre-computed beat markers per row id (fraction of the track, 0…1) drawn on the preview strip.
     private(set) var beatMarks: [String: [Double]] = [:]
-    @ObservationIgnored private var player: AVAudioPlayer?
+    @PerceptionIgnored private var player: AVAudioPlayer?
     /// Online previews stream with AVPlayer (Audio ▸ Online) until the file is cached.
-    @ObservationIgnored private var streamer: AVPlayer?
-    @ObservationIgnored private var streamDuration: Double = 0
+    @PerceptionIgnored private var streamer: AVPlayer?
+    @PerceptionIgnored private var streamDuration: Double = 0
 
     /// Waveform / beats known in advance (library manifest): the strip draws them before any decoding.
     func seed(_ id: String, peaks p: [Int]?, beats: [Double]?, duration: Double?) {
         if peaks[id] == nil, let p, !p.isEmpty { peaks[id] = p.map { Float($0) / 255 } }
         if beatMarks[id] == nil, let b = beats, let d = duration, d > 0 { beatMarks[id] = b.map { $0 / d } }
     }
-    @ObservationIgnored private var endTask: Task<Void, Never>?
+    @PerceptionIgnored private var endTask: Task<Void, Never>?
 
     var currentTime: Double {
         if let s = streamer { let t = s.currentTime().seconds; return t.isFinite ? t : 0 }
@@ -244,33 +245,39 @@ struct AudioPreviewStrip: View {
     let id: String
     private var preview: LibraryAudioPreview { LibraryAudioPreview.shared }
     var body: some View {
-        SwiftUI.TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-            let pk = preview.peaks[id] ?? []
-            let progress = preview.duration > 0 ? preview.currentTime / preview.duration : 0
-            GeometryReader { g in
-                Canvas { ctx, size in
-                    let n = max(1, pk.count)
-                    let w = size.width / CGFloat(n)
-                    for (i, p) in pk.enumerated() {
-                        let h = max(1.5, CGFloat(p) * size.height)
-                        let r = CGRect(x: CGFloat(i) * w, y: (size.height - h) / 2, width: max(1, w * 0.6), height: h)
-                        ctx.fill(Path(r), with: .color(Double(i) / Double(n) <= progress ? Theme.accent : Color(white: 0.45)))
-                    }
-                    if pk.isEmpty {
-                        ctx.fill(Path(CGRect(x: 0, y: size.height / 2 - 1, width: size.width * progress, height: 2)), with: .color(Theme.accent))
-                    }
-                    // pre-computed beat markers (library music): small ticks under the waveform
-                    for b in preview.beatMarks[id] ?? [] {
-                        ctx.fill(Path(CGRect(x: CGFloat(b) * size.width, y: size.height - 3, width: 1, height: 3)),
-                                 with: .color(Color(hex: 0xF5C451).opacity(0.8)))
+        WithPerceptionTracking {
+            SwiftUI.TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                WithPerceptionTracking {
+                    let pk = preview.peaks[id] ?? []
+                    let progress = preview.duration > 0 ? preview.currentTime / preview.duration : 0
+                    GeometryReader { g in
+                        WithPerceptionTracking {
+                            Canvas { ctx, size in
+                                let n = max(1, pk.count)
+                                let w = size.width / CGFloat(n)
+                                for (i, p) in pk.enumerated() {
+                                    let h = max(1.5, CGFloat(p) * size.height)
+                                    let r = CGRect(x: CGFloat(i) * w, y: (size.height - h) / 2, width: max(1, w * 0.6), height: h)
+                                    ctx.fill(Path(r), with: .color(Double(i) / Double(n) <= progress ? Theme.accent : Color(white: 0.45)))
+                                }
+                                if pk.isEmpty {
+                                    ctx.fill(Path(CGRect(x: 0, y: size.height / 2 - 1, width: size.width * progress, height: 2)), with: .color(Theme.accent))
+                                }
+                                // pre-computed beat markers (library music): small ticks under the waveform
+                                for b in preview.beatMarks[id] ?? [] {
+                                    ctx.fill(Path(CGRect(x: CGFloat(b) * size.width, y: size.height - 3, width: 1, height: 3)),
+                                             with: .color(Color(hex: 0xF5C451).opacity(0.8)))
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture(coordinateSpace: .local) { p in preview.seek(fraction: Double(p.x / max(1, g.size.width))) }
+                        }
                     }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture(coordinateSpace: .local) { p in preview.seek(fraction: Double(p.x / max(1, g.size.width))) }
             }
+            .frame(height: 20)
+            .testID("audio.preview.strip")
         }
-        .frame(height: 20)
-        .testID("audio.preview.strip")
     }
 }
 
@@ -293,28 +300,32 @@ enum AudioCovers {
 struct ExtractedAudioView: View {
     let store: EditorStore
     var body: some View {
-        let items = store.mediaBin.media.filter { $0.kind == .audio && $0.url.lastPathComponent.hasSuffix(" (audio).m4a") }
-        VStack(alignment: .leading, spacing: 10) {
-            Button { pickVideos() } label: {
-                Label(tr("audio.extract.button"), systemImage: "film.stack").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .testID("audio.extract")
-            Text(loc: "audio.extract.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
-            if items.isEmpty {
-                EmptyState(symbol: "music.note", title: tr("audio.extract.empty"))
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(items) { a in
-                            LibraryRow(tab: "audio", namespace: "audio", item: item(a))
+        WithPerceptionTracking {
+            let items = store.mediaBin.media.filter { $0.kind == .audio && $0.url.lastPathComponent.hasSuffix(" (audio).m4a") }
+            VStack(alignment: .leading, spacing: 10) {
+                Button { pickVideos() } label: {
+                    Label(tr("audio.extract.button"), systemImage: "film.stack").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .testID("audio.extract")
+                Text(loc: "audio.extract.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                if items.isEmpty {
+                    EmptyState(symbol: "music.note", title: tr("audio.extract.empty"))
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(items) { a in
+                                WithPerceptionTracking {
+                                    LibraryRow(tab: "audio", namespace: "audio", item: item(a))
+                                }
+                            }
                         }
                     }
                 }
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     func item(_ a: MediaAsset) -> LibraryItem {
@@ -337,7 +348,7 @@ struct ExtractedAudioView: View {
 }
 
 /// The user's local music folder (default ~/Music), scanned off-main.
-@MainActor @Observable
+@MainActor @Perceptible
 final class LocalMusicLibrary {
     static let shared = LocalMusicLibrary()
     static let defaultsKey = "montage.audio.musicFolder"
@@ -357,7 +368,7 @@ final class LocalMusicLibrary {
     }
     private(set) var tracks: [Track] = []
     private(set) var scanning = false
-    @ObservationIgnored private var scannedFolder: URL?
+    @PerceptionIgnored private var scannedFolder: URL?
 
     init() {
         if let env = ProcessInfo.processInfo.environment["MONTAGE_MUSIC_FOLDER"] { folder = URL(fileURLWithPath: env) }
@@ -399,32 +410,34 @@ struct LocalMusicView: View {
     private var lib: LocalMusicLibrary { LocalMusicLibrary.shared }
 
     var body: some View {
-        let q = AssetPanelState.shared.query["audio"] ?? ""
-        let tracks = lib.tracks.filter { LibrarySearch.matches(fields: [$0.title, $0.folder], q) }
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
-                Text(verbatim: lib.folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                    .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
-                Spacer()
-                Button(tr("audio.folder.choose")) { choose() }.buttonStyle(SecondaryButtonStyle()).testID("audio.folder.choose")
-                IconButton("arrow.clockwise", help: tr("audio.folder.rescan")) { lib.scan() }
-            }
-            if lib.scanning && lib.tracks.isEmpty {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if tracks.isEmpty {
-                EmptyState(symbol: "music.note.house", title: tr("audio.folder.empty"))
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(tracks) { t in LibraryRow(tab: "audio", namespace: "audio", item: item(t)).testID("asset.tile.\(t.id)") }
+        WithPerceptionTracking {
+            let q = AssetPanelState.shared.query["audio"] ?? ""
+            let tracks = lib.tracks.filter { LibrarySearch.matches(fields: [$0.title, $0.folder], q) }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                    Text(verbatim: lib.folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                        .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    Button(tr("audio.folder.choose")) { choose() }.buttonStyle(SecondaryButtonStyle()).testID("audio.folder.choose")
+                    IconButton("arrow.clockwise", help: tr("audio.folder.rescan")) { lib.scan() }
+                }
+                if lib.scanning && lib.tracks.isEmpty {
+                    ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if tracks.isEmpty {
+                    EmptyState(symbol: "music.note.house", title: tr("audio.folder.empty"))
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(tracks) { t in WithPerceptionTracking { LibraryRow(tab: "audio", namespace: "audio", item: item(t)).testID("asset.tile.\(t.id)") } }
+                        }
                     }
                 }
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onAppear { lib.scanIfNeeded() }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onAppear { lib.scanIfNeeded() }
     }
 
     func item(_ t: LocalMusicLibrary.Track) -> LibraryItem {

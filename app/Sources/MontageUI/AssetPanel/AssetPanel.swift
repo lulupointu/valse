@@ -4,15 +4,18 @@ import MontageCore
 import MontageEffects
 import MontageEngine
 import MontageAI
+import Perception
 
 /// Top-left asset panel: icon tab bar (icon over 11 pt label) + the active tab's content (AssetTabRegistry).
 public struct AssetPanel: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     public init(store: EditorStore) { self.store = store }
 
     public var body: some View {
-        // AI: EditPilot chat (AI2) and the transcript (W10) replace the asset panel
-        if store.ai.pilot.isOpen { EditPilotPanel(store: store) } else if store.ai.transcriptOpen { TranscriptPanel(store: store) } else { tabs }
+        WithPerceptionTracking {
+            // AI: EditPilot chat (AI2) and the transcript (W10) replace the asset panel
+            if store.ai.pilot.isOpen { EditPilotPanel(store: store) } else if store.ai.transcriptOpen { TranscriptPanel(store: store) } else { tabs }
+        }
     }
 
     var tabs: some View {
@@ -20,18 +23,20 @@ public struct AssetPanel: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
                     ForEach(AssetTabRegistry.sorted) { tab in
-                        let active = store.activeAssetTab == tab.id
-                        Button { store.activeAssetTab = tab.id } label: {
-                            VStack(spacing: 3) {
-                                Image(systemName: tab.symbol).font(.system(size: 16))
-                                Text(loc: tab.titleKey).font(Theme.Fonts.tabLabel).lineLimit(1)
+                        WithPerceptionTracking {
+                            let active = store.activeAssetTab == tab.id
+                            Button { store.activeAssetTab = tab.id } label: {
+                                VStack(spacing: 3) {
+                                    Image(systemName: tab.symbol).font(.system(size: 16))
+                                    Text(loc: tab.titleKey).font(Theme.Fonts.tabLabel).lineLimit(1)
+                                }
+                                .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(0.85))
+                                .frame(minWidth: 50).padding(.horizontal, 4)
+                                .contentShape(Rectangle())
                             }
-                            .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(0.85))
-                            .frame(minWidth: 50).padding(.horizontal, 4)
-                            .contentShape(Rectangle())
+                            .buttonStyle(.plain)
+                            .testID("asset.tab.\(tab.id)")
                         }
-                        .buttonStyle(.plain)
-                        .testID("asset.tab.\(tab.id)")
                     }
                 }
                 .padding(.horizontal, 6)
@@ -159,14 +164,16 @@ struct RegistryGrid<Item>: View {
 
     /// W13: rendered by the shared `LibraryBrowser` (Favorites · Recent · groups, search, keyboard, ☆ / ⊕).
     var body: some View {
-        let tab = store.activeAssetTab
-        LibraryBrowser(tab: tab, namespace: tab, sections: groups.map { g in
-            LibrarySection(id: g.0, title: tr(g.0), items: g.1.map(tile).map { t in
-                LibraryItem(id: t.id, title: t.title, keywords: [tr(g.0)],
-                            art: t.emoji.map { .emoji($0) } ?? .symbol(t.symbol ?? "sparkles"), payload: t.payload, add: t.add,
-                            click: { [store] in RegistryGridPreview.preview(t.id, store: store) })
+        WithPerceptionTracking {
+            let tab = store.activeAssetTab
+            LibraryBrowser(tab: tab, namespace: tab, sections: groups.map { g in
+                LibrarySection(id: g.0, title: tr(g.0), items: g.1.map(tile).map { t in
+                    LibraryItem(id: t.id, title: t.title, keywords: [tr(g.0)],
+                                art: t.emoji.map { .emoji($0) } ?? .symbol(t.symbol ?? "sparkles"), payload: t.payload, add: t.add,
+                                click: { [store] in RegistryGridPreview.preview(t.id, store: store) })
+                })
             })
-        })
+        }
     }
 }
 
@@ -174,29 +181,31 @@ struct AssetTile<Item>: View {
     let tile: RegistryGrid<Item>.Tile
     @State private var hover = false
     var body: some View {
-        VStack(spacing: 5) {
-            ZStack(alignment: .bottomTrailing) {
-                RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
-                    .overlay {
-                        if let img = tile.image { Image(decorative: img, scale: 2).resizable().aspectRatio(contentMode: .fit).padding(10) }
-                        else if let e = tile.emoji { Text(verbatim: e).font(.system(size: 34)) }
-                        else if let s = tile.symbol { Image(systemName: s).font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85)) }
+        WithPerceptionTracking {
+            VStack(spacing: 5) {
+                ZStack(alignment: .bottomTrailing) {
+                    RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                        .overlay {
+                            if let img = tile.image { Image(decorative: img, scale: 2).resizable().aspectRatio(contentMode: .fit).padding(10) }
+                            else if let e = tile.emoji { Text(verbatim: e).font(.system(size: 34)) }
+                            else if let s = tile.symbol { Image(systemName: s).font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85)) }
+                        }
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
+                    if hover {
+                        Button(action: tile.add) {
+                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                                .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
+                        }
+                        .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))
                     }
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
-                if hover {
-                    Button(action: tile.add) {
-                        Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                            .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
-                    }
-                    .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))
                 }
+                .aspectRatio(1, contentMode: .fit)
+                Text(verbatim: tile.title).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
             }
-            .aspectRatio(1, contentMode: .fit)
-            Text(verbatim: tile.title).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
+            .onHover { hover = $0 }
+            .onTapGesture(count: 2, perform: tile.add)
+            .onDrag { NSItemProvider(object: tile.payload as NSString) }
         }
-        .onHover { hover = $0 }
-        .onTapGesture(count: 2, perform: tile.add)
-        .onDrag { NSItemProvider(object: tile.payload as NSString) }
     }
 }
 
@@ -205,32 +214,36 @@ struct SubNav: View {
     let items: [(id: String, title: String)]
     @Binding var selection: String
     var body: some View {
-        // UX.md §3.1: 120 pt column, 9 pt padding, 28 pt items (13 pt; selected = accent on accent.dim). Scrolls when the
-        // category list is taller than the panel (Effects has ~20 groups).
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(items, id: \.id) { item in
-                    Button { selection = item.id } label: {
-                        Text(verbatim: item.title)
-                            .font(.system(size: 13))
-                            .foregroundStyle(selection == item.id ? Theme.accent : Theme.textPrimary)
-                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)   // FR labels wrap (UX_GAPS W13-5)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8).padding(.vertical, 5).frame(minHeight: 28)
-                            .background(selection == item.id ? Theme.accentDim.opacity(0.45) : .clear, in: RoundedRectangle(cornerRadius: 4))
-                            .contentShape(Rectangle())
+        WithPerceptionTracking {
+            // UX.md §3.1: 120 pt column, 9 pt padding, 28 pt items (13 pt; selected = accent on accent.dim). Scrolls when the
+            // category list is taller than the panel (Effects has ~20 groups).
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(items, id: \.id) { item in
+                        WithPerceptionTracking {
+                            Button { selection = item.id } label: {
+                                Text(verbatim: item.title)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(selection == item.id ? Theme.accent : Theme.textPrimary)
+                                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)   // FR labels wrap (UX_GAPS W13-5)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 8).padding(.vertical, 5).frame(minHeight: 28)
+                                    .background(selection == item.id ? Theme.accentDim.opacity(0.45) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .help(item.title)
+                            .testID("asset.nav.\(item.id)")
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .help(item.title)
-                    .testID("asset.nav.\(item.id)")
                 }
+                .padding(9)
             }
-            .padding(9)
+            .scrollIndicators(.never)
+            .frame(width: 120)
+            .background(Theme.panel)
+            .overlay(alignment: .trailing) { Rectangle().fill(Theme.separator).frame(width: 1) }
         }
-        .scrollIndicators(.never)
-        .frame(width: 120)
-        .background(Theme.panel)
-        .overlay(alignment: .trailing) { Rectangle().fill(Theme.separator).frame(width: 1) }
     }
 }
 
@@ -238,12 +251,14 @@ struct EmptyState: View {
     let symbol: String
     let title: String
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol).font(.system(size: 28)).foregroundStyle(Theme.textTertiary)
-            Text(verbatim: title).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).multilineTextAlignment(.center)
+        WithPerceptionTracking {
+            VStack(spacing: 10) {
+                Image(systemName: symbol).font(.system(size: 28)).foregroundStyle(Theme.textTertiary)
+                Text(verbatim: title).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(20)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(20)
     }
 }
 
@@ -252,5 +267,5 @@ struct EmptyState: View {
 /// Captions tab: Auto captions (on-device speech recognition) — W10, MontageUI/AI/AutoCaptionsPanel.swift.
 struct CaptionsTab: View {
     let store: EditorStore
-    var body: some View { AutoCaptionsPanel(store: store) }
+    var body: some View { WithPerceptionTracking { AutoCaptionsPanel(store: store) } }
 }

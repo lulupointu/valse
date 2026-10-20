@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import MontageCore
 import MontageEngine
+import Perception
 
 /// Text ▸ Basic ▸ Font: full-width button with the current family (+ ⇕ to step through fonts) that opens a searchable
 /// list with live previews: Imported · Favourites · Recently used · All fonts, and "Import font…" (TX-002).
@@ -11,22 +12,26 @@ struct FontRow: View {
     @State private var open = false
 
     var body: some View {
-        let font = currentFont
-        InlineRow(label: tr("text.font")) {
-            HStack(spacing: 4) {
-                Button { open.toggle() } label: {
-                    Text(verbatim: FontCatalog.displayName(font) ?? tr("text.font.system"))
-                        .font(previewFont(font, size: 12))
-                        .foregroundStyle(Theme.textPrimary).lineLimit(1)
-                        .frame(maxWidth: .infinity, minHeight: 28)
-                        .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
-                        .contentShape(Rectangle())
+        WithPerceptionTracking {
+            let font = currentFont
+            InlineRow(label: tr("text.font")) {
+                HStack(spacing: 4) {
+                    Button { open.toggle() } label: {
+                        Text(verbatim: FontCatalog.displayName(font) ?? tr("text.font.system"))
+                            .font(previewFont(font, size: 12))
+                            .foregroundStyle(Theme.textPrimary).lineLimit(1)
+                            .frame(maxWidth: .infinity, minHeight: 28)
+                            .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $open, arrowEdge: .leading) {
+                        WithPerceptionTracking {
+                            FontPickerList(selected: font) { name in apply(name) }
+                        }
+                    }
+                    StepperButton { d in step(d) }
                 }
-                .buttonStyle(.plain)
-                .popover(isPresented: $open, arrowEdge: .leading) {
-                    FontPickerList(selected: font) { name in apply(name) }
-                }
-                StepperButton { d in step(d) }
             }
         }
     }
@@ -57,43 +62,45 @@ func previewFont(_ name: String, size: CGFloat) -> Font {
 struct FontPickerList: View {
     let selected: String
     let pick: (String) -> Void
-    @Bindable private var ui = TextUIState.shared
+    @Perception.Bindable private var ui = TextUIState.shared
 
     var body: some View {
-                let _rev = ui.fontsRevision  // re-list after an import
-        let q = ui.fontSearch.trimmingCharacters(in: .whitespaces).lowercased()
-        let all = _rev >= 0 ? FontCatalog.families : []
-        let match: (String) -> Bool = { q.isEmpty || $0.lowercased().contains(q) }
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(IStyle.caption)
-                TextField(tr("text.font.search"), text: $ui.fontSearch).textFieldStyle(.plain).font(.system(size: 12))
-                PillButton(title: tr("text.font.import"), symbol: "plus") { importFonts() }
-            }
-            .padding(8)
-            .background(IStyle.field)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    if q.isEmpty || match(tr("text.font.system")) {
-                        row("", title: tr("text.font.system"))
+        WithPerceptionTracking {
+                    let _rev = ui.fontsRevision  // re-list after an import
+            let q = ui.fontSearch.trimmingCharacters(in: .whitespaces).lowercased()
+            let all = _rev >= 0 ? FontCatalog.families : []
+            let match: (String) -> Bool = { q.isEmpty || $0.lowercased().contains(q) }
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(IStyle.caption)
+                    TextField(tr("text.font.search"), text: $ui.fontSearch).textFieldStyle(.plain).font(.system(size: 12))
+                    PillButton(title: tr("text.font.import"), symbol: "plus") { importFonts() }
+                }
+                .padding(8)
+                .background(IStyle.field)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        if q.isEmpty || match(tr("text.font.system")) {
+                            row("", title: tr("text.font.system"))
+                        }
+                        let imported = all.filter(\.isImported).map(\.name).filter(match)
+                        if !imported.isEmpty { section(tr("text.font.imported"), imported) }
+                        let fav = ui.favoriteFonts.filter(match)
+                        if !fav.isEmpty { section(tr("text.font.favorites"), fav) }
+                        let recent = ui.recentFonts.filter(match)
+                        if !recent.isEmpty, q.isEmpty { section(tr("text.font.recent"), recent) }
+                        section(tr("text.font.all"), all.filter { !$0.isImported }.map(\.name).filter(match))
                     }
-                    let imported = all.filter(\.isImported).map(\.name).filter(match)
-                    if !imported.isEmpty { section(tr("text.font.imported"), imported) }
-                    let fav = ui.favoriteFonts.filter(match)
-                    if !fav.isEmpty { section(tr("text.font.favorites"), fav) }
-                    let recent = ui.recentFonts.filter(match)
-                    if !recent.isEmpty, q.isEmpty { section(tr("text.font.recent"), recent) }
-                    section(tr("text.font.all"), all.filter { !$0.isImported }.map(\.name).filter(match))
                 }
             }
+            .frame(width: 280, height: 420)
+            .background(Theme.panel)
         }
-        .frame(width: 280, height: 420)
-        .background(Theme.panel)
     }
 
     @ViewBuilder func section(_ title: String, _ names: [String]) -> some View {
         Section {
-            ForEach(names, id: \.self) { row($0, title: $0) }
+            ForEach(names, id: \.self) { name in WithPerceptionTracking { row(name, title: name) } }
         } header: {
             Text(verbatim: title).font(.system(size: 11, weight: .semibold)).foregroundStyle(IStyle.caption)
                 .padding(.horizontal, 10).padding(.vertical, 4).frame(maxWidth: .infinity, alignment: .leading)

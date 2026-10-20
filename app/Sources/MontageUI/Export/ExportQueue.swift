@@ -1,12 +1,12 @@
 import SwiftUI
-import Observation
+import Perception
 import AppKit
 @preconcurrency import UserNotifications
 import MontageCore
 import MontageEngine
 
 /// One queued export (one click on Export, or one clip of "Export selected clips").
-@Observable
+@Perceptible
 public final class ExportJobItem: Identifiable {
     public enum State: Equatable {
         case queued, running, done, failed(String), cancelled
@@ -20,7 +20,7 @@ public final class ExportJobItem: Identifiable {
     public internal(set) var startedAt: Date?
     public internal(set) var finishedAt: Date?
     public internal(set) var written: [URL] = []
-    @ObservationIgnored var task: Task<Void, Never>?
+    @PerceptionIgnored var task: Task<Void, Never>?
 
     init(spec: ExportJobSpec) {
         self.spec = spec
@@ -42,11 +42,11 @@ public final class ExportJobItem: Identifiable {
 
 /// Background export queue (EX-015): jobs run one at a time off the main actor on project snapshots, so editing
 /// continues; progress / ETA / cancel per job; system notification (+ optional sound) when a job finishes.
-@Observable
+@Perceptible
 public final class ExportQueue {
     public private(set) var items: [ExportJobItem] = []
     /// Called on the main actor when a job ends (toast, etc.).
-    @ObservationIgnored public var onFinish: ((ExportJobItem) -> Void)?
+    @PerceptionIgnored public var onFinish: ((ExportJobItem) -> Void)?
     /// UserDefaults key of "Sound for export" (CapCut Settings ▸ Edit; the settings UI belongs to W12).
     public static let soundDefaultsKey = "montage.export.notificationSound"
     /// Settings ▸ General ▸ "Notify when an export finishes" (W12). Unset = on.

@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import Observation
+import Perception
 import MontageCore
 
 /// P1 project switcher ("I should have an easy way to access all my projects when I am in a project"): the centred
@@ -8,12 +8,12 @@ import MontageCore
 /// in the same window, CapCut-style (auto-save + close the current one, "Saved to project"); ⌘-Return / ⌥-click / ⧉
 /// opens it in a new window (PM-014). Footer: New project (⌘N) · All projects = Home (⌘⇧H).
 /// Ordering, status and the pre-close checks are the pure `ProjectSwitcherModel` (MontageCore).
-@MainActor @Observable
+@MainActor @Perceptible
 public final class ProjectSwitcher {
     /// The switcher of this window's `AppModel` (the title bar has no `AppModel`).
     public static weak var active: ProjectSwitcher?
 
-    @ObservationIgnored weak var app: AppModel?
+    @PerceptionIgnored weak var app: AppModel?
     public private(set) var isOpen = false
     public var query = "" { didSet { if query != oldValue { queryChanged() } } }
     /// Query the rows are filtered with (= `query`, debounced 80 ms above 1000 projects).
@@ -21,7 +21,7 @@ public final class ProjectSwitcher {
     public var selected: Int?
     /// Lock / drive status per project path, taken when the popover opens (and after the listing refreshes).
     private(set) var statuses: [String: ProjectSwitcherModel.Status] = [:]
-    @ObservationIgnored private var debounce: Task<Void, Never>?
+    @PerceptionIgnored private var debounce: Task<Void, Never>?
 
     public init() {}
 
@@ -171,31 +171,33 @@ public final class ProjectSwitcher {
 
 /// The centred project name in the title bar: "1019 ⌄" (12 pt semibold + 9 pt chevron), click = the switcher.
 struct ProjectSwitcherButton: View {
-    @Bindable var store: EditorStore
+    @Perception.Bindable var store: EditorStore
     @State private var hover = false
     var body: some View {
-        if let sw = ProjectSwitcher.active {
-            Button { sw.toggle() } label: {
-                HStack(spacing: 5) {
-                    Text(verbatim: store.projectName)
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                        .lineLimit(1).truncationMode(.middle)
-                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color(hex: 0x8A8A8E))
+        WithPerceptionTracking {
+            if let sw = ProjectSwitcher.active {
+                Button { sw.toggle() } label: {
+                    HStack(spacing: 5) {
+                        Text(verbatim: store.projectName)
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                            .lineLimit(1).truncationMode(.middle)
+                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color(hex: 0x8A8A8E))
+                    }
+                    .padding(.horizontal, 8).frame(height: 24)
+                    .background(hover || sw.isOpen ? Color(hex: 0x2A2A2E) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                    .contentShape(RoundedRectangle(cornerRadius: 4))
                 }
-                .padding(.horizontal, 8).frame(height: 24)
-                .background(hover || sw.isOpen ? Color(hex: 0x2A2A2E) : .clear, in: RoundedRectangle(cornerRadius: 4))
-                .contentShape(RoundedRectangle(cornerRadius: 4))
+                .buttonStyle(.plain)
+                .onHover { hover = $0 }
+                .help(tr("switcher.help"))
+                .accessibilityLabel(Text(verbatim: store.projectName))
+                .accessibilityHint(Text(verbatim: tr("switcher.help")))
+                .testID("titlebar.projectSwitcher")
+                // the name truncates before it reaches EditPilot / Export in narrow windows (160–420 pt)
+                .containerRelativeWidth { w in min(420, max(160, w - 700)) }
+            } else {
+                Text(verbatim: store.projectName).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
             }
-            .buttonStyle(.plain)
-            .onHover { hover = $0 }
-            .help(tr("switcher.help"))
-            .accessibilityLabel(Text(verbatim: store.projectName))
-            .accessibilityHint(Text(verbatim: tr("switcher.help")))
-            .testID("titlebar.projectSwitcher")
-            // the name truncates before it reaches EditPilot / Export in narrow windows (160–420 pt)
-            .containerRelativeFrame(.horizontal) { w, _ in min(420, max(160, w - 700)) }
-        } else {
-            Text(verbatim: store.projectName).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
         }
     }
 }
@@ -205,18 +207,22 @@ struct ProjectSwitcherButton: View {
 /// In-window popover under the title (arrow-less, 6 pt below the title bar), over a transparent click-away backdrop.
 /// In-window (not an NSPopover) so it renders in offscreen UI-test snapshots like the other in-window modals.
 struct ProjectSwitcherOverlay: View {
-    @Bindable var switcher: ProjectSwitcher
+    @Perception.Bindable var switcher: ProjectSwitcher
     var body: some View {
-        if switcher.isOpen, let app = switcher.app {
-            ZStack(alignment: .top) {
-                Color.black.opacity(0.001).contentShape(Rectangle())
-                    .onTapGesture { switcher.close() }
-                    .accessibilityHidden(true)
-                GeometryReader { g in
-                    // whole-point x (crisp text, stable snapshots in odd-width windows)
-                    ProjectSwitcherPopover(switcher: switcher, app: app)
-                        .padding(.top, Theme.Metrics.titleBarHeight + 6)
-                        .padding(.leading, ((g.size.width - 380) / 2).rounded(.down))
+        WithPerceptionTracking {
+            if switcher.isOpen, let app = switcher.app {
+                ZStack(alignment: .top) {
+                    Color.black.opacity(0.001).contentShape(Rectangle())
+                        .onTapGesture { switcher.close() }
+                        .accessibilityHidden(true)
+                    GeometryReader { g in
+                        WithPerceptionTracking {
+                            // whole-point x (crisp text, stable snapshots in odd-width windows)
+                            ProjectSwitcherPopover(switcher: switcher, app: app)
+                                .padding(.top, Theme.Metrics.titleBarHeight + 6)
+                                .padding(.leading, ((g.size.width - 380) / 2).rounded(.down))
+                        }
+                    }
                 }
             }
         }
@@ -224,54 +230,60 @@ struct ProjectSwitcherOverlay: View {
 }
 
 struct ProjectSwitcherPopover: View {
-    @Bindable var switcher: ProjectSwitcher
-    @Bindable var app: AppModel
+    @Perception.Bindable var switcher: ProjectSwitcher
+    @Perception.Bindable var app: AppModel
     static let rowHeight: CGFloat = 52
 
     var body: some View {
-        let rows = switcher.rows
-        let now = ProjectSwitcher.now
-        VStack(spacing: 0) {
-            searchField
-            Rectangle().fill(Color(hex: 0x333333)).frame(height: 1)
-            if rows.isEmpty {
-                Text(verbatim: tr("home.empty.search", switcher.effectiveQuery))
-                    .font(.system(size: 12)).foregroundStyle(Color(hex: 0x8A8A8E))
-                    .frame(maxWidth: .infinity).frame(height: 64)
-                    .testID("switcher.empty")
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
-                                ProjectSwitcherRow(switcher: switcher, row: r, index: i, meta: ProjectSwitcher.meta(r, now: now),
-                                                   isSelected: switcher.selected == i)
-                                    .id(i)
+        WithPerceptionTracking {
+            let rows = switcher.rows
+            let now = ProjectSwitcher.now
+            VStack(spacing: 0) {
+                searchField
+                Rectangle().fill(Color(hex: 0x333333)).frame(height: 1)
+                if rows.isEmpty {
+                    Text(verbatim: tr("home.empty.search", switcher.effectiveQuery))
+                        .font(.system(size: 12)).foregroundStyle(Color(hex: 0x8A8A8E))
+                        .frame(maxWidth: .infinity).frame(height: 64)
+                        .testID("switcher.empty")
+                } else {
+                    ScrollViewReader { proxy in
+                        WithPerceptionTracking {
+                            ScrollView {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
+                                        WithPerceptionTracking {
+                                            ProjectSwitcherRow(switcher: switcher, row: r, index: i, meta: ProjectSwitcher.meta(r, now: now),
+                                                               isSelected: switcher.selected == i)
+                                                .id(i)
+                                        }
+                                    }
+                                    if rows.count == 1, rows[0].isCurrent, switcher.effectiveQuery.isEmpty {
+                                        Text(loc: "switcher.empty.only").font(.system(size: 11)).foregroundStyle(Color(hex: 0x8A8A8E))
+                                            .frame(maxWidth: .infinity).frame(height: 40)
+                                            .testID("switcher.empty")
+                                    }
+                                }
+                                .padding(.vertical, 4)
                             }
-                            if rows.count == 1, rows[0].isCurrent, switcher.effectiveQuery.isEmpty {
-                                Text(loc: "switcher.empty.only").font(.system(size: 11)).foregroundStyle(Color(hex: 0x8A8A8E))
-                                    .frame(maxWidth: .infinity).frame(height: 40)
-                                    .testID("switcher.empty")
-                            }
+                            .frame(height: min(CGFloat(rows.count) * Self.rowHeight + 8 + (rows.count == 1 && rows[0].isCurrent ? 40 : 0), 7.5 * Self.rowHeight))
+                            .onValueChange(of: switcher.selected) { _, s in if let s { proxy.scrollTo(s) } }
                         }
-                        .padding(.vertical, 4)
                     }
-                    .frame(height: min(CGFloat(rows.count) * Self.rowHeight + 8 + (rows.count == 1 && rows[0].isCurrent ? 40 : 0), 7.5 * Self.rowHeight))
-                    .onChange(of: switcher.selected) { _, s in if let s { proxy.scrollTo(s) } }
                 }
+                Rectangle().fill(Color(hex: 0x333333)).frame(height: 1)
+                footer
             }
-            Rectangle().fill(Color(hex: 0x333333)).frame(height: 1)
-            footer
+            .frame(width: 380)
+            .background(Color(hex: 0x1F1F22), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: 0x333333)))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.45), radius: TestAnchors.isEnabled ? 0 : 18, y: 8)
+            .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0) }
+            .onValueChange(of: app.entries) { _, _ in switcher.refreshStatuses() }
+            .accessibilityElement(children: .contain)
+            .testID("switcher.popover")
         }
-        .frame(width: 380)
-        .background(Color(hex: 0x1F1F22), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: 0x333333)))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.45), radius: TestAnchors.isEnabled ? 0 : 18, y: 8)
-        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0) }
-        .onChange(of: app.entries) { _, _ in switcher.refreshStatuses() }
-        .accessibilityElement(children: .contain)
-        .testID("switcher.popover")
     }
 
     private var searchField: some View {
@@ -310,26 +322,28 @@ private struct FooterButton: View {
     let action: () -> Void
     @State private var hover = false
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 11, weight: .medium)).accessibilityHidden(true)
-                Text(verbatim: title)
-                Spacer(minLength: 4)
-                if let shortcut { Text(verbatim: shortcut).foregroundStyle(Color(hex: 0x6A6A6E)).accessibilityHidden(true) }
+        WithPerceptionTracking {
+            Button(action: action) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon).font(.system(size: 11, weight: .medium)).accessibilityHidden(true)
+                    Text(verbatim: title)
+                    Spacer(minLength: 4)
+                    if let shortcut { Text(verbatim: shortcut).foregroundStyle(Color(hex: 0x6A6A6E)).accessibilityHidden(true) }
+                }
+                .font(.system(size: 12)).foregroundStyle(.white)
+                .padding(.horizontal, 12).frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(hover ? Color(hex: 0x2A2A2E) : .clear)
+                .contentShape(Rectangle())
             }
-            .font(.system(size: 12)).foregroundStyle(.white)
-            .padding(.horizontal, 12).frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(hover ? Color(hex: 0x2A2A2E) : .clear)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .onHover { hover = $0 }
+            .accessibilityLabel(Text(verbatim: title))
         }
-        .buttonStyle(.plain)
-        .onHover { hover = $0 }
-        .accessibilityLabel(Text(verbatim: title))
     }
 }
 
 struct ProjectSwitcherRow: View {
-    @Bindable var switcher: ProjectSwitcher
+    @Perception.Bindable var switcher: ProjectSwitcher
     let row: ProjectSwitcherModel.Row
     let index: Int
     let meta: String
@@ -337,35 +351,37 @@ struct ProjectSwitcherRow: View {
     @State private var hover = false
 
     var body: some View {
-        let e = row.entry
-        HStack(spacing: 10) {
-            CoverView(entry: e).frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 4))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(verbatim: e.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                    .lineLimit(1).truncationMode(.middle)
-                Text(verbatim: meta).font(.system(size: 11)).foregroundStyle(Color(hex: 0x8A8A8E)).lineLimit(1)
+        WithPerceptionTracking {
+            let e = row.entry
+            HStack(spacing: 10) {
+                CoverView(entry: e).frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 4))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: e.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                        .lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: meta).font(.system(size: 11)).foregroundStyle(Color(hex: 0x8A8A8E)).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                trailing
             }
-            Spacer(minLength: 8)
-            trailing
+            .padding(.horizontal, 12)
+            .frame(height: ProjectSwitcherPopover.rowHeight)
+            .background(isSelected ? Theme.accent.opacity(0.18) : (hover ? Color(hex: 0x2A2A2E) : .clear))
+            .opacity(row.status == .offline ? 0.5 : 1)
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .onTapGesture {
+                let opt = NSApp.currentEvent?.modifierFlags.contains(.option) == true
+                switcher.activate(index, newWindow: opt)
+            }
+            .contextMenu {
+                if row.isCurrent { Button(tr("switcher.rename")) { switcher.renameCurrent() } }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(verbatim: [e.name, meta, statusText].compactMap { $0 }.joined(separator: ", ")))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { switcher.activate(index) }
+            .testID("switcher.row.\(index)")
         }
-        .padding(.horizontal, 12)
-        .frame(height: ProjectSwitcherPopover.rowHeight)
-        .background(isSelected ? Theme.accent.opacity(0.18) : (hover ? Color(hex: 0x2A2A2E) : .clear))
-        .opacity(row.status == .offline ? 0.5 : 1)
-        .contentShape(Rectangle())
-        .onHover { hover = $0 }
-        .onTapGesture {
-            let opt = NSApp.currentEvent?.modifierFlags.contains(.option) == true
-            switcher.activate(index, newWindow: opt)
-        }
-        .contextMenu {
-            if row.isCurrent { Button(tr("switcher.rename")) { switcher.renameCurrent() } }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(verbatim: [e.name, meta, statusText].compactMap { $0 }.joined(separator: ", ")))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { switcher.activate(index) }
-        .testID("switcher.row.\(index)")
     }
 
     private var statusText: String? {
@@ -413,7 +429,7 @@ struct ProjectSwitcherRow: View {
 /// driver delivering them straight to the field): ↑ / ↓ move the selection, Return / ⌘-Return open, Esc clears then closes.
 /// Focused as soon as it is in the window ("typing goes to search").
 struct SwitcherSearchField: NSViewRepresentable {
-    @Bindable var switcher: ProjectSwitcher
+    @Perception.Bindable var switcher: ProjectSwitcher
     let placeholder: String
 
     func makeNSView(context: Context) -> FocusingTextField {
@@ -434,13 +450,18 @@ struct SwitcherSearchField: NSViewRepresentable {
 
     func updateNSView(_ f: FocusingTextField, context: Context) {
         context.coordinator.switcher = switcher
-        if f.stringValue != switcher.query { f.stringValue = switcher.query }
+        let c = context.coordinator
+        c.tracking.run { [weak c, weak f] in
+            guard let c, let f else { return }
+            if f.stringValue != c.switcher.query { f.stringValue = c.switcher.query }
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(switcher: switcher) }
 
     @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
         var switcher: ProjectSwitcher
+        let tracking = RepresentableTracking()
         init(switcher: ProjectSwitcher) { self.switcher = switcher }
 
         func controlTextDidChange(_ n: Notification) {

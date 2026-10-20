@@ -155,6 +155,8 @@ public enum SmartMask {
 
     /// The previous region's objects in a new frame (instances overlapping it), nil when lost.
     static func follow(_ prev: MaskBuffer, in pb: CVPixelBuffer) throws -> MaskBuffer? {
+        // macOS 13: no instance segmentation; `followObjects` never gets here (`objects` returns nil)
+        guard #available(macOS 14, *) else { return nil }
         let handler = VNImageRequestHandler(cvPixelBuffer: pb)
         let req = VNGenerateForegroundInstanceMaskRequest()
         try handler.perform([req])
@@ -178,6 +180,8 @@ public enum SmartMask {
 
     /// Union of the foreground instances "under" the seed coverage, nil when none.
     static func objects(under seed: MaskBuffer, handler: VNImageRequestHandler) throws -> MaskBuffer? {
+        // macOS 13: no instance segmentation → callers use their fallbacks (people under the brush / box tracking)
+        guard #available(macOS 14, *) else { return nil }
         let req = VNGenerateForegroundInstanceMaskRequest()
         try handler.perform([req])
         guard let obs = req.results?.first, let labels = MaskBuffer(obs.instanceMask) else { return nil }

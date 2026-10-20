@@ -2,11 +2,12 @@ import SwiftUI
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// AI clipper (UX_AI §10.2, AI-031): right-click a main-track video ▸ AI clipper… → Duration · Editing style · More
 /// requirements · ☐ Add captions → [Get clips] ("AI clipping... %", cancel) → Highlight clips (tick / untick) →
 /// [Save] rebuilds the main track from them (one undo step; "Keyframes and speed changes will be removed").
-@MainActor @Observable final class AIClipperState {
+@MainActor @Perceptible final class AIClipperState {
     var clipID: ClipID
     var duration: ClipDuration = .auto
     var style: ClipperStyle = .chronological
@@ -25,29 +26,31 @@ struct AIClipperSheet: View {
     let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(loc: "clipper.title").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-            if st.highlights.isEmpty {
-                settings
-            } else {
-                results
-            }
-            if let e = st.error { HintText(text: e, color: IStyle.warning) }
-            HStack {
-                Button(tr("ai.cancel")) { cancel(); close() }.buttonStyle(SecondaryButtonStyle())
-                Spacer()
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(loc: "clipper.title").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 if st.highlights.isEmpty {
-                    Button(tr("clipper.get")) { run() }.buttonStyle(AccentButtonStyle()).disabled(st.job != nil).testID("clipper.get")
+                    settings
                 } else {
-                    Button(tr("clipper.back")) { st.highlights = [] }.buttonStyle(SecondaryButtonStyle())
-                    Button(tr("clipper.save")) { save() }.buttonStyle(AccentButtonStyle()).disabled(st.selected.isEmpty).testID("clipper.save")
+                    results
+                }
+                if let e = st.error { HintText(text: e, color: IStyle.warning) }
+                HStack {
+                    Button(tr("ai.cancel")) { cancel(); close() }.buttonStyle(SecondaryButtonStyle())
+                    Spacer()
+                    if st.highlights.isEmpty {
+                        Button(tr("clipper.get")) { run() }.buttonStyle(AccentButtonStyle()).disabled(st.job != nil).testID("clipper.get")
+                    } else {
+                        Button(tr("clipper.back")) { st.highlights = [] }.buttonStyle(SecondaryButtonStyle())
+                        Button(tr("clipper.save")) { save() }.buttonStyle(AccentButtonStyle()).disabled(st.selected.isEmpty).testID("clipper.save")
+                    }
                 }
             }
+            .padding(20)
+            .frame(width: 520)
+            .background(Theme.panel)
+            .testID("clipper.sheet")
         }
-        .padding(20)
-        .frame(width: 520)
-        .background(Theme.panel)
-        .testID("clipper.sheet")
     }
 
     var settings: some View {
@@ -78,18 +81,20 @@ struct AIClipperSheet: View {
             ScrollView {
                 VStack(spacing: 6) {
                     ForEach(st.highlights) { h in
-                        HStack(alignment: .top, spacing: 10) {
-                            CapCheckbox(isOn: Binding(get: { st.selected.contains(h.id) }, set: { on in
-                                if on { st.selected.insert(h.id) } else { st.selected.remove(h.id) }
-                            }))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(verbatim: h.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                                Text(verbatim: "\(Self.tc(h.start)) – \(Self.tc(h.end)) · \(Int(h.duration.rounded())) s")
-                                    .font(.system(size: 11)).foregroundStyle(IStyle.caption)
+                        WithPerceptionTracking {
+                            HStack(alignment: .top, spacing: 10) {
+                                CapCheckbox(isOn: Binding(get: { st.selected.contains(h.id) }, set: { on in
+                                    if on { st.selected.insert(h.id) } else { st.selected.remove(h.id) }
+                                }))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(verbatim: h.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                                    Text(verbatim: "\(Self.tc(h.start)) – \(Self.tc(h.end)) · \(Int(h.duration.rounded())) s")
+                                        .font(.system(size: 11)).foregroundStyle(IStyle.caption)
+                                }
+                                Spacer()
                             }
-                            Spacer()
+                            .padding(8).background(IStyle.tile, in: RoundedRectangle(cornerRadius: 6))
                         }
-                        .padding(8).background(IStyle.tile, in: RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }

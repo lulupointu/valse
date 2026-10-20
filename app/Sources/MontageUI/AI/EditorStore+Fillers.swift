@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Perception
 import MontageCore
 import MontageEngine
 import MontageAI
@@ -35,7 +35,7 @@ public enum TranscriptStatus: Equatable, Sendable {
 }
 
 /// State of the filler review (one per editor, `store.ai.fillers`).
-@MainActor @Observable
+@MainActor @Perceptible
 public final class FillerUIState {
     /// A review is open (styles B / C).
     public var reviewing = false

@@ -3,6 +3,7 @@ import AppKit
 import MontageCore
 import MontageEngine
 import MontageAI
+import Perception
 
 /// Transcript-based editing (UX_AI §2, AI-019/020, TL-042/035, AU-027): replaces the asset panel. The transcript is
 /// global (every main-track clip with sound, no selection needed — C4). Click a word to seek, select words (click,
@@ -15,18 +16,20 @@ struct TranscriptPanel: View {
     struct Key: Hashable { let media: MediaID; let index: Int }
 
     var body: some View {
-        let ai = store.ai
-        Panel {
-            HStack {
-                Text(loc: "transcript.title").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
-                Spacer()
-                SmallIconButton(symbol: "xmark", help: tr("transcript.close")) { ai.transcriptOpen = false }.testID("transcript.close")
+        WithPerceptionTracking {
+            let ai = store.ai
+            Panel {
+                HStack {
+                    Text(loc: "transcript.title").font(Theme.Fonts.panelTitle).foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    SmallIconButton(symbol: "xmark", help: tr("transcript.close")) { ai.transcriptOpen = false }.testID("transcript.close")
+                }
+                .padding(.horizontal, 12)
+            } content: {
+                TranscriptWorkspace(store: store, context: .panel)
             }
-            .padding(.horizontal, 12)
-        } content: {
-            TranscriptWorkspace(store: store, context: .panel)
+            .testID("transcript.panel")
         }
-        .testID("transcript.panel")
     }
 }
 
@@ -42,24 +45,26 @@ struct TranscriptWorkspace: View {
     @State private var showDeleted = true
 
     var body: some View {
-        let ai = store.ai
-        let f = ai.fillers
-        VStack(spacing: 0) {
-            TranscriptStatusBar(store: store)
-            FillerBar(store: store)
-            if ai.transcripts.isEmpty {
-                emptyHint
-            } else if f.reviewing && f.style == .review {
-                FillerChecklist(store: store)
-            } else {
-                textToolbar
-                TranscriptText(store: store, query: query, showDeleted: showDeleted)
+        WithPerceptionTracking {
+            let ai = store.ai
+            let f = ai.fillers
+            VStack(spacing: 0) {
+                TranscriptStatusBar(store: store)
+                FillerBar(store: store)
+                if ai.transcripts.isEmpty {
+                    emptyHint
+                } else if f.reviewing && f.style == .review {
+                    FillerChecklist(store: store)
+                } else {
+                    textToolbar
+                    TranscriptText(store: store, query: query, showDeleted: showDeleted)
+                }
+                footer
             }
-            footer
+            .onAppear { store.loadCachedTranscripts() }
+            .onValueChange(of: store.session.revision) { store.refreshFillerReview() }   // undo / edits during a review
+            .testID(context == .panel ? "transcript.workspace" : "captions.fillers")
         }
-        .onAppear { store.loadCachedTranscripts() }
-        .onChange(of: store.session.revision) { store.refreshFillerReview() }   // undo / edits during a review
-        .testID(context == .panel ? "transcript.workspace" : "captions.fillers")
     }
 
     var hasMain: Bool { !(store.project.timeline.mainTrack?.clips.isEmpty ?? true) }
@@ -124,39 +129,41 @@ struct TranscriptWorkspace: View {
 struct TranscriptStatusBar: View {
     let store: EditorStore
     var body: some View {
-        let ai = store.ai
-        let status = store.transcriptStatus
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                switch status {
-                case .transcribing:
-                    TranscriptProgress(store: store)
-                case .upToDate:
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent).font(.system(size: 12))
-                    Text(verbatim: store.transcriptLanguage.map { tr("transcript.status.upToDateLang", CaptionLanguages.title($0)) } ?? tr("transcript.status.upToDate"))
-                        .font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                case .stale(_, let lang):
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(IStyle.warning).font(.system(size: 12))
-                    Text(verbatim: tr(lang ? "transcript.status.staleLanguage" : "transcript.status.stale"))
-                        .font(Theme.Fonts.hint).foregroundStyle(IStyle.warning).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    Button(tr("transcript.update")) { store.updateTranscript() }.buttonStyle(.link).font(Theme.Fonts.hint).testID("transcript.update")
-                case .none:
-                    Text(loc: "transcript.status.none").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                    Button(tr("transcript.transcribe")) { store.transcribeMainTrack() }.buttonStyle(.link).font(Theme.Fonts.hint).testID("transcript.transcribe")
-                case .noMedia:
-                    Text(loc: "transcript.status.noMedia").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(2)
+        WithPerceptionTracking {
+            let ai = store.ai
+            let status = store.transcriptStatus
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    switch status {
+                    case .transcribing:
+                        TranscriptProgress(store: store)
+                    case .upToDate:
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent).font(.system(size: 12))
+                        Text(verbatim: store.transcriptLanguage.map { tr("transcript.status.upToDateLang", CaptionLanguages.title($0)) } ?? tr("transcript.status.upToDate"))
+                            .font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    case .stale(_, let lang):
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(IStyle.warning).font(.system(size: 12))
+                        Text(verbatim: tr(lang ? "transcript.status.staleLanguage" : "transcript.status.stale"))
+                            .font(Theme.Fonts.hint).foregroundStyle(IStyle.warning).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        Button(tr("transcript.update")) { store.updateTranscript() }.buttonStyle(.link).font(Theme.Fonts.hint).testID("transcript.update")
+                    case .none:
+                        Text(loc: "transcript.status.none").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        Button(tr("transcript.transcribe")) { store.transcribeMainTrack() }.buttonStyle(.link).font(Theme.Fonts.hint).testID("transcript.transcribe")
+                    case .noMedia:
+                        Text(loc: "transcript.status.noMedia").font(Theme.Fonts.hint).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                    }
+                    if status != .transcribing { Spacer(minLength: 4) }
+                    Dropdown(items: [(Optional<String>.none, autoTitle)] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
+                             selection: ai.captionLanguage) { store.setTranscriptLanguage($0) }
+                        .frame(width: 150)
+                        .help(tr("captions.spokenLanguage"))
+                        .testID("transcript.language")
                 }
-                if status != .transcribing { Spacer(minLength: 4) }
-                Dropdown(items: [(Optional<String>.none, autoTitle)] + CaptionLanguages.codes.map { (Optional($0), CaptionLanguages.title($0)) },
-                         selection: ai.captionLanguage) { store.setTranscriptLanguage($0) }
-                    .frame(width: 150)
-                    .help(tr("captions.spokenLanguage"))
-                    .testID("transcript.language")
             }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(Theme.inset.opacity(0.5))
+            .testID("transcript.status")
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(Theme.inset.opacity(0.5))
-        .testID("transcript.status")
     }
 
     /// "Auto detect (French)" once a language was detected.
@@ -170,9 +177,11 @@ struct TranscriptStatusBar: View {
 struct TranscriptProgress: View {
     let store: EditorStore
     var body: some View {
-        let p = store.ai.transcriptProgress
-        JobProgressLine(text: tr("transcript.progress", Int(p * 100)), progress: p) { store.cancelTranscript() }
-            .frame(maxWidth: .infinity)
+        WithPerceptionTracking {
+            let p = store.ai.transcriptProgress
+            JobProgressLine(text: tr("transcript.progress", Int(p * 100)), progress: p) { store.cancelTranscript() }
+                .frame(maxWidth: .infinity)
+        }
     }
 }
 
@@ -184,37 +193,41 @@ struct TranscriptText: View {
     let showDeleted: Bool
 
     var body: some View {
-        let ai = store.ai
-        let f = ai.fillers
-        let tl = store.project.timeline
-        let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: tl)
-        let inline = f.reviewing && f.style == .inline
-        let wordCands = inline ? Dictionary(f.candidates.filter { $0.kind != .pause }.map { ($0.anchor, $0) }, uniquingKeysWith: { a, _ in a }) : [:]
-        let pauseList = inline ? f.candidates.filter { $0.kind == .pause }
-            : FillerCleanup.pauses(words: words, transcripts: ai.transcripts, timeline: tl,
-                                   options: FillerCleanup.Options(minPause: ai.minPause))
-        let pausesBefore = Dictionary(grouping: pauseList, by: \.anchor)
-        let playhead = store.transport.playhead
-        let current = words.lastIndex { !$0.isDeleted && $0.time <= playhead }
-        ScrollView {
-            FlowLayout(spacing: 3, lineSpacing: 6) {
-                ForEach(Array(words.enumerated()), id: \.offset) { i, w in
-                    ForEach(pausesBefore[i] ?? [], id: \.id) { p in pauseChip(p, inline: inline) }
-                    if showDeleted || !w.isDeleted {
-                        if let c = wordCands[i] {
-                            FillerWordChip(text: w.word.text, dropped: f.dropped.contains(c.id), kind: c.kind) { store.toggleFiller(c.id) }
-                                .testID("fillers.word.\(i)")
-                        } else {
-                            WordChip(word: w, selected: ai.transcriptSelection.contains(TranscriptPanel.Key(media: w.media, index: w.index)),
-                                     current: i == current, hit: matches(w)) { shift in click(i, words, shift: shift) }
+        WithPerceptionTracking {
+            let ai = store.ai
+            let f = ai.fillers
+            let tl = store.project.timeline
+            let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: tl)
+            let inline = f.reviewing && f.style == .inline
+            let wordCands = inline ? Dictionary(f.candidates.filter { $0.kind != .pause }.map { ($0.anchor, $0) }, uniquingKeysWith: { a, _ in a }) : [:]
+            let pauseList = inline ? f.candidates.filter { $0.kind == .pause }
+                : FillerCleanup.pauses(words: words, transcripts: ai.transcripts, timeline: tl,
+                                       options: FillerCleanup.Options(minPause: ai.minPause))
+            let pausesBefore = Dictionary(grouping: pauseList, by: \.anchor)
+            let playhead = store.transport.playhead
+            let current = words.lastIndex { !$0.isDeleted && $0.time <= playhead }
+            ScrollView {
+                FlowLayout(spacing: 3, lineSpacing: 6) {
+                    ForEach(Array(words.enumerated()), id: \.offset) { i, w in
+                        WithPerceptionTracking {
+                            ForEach(pausesBefore[i] ?? [], id: \.id) { p in WithPerceptionTracking { pauseChip(p, inline: inline) } }
+                            if showDeleted || !w.isDeleted {
+                                if let c = wordCands[i] {
+                                    FillerWordChip(text: w.word.text, dropped: f.dropped.contains(c.id), kind: c.kind) { store.toggleFiller(c.id) }
+                                        .testID("fillers.word.\(i)")
+                                } else {
+                                    WordChip(word: w, selected: ai.transcriptSelection.contains(TranscriptPanel.Key(media: w.media, index: w.index)),
+                                             current: i == current, hit: matches(w)) { shift in click(i, words, shift: shift) }
+                                }
+                            }
                         }
                     }
+                    ForEach(pausesBefore[words.count] ?? [], id: \.id) { p in WithPerceptionTracking { pauseChip(p, inline: inline) } }
                 }
-                ForEach(pausesBefore[words.count] ?? [], id: \.id) { p in pauseChip(p, inline: inline) }
+                .padding(12)
             }
-            .padding(12)
+            .testID("transcript.text")
         }
-        .testID("transcript.text")
     }
 
     @ViewBuilder func pauseChip(_ p: FillerCleanup.Candidate, inline: Bool) -> some View {
@@ -251,24 +264,28 @@ struct WordChip: View {
     let hit: Bool
     let click: (Bool) -> Void
     var body: some View {
-        Text(verbatim: word.word.text)
-            .font(.system(size: 13))
-            .strikethrough(word.isDeleted, color: Theme.textTertiary)
-            .foregroundStyle(word.isDeleted ? Theme.textTertiary : (word.filler != nil ? IStyle.warning : Theme.textPrimary))
-            .padding(.horizontal, 2).padding(.vertical, 1)
-            .background(selected ? Theme.accentDim : (current ? Theme.accent.opacity(0.25) : (hit ? IStyle.warning.opacity(0.25) : .clear)),
-                        in: RoundedRectangle(cornerRadius: 3))
-            .contentShape(Rectangle())
-            .onTapGesture { click(NSEvent.modifierFlags.contains(.shift)) }
-            .help(word.filler.map { tr("transcript.kind.\($0.rawValue)") } ?? "")
+        WithPerceptionTracking {
+            Text(verbatim: word.word.text)
+                .font(.system(size: 13))
+                .strikethrough(word.isDeleted, color: Theme.textTertiary)
+                .foregroundStyle(word.isDeleted ? Theme.textTertiary : (word.filler != nil ? IStyle.warning : Theme.textPrimary))
+                .padding(.horizontal, 2).padding(.vertical, 1)
+                .background(selected ? Theme.accentDim : (current ? Theme.accent.opacity(0.25) : (hit ? IStyle.warning.opacity(0.25) : .clear)),
+                            in: RoundedRectangle(cornerRadius: 3))
+                .contentShape(Rectangle())
+                .onTapGesture { click(NSEvent.modifierFlags.contains(.shift)) }
+                .help(word.filler.map { tr("transcript.kind.\($0.rawValue)") } ?? "")
+        }
     }
 }
 
 struct PauseChip: View {
     let seconds: Double
     var body: some View {
-        Text(verbatim: String(format: "%.2fs", seconds)).font(.system(size: 10).monospacedDigit()).foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 5).frame(height: 16).background(Theme.buttonSecondary, in: Capsule())
+        WithPerceptionTracking {
+            Text(verbatim: String(format: "%.2fs", seconds)).font(.system(size: 10).monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 5).frame(height: 16).background(Theme.buttonSecondary, in: Capsule())
+        }
     }
 }
 
