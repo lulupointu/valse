@@ -1,0 +1,35 @@
+// T1 real-like footage: an iPhone-style portrait clip (HEVC Main10 HLG, coded 1920×1080 + 90° matrix, AAC 44.1 kHz
+// speech), English speech and 120 BPM music (fixtures/real, scripts/make_fixtures.sh) dropped from Finder onto an empty
+// project: imported with their real properties, the canvas follows the portrait clip, the player shows it upright and
+// tone-mapped, the timeline draws thumbnails and waveforms. LOOK at the snapshots (player-portrait, timeline-real).
+{
+  "project": "empty",
+  "steps": [
+    {"drop": {"files": ["fixtures/real/iphone_hlg_portrait.mov"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 20}},
+    {"expect": [
+      {"path": "media.count", "equals": 1},
+      {"path": "main.clips.0.kind", "equals": "media"},
+      {"path": "main.clips.0.duration", "approx": 4, "tolerance": 0.1},
+      {"path": "canvas.width", "equals": 1080},
+      {"path": "canvas.height", "equals": 1920},
+      {"path": "project.media.0.kind", "equals": "video"},
+      {"path": "project.media.0.techInfo.audioSampleRate", "equals": 44100},
+      {"path": "project.media.0.pixelSize.width", "equals": 1080},
+      {"path": "project.media.0.pixelSize.height", "equals": 1920},
+      {"path": "project.media.0.sourceRotation", "equals": 90},
+      {"path": "project.media.0.transferFunction", "equals": "ITU_R_2100_HLG"},
+      {"path": "project.media.0.bitDepth", "equals": 10}
+    ]},
+    {"drop": {"files": ["fixtures/real/speech_en.m4a"]}, "on": "time:0@main", "offset": [0, 70]},
+    {"waitFor": {"path": "media.count", "equals": 2, "timeout": 20}},
+    {"drop": {"files": ["fixtures/real/music_120bpm.m4a"]}, "on": "time:0@main", "offset": [0, 120]},
+    {"waitFor": {"path": "media.count", "equals": 3, "timeout": 20}},
+    {"waitFor": {"path": "tracks.count", "gte": 2, "timeout": 10}},
+    {"seek": 1},
+    {"idle": 1.5},
+    {"dump": "after-import"},
+    {"snapshot": "player-portrait", "element": "id:panel.player"},
+    {"snapshot": "timeline-real", "element": "id:panel.timeline"}
+  ]
+}

@@ -16,9 +16,12 @@ import MontageTestSupport
 
     /// Real clips (opt-in, not in the repo): `MONTAGE_C1_FOOTAGE="<file>@<seconds>|…"`, e.g. the owner's 1019 iPhone
     /// clips IMG_7251@2.5|IMG_9079@10|IMG_8815@5|IMG_7250@3. (Not read from ~/Downloads by default: TCC blocks the run.)
+    /// Always includes the committed iPhone-like HLG portrait fixture (T1, RealLikeMedia) and `MONTAGE_REAL_FOOTAGE`.
     static var footage: [(URL, Double)] {
-        guard let env = ProcessInfo.processInfo.environment["MONTAGE_C1_FOOTAGE"] else { return [] }
-        return env.split(separator: "|").compactMap { e in
+        var out: [(URL, Double)] = [(RealLikeMedia.iPhoneHLGPortrait, 1)]
+        out += RealLikeMedia.ownerFootage.map { ($0.url, $0.seconds) }
+        guard let env = ProcessInfo.processInfo.environment["MONTAGE_C1_FOOTAGE"] else { return out }
+        return out + env.split(separator: "|").compactMap { e in
             let p = e.split(separator: "@")
             let u = URL(fileURLWithPath: String(p[0]))
             return FileManager.default.fileExists(atPath: u.path) ? (u, p.count > 1 ? Double(p[1]) ?? 2 : 2) : nil

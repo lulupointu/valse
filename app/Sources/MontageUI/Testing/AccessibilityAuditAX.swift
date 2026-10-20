@@ -49,6 +49,15 @@ nonisolated enum AccessibilityAuditAX {
         let app = AXUIElementCreateApplication(getpid())
         AXUIElementSetMessagingTimeout(app, 5)
         guard var windows = value(app, "AXWindows") as? [AXUIElement] else { r.error = "no AXWindows (accessibility API refused)"; return r }
+        if windows.isEmpty {
+            // the offscreen test window of an accessory app is sometimes missing from AXWindows: take the app's
+            // window children / main / focused window instead
+            windows = ((value(app, "AXChildren") as? [AXUIElement]) ?? []).filter { string($0, "AXRole") == "AXWindow" }
+            for a in ["AXMainWindow", "AXFocusedWindow"] where windows.isEmpty {
+                if let w = value(app, a), CFGetTypeID(w) == AXUIElementGetTypeID() { windows = [w as! AXUIElement] }
+            }
+        }
+        if windows.isEmpty { r.error = "AXWindows empty"; return r }
         if let scope {
             guard let e = find(scope, in: windows) else { r.error = "no element \(scope)"; return r }
             windows = [e]

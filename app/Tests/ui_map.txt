@@ -1,0 +1,69 @@
+# Changed path → UI scripts, for STAGE 1 of the gate (scripts/check_fast.sh → scripts/ui_select.py).
+# Each rule:  <path glob (fnmatch, relative to the repo)>  <script name globs…>
+#   ALL        every script (driver / app entry point changes)
+#   BASELINES  every script with a screenshot baseline (theme / rendering of shared chrome)
+#   NONE       nothing beyond the smoke set (docs, perf, …)
+# Besides these rules, ui_select.py also picks
+#   - a changed UI script itself, scripts using a changed fixture or baseline;
+#   - scripts that reference a dotted string literal (test ID, l10n key, command name…) found in a changed Swift file,
+#     e.g. a change to a file containing .testID("inspector.tab.\(id)") selects scripts using "id:inspector.tab.…".
+# Keep it coarse; when in doubt add more scripts. Stage 2 (check_clean.sh --ui) still runs everything before merge.
+
+smoke: split_undo timeline_edit inspector_tabs canvas_drag drag_media_to_timeline player_preview export_dialog home_library language_fr real_footage_import
+
+docs/*                                       NONE
+bench/*                                      NONE
+app/Tests/PerfScripts/*                      NONE
+app/Tests/Mont*Tests/*                       NONE
+app/Sources/MontageTestSupport/*             NONE
+scripts/perf.sh                              NONE
+scripts/uitest.sh                            swiftui_taps c3_tooltips
+scripts/build_app.sh                         about_content_licenses
+Package.swift                                swiftui_taps
+
+app/Sources/MontageApp/*                     ALL
+app/Sources/MontageUI/Testing/*              ALL
+app/Sources/MontageUI/Theme/*                BASELINES
+app/Sources/MontageUI/Resources/*            *_fr* language_fr BASELINES
+app/Sources/MontageCore/Localization/*       *_fr* language_fr BASELINES
+app/Sources/MontageUI/Support/*              c3_tooltips c6_tooltips swiftui_taps fin_layout
+app/Sources/MontageUI/Shell/*                fin_layout fin_tips language_fr swiftui_taps inspector_tab_memory f4_se_* fin_detach_player
+app/Sources/MontageUI/Store/*                timeline_* split_undo trim_undo inspector_* c2_multi_edit canvas_drag text_add audio_volume c3b_move_clip fin_compound_group
+app/Sources/MontageUI/Timeline/*             timeline_* split_undo trim_undo zoom_slider drag_media_to_timeline c3_* c3b_* render_cache_bar f3_distribute f3_drop_empty f3_waveform fin_compound_group fin_markers_freeze fin_timelines fin_timecode_solo fin_beat_sync fin_multicam fin_subprojects
+app/Sources/MontageUI/Player/*               player_* canvas_* playback_seek_while_playing fin_detach_player fin_guides_scopes fin_playback_settings finish_canvas_tilt_lens real_footage_import
+app/Sources/MontageUI/Inspector/*            inspector_* c2_* adjust_footer_mask f4_cl_* finish_*mask* filters_favorite_adjust f3_crop_dialog f3_motion_blur f3_volume_sync audio_volume finish_adjustment_layer finish_shape_style
+app/Sources/MontageUI/AssetPanel/*           assets_* c6_* effects_library stickers_library filters_favorite_adjust audio_library* audio_online* finish_sticker_* f3_font_book f3_live_photo about_content_licenses real_footage_import
+app/Sources/MontageUI/Audio/*                audio_* f3_audio_streams f3_isolate_music f3_reduce_noise f3_waveform fin_settings_audio c3_volume_line c3b_volume_keyframes
+app/Sources/MontageUI/Recording/*            fin_record
+app/Sources/MontageUI/Export/*               export_* finish_export_options f4_ex_*
+app/Sources/MontageUI/Home/*                 home_* settings_window shortcut_editor crash_recovery_relink f4_pm_* f3_auto_relink f3_proxy_settings fin_tips ai_shorts_* about_content_licenses fin_settings_audio fin_playback_settings
+app/Sources/MontageUI/Keyframes/*            w5_keyframe* finish_mask_track
+app/Sources/MontageUI/Transitions/*          w5_*
+app/Sources/MontageUI/Text/*                 text_* canvas_text_* c4_text_apply_all f3_text_* f3_lyric_templates f3_caption_encoding finish_text_counter_separate
+app/Sources/MontageUI/AI/*                   ai_* c4_* f4_ai_* f4_fx_body_magic
+app/Sources/MontageUI/Registry/*             effects_library stickers_library w5_* filters_favorite_adjust
+
+app/Sources/MontageEngine/Playback/*         playback_seek_while_playing player_* canvas_drag fin_playback_settings real_footage_import
+app/Sources/MontageEngine/Render/*           player_* canvas_* f4_cl_* f4_fx_* finish_* render_cache_bar real_footage_import
+app/Sources/MontageEngine/Metal/*            player_* canvas_* f4_cl_* finish_* real_footage_import
+app/Sources/MontageEngine/Composition/*      player_* canvas_* playback_seek_while_playing export_range real_footage_import
+app/Sources/MontageEngine/ColorAnalysis/*    f4_cl_* ai_auto_adjust
+app/Sources/MontageEngine/EffectPreview/*    effects_library filters_favorite_adjust
+app/Sources/MontageEngine/Export/*           export_* finish_export_options f4_ex_*
+app/Sources/MontageEngine/Audio/*            audio_* f3_audio_* f3_waveform c3_volume_line c3b_volume_keyframes f3_volume_sync real_footage_import
+app/Sources/MontageEngine/Media/*            drag_media_to_timeline c3_media_thumbs c6_media_library assets_media_tab assets_preview f3_live_photo f3_auto_relink f3_proxy_settings real_footage_import
+app/Sources/MontageEngine/Text/*             text_* canvas_text_* f3_text_*
+app/Sources/MontageEngine/Stickers/*         stickers_library finish_sticker_* w5_animation_text_sticker
+app/Sources/MontageEngine/Lottie/*           stickers_library finish_sticker_*
+app/Sources/MontageEngine/Jobs/*             ai_quit_mid_job export_selected_cancel
+app/Sources/MontageEngine/AI/*               ai_* f4_ai_*
+app/Sources/MontageAI/*                      ai_* f4_ai_* c4_*
+
+app/Sources/MontageCore/Editing/*            timeline_* split_undo trim_undo c3b_move_clip fin_compound_group f3_distribute
+app/Sources/MontageCore/Captions/*           c4_* ai_captions_panel f3_caption_encoding f3_lyric_templates
+app/Sources/MontageCore/Text/*               text_* canvas_text_*
+app/Sources/MontageCore/Model/*              timeline_edit split_undo home_library crash_recovery_relink
+app/Sources/MontageCore/Persistence/*        home_* crash_recovery_relink f3_auto_relink
+app/Sources/MontageCore/Animation/*          w5_*
+app/Sources/MontageCore/Import/*             drag_media_to_timeline real_footage_import f3_caption_encoding
+app/Sources/MontageEffects/*                 effects_library filters_favorite_adjust w5_* f4_fx_* text_effects_names text_animation_tiles
