@@ -135,4 +135,54 @@ import MontageTestSupport
                      blendModes ? "blend-mode" : "normal", a, b, (b / a - 1) * 100))
         #expect(a > 0 && b > 0)
     }
+
+    /// Wall ms of a 1080p snapshot readback (render + getBytes): shared texture (Apple path) vs managed + synchronize (Mac2).
+    @Test func readbackStorageCost() throws {
+        let ctx = MetalContext.shared
+        let frame = try Self.eightLayerFrame(Size2(1920, 1080), modes: Array(repeating: .normal, count: 8))
+        func ms(_ mode: MTLStorageMode) -> Double {
+            var samples: [Double] = []
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 1920, height: 1080, mipmapped: false)
+            d.usage = [.renderTarget, .shaderRead]; d.storageMode = mode
+            let out = ctx.device.makeTexture(descriptor: d)!
+            var bytes = [UInt8](repeating: 0, count: 1920 * 1080 * 4)
+            for _ in 0..<25 {
+                let t0 = DispatchTime.now().uptimeNanoseconds
+                let cmd = ctx.queue.makeCommandBuffer()!
+                FrameRenderer.shared.encode(frame, media: [:], sources: DictionarySourceProvider([:]), output: out, commandBuffer: cmd)
+                ctx.synchronizeForReadback(out, cmd)
+                cmd.commit(); cmd.waitUntilCompleted()
+                out.getBytes(&bytes, bytesPerRow: 1920 * 4, from: MTLRegionMake2D(0, 0, 1920, 1080), mipmapLevel: 0)
+                samples.append(Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
+            }
+            return samples.sorted()[samples.count / 2]
+        }
+        _ = ms(.shared); _ = ms(.managed)
+        let a = ms(.shared), b = ms(.managed)
+        print(String(format: "1080p snapshot readback wall median: shared %.3f ms, managed+synchronize %.3f ms (%+.0f%%)", a, b, (b / a - 1) * 100))
+        #expect(a > 0 && b > 0)
+    }
+
+    /// `MONTAGE_MAC2_DUMP_DIR=<dir>`: dumps every effect, every transition and the 8-layer composite as raw pixels, so a
+    /// run with `MONTAGE_FORCE_MAC2_GPU_PATH=1` can be diffed against a normal run (whole pipeline incl. MSL 3.0 codegen).
+    @Test func dumpForMac2Comparison() throws {
+        guard let dir = ProcessInfo.processInfo.environment["MONTAGE_MAC2_DUMP_DIR"] else { return }
+        let url = URL(fileURLWithPath: dir)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        func write(_ name: String, _ data: Data) throws { try data.write(to: url.appendingPathComponent(name.replacingOccurrences(of: "/", with: "_"))) }
+        let fx = EffectPreviewRenderer()
+        for d in Registries.effects.all {
+            guard let px = fx.render(d, time: 1.1, width: 192, height: 108) else { continue }
+            try write("fx-" + d.id + ".f32", px.data.withUnsafeBufferPointer { Data(buffer: $0) })
+        }
+        let a = fx.sceneTexture(width: 192, height: 108, scene: .full)!
+        let b = fx.sceneTexture(width: 192, height: 108, scene: .subjectOverBackground)!
+        for d in Registries.transitions.all {
+            guard let img = PresetPreviewRenderer.transitionFrame(d, from: a, to: b, progress: 0.4, width: 192, height: 108),
+                  let data = img.dataProvider?.data as Data? else { continue }
+            try write("tr-" + d.id + ".u8", data)
+        }
+        let frame = try Self.eightLayerFrame(Size2(640, 360))
+        try write("composite-8layer.u8", Data(Self.render(FrameRenderer.shared, frame, 640, 360)))
+    }
 }
