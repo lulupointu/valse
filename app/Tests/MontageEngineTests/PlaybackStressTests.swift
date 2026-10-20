@@ -43,7 +43,8 @@ import MontageTestSupport
         engine.play()
         func check(_ what: String) async throws {
             guard engine.isPlaying else { return }
-            let composed0 = engine.state.framesComposed
+            let composed0 = engine.state.framesComposed, requests0 = CompositorStats.shared.requestsStarted
+            let gpu0 = CompositorStats.shared.snapshot().frames, primes0 = engine.stallRecoveries
             if let (dt, n) = try await waitForFrames(engine, timeout: timeout) {
                 r.maxStall = max(r.maxStall, dt); r.frames += n
             } else {
@@ -59,7 +60,7 @@ import MontageTestSupport
                     }
                 }
                 r.stalls.append(probe + " | ")
-                r.stalls[r.stalls.count - 1] += ("\(what) → no new frame for \(timeout) s (rate \(engine.player.rate), item \(engine.player.currentItem?.status.rawValue ?? -1), t \(String(format: "%.2f", engine.player.currentTime().seconds)), composed +\(engine.state.framesComposed - composed0))")
+                r.stalls[r.stalls.count - 1] += ("\(what) → no new frame for \(timeout) s (rate \(engine.player.rate), item \(engine.player.currentItem?.status.rawValue ?? -1), t \(String(format: "%.2f", engine.player.currentTime().seconds)), composed +\(engine.state.framesComposed - composed0), requests +\(CompositorStats.shared.requestsStarted - requests0), gpu frames +\(CompositorStats.shared.snapshot().frames - gpu0), re-primes +\(engine.stallRecoveries - primes0), rebuilds \(engine.stallRebuilds))")
             }
         }
         try await check("play")
@@ -134,7 +135,7 @@ import MontageTestSupport
             let engine = PlaybackEngine(project: p.project)
             engine.usesProxies = false
             let r = try await Self.stress(engine, actions: 40, seed: 42, timeout: 4)   // healthy: < 0.6 s; frozen: never
-            print("playback stress (synthetic): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, stalls \(r.stalls.count), pipeline re-primes \(engine.stallRecoveries)")
+            print("playback stress (synthetic): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, stalls \(r.stalls.count), pipeline re-primes \(engine.stallRecoveries), rebuilds \(engine.stallRebuilds)")
             for s in r.stalls { print("  stall: \(s)") }
             #expect(r.stalls.isEmpty, "\(r.stalls)")
             // the stall watchdog re-primes only a stalled pipeline (rare), never steady playback

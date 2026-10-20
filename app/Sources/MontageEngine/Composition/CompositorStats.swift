@@ -18,6 +18,11 @@ public final class CompositorStats: @unchecked Sendable {
     private var frames = 0
     private var cpu: [Double] = [], gpu: [Double] = []
     private let capacity = 4096
+    private var started = 0
+    /// Composition requests AVFoundation handed to a compositor (all instances; stall diagnostics: a frozen preview
+    /// with no new requests = AVFoundation stopped asking, requests without frames = the compositor / GPU is stuck).
+    public var requestsStarted: Int { lock.withLock { started } }
+    func noteRequest() { lock.withLock { started += 1 } }
 
     public func reset() { lock.withLock { frames = 0; cpu.removeAll(); gpu.removeAll() } }
 

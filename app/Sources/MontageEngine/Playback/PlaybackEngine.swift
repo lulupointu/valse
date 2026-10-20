@@ -270,6 +270,7 @@ public final class PlaybackEngine {
         player.replaceCurrentItem(with: item)
         state.clearRecent()
         onItemReplaced?()
+        lastShownTime = .invalid; stallWatch = nil
         seekInFlight = false
         pendingSeek = nil
         let rate = resumeRate ?? (player.rate != 0 ? player.rate : 1)
@@ -465,7 +466,10 @@ public final class PlaybackEngine {
         guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { watchForStall(itemTime); return nil }
         framesSinceSeek += 1
         lastFrameTime = Time(cmTime: shown)
-        stallWatch = nil
+        // the output can hand back the frame it already showed (same display time): the preview is still frozen, so
+        // that must not reset the stall watch (the watchdog then never fired: C3b, 8 s freeze under load)
+        if shown.isValid, shown == lastShownTime { watchForStall(itemTime) } else { stallWatch = nil; futilePrimes = 0 }
+        lastShownTime = shown
         return (pb, lastFrameTime)
     }
 
@@ -475,6 +479,13 @@ public final class PlaybackEngine {
     private var stallWatch: CMTime?
     /// Times the engine re-primed a stalled video pipeline (diagnostics / tests).
     public private(set) var stallRecoveries = 0
+    /// Times a re-prime did not bring frames back and the engine rebuilt the player item instead (diagnostics / tests).
+    public private(set) var stallRebuilds = 0
+    /// Re-primes since the last new frame; after `maxFutilePrimes` the item is rebuilt (fresh video pipeline).
+    private var futilePrimes = 0
+    static let maxFutilePrimes = 2
+    /// Display time of the last frame handed to the view (a repeat is not a new frame).
+    private var lastShownTime = CMTime.invalid
     /// Item-time span without a new frame, while playing, that counts as a frozen preview.
     static let stallSpan = 0.3
 
@@ -485,7 +496,8 @@ public final class PlaybackEngine {
     /// ordering (hold → seek → play) nor `preroll` (never completes with a custom compositor) prevents it. The view polls
     /// for frames every display refresh, so the engine sees the stall as it happens: when the item clock advanced
     /// `stallSpan` with no new frame and no seek in flight, it re-primes the pipeline with an exact seek to the current
-    /// time (rate held, then resumed) — the preview recovers within ~0.3–0.5 s instead of freezing.
+    /// time (rate held, then resumed) — the preview recovers within ~0.3–0.5 s instead of freezing. If re-seeks don't
+    /// bring a frame back (`maxFutilePrimes`), the player item is rebuilt: a fresh video pipeline at the same time.
     private func watchForStall(_ itemTime: CMTime) {
         guard player.rate > 0, !seekInFlight, resumeRate == nil, reverseShuttleRate == 0, itemTime.isValid else {
             stallWatch = nil; return
@@ -495,9 +507,17 @@ public final class PlaybackEngine {
         if span < 0 { stallWatch = itemTime; return }
         guard span >= Self.stallSpan, project.duration.seconds - itemTime.seconds > 0.2 else { return }
         stallWatch = nil
-        stallRecoveries += 1
         let t = Time(cmTime: itemTime).clamped(.zero, max(project.duration, .zero))
         requestedTime = t
+        if futilePrimes >= Self.maxFutilePrimes {
+            // re-seeking did not wake the pipeline: a new player item at the same time (install keeps playing)
+            futilePrimes = 0
+            stallRebuilds += 1
+            forceRebuild()
+            return
+        }
+        futilePrimes += 1
+        stallRecoveries += 1
         performSeek(t, exact: true)
     }
 

@@ -163,6 +163,7 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
     public func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
     public func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
+        CompositorStats.shared.noteRequest()
         let req = UncheckedSendable(request)
         renderQueue.async { [self] in autoreleasepool { render(req.value) } }
     }
