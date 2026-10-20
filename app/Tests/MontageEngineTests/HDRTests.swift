@@ -251,7 +251,7 @@ import MontageTestSupport
                 let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float, width: 8, height: 8, mipmapped: false)
                 d.usage = [.shaderRead]; d.storageMode = .shared
                 let src = try #require(ctx.device.makeTexture(descriptor: d))
-                let px = [Float16](repeating: 0, count: 0) + (0..<64).flatMap { _ in [Float16(code[0]), Float16(code[1]), Float16(code[2]), 1] }
+                let px: [UInt16] = (0..<64).flatMap { _ in [Half.bits(Float(code[0])), Half.bits(Float(code[1])), Half.bits(Float(code[2])), 0x3C00] }
                 px.withUnsafeBytes { src.replace(region: MTLRegionMake2D(0, 0, 8, 8), mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 8 * 8) }
                 let od = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 8, height: 8, mipmapped: false)
                 od.usage = [.renderTarget, .shaderRead]; od.storageMode = .shared

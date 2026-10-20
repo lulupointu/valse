@@ -66,7 +66,7 @@ import MontageTestSupport
         let r10 = try await p.export(seconds: 0.5, settings: settings { $0.codec = .hevc; $0.bitDepth = .ten })
         #expect(r10.probe.videoCodec == "hevc")
         guard Self.hasFFprobe else { return }
-        #expect(r8.probe.profile == "Main" && r8.probe.pixelFormat == "yuv420p")
+        #expect(r8.probe.profile == "Main" && r8.probe.pixelFormat == "yuv420p", "\(String(describing: r8.probe.pixelFormat)) \(r8.url.path)")
         #expect(r10.probe.profile == "Main 10" && r10.probe.pixelFormat == "yuv420p10le")
         #expect(r10.probe.colorPrimaries == "bt709" && r10.probe.colorTransfer == "bt709")
         // 10-bit SDR goes through the 16-bit compositor: picture still correct

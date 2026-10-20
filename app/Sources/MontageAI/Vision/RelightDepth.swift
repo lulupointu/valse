@@ -219,7 +219,12 @@ final class DepthEstimator {
             for x in 0..<w {
                 switch fmt {
                 case kCVPixelFormatType_OneComponent32Float: v[y * w + x] = src.assumingMemoryBound(to: Float.self)[x]
-                case kCVPixelFormatType_OneComponent16Half: v[y * w + x] = Float(src.assumingMemoryBound(to: Float16.self)[x])
+                case kCVPixelFormatType_OneComponent16Half:
+                    #if arch(arm64)
+                    v[y * w + x] = Float(src.assumingMemoryBound(to: Float16.self)[x])
+                    #else
+                    v[y * w + x] = Half.float(src.assumingMemoryBound(to: UInt16.self)[x])
+                    #endif
                 case kCVPixelFormatType_OneComponent16: v[y * w + x] = Float(src.assumingMemoryBound(to: UInt16.self)[x]) / 65535
                 case kCVPixelFormatType_32BGRA, kCVPixelFormatType_32ARGB, kCVPixelFormatType_32RGBA:
                     v[y * w + x] = Float(src.assumingMemoryBound(to: UInt8.self)[x * 4 + (fmt == kCVPixelFormatType_32BGRA ? 2 : 1)]) / 255

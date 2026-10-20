@@ -118,8 +118,13 @@ public enum ColorScience {
         } else if fmt == kCVPixelFormatType_64RGBAHalf {
             let base = CVPixelBufferGetBaseAddress(pb)!, bpr = CVPixelBufferGetBytesPerRow(pb)
             for y in 0..<h {
+                #if arch(arm64)
                 let row = (base + y * bpr).assumingMemoryBound(to: Float16.self)
                 for x in 0..<w { for c in 0..<3 { raw[(y * w + x) * 3 + c] = Float(row[x * 4 + c]) } }
+                #else
+                let row = (base + y * bpr).assumingMemoryBound(to: UInt16.self)
+                for x in 0..<w { for c in 0..<3 { raw[(y * w + x) * 3 + c] = Half.float(row[x * 4 + c]) } }
+                #endif
             }
         } else if fmt == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange {
             let yb = CVPixelBufferGetBaseAddressOfPlane(pb, 0)!, ybpr = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
