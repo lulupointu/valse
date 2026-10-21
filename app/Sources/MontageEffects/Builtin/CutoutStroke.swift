@@ -18,6 +18,8 @@ public enum BuiltinCutoutStroke {
         shader: """
         float4 effect(float2 uv, texture2d<float> src, sampler s, constant float* p, FXContext ctx) {
             float4 o = src.sample(s, uv);
+            // an opaque pixel is returned unchanged by the formula below (outA = 1, rgb = o.rgb): skip the 96-192 taps
+            if (o.a >= 1.0) return float4(saturate(o.rgb), 1.0);
             float3 sc = float3(p[0], p[1], p[2]);
             float px = ctx.size.y / 1080.0;
             float rad = (1.0 + p[4] * 40.0) * px;
@@ -31,6 +33,8 @@ public enum BuiltinCutoutStroke {
                     dil = max(dil, src.sample(s, uv + d * rr).a);
                     if (glow > 0.0) halo = max(halo, src.sample(s, uv + d * (rad + rr * 1.5)).a * (1.0 - float(k) / 5.0));
                 }
+                // without glow the result only needs dil, and alpha never exceeds 1: done once it is reached
+                if (glow <= 0.0 && dil >= 1.0) break;
             }
             float stroke = saturate(dil - o.a) * p[5];
             float g = saturate(halo - dil) * glow * p[5];
