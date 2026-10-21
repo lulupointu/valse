@@ -48,7 +48,12 @@ stacks of its processes are appended to the log (`build/test.log`), the tree is 
 **Temp files and disk.** test.sh and uitest.sh run tests / apps with a private `TMPDIR`
 (`$TMPDIR/montage-run-*`) deleted on exit, even on failure or Ctrl-C, so sandboxes (`montage-sandbox-*`), exports, project
 copies and mock downloads never pile up; the synthetic media cache stays shared (`MONTAGE_TEST_MEDIA_DIR`, default
-`$TMPDIR/montage-test-media-v1`). check_clean removes its `montage-clean.*` worktree on exit. check_fast / check_clean
+`$TMPDIR/montage-test-media-v1`). check_clean reuses a persistent clean worktree
+(`<main checkout>/build/check_clean-cache/wt0|wt1`, ~1.5 GB each: reset to exactly HEAD with `checkout --force` +
+`clean -ffdx` except `.build`, verified pristine, resource bundles rebuilt) for an incremental build; `--cold` uses a
+temp `montage-clean.*` worktree removed on exit. `uitest.sh --jobs K` runs K apps at once: each UI-test app has a private
+settings domain and pasteboard (MontageCore `AppDefaults`, `AppPasteboard`), sandbox and TMPDIR, so scripts can't
+interact; check_clean runs the UI suite with `--jobs 4` while the unit suite runs. check_fast / check_clean
 fail fast with "DISK FULL" below 5 GB free (`MONTAGE_MIN_FREE_GB`). `MONTAGE_KEEP_TMP=1` keeps the temp dirs to debug.
 
 **Real-like fixtures (T1).** `app/Tests/UIScripts/fixtures/real/` (`RealLikeMedia` in Swift), made by

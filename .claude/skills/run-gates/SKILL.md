@@ -13,7 +13,7 @@ description: Which Montage test / gate command to run when (scripts/test.sh, uit
 | what would check_fast pick, and why? | feature agent | `python3 scripts/ui_select.py --explain` (or `check_fast.sh --list`; `--commit <sha>` replays one commit) | seconds |
 | done, final commit | feature agent | `scripts/check_fast.sh` (all unit tests + UI scripts selected from your diff vs main) | 5-15 min |
 | only the last commit's UI area | feature agent | `scripts/check_fast.sh --base HEAD~1` | |
-| batch of ready branches | orchestrator only | `scripts/check_clean.sh --ui` in the batch worktree | 16-35 min, more under load |
+| batch of ready branches | orchestrator only | `scripts/check_clean.sh --ui` in the batch worktree | 8-16 min (unit ∥ UI, 4 UI apps, warm build) |
 | Intel code paths (Float16 etc.) | if you touched CPU math | `scripts/test_x86.sh --filter X` | |
 | perf-sensitive change | when asked | `scripts/perf.sh` (takes ALL slots: avoid on a busy machine) | |
 

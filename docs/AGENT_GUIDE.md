@@ -53,8 +53,9 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   the targeted runs, and run check_fast once on the final commit. Single files: `scripts/test.sh --filter X`, `scripts/uitest.sh app/Tests/UIScripts/x.json`.
   Intel (x86_64) build: `scripts/test_x86.sh [--filter X]` runs Core / Effects / Engine tests as x86_64 under Rosetta
   (CPU code paths only: Metal still runs on the Apple GPU). Float16 doesn't exist on x86_64: use `Half` (MontageCore).
-- **Full gate (orchestrator, once per batch): `scripts/check_clean.sh --ui`** (fresh clean checkout of HEAD, ~980 unit
-  tests, every UI script, 16–35 min). It fails when a file under app/ or scripts/ is git-ignored and only counts committed
+- **Full gate (orchestrator, once per batch): `scripts/check_clean.sh --ui`** (clean checkout of exactly HEAD, ~1040 unit
+  tests + every UI script at the same time, UI sharded over 4 apps, warm incremental build: ~8-16 min; `--cold` = fresh
+  temp worktree + cold build, `--serial` = old one-at-a-time schedule). It fails when a file under app/ or scripts/ is git-ignored and only counts committed
   files, so a build that works only because of uncommitted or ignored local files is caught: commit everything you need.
   On success it writes `build/check_clean.ok` (commit, date, mode) for `scripts/merge_agent.sh`. Don't re-run it to
   debug: fix with targeted runs / check_fast, then gate once more.
