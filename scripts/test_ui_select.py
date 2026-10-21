@@ -276,6 +276,11 @@ class HistoryTests(unittest.TestCase):
     CASES = [
         ("a31fa89", {"audio_online"}),                         # asset search dropped the last keystrokes (macOS 13)
         ("bbabb61", {"export_dialog", "w5_transition_drop"}),  # export disabled w/o FFmpeg; Softness reset Duration
+        ("9790269", {"fin_guides_scopes"}),                    # guide double-click (state-dump bridge: editingGuide)
+        ("ba1d11a", {"audio_delete_selected"}),                # audio inspector crash (composite ID inspector.tab.audioBasic)
+        ("814f57b", {"w5_animation_fr", "w5_animation_text_sticker"}),  # animation tiles (render level, baselines)
+        ("cc44062", {"f3_text_box_resize"}),                   # text box resize handle (bridge: boxWidth)
+        ("96954d1", {"f3_drop_empty"}),                        # drop on empty timeline (reaches UITestDriver.drop)
     ]
 
     def test_cases(self):

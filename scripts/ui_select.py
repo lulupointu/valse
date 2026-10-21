@@ -183,7 +183,8 @@ def changed_lines(old, new):
 
 def is_noise(line):
     s = line.strip()
-    return not s or s.startswith("//") or s.startswith("/*") or s.startswith("*") or s in ("{", "}", ")", "]")
+    return (not s or s.startswith(("//", "/*", "*", "import ", "@testable import ")) or s in ("{", "}", ")", "]")
+            or s.startswith("// MARK"))
 
 
 def indent(line):
@@ -202,6 +203,7 @@ class Script:
             self.obj = {}
         self.actions, self.options, self.targets, self.ids, self.paths, self.menus = set(), set(), set(), set(), set(), set()
         self.strings, self.baselines, self.snapshots, self.drops = set(), set(), set(), set()
+        self.window_baseline = False
         self.project = str(self.obj.get("project", "empty"))
         self.requires = self.obj.get("requires") or {}
         langs = {self.obj.get("lang", "en")}
@@ -252,6 +254,8 @@ class Script:
                 self.snapshots.add(step["snapshot"])
                 if "baseline" in step:
                     self.baselines.add(step["baseline"] if isinstance(step["baseline"], str) else step["snapshot"])
+                    if "element" not in step:
+                        self.window_baseline = True     # a full-window baseline renders the whole screen
             if isinstance(step.get("drop"), dict):
                 self.drops |= set(step["drop"])
         self.segments = {seg for p in self.paths for seg in p.split(".")}
@@ -560,6 +564,7 @@ BRIDGE_STOP = {"seconds", "count", "map", "description", "rawValue", "shared", "
                "height", "frame", "string", "text", "name", "kind", "index", "track", "start", "duration", "end", "selection",
                "tracks", "clips", "media", "asset", "assets", "mediaID", "content", "playhead", "transport", "isPlaying"}
 REACH_DEPTH = 3
+HUB_SCRIPTS = 12          # a string used by more than max(this, 10 %) of the scripts (panel IDs, undo.name) is no test hook
 REACH_MAX_FILES = 12
 
 
@@ -677,9 +682,14 @@ def _string_index(scripts):
     the derived IDs "transition.duration.field" / ".value"…"""
     key = id(scripts)
     if key not in _INDEX:
-        idx = {}
+        idx, freq = {}, {}
+        for sc in scripts.values():
+            for t in sc.strings:
+                freq[t] = freq.get(t, 0) + 1
         for n in sorted(scripts):
             for t in sorted(scripts[n].strings):
+                if freq[t] > max(HUB_SCRIPTS, len(scripts) // 10):
+                    continue            # "panel.inspector", "undo.name": used everywhere, links a change to no feature
                 parts = t.split(".")
                 for k in range(len(parts), 1, -1):
                     idx.setdefault(".".join(parts[:k]), []).append((n, t))
@@ -703,7 +713,7 @@ def match_literals(scripts, lits):
         for n in sorted(scripts):
             if n in out:
                 continue
-            hit = next(((t, (p, True)) for t in sorted(scripts[n].strings) for p in prefixes if t.startswith(p)), None)
+            hit = next(((t, (p, True)) for t in sorted(scripts[n].strings) for p in prefixes if t.startswith(p) and t in idx), None)
             if hit:
                 out[n] = hit
     return out
@@ -775,10 +785,13 @@ class Reach:
             self._prefixes = sorted(pre)
         return self._prefixes
 
-    def literals(self, text):
-        """Dotted literals of `text` + the composite IDs its plain literals form with the interpolated ID prefixes."""
+    def literals(self, text, narrow=False):
+        """Dotted literals of `text` + the composite IDs its plain literals form with the interpolated ID prefixes
+        (`narrow`: a small context around a use, e.g. one registry entry, where even short plain literals like "out" count;
+        otherwise only distinctive ones like "audioBasic")."""
         lits = dotted_literals(text)
-        plain = set(re.findall(r'"([A-Za-z][A-Za-z0-9_]{3,}(?:\.[A-Za-z0-9_]+)*)"', strip_comments(text)))
+        plain = {l for l in re.findall(r'"([A-Za-z][A-Za-z0-9_]{1,}(?:\.[A-Za-z0-9_]+)*)"', strip_comments(text))
+                 if (narrow and len(l) >= 2) or re.search(r'[A-Z0-9]', l[1:]) or len(l) >= 12}
         if plain:
             for p in self.id_prefixes():
                 for l in plain:
@@ -841,22 +854,50 @@ class Reach:
                     rng = [(b.start, b.end)] if b else [(1, len(f.lines))]
                     label = f"{os.path.basename(f.path)}:{b.name if b else 'top level'}"
                     origins.append(label)
-                    frontier.append((f, b, rng, label, label))
-        for depth in range(REACH_DEPTH + 1):
+                    frontier.append((f, b, rng, label, label, False))
+        for depth in range(REACH_DEPTH + 2):
             nxt = []
-            for f, b, ranges, how, origin in frontier:
+            for f, b, ranges, how, origin, render in frontier:
                 found = None
+                if depth > 0 and f.path.startswith(TESTING):
+                    # reached the UI test support itself: the scripts using that driver step / dump key
+                    fname, ln = f.path[len(TESTING):], ranges[0][0]
+                    if fname in ("UITestDriver.swift", "SyntheticEvents.swift"):
+                        pred, what = driver_hunk_preds(fname, f.lines, ln)
+                        if pred is not ALL:
+                            found = {n: (what, (f"driver {what}", False)) for n in sorted(scripts) if pred(scripts[n])}
+                    elif fname == "StateDump.swift":
+                        keys = statedump_keys(f.lines, ln)
+                        found = {n: (f"dump key {k}", (f"dump {k}", False)) for k in sorted(keys) for n in sorted(scripts)
+                                 if k in scripts[n].segments}
+                    if found:
+                        hit_origins.add(origin)
+                        for n, (used, lit) in found.items():
+                            hits.setdefault(n, (used, lit))
+                            how_of.setdefault(lit, how)
+                    continue                                  # never climb out of the test support
                 for lo, hi in ranges:
-                    found = match_literals(scripts, self.literals("\n".join(f.lines[lo - 1:hi])))
+                    small = hi - lo < 12
+                    # render level: scripts with a baseline of that part of the screen (any baseline near the use, a
+                    # full-window baseline anywhere in the user)
+                    pool = scripts if not render else {n: sc for n, sc in scripts.items()
+                                                       if sc.baselines and (small or sc.window_baseline)}
+                    found = match_literals(pool, self.literals("\n".join(f.lines[lo - 1:hi]), narrow=depth > 0 and small))
                     if found:
                         break
                 if found:
                     hit_origins.add(origin)
                     for n, (used, lit) in found.items():
-                        hits.setdefault(n, (used, lit))
-                        how_of.setdefault(lit, how)
-                    continue                                  # nearest test hook found on this path
-                if depth == REACH_DEPTH or b is None:
+                        hits.setdefault(n, (used, lit if not render else (lit[0] + " (renders)", lit[1])))
+                        how_of.setdefault(lit if not render else (lit[0] + " (renders)", lit[1]), how)
+                    if render:
+                        continue
+                    # nearest test hook found on this path; one more level up only for scripts with a baseline snapshot of
+                    # the screen around it (the changed view renders inside its users)
+                    render, hit_here = True, True
+                else:
+                    hit_here = False
+                if b is None or (depth >= REACH_DEPTH and not hit_here) or (render and not hit_here):
                     continue
                 name = users = None
                 for cand, scope in f.follow_names(b):
@@ -883,7 +924,7 @@ class Reach:
                             continue
                         seen.add(k)
                         nxt.append((uf, ub, self.contexts(uf, i + 1, ub), f"{how} ← {os.path.basename(u)}:{ub.name if ub else 'top level'}",
-                                    origin))
+                                    origin, render))
             frontier = nxt
             if not frontier:
                 break
@@ -928,7 +969,8 @@ def select(src, scripts=None, map_text=None):
     def reach_scripts(seeds):
         """{script: reason} for the literal reach of seed lines."""
         hits, how_of, dead = reach.from_lines(seeds, scripts)
-        out = {n: f"uses {used!r} ← {how_of[lit]}" for n, (used, lit) in hits.items()}
+        out = {n: (f"uses {used!r} ← {how_of[lit]}" if not lit[0].startswith(("driver ", "dump ")) else
+                   f"{how_of[lit]} ({used})") for n, (used, lit) in hits.items()}
         return out, hits, dead
 
     for rel in files:
