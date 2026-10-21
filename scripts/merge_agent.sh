@@ -9,7 +9,8 @@
 #   --check-only     only verify the gate (exit 0 = mergeable as far as the gate goes), merge nothing
 #   --stamp <file>   read this check_clean.ok instead of <branch worktree>/build/check_clean.ok (the hash must still match)
 #   --docs-delta-ok  also accept a stamp for an earlier commit whose tree is identical to the head everywhere except
-#                    under docs/ (a rebase over docs-only commits, e.g. STATUS / FEATURES updates); no test reads docs/
+#                    under docs/ (a rebase over docs-only commits, e.g. STATUS / FEATURES updates). Tests depend on
+#                    docs/ only through its existence (TestMedia.repoRoot looks for it); none reads its content
 set -euo pipefail
 BR=""; GATE=1; APP=1; KEEP=0; CHECK_ONLY=0; STAMP_ARG=""; DOCS_OK=0
 while [[ $# -gt 0 ]]; do
@@ -20,12 +21,12 @@ while [[ $# -gt 0 ]]; do
     --check-only) CHECK_ONLY=1; shift;;
     --stamp) STAMP_ARG="$2"; shift 2;;
     --docs-delta-ok) DOCS_OK=1; shift;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0;;
+    -h|--help) sed -n '2,13p' "$0"; exit 0;;
     -*) echo "unknown arg $1"; exit 2;;
     *) BR="$1"; shift;;
   esac
 done
-[[ -n "$BR" ]] || { sed -n '2,12p' "$0"; exit 2; }
+[[ -n "$BR" ]] || { sed -n '2,13p' "$0"; exit 2; }
 cd "$(dirname "$0")/.."
 MAIN="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)"
 HEAD_HASH="$(git -C "$MAIN" rev-parse --verify --quiet "refs/heads/$BR")" || { echo "✘ no branch $BR"; exit 1; }
@@ -64,7 +65,7 @@ if ! git -C "$MAIN" merge-base --is-ancestor main "$HEAD_HASH"; then
 fi
 if [[ $CHECK_ONLY == 1 ]]; then echo "CHECK OK $BR (fast-forward possible; nothing merged)"; exit 0; fi
 BEFORE="$(git -C "$MAIN" rev-parse --short main)"
-if ! git -C "$MAIN" merge --ff-only "$BR"; then
+if ! git -C "$MAIN" merge --ff-only "$HEAD_HASH"; then   # the gated commit, even if the branch moved meanwhile
   echo "✘ fast-forward failed: main moved (rebase $BR on main and re-run the gate) or local changes in $MAIN block it"; exit 1
 fi
 echo "✔ main $BEFORE → $(git -C "$MAIN" rev-parse --short main)"

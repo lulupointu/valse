@@ -8,6 +8,7 @@
 # `--host-only` (or MONTAGE_APP_ARCHS="arm64") builds only the listed / host arch, for quicker local iterations.
 # Usage: scripts/build_app.sh [--debug] [--no-content] [--host-only]
 set -euo pipefail
+if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,9p' "$0"; exit 0; fi
 cd "$(dirname "$0")/.."
 CONFIG=release
 CONTENT=1

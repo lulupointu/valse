@@ -50,7 +50,7 @@ When 2-4 branches are ready (or 1 if nothing else is close), and no other batch 
 ## 5. Main moved while a batch was gated
 - Only docs/ commits on main since: `git merge main` in the batch worktree (or rebase), then
   `scripts/merge_agent.sh batch-<n> --docs-delta-ok` (accepts the stamp when nothing outside docs/ differs from the
-  gated commit; no test reads docs/).
+  gated commit; tests depend on docs/ only through its existence, `TestMedia.repoRoot`, never its content).
 - Code moved on main: re-gate (merge main into the batch, `check_clean.sh --ui` again). Avoid this by merging batches
   one at a time.
 - Docs-only branches (diff vs main only under docs/, CLAUDE.md, .claude/): no gate; `scripts/merge_agent.sh <branch>

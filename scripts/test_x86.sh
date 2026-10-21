@@ -8,6 +8,7 @@
 # Usage: scripts/test_x86.sh [--filter <regex>]… [--skip <regex>]… [other swift-testing args]
 #   default filter: the Core, Effects and Engine suites (MONTAGE_X86_ALL=1 → every test target)
 set -euo pipefail
+if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,9p' "$0"; exit 0; fi
 cd "$(dirname "$0")/.."
 mkdir -p build
 source scripts/lib.sh

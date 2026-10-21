@@ -8,6 +8,7 @@
 # Hang watchdog: no new output and ~0 % CPU for MONTAGE_HANG_MINUTES (default 10) → stacks (`sample`) appended to
 # build/test.log, the run is killed and fails with "HUNG". Tests run with a private TMPDIR, removed on exit.
 set -euo pipefail
+if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,9p' "$0"; exit 0; fi
 cd "$(dirname "$0")/.."
 ARGS=(); RETRY=1
 for a in "$@"; do
