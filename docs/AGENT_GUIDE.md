@@ -45,8 +45,9 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
 ## Test tools
 - **Quick check: `scripts/check_fast.sh`** (typically 5–12 min). Incremental build of your working tree
   (uncommitted changes included), every unit test, and only the UI scripts relevant to `git diff main...HEAD` + your
-  uncommitted files: a smoke set + `app/Tests/ui_map.txt` (source dir → scripts) + scripts that use a test ID / l10n key
-  found in a changed Swift file + changed scripts / fixtures / baselines. `--list` shows what it would run and why;
+  uncommitted files: a 5-script smoke set + scripts linked to the changed lines (test IDs / l10n keys reached from the
+  changed declarations, driver actions, state-dump keys; `scripts/ui_select.py`, docs/TESTING.md) + changed scripts /
+  fixtures / baselines; `app/Tests/ui_map.txt` only holds always / fallback directory rules. `--list` shows what it would run and why;
   `--unit-filter <re>` narrows the unit tests; `--base HEAD~1` checks only your last commit's UI area; `--all-ui` runs every
   script (still incremental). A one-file change measured 6 min (980 unit tests + 11 UI scripts); while iterating prefer
   the targeted runs, and run check_fast once on the final commit. Single files: `scripts/test.sh --filter X`, `scripts/uitest.sh app/Tests/UIScripts/x.json`.

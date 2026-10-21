@@ -61,10 +61,21 @@ Owner footage stays opt-in and uncommitted: `MONTAGE_REAL_FOOTAGE="/path/a.MOV@2
 to the colour tests and `RealLikeFootageTests.ownerFootageProbesAndPlays`, as are `MONTAGE_C1_FOOTAGE`,
 `MONTAGE_QA_PROJECT` (playback stress on a real project) and `MONTAGE_QA_VIDEO` (AI QA).
 
-**Stage-1 UI selection.** `scripts/ui_select.py --explain [--files …]` prints what `check_fast.sh` would run and why.
-The diff base is `main` (the whole branch); `check_fast.sh --base HEAD~1` limits it to the last commit.
-Add a rule to `app/Tests/ui_map.txt` when you create a new area or the heuristics miss your scripts; put a script in
-the `smoke:` line only if it is fast and broad.
+**Stage-1 UI selection.** `scripts/ui_select.py --explain [--files …]` prints what `check_fast.sh` would run and WHY
+(one line per script: the changed declaration → the test ID / l10n key / dump key that links it).
+The diff base is `main` (the whole branch); `check_fast.sh --base HEAD~1` limits it to the last commit;
+`ui_select.py --commit <sha>` replays one commit. The selection is derived from the changed LINES, not directories:
+- a Swift change → the test IDs / l10n keys / command names of the changed declaration, else of the code using it
+  (up to 3 levels, nearest hook wins; `"transition.duration"` also matches `id:transition.duration.field`) → scripts
+  using them; plus scripts reading a state-dump key fed by an identifier on a changed line (`.editingGuide`);
+- `UITestDriver.swift` / `SyntheticEvents.swift` → only the scripts using the changed step action / target kind /
+  project kind (driver core → all); `StateDump.swift` → scripts whose `expect` / `waitFor` paths use the changed keys;
+- `Resources/<lang>.lproj/*.strings` → scripts in that language using the key / its text, or with a baseline snapshot
+  of a view rendering the key.
+`app/Tests/ui_map.txt` keeps the 5-script smoke set, `always` rules (app entry, theme, render / playback engine) and
+directory FALLBACK rules used only when a changed declaration reaches no test hook. If check_fast misses your script,
+give the UI you test a `.testID` the script uses (that is what links code to scripts). `scripts/test_ui_select.py`
+(run by `scripts/test.sh`) keeps the selector honest; stage 2 / the batch gate still run every script.
 
 **No exact timing budgets in the unit suite.** Wall-clock checks in `scripts/test.sh` use `TimingBudget`
 (MontageTestSupport): they assert only gross regressions (3× the budget, `MONTAGE_TIMING_FACTOR`) and are skipped with a

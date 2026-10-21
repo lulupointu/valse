@@ -23,6 +23,10 @@ source scripts/lib.sh
 # machine-wide: at most N heavy runs at once across all checkouts (scripts/slots.sh)
 source scripts/slots.sh; slots_acquire
 python3 scripts/l10n_check.py
+# stage-1 UI selection must not rot (scripts/ui_select.py): synthetic cases + repo consistency + real fixes
+if ! python3 scripts/test_ui_select.py > build/test_ui_select.log 2>&1; then
+  cat build/test_ui_select.log >&2; echo "ui_select tests FAILED (build/test_ui_select.log)"; exit 1
+fi
 if ! run_watched build/build.log swift build --build-tests; then
   grep -E "error:|HUNG" build/build.log | sort -u | head -30 >&2 || true
   tail -5 build/build.log >&2
