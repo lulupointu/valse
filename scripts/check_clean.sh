@@ -6,12 +6,17 @@
 #    count. Default: a persistent clean worktree reset to HEAD keeps its .build (incremental build); --cold = a fresh
 #    temp worktree and a cold build. Uncommitted changes are NOT part of the check: commit first.
 # 3. With --ui, the full unit suite (scripts/test.sh, its usual parallel run) and every UI script (scripts/uitest.sh
-#    --all, sharded over --ui-jobs apps) run AT THE SAME TIME: same tests, same retries, ~2x shorter.
+#    --all, sharded over --ui-jobs apps) run AT THE SAME TIME: same tests, same retries, ~3x shorter. The gate holds
+#    one test slot; UI apps are capped at min(cores × 2/5, RAM GB / 4) (4 on a 10-core 16 GB Mac).
 # STAGE 2 of the gate. Feature agents run targeted tests + scripts/check_fast.sh; the orchestrator runs `--ui` per batch.
-# Fails fast when < 5 GB are free (MONTAGE_MIN_FREE_GB). Failed tests are retried once alone (test.sh / uitest.sh);
-# quarantined ones (app/Tests/quarantine.txt) are reported but don't fail. The temp worktree, its build and every UI
+# Fails fast when < 5 GB are free (MONTAGE_MIN_FREE_GB). Failed tests are retried once: a unit test alone after the
+# suite (test.sh), a UI script right after its failure (uitest.sh) — in the default schedule other UI apps and the unit
+# suite may still be running then; --serial retries with nothing else of the gate running.
+# Quarantined ones (app/Tests/quarantine.txt) are reported but don't fail. The temp worktree, its build and every UI
 # temp dir are deleted on exit, even on failure or Ctrl-C. On success writes build/check_clean.ok (commit, date, mode)
 # for scripts/merge_agent.sh.
+# Warm cache: cold anyway when the package graph / toolchain changed, after MONTAGE_WARM_MAX_GATES (20) gates or
+# MONTAGE_WARM_MAX_HOURS (24) h; the reason is printed ("cold: …").
 #
 # Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep] [--cold] [--serial] [--ui-jobs K]
 #   --build-only  build (incl. tests) but don't run scripts/test.sh
@@ -19,7 +24,7 @@
 #   --keep        keep the temp worktree (its path is printed; --cold only, the warm one is always kept)
 #   --cold        fresh temp worktree + cold build instead of the warm clean worktree
 #   --serial      the pre-2026-10-21 schedule: unit tests, THEN the UI scripts one app at a time (slower, same tests)
-#   --ui-jobs K   UI apps at once (default MONTAGE_UI_JOBS or 4; 1 = one at a time)
+#   --ui-jobs K   UI apps at once (default MONTAGE_UI_JOBS or 4, capped as above; 1 = one at a time)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -32,10 +37,17 @@ while [[ $# -gt 0 ]]; do
     --keep) KEEP=1; shift;;
     --serial) SERIAL=1; UI_JOBS=1; shift;;
     --ui-jobs) UI_JOBS="$2"; shift 2;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0;;
+    -h|--help) sed -n '2,27p' "$0"; exit 0;;
     *) echo "unknown arg $1"; exit 2;;
   esac
 done
+[[ "$UI_JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "--ui-jobs needs a positive integer"; exit 2; }
+# one slot = "a gate"; the extra UI apps are bounded by the machine instead: ~2.5 cores and ~4 GB RAM per app
+# (next to the unit suite), at least 1
+CAP_CPU=$(( $(sysctl -n hw.ncpu) * 2 / 5 )); CAP_RAM=$(( $(sysctl -n hw.memsize) / 1073741824 / 4 ))
+CAP=$(( CAP_CPU < CAP_RAM ? CAP_CPU : CAP_RAM )); (( CAP < 1 )) && CAP=1
+if (( UI_JOBS > CAP )); then echo "  (--ui-jobs $UI_JOBS capped at $CAP: $(sysctl -n hw.ncpu) cores, $(( $(sysctl -n hw.memsize) / 1073741824 )) GB RAM)"; UI_JOBS=$CAP; fi
+COLD_WHY=""; USES=0
 
 source scripts/lib.sh
 # fail fast on a full disk (a clean build + UI exports need several GB)
@@ -69,17 +81,47 @@ SHA="$(git rev-parse HEAD)"
 # .build — then verified pristine; SwiftPM's resource bundles are deleted (it never removes a resource deleted from the
 # sources). Unchanged files keep their mtimes, so only what changed since the last gate recompiles.
 CACHE_LOCK=""
+# Cache locks: a kernel lock (flock) on <lock>.flock, held by a small helper process for the whole gate. The kernel
+# releases it when the helper exits (gate done, killed or crashed: the helper exits as soon as its gate is gone), so
+# there is no stale lock to reclaim and no reclaim race. A lock DIRECTORY <lock> with a live PID (a pre-flock gate)
+# counts as busy.
+LOCK_PY='
+import fcntl, os, sys, time
+f = open(sys.argv[1], "a")
+try:
+    fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    print("busy", flush=True); sys.exit(1)
+f.truncate(0); f.write(sys.argv[2] + "\n"); f.flush()
+print("ok", flush=True); sys.stdout.close()
+parent = os.getppid()
+while os.getppid() == parent:
+    time.sleep(1)
+'
+LOCK_HOLDER=""
+lock_take() { # lock path → 0 if acquired (the helper's PID in LOCK_HOLDER)
+  local L="$1" fifo line=""
+  if [[ -d "$L" ]] && kill -0 "$(cat "$L/pid" 2>/dev/null || echo 0)" 2>/dev/null; then return 1; fi
+  fifo="$(mktemp -u "${TMPDIR:-/tmp}/montage-lockfifo.XXXXXX")"; mkfifo "$fifo"
+  python3 -c "$LOCK_PY" "$L.flock" "$$" > "$fifo" 2>/dev/null &
+  LOCK_HOLDER=$!
+  read -r line < "$fifo" || true; rm -f "$fifo"
+  [[ "$line" == ok ]] && return 0
+  wait "$LOCK_HOLDER" 2>/dev/null || true; LOCK_HOLDER=""; return 1
+}
+lock_release() {
+  if [[ -n "$LOCK_HOLDER" ]]; then kill "$LOCK_HOLDER" 2>/dev/null; wait "$LOCK_HOLDER" 2>/dev/null; LOCK_HOLDER=""; fi
+  return 0
+}
 if [[ $COLD == 0 ]]; then
   CACHE="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)/build/check_clean-cache"; mkdir -p "$CACHE"
   for n in 0 1; do
-    L="$CACHE/lock.$n"
-    if [[ -d "$L" ]] && ! kill -0 "$(cat "$L/pid" 2>/dev/null || echo 0)" 2>/dev/null; then rm -rf "$L"; fi  # dead holder
-    if mkdir "$L" 2>/dev/null; then echo $$ > "$L/pid"; CACHE_LOCK="$L"; WT="$CACHE/wt$n"; break; fi
+    if lock_take "$CACHE/lock.$n"; then CACHE_LOCK="$CACHE/lock.$n"; WT="$CACHE/wt$n"; break; fi
   done
   [[ -n "$CACHE_LOCK" ]] || { echo "⚠︎ both warm clean worktrees are in use: cold build in a temp worktree"; COLD=1; }
 fi
 cleanup() {
-  if [[ -n "$CACHE_LOCK" ]]; then rm -rf "$TMP" "$CACHE_LOCK"; return; fi   # the warm worktree is the cache: kept
+  if [[ -n "$CACHE_LOCK" ]]; then rm -rf "$TMP"; lock_release "$CACHE_LOCK"; return; fi   # the warm worktree is kept
   if [[ $KEEP == 1 ]]; then echo "kept clean worktree: $WT"; return; fi
   git worktree remove --force "$WT" >/dev/null 2>&1 || true
   rm -rf "$TMP"
@@ -93,16 +135,31 @@ pristine() { # the worktree is exactly HEAD: no modified, untracked or ignored p
 if [[ -n "$CACHE_LOCK" ]]; then
   if ! { git -C "$WT" checkout --quiet --detach --force "$SHA" && git -C "$WT" clean -ffdxq -e /.build && pristine; } >/dev/null 2>&1; then
     echo "  (warm worktree missing or not resettable to HEAD: recreating it, cold build)"
-    git -C "$WT" status --porcelain --ignored=matching --untracked-files=all 2>&1 | grep -v '^!! \.build/' | head -5 | sed 's/^/    /' || true
+    [[ -d "$WT" ]] && { git -C "$WT" status --porcelain --ignored=matching --untracked-files=all 2>&1 | grep -v '^!! \.build/' | head -5 | sed 's/^/    /' || true; }
     git worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"; git worktree prune
     git worktree add --detach --quiet "$WT" "$SHA"
   fi
   pristine || { echo "✘ the clean worktree $WT is not exactly HEAD"; git -C "$WT" status --short --ignored | head; exit 1; }
+  # Leftover build products can hide a broken HEAD: a removed target / dependency keeps its .swiftmodule, so a stale
+  # `import A` still compiles. The warm .build is reused only while the package graph (manifest, resolved pins, target
+  # folders) and the toolchain are unchanged, and for at most MONTAGE_WARM_MAX_GATES gates / MONTAGE_WARM_MAX_HOURS h.
+  GATE_KEY="$( { git -C "$WT" show "$SHA:Package.swift"; git -C "$WT" show "$SHA:Package.resolved" 2>/dev/null || true
+    git -C "$WT" ls-tree -d --name-only "$SHA" app/Sources/ app/Tests/; swift --version 2>&1; } | shasum -a 256 | cut -c1-64)"
+  META="$WT/.build/.gate-meta"; OLD_KEY=""; BORN=0; USES=0
+  if [[ -f "$META" ]]; then read -r OLD_KEY BORN USES < "$META" || true; fi
+  NOW=$(date +%s); COLD_WHY=""
+  if [[ ! -d "$WT/.build" ]]; then COLD_WHY="no warm build yet"
+  elif [[ "$OLD_KEY" != "$GATE_KEY" ]]; then COLD_WHY="package graph or toolchain changed (Package.swift / Package.resolved / target folders / swift --version)"
+  elif (( NOW - ${BORN:-0} > ${MONTAGE_WARM_MAX_HOURS:-24} * 3600 )); then COLD_WHY="warm build older than ${MONTAGE_WARM_MAX_HOURS:-24} h"
+  elif (( ${USES:-0} >= ${MONTAGE_WARM_MAX_GATES:-20} )); then COLD_WHY="warm build served ${USES} gates (max ${MONTAGE_WARM_MAX_GATES:-20})"
+  fi
+  if [[ -n "$COLD_WHY" ]]; then echo "  cold: $COLD_WHY"; rm -rf "$WT/.build"; BORN=$NOW; USES=0; fi
+  mkdir -p "$WT/.build"; echo "$GATE_KEY $BORN $(( ${USES:-0} + 1 ))" > "$META"
   rm -rf "$WT"/.build/*/debug/*.bundle "$WT"/.build/*/release/*.bundle
 else
   git worktree add --detach --quiet "$WT" HEAD
 fi
-echo "▶ clean worktree of $(git rev-parse --short HEAD) at $WT$([[ -n "$CACHE_LOCK" ]] && echo " (warm .build)")"
+echo "▶ clean worktree of ${SHA:0:7} at $WT$([[ -n "$CACHE_LOCK" && -z "$COLD_WHY" ]] && echo " (warm .build, gate $(( USES + 1 )))")"
 # Reuse the bench media (gitignored, large) if present; perf smoke tests stay opt-in anyway.
 [[ -e "$ROOT/bench/media" ]] && ln -s "$(cd "$ROOT/bench/media" && pwd -P)" "$WT/bench/media" 2>/dev/null || true
 # UI scripts start longest-first using the previous gate's timings (only the order; every script still runs)
@@ -171,7 +228,7 @@ ELAPSED="$(mins "$START")"
 if [[ $FAIL == 0 ]]; then
   # gate stamp read by scripts/merge_agent.sh: <commit> <UTC date> <ui|unit|build-only>
   MODE=build-only; [[ $TEST == 1 ]] && MODE=unit; [[ $TEST == 1 && $UI == 1 ]] && MODE=ui; [[ $TEST == 0 && $UI == 1 ]] && MODE=ui-only
-  echo "$(git rev-parse HEAD) $(date -u +%Y-%m-%dT%H:%M:%SZ) $MODE" > "$ROOT/build/check_clean.ok"
+  echo "$SHA $(date -u +%Y-%m-%dT%H:%M:%SZ) $MODE" > "$ROOT/build/check_clean.ok"
   echo "CLEAN CHECKOUT OK ($ELAPSED)"
 else
   rm -f "$ROOT/build/check_clean.ok"; echo "CLEAN CHECKOUT FAILED ($ELAPSED)"; exit 1
