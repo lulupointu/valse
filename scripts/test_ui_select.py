@@ -281,6 +281,7 @@ class HistoryTests(unittest.TestCase):
         ("814f57b", {"w5_animation_fr", "w5_animation_text_sticker"}),  # animation tiles (render level, baselines)
         ("cc44062", {"f3_text_box_resize"}),                   # text box resize handle (bridge: boxWidth)
         ("96954d1", {"f3_drop_empty"}),                        # drop on empty timeline (reaches UITestDriver.drop)
+        ("92729b6", {"audio_online_fr"}),                      # Settings tab bar width: baseline of element id:settings
     ]
 
     def test_cases(self):

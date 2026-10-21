@@ -208,6 +208,7 @@ class Script:
         self.actions, self.options, self.targets, self.ids, self.paths, self.menus = set(), set(), set(), set(), set(), set()
         self.strings, self.baselines, self.snapshots, self.drops = set(), set(), set(), set()
         self.window_baseline = False
+        self.baseline_elements = set()
         self.project = str(self.obj.get("project", "empty"))
         self.requires = self.obj.get("requires") or {}
         langs = {self.obj.get("lang", "en")}
@@ -260,6 +261,8 @@ class Script:
                     self.baselines.add(step["baseline"] if isinstance(step["baseline"], str) else step["snapshot"])
                     if "element" not in step:
                         self.window_baseline = True     # a full-window baseline renders the whole screen
+                    elif isinstance(step["element"], str):
+                        self.baseline_elements.add(step["element"][3:] if step["element"].startswith("id:") else step["element"])
             if isinstance(step.get("drop"), dict):
                 self.drops |= set(step["drop"])
         self.segments = {seg for p in self.paths for seg in p.split(".")}
@@ -671,9 +674,14 @@ def strip_comments(text):
     return "\n".join(out)
 
 
+PLAIN_ID = re.compile(r'(?:testID|accessibilityIdentifier|setAccessibilityIdentifier)\(?\s*:?\s*"([A-Za-z][A-Za-z0-9_]{2,})"')
+
+
 def dotted_literals(text):
-    lits = set()
-    for m in LITERAL.finditer(strip_comments(text)):
+    """Dotted string literals ("asset.search", "inspector.tab.\\(" as a prefix) + plain test IDs (`.testID("settings")`)."""
+    code = strip_comments(text)
+    lits = {(m.group(1), False) for m in PLAIN_ID.finditer(code)}
+    for m in LITERAL.finditer(code):
         s = m.group(1)
         prefix = s.endswith("\\(")
         s = s[:-2] if prefix else s
@@ -905,6 +913,14 @@ class Reach:
                     found = match_literals(pool, self.literals("\n".join(f.lines[lo - 1:hi]), narrow=depth > 0 and small))
                     if found:
                         break
+                if render:
+                    # the container a baseline snapshot crops to (`"element": "id:settings"`) is set on this user
+                    lo, hi = ranges[-1]
+                    ids = {l for l, p in dotted_literals("\n".join(f.lines[lo - 1:hi])) if not p}
+                    found = dict(found or {})
+                    for n, sc in sorted(scripts.items()):
+                        for el in sorted(sc.baseline_elements & ids)[:1]:
+                            found.setdefault(n, (el, (el, False)))
                 if found:
                     hit_origins.add(origin)
                     for n, (used, lit) in found.items():
@@ -917,7 +933,7 @@ class Reach:
                     render, hit_here = True, True
                 else:
                     hit_here = False
-                if b is None or (depth >= REACH_DEPTH and not hit_here) or (render and not hit_here):
+                if b is None or (depth >= REACH_DEPTH and not hit_here):
                     continue
                 name = users = None
                 for cand, scope in f.follow_names(b):
