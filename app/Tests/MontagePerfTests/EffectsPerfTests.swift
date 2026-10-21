@@ -33,7 +33,9 @@ import MontageTestSupport
         let total = times.reduce(0) { $0 + $1.1 }
         print(String(format: "  mean %.2f ms over %d entries", total / Double(max(times.count, 1)), times.count))
         // lenient mode follows TimingBudget: not asserted in the correctness suite, nor while the machine is oversubscribed
-        let overloaded = !Self.strict && TimingBudget.limit(Self.budgetMs, "effects 1080p GPU budget") == nil
+        // strict (perf runs) and lenient budgets follow TimingBudget's load rule (GPU contention from other processes is
+        // real); the gross x4 GPU-time bound below always gates
+        let overloaded = TimingBudget.limit(Self.budgetMs, "effects 1080p GPU budget") == nil
         for (id, ms) in times where ms > limit && !overloaded {
             Issue.record("\(id) costs \(String(format: "%.2f", ms)) ms at 1080p (limit \(limit) ms)")
         }

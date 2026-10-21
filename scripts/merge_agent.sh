@@ -30,7 +30,7 @@ if [[ $GATE == 1 ]]; then
   if [[ -z "$STAMP" || ! -f "$STAMP" ]]; then
     echo "✘ no passing gate for $BR (no ${STAMP:-worktree build/check_clean.ok}): run scripts/check_clean.sh --ui in its worktree (or --skip-gate-check)"; exit 1
   fi
-  read -r S_HASH S_DATE S_MODE < "$STAMP"
+  read -r S_HASH S_DATE S_MODE S_EXTRA < "$STAMP"   # S_EXTRA: e.g. perf-unverified=N (check_clean)
   if [[ "$S_HASH" != "$HEAD_HASH" || "$S_MODE" != ui ]]; then
     echo "✘ the last passing gate ($S_MODE, $S_DATE) was for $(git -C "$MAIN" rev-parse --short "$S_HASH" 2>/dev/null || echo "$S_HASH"), not $BR @ $(git -C "$MAIN" rev-parse --short "$HEAD_HASH") with --ui"
     echo "  re-run scripts/check_clean.sh --ui in $WT (or pass --skip-gate-check)"; exit 1

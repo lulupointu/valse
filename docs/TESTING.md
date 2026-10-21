@@ -78,6 +78,14 @@ hogs; a quiet machine is never assumed. So:
   `TimingBudget.metric("unit_…", value, "ms")`, add the test to `UNIT_TIMING` in `scripts/perf.sh` (a failed timing test
   there is a perf violation; it runs even with `--no-smoke`) and the precise budget to `bench/perf_thresholds.json`.
   `scripts/check_clean.sh --ui` runs `perf.sh --no-smoke` with the exclusive slot, so the batch gate checks them.
+- **perf.sh load rule.** Taking every slot does not stop load from outside the slot system (VMs, other builds), so
+  wall-clock and GPU-time metrics (`launch_ms`, timeline / asset `_wall_` / `_gpu_` numbers, the unit tests' wall-clock
+  and strict GPU budgets) gate only when the 1-min load average stays ≤ the core count across the measurement (sampled
+  before / after each part, max taken; `MONTAGE_PERF_CORES` overrides the core count, also for TimingBudget). Above it,
+  perf.sh waits ≤ 5 min and measures once more; if still loaded it reports each as `UNRELIABLE (load X > cores Y)` with
+  its value and does not gate on them; check_clean prints "perf: N metrics unverified due to load" and appends
+  `perf-unverified=N` to `build/check_clean.ok`. Thread-CPU (`_cpu_`), memory and the gross ×4 GPU-time bounds always
+  gate. `launch_ms` is measured after one untimed warm-up launch (app launch, not the first launch after a build).
 - **Waits are for state, timeouts only detect hangs.** Await the job / poll a condition (`waitUntil`, `job.value`); a
   timeout must be generous (≥ 30 s for anything that can queue behind other work) and never encode a speed budget.
   Freeze / deadlock checks measure *work*, not wall time: e.g. `PlaybackStressTests` calls a preview frozen when no new

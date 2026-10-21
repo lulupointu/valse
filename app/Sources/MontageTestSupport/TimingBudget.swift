@@ -50,7 +50,9 @@ nonisolated public enum TimingBudget {
     public static func loadPerCore() -> Double {
         var l = [Double](repeating: 0, count: 3)
         guard getloadavg(&l, 3) > 0 else { return 0 }
-        return l[0] / Double(max(1, ProcessInfo.processInfo.activeProcessorCount))
+        // MONTAGE_PERF_CORES: the core count of perf.sh's load rule (also forces the "loaded" branch in its self-check)
+        let cores = ProcessInfo.processInfo.environment["MONTAGE_PERF_CORES"].flatMap(Int.init) ?? ProcessInfo.processInfo.activeProcessorCount
+        return l[0] / Double(max(1, cores))
     }
 
     /// JSON metric line picked up by scripts/perf.sh (same format as the perf smoke tests).

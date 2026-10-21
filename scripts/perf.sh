@@ -32,15 +32,16 @@ source scripts/slots.sh; slots_acquire_all
 [[ $BUILD == 1 ]] && swift build -c release --product Montage >&2
 BIN="$(swift build -c release --show-bin-path)/Montage"
 
-echo "▶ timeline 500 clips ($MODE)" >&2
-set +e
-env ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} "$BIN" --uitest "$ROOT/app/Tests/PerfScripts/timeline_500.json" --uitest-out "$DIR/ui" >&2
-UICODE=$?
-echo "▶ asset panel 1,000 items ($MODE)" >&2
-env ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} "$BIN" --uitest "$ROOT/app/Tests/PerfScripts/assets_1000.json" --uitest-out "$DIR/assets" >&2
-ACODE=$?
-[[ $UICODE == 0 ]] && UICODE=$ACODE
-set -e
+# Load rule (DX-C): wall-clock and GPU-time metrics GATE only when the 1-min load average stays <= the core count across
+# the measurement (sampled before / after each part, max taken; MONTAGE_PERF_CORES overrides the core count). Taking
+# every slot does not stop load from outside the slot system (VMs, other builds). Above it, the measurement is retried
+# once after waiting <= 5 min for the load to drop; if still loaded, those metrics are reported "UNRELIABLE" and don't
+# gate. Thread-CPU, memory and gross GPU-time bounds always gate.
+CORES="${MONTAGE_PERF_CORES:-$(sysctl -n hw.ncpu)}"
+export MONTAGE_PERF_CORES="$CORES"   # TimingBudget uses the same core count for its load rule
+LOADMAX=0
+sample_load() { local l; l="$(sysctl -n vm.loadavg | awk '{ printf "%.2f", $2 }' | tr ',' '.')"; LOADMAX="$(awk -v a="$LOADMAX" -v b="$l" 'BEGIN { print (b > a ? b : a) }')"; }
+loaded() { awk -v l="$LOADMAX" -v c="$CORES" 'BEGIN { exit !(l > c) }'; }
 
 : > "$DIR/smoke.jsonl"
 # In a git worktree, reuse the main checkout's bench media (gitignored, ~1 GB) instead of regenerating it.
@@ -50,16 +51,44 @@ if [[ ! -e bench/media ]]; then
 fi
 UNIT_TIMING='canvasBuildScalesTo600Clips|fiftyAnimatedCaptionsRenderFast|playbackDeliversFramesInRealTime|everyEffectFitsTheRealTimeBudget|manyCaptionsSyncFast|enhanceQualityRunsInRealTimeBudget'
 swift build -c release --build-tests --scratch-path .build/perf -Xswiftc -enable-testing >&2  # incremental; needed even with --no-build
-set +e
-# Wall-clock budgets of unit tests (TimingBudget: asserted with MONTAGE_PERF=1 only) — ALWAYS run, also with
-# --no-smoke and without bench/media: check_clean.sh --ui gates on them through `perf.sh --no-smoke`.
-echo "▶ unit-test timing budgets ($MODE)" >&2
-env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter "$UNIT_TIMING" 2>&1 \
-  | tee "$DIR/unit-timing.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
-if grep -qE '^✘ Test ' "$DIR/unit-timing.log" || ! grep -qE 'Test run with [0-9]+ tests' "$DIR/unit-timing.log"; then
-  echo '{"stack":"montage","metric":"unit_timing_budget_failures","value":1,"unit":"count"}' >> "$DIR/smoke.jsonl"   # failed / crashed
+
+measure() {
+  LOADMAX=0; : > "$DIR/smoke.jsonl"
+  set +e
+  sample_load
+  # untimed warm-up launch: launch_ms measures app launch, not the first launch after a build (cold disk cache)
+  printf '{"project": "empty", "steps": []}\n' > "$DIR/warmup.json"
+  env ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} "$BIN" --uitest "$DIR/warmup.json" --uitest-out "$DIR/warmup" >/dev/null 2>&1
+  echo "▶ timeline 500 clips ($MODE)" >&2
+  env ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} "$BIN" --uitest "$ROOT/app/Tests/PerfScripts/timeline_500.json" --uitest-out "$DIR/ui" >&2
+  UICODE=$?
+  echo "▶ asset panel 1,000 items ($MODE)" >&2
+  env ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} "$BIN" --uitest "$ROOT/app/Tests/PerfScripts/assets_1000.json" --uitest-out "$DIR/assets" >&2
+  ACODE=$?
+  [[ $UICODE == 0 ]] && UICODE=$ACODE
+  sample_load
+  # Wall-clock budgets of unit tests (TimingBudget: asserted with MONTAGE_PERF=1, skipped by the same load rule) —
+  # ALWAYS run, also with --no-smoke and without bench/media: check_clean.sh --ui gates on them.
+  echo "▶ unit-test timing budgets ($MODE)" >&2
+  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter "$UNIT_TIMING" 2>&1 \
+    | tee "$DIR/unit-timing.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
+  if grep -qE '^✘ Test ' "$DIR/unit-timing.log" || ! grep -qE 'Test run with [0-9]+ tests' "$DIR/unit-timing.log"; then
+    echo '{"stack":"montage","metric":"unit_timing_budget_failures","value":1,"unit":"count"}' >> "$DIR/smoke.jsonl"   # failed / crashed
+  fi
+  sample_load
+  set -e
+}
+
+measure
+if loaded; then
+  echo "⚠ machine loaded during the measurement (1-min load $LOADMAX > $CORES cores): waiting <= 5 min, then measuring again" >&2
+  for ((w = 0; w < ${MONTAGE_PERF_LOAD_WAIT:-300}; w += 10)); do   # MONTAGE_PERF_LOAD_WAIT: seconds (self-check: 0)
+    L="$(sysctl -n vm.loadavg | awk '{ print $2 }' | tr ',' '.')"
+    awk -v l="$L" -v c="$CORES" 'BEGIN { exit !(l <= c) }' && break
+    sleep 10
+  done
+  measure
 fi
-set -e
 if [[ $SMOKE == 1 && -f bench/media/.done ]]; then
   echo "▶ 4K perf smoke + audit ($MODE)" >&2
   set +e
@@ -68,14 +97,19 @@ if [[ $SMOKE == 1 && -f bench/media/.done ]]; then
     | tee "$DIR/memory.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
   env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfSmokeTests|PerfAuditTests' 2>&1 \
     | tee "$DIR/smoke.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
+  sample_load
   set -e
 elif [[ $SMOKE == 1 ]]; then
   echo "  (4K perf smoke skipped: run bench/make_media.sh first)" >&2
 fi
+LOADED=0; loaded && LOADED=1
+# timing checks the unit tests skipped themselves (TimingBudget load rule)
+SKIPPED_TIMING="$(grep -c "timing check .* skipped" "$DIR/unit-timing.log" 2>/dev/null || true)"
 
-python3 - "$MODE" "$DIR/ui/report.json" "$DIR/smoke.jsonl" "$TH" "$OUT" "$UICODE" <<'PY'
+python3 - "$MODE" "$DIR/ui/report.json" "$DIR/smoke.jsonl" "$TH" "$OUT" "$UICODE" "$LOADED" "$LOADMAX" "$CORES" "${SKIPPED_TIMING:-0}" <<'PY'
 import json, sys, os, platform, subprocess
-mode, report, smoke, th, out, uicode = sys.argv[1:]
+mode, report, smoke, th, out, uicode, loaded, loadmax, cores, skipped_timing = sys.argv[1:]
+loaded = loaded == "1"
 metrics = {}
 try:
     metrics.update(json.load(open(report)).get("metrics", {}))
@@ -93,16 +127,28 @@ for line in open(smoke):
         pass
 metrics = {k: v for k, v in metrics.items() if not k.startswith("snapshot_")}
 limits = json.load(open(th)).get(mode, {})
-violations = []
+violations, unreliable = [], []
+def load_ruled(k):
+    # thread-CPU ("_cpu_") and memory metrics are load-robust: they always gate; wall-clock / GPU-time ones follow the
+    # load rule (see the top of this script)
+    return not ("_cpu_" in k or k.endswith("_cpu_ms") or "memory" in k or k.endswith("_mb"))
 for k, lim in limits.items():
     if k not in metrics: continue
     v = metrics[k]
-    if "max" in lim and v > lim["max"]: violations.append(f"{k} = {v:.2f} > max {lim['max']}")
-    if "min" in lim and v < lim["min"]: violations.append(f"{k} = {v:.2f} < min {lim['min']}")
+    bad = []
+    if "max" in lim and v > lim["max"]: bad.append(f"{k} = {v:.2f} > max {lim['max']}")
+    if "min" in lim and v < lim["min"]: bad.append(f"{k} = {v:.2f} < min {lim['min']}")
+    if loaded and load_ruled(k):
+        unreliable.append(f"{k} = {v:.2f} UNRELIABLE (load {loadmax} > cores {cores})" + (f" — would violate: {bad[0]}" if bad else ""))
+    else:
+        violations.extend(bad)
+for i in range(int(skipped_timing or 0)):
+    unreliable.append(f"unit-test wall-clock timing check skipped by the load rule (load {loadmax} > cores {cores}; see unit-timing.log)")
 if uicode != "0": violations.append(f"timeline perf script failed (exit {uicode})")
 if metrics.get("unit_timing_budget_failures"): violations.append("a unit-test wall-clock budget failed or did not run (TimingBudget; see unit-timing.log)")
 chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True).stdout.strip()
-res = {"mode": mode, "machine": {"chip": chip, "os": platform.mac_ver()[0]}, "metrics": metrics, "violations": violations}
+res = {"mode": mode, "machine": {"chip": chip, "os": platform.mac_ver()[0]}, "metrics": metrics, "violations": violations,
+       "unreliable": unreliable, "load": {"max_1min": float(loadmax), "cores": int(cores), "loaded": loaded}}
 os.makedirs(os.path.dirname(out), exist_ok=True)
 json.dump(res, open(out, "w"), indent=2, sort_keys=True)
 for k in sorted(metrics):
@@ -110,6 +156,8 @@ for k in sorted(metrics):
     bound = (f"≤ {lim['max']}" if "max" in lim else "") + (f" ≥ {lim['min']}" if "min" in lim else "")
     print(f"  {k:36s} {metrics[k]:10.2f}  {bound}")
 print(f"results: {out}")
+for u in unreliable: print("UNRELIABLE: " + u)
+if unreliable: print(f"perf: {len(unreliable)} metrics unverified due to load")
 if violations:
     print("PERF REGRESSION:\n  " + "\n  ".join(violations)); sys.exit(1)
 print("PERF OK")
