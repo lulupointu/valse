@@ -199,10 +199,12 @@ public final class UITestDriver {
     // MARK: Run
 
     public func run() async -> Int32 {
-        let savedLanguagePref = UserDefaults.standard.object(forKey: L10n.overrideDefaultsKey)
+        // (the language preference a script sets lives in this process's private AppDefaults domain; restored anyway
+        // for runs where AppDefaults is not isolated)
+        let savedLanguagePref = AppDefaults.store.object(forKey: L10n.overrideDefaultsKey)
         defer {
-            if let savedLanguagePref { UserDefaults.standard.set(savedLanguagePref, forKey: L10n.overrideDefaultsKey) }
-            else { UserDefaults.standard.removeObject(forKey: L10n.overrideDefaultsKey) }
+            if let savedLanguagePref { AppDefaults.store.set(savedLanguagePref, forKey: L10n.overrideDefaultsKey) }
+            else { AppDefaults.store.removeObject(forKey: L10n.overrideDefaultsKey) }
         }
         let t0 = Date()
         let script: [String: Any]
