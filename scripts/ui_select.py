@@ -17,8 +17,12 @@ paths, project, language, baselines), so most selection needs no hand-written ma
     changed `let x = …` / `func f`) → the scripts whose `expect` / `waitFor` paths go through those keys;
   - Resources/<lang>.lproj/*.strings: the changed keys → scripts in that language that use the key or its old/new text
     literally, plus the baseline-snapshot scripts the Swift files rendering the key would select;
-  - any other app/Sources Swift file: app/Tests/ui_map.txt rules (directory → scripts) + scripts using a dotted string
-    literal (test ID, l10n key, command name) found in the file (`"inspector.tab.\\(id)"` matches by prefix).
+  - any other app/Sources Swift file (see "Swift reach" below): each changed declaration → the test IDs / l10n keys /
+    command names it contains, else those around the code using it (≤ 3 levels; the nearest hook wins, then one more
+    level for scripts with a baseline snapshot); reaching UITestDriver / StateDump selects the scripts using that
+    step / dump key; identifiers on changed lines that the state dump exposes (`.editingGuide`) → scripts reading
+    that key; a declaration that reaches no test hook → the ui_map.txt directory (fallback) rule of its file;
+  - ui_map.txt `always` rules (app entry, theme, render / playback engine) and, for non-Swift files, its rules.
 Plus a small smoke set (ui_map.txt `smoke:`). Unknown territory (a hunk the parsers cannot attribute) falls back to ALL.
 Unit tests: scripts/test_ui_select.py (run by scripts/test.sh).
 """
@@ -558,12 +562,17 @@ GENERIC_NAMES = {"body", "init", "make", "update", "view", "content", "value", "
                  "window", "view", "views", "row", "rows", "cell", "section", "sections", "header", "footer", "button",
                  "toggle", "picker", "slider", "field", "list", "grid", "tab", "tabs", "panel", "menu", "sheet", "dialog",
                  "close", "open", "show", "hide", "refresh", "reload", "clear", "add", "remove", "insert", "delete", "set", "get"}
+SWIFT_WORDS = {"let", "var", "func", "return", "self", "true", "false", "nil", "guard", "else", "case", "switch", "where",
+               "some", "Any", "with", "map", "compactMap", "flatMap", "sorted", "filter", "first", "last", "count", "isEmpty"}
 BRIDGE_STOP = {"seconds", "count", "map", "description", "rawValue", "shared", "store", "isEmpty", "first", "last", "sorted",
                "contains", "filter", "compactMap", "enumerated", "keys", "values", "session", "project", "timeline", "engine",
                "player", "state", "dump", "make", "self", "some", "none", "init", "minX", "minY", "maxX", "maxY", "width",
                "height", "frame", "string", "text", "name", "kind", "index", "track", "start", "duration", "end", "selection",
                "tracks", "clips", "media", "asset", "assets", "mediaID", "content", "playhead", "transport", "isPlaying"}
 REACH_DEPTH = 3
+HUB_IDS = re.compile(r'^(panel\.\w+|timeline|dialog\.(ok|close|cancel))$')   # containers every screen has
+USE_CONTEXT_MAX = 40
+DEAD_FILE_LITERALS = True  # a changed declaration without test hook: the file's test IDs first, the directory rule if none      # lines of a user's code around a use that may link it to scripts (beyond: climb further)
 HUB_SCRIPTS = 12          # a string used by more than max(this, 10 %) of the scripts (panel IDs, undo.name) is no test hook
 REACH_MAX_FILES = 12
 
@@ -682,27 +691,29 @@ def _string_index(scripts):
     the derived IDs "transition.duration.field" / ".value"…"""
     key = id(scripts)
     if key not in _INDEX:
-        idx, freq = {}, {}
+        idx, freq, hubs = {}, {}, set()
         for sc in scripts.values():
             for t in sc.strings:
                 freq[t] = freq.get(t, 0) + 1
         for n in sorted(scripts):
             for t in sorted(scripts[n].strings):
-                if freq[t] > max(HUB_SCRIPTS, len(scripts) // 10):
-                    continue            # "panel.inspector", "undo.name": used everywhere, links a change to no feature
+                # "panel.inspector", "undo.name": used everywhere, they link a change to no feature (measured: matching
+                # them even in the changed code itself doubles the selection; scripts using only them are reached
+                # through the state-dump bridge or the fallback rules)
+                if freq[t] > max(HUB_SCRIPTS, len(scripts) // 10) or HUB_IDS.match(t):
+                    hubs.add(t)
+                    continue
                 parts = t.split(".")
-                for k in range(len(parts), 1, -1):
-                    idx.setdefault(".".join(parts[:k]), []).append((n, t))
-                if len(parts) == 1:
-                    idx.setdefault(t, []).append((n, t))
+                for k in [".".join(parts[:k]) for k in range(len(parts), 1, -1)] or [t]:
+                    idx.setdefault(k, []).append((n, t))
         _INDEX.clear()
-        _INDEX[key] = (scripts, idx)
-    return _INDEX[key][1]
+        _INDEX[key] = (scripts, idx, hubs)
+    return _INDEX[key][1], _INDEX[key][2]
 
 
 def match_literals(scripts, lits):
     """{script: (string it uses, matching (literal, is_prefix))}."""
-    idx = _string_index(scripts)
+    idx, hubs = _string_index(scripts)
     out = {}
     for lit, pre in sorted(lits):
         if not pre:
@@ -713,7 +724,7 @@ def match_literals(scripts, lits):
         for n in sorted(scripts):
             if n in out:
                 continue
-            hit = next(((t, (p, True)) for t in sorted(scripts[n].strings) for p in prefixes if t.startswith(p) and t in idx), None)
+            hit = next(((t, (p, True)) for t in sorted(scripts[n].strings) for p in prefixes if t.startswith(p) and t not in hubs), None)
             if hit:
                 out[n] = hit
     return out
@@ -763,7 +774,10 @@ class Reach:
                     marks = [(m.start(), m.group(1) or m.group(2)) for m in DUMP_KEY.finditer(code)]
                     if not marks:
                         continue
-                    for m in re.finditer(r'\.([a-z][A-Za-z0-9_]{3,})\b', code):
+                    blank = re.sub(r'"(?:[^"\\]|\\.)*"', lambda q: '"' + " " * (len(q.group(0)) - 2) + '"', code)
+                    for m in re.finditer(r'(?<![A-Za-z0-9_"])([a-z][A-Za-z0-9_]{3,})\b', blank):
+                        if m.group(1) in SWIFT_WORDS:
+                            continue
                         ident = m.group(1)
                         if ident in BRIDGE_STOP:
                             continue
@@ -864,8 +878,10 @@ class Reach:
                     fname, ln = f.path[len(TESTING):], ranges[0][0]
                     if fname in ("UITestDriver.swift", "SyntheticEvents.swift"):
                         pred, what = driver_hunk_preds(fname, f.lines, ln)
-                        if pred is not ALL:
-                            found = {n: (what, (f"driver {what}", False)) for n in sorted(scripts) if pred(scripts[n])}
+                        users = [n for n in sorted(scripts) if pred is not ALL and pred(scripts[n])]
+                        # a specific step (drop, scroll …) is a test hook; one most scripts use (click, snapshot) is not
+                        if users and len(users) <= len(scripts) // 5:
+                            found = {n: (what, (f"driver {what}", False)) for n in users}
                     elif fname == "StateDump.swift":
                         keys = statedump_keys(f.lines, ln)
                         found = {n: (f"dump key {k}", (f"dump {k}", False)) for k in sorted(keys) for n in sorted(scripts)
@@ -877,6 +893,10 @@ class Reach:
                             how_of.setdefault(lit, how)
                     continue                                  # never climb out of the test support
                 for lo, hi in ranges:
+                    if depth > 0 and hi - lo > USE_CONTEXT_MAX and (lo, hi) != ranges[-1]:
+                        continue            # a hub (the editor layout, a registry): only the code right around the use
+                    if depth > 0 and hi - lo > USE_CONTEXT_MAX and b is not None and b.end - b.start > USE_CONTEXT_MAX:
+                        continue
                     small = hi - lo < 12
                     # render level: scripts with a baseline of that part of the screen (any baseline near the use, a
                     # full-window baseline anywhere in the user)
@@ -1112,7 +1132,8 @@ def select(src, scripts=None, map_text=None):
                 for k in sorted(bridge[ident]):
                     sel.add_if(lambda sc, k=k: k in sc.segments, f"{rel}: changes `{ident}`, dumped as {k!r}")
             if dead:
-                # some changed declaration reaches no test hook: the coarse directory rule covers it
+                # some changed declaration reaches no test hook: the coarse directory rule covers it (measured: the
+                # file's own test IDs instead would miss scripts, e.g. c4_caption_list for EditorStore+Fillers.swift)
                 for n, why in rule_scripts(rel, always_only=False).items():
                     sel.add([n], f"{why} (no test ID / l10n key reached from {', '.join(dead[:2])})")
             continue
