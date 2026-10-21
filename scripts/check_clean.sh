@@ -88,11 +88,12 @@ cleanup() {
 on_exit cleanup
 pristine() { # the worktree is exactly HEAD: no modified, untracked or ignored path except .build/
   [[ "$(git -C "$WT" rev-parse HEAD 2>/dev/null)" == "$SHA" ]] &&
-    [[ -z "$(git -C "$WT" status --porcelain --ignored --untracked-files=all | grep -vxF '!! .build/')" ]]
+    [[ -z "$(git -C "$WT" status --porcelain --ignored=matching --untracked-files=all | grep -v '^!! \.build/')" ]]
 }
 if [[ -n "$CACHE_LOCK" ]]; then
   if ! { git -C "$WT" checkout --quiet --detach --force "$SHA" && git -C "$WT" clean -ffdxq -e /.build && pristine; } >/dev/null 2>&1; then
-    echo "  (warm worktree missing or unusable: recreating it, cold build)"
+    echo "  (warm worktree missing or not resettable to HEAD: recreating it, cold build)"
+    git -C "$WT" status --porcelain --ignored=matching --untracked-files=all 2>&1 | grep -v '^!! \.build/' | head -5 | sed 's/^/    /' || true
     git worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"; git worktree prune
     git worktree add --detach --quiet "$WT" "$SHA"
   fi
