@@ -26,3 +26,13 @@ final class ReaderCancel: @unchecked Sendable {
     /// Every pump returned: nothing reads any more (the caller may now cancel the reader).
     func finish() { lock.withLock { finished = true } }
 }
+
+/// Work done by an export pass (samples read by the pumps), for its stall monitor.
+final class ExportActivity: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0, stalledFlag = false
+    var samples: Int { lock.withLock { count } }
+    var stalled: Bool { lock.withLock { stalledFlag } }
+    func tick() { lock.withLock { count += 1 } }
+    func markStalled() { lock.withLock { stalledFlag = true } }
+}

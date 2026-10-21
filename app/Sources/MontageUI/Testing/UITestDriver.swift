@@ -622,7 +622,7 @@ public final class UITestDriver {
     /// Bound of waiting for a snapshot to render the same pixels twice / to match its baseline.
     static let snapshotLimit = envSeconds("MONTAGE_UITEST_SNAPSHOT_LIMIT", 10)
     /// Bound of `quiesce` (continuous change, e.g. playback, never quiesces: the step then goes on as before).
-    static let quiesceLimit = envSeconds("MONTAGE_UITEST_QUIESCE_LIMIT", 3)
+    static let quiesceLimit = envSeconds("MONTAGE_UITEST_QUIESCE_LIMIT", 10)
 
     nonisolated static func envSeconds(_ key: String, _ d: Double) -> Double {
         ProcessInfo.processInfo.environment[key].flatMap(Double.init) ?? d
@@ -655,6 +655,8 @@ public final class UITestDriver {
             let now = uiFingerprint()
             if now == last { stable += 1 } else { stable = 0; last = now }
         }
+        // report.json: how often the UI never settled (continuous change; a high count = a step racing the UI)
+        if stable < 2 { metrics["quiesce_timeouts", default: 0] += 1 }
     }
 
     /// Waits (≤ `targetLimit`) until a mouse target resolves: an `id:` element is on screen, a clip row is laid out.
