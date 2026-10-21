@@ -55,6 +55,17 @@ BIN="$(swift build -c "$CONFIG" --show-bin-path)/Montage"
 use_private_tmpdir uitest
 RESULTS="$TMPDIR/results.tsv"; : > "$RESULTS"
 PREFS="$HOME/Library/Preferences"
+# UI-test apps' private settings domains (MontageCore AppDefaults: [com.]montage.uitest.<name>.<pid>.plist): removed
+# after each app, and swept for dead PIDs here and on exit (cfprefsd may flush a file just after the app exited)
+sweep_prefs() {
+  local f p
+  for f in "$PREFS"/*montage.uitest.*.[0-9]*.plist; do
+    [[ -e "$f" ]] || continue
+    p="${f%.plist}"; p="${p##*.}"
+    kill -0 "$p" 2>/dev/null || rm -f "$f"
+  done
+}
+sweep_prefs; on_exit sweep_prefs
 
 # run_one <abs script> <name> → exit code of the app (124 = timeout)
 run_one() {
