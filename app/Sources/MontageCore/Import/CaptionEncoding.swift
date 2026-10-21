@@ -41,7 +41,7 @@ public enum CaptionEncoding: String, CaseIterable, Sendable {
     /// The user's choice (Text ▸ Local captions ▸ Character encoding), persisted in the user defaults.
     public static let defaultsKey = "montage.captionEncoding"
     public static var current: CaptionEncoding {
-        get { UserDefaults.standard.string(forKey: defaultsKey).flatMap(CaptionEncoding.init(rawValue:)) ?? .auto }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: defaultsKey) }
+        get { AppDefaults.store.string(forKey: defaultsKey).flatMap(CaptionEncoding.init(rawValue:)) ?? .auto }
+        set { AppDefaults.store.set(newValue.rawValue, forKey: defaultsKey) }
     }
 }

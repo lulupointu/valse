@@ -11,14 +11,14 @@ public enum MediaAutoRelink {
 
     /// Folders the user picked in "Link media" / batch relink, most recent first.
     public static var rememberedFolders: [URL] {
-        (UserDefaults.standard.stringArray(forKey: rememberedKey) ?? []).map { URL(fileURLWithPath: $0, isDirectory: true) }
+        (AppDefaults.store.stringArray(forKey: rememberedKey) ?? []).map { URL(fileURLWithPath: $0, isDirectory: true) }
     }
 
     public static func remember(_ folder: URL) {
-        var list = UserDefaults.standard.stringArray(forKey: rememberedKey) ?? []
+        var list = AppDefaults.store.stringArray(forKey: rememberedKey) ?? []
         list.removeAll { $0 == folder.standardizedFileURL.path }
         list.insert(folder.standardizedFileURL.path, at: 0)
-        UserDefaults.standard.set(Array(list.prefix(maxRemembered)), forKey: rememberedKey)
+        AppDefaults.store.set(Array(list.prefix(maxRemembered)), forKey: rememberedKey)
     }
 
     /// Too broad to walk at open.

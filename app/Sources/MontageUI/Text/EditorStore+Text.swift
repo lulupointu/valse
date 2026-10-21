@@ -31,7 +31,7 @@ final class TextUIState {
     }
     /// One-time move of the pre-F3 favourites list into the shared store.
     private static let migrated: Bool = {
-        let d = UserDefaults.standard, key = "MontageFavoriteFonts"
+        let d = AppDefaults.store, key = "MontageFavoriteFonts"
         guard !TestAnchors.isEnabled, let old = d.stringArray(forKey: key), !old.isEmpty else { return true }
         for n in old.reversed() where !AssetLibraryStore.shared.isFavorite(AssetLibraryStore.fontsNamespace, n) {
             AssetLibraryStore.shared.toggleFavorite(AssetLibraryStore.fontsNamespace, n)
@@ -39,15 +39,15 @@ final class TextUIState {
         d.removeObject(forKey: key)
         return true
     }()
-    var recentFonts: [String] = UserDefaults.standard.stringArray(forKey: "MontageRecentFonts") ?? [] {
-        didSet { UserDefaults.standard.set(recentFonts, forKey: "MontageRecentFonts") }
+    var recentFonts: [String] = AppDefaults.store.stringArray(forKey: "MontageRecentFonts") ?? [] {
+        didSet { AppDefaults.store.set(recentFonts, forKey: "MontageRecentFonts") }
     }
     /// Bumped when imported fonts change.
     var fontsRevision = 0
     var presetsExpanded = false
     /// C4 Text ▸ Basic "Apply to all main captions" (CapCut, on by default): style edits on a caption restyle its track.
-    var applyToAllCaptions: Bool = TestAnchors.isEnabled ? true : (UserDefaults.standard.object(forKey: "MontageApplyToAllCaptions") as? Bool ?? true) {
-        didSet { if !TestAnchors.isEnabled { UserDefaults.standard.set(applyToAllCaptions, forKey: "MontageApplyToAllCaptions") } }
+    var applyToAllCaptions: Bool = TestAnchors.isEnabled ? true : (AppDefaults.store.object(forKey: "MontageApplyToAllCaptions") as? Bool ?? true) {
+        didSet { if !TestAnchors.isEnabled { AppDefaults.store.set(applyToAllCaptions, forKey: "MontageApplyToAllCaptions") } }
     }
 
     func noteRecent(_ font: String) {

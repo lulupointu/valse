@@ -18,13 +18,13 @@ public final class KeystrokeFeed {
     var lifetime: TimeInterval { lifetimeOverride ?? (TestAnchors.isEnabled ? 30 : 2) }
 
     init() {
-        if !HomeSandbox.isActive, UserDefaults.standard.bool(forKey: Self.defaultsKey) { setEnabled(true) }
+        if !HomeSandbox.isActive, AppDefaults.store.bool(forKey: Self.defaultsKey) { setEnabled(true) }
     }
 
     public func setEnabled(_ on: Bool) {
         guard on != enabled else { return }
         enabled = on
-        if !HomeSandbox.isActive { UserDefaults.standard.set(on, forKey: Self.defaultsKey) }
+        if !HomeSandbox.isActive { AppDefaults.store.set(on, forKey: Self.defaultsKey) }
         if !on { items = [] }
     }
 

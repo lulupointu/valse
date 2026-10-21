@@ -48,7 +48,7 @@ public final class AppPreferences {
             (Self.exportDefaults(s, for: p), s.exportDirectory.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) })
         }
         guard !HomeSandbox.isActive else { return }  // never touch the user's path overrides from a sandbox
-        let d = UserDefaults.standard
+        let d = AppDefaults.store
         d.set(settings.hardwareEncoding, forKey: ExportDialogModel.hardwareDefaultsKey)
         d.set(settings.hardwareEncoding && settings.fastExport, forKey: ExportDialogModel.fastEncodingDefaultsKey)
         d.set(settings.exportSound, forKey: ExportQueue.soundDefaultsKey)

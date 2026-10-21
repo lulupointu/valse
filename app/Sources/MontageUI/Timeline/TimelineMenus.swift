@@ -94,7 +94,7 @@ extension TimelineView {
         var items: [NSMenuItem] = [
             item("tlmenu.copy", "c", .command) { s.copySelection() },
             item("tlmenu.cut", "x", .command) { s.cutSelection() },
-            item("tlmenu.paste", "v", .command, enabled: !s.timelineUI.clipboard.isEmpty || NSPasteboard.general.data(forType: ClipboardPayload.type) != nil) { s.paste() },
+            item("tlmenu.paste", "v", .command, enabled: !s.timelineUI.clipboard.isEmpty || AppPasteboard.general.data(forType: ClipboardPayload.type) != nil) { s.paste() },
             item("tlmenu.duplicate", "d", .command) { s.duplicateSelection() },
             item("tlmenu.copyAttributes", "c", [.command, .shift], enabled: single != nil) { s.copyAttributes() },
             item("tlmenu.pasteAttributes", "v", [.command, .shift], enabled: s.timelineUI.attributeSource != nil) { [weak self] in self?.showPasteAttributesDialog() },

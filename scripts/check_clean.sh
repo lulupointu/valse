@@ -2,28 +2,34 @@
 # Clean-checkout batch gate: the orchestrator runs it ONCE per batch HEAD (docs/AGENT_GUIDE.md); feature agents don't.
 # 1. Fails if any file under app/ or scripts/ is git-ignored. Such files build locally but are never committed
 #    (e.g. a `models/` rule silently hid app/Sources/MontageAI/Models on case-insensitive macOS).
-# 2. Builds and tests a fresh detached worktree of HEAD in a temp dir, so only committed files count.
+# 2. Builds (cold) and tests a fresh detached worktree of HEAD in a temp dir, so only committed files count.
 #    Uncommitted changes are NOT part of the check: commit first.
+# 3. With --ui, the full unit suite (scripts/test.sh, its usual parallel run) and every UI script (scripts/uitest.sh
+#    --all, sharded over --ui-jobs apps) run AT THE SAME TIME: same tests, same retries, ~2x shorter.
 # STAGE 2 of the gate. Feature agents run targeted tests + scripts/check_fast.sh; the orchestrator runs `--ui` per batch.
 # Fails fast when < 5 GB are free (MONTAGE_MIN_FREE_GB). Failed tests are retried once alone (test.sh / uitest.sh);
 # quarantined ones (app/Tests/quarantine.txt) are reported but don't fail. The temp worktree, its build and every UI
 # temp dir are deleted on exit, even on failure or Ctrl-C. On success writes build/check_clean.ok (commit, date, mode)
 # for scripts/merge_agent.sh.
 #
-# Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep]
+# Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep] [--serial] [--ui-jobs K]
 #   --build-only  build (incl. tests) but don't run scripts/test.sh
 #   --ui          also run every UI test script (scripts/uitest.sh --all) in the clean tree
 #   --keep        keep the temp worktree (its path is printed)
+#   --serial      the pre-2026-10-21 schedule: unit tests, THEN the UI scripts one app at a time (slower, same tests)
+#   --ui-jobs K   UI apps at once (default MONTAGE_UI_JOBS or 4; 1 = one at a time)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-TEST=1; UI=0; KEEP=0
+TEST=1; UI=0; KEEP=0; SERIAL=0; UI_JOBS="${MONTAGE_UI_JOBS:-4}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --build-only) TEST=0; shift;;
     --ui) UI=1; shift;;
     --keep) KEEP=1; shift;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0;;
+    --serial) SERIAL=1; UI_JOBS=1; shift;;
+    --ui-jobs) UI_JOBS="$2"; shift 2;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0;;
     *) echo "unknown arg $1"; exit 2;;
   esac
 done
@@ -34,6 +40,7 @@ require_free_disk || exit 1
 # machine-wide: at most N heavy runs at once across all checkouts (scripts/slots.sh); nested test.sh/uitest.sh reuse it
 source scripts/slots.sh; slots_acquire
 START=$(date +%s)
+mins() { echo "$(( ($(date +%s) - $1 + 30) / 60 )) min"; }
 
 FAIL=0
 IGNORED="$(git ls-files -o -i --exclude-standard -- app scripts)"
@@ -64,31 +71,41 @@ git worktree add --detach --quiet "$WT" HEAD
 echo "▶ clean worktree of $(git rev-parse --short HEAD) at $WT"
 # Reuse the bench media (gitignored, large) if present; perf smoke tests stay opt-in anyway.
 [[ -e "$ROOT/bench/media" ]] && ln -s "$(cd "$ROOT/bench/media" && pwd -P)" "$WT/bench/media" 2>/dev/null || true
+# UI scripts start longest-first using the previous gate's timings (only the order; every script still runs)
+DURATIONS="$ROOT/build/check_clean-ui-durations.tsv"
 
 cd "$WT"
 mkdir -p "$ROOT/build"
 python3 scripts/testlib.py check-quarantine || FAIL=1
-if ! run_watched "$TMP/build.log" swift build --build-tests; then
+# the app binary too (`--build-tests` alone may not link executables): the UI apps then run with --no-build while
+# test.sh's own (no-op) build runs
+if ! run_watched "$TMP/build.log" bash -c 'swift build --build-tests && swift build --product Montage'; then
   echo "✘ clean build failed:"; grep -E "error:|HUNG" "$TMP/build.log" | sort -u | head -30
   cp "$TMP/build.log" "$ROOT/build/check_clean-build.log" 2>/dev/null || true
   exit 1
 fi
-echo "✔ clean build ($(( ($(date +%s) - START) / 60 )) min)"
-if [[ $TEST == 1 ]]; then
-  if scripts/test.sh >"$TMP/test.log" 2>&1; then
-    echo "✔ clean tests ($(grep -oE 'Test run with [0-9]+ tests' build/test.log | head -1); $(tail -1 "$TMP/test.log"))"
+echo "✔ clean build ($(mins "$START"))"
+
+# ---- phases: each is started by run_<phase>, its verdict printed by report_<phase> ----
+run_unit() { local rc=0; scripts/test.sh >"$TMP/test.log" 2>&1 || rc=$?; date +%s > "$TMP/unit.end"; return $rc; }
+report_unit() { # rc
+  if [[ $1 == 0 ]]; then
+    echo "✔ clean tests ($(grep -oE 'Test run with [0-9]+ tests' build/test.log | head -1); $(tail -1 "$TMP/test.log"); $2)"
   else
-    echo "✘ clean tests failed:"; grep -E "✘|error:|HUNG" build/test.log | head -30
+    echo "✘ clean tests failed ($2):"; grep -E "✘|error:|HUNG" build/test.log | head -30
     grep -E "^(✘|⚠|TESTS|no test summary|BUILD)" "$TMP/test.log" | sed 's/^/  /' || true
     cp build/test.log "$ROOT/build/check_clean-test.log" 2>/dev/null || true
     cp build/test-retry.log "$ROOT/build/check_clean-test-retry.log" 2>/dev/null || true
     FAIL=1
   fi
   grep -E "^⚠ (flaky|quarantined)" "$TMP/test.log" | sed 's/^/    /' || true
-fi
-if [[ $UI == 1 ]]; then
-  if scripts/uitest.sh --all --out "$TMP/uitest" >"$TMP/ui.log" 2>&1; then echo "✔ clean UI tests ($(grep -E '^UI tests:' "$TMP/ui.log" | tail -1))"
-  else echo "✘ clean UI tests failed:"; grep -E "^✘|failed:|^UI tests:|BUILD FAILED" "$TMP/ui.log" | head -30; FAIL=1
+}
+run_ui() {
+  scripts/uitest.sh --all --no-build --jobs "$UI_JOBS" --order "$DURATIONS" --out "$TMP/uitest" >"$TMP/ui.log" 2>&1
+}
+report_ui() { # rc
+  if [[ $1 == 0 ]]; then echo "✔ clean UI tests ($(grep -E '^UI tests:' "$TMP/ui.log" | tail -1); $2, $UI_JOBS at once)"
+  else echo "✘ clean UI tests failed ($2):"; grep -E "^✘|failed:|^UI tests:|BUILD FAILED|no binary" "$TMP/ui.log" | head -30; FAIL=1
     cp "$TMP/ui.log" "$ROOT/build/check_clean-ui.log" 2>/dev/null || true
     # keep the failed scripts' reports / PNGs (the temp tree is deleted on exit)
     rm -rf "$ROOT/build/check_clean-uitest"; mkdir -p "$ROOT/build/check_clean-uitest"
@@ -98,8 +115,25 @@ if [[ $UI == 1 ]]; then
     echo "  failed scripts' output: $ROOT/build/check_clean-uitest/"
   fi
   grep -E "^⏭|skipped:|flaky|quarantined \(" "$TMP/ui.log" | sed 's/^/    /' || true
+  cp "$TMP/uitest/durations.tsv" "$DURATIONS" 2>/dev/null || true
+}
+
+if [[ $TEST == 1 && $UI == 1 && $SERIAL == 0 ]]; then
+  # unit suite and UI scripts at the same time (both are load-robust: docs/TESTING.md); each keeps its own retries
+  T0=$(date +%s)
+  run_unit & UNIT_PID=$!
+  run_ui & UI_PID=$!
+  on_exit "kill_tree $UNIT_PID >/dev/null 2>&1; kill_tree $UI_PID >/dev/null 2>&1"
+  UI_RC=0; wait "$UI_PID" || UI_RC=$?; UI_T="$(mins "$T0")"
+  UNIT_RC=0; wait "$UNIT_PID" || UNIT_RC=$?
+  UNIT_T="$(( ($(cat "$TMP/unit.end" 2>/dev/null || date +%s) - T0 + 30) / 60 )) min"
+  report_unit "$UNIT_RC" "$UNIT_T"
+  report_ui "$UI_RC" "$UI_T"
+else
+  if [[ $TEST == 1 ]]; then T0=$(date +%s); RC=0; run_unit || RC=$?; report_unit "$RC" "$(mins "$T0")"; fi
+  if [[ $UI == 1 ]]; then T0=$(date +%s); RC=0; run_ui || RC=$?; report_ui "$RC" "$(mins "$T0")"; fi
 fi
-ELAPSED="$(( ($(date +%s) - START) / 60 )) min"
+ELAPSED="$(mins "$START")"
 if [[ $FAIL == 0 ]]; then
   # gate stamp read by scripts/merge_agent.sh: <commit> <UTC date> <ui|unit|build-only>
   MODE=build-only; [[ $TEST == 1 ]] && MODE=unit; [[ $TEST == 1 && $UI == 1 ]] && MODE=ui; [[ $TEST == 0 && $UI == 1 ]] && MODE=ui-only

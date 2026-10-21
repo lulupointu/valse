@@ -49,7 +49,7 @@ final class OnlineAudioState {
     let providers: [any OnlineAudioProvider]
     let mocked: Bool
 
-    var enabled: Bool { didSet { if !mocked { UserDefaults.standard.set(enabled, forKey: Self.enabledKey) }; keysVersion += 1 } }
+    var enabled: Bool { didSet { if !mocked { AppDefaults.store.set(enabled, forKey: Self.enabledKey) }; keysVersion += 1 } }
     var mood = "happy"
     var genre = "pop"
     /// Sound effects: "" = popular, else a category id.
@@ -76,7 +76,7 @@ final class OnlineAudioState {
         self.http = http ?? (mock ? MockOnlineAudioHTTP() : URLSessionOnlineAudioHTTP())
         self.secrets = secrets ?? (mock ? MemorySecretStore() : KeychainSecretStore())
         self.providers = providers
-        enabled = mocked ? true : (UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true)
+        enabled = mocked ? true : (AppDefaults.store.object(forKey: Self.enabledKey) as? Bool ?? true)
         saved = mocked ? [:] : Self.loadSaved()
         for (k, v) in saved { known[k] = v }
     }

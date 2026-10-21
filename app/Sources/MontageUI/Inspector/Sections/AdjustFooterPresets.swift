@@ -73,9 +73,7 @@ struct AdjustPreset: Codable, Identifiable, Equatable {
 final class AdjustPresets {
     static let shared = AdjustPresets(defaults: TestAnchors.isEnabled ? testDefaults() : .standard)
     static func testDefaults() -> UserDefaults {
-        let name = "montage.uitest.adjustPresets"
-        UserDefaults.standard.removePersistentDomain(forName: name)
-        return UserDefaults(suiteName: name) ?? .standard
+        AppDefaults.suite("montage.uitest.adjustPresets")   // per process in UI tests (AppDefaults)
     }
     static let defaultsKey = "montage.inspector.adjustPresets"
     private(set) var all: [AdjustPreset]

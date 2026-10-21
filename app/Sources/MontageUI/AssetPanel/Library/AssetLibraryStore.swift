@@ -62,9 +62,8 @@ public final class AssetLibraryStore {
 enum AssetDefaults {
     static let uitestSuite = "com.montage.uitest.assets"
     static let session: UserDefaults = {
-        guard TestAnchors.isEnabled, let d = UserDefaults(suiteName: uitestSuite) else { return .standard }
-        d.removePersistentDomain(forName: uitestSuite)
-        return d
+        guard TestAnchors.isEnabled else { return AppDefaults.store }
+        return AppDefaults.suite(uitestSuite)   // per process in UI tests (AppDefaults)
     }()
 }
 

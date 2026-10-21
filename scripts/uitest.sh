@@ -11,6 +11,9 @@
 #   --out <dir>           output root (default build/uitest); each script writes <out>/<name>/{report.json,final.json,*.png}
 #   --no-retry            don't retry failed scripts (default: a failed script is re-run ONCE; the first attempt is kept
 #                         in <out>/<name>.attempt1)
+#   --jobs <K>            run K apps at once (default 1, or MONTAGE_UI_JOBS); each worker has its own TMPDIR, every app its
+#                         own settings domain / pasteboard / sandbox (MontageCore AppDefaults), so scripts can't interact
+#   --order <tsv>         a previous <out>/durations.tsv: start the longest scripts first (better --jobs balance)
 # Exit code: 0 if every script passed, was SKIPPED (unmet precondition, e.g. a missing AI model: app exit code 3), passed
 #            on its retry ("flaky") or is quarantined (app/Tests/quarantine.txt: reported, not gating);
 #            1 if any other script failed or timed out twice.
@@ -19,6 +22,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 CONFIG=debug; BUILD=1; TIMEOUT=120; OUT="$ROOT/build/uitest"; EXTRA=(); SCRIPTS=(); RETRY=1
+JOBS="${MONTAGE_UI_JOBS:-1}"; ORDER=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --all) for f in app/Tests/UIScripts/*.json; do SCRIPTS+=("$f"); done; shift;;
@@ -28,11 +32,14 @@ while [[ $# -gt 0 ]]; do
     --timeout) TIMEOUT="$2"; shift 2;;
     --out) OUT="$2"; shift 2;;
     --no-retry) RETRY=0; shift;;
-    -h|--help) sed -n '2,19p' "$0"; exit 0;;
+    --jobs) JOBS="$2"; shift 2;;
+    --order) ORDER="$2"; shift 2;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0;;
     *) SCRIPTS+=("$1"); shift;;
   esac
 done
-[[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,19p' "$0"; exit 2; }
+[[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,22p' "$0"; exit 2; }
+[[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "--jobs needs a positive integer"; exit 2; }
 source scripts/lib.sh
 # machine-wide: at most N heavy runs at once across all checkouts (scripts/slots.sh)
 source scripts/slots.sh; slots_acquire
@@ -46,6 +53,8 @@ fi
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/Montage"
 [[ -x "$BIN" ]] || { echo "no binary at $BIN (drop --no-build)"; exit 2; }
 use_private_tmpdir uitest
+RESULTS="$TMPDIR/results.tsv"; : > "$RESULTS"
+PREFS="$HOME/Library/Preferences"
 
 # run_one <abs script> <name> → exit code of the app (124 = timeout)
 run_one() {
@@ -65,13 +74,16 @@ run_one() {
   watch=$!
   set +e; wait $pid; code=$?; set -e
   kill $watch 2>/dev/null || true; wait $watch 2>/dev/null || true
+  # the app's private per-process settings domains (MontageCore AppDefaults: montage.uitest.*.<pid>)
+  rm -f "$PREFS"/*montage.uitest.*."$pid".plist 2>/dev/null || true
   [[ -f "$OUT/$name/.timeout" ]] && code=124
   return $code
 }
 
-PASS=0; FAIL=0; SKIP=0; FAILED=(); SKIPPED=(); FLAKY=(); QUAR=()
-for s in "${SCRIPTS[@]}"; do
-  [[ -f "$s" ]] || { echo "no such script: $s"; FAIL=$((FAIL + 1)); FAILED+=("$s"); continue; }
+# run_script <script> → appends "<kind>\t<name>\t<detail>" to $RESULTS (kind: pass skip flaky quar fail)
+run_script() {
+  local s="$1" ABS NAME T0 CODE CODE2 L w REASON TWICE
+  if [[ ! -f "$s" ]]; then echo "no such script: $s"; printf "fail\t%s\t%s\n" "$s" "$s" >> "$RESULTS"; return 0; fi
   ABS="$(cd "$(dirname "$s")" && pwd)/$(basename "$s")"
   NAME="$(basename "$s" .json)"
   T0=$(date +%s)
@@ -86,23 +98,68 @@ for s in "${SCRIPTS[@]}"; do
     done
     rm -rf "$OUT/$NAME.attempt1"; mv "$OUT/$NAME" "$OUT/$NAME.attempt1"
     CODE2=0; run_one "$ABS" "$NAME" || CODE2=$?
-    if [[ $CODE2 == 0 ]]; then FLAKY+=("$NAME (attempt 1: exit $CODE → $OUT/$NAME.attempt1)"); CODE=0
+    if [[ $CODE2 == 0 ]]; then printf "flaky\t%s\t%s\n" "$NAME" "$NAME (attempt 1: exit $CODE → $OUT/$NAME.attempt1)" >> "$RESULTS"; CODE=0
+      printf "%s\t%s\t%s\n" "$NAME" "$CODE" "$(( $(date +%s) - T0 ))" >> "$OUT/durations.tsv"
+      return 0
     else CODE=$CODE2; fi
   fi
   printf "%s\t%s\t%s\n" "$NAME" "$CODE" "$(( $(date +%s) - T0 ))" >> "$OUT/durations.tsv"   # name, exit, seconds
-  if [[ $CODE == 0 ]]; then PASS=$((PASS + 1))
-  elif [[ $CODE == 3 ]]; then SKIP=$((SKIP + 1)); SKIPPED+=("$NAME")
+  if [[ $CODE == 0 ]]; then printf "pass\t%s\t-\n" "$NAME" >> "$RESULTS"
+  elif [[ $CODE == 3 ]]; then printf "skip\t%s\t%s\n" "$NAME" "$NAME" >> "$RESULTS"
   elif REASON="$(python3 scripts/testlib.py quarantined ui "$NAME")"; then
-    QUAR+=("$NAME (exit $CODE) — $REASON → $OUT/$NAME")
+    printf "quar\t%s\t%s\n" "$NAME" "$NAME (exit $CODE) — $REASON → $OUT/$NAME" >> "$RESULTS"
   else
     TWICE=""; if [[ $RETRY == 1 ]]; then TWICE=", failed twice"; fi
-    FAIL=$((FAIL + 1)); FAILED+=("$NAME (exit $CODE$TWICE) → $OUT/$NAME")
+    printf "fail\t%s\t%s\n" "$NAME" "$NAME (exit $CODE$TWICE) → $OUT/$NAME" >> "$RESULTS"
   fi
-done
-echo "UI tests: $PASS passed, $FAIL failed, $SKIP skipped, ${#FLAKY[@]} flaky (passed on retry), ${#QUAR[@]} quarantined failures"
-for f in ${SKIPPED[@]+"${SKIPPED[@]}"}; do echo "  skipped: $f"; done
-for f in ${FLAKY[@]+"${FLAKY[@]}"}; do echo "  flaky (passed on retry): $f"; done
-for f in ${QUAR[@]+"${QUAR[@]}"}; do echo "  quarantined (failed, not gating): $f"; done
-for f in ${FAILED[@]+"${FAILED[@]}"}; do echo "  failed: $f"; done
+  return 0
+}
+
+# --order: longest-first by a previous durations.tsv (scripts it doesn't know go first: they may be long)
+if [[ -n "$ORDER" && -f "$ORDER" ]]; then
+  ORDERED=()
+  while IFS= read -r s; do ORDERED+=("$s"); done < <(
+    for s in "${SCRIPTS[@]}"; do printf "%s\n" "$s"; done | awk -F'\t' -v tsv="$ORDER" '
+      BEGIN { while ((getline l < tsv) > 0) { split(l, f, "\t"); secs[f[1]] = f[3] } }
+      { n = $0; sub(/^.*\//, "", n); sub(/\.json$/, "", n); printf "%09d\t%s\n", (n in secs) ? secs[n] : 999999999, $0 }' |
+      sort -t$'\t' -k1,1nr -s | cut -f2-)
+  SCRIPTS=("${ORDERED[@]}")
+fi
+
+if (( JOBS > 1 && ${#SCRIPTS[@]} > 1 )); then
+  # K workers claim scripts from a queue (mv is atomic: each script runs exactly once), each with its own TMPDIR
+  BASE_TMP="$TMPDIR"; Q="$BASE_TMP/queue"; mkdir -p "$Q/todo" "$Q/taken"
+  i=0; for s in "${SCRIPTS[@]}"; do printf "%s\n" "$s" > "$Q/todo/$(printf %05d $i)"; i=$((i + 1)); done
+  worker() {
+    trap - EXIT INT TERM HUP
+    local w="$1" f
+    export TMPDIR="${BASE_TMP}w$w/"; mkdir -p "$TMPDIR"
+    for f in $(ls "$Q/todo"); do
+      mv "$Q/todo/$f" "$Q/taken/$f.$w" 2>/dev/null || continue
+      run_script "$(cat "$Q/taken/$f.$w")"
+    done
+  }
+  WORKERS=""
+  on_exit 'for p in $WORKERS; do kill_tree $p >/dev/null 2>&1; done'
+  for ((k = 0; k < JOBS; k++)); do worker "$k" & WORKERS="$WORKERS $!"; done
+  for p in $WORKERS; do wait "$p" || true; done
+  WORKERS=""
+  # every queued script must have produced exactly one result (a worker killed mid-script would lose one)
+  if [[ "$(wc -l < "$RESULTS" | tr -d ' ')" != "${#SCRIPTS[@]}" ]]; then
+    echo "✘ UI workers produced $(wc -l < "$RESULTS" | tr -d ' ') results for ${#SCRIPTS[@]} scripts"
+    printf "fail\t-\tUI worker results missing\n" >> "$RESULTS"
+  fi
+else
+  for s in "${SCRIPTS[@]}"; do run_script "$s"; done
+fi
+
+count() { awk -F'\t' -v k="$1" '$1 == k' "$RESULTS" | wc -l | tr -d ' '; }
+detail() { awk -F'\t' -v k="$1" '$1 == k { print "  " p $3 }' p="$2" "$RESULTS"; }
+FAIL=$(count fail)
+echo "UI tests: $(( $(count pass) + $(count flaky) )) passed,$FAIL failed, $(count skip) skipped, $(count flaky) flaky (passed on retry), $(count quar) quarantined failures"
+detail skip "skipped: "
+detail flaky "flaky (passed on retry): "
+detail quar "quarantined (failed, not gating): "
+detail fail "failed: "
 if [[ $FAIL != 0 ]]; then exit 1; fi
 exit 0

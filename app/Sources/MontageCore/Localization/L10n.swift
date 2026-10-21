@@ -25,7 +25,7 @@ public final class L10n: @unchecked Sendable {
 
     private init() {
         bundles = [CoreResources.bundle]
-        _language = L10n.resolveLanguage(UserDefaults.standard.string(forKey: L10n.overrideDefaultsKey))
+        _language = L10n.resolveLanguage(AppDefaults.store.string(forKey: L10n.overrideDefaultsKey))
         reload()
     }
 
@@ -46,7 +46,7 @@ public final class L10n: @unchecked Sendable {
 
     /// Sets the in-app language ("system", "en", "fr"); persists it and notifies observers.
     public func setLanguagePreference(_ pref: String) {
-        UserDefaults.standard.set(pref, forKey: L10n.overrideDefaultsKey)
+        AppDefaults.store.set(pref, forKey: L10n.overrideDefaultsKey)
         let lang = L10n.resolveLanguage(pref)
         lock.withLock { _language = lang }
         reload()
@@ -60,7 +60,7 @@ public final class L10n: @unchecked Sendable {
         NotificationCenter.default.post(name: L10n.didChange, object: nil)
     }
 
-    public var languagePreference: String { UserDefaults.standard.string(forKey: L10n.overrideDefaultsKey) ?? "system" }
+    public var languagePreference: String { AppDefaults.store.string(forKey: L10n.overrideDefaultsKey) ?? "system" }
 
     public static func resolveLanguage(_ pref: String?) -> String {
         if let pref, supportedLanguages.contains(pref) { return pref }

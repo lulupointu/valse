@@ -367,7 +367,7 @@ final class LocalMusicLibrary {
     }
 
     var folder: URL {
-        didSet { UserDefaults.standard.set(folder.path, forKey: Self.defaultsKey); scan() }
+        didSet { AppDefaults.store.set(folder.path, forKey: Self.defaultsKey); scan() }
     }
     private(set) var tracks: [Track] = []
     private(set) var scanning = false
@@ -375,7 +375,7 @@ final class LocalMusicLibrary {
 
     init() {
         if let env = ProcessInfo.processInfo.environment["MONTAGE_MUSIC_FOLDER"] { folder = URL(fileURLWithPath: env) }
-        else if let p = UserDefaults.standard.string(forKey: Self.defaultsKey) { folder = URL(fileURLWithPath: p) }
+        else if let p = AppDefaults.store.string(forKey: Self.defaultsKey) { folder = URL(fileURLWithPath: p) }
         else { folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Music") }
     }
 
