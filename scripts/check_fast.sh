@@ -69,7 +69,7 @@ fi
 
 ELAPSED="$(( ($(date +%s) - START) / 60 )) min"
 if [[ $FAIL == 0 ]]; then
-  echo "FAST CHECK OK ($ELAPSED) — before reporting ready to merge: commit, rebase on main, scripts/check_clean.sh --ui"
+  echo "FAST CHECK OK ($ELAPSED) — feature agents: commit and report ready (the orchestrator runs check_clean.sh --ui per batch)"
 else
   echo "FAST CHECK FAILED ($ELAPSED; logs: build/check_fast-{unit,ui}.log, build/test.log, build/uitest/<script>/)"; exit 1
 fi

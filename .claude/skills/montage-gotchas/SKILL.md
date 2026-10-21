@@ -1,0 +1,74 @@
+---
+name: montage-gotchas
+description: Known Montage engineering traps by topic (async tests and AVFoundation pool deadlock, playback/seek freezes, composition timing, Perception on macOS 13, Intel Float16, UI test driver/a11yAudit quirks, session locks, background jobs and quit, colour/HDR, inspector multi-select, tooltips, l10n, memory/re-render). Use before writing tests or code touching media, playback, async, SwiftUI state, persistence or the UI test driver, and when a test hangs or flakes. Distilled from docs/STATUS.md "Engineering gotchas" - read that section only for more detail.
+---
+
+# Montage gotchas (1-3 lines each; source: docs/STATUS.md "Engineering gotchas", docs/ARCHITECTURE.md)
+
+## Async tests, AVFoundation, load
+- **Cooperative-pool deadlock**: blocking AVFoundation reads (`copyNextSampleBuffer`, `AudioFileIO.read`, semaphores
+  around async loads) inside `async` tests exhaust Swift's pool when ~10 overlap → whole suite hangs at 0 % CPU (only
+  under the full parallel suite). Do blocking media work on GCD (`withCheckedContinuation` + `DispatchQueue.global().async`,
+  see `FinisherAudioTests.grain` in MontageEngineTests/FinisherEngineTests.swift); engine loops use `OffPool.run` /
+  `await OffPool.next(output)` (MontageEngine/Media/OffPool.swift). Stress test: MontageAITests/BlockingReadStressTests.swift.
+  A watchdog for such a hang needs its own `Thread` (GCD gets no new workers either). No in-process `OSLogStore` enumeration.
+- Heavy work from main-actor code/tests starves PlaybackTests: run it `Task.detached`.
+- ML jobs via `JobQueue` pass `heavy: true` (runs inside `HeavyWorkGate`, MontageEngine/Jobs/). Tests await the task a
+  store flow returns (`setCutout`, `autoBeats`) instead of polling with a time budget.
+- Wall-clock asserts only via `TimingBudget` (MontageTestSupport; 3x gross bound, skipped when load > cores); precise
+  budgets belong in scripts/perf.sh + bench/perf_thresholds.json.
+- Tests run in a private TMPDIR deleted on exit: caches that must survive go to `MONTAGE_TEST_MEDIA_DIR` / `MontagePaths`
+  (unit tests: `MontagePaths.testRunCacheDirectory`), never `FileManager.default.temporaryDirectory`.
+- Use `RealLikeMedia` (iPhone HEVC HLG portrait, speech, 120 BPM music) for media features, not only testsrc: rotation,
+  10-bit HLG and 44.1 kHz AAC are what real footage breaks.
+
+## Playback, composition, audio
+- Never seek `PlaybackEngine.player` directly while playing: use `seek` / `performSeek`; start with `resume(atRate:)`
+  (seeking with the clock running froze the preview). Stress: MontageEngineTests/PlaybackStressTests.swift.
+- Never `scaleTimeRange` a composition track to an arbitrary duration: reads inside stretched samples can stall forever
+  (`CompositionBuilder.addBase` tiles a 60 s blank unscaled).
+- Never use `AVAudioTimePitchAlgorithm.varispeed`: hangs the audio reader during export of sped-up clips.
+- MP3 export needs the FFmpeg sidecar (libmp3lame), absent on a fresh Mac: option disabled with a hint; audio format only
+  matters when audio is exported.
+- Generated media keeps the source colour: copy primaries / transfer / matrix (`AVVideoColorPropertiesKey`); HDR = HEVC
+  Main10 with 10-bit buffers carrying the same attachments. SDR stats → `ColorLooks.inProjectSpace` before HDR use.
+  Vision on portrait iPhone footage: pass `SubjectAnalyzer.orientation(asset.sourceRotation)`, map back to raw.
+
+## SwiftUI state, macOS 13, Intel
+- **Perception** (swift-perception, macOS 13 target): every `body` reading perceptible state is wrapped in
+  `WithPerceptionTracking { }`, and so is every escaping view-builder closure (ForEach rows, GeometryReader, List rows,
+  sheet/popover content). Custom Bindings: `Binding.perceived(get:set:)`; representables: `RepresentableTracking`
+  (MontageUI/Support/Compat13.swift). A miss is silent on 13 (view stops updating); debug builds report "not being tracked".
+- macOS 14+ APIs behind `if #available(macOS 14, *)` with the 13 fallback next to it (Compat13.swift).
+- macOS 13: `.onChange(of: text)` can miss a keystroke during a re-render → commit debounced queries from the
+  TextField binding's setter (`AssetSearchField`, MontageUI/AssetPanel/Library/LibraryBrowser.swift).
+- SF Symbols newer than SF Symbols 4 render as nothing on 13: `python3 scripts/check_sf_symbols.py`.
+- `Float16` does not exist on x86_64: use `Half` (MontageCore/Render/Half.swift) behind `#if arch(arm64)`;
+  verify with `scripts/test_x86.sh --filter X`.
+- Always-visible views read store slices (`store.mediaBin`, `store.usedMediaIDs`), never `store.project` (re-render storm);
+  new panels live in their own `IsolatedHost` (MontageUI/Shell/IsolatedHost.swift).
+
+## UI test driver
+- Keys while a text field edits go straight to the window, bypassing the app key monitor: fields needing ↑ ↓ Return Esc
+  handle them in the field (`control(_:textView:doCommandBy:)`, `SwitcherSearchField` in MontageUI/Home/ProjectSwitcher.swift).
+- `a11yAudit`: the offscreen window's real AX tree is often empty under load → in-process fallback misses SwiftUI names;
+  the step re-reads for ~6 s (UITestDriver.swift, Testing/AccessibilityAuditAX.swift). Audit with the step, never by
+  walking NSView accessibility children (SwiftUI builds its AX tree only for real AX clients).
+- Tooltips: `.help(tr(…))` inside MontageUI is Montage's own tooltip (Support/Tooltips.swift); don't set AppKit `toolTip`.
+- UI tests are environment-independent: AI models sandboxed (`requires.models` else SKIP), fixed cache sizes / clock,
+  overlay scroll bars, Europe/Paris TZ. Tests never make sound (`MONTAGE_MUTE_AUDIO=1`, `AudioOutput.isSilenced`).
+
+## Persistence, jobs, editing
+- Session locks: only a live Montage process holds `.session.lock` (`SessionLock.isMontageHolder`,
+  MontageCore/Persistence/Autosave.swift); tests faking "open elsewhere" call `SessionLock.registerTestHolder(pid)`.
+- New background work goes through `JobQueue` (or checks `Task.isCancelled`): quit / end of a UI test runs
+  `AppShutdown.stopBackgroundWork()` (MontageUI/AI/AppShutdown.swift); exiting under live Core ML/Metal crashed in MPSGraph.
+- `EditSession.postProcess` runs after every command and gesture tick: keep additions cheap (`CaptionStyleSync`).
+- Transcript ripple cuts move caption tracks themselves: don't also shift captions by linkage.
+- Inspector writes go through `Bind.apply` / `ClipParamRow` / `store.performInspector(...)` so they apply to every selected
+  same-kind clip; single-clip sections → `InspectorMultiEdit.singleOnlyIDs`. Row commit closures must start from the
+  CURRENT value, not one captured at render time (transition Softness reset Duration).
+- Render passes recycle dead inputs (`scratch.recycle`, `FrameScratch` in MontageEngine/Render/FrameRenderer.swift);
+  caches size from `MemoryBudget`.
+- l10n: no hard-coded UI strings, `Text("literal")` banned (use `tr("key")`, `Text(loc:)`, `Text(verbatim:)` for data);
+  one `.strings` table per feature in en + fr (French register "vous", glossary UX.md §10); `scripts/l10n_check.py`.

@@ -12,11 +12,12 @@ inside its own process. Safe to run while other agents (or the user) use the mac
 | a screenshot test | a `snapshot` step with `"baseline"` in a UI script |
 | compare two PNGs | `scripts/imgdiff.sh a.png b.png [--tolerance 0.005] [--threshold 16]` |
 | perf numbers / regressions | `scripts/perf.sh` (`--air` = MacBook Air approximation) |
-| gate stage 1 while iterating: incremental build + unit tests + the UI scripts relevant to your diff | `scripts/check_fast.sh` (`--list` = what/why) |
-| gate stage 2, once before "ready to merge": clean checkout, everything | `scripts/check_clean.sh --ui` |
+| feature-agent gate, once on the final commit: incremental build + unit tests + the UI scripts relevant to your diff | `scripts/check_fast.sh` (`--list` = what/why) |
+| full gate, orchestrator, once per batch branch: clean checkout, everything | `scripts/check_clean.sh --ui` |
+| stop your own stuck test runs (Montage test processes of this checkout only) | `scripts/kill_tests.sh --dry-run`, then `scripts/kill_tests.sh` |
 | who holds the test slots / reclaim dead or hung ones | `scripts/slots.sh status` / `scripts/slots.sh reclaim` |
 | free disk (merged worktrees' .build, `$TMPDIR/montage-*` > 3 h) | `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh` |
-| merge a branch that passed stage 2 (orchestrator) | `scripts/merge_agent.sh <branch>` |
+| merge a batch branch that passed the full gate (orchestrator) | `scripts/merge_agent.sh <branch>` (`--check-only`, `--docs-delta-ok`) |
 | regenerate the real-like fixtures | `scripts/make_fixtures.sh` |
 | just look at the UI | `scripts/screenshot.sh --demo --offscreen` |
 
