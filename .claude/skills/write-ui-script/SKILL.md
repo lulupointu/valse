@@ -1,6 +1,6 @@
 ---
 name: write-ui-script
-description: Write or fix a Montage UI test script (app/Tests/UIScripts/*.json, run by scripts/uitest.sh) - DSL steps and targets, waitFor on state dump paths instead of sleeps, text-field key routing gotcha, element-scoped snapshots and baselines (incl. macos13 overrides), test IDs, ui_map.txt selection. Use when adding UI coverage for a feature, when a UI script is flaky or fails, or when re-recording baselines.
+description: Write or fix a Montage UI test script (app/Tests/UIScripts/*.json, run by scripts/uitest.sh) - DSL steps and targets, waitFor on state dump paths instead of sleeps, text-field key routing gotcha, element-scoped snapshots and baselines (incl. macos13 overrides), test IDs and check_fast script selection (ui_select.py). Use when adding UI coverage for a feature, when a UI script is flaky or fails, or when re-recording baselines.
 ---
 
 # Montage UI scripts (full reference: docs/TESTING.md §1-2; driver: app/Sources/MontageUI/Testing/UITestDriver.swift)
@@ -80,8 +80,14 @@ that must react to ↑ / ↓ / Return / Esc should handle them in the field (`co
 - Add IDs to what you build: SwiftUI `.testID("area.thing")`, AppKit `setAccessibilityIdentifier`. Never localized text.
 - Not reachable: real NSMenu popups (SwiftUI `Menu`/`Picker`: use the `menu` step or a setup step), NSOpen/SavePanel,
   lazy grid tiles far down (scroll first). SwiftUI accessibility is audited with `{"a11yAudit": "name", "element": "id:x"}`.
-- check_fast picks scripts via `app/Tests/ui_map.txt` (path glob → script globs), test IDs / l10n keys found in your
-  changed Swift files, and changed scripts / baselines. New area or new script naming: add a rule there. Verify with
-  `scripts/check_fast.sh --list` that your scripts are selected. Don't add to the `smoke:` line unless fast and broad.
-- Name scripts by area prefix used in ui_map rules (e.g. `inspector_*`, `audio_*`, `w5_*`), and test both en and fr
-  when you add strings that change layout (`"lang": "fr"`).
+- check_fast selects scripts with `scripts/ui_select.py` from the changed LINES (docs/TESTING.md "Stage-1 UI
+  selection"): changed Swift declaration → its test IDs / l10n keys / command names (else those of the code using it,
+  up to 3 levels) → the scripts whose JSON uses them; driver / StateDump changes → scripts using that action / dump
+  path; `.strings` changes → scripts in that language using the key; plus changed scripts / fixtures / baselines.
+- So the link from code to script IS the `.testID` (or l10n key / dump path) the script uses: give the UI you test a
+  `.testID` and target it (`id:…`) or `waitFor` a dump key it feeds, otherwise check_fast won't pick your script.
+- Verify: `python3 scripts/ui_select.py --explain` (one line per script: changed declaration → linking ID/key; `--files
+  …`, `--commit <sha>`), or `scripts/check_fast.sh --list`. `app/Tests/ui_map.txt` now only holds the 5-script
+  `smoke:` set, `always` rules and directory FALLBACK rules (used when a change reaches no test hook): don't add
+  per-feature rules; don't grow `smoke:`.
+- Test both en and fr when you add strings that change layout (`"lang": "fr"`).

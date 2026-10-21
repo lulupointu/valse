@@ -1,10 +1,10 @@
 #!/bin/bash
-# Clean-checkout gate: run before reporting "ready to merge" (docs/AGENT_GUIDE.md).
+# Clean-checkout batch gate: the orchestrator runs it ONCE per batch HEAD (docs/AGENT_GUIDE.md); feature agents don't.
 # 1. Fails if any file under app/ or scripts/ is git-ignored. Such files build locally but are never committed
 #    (e.g. a `models/` rule silently hid app/Sources/MontageAI/Models on case-insensitive macOS).
 # 2. Builds and tests a fresh detached worktree of HEAD in a temp dir, so only committed files count.
 #    Uncommitted changes are NOT part of the check: commit first.
-# This is STAGE 2 of the gate (run once, just before "ready to merge"); while iterating use scripts/check_fast.sh.
+# STAGE 2 of the gate. Feature agents run targeted tests + scripts/check_fast.sh; the orchestrator runs `--ui` per batch.
 # Fails fast when < 5 GB are free (MONTAGE_MIN_FREE_GB). Failed tests are retried once alone (test.sh / uitest.sh);
 # quarantined ones (app/Tests/quarantine.txt) are reported but don't fail. The temp worktree, its build and every UI
 # temp dir are deleted on exit, even on failure or Ctrl-C. On success writes build/check_clean.ok (commit, date, mode)

@@ -34,7 +34,8 @@ Commands below are exact; see CLAUDE.md "Shell in an isolated worktree" for the 
 - Unit: logic in MontageCore / Engine / Effects / AI unit tests (`app/Tests/Montage<Module>Tests/`); renders via a render
   test; real media via `RealLikeMedia`. Async waits on the task / state, never on wall-clock (montage-gotchas).
 - UI: one script per user flow (load the `write-ui-script` skill): drive the real UI, `waitFor` state, `expect` the
-  model, element-scoped snapshot with a baseline you LOOK at. Add a `ui_map.txt` rule if your area/script is new.
+  model, element-scoped snapshot with a baseline you LOOK at. Give the UI `.testID`s the script uses (that is how check_fast selects it); check with
+  `python3 scripts/ui_select.py --explain`.
 - Look at the UI at least once: `scripts/screenshot.sh --demo --offscreen` or your script's PNGs (Read them).
 
 ## 5. Verify (Bash `run_in_background: true` for each, wait for the notification)

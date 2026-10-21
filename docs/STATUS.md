@@ -233,7 +233,7 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   2^32 floats) behind `#if arch(arm64)`. `scripts/build_app.sh` builds a universal app (`--host-only` for quick builds);
   `scripts/build_ai_runtimes.sh` builds universal macOS 13 sidecars (x86_64 = ggml CPU, no Metal; never link Homebrew
   dylibs). `scripts/test_x86.sh` runs the x86_64 unit tests under Rosetta.
-- Gate (T1): iterate with `scripts/check_fast.sh`, run `scripts/check_clean.sh --ui` ONCE before "ready to merge". Failed
+- Gate (T1, 2026-10-21): feature agents run targeted tests + `scripts/check_fast.sh` once on the final commit (never `check_clean.sh`); the orchestrator runs ONE `scripts/check_clean.sh --ui` per batch. Failed
   tests are retried once alone; only twice-failing tests that are not in `app/Tests/quarantine.txt` fail the gate.
   A "flaky" line is a bug report, not a pass to ignore.
   Tests run in a private TMPDIR: anything that must survive the run (caches) belongs in `MONTAGE_TEST_MEDIA_DIR` /

@@ -11,7 +11,7 @@ and feature agents in git worktrees under `.claude/worktrees/`. The main checkou
 - `MontageAI`: AI tools, model catalog, speech, Vision mattes, TTS. `MontageUI`: `EditorStore`, panels, timeline, inspector,
   Home, UI test driver (`MontageUI/Testing/`). `MontageApp`: `main.swift`. `MontageTestSupport`: test helpers.
 - Tests: `app/Tests/Montage*Tests/` (unit), `app/Tests/UIScripts/*.json` (UI scripts), `app/Tests/Baselines/` (PNG
-  baselines, `macos13/` overrides), `app/Tests/ui_map.txt` (path → UI scripts), `app/Tests/quarantine.txt`.
+  baselines, `macos13/` overrides), `app/Tests/ui_map.txt` (smoke / always / fallback rules; check_fast selection = `scripts/ui_select.py --explain`), `app/Tests/quarantine.txt`.
 
 ## Docs (never read the big ones whole: grep your section / row ID, then read that range)
 - docs/BRIEF.md (goal), docs/AGENT_GUIDE.md (workflow + gate policy), docs/ARCHITECTURE.md (§11 l10n, §12 registries,

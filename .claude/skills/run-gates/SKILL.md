@@ -10,7 +10,7 @@ description: Which Montage test / gate command to run when (scripts/test.sh, uit
 |---|---|---|---|
 | iterating on logic | feature agent | `scripts/test.sh --filter <Suite>` (or `'SuiteA\|SuiteB'`, as the whole command) | 2-6 min (incremental build) |
 | iterating on UI | feature agent | `scripts/uitest.sh app/Tests/UIScripts/<a>.json <b>.json` | ~20-60 s / script + build |
-| what would check_fast pick? | feature agent | `scripts/check_fast.sh --list` | seconds |
+| what would check_fast pick, and why? | feature agent | `python3 scripts/ui_select.py --explain` (or `check_fast.sh --list`; `--commit <sha>` replays one commit) | seconds |
 | done, final commit | feature agent | `scripts/check_fast.sh` (all unit tests + UI scripts selected from your diff vs main) | 5-15 min |
 | only the last commit's UI area | feature agent | `scripts/check_fast.sh --base HEAD~1` | |
 | batch of ready branches | orchestrator only | `scripts/check_clean.sh --ui` in the batch worktree | 16-35 min, more under load |
@@ -19,6 +19,12 @@ description: Which Montage test / gate command to run when (scripts/test.sh, uit
 
 Feature agents never run `check_clean.sh`: the orchestrator runs it once per batch (docs/AGENT_GUIDE.md).
 Don't use `check_fast.sh --all-ui` as a substitute for the batch gate.
+
+check_fast's UI scripts come from `scripts/ui_select.py`: derived from your changed lines (changed declaration → test
+IDs / l10n keys / dump keys → scripts whose JSON uses them) + changed scripts / fixtures / baselines + the 5-script
+smoke set; `app/Tests/ui_map.txt` is only smoke / `always` / directory-fallback rules. If your script is missing from
+`--explain`, the UI it drives lacks a `.testID` the script uses: add one (write-ui-script skill), don't add a ui_map rule.
+`scripts/test_ui_select.py` (run by test.sh) tests the selector itself.
 
 ## How to run (no polling)
 - Bash tool with `run_in_background: true`, command exactly e.g. `scripts/check_fast.sh` (no `> log; echo EXIT` wrappers
