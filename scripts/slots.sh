@@ -8,18 +8,27 @@
 # Locks are mkdir directories under /tmp/montage-locks (MONTAGE_LOCK_DIR) holding the owner's PID, its start time,
 # command and directory. A lock is RECLAIMED (and the reclaim printed) when its holder
 #   - is dead (or its PID was reused by another process), or
-#   - has been idle for MONTAGE_SLOT_IDLE_MIN minutes (default 20): its whole process tree used < 2 CPU-seconds in
-#     that time (a hung run). The idle holder's process tree is killed so it cannot resume later.
-# Slot count: MONTAGE_SLOTS, default max(2, cores / 5). Slot 0 is always offered; the others only while the 1-min load
-# average is below MONTAGE_SLOT_MAX_LOAD (default 3 × cores), so an overloaded machine runs fewer gates at once.
-# MONTAGE_NO_SLOTS=1 skips locking entirely.
+#   - has been idle for MONTAGE_SLOT_IDLE_MIN minutes (default 20): its whole process tree used < 2 CPU-seconds and
+#     started no new process (`sleep`s aside) in that time, as seen by checks ≤ 2 min apart (a hung run). The idle
+#     holder's process tree is killed so it cannot resume later. (A hung build / test under scripts/lib.sh
+#     `run_watched` is killed sooner by its hang watchdog; the script then exits and its EXIT hook frees the slot.)
+# Slot count: MONTAGE_SLOTS, default min(max(2, cores / 5), max(1, RAM GB / 6)) — a gate (build + parallel tests or a
+# UI app) needs ~5 cores and up to ~5 GB. Slot 0 is always offered; the others only while the 1-min load average is
+# below MONTAGE_SLOT_MAX_LOAD (default 3 × cores), so an overloaded machine runs fewer gates at once.
+# Waiters queue FIFO (ticket files in <lock dir>/queue; dead waiters' tickets are dropped): only the oldest waiting run
+# may take a free slot, so a run never starves behind newer ones. The tests themselves are load-robust: this cap is for
+# throughput, not for correctness. MONTAGE_NO_SLOTS=1 skips locking entirely.
 #
 # Run directly:  scripts/slots.sh status    holders, age, CPU, idle time
 #                scripts/slots.sh reclaim   reclaim dead / idle slots now
 SLOTS_DIR="${MONTAGE_LOCK_DIR:-/tmp/montage-locks}"
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 _SLOTS_CORES="$(sysctl -n hw.ncpu 2>/dev/null || echo 8)"
-SLOTS_N="${MONTAGE_SLOTS:-$(( _SLOTS_CORES / 5 > 2 ? _SLOTS_CORES / 5 : 2 ))}"
+_SLOTS_MEM_GB=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 17179869184) / 1073741824 ))
+_SLOTS_BY_CPU=$(( _SLOTS_CORES / 5 > 2 ? _SLOTS_CORES / 5 : 2 ))
+_SLOTS_BY_MEM=$(( _SLOTS_MEM_GB / 6 > 1 ? _SLOTS_MEM_GB / 6 : 1 ))
+SLOTS_N="${MONTAGE_SLOTS:-$(( _SLOTS_BY_CPU < _SLOTS_BY_MEM ? _SLOTS_BY_CPU : _SLOTS_BY_MEM ))}"
+SLOTS_TICKET=""
 SLOTS_IDLE_SECS=$(( ${MONTAGE_SLOT_IDLE_MIN:-20} * 60 ))
 [[ -n "${MONTAGE_SLOT_IDLE_SECS:-}" ]] && SLOTS_IDLE_SECS="$MONTAGE_SLOT_IDLE_SECS"   # tests of the reclaim itself
 SLOTS_MAX_LOAD="${MONTAGE_SLOT_MAX_LOAD:-$(( _SLOTS_CORES * 3 ))}"
@@ -34,7 +43,7 @@ _slot_write() { # dir: fill in the owner record (we just created the dir)
   _slot_lstart $$ > "$d/start"
   echo "$_SLOTS_CMD" > "$d/cmd"
   pwd > "$d/cwd"
-  echo "$(date +%s) $(tree_cpu $$)" > "$d/activity"
+  echo "$(date +%s) $(tree_cpu $$) - $(date +%s)" > "$d/activity"   # since, CPU, tree signature, last check
   mv "$d/pid.tmp" "$d/pid"
 }
 
@@ -59,12 +68,19 @@ _slot_check() {
   fi
   # a holder that is itself waiting for more slots (slots_acquire_all) touches its heartbeat: not idle
   if [[ -f "$d/heartbeat" ]] && (( now - $(stat -f %m "$d/heartbeat" 2>/dev/null || echo 0) < 60 )); then return 1; fi
-  local cpu since base
+  # Activity = the live tree's CPU total moved by > 2 s, or its set of PIDs changed (a UI suite runs one short app
+  # per script: their CPU totals rise and reset, so a CPU snapshot alone can look unchanged across a busy run).
+  # Idleness is only judged from continuous observation (checks ≤ 120 s apart: waiters sweep every 2 s); after a gap
+  # the record restarts, so one late check can never compare against a stale snapshot and kill a healthy run.
+  local cpu sig since base bsig seen
   cpu="$(tree_cpu "$pid")"
-  { read -r since base < "$d/activity"; } 2>/dev/null || { since=$now; base=$cpu; echo "$now $cpu" > "$d/activity" 2>/dev/null; }
-  if (( cpu - base > 2 || base - cpu > 2 )); then
-    echo "$now $cpu" > "$d/activity" 2>/dev/null || true; return 1
+  # (`sleep`s of polling loops / watchdogs don't count: a hung run under a watchdog still spawns those)
+  sig="$(ps -o pid=,comm= -p "$(tree_pids "$pid" | paste -sd, -)" 2>/dev/null | awk '$2 !~ /sleep$/ {print $1}' | sort -n | paste -sd, - | cksum | awk '{print $1}')"
+  { read -r since base bsig seen < "$d/activity"; } 2>/dev/null || true
+  if [[ -z "${since:-}" || -z "${seen:-}" ]] || (( now - seen > 120 )) || [[ "$sig" != "$bsig" ]] || (( cpu - base > 2 || base - cpu > 2 )); then
+    echo "$now $cpu $sig $now" > "$d/activity" 2>/dev/null || true; return 1
   fi
+  echo "$since $base $bsig $now" > "$d/activity" 2>/dev/null || true
   if (( now - since >= SLOTS_IDLE_SECS )); then
     local mins=$(( (now - since) / 60 ))
     kill_tree "$pid" >/dev/null 2>&1 || true
@@ -91,8 +107,13 @@ slots_sweep() { # check every lock (refreshes idle tracking; reclaims dead / idl
 }
 
 _slots_wait_msg() {
-  local holders; holders="$(cat "$SLOTS_DIR"/*/pid 2>/dev/null | tr '\n' ' ')"
-  echo "waiting for test slot… (held by PIDs: ${holders:-?}; scripts/slots.sh status for details)" >&2
+  local holders ahead=0 t
+  holders="$(cat "$SLOTS_DIR"/*/pid 2>/dev/null | tr '\n' ' ')"
+  for t in $(ls "$SLOTS_DIR/queue" 2>/dev/null | sort); do
+    [[ "$SLOTS_DIR/queue/$t" == "$SLOTS_TICKET" ]] && break
+    ahead=$((ahead + 1))
+  done
+  echo "waiting for test slot… (held by PIDs: ${holders:-?}; ${ahead} run(s) queued ahead; scripts/slots.sh status for details)" >&2
 }
 
 _slots_load_ok() { # 0 when the 1-min load average is below SLOTS_MAX_LOAD
@@ -100,18 +121,41 @@ _slots_load_ok() { # 0 when the 1-min load average is below SLOTS_MAX_LOAD
   (( ${l:-0} < SLOTS_MAX_LOAD ))
 }
 
+# FIFO queue: one ticket per waiting run, <lock dir>/queue/<enqueue time ns>.<pid> holding the waiter's start time.
+_slots_ticket_take() {
+  mkdir -p "$SLOTS_DIR/queue"
+  SLOTS_TICKET="$SLOTS_DIR/queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000").$$"
+  _slot_lstart $$ > "$SLOTS_TICKET"
+}
+_slots_ticket_drop() {
+  if [[ -n "$SLOTS_TICKET" ]]; then rm -f "$SLOTS_TICKET"; fi
+  SLOTS_TICKET=""
+}
+_slots_first_in_line() { # 0 when our ticket is the oldest live one (drops dead waiters' tickets on the way)
+  local t pid
+  for t in $(ls "$SLOTS_DIR/queue" 2>/dev/null | sort); do
+    pid="${t##*.}"
+    if ! kill -0 "$pid" 2>/dev/null || [[ "$(cat "$SLOTS_DIR/queue/$t" 2>/dev/null)" != "$(_slot_lstart "$pid")" ]]; then
+      rm -f "$SLOTS_DIR/queue/$t"; continue   # dead waiter (or its PID reused)
+    fi
+    [[ "$SLOTS_DIR/queue/$t" == "$SLOTS_TICKET" ]]; return
+  done
+  return 0
+}
+
 slots_acquire() {
   [[ "${MONTAGE_NO_SLOTS:-0}" == 1 || -n "${MONTAGE_SLOT_HELD:-}" ]] && return 0
   mkdir -p "$SLOTS_DIR"
   local waited=0 i
   on_exit slots_release
+  _slots_ticket_take
   while true; do
     slots_sweep
-    # an exclusive run (perf) is waiting or running: don't take new slots
-    if [[ ! -d "$SLOTS_DIR/exclusive" ]]; then
+    # an exclusive run (perf) is waiting or running: don't take new slots; newer waiters queue behind older ones
+    if [[ ! -d "$SLOTS_DIR/exclusive" ]] && _slots_first_in_line; then
       for ((i = 0; i < SLOTS_N; i++)); do
         (( i > 0 )) && ! _slots_load_ok && break
-        if _slot_try "$SLOTS_DIR/slot.$i"; then export MONTAGE_SLOT_HELD=1; return 0; fi
+        if _slot_try "$SLOTS_DIR/slot.$i"; then _slots_ticket_drop; export MONTAGE_SLOT_HELD=1; return 0; fi
       done
     fi
     (( waited % 30 == 0 )) && _slots_wait_msg
@@ -140,6 +184,7 @@ slots_acquire_all() {
 }
 
 slots_release() {
+  _slots_ticket_drop
   local d
   for d in ${SLOTS_HELD[@]+"${SLOTS_HELD[@]}"}; do
     [[ "$(cat "$d/pid" 2>/dev/null)" == "$$" ]] && rm -rf "$d"
@@ -149,15 +194,20 @@ slots_release() {
 
 slots_status() {
   local d pid now; now=$(date +%s)
-  echo "slots: $SLOTS_N (cores $_SLOTS_CORES, extra slots only while load < $SLOTS_MAX_LOAD; load now $(sysctl -n vm.loadavg | awk '{print $2}')), idle reclaim after $(( SLOTS_IDLE_SECS / 60 )) min — $SLOTS_DIR"
+  echo "slots: $SLOTS_N (cores $_SLOTS_CORES, RAM ${_SLOTS_MEM_GB} GB, extra slots only while load < $SLOTS_MAX_LOAD; load now $(sysctl -n vm.loadavg | awk '{print $2}')), idle reclaim after $(( SLOTS_IDLE_SECS / 60 )) min — $SLOTS_DIR"
   for d in "$SLOTS_DIR"/slot.* "$SLOTS_DIR"/exclusive; do
     [[ -d "$d" ]] || continue
     pid="$(cat "$d/pid" 2>/dev/null || echo '?')"
-    local since base; { read -r since base < "$d/activity"; } 2>/dev/null || { since=$now; base=0; }
+    local since base _rest; { read -r since base _rest < "$d/activity"; } 2>/dev/null || { since=$now; base=0; }
     kill -0 "$pid" 2>/dev/null || pid="$pid(dead)"
     printf "  %-10s PID %-6s held %4d min, idle %3d min, cpu %5ss  %s  (%s)\n" "$(basename "$d")" "$pid" \
       $(( (now - $(stat -f %m "$d/pid" 2>/dev/null || stat -f %m "$d")) / 60 )) $(( (now - since) / 60 )) "$(tree_cpu "$pid" 2>/dev/null)" \
       "$(cat "$d/cmd" 2>/dev/null)" "$(cat "$d/cwd" 2>/dev/null)"
+  done
+  local t pid
+  for t in $(ls "$SLOTS_DIR/queue" 2>/dev/null | sort); do
+    pid="${t##*.}"
+    printf "  queued     PID %-6s %s\n" "$pid" "$(ps -o command= -p "$pid" 2>/dev/null | cut -c1-100)"
   done
 }
 

@@ -34,10 +34,11 @@ public struct RootView: View {
                         .id("\(modal.id)-\(locale.revision)")
                 }
             }
-            .animation(.easeOut(duration: 0.2), value: app.screen)
-            .animation(.easeOut(duration: 0.15), value: app.modal?.id)
+            .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.2), value: app.screen)
+            .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.15), value: app.modal?.id)
             .background(app.screen == .home ? Theme.home : Theme.window)
             .preferredColorScheme(.dark)
+            .uitestNoMotion()
         }
     }
 }

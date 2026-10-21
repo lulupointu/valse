@@ -16,12 +16,18 @@ import MontageTestSupport
 @MainActor @Suite(.serialized) struct PlaybackStressTests {
     struct Report { var actions = 0; var maxStall = 0.0; var stalls: [String] = []; var frames = 0 }
 
-    /// Polls the engine's video output like the display link for up to `timeout` s; returns the seconds until frames
-    /// advance by `need` distinct display times while the clock moves (nil = frozen).
-    static func waitForFrames(_ engine: PlaybackEngine, need: Int = 3, timeout: Double) async throws -> (Double, Int)? {
+    /// Polls the engine's video output like the display link; returns the seconds until frames advance by `need`
+    /// distinct display times while the clock moves, or nil = FROZEN: no new frame while the video pipeline did no work
+    /// (no composition request started, nothing composed) for `timeout` s — AVPlayer stopped asking our compositor for
+    /// frames, the C3-5 freeze — or no new frame at all for `hangBound` s even though the pipeline kept working.
+    /// A loaded machine only makes the pipeline slower, never idle, so the result does not depend on the load.
+    static func waitForFrames(_ engine: PlaybackEngine, need: Int = 3, timeout: Double, hangBound: Double = 30) async throws -> (Double, Int)? {
         let start = CACurrentMediaTime()
         var last = CMTime.invalid, seen = 0
-        while CACurrentMediaTime() - start < timeout {
+        var work = (CompositorStats.shared.requestsStarted, engine.state.framesComposed), lastWork = start
+        while CACurrentMediaTime() - lastWork < timeout, CACurrentMediaTime() - start < hangBound {
+            let now = (CompositorStats.shared.requestsStarted, engine.state.framesComposed)
+            if now != work { work = now; lastWork = CACurrentMediaTime() }
             if let (_, t) = engine.pixelBuffer(forHostTime: CACurrentMediaTime()), t.cmTime != last {
                 // consecutive frames moving forward (a stale frame of an earlier seek target resets the count)
                 let forward = last.isValid && t.cmTime > last && (t.cmTime - last).seconds < 0.5

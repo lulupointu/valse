@@ -55,8 +55,11 @@ if [[ $SMOKE == 1 && -f bench/media/.done ]]; then
   # typical 1080p project memory: own process (its metric is the lifetime peak footprint)
   env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfMemoryTests' 2>&1 \
     | tee "$DIR/memory.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
-  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfSmokeTests|PerfAuditTests|canvasBuildScalesTo600Clips|fiftyAnimatedCaptionsRenderFast' 2>&1 \
+  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfSmokeTests|PerfAuditTests|canvasBuildScalesTo600Clips|fiftyAnimatedCaptionsRenderFast|playbackDeliversFramesInRealTime|everyEffectFitsTheRealTimeBudget|manyCaptionsSyncFast|enhanceQualityRunsInRealTimeBudget' 2>&1 \
     | tee "$DIR/smoke.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
+  # wall-clock budgets of unit tests are asserted here only (TimingBudget: MONTAGE_PERF=1); a failed one is a violation
+  grep -qE '^✘ Test .*(canvasBuildScalesTo600Clips|fiftyAnimatedCaptionsRenderFast|playbackDeliversFramesInRealTime|everyEffectFitsTheRealTimeBudget|manyCaptionsSyncFast|enhanceQualityRunsInRealTimeBudget)' "$DIR/smoke.log" \
+    && echo '{"stack":"montage","metric":"unit_timing_budget_failures","value":1,"unit":"count"}' >> "$DIR/smoke.jsonl"
   set -e
 elif [[ $SMOKE == 1 ]]; then
   echo "  (4K perf smoke skipped: run bench/make_media.sh first)" >&2
@@ -89,6 +92,7 @@ for k, lim in limits.items():
     if "max" in lim and v > lim["max"]: violations.append(f"{k} = {v:.2f} > max {lim['max']}")
     if "min" in lim and v < lim["min"]: violations.append(f"{k} = {v:.2f} < min {lim['min']}")
 if uicode != "0": violations.append(f"timeline perf script failed (exit {uicode})")
+if metrics.get("unit_timing_budget_failures"): violations.append("a unit-test wall-clock budget failed (TimingBudget; see smoke.log)")
 chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True).stdout.strip()
 res = {"mode": mode, "machine": {"chip": chip, "os": platform.mac_ver()[0]}, "metrics": metrics, "violations": violations}
 os.makedirs(os.path.dirname(out), exist_ok=True)

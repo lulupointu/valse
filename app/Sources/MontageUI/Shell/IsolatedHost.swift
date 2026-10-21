@@ -29,5 +29,5 @@ struct IsolatedHost<Content: View>: NSViewRepresentable {
         proposal.replacingUnspecifiedDimensions(by: CGSize(width: 10, height: 10))
     }
 
-    private var wrapped: AnyView { AnyView(content.environment(\.colorScheme, .dark)) }
+    private var wrapped: AnyView { AnyView(content.environment(\.colorScheme, .dark).uitestNoMotion()) }
 }

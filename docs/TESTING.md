@@ -23,10 +23,13 @@ inside its own process. Safe to run while other agents (or the user) use the mac
 **Machine-wide test slots.** `test.sh`, `uitest.sh`, `check_fast.sh` and `check_clean.sh` take one slot shared by every
 checkout (mkdir locks in `/tmp/montage-locks` holding PID, start time, command, cwd); `perf.sh` takes all of them
 (exclusive, and new runs queue behind it). A blocked run prints "waiting for test slot…". Nested scripts reuse their
-parent's slot. Count: `MONTAGE_SLOTS`, default max(2, cores / 5); slots beyond the first are only handed out while the
-1-min load is below `MONTAGE_SLOT_MAX_LOAD` (3 × cores). A slot is **reclaimed** (and the reclaim printed) when its
-holder is dead / its PID reused, or its whole process tree used < 2 CPU-seconds for `MONTAGE_SLOT_IDLE_MIN` (20)
-minutes: a hung run, its tree is killed. `MONTAGE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
+parent's slot. Count: `MONTAGE_SLOTS`, default min(max(2, cores / 5), max(1, RAM GB / 6)); slots beyond the first are
+only handed out while the 1-min load is below `MONTAGE_SLOT_MAX_LOAD` (3 × cores). Waiters queue **FIFO** (oldest
+first; `scripts/slots.sh status` lists the queue). A slot is **reclaimed** (and the reclaim printed) when its
+holder is dead / its PID reused, or its whole process tree used < 2 CPU-seconds and started no process for
+`MONTAGE_SLOT_IDLE_MIN` (20) minutes of continuous observation: a hung run, its tree is killed. A hung build / test is
+killed sooner by the hang watchdog below, and the script's exit frees its slot. The cap is for throughput only: the
+tests must pass under any load. `MONTAGE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
 
 **Retries, flaky tests, quarantine.** `test.sh` re-runs every failed test once, alone (`--filter Suite/test()`; the
 `--xunit-output` report names it); `uitest.sh` re-runs a failed script once (first attempt kept in
@@ -65,11 +68,21 @@ The diff base is `main` (the whole branch); `check_fast.sh --base HEAD~1` limits
 Add a rule to `app/Tests/ui_map.txt` when you create a new area or the heuristics miss your scripts; put a script in
 the `smoke:` line only if it is fast and broad.
 
-**No exact timing budgets in the unit suite.** Wall-clock checks in `scripts/test.sh` use `TimingBudget`
-(MontageTestSupport): they assert only gross regressions (3× the budget, `MONTAGE_TIMING_FACTOR`) and are skipped with a
-"⚠️ timing check … skipped" line when the 1-min load average exceeds the core count. Emit the measurement with
-`TimingBudget.metric("unit_…", value, "ms")`, add the test to the `--filter` in `scripts/perf.sh` and the precise
-budget to `bench/perf_thresholds.json` — perf.sh runs exclusively, so its numbers are trustworthy.
+**Load-independent tests (DX-C).** Every suite must pass with `--no-retry` on a machine loaded by other gates or CPU
+hogs; a quiet machine is never assumed. So:
+- **No wall-clock budgets in the correctness suite.** `TimingBudget.limit(budget, what)` (MontageTestSupport) returns
+  nil — nothing asserted — except in perf runs (`MONTAGE_PERF=1`: `scripts/perf.sh`, which holds every slot, or
+  `scripts/test.sh --perf`; `MONTAGE_TIMING_ASSERT=1` forces it). Emit the measurement with
+  `TimingBudget.metric("unit_…", value, "ms")`, add the test to the `--filter` in `scripts/perf.sh` (a failed timing test
+  there is a perf violation) and the precise budget to `bench/perf_thresholds.json`.
+- **Waits are for state, timeouts only detect hangs.** Await the job / poll a condition (`waitUntil`, `job.value`); a
+  timeout must be generous (≥ 30 s for anything that can queue behind other work) and never encode a speed budget.
+  Freeze / deadlock checks measure *work*, not wall time: e.g. `PlaybackStressTests` calls a preview frozen when no new
+  frame arrives while the video pipeline does no work (no composition request, nothing composed) for 4 s — a slow,
+  loaded pipeline still works — or after 30 s without a frame at all.
+- **UI scripts** (§1): `expect` is re-checked until it holds (≤ 10 s), `waitFor` timeouts are at least 30 s, mouse
+  targets are awaited (≤ 10 s), every input step waits for the UI to settle (below), animations are off, snapshots wait
+  for stable pixels. Don't add `wait` steps to "let things settle": `waitFor` the state, or rely on the above.
 
 ## 1. A UI test in 5 minutes
 
@@ -174,7 +187,18 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 | setup shortcuts (not UI) | `{"seek": 2.5}` · `{"select": ["clip:main/0", "clip:1/0"]}` |
 | perf / metric | see §3 |
 
-After every input step the driver waits until all posted events were dispatched plus `settle` seconds (default 0.25).
+After every input step the driver waits until all posted events were dispatched, `settle` seconds (default 0.25), then
+until the UI is **quiescent**: the on-screen test-ID frames, edit revision, selection, tabs, toast, first responder and
+app screen / modal unchanged over two main-loop round trips (≤ 3 s; `"settle": 0` skips this, for checks right after
+dispatch such as a tooltip's pending delay). In UI tests SwiftUI animations and transitions are off (`uitestNoMotion()` at
+every hosting root), so nothing is caught mid-fade.
+
+**Load-independent waits** (a loaded machine only makes them take longer; the bounds only end a wait that never ends):
+`expect` is re-checked every 50 ms until it holds, ≤ 10 s (`MONTAGE_UITEST_EXPECT_LIMIT`) — so assert the end state, and
+use `exists: false` / `notEquals` checks only for things that must already be true; `waitFor` uses
+max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`); a click / drag / hover target (`id:`, `clip:`) is awaited until
+it resolves, ≤ 10 s; a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
+until it matches it, ≤ 10 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`; a real difference still fails, with the last diff).
 
 `expect` operators: `equals`, `notEquals`, `approx` (+`tolerance`, default 0.001), `gt`/`gte`/`lt`/`lte`, `contains` /
 `notContains` (string / array / dictionary key), `count`, `exists` (true/false). Numbers compare with 1e-6 tolerance.

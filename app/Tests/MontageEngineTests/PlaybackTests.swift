@@ -15,11 +15,13 @@ import MontageTestSupport
             // advanced media second — always apply; the wall-clock fps check is retried, and only waived when the
             // machine is oversubscribed while the compositor is provably fast enough.
             var r = try await PlaybackProbe.measure(engine, seconds: 1.0)
-            var attempt = 1
-            while r.fps <= 20, attempt < 3 {
+            var attempt = 1, delivered = r.frames
+            // retried while slow; a loaded machine may need longer for the first frames (hang bound: 10 attempts)
+            while r.fps <= 20, attempt < (delivered > 0 ? 3 : 10) {
                 attempt += 1
                 try await Task.sleep(nanoseconds: 300_000_000)
                 r = try await PlaybackProbe.measure(engine, seconds: 1.0)
+                delivered += r.frames
             }
             let load = PlaybackProbe.loadPerCore()
             print("playback probe: \(String(format: "%.1f", r.fps)) fps wall, composed \(r.composed) in \(String(format: "%.2f", r.itemSeconds)) s item time, cost p95 \(String(format: "%.2f", r.composeCostP95Ms)) ms, load/core \(String(format: "%.2f", load)), attempts \(attempt)")
@@ -31,8 +33,10 @@ import MontageTestSupport
             if r.itemSeconds > 0.3, let lim = TimingBudget.limit(1000 / 20, "composed frame interval") {
                 #expect(1000 / max(r.composedFPS, 0.001) < lim, "composed \(r.composedFPS) fps of item time")
             }
+            // frames reach the display at all (a frozen pipeline delivers none, however loaded the machine)
+            #expect(delivered > 0, "no frame delivered in \(attempt) s of playback")
             if r.fps <= 20 {
-                if load > 1 || r.fps > 20 / TimingBudget.factor {
+                if !TimingBudget.enforced || load > 1 || r.fps > 20 / TimingBudget.factor {
                     print("⚠️ wall-clock playback \(r.fps) fps (machine load \(load)/core) — gross-regression bound only, not failing")
                 } else {
                     Issue.record("got \(r.fps) fps (load \(load)/core, compositor p95 \(r.composeCostP95Ms) ms)")

@@ -59,7 +59,7 @@ final class DetachedPanelsController: NSObject, NSWindowDelegate {
         w.isReleasedWhenClosed = false
         w.collectionBehavior = [.fullScreenPrimary]
         w.delegate = self
-        w.contentView = NSHostingView(rootView: Self.content(p, store).environment(\.colorScheme, .dark).background(Theme.panel))
+        w.contentView = NSHostingView(rootView: Self.content(p, store).environment(\.colorScheme, .dark).background(Theme.panel).uitestNoMotion())
         // open on another display when there is one (dual screen), else centred over the editor
         let editor = NSApp.mainWindow?.screen
         if let other = NSScreen.screens.first(where: { $0 != editor }) {

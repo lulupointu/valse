@@ -10,6 +10,14 @@ import Perception
 /// Naming: `<area>.<thing>[.<detail>]`, lowercase, no localized text (e.g. `toolbar.split`, `slider.opacity`).
 extension View {
     public func testID(_ id: String) -> some View { modifier(TestIDModifier(id: id)) }
+
+    /// UI-test runs only (`TestAnchors.isEnabled`): no SwiftUI animations / transitions in this subtree. Animations run
+    /// on wall-clock time, which an oversubscribed machine stretches, so a snapshot or a geometry read (`.testID` frames,
+    /// the modal frame the snapshot compositor uses) could catch a view mid-fade / mid-scale. State changes still apply;
+    /// they just take effect at once. No effect outside UI tests. Applied at every hosting-view root.
+    public func uitestNoMotion() -> some View {
+        transaction { t in if TestAnchors.isEnabled { t.disablesAnimations = true; t.animation = nil } }
+    }
 }
 
 struct TestIDModifier: ViewModifier {

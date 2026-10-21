@@ -241,7 +241,8 @@ import Foundation
         let ms = Date().timeIntervalSince(t0) * 1000
         print("metric unit_caption_style_sync_400_ms=\(ms)")
         #expect(ids.allSatisfy { CaptionOps.text(p.timeline.clip($0)!)?.fontSize == 0.07 })
-        #expect(ms < 500)   // gross bound only (precise numbers: the metric line)
+        // wall-clock bound asserted in perf runs only (TimingBudget rule; this target doesn't link MontageTestSupport)
+        if ProcessInfo.processInfo.environment["MONTAGE_PERF"] == "1" { #expect(ms < 500) }
     }
 
     // MARK: Caption list ＋ / 🗑

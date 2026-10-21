@@ -9,8 +9,9 @@ import MontageTestSupport
 ///
 /// Budget: an effect must cost ≤ `budgetMs` of GPU time per 1080p frame on this machine. The default (3.5 ms on an
 /// M1 Pro) maps to ≈ 7–8 ms on a base M1/M2 Air GPU, which keeps a 30 fps preview with decode + compositing.
-/// Always runs (≈ 3 s) with a lenient ×2 margin so slow CI hosts don't flap; `MONTAGE_PERF=1` enforces the exact
-/// budget. `MONTAGE_FX_BUDGET_MS` overrides it. Prints the slowest entries.
+/// Always runs (≈ 3 s): every entry must render; the GPU budget itself is asserted only in perf runs (`MONTAGE_PERF=1`,
+/// exact budget; `MONTAGE_TIMING_ASSERT=1`: lenient ×2) — GPU timings depend on whatever else uses the GPU (TimingBudget).
+/// `MONTAGE_FX_BUDGET_MS` overrides it. Prints the slowest entries.
 @Suite(.serialized) struct EffectsPerfTests {
     static let strict = ProcessInfo.processInfo.environment["MONTAGE_PERF"] == "1"
     static let budgetMs = Double(ProcessInfo.processInfo.environment["MONTAGE_FX_BUDGET_MS"] ?? "") ?? 3.5
@@ -31,7 +32,7 @@ import MontageTestSupport
         for (id, ms) in times.prefix(15) { print(String(format: "  %6.2f  %@", ms, id)) }
         let total = times.reduce(0) { $0 + $1.1 }
         print(String(format: "  mean %.2f ms over %d entries", total / Double(max(times.count, 1)), times.count))
-        // lenient mode follows the suite's load-aware rule: GPU timings mean nothing while other teams saturate the GPU
+        // lenient mode follows TimingBudget: not asserted in the correctness suite, nor while the machine is oversubscribed
         let overloaded = !Self.strict && TimingBudget.limit(Self.budgetMs, "effects 1080p GPU budget") == nil
         for (id, ms) in times where ms > limit && !overloaded {
             Issue.record("\(id) costs \(String(format: "%.2f", ms)) ms at 1080p (limit \(limit) ms)")
