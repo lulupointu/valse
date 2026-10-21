@@ -465,7 +465,10 @@ public final class UITestDriver {
             // never arrived), nothing on the element can have acted: resolve and click once more (report.json
             // `click_redeliveries`). A press that reached the element is never repeated; a release anomaly after it
             // (element rebuilt between press and release) is reported (`click_release_anomalies`, a warning).
-            let targetID = (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : nil }
+            // An `offset` click deliberately lands beside the element (ai_relight: the section checkbox 22 pt above
+            // `relight.top`): "outside the element" is then the intent, not a miss, so it is never verified / re-sent.
+            let targetID = step["offset"] != nil ? nil
+                : (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : nil }
             var point = p
             for attempt in 1...2 {
                 let probe = targetID.map { ClickProbe(id: $0, expected: count) }
