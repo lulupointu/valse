@@ -176,6 +176,10 @@ public final class UITestDriver {
     private var heldDropView: NSView?
     private let probe = TimelineFrameProbe()
     private var launchMs: Double = 0
+    /// The previous step was an input step with `"settle": 0`: the next `expect` checks at once (no retry).
+    private var previousSettleZero = false
+    /// Time the current `expect` waited for its condition (report.json `waitMs`).
+    private var lastExpectWaitMs: Int?
 
     /// Creates the offscreen test window (call before building the content view; enables `.testID` geometry tracking).
     public static func makeWindow(size: CGSize) -> NSWindow {
@@ -226,6 +230,7 @@ public final class UITestDriver {
             return Self.skipExitCode
         }
         var failed: String?
+        let stalls0 = Exporter.stallRestarts
         do {
             try await setUp(script)
             let steps = (script["steps"] as? [Any]) ?? []
@@ -239,8 +244,12 @@ public final class UITestDriver {
                     continue
                 }
                 do {
+                    lastExpectWaitMs = nil
                     try await perform(step, index: i + 1)
-                    report.append(["index": i + 1, "step": label, "ok": true, "ms": Int(Date().timeIntervalSince(s0) * 1000)])
+                    previousSettleZero = (step["settle"] as? NSNumber)?.doubleValue == 0
+                    var entry: [String: Any] = ["index": i + 1, "step": label, "ok": true, "ms": Int(Date().timeIntervalSince(s0) * 1000)]
+                    if let w = lastExpectWaitMs { entry["waitMs"] = w }
+                    report.append(entry)
                     log("  ✔ \(i + 1). \(label)")
                 } catch {
                     report.append(["index": i + 1, "step": label, "ok": false, "error": "\(error)"])
@@ -252,6 +261,16 @@ public final class UITestDriver {
         } catch {
             failed = "setup: \(error)"
             log("  ✘ setup: \(error)")
+        }
+        // An export pass that stalled (Exporter restarts it once in the app) is a failure in a test run, never hidden.
+        let stalls = Exporter.stallRestarts - stalls0
+        metrics["export_stall_restarts"] = Double(stalls)
+        if failed == nil, stalls > 0 { failed = "\(stalls) export pass(es) stalled and were restarted (Exporter.stallRestarts)" }
+        // How long `expect`s had to wait for their condition (a latency regression shows here; uitest.sh warns)
+        let waits = report.compactMap { $0["waitMs"] as? Int }
+        metrics["expect_wait_ms_max"] = Double(waits.max() ?? 0)
+        if let w = waits.max(), w > 2000, (metrics["quiesce_timeouts"] ?? 0) == 0 {
+            warnings.append("an expect waited \(w) ms for its condition (UI settled: a slow reaction, not load?)")
         }
         // Always leave a final state + picture for debugging.
         StateDump.write(StateDump.make(store), to: out.appendingPathComponent(failed == nil ? "final.json" : "failure.json"))
@@ -547,15 +566,20 @@ public final class UITestDriver {
         } else if let e = step["expect"] {
             // Eventually consistent (re-checked for up to `expectLimit` s): the state an input step causes can land a few
             // main-loop turns late on a loaded machine. A condition that never holds still fails, with its last errors.
+            // `"now": true` (and any expect right after a `"settle": 0` step): checked once, immediately — for asserts
+            // whose point is immediacy ("hidden at once", state during a gesture).
             let specs = (e as? [[String: Any]]) ?? [(e as? [String: Any]) ?? [:]]
-            let deadline = Date().addingTimeInterval(Self.expectLimit)
+            let now = (step["now"] as? Bool) ?? previousSettleZero
+            let t0 = Date()
+            let deadline = t0.addingTimeInterval(now ? 0 : Self.expectLimit)
             while true {
                 let state = StateDump.make(store)
                 let errors = specs.compactMap { JSONPath.check(state, $0) }
                 if errors.isEmpty { break }
-                if Date() > deadline { throw Failure(errors.joined(separator: "\n      ")) }
+                if Date() >= deadline { throw Failure(errors.joined(separator: "\n      ") + (now ? " (checked at once: \"now\")" : "")) }
                 try await Task.sleep(for: .milliseconds(50))
             }
+            lastExpectWaitMs = Int(Date().timeIntervalSince(t0) * 1000)
         } else if let e = step["waitFor"] as? [String: Any] {
             // the script's timeout only detects a hang, it is never a speed budget: at least `waitForFloor` s
             let deadline = Date().addingTimeInterval(max((e["timeout"] as? NSNumber)?.doubleValue ?? 10, Self.waitForFloor))
@@ -970,11 +994,15 @@ public final class UITestDriver {
             let timedOut = Date() > deadline
             if let base {
                 let (r, d) = base.diff.compare(px, base.pixels)
-                if r.passed || timedOut {
+                // matches the baseline AND the rendering has settled (two identical consecutive renders)
+                if (r.passed && stable) || timedOut {
                     ImageDiff.writePNG(img, to: url)
                     metrics["snapshot_\(name)_diff_fraction"] = r.fraction
                     if renders > 2 { metrics["snapshot_\(name)_renders"] = Double(renders) }
-                    if r.passed { return }
+                    if r.passed {
+                        if !stable { warnings.append("snapshot \(name): matched its baseline but never rendered the same twice (animated?)") }
+                        return
+                    }
                     if let di = d?.cgImage { ImageDiff.writePNG(di, to: out.appendingPathComponent("\(name).diff.png")) }
                     throw Failure(r.sizeMismatch ? "size \(img.width)x\(img.height) differs from baseline \(base.url.lastPathComponent)"
                                   : String(format: "%.2f%% pixels differ from baseline (tolerance %.2f%%; %d renders over %.0f s, last two %@), diff: %@",
@@ -1034,7 +1062,12 @@ public final class UITestDriver {
             ctx.setFillColor(CGColor(srgbRed: 0.5, green: 0.5, blue: 0.5, alpha: 1))
             for m in masks {
                 let id = m.hasPrefix("id:") ? String(m.dropFirst(3)) : m
-                guard let r = TestAnchors.shared.frame(id) else { throw Failure("no element \(m) to mask") }
+                // a `.testID` frame, else an AppKit view's (e.g. the Metal `player` view)
+                let viewRect = findView(id).map { v -> CGRect in
+                    let r = v.convert(v.bounds, to: host)
+                    return host.isFlipped ? r : CGRect(x: r.minX, y: host.bounds.height - r.maxY, width: r.width, height: r.height)
+                }
+                guard let r = TestAnchors.shared.frame(id) ?? viewRect else { throw Failure("no element \(m) to mask") }
                 // window points, top-left → pixels of the (cropped) image, bottom-left origin
                 let x = r.minX * k - cropOrigin.x, yTop = r.minY * k - cropOrigin.y
                 ctx.fill(CGRect(x: x, y: CGFloat(img.height) - yTop - r.height * k, width: r.width * k, height: r.height * k).integral)

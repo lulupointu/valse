@@ -9,7 +9,7 @@
 # command and directory. A lock is RECLAIMED (and the reclaim printed) when its holder
 #   - is dead (or its PID was reused by another process), or
 #   - has been idle for MONTAGE_SLOT_IDLE_MIN minutes (default 20): its whole process tree used < 2 CPU-seconds and
-#     started no new process (`sleep`s aside) in that time, as seen by checks ≤ 2 min apart (a hung run). The idle
+#     started no new process that lived >= 10 s (`sleep`s aside) in that time, as seen by checks ≤ 2 min apart (a hung run). The idle
 #     holder's process tree is killed so it cannot resume later. (A hung build / test under scripts/lib.sh
 #     `run_watched` is killed sooner by its hang watchdog; the script then exits and its EXIT hook frees the slot.)
 # Slot count: MONTAGE_SLOTS, default min(max(2, cores / 5), max(1, RAM GB / 6)) — a gate (build + parallel tests or a
@@ -75,7 +75,11 @@ _slot_check() {
   local cpu sig since base bsig seen
   cpu="$(tree_cpu "$pid")"
   # (`sleep`s of polling loops / watchdogs don't count: a hung run under a watchdog still spawns those)
-  sig="$(ps -o pid=,comm= -p "$(tree_pids "$pid" | paste -sd, -)" 2>/dev/null | awk '$2 !~ /sleep$/ {print $1}' | sort -n | paste -sd, - | cksum | awk '{print $1}')"
+  # only processes alive >= 10 s count: short-lived children (a watchdog's sleep / ps / awk, a polling loop's probes)
+  # churn constantly even in a hung run; a busy run keeps starting long-lived work (apps, compilers, test processes)
+  sig="$(ps -o pid=,etime=,comm= -p "$(tree_pids "$pid" | paste -sd, -)" 2>/dev/null | awk '
+    { e = $2; if (index(e, "-")) s = 99999; else { n = split(e, a, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + a[i] }
+      if (s >= 10 && $3 !~ /sleep$/) print $1 }' | sort -n | paste -sd, - | cksum | awk '{print $1}')"
   { read -r since base bsig seen < "$d/activity"; } 2>/dev/null || true
   if [[ -z "${since:-}" || -z "${seen:-}" ]] || (( now - seen > 120 )) || [[ "$sig" != "$bsig" ]] || (( cpu - base > 2 || base - cpu > 2 )); then
     echo "$now $cpu $sig $now" > "$d/activity" 2>/dev/null || true; return 1

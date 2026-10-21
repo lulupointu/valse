@@ -6,7 +6,8 @@ import Foundation
 /// (`MONTAGE_PERF=1`: scripts/perf.sh holds every test slot, and `scripts/test.sh --perf`), against `budget × factor`
 /// (default 3, `MONTAGE_TIMING_FACTOR`) and still skipped with a message when the machine is oversubscribed (1-min load
 /// average above the core count). Precise budgets: bench/perf_thresholds.json — add a timing test to the `--filter` in
-/// scripts/perf.sh. `MONTAGE_TIMING_ASSERT=1` forces assertion in any run (local investigation).
+/// scripts/perf.sh (run by every check_clean --ui gate). `MONTAGE_TIMING_ASSERT=1` forces assertion in any run.
+/// Costs that can be measured as thread CPU / GPU time keep a gross bound in the correctness suite (`cpuLimit`).
 nonisolated public enum TimingBudget {
     public static var factor: Double {
         ProcessInfo.processInfo.environment["MONTAGE_TIMING_FACTOR"].flatMap(Double.init) ?? 3
@@ -27,6 +28,22 @@ nonisolated public enum TimingBudget {
             return nil
         }
         return budget * factor
+    }
+
+    /// Load-robust GROSS bound for a cost measured as thread CPU time (`CLOCK_THREAD_CPUTIME_ID`, `threadCPUms`) or
+    /// GPU command-buffer time — always asserted, in every gate: other processes don't add to the CPU time of the
+    /// measuring thread (preemption excluded). Limit = `budget × cpuFactor` (default 4, `MONTAGE_CPU_TIMING_FACTOR`:
+    /// a loaded machine can run the thread on an efficiency core, ~2–3× slower per instruction).
+    public static func cpuLimit(_ budget: Double) -> Double { budget * cpuFactor }
+    public static var cpuFactor: Double {
+        ProcessInfo.processInfo.environment["MONTAGE_CPU_TIMING_FACTOR"].flatMap(Double.init) ?? 4
+    }
+
+    /// CPU time (ms) the calling thread spends in `body` (excludes time the thread is preempted).
+    public static func threadCPUms<T>(_ body: () throws -> T) rethrows -> (T, Double) {
+        let c0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
+        let r = try body()
+        return (r, Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - c0) / 1e6)
     }
 
     /// 1-minute load average per CPU core.

@@ -37,6 +37,10 @@ import MontageTestSupport
         for (id, ms) in times where ms > limit && !overloaded {
             Issue.record("\(id) costs \(String(format: "%.2f", ms)) ms at 1080p (limit \(limit) ms)")
         }
+        // always: a gross bound on the GPU command-buffer time (what the effect costs on the GPU, not wall clock)
+        for (id, ms) in times where ms > TimingBudget.cpuLimit(Self.budgetMs) {
+            Issue.record("\(id) costs \(String(format: "%.2f", ms)) ms of GPU time at 1080p (gross limit \(TimingBudget.cpuLimit(Self.budgetMs)) ms)")
+        }
         #expect(times.count == all.count)
     }
 }

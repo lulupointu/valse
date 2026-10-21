@@ -6,17 +6,17 @@
   "steps": [
     {"idle": 1},
     {"hover": "id:toolbar.split", "settle": 0},
-    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "equals": "Split (⌘B)"}]},
+    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "equals": "Split (⌘B)"}], "now": true},
     {"wait": 0.35},
     {"expect": {"path": "ui.tooltip", "equals": "Split (⌘B)"}},
     // next element: hidden at once, shown again only after the delay
     {"hover": "id:toolbar.undo", "settle": 0},
-    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "equals": "Undo (⌘Z)"}]},
+    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "equals": "Undo (⌘Z)"}], "now": true},
     {"wait": 0.35},
     {"expect": {"path": "ui.tooltip", "equals": "Undo (⌘Z)"}},
     // leaving: gone immediately
     {"hover": "player:0.5,0.5", "settle": 0},
-    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "exists": false}]},
+    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "exists": false}], "now": true},
     {"wait": 0.35},
     {"expect": {"path": "ui.tooltip", "exists": false}},
     // a click hides it; it stays hidden while the mouse stays on the element
@@ -24,7 +24,7 @@
     {"wait": 0.3},
     {"expect": {"path": "ui.tooltip", "equals": "Split (⌘B)"}},
     {"click": "id:toolbar.split"},
-    {"expect": {"path": "ui.tooltip", "exists": false}},
+    {"expect": {"path": "ui.tooltip", "exists": false}, "now": true},
     {"hover": "id:toolbar.split", "offset": [2, 0]},
     {"wait": 0.3},
     {"expect": {"path": "ui.tooltip", "exists": false}},

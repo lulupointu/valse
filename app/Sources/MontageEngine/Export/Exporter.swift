@@ -185,14 +185,15 @@ public enum Exporter {
         let stop = ReaderCancel()
         let activity = ExportActivity()
         let monitor = Task.detached { [state = built.state] in
-            // stall = no sample AND no composed frame for `stallSeconds` (work-based: a slow pass on a loaded machine
-            // keeps composing and reading, so it never trips)
-            var last = (activity.samples, state.framesComposed), since = Date()
+            // stall = for `stallSeconds`: no sample read, no composition requested or composed, and NO compose in
+            // progress (work-based: a slow pass on a loaded machine, even one very slow frame, keeps it alive). The
+            // pumps are then only asked to stop: the reader is never cancelled while a pump reads (ReaderCancel).
+            var last = (activity.samples, state.framesComposed, state.requestsStarted), since = Date()
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                let now = (activity.samples, state.framesComposed)
-                if now != last { last = now; since = Date(); continue }
-                if Date().timeIntervalSince(since) > Self.stallSeconds { activity.markStalled(); stop.request(io.value.0, fallback: 2); return }
+                let now = (activity.samples, state.framesComposed, state.requestsStarted)
+                if now != last || state.composesInFlight > 0 { last = now; since = Date(); continue }
+                if Date().timeIntervalSince(since) > Self.stallSeconds { activity.markStalled(); stop.request(); return }
             }
         }
         await withTaskCancellationHandler {
@@ -221,7 +222,7 @@ public enum Exporter {
         } onCancel: {
             // Only ask the pumps to stop (never cancelReading under a running copy: ReaderCancel); reader and writer
             // are cancelled below, once nothing reads.
-            stop.request(io.value.0)
+            stop.request()
         }
         stop.finish()
         monitor.cancel()
@@ -236,8 +237,9 @@ public enum Exporter {
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
             Self.noteStallRestart()
-            print("⚠️ export pass stalled (no frame for \(Int(Self.stallSeconds)) s), attempt \(attempt)")
-            if attempt < 2 { continue }
+            NSLog("Montage export: pass stalled (nothing read or composed for %d s), attempt %d", Int(Self.stallSeconds), attempt)
+            // a test never hides a stall behind the restart: it fails (UI tests: UITestDriver fails on stallRestarts)
+            if attempt < 2, !MontageProcess.isUnitTest { continue }
             throw ExportError.failed("export stalled")
         }
         if reader.status == .failed || writer.status == .failed {

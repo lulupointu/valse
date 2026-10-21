@@ -14,26 +14,38 @@ import MontageTestSupport
 /// `MONTAGE_QA_PROJECT=~/Movies/Montage/1019.montage scripts/test.sh --filter PlaybackStressTests` (the package is only
 /// read; media decodes from the originals, no proxies generated).
 @MainActor @Suite(.serialized) struct PlaybackStressTests {
-    struct Report { var actions = 0; var maxStall = 0.0; var stalls: [String] = []; var frames = 0 }
+    struct Report { var actions = 0; var maxStall = 0.0; var maxStallComposed = 0; var stalls: [String] = []; var frames = 0 }
+
+    /// Frames the compositor may compose before the display shows a new one, at most (load-independent freeze bound:
+    /// a healthy pipeline displays what it composes; measured healthy max: see the printed `max composed before a frame`).
+    static let maxComposedWithoutDisplay = 30
 
     /// Polls the engine's video output like the display link; returns the seconds until frames advance by `need`
     /// distinct display times while the clock moves, or nil = FROZEN: no new frame while the video pipeline did no work
     /// (no composition request started, nothing composed) for `timeout` s — AVPlayer stopped asking our compositor for
     /// frames, the C3-5 freeze — or no new frame at all for `hangBound` s even though the pipeline kept working.
     /// A loaded machine only makes the pipeline slower, never idle, so the result does not depend on the load.
-    static func waitForFrames(_ engine: PlaybackEngine, need: Int = 3, timeout: Double, hangBound: Double = 30) async throws -> (Double, Int)? {
+    /// Also FROZEN, in work units: more than `maxComposedWithoutDisplay` frames composed while the display got no new
+    /// frame (the compositor runs but nothing reaches the screen — however fast or slow the machine).
+    /// Returns (seconds, frames seen, most frames composed before a new frame was displayed).
+    static func waitForFrames(_ engine: PlaybackEngine, need: Int = 3, timeout: Double, hangBound: Double = 30) async throws -> (Double, Int, Int)? {
         let start = CACurrentMediaTime()
         var last = CMTime.invalid, seen = 0
         var work = (CompositorStats.shared.requestsStarted, engine.state.framesComposed), lastWork = start
+        var composedAtFrame = engine.state.framesComposed, maxComposed = 0
         while CACurrentMediaTime() - lastWork < timeout, CACurrentMediaTime() - start < hangBound {
             let now = (CompositorStats.shared.requestsStarted, engine.state.framesComposed)
             if now != work { work = now; lastWork = CACurrentMediaTime() }
+            let composedSince = engine.state.framesComposed - composedAtFrame
+            maxComposed = max(maxComposed, composedSince)
+            if composedSince > Self.maxComposedWithoutDisplay { return nil }
             if let (_, t) = engine.pixelBuffer(forHostTime: CACurrentMediaTime()), t.cmTime != last {
                 // consecutive frames moving forward (a stale frame of an earlier seek target resets the count)
                 let forward = last.isValid && t.cmTime > last && (t.cmTime - last).seconds < 0.5
                 seen = forward ? seen + 1 : 1
                 last = t.cmTime
-                if seen >= need { return (CACurrentMediaTime() - start, seen) }
+                composedAtFrame = engine.state.framesComposed
+                if seen >= need { return (CACurrentMediaTime() - start, seen, maxComposed) }
             }
             try await Task.sleep(nanoseconds: 4_000_000)
         }
@@ -51,8 +63,8 @@ import MontageTestSupport
             guard engine.isPlaying else { return }
             let composed0 = engine.state.framesComposed, requests0 = CompositorStats.shared.requestsStarted
             let gpu0 = CompositorStats.shared.snapshot().frames, primes0 = engine.stallRecoveries
-            if let (dt, n) = try await waitForFrames(engine, timeout: timeout) {
-                r.maxStall = max(r.maxStall, dt); r.frames += n
+            if let (dt, n, c) = try await waitForFrames(engine, timeout: timeout) {
+                r.maxStall = max(r.maxStall, dt); r.frames += n; r.maxStallComposed = max(r.maxStallComposed, c)
             } else {
                 var probe = "no output"
                 if let out = engine.videoOutput {
@@ -141,9 +153,11 @@ import MontageTestSupport
             let engine = PlaybackEngine(project: p.project)
             engine.usesProxies = false
             let r = try await Self.stress(engine, actions: 40, seed: 42, timeout: 4)   // healthy: < 0.6 s; frozen: never
-            print("playback stress (synthetic): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, stalls \(r.stalls.count), pipeline re-primes \(engine.stallRecoveries), rebuilds \(engine.stallRebuilds)")
+            print("playback stress (synthetic): \(r.actions) actions, \(r.frames) frames, max time to frames \(String(format: "%.2f", r.maxStall)) s, max composed before a frame \(r.maxStallComposed), stalls \(r.stalls.count), pipeline re-primes \(engine.stallRecoveries), rebuilds \(engine.stallRebuilds)")
             for s in r.stalls { print("  stall: \(s)") }
             #expect(r.stalls.isEmpty, "\(r.stalls)")
+            // the freeze bound in work units (load-independent): frames composed before the display got a new one
+            #expect(r.maxStallComposed <= Self.maxComposedWithoutDisplay, "composed \(r.maxStallComposed) frames before one was displayed")
             // the stall watchdog re-primes only a stalled pipeline (rare), never steady playback
             #expect(engine.stallRecoveries <= 5)
             let before = engine.stallRecoveries

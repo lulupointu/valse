@@ -12,7 +12,8 @@
 #
 # Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep]
 #   --build-only  build (incl. tests) but don't run scripts/test.sh
-#   --ui          also run every UI test script (scripts/uitest.sh --all) in the clean tree
+#   --ui          also run every UI test script (scripts/uitest.sh --all) and the perf gate (scripts/perf.sh --no-smoke,
+#                 exclusive slot) in the clean tree
 #   --keep        keep the temp worktree (its path is printed)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -98,6 +99,15 @@ if [[ $UI == 1 ]]; then
     echo "  failed scripts' output: $ROOT/build/check_clean-uitest/"
   fi
   grep -E "^⏭|skipped:|flaky|quarantined \(" "$TMP/ui.log" | sed 's/^/    /' || true
+fi
+if [[ $UI == 1 ]]; then
+  # perf gate (DX-C): wall-clock budgets (unit timing tests, timeline 500 / asset 1000 UI perf) vs bench/perf_thresholds.json,
+  # measured with EVERY slot (exclusive, so other teams' runs don't disturb it): release ours, perf.sh queues for all.
+  slots_release; unset MONTAGE_SLOT_HELD
+  if scripts/perf.sh --no-smoke --out "$TMP/perf.json" >"$TMP/perf.log" 2>&1; then echo "✔ clean perf gate (scripts/perf.sh --no-smoke)"
+  else echo "✘ clean perf gate failed:"; python3 -c 'import json,sys; [print("    " + v) for v in json.load(open(sys.argv[1])).get("violations", [])]' "$TMP/perf.json" 2>/dev/null || tail -5 "$TMP/perf.log"
+    cp "$TMP/perf.log" "$ROOT/build/check_clean-perf.log" 2>/dev/null || true; FAIL=1
+  fi
 fi
 ELAPSED="$(( ($(date +%s) - START) / 60 )) min"
 if [[ $FAIL == 0 ]]; then

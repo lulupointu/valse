@@ -9,6 +9,12 @@
     // scoped to the panels whose French labels this checks (a full-window baseline broke on every unrelated chrome
     // change: re-recorded 7×); player / timeline pixels are media renders, covered by their own tests
     {"snapshot": "editor-fr-assets", "element": "id:panel.assets", "baseline": true, "tolerance": 0.03, "threshold": 40},
-    {"snapshot": "editor-fr-inspector", "element": "id:panel.inspector", "baseline": true, "tolerance": 0.03, "threshold": 40}
+    {"snapshot": "editor-fr-inspector", "element": "id:panel.inspector", "baseline": true, "tolerance": 0.03, "threshold": 40},
+    // title bar ("Exporter"), player chrome ("Lecteur", timecodes, "Format"; the video itself masked) and the timeline
+    // (track headers, "Couverture", clip labels "Chaud 4,0s" with the French decimal comma) — what the old full-window
+    // baseline covered, without the unrelated chrome around it
+    {"snapshot": "editor-fr-export", "element": "id:titlebar.export", "baseline": true, "tolerance": 0.03, "threshold": 40},
+    {"snapshot": "editor-fr-player", "element": "id:panel.player", "mask": ["id:player"], "baseline": true, "tolerance": 0.03, "threshold": 40},
+    {"snapshot": "editor-fr-timeline", "element": "id:panel.timeline", "baseline": true, "tolerance": 0.03, "threshold": 40}
   ]
 }

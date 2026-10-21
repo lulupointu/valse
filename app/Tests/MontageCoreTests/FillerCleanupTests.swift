@@ -236,12 +236,15 @@ import Foundation
         let ids = SpeechCaptions.captions(in: p.timeline).map(\.id)
         let before = p
         if case .text(var t) = p.timeline.clip(ids[0])!.content { t.fontSize = 0.07; p.timeline[clip: ids[0]]?.content = .text(t) }
-        let t0 = Date()
+        let t0 = Date(), c0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         CaptionStyleSync.propagate(from: ids[0], before: before, after: &p)
         let ms = Date().timeIntervalSince(t0) * 1000
+        let cpuMs = Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - c0) / 1e6
         print("metric unit_caption_style_sync_400_ms=\(ms)")
         #expect(ids.allSatisfy { CaptionOps.text(p.timeline.clip($0)!)?.fontSize == 0.07 })
-        // wall-clock bound asserted in perf runs only (TimingBudget rule; this target doesn't link MontageTestSupport)
+        // gross bound in thread CPU time, always (load-robust); the wall-clock one in perf runs (TimingBudget rule; this
+        // target doesn't link MontageTestSupport)
+        #expect(cpuMs < 500, "caption style sync took \(cpuMs) ms CPU")
         if ProcessInfo.processInfo.environment["MONTAGE_PERF"] == "1" { #expect(ms < 500) }
     }
 
