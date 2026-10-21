@@ -19,7 +19,9 @@ public enum AppShutdown {
         store?.exports.queue.cancelAll()
         store?.cancelPilotWork()
         let ok = await JobQueue.shared.shutdown(timeout: timeout)
-        workStillRunning = !ok
+        // readers of cancelled exports stuck inside AVFoundation: a bounded wait, never a hang at quit
+        let readersOK = await ParkedReaders.shared.waitAll(timeout: 2)
+        workStillRunning = !ok || !readersOK
         // let exports observe their cancellation and delete partial files
         if let q = store?.exports.queue {
             let deadline = Date().addingTimeInterval(2)
