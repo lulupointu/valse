@@ -258,16 +258,17 @@ struct SizeField: View {
         WithPerceptionTracking {
             HStack(spacing: 4) {
                 Text(verbatim: prefix).font(.system(size: 11)).foregroundStyle(IStyle.caption)
-                TextField("", text: $text).textFieldStyle(.plain).font(Theme.Fonts.numeric).multilineTextAlignment(.center)
-                    .onSubmit { commit() }
-                    .onValueChange(of: text) { _, _ in commit() }
+                // commit from the binding: macOS 13 can drop `.onChange(of: text)` for a keystroke that lands mid-update
+                TextField("", text: Binding(get: { text }, set: { text = $0; commit($0) }))
+                    .textFieldStyle(.plain).font(Theme.Fonts.numeric).multilineTextAlignment(.center)
+                    .onSubmit { commit(text) }
             }
             .padding(.horizontal, 6).frame(width: 84, height: 26)
             .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
             .onAppear { text = "\(value)" }
         }
     }
-    func commit() { if let v = Int(text.filter(\.isNumber)), v > 0 { value = v } }
+    func commit(_ s: String) { if let v = Int(s.filter(\.isNumber)), v > 0 { value = v } }
 }
 
 // MARK: - Multi-selection

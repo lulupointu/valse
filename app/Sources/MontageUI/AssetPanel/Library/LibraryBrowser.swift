@@ -729,11 +729,15 @@ struct AssetSearchField: View {
         WithPerceptionTracking {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
-                TextField(placeholder, text: $text).textFieldStyle(.plain).font(.system(size: 12))
-                    .onSubmit { commit(now: true) }
+                // Each keystroke schedules the commit from the binding itself. With `.onChange(of: text)` macOS 13 dropped
+                // the last change of a burst: a keystroke landing while the panel re-rendered for the previous (debounced)
+                // query set `text` but never re-ran onChange, so the query stayed "summ" while the field showed "summer".
+                TextField(placeholder, text: Binding(get: { text }, set: { text = $0; commit($0, now: false) }))
+                    .textFieldStyle(.plain).font(.system(size: 12))
+                    .onSubmit { commit(text, now: true) }
                     .testID("asset.search")
                 if !text.isEmpty {
-                    Button { text = ""; commit(now: true) } label: {
+                    Button { text = ""; commit("", now: true) } label: {
                         Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                     }
                     .buttonStyle(.plain).help(tr("asset.search.clear")).testID("asset.search.clear")
@@ -742,14 +746,13 @@ struct AssetSearchField: View {
             .padding(.horizontal, 10).frame(height: 28)
             .background(Color(hex: 0x141414), in: RoundedRectangle(cornerRadius: 4))
             .onAppear { text = AssetPanelState.shared.query[tab] ?? "" }
-            .onValueChange(of: text) { commit(now: false) }
             .onValueChange(of: AssetPanelState.shared.query[tab] ?? "") { _, q in if q.isEmpty && !text.isEmpty && task == nil { text = "" } }
         }
     }
 
-    func commit(now: Bool) {
+    func commit(_ t: String, now: Bool) {
         task?.cancel()
-        let t = text, tab = tab
+        let tab = tab
         if now { AssetPanelState.shared.query[tab] = t; task = nil; return }
         task = Task {
             try? await Task.sleep(for: Self.debounce)
