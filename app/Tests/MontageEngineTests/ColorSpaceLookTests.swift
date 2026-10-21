@@ -33,7 +33,7 @@ import MontageTestSupport
         let engine = PlaybackEngine(project: project)
         // release the player item (its audio taps) before anything else reads the same media
         defer { engine.pause(); engine.player.replaceCurrentItem(with: nil) }
-        try await PlaybackProbe.waitReady(engine, timeout: 30)
+        try await PlaybackProbe.waitReady(engine)   // hang bound in available time, from the last progress
         engine.seek(to: Time(t), exact: true)
         let target = Time(t).cmTime
         let deadline = Date().addingTimeInterval(30)

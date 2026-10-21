@@ -28,6 +28,21 @@ public enum DemucsRuntime {
 
 /// Music source separation (AI-011 / AU-010 "Separate audio"): HTDemucs stems written into `AudioStemStore`
 /// (`drums`, `bass`, `other`, `vocals`, + `guitar`, `piano` with the 6-stem model), aligned with the media.
+/// CPU time (user + system, seconds) a child process has used so far (0 when it is gone): a work-based progress signal.
+enum ProcessCPU {
+    static func seconds(_ pid: Int32) -> Double {
+        var info = rusage_info_v2()
+        let ok = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(pid, RUSAGE_INFO_V2, $0) }
+        }
+        guard ok == 0 else { return 0 }
+        var tb = mach_timebase_info_data_t()
+        mach_timebase_info(&tb)   // ri_*_time are mach absolute time units
+        let ticks = Double(info.ri_user_time + info.ri_system_time)
+        return ticks * Double(tb.numer) / Double(tb.denom) / 1e9
+    }
+}
+
 public enum StemSeparator {
     public enum Stem: String, Sendable, CaseIterable {
         case vocals, drums, bass, other, guitar, piano
@@ -74,12 +89,21 @@ public enum StemSeparator {
         p.executableURL = cli
         p.arguments = [model.path, input.path, work.appendingPathComponent("out").path, String(max(2, min(8, ProcessInfo.processInfo.activeProcessorCount - 2)))]
         p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
-        let start = Date()
+        let threads = Double(max(2, min(8, ProcessInfo.processInfo.activeProcessorCount - 2)))
         let ticker = Task {
-            // ~2.2× real time on an M1 Pro CPU: report a time-based estimate
+            // demucs prints no progress: estimate it from the WORK the process did (its CPU time; ~2.5× real time per
+            // thread on an M1 Pro), not from wall time — on a loaded machine the bar slows down instead of sitting at
+            // 95 % for minutes, and it stops moving only when demucs stops working (UI tests' waitFor treats a change
+            // of progress as "still alive"). Asymptotic: never reaches 1 before demucs exits.
+            let expectedCPU = duration * 2.5 * threads
+            var last = -1.0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
-                progress?(min(0.95, 0.05 + 0.9 * Date().timeIntervalSince(start) / (duration * 2.5)))
+                guard p.isRunning else { continue }
+                let cpu = ProcessCPU.seconds(p.processIdentifier)
+                guard cpu > last else { continue }
+                last = cpu
+                progress?(0.05 + 0.9 * (1 - exp(-cpu / expectedCPU)))
             }
         }
         defer { ticker.cancel() }

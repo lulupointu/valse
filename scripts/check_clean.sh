@@ -196,16 +196,20 @@ run_ui() {
   scripts/uitest.sh --all --no-build --jobs "$UI_JOBS" --order "$DURATIONS" --out "$TMP/uitest" >"$TMP/ui.log" 2>&1
 }
 report_ui() { # rc
+  # keep the failed AND flaky scripts' reports / PNGs / diffs (the temp tree is deleted on exit): a flake's first
+  # attempt is the only evidence to root-cause it from
+  rm -rf "$ROOT/build/check_clean-uitest"
+  local kept="" n
+  for n in $(grep -E "^  (failed|flaky \(passed on retry\)): " "$TMP/ui.log" | sed -E 's/^  (failed|flaky \(passed on retry\)): //' | awk '{print $1}'); do
+    mkdir -p "$ROOT/build/check_clean-uitest"
+    cp -R "$TMP/uitest/$n" "$TMP/uitest/$n.attempt1" "$ROOT/build/check_clean-uitest/" 2>/dev/null || true
+    kept=1
+  done
   if [[ $1 == 0 ]]; then echo "✔ clean UI tests ($(grep -E '^UI tests:' "$TMP/ui.log" | tail -1); $2, $UI_JOBS at once)"
   else echo "✘ clean UI tests failed ($2):"; grep -E "^✘|failed:|^UI tests:|BUILD FAILED|no binary" "$TMP/ui.log" | head -30; FAIL=1
-    cp "$TMP/ui.log" "$ROOT/build/check_clean-ui.log" 2>/dev/null || true
-    # keep the failed scripts' reports / PNGs (the temp tree is deleted on exit)
-    rm -rf "$ROOT/build/check_clean-uitest"; mkdir -p "$ROOT/build/check_clean-uitest"
-    for n in $(grep -E "^  failed: " "$TMP/ui.log" | awk '{print $2}'); do
-      cp -R "$TMP/uitest/$n" "$TMP/uitest/$n.attempt1" "$ROOT/build/check_clean-uitest/" 2>/dev/null || true
-    done
-    echo "  failed scripts' output: $ROOT/build/check_clean-uitest/"
   fi
+  if [[ $1 != 0 || -n "$kept" ]]; then cp "$TMP/ui.log" "$ROOT/build/check_clean-ui.log" 2>/dev/null || true; fi
+  if [[ -n "$kept" ]]; then echo "  failed / flaky scripts' output: $ROOT/build/check_clean-uitest/"; fi
   grep -E "^⏭|skipped:|flaky|quarantined \(" "$TMP/ui.log" | sed 's/^/    /' || true
   cp "$TMP/uitest/durations.tsv" "$DURATIONS" 2>/dev/null || true
 }

@@ -70,6 +70,11 @@ public enum CompositionBuilder {
     /// Builds are serialized: AVAssetTracks are shared through `AssetCache`, and concurrent `insertTimeRange` calls on the
     /// same source track fail intermittently (-12780).
     static let buildLock = AsyncSemaphore(limit: 1)
+    /// Builds finished in this process (any outcome). A build waiting for `buildLock` behind others sees this move:
+    /// tests use it to tell "queued behind other work" (keep waiting) from "stuck" (PlaybackProbe.waitReady).
+    public static var finishedBuilds: Int { finishedLock.withLock { finished } }
+    private nonisolated(unsafe) static var finished = 0
+    private static let finishedLock = NSLock()
 
     public static func build(project: Project, purpose: RenderPurpose, renderSize: CGSize? = nil,
                              frameRate: FrameRate? = nil, state existingState: RenderState? = nil,
@@ -78,7 +83,7 @@ public enum CompositionBuilder {
                              sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
-        defer { Task { await buildLock.signal() } }
+        defer { finishedLock.withLock { finished += 1 }; Task { await buildLock.signal() } }
         try Task.checkCancellation()
         let comp = AVMutableComposition()
         let duration = max(project.duration, project.settings.frameRate.frameDuration)

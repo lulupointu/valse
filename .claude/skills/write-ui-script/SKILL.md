@@ -49,15 +49,19 @@ lists the test IDs on screen.
 ## Load-robust by construction (the machine is never quiet; 10+ heavy runs overlap)
 - NEVER rely on time: no `{"wait": s}` to let async work finish, no tight timeouts. Wait on the state that proves it:
   `{"waitFor": {"path": "media.count", "equals": 2, "timeout": 20}}`; AI / background jobs:
-  `{"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 600}}`. Timeouts are ceilings, not expected durations:
-  give 3-5x what it takes alone (the waitFor returns as soon as the condition holds, so a big timeout costs nothing).
+  `{"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 600}}`. A waitFor `timeout` is a NO-PROGRESS bound: it
+  restarts whenever a progress signal changes (`ui.jobs` progress/state, `ui.activeJobs`, `ui.audioStage.progress`,
+  `ui.export.jobs`, `ui.models.progress`, the waited value; add your own with `"progress": ["path"]`), so a long job a
+  loaded machine slows down is waited for and only a stuck one fails. Give it 3-5x the longest gap between progress
+  updates alone. Long work should report progress (a job's progress, or a dump key that moves) so its wait can tell slow
+  from stuck. Real-model scripts (`requires.models`, or `"heavy": true`) run one at a time under `uitest.sh --jobs`.
 - Debounced inputs (search fields): after `type`, `waitFor` the committed query / result count, not a fixed delay
   (audio_online regression: last keystrokes dropped on macOS 13).
 - Before a `snapshot`, `waitFor` whatever paints it (thumbnails, results, the selected tab) so pixels are final.
 - Every `expect` right after an async action should be a `waitFor` instead.
 - The driver already helps (docs/TESTING.md §1 "Load-independent waits"): after each input step it waits for the UI to
   be quiescent (≤ 10 s; also renders the window, since SwiftUI hit-tests what it last drew); `expect` is re-checked
-  every 50 ms until it holds (≤ 10 s); `waitFor` timeouts are floored at 30 s; click/drag/hover targets are awaited
+  every 50 ms until it holds (≤ 10 s); `waitFor` timeouts are floored at 30 s (no-progress bounds, above); click/drag/hover targets are awaited
   (≤ 10 s); animations are off. Assert end states; `exists: false` only for already-true facts.
 - `"now": true` on an expect = check once, immediately (only when immediacy IS the point: "hidden at once"). An expect
   right after a `"settle": 0` step (e.g. a hover checking `ui.tooltipPending`) is `now` by default, without retry.
@@ -66,10 +70,14 @@ lists the test IDs on screen.
 - Snapshots: re-rendered until two consecutive renders are identical AND (with a baseline) it matches the baseline,
   ≤ 30 s (a hang bound, `MONTAGE_UITEST_SNAPSHOT_LIMIT`); a real difference fails with the last diff, and so does a
   view that never renders the same twice (something keeps animating / reloading).
-- `id:` clicks are verified: if the press provably did not land inside the element's frame it is clicked once more
-  (`click_redeliveries` in report.json); a press that landed is never repeated; an element rebuilt between press and
-  release counts in `click_release_anomalies`. uitest.sh warns on both (`⚠ click redelivered` / `⚠ click release
-  anomaly`): not gating, but it means the target moved or was rebuilt under the click: investigate.
+- `id:` clicks are delivered exactly (SwiftUI `.testID` and AppKit `setAccessibilityIdentifier` targets alike): when
+  the press is dispatched the window is laid out and drawn and the element located again, and the click goes where it
+  is THEN (`click_retargets` when it had moved since resolution); an element not on screen at that moment gets nothing
+  and is clicked again once it is (`click_redeliveries`, ≤ 3 attempts); a dispatched press is never repeated; an
+  element rebuilt between press and release counts in `click_release_anomalies`. uitest.sh prints `⚠ click warning`
+  for all three: not gating, but the target moved / was rebuilt under the click. `offset` clicks are sent as written.
+  Driver self-test: `MONTAGE_UITEST_INJECT_CLICK_SKEW=0,40` / `MONTAGE_UITEST_INJECT_CLICK_VANISH=1` (scripts must pass).
+- `waitFor` reads the same state as `expect` (`project.*` paths included).
 - Transition / effect thumbnails render asynchronously: before a snapshot of the transitions tab
   `{"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0}}` (on-screen tiles whose still is not rendered yet).
 - Flaky = bug in the test or the app: fix the wait; never "fix" by adding `wait` or raising the tolerance blindly.

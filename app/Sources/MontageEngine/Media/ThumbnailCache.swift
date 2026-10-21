@@ -38,8 +38,14 @@ public final class ThumbnailCache: @unchecked Sendable {
         let q = a.kind == .image ? 0 : Self.quantize(t)
         let k = key(a, q, height)
         if let img = memory.object(forKey: k as NSString) { return img }
-        let started = lock.withLock { inflight.insert(k).inserted }
-        guard started else { return nil }
+        // Another caller is making this thumbnail: wait for it instead of answering nil — a nil poster is never asked
+        // again (MediaCard), so a card rebuilt while its old instance's request was in flight (language switch, a
+        // slow loaded machine) kept its placeholder for good.
+        while !lock.withLock({ inflight.insert(k).inserted }) {
+            try? await Task.sleep(for: .milliseconds(20))
+            if Task.isCancelled { return nil }
+            if let img = memory.object(forKey: k as NSString) { return img }
+        }
         defer { _ = lock.withLock { inflight.remove(k) } }
         let file = directory.appendingPathComponent(a.contentHash).appendingPathComponent("\(q)-\(height).jpg")
         if let img = Self.loadJPEG(file) { store(img, k); return img }
