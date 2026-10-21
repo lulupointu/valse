@@ -21,8 +21,9 @@ public final class RenderState: @unchecked Sendable {
     /// Frames served from the preview render cache (stats/tests).
     public private(set) var cacheHits = 0
     private var recent: [(time: Time, sources: [ClipID: CVPixelBuffer], aux: [ClipID: [AuxRole: CVPixelBuffer]])] = []
-    /// Output frames composed (stats).
-    public private(set) var framesComposed = 0
+    private var _framesComposed = 0
+    /// Output frames composed (stats; thread-safe).
+    public var framesComposed: Int { lock.withLock { _framesComposed } }
     /// When false the compositor does not keep decoded frames (export).
     let keepsRecentSources: Bool
 
@@ -76,7 +77,7 @@ public final class RenderState: @unchecked Sendable {
 
     func remember(time: Time, sources: [ClipID: CVPixelBuffer], aux: [ClipID: [AuxRole: CVPixelBuffer]] = [:]) {
         lock.withLock {
-            framesComposed += 1
+            _framesComposed += 1
             guard keepsRecentSources else { return }
             recent.append((time, sources, aux))
             // newest frames within the byte budget (holding decoded frames pins decoder surfaces); always ≥ 2

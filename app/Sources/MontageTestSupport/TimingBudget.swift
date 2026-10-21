@@ -1,17 +1,26 @@
 import Foundation
 
-/// Load-aware wall-clock budgets for the unit suite (W14). Several teams run builds/tests on one machine (load 100+),
-/// so exact budgets flake and block unrelated merges. The unit suite only catches GROSS regressions: the limit is
-/// `budget × factor` (default 3, `MONTAGE_TIMING_FACTOR`), and the assertion is skipped with a message when the
-/// machine is oversubscribed (1-min load average above the core count). Precise budgets live in scripts/perf.sh
-/// (exclusive slot, bench/perf_thresholds.json): emit the measurement with `metric(_:_:_:)` and add a threshold there.
+/// Wall-clock budgets of unit tests (W14, DX-C). Several teams run builds/tests on one machine, so wall-clock numbers
+/// depend on everything else running: the correctness suite (`scripts/test.sh`, every gate) never asserts them — it
+/// emits the measurement (`metric(_:_:_:)`) and checks behaviour only. Budgets are ASSERTED only in perf runs
+/// (`MONTAGE_PERF=1`: scripts/perf.sh holds every test slot, and `scripts/test.sh --perf`), against `budget × factor`
+/// (default 3, `MONTAGE_TIMING_FACTOR`) and still skipped with a message when the machine is oversubscribed (1-min load
+/// average above the core count). Precise budgets: bench/perf_thresholds.json — add a timing test to the `--filter` in
+/// scripts/perf.sh. `MONTAGE_TIMING_ASSERT=1` forces assertion in any run (local investigation).
 nonisolated public enum TimingBudget {
     public static var factor: Double {
         ProcessInfo.processInfo.environment["MONTAGE_TIMING_FACTOR"].flatMap(Double.init) ?? 3
     }
 
-    /// Limit to assert against for a nominal `budget`, or nil (= don't assert; a message is printed) under overload.
+    /// Whether wall-clock budgets are asserted in this process (perf runs only).
+    public static var enforced: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["MONTAGE_PERF"] == "1" || env["MONTAGE_TIMING_ASSERT"] == "1"
+    }
+
+    /// Limit to assert against for a nominal `budget`, or nil (= don't assert): outside perf runs, or under overload.
     public static func limit(_ budget: Double, _ what: String) -> Double? {
+        guard enforced else { return nil }
         let load = loadPerCore()
         if load > 1 {
             print("⚠️ timing check '\(what)' skipped: machine load \(String(format: "%.2f", load))/core (precise budget is in scripts/perf.sh)")

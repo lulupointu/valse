@@ -55,6 +55,9 @@ lists the test IDs on screen.
   (audio_online regression: last keystrokes dropped on macOS 13).
 - Before a `snapshot`, `waitFor` whatever paints it (thumbnails, results, the selected tab) so pixels are final.
 - Every `expect` right after an async action should be a `waitFor` instead.
+- The driver already helps (DX-C, docs/TESTING.md §1 "Load-independent waits"): after each input step it waits for the UI to be quiescent (≤ 10 s);
+  `expect` is re-checked until it holds (≤ 10 s); `waitFor` timeouts are floored at 30 s; click/drag targets are awaited;
+  snapshots wait for stable pixels; animations are off. Assert end states; `exists: false` only for already-true facts.
 - Flaky = bug in the test or the app: fix the wait; never "fix" by adding `wait` or raising the tolerance blindly.
 
 ## Gotcha: keys while a text field is editing

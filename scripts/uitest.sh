@@ -36,7 +36,7 @@ done
 source scripts/lib.sh
 # machine-wide: at most N heavy runs at once across all checkouts (scripts/slots.sh)
 source scripts/slots.sh; slots_acquire
-mkdir -p "$OUT"
+mkdir -p "$OUT"; rm -f "$OUT/durations.tsv"
 if [[ $BUILD == 1 ]]; then
   if ! run_watched "$OUT/build.log" swift build -c "$CONFIG" --product Montage; then
     grep -E "error:|HUNG" "$OUT/build.log" | sort -u | head -30 >&2 || true
@@ -74,6 +74,7 @@ for s in "${SCRIPTS[@]}"; do
   [[ -f "$s" ]] || { echo "no such script: $s"; FAIL=$((FAIL + 1)); FAILED+=("$s"); continue; }
   ABS="$(cd "$(dirname "$s")" && pwd)/$(basename "$s")"
   NAME="$(basename "$s" .json)"
+  T0=$(date +%s)
   CODE=0; run_one "$ABS" "$NAME" || CODE=$?
   if [[ $CODE != 0 && $CODE != 3 && $RETRY == 1 ]]; then
     echo "↻ $NAME failed (exit $CODE) — retrying once"
@@ -88,6 +89,7 @@ for s in "${SCRIPTS[@]}"; do
     if [[ $CODE2 == 0 ]]; then FLAKY+=("$NAME (attempt 1: exit $CODE → $OUT/$NAME.attempt1)"); CODE=0
     else CODE=$CODE2; fi
   fi
+  printf "%s\t%s\t%s\n" "$NAME" "$CODE" "$(( $(date +%s) - T0 ))" >> "$OUT/durations.tsv"   # name, exit, seconds
   if [[ $CODE == 0 ]]; then PASS=$((PASS + 1))
   elif [[ $CODE == 3 ]]; then SKIP=$((SKIP + 1)); SKIPPED+=("$NAME")
   elif REASON="$(python3 scripts/testlib.py quarantined ui "$NAME")"; then

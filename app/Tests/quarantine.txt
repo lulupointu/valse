@@ -7,12 +7,3 @@
 #   ui id   = UI script name without .json (app/Tests/UIScripts/<id>.json)
 # Validated by `python3 scripts/testlib.py check-quarantine` (the test / script must exist). Remove an entry as soon
 # as the test is fixed; never add one to hide a real regression — say what is load-sensitive in the reason.
-
-unit  AIUITests.cutoutToggleRunsJobAndComposites               2026-10-20  load flake (process review): the subject-matte job must finish within the test's 30 s poll; with several gates running it does not (passes alone)
-unit  RelightRenderTests.peopleTargetOnlyLightsThePersonMatte  2026-10-20  load flake (process review): person-matte relight render through the shared MatteStore fails only under full parallel-suite load (passes alone)
-unit  AudioUITests.autoBeatsWritesClipBeats                    2026-10-20  load flake (process review): the auto-beats job does not finish within waitUntil's timeout under load (passes alone)
-ui    assets_media_tab                                         2026-10-20  load flake (process review): media-tab thumbnails / waits not settled in time under load
-ui    w5_animation_apply                                       2026-10-20  load flake (process review): animation grid / preview timing under load
-ui    settings_window                                          2026-10-20  load flake (process review): Settings window settle timing under load
-ui    home_project_flow                                        2026-10-20  load flake (process review): Home project create / open round trip exceeds its waits under load
-ui    audio_online                                             2026-10-20  load flake (process review): mock online search / download timing under load

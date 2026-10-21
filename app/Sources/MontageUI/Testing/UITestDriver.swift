@@ -59,7 +59,11 @@ public final class UITestWindow: NSWindow {
     private func trackSlider(_ slider: NSSlider, down: NSEvent) {
         guard let cell = slider.cell else { return }
         var events: [NSEvent] = []
-        while let e = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp], until: .distantPast, inMode: .eventTracking, dequeue: true) {
+        // the driver queues the whole gesture (… up) before the down is dispatched; still, don't give up on the first
+        // poll: a slider drag under load came back with no events and the slider never moved (u1_playhead_follow)
+        var until = Date(timeIntervalSinceNow: 2)
+        while let e = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp], until: until, inMode: .eventTracking, dequeue: true) {
+            until = .distantPast
             events.append(e)
             if e.type == .leftMouseUp { break }
         }
@@ -309,6 +313,9 @@ public final class UITestDriver {
         let d = UserDefaults.standard
         var args = d.volatileDomain(forName: UserDefaults.argumentDomain)
         args["AppleShowScrollBars"] = "WhenScrolling"
+        // no animated (smooth) wheel scrolling: a scroll step lands at once, so the next click never hits content that
+        // is still gliding under it (wall-clock animation; ai_remove missed its checkbox under load)
+        args["NSScrollAnimationEnabled"] = false
         d.setVolatileDomain(args, forName: UserDefaults.argumentDomain)
         let tz = ProcessInfo.processInfo.environment["MONTAGE_UITEST_TZ"] ?? "Europe/Paris"
         if let z = TimeZone(identifier: tz) { NSTimeZone.default = z }
@@ -415,7 +422,14 @@ public final class UITestDriver {
         let settle = (step["settle"] as? NSNumber)?.doubleValue ?? 0.25
         if let name = step["perf"] as? String { return try await perf(name, step) }  // may carry "drag"/"scroll" targets
         for key in ["click", "doubleClick", "rightClick", "drag", "hover"] {
-            if let t = step[key] as? String, t.hasPrefix("id:"), scrollIntoView(t) { try await idle(settle: 0.2) }
+            guard let t = step[key] else { continue }
+            // a previous waitFor / expect may have returned while the layout its state change causes is still pending:
+            // resolving the target from stale test-ID frames would click where the element WAS (ai_movement: a
+            // finishing job's progress line collapsed and the click hit the chip below "Shake")
+            await quiesce()
+            // like a user: wait for the target to be on screen (an overloaded main thread lays it out late)
+            await waitForTarget(t, step)
+            if let t = t as? String, t.hasPrefix("id:"), scrollIntoView(t) { try await idle(settle: 0.2) }
         }
         if let t = step["click"] ?? step["doubleClick"] ?? step["rightClick"] {
             let p = try resolve(t, step)
@@ -495,6 +509,13 @@ public final class UITestDriver {
             for _ in 0..<((step["repeat"] as? Int) ?? 1) { SyntheticEvents.key(spec, in: window) }
             try await idle(settle: settle)
         } else if let text = step["type"] as? String {
+            // typing goes to the focused text field: wait for the field editor to take focus (a click on a field
+            // focuses it a few main-loop turns later on a loaded machine; the keys were lost: home_project_flow)
+            let focusDeadline = Date().addingTimeInterval(3)
+            while !(window.firstResponder is NSText), Date() < focusDeadline {
+                try await Task.sleep(for: .milliseconds(20))
+                _ = await SyntheticEvents.drain(timeout: 1)
+            }
             if (step["replace"] as? Bool) == true { (window.firstResponder as? NSText)?.selectAll(nil) }
             SyntheticEvents.type(text, in: window)
             try await idle(settle: settle)
@@ -520,16 +541,24 @@ public final class UITestDriver {
         } else if step["idle"] != nil {
             try await idle(settle: (step["idle"] as? NSNumber)?.doubleValue ?? settle)
         } else if let name = step["snapshot"] as? String {
-            try snapshot(name, step)
+            try await snapshot(name, step)
         } else if let name = step["dump"] as? String {
             StateDump.write(StateDump.make(store), to: out.appendingPathComponent("\(name).json"))
         } else if let e = step["expect"] {
-            let state = StateDump.make(store)
+            // Eventually consistent (re-checked for up to `expectLimit` s): the state an input step causes can land a few
+            // main-loop turns late on a loaded machine. A condition that never holds still fails, with its last errors.
             let specs = (e as? [[String: Any]]) ?? [(e as? [String: Any]) ?? [:]]
-            let errors = specs.compactMap { JSONPath.check(state, $0) }
-            if !errors.isEmpty { throw Failure(errors.joined(separator: "\n      ")) }
+            let deadline = Date().addingTimeInterval(Self.expectLimit)
+            while true {
+                let state = StateDump.make(store)
+                let errors = specs.compactMap { JSONPath.check(state, $0) }
+                if errors.isEmpty { break }
+                if Date() > deadline { throw Failure(errors.joined(separator: "\n      ")) }
+                try await Task.sleep(for: .milliseconds(50))
+            }
         } else if let e = step["waitFor"] as? [String: Any] {
-            let deadline = Date().addingTimeInterval((e["timeout"] as? NSNumber)?.doubleValue ?? 10)
+            // the script's timeout only detects a hang, it is never a speed budget: at least `waitForFloor` s
+            let deadline = Date().addingTimeInterval(max((e["timeout"] as? NSNumber)?.doubleValue ?? 10, Self.waitForFloor))
             var spec = e; spec["timeout"] = nil
             while let err = JSONPath.check(StateDump.make(store, includeProject: false), spec) {
                 if Date() > deadline { throw Failure("timed out: \(err)") }
@@ -557,10 +586,11 @@ public final class UITestDriver {
             let scope = (step["element"] as? String).map { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : $0 }
             var ax = AccessibilityAuditAX.run(scope: scope)   // in-process AX requests are served on the calling (main) thread
             // Under load the AX read can come back empty (→ the in-process fallback, which misses SwiftUI's names) or
-            // before SwiftUI filled lazy names (Menu buttons). Re-read until clean or ~4 s; a really unlabeled element
-            // stays unlabeled and still fails (~6 s).
+            // before SwiftUI filled lazy names (Menu buttons). Re-read until clean, ≤ 2 × `expectLimit` (a hang bound,
+            // load-independent); a really unlabeled element stays unlabeled and still fails after that.
             let allowed = (step["max"] as? Int) ?? 0
-            for _ in 0..<12 where ax.error != nil || ax.checked == 0 || ax.unlabeled.count > allowed {
+            let auditDeadline = Date().addingTimeInterval(2 * Self.expectLimit)
+            while ax.error != nil || ax.checked == 0 || ax.unlabeled.count > allowed, Date() < auditDeadline {
                 try await idle(settle: 0.5)
                 ax = AccessibilityAuditAX.run(scope: scope)
             }
@@ -584,6 +614,75 @@ public final class UITestDriver {
         guard await SyntheticEvents.drain() else { throw Failure("event queue did not drain (modal loop?)") }
         try await Task.sleep(for: .seconds(settle))
         _ = await SyntheticEvents.drain()
+        if settle > 0 { await quiesce() }   // `"settle": 0` = check the state right after dispatch (tooltip delay)
+    }
+
+    // MARK: Load-independent waiting
+    //
+    // A wall-clock settle is not enough on an oversubscribed machine (several gates at once): the main thread may not
+    // have run the work an input queued (SwiftUI updates, main-actor tasks, layout) by the time it elapses. The waits
+    // below are waits for an observable condition; their limits only end a wait that never ends (hang detectors, never
+    // speed budgets), so a run where the condition already holds takes no longer than before.
+
+    /// Bound of re-checking an `expect` that does not hold yet.
+    static let expectLimit = envSeconds("MONTAGE_UITEST_EXPECT_LIMIT", 10)
+    /// Minimum `waitFor` timeout, whatever the script says.
+    static let waitForFloor = envSeconds("MONTAGE_UITEST_WAIT_FLOOR", 30)
+    /// Bound of waiting for a mouse target (`id:` element, clip row) to be on screen.
+    static let targetLimit = envSeconds("MONTAGE_UITEST_TARGET_LIMIT", 10)
+    /// Bound of waiting for a snapshot to render the same pixels twice / to match its baseline.
+    static let snapshotLimit = envSeconds("MONTAGE_UITEST_SNAPSHOT_LIMIT", 10)
+    /// Bound of `quiesce` (continuous change, e.g. playback, never quiesces: the step then goes on as before).
+    static let quiesceLimit = envSeconds("MONTAGE_UITEST_QUIESCE_LIMIT", 10)
+
+    nonisolated static func envSeconds(_ key: String, _ d: Double) -> Double {
+        ProcessInfo.processInfo.environment[key].flatMap(Double.init) ?? d
+    }
+
+    /// What pending main-thread UI work changes: the on-screen test-ID frames (SwiftUI layout caught up), the edit
+    /// revision, selection, inspector / asset tab, toast, first responder, app screen / modal.
+    private func uiFingerprint() -> String {
+        window.contentView?.layoutSubtreeIfNeeded()   // apply pending layout now (it would run at the next pass anyway)
+        var parts: [String] = []
+        for id in TestAnchors.shared.ids {
+            if let r = TestAnchors.shared.frame(id) {
+                parts.append("\(id)=\(Int(r.minX * 2)),\(Int(r.minY * 2)),\(Int(r.width * 2)),\(Int(r.height * 2))")
+            }
+        }
+        parts.append("rev=\(store.session.revision) sel=\(store.selection.map(\.description).sorted()) "
+                     + "tab=\(store.inspectorTab ?? "-")/\(store.activeAssetTab) toast=\(store.toast?.message ?? "-")")
+        parts.append("first=\(window.firstResponder.map { String(describing: type(of: $0)) } ?? "-")")
+        // the AppKit timeline (clip: / time: / header: targets are resolved from its layout): zoom, scroll, size —
+        // not while playing (follow scrolling moves it continuously; playback steps must not wait for it)
+        if let tl = timelineView, !store.transport.isPlaying {
+            parts.append("tl=\(store.pixelsPerSecond),\(tl.scrollTime),\(tl.scrollY),\(Int(tl.bounds.width)),\(Int(tl.bounds.height))")
+        }
+        if let app = StateDump.appHook?() { parts.append("app=\(app["screen"] ?? "-")/\(app["modal"] ?? "-")") }
+        return parts.joined(separator: ";")
+    }
+
+    /// Waits until the UI fingerprint is unchanged over two consecutive main-loop round trips (≥ 2 × 20 ms).
+    func quiesce() async {
+        let deadline = Date().addingTimeInterval(Self.quiesceLimit)
+        var last = uiFingerprint(), stable = 0
+        while stable < 2, Date() < deadline {
+            _ = await SyntheticEvents.drain(timeout: 1)   // one trip through the main event queue
+            try? await Task.sleep(for: .milliseconds(20))
+            let now = uiFingerprint()
+            if now == last { stable += 1 } else { stable = 0; last = now }
+        }
+        // report.json: how often the UI never settled (continuous change; a high count = a step racing the UI)
+        if stable < 2 { metrics["quiesce_timeouts", default: 0] += 1 }
+    }
+
+    /// Waits (≤ `targetLimit`) until a mouse target resolves: an `id:` element is on screen, a clip row is laid out.
+    /// A target that still does not resolve is reported by the step itself, as before.
+    func waitForTarget(_ target: Any, _ step: [String: Any]) async {
+        let deadline = Date().addingTimeInterval(Self.targetLimit)
+        while (try? resolve(target, step)) == nil, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+            _ = await SyntheticEvents.drain(timeout: 1)
+        }
     }
 
     // MARK: Targets
@@ -839,7 +938,67 @@ public final class UITestDriver {
     // MARK: Snapshots
 
     /// `{"snapshot": "name", "element": "id:timeline", "baseline": true, "tolerance": 0.01, "threshold": 24, "scale": 0.5}`
-    private func snapshot(_ name: String, _ step: [String: Any]) throws {
+    ///
+    /// Load-independent: the window is rendered until two consecutive renders (a main-loop round trip apart) give the
+    /// same pixels — no half-applied layout, late thumbnail or caret blink caught mid-way — and, with a baseline, until it
+    /// matches (≤ `snapshotLimit` s; a real difference still fails, after that bound, with the last render's diff).
+    private func snapshot(_ name: String, _ step: [String: Any]) async throws {
+        let baseline = step["baseline"].map { ($0 as? String) ?? name }
+        let url = out.appendingPathComponent("\(name).png")
+        var base: (url: URL, pixels: ImageDiff.Pixels, diff: ImageDiff)?
+        if let baseline, let dir = config.baselines {
+            let b = baselineURL(dir, baseline)
+            if !config.updateBaselines, FileManager.default.fileExists(atPath: b.path) {
+                guard let px = ImageDiff.load(b).flatMap(ImageDiff.Pixels.init) else { throw Failure("cannot read \(b.path)") }
+                var tolerance = (step["tolerance"] as? NSNumber)?.doubleValue ?? 0.005
+                // a per-OS baseline (recorded in the 1x macOS 13 VM) sees run-to-run sub-pixel text jitter of ~0.7 %
+                if b.deletingLastPathComponent().lastPathComponent.hasPrefix("macos") { tolerance = max(tolerance, 0.01) }
+                base = (b, px, ImageDiff(threshold: (step["threshold"] as? Int) ?? 16, tolerance: tolerance))
+            }
+        }
+        // without a baseline the PNG is only an artefact to look at: a short bound for content that keeps moving
+        // (a playing preview's progress bar)
+        let limit = base != nil || config.updateBaselines ? Self.snapshotLimit : min(Self.snapshotLimit, 2)
+        let deadline = Date().addingTimeInterval(limit)
+        var previous: ImageDiff.Pixels?
+        var renders = 0
+        while true {
+            let img = try renderSnapshot(step, baseline: baseline != nil)
+            renders += 1
+            guard let px = ImageDiff.Pixels(img) else { throw Failure("snapshot pixels failed") }
+            let stable = previous.map { $0.width == px.width && $0.height == px.height && $0.data == px.data } ?? false
+            let timedOut = Date() > deadline
+            if let base {
+                let (r, d) = base.diff.compare(px, base.pixels)
+                if r.passed || timedOut {
+                    ImageDiff.writePNG(img, to: url)
+                    metrics["snapshot_\(name)_diff_fraction"] = r.fraction
+                    if renders > 2 { metrics["snapshot_\(name)_renders"] = Double(renders) }
+                    if r.passed { return }
+                    if let di = d?.cgImage { ImageDiff.writePNG(di, to: out.appendingPathComponent("\(name).diff.png")) }
+                    throw Failure(r.sizeMismatch ? "size \(img.width)x\(img.height) differs from baseline \(base.url.lastPathComponent)"
+                                  : String(format: "%.2f%% pixels differ from baseline (tolerance %.2f%%; %d renders over %.0f s, last two %@), diff: %@",
+                                           r.fraction * 100, base.diff.tolerance * 100, renders, Self.snapshotLimit,
+                                           stable ? "identical" : "still changing", out.appendingPathComponent("\(name).diff.png").path))
+                }
+            } else if stable || timedOut {
+                if !stable { warnings.append("snapshot \(name): rendering never settled in \(Int(limit)) s (animated content?)") }
+                ImageDiff.writePNG(img, to: url)
+                guard let baseline else { return }
+                guard let dir = config.baselines else { warnings.append("no --baselines dir; \(name) not compared"); return }
+                let b = baselineURL(dir, baseline)
+                ImageDiff.writePNG(img, to: b)
+                warnings.append("baseline \(config.updateBaselines ? "updated" : "created"): \(b.path) — LOOK at it and commit it")
+                return
+            }
+            previous = px
+            _ = await SyntheticEvents.drain(timeout: 1)
+            try await Task.sleep(for: .milliseconds(renders < 3 ? 30 : 100))
+        }
+    }
+
+    /// One render of a snapshot step: the window (offscreen renderer), cropped to `element`, `mask`s painted grey, scaled.
+    private func renderSnapshot(_ step: [String: Any], baseline hasBaseline: Bool) throws -> CGImage {
         guard var img = SnapshotRegistry.shared.snapshot(window: window), let host = window.contentView else { throw Failure("snapshot failed") }
         let k = CGFloat(img.width) / host.bounds.width
         var cropOrigin = CGPoint.zero
@@ -882,32 +1041,11 @@ public final class UITestDriver {
             }
             if let m = ctx.makeImage() { img = m }
         }
-        let baseline = step["baseline"].map { ($0 as? String) ?? name }
-        let scale = (step["scale"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? (baseline != nil ? 1 / k : 1)
+        let scale = (step["scale"] as? NSNumber).map { CGFloat($0.doubleValue) } ?? (hasBaseline ? 1 / k : 1)
         if let t = cropTarget, step["scale"] == nil {
             if img.width != t.0 || img.height != t.1, let s = Self.resize(img, to: t) { img = s }
         } else if abs(scale - 1) > 0.001, let s = Self.resize(img, scale) { img = s }
-        let url = out.appendingPathComponent("\(name).png")
-        ImageDiff.writePNG(img, to: url)
-        guard let baseline else { return }
-        guard let dir = config.baselines else { warnings.append("no --baselines dir; \(name) not compared"); return }
-        let base = baselineURL(dir, baseline)
-        if config.updateBaselines || !FileManager.default.fileExists(atPath: base.path) {
-            ImageDiff.writePNG(img, to: base)
-            warnings.append("baseline \(config.updateBaselines ? "updated" : "created"): \(base.path) — LOOK at it and commit it")
-            return
-        }
-        var tolerance = (step["tolerance"] as? NSNumber)?.doubleValue ?? 0.005
-        // a per-OS baseline (recorded in the 1x macOS 13 VM) sees run-to-run sub-pixel text jitter of ~0.7 %
-        if base.deletingLastPathComponent().lastPathComponent.hasPrefix("macos") { tolerance = max(tolerance, 0.01) }
-        let diff = ImageDiff(threshold: (step["threshold"] as? Int) ?? 16, tolerance: tolerance)
-        guard let r = diff.compare(url, base, diffURL: out.appendingPathComponent("\(name).diff.png")) else { throw Failure("cannot read \(base.path)") }
-        metrics["snapshot_\(name)_diff_fraction"] = r.fraction
-        if !r.passed {
-            throw Failure(r.sizeMismatch ? "size \(img.width)x\(img.height) differs from baseline \(base.lastPathComponent)"
-                          : String(format: "%.2f%% pixels differ from baseline (tolerance %.2f%%), diff: %@", r.fraction * 100,
-                                   diff.tolerance * 100, out.appendingPathComponent("\(name).diff.png").path))
-        }
+        return img
     }
 
     static func resize(_ img: CGImage, _ k: CGFloat) -> CGImage? {

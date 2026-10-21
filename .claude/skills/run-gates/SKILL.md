@@ -53,7 +53,7 @@ smoke set; `app/Tests/ui_map.txt` is only smoke / `always` / directory-fallback 
 - `skipped` (UI exit code 3) = unmet `requires` (AI model / content pack / minOS). Not a failure.
 
 ## Waiting, hangs, disk
-- `waiting for test slot… (held by PIDs …)` = machine-wide semaphore (/tmp/montage-locks, 2+ slots). Normal under load;
+- `waiting for test slot… (held by PIDs …)` = machine-wide semaphore (/tmp/montage-locks, 2+ slots, FIFO queue). Normal under load;
   keep waiting (the notification comes when your run finishes). `scripts/slots.sh status` shows holders, age, idle time.
   Dead holders and holders idle (< 2 CPU-s) for 20 min are reclaimed automatically; `scripts/slots.sh reclaim` forces a sweep.
 - `HUNG` (test.sh / build: no output and ~0 % CPU for 10 min) or `TIMEOUT (HUNG) after 120s` (one UI script): stacks are

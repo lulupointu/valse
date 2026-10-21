@@ -119,6 +119,12 @@ public enum Exporter {
         }
         let lead: Time = coverSample == nil ? .zero : frameDur
 
+        // A STALLED pass (no sample read and nothing composed for `stallSeconds`: AVFoundation stopped asking the
+        // compositor for frames, seen under heavy machine load — the export then hung forever) is abandoned and the
+        // export restarted once; a second stall fails it ("export stalled") instead of hanging.
+        var attempt = 0
+        while true {
+        attempt += 1
         try? FileManager.default.removeItem(at: url)
         let reader = try AVAssetReader(asset: built.composition)
         reader.timeRange = exportRange.cmTimeRange
@@ -176,34 +182,63 @@ public enum Exporter {
         let total = exportRange.duration.seconds
         let start = exportRange.start.seconds
         let io = UncheckedSendable((reader, writer, vOut, vIn, aOut, aIn, coverSample))
+        let stop = ReaderCancel()
+        let activity = ExportActivity()
+        let monitor = Task.detached { [state = built.state] in
+            // stall = no sample AND no composed frame for `stallSeconds` (work-based: a slow pass on a loaded machine
+            // keeps composing and reading, so it never trips)
+            var last = (activity.samples, state.framesComposed), since = Date()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let now = (activity.samples, state.framesComposed)
+                if now != last { last = now; since = Date(); continue }
+                if Date().timeIntervalSince(since) > Self.stallSeconds { activity.markStalled(); stop.request(io.value.0, fallback: 2); return }
+            }
+        }
         await withTaskCancellationHandler {
             await withTaskGroup(of: Void.self) { g in
                 g.addTask {
                     let (_, _, vOut, vIn, _, _, cover) = io.value
                     let first = cover.flatMap { retimed($0, pts: .zero, duration: frameDur.cmTime) }
-                    let report: @Sendable (Double) -> Void = { pts in progress?(min(0.999, max(0, (pts - start) / max(total, 0.001)))) }
+                    let report: @Sendable (Double) -> Void = { pts in
+                        activity.tick()
+                        progress?(min(0.999, max(0, (pts - start) / max(total, 0.001))))
+                    }
                     if blurSamples > 1 {
                         await pumpMotionBlur(vOut, vIn, shift: shift, prefix: first, frameDuration: frameDur, rangeStart: exportRange.start, lead: lead,
-                                             onSample: report)
+                                             stop: stop, onSample: report)
                     } else {
-                        await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video", onSample: report)
+                        await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video", stop: stop, onSample: report)
                     }
                 }
                 if aOut != nil {
                     g.addTask {
                         let (_, _, _, _, aOut, aIn, _) = io.value
-                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, label: "export.audio", onSample: nil) }
+                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, label: "export.audio", stop: stop, onSample: { _ in activity.tick() }) }
                     }
                 }
             }
         } onCancel: {
-            // Only stop the reader here: the pumps then drain and finish; the writer is cancelled below.
-            io.value.0.cancelReading()
+            // Only ask the pumps to stop (never cancelReading under a running copy: ReaderCancel); reader and writer
+            // are cancelled below, once nothing reads.
+            stop.request(io.value.0)
         }
+        stop.finish()
+        monitor.cancel()
         if Task.isCancelled {
+            reader.cancelReading()
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
             throw ExportError.cancelled
+        }
+        if activity.stalled {
+            reader.cancelReading()
+            writer.cancelWriting()
+            try? FileManager.default.removeItem(at: url)
+            Self.noteStallRestart()
+            print("⚠️ export pass stalled (no frame for \(Int(Self.stallSeconds)) s), attempt \(attempt)")
+            if attempt < 2 { continue }
+            throw ExportError.failed("export stalled")
         }
         if reader.status == .failed || writer.status == .failed {
             let msg = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "read failed"
@@ -215,7 +250,17 @@ public enum Exporter {
         await writer.finishWriting()
         guard writer.status == .completed else { throw ExportError.failed(writer.error?.localizedDescription ?? "write failed") }
         progress?(1)
+        return
+        }
     }
+
+    /// No sample read and no frame composed for this long = a stalled export pass (hang detector, not a speed budget).
+    static let stallSeconds: Double = ProcessInfo.processInfo.environment["MONTAGE_EXPORT_STALL_SECONDS"].flatMap(Double.init) ?? 30
+    private static let stallLock = NSLock()
+    nonisolated(unsafe) private static var _stallRestarts = 0
+    /// Export passes abandoned as stalled since launch (diagnostics / tests).
+    public static var stallRestarts: Int { stallLock.withLock { _stallRestarts } }
+    static func noteStallRestart() { stallLock.withLock { _stallRestarts += 1 } }
 
     /// The project as the export renders it: output colour space (smart HDR→SDR), platform aspect, transparent
     /// background for alpha codecs, caption tracks hidden when captions aren't burnt in.
@@ -377,7 +422,7 @@ public enum Exporter {
     }
 
     private static func pump(_ out: AVAssetReaderOutput, _ input: AVAssetWriterInput, shift: CMTime, prefix: CMSampleBuffer?,
-                             label: String, onSample: (@Sendable (Double) -> Void)?) async {
+                             label: String, stop: ReaderCancel, onSample: (@Sendable (Double) -> Void)?) async {
         let io = UncheckedSendable((out, input, prefix))
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             let q = DispatchQueue(label: label, qos: .userInitiated)
@@ -390,7 +435,9 @@ public enum Exporter {
                     if !input.append(prefix) { st.done = true; input.markAsFinished(); cont.resume(); return }
                 }
                 while input.isReadyForMoreMediaData && !st.done {
-                    if let sb = out.copyNextSampleBuffer() {
+                    if stop.requested {
+                        st.done = true
+                    } else if let sb = out.copyNextSampleBuffer() {
                         let pts = CMSampleBufferGetPresentationTimeStamp(sb)
                         onSample?(pts.seconds)
                         let t = CMTimeSubtract(pts, shift)
@@ -415,7 +462,7 @@ public enum Exporter {
     /// EX-025 video pump: the reader delivers several sub-frames per output frame; each group is averaged
     /// (`FrameAccumulator`, in place in the group's first buffer) and written once at the output frame time.
     private static func pumpMotionBlur(_ out: AVAssetReaderOutput, _ input: AVAssetWriterInput, shift: CMTime, prefix: CMSampleBuffer?,
-                                       frameDuration fd: Time, rangeStart: Time, lead: Time,
+                                       frameDuration fd: Time, rangeStart: Time, lead: Time, stop: ReaderCancel,
                                        onSample: (@Sendable (Double) -> Void)?) async {
         let io = UncheckedSendable((out, input, prefix))
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
@@ -437,7 +484,9 @@ public enum Exporter {
                     if !input.append(prefix) { st.done = true; input.markAsFinished(); cont.resume(); return }
                 }
                 while input.isReadyForMoreMediaData && !st.done {
-                    if let sb = out.copyNextSampleBuffer() {
+                    if stop.requested {
+                        st.done = true
+                    } else if let sb = out.copyNextSampleBuffer() {
                         let pts = CMSampleBufferGetPresentationTimeStamp(sb)
                         onSample?(pts.seconds)
                         let rel = pts.seconds - rangeStart.seconds

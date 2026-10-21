@@ -132,7 +132,7 @@ final class KeyframePanelController: NSObject, NSWindowDelegate {
         p.hidesOnDeactivate = true
         p.becomesKeyOnlyIfNeeded = true
         p.delegate = self
-        p.contentView = NSHostingView(rootView: KeyframePanel(store: store).environment(\.colorScheme, .dark))
+        p.contentView = NSHostingView(rootView: KeyframePanel(store: store).environment(\.colorScheme, .dark).uitestNoMotion())
         if let w = NSApp.mainWindow { p.setFrameTopLeftPoint(NSPoint(x: w.frame.midX - 280, y: w.frame.midY + 120)) }
         return p
     }

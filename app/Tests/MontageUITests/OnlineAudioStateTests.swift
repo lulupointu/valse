@@ -13,7 +13,7 @@ import MontageCore
     }
 
     func settle(_ s: OnlineAudioState) async {
-        for _ in 0..<500 where s.phase == .loading { try? await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<3000 where s.phase == .loading { try? await Task.sleep(for: .milliseconds(10)) }   // hang bound (load)
     }
 
     @Test func noKeyShowsSetupAndMakesNoRequest() async {

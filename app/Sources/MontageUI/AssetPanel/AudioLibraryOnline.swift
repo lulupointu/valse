@@ -120,7 +120,11 @@ final class OnlineAudioState {
         let q = query(nav: nav, text: text)
         task?.cancel()
         guard enabled else { phase = .disabled; results = []; return }
-        let active = providers.filter { $0.kinds.contains(q.kind) }.compactMap { p in key(p.id).map { (p, $0) } }
+        // fixed merge order: the provider specialised in this kind first (Jamendo for music, then Freesound), ties in
+        // catalogue order — never the order the answers arrive in (see the merge below)
+        let active = providers.enumerated().filter { $0.element.kinds.contains(q.kind) }
+            .sorted { ($0.element.kinds.count, $0.offset) < ($1.element.kinds.count, $1.offset) }
+            .compactMap { e in key(e.element.id).map { (e.element, $0) } }
         guard !active.isEmpty else { phase = .noKey; results = []; lastQuery = q; return }
         if !force, let c = cache[q], Date().timeIntervalSince(c.0) < 86_400 {
             lastQuery = q; results = c.1; warnings = c.2; phase = .loaded; return
@@ -130,20 +134,25 @@ final class OnlineAudioState {
         phase = .loading
         let http = http
         task = Task {
-            var lists: [[OnlineTrack]] = [], errors: [(String, OnlineAudioError)] = []
-            await withTaskGroup(of: (String, Result<[OnlineTrack], OnlineAudioError>).self) { g in
-                for (p, k) in active {
+            // collected in PROVIDER order, not arrival order: the merged list (and the warnings) must not depend on
+            // which provider answered first (the order changed from search to search; DX-C, audio_online_fr under load)
+            var byProvider = [Result<[OnlineTrack], OnlineAudioError>?](repeating: nil, count: active.count)
+            await withTaskGroup(of: (Int, Result<[OnlineTrack], OnlineAudioError>).self) { g in
+                for (i, (p, k)) in active.enumerated() {
                     g.addTask {
-                        do { return (p.name, .success(try await p.search(q, key: k, http: http))) } catch {
-                            return (p.name, .failure(OnlineAudioError.from(error)))
+                        do { return (i, .success(try await p.search(q, key: k, http: http))) } catch {
+                            return (i, .failure(OnlineAudioError.from(error)))
                         }
                     }
                 }
-                for await (name, r) in g {
-                    switch r {
-                    case .success(let l): lists.append(l)
-                    case .failure(let e): errors.append((name, e))
-                    }
+                for await (i, r) in g { byProvider[i] = r }
+            }
+            var lists: [[OnlineTrack]] = [], errors: [(String, OnlineAudioError)] = []
+            for (i, r) in byProvider.enumerated() {
+                switch r {
+                case .success(let l)?: lists.append(l)
+                case .failure(let e)?: errors.append((active[i].0.name, e))
+                case nil: break
                 }
             }
             guard !Task.isCancelled, lastQuery == q else { return }

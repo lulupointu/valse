@@ -120,7 +120,7 @@ import MontageTestSupport
     }
 
     func waitIdle(_ s: EditorStore, _ until: () -> Bool) async throws {
-        for _ in 0..<300 where !until() { try await Task.sleep(nanoseconds: 50_000_000) }
+        for _ in 0..<1200 where !until() { try await Task.sleep(nanoseconds: 50_000_000) }   // ≥ 60 s hang bound (load)
     }
 
     @Test func splitScenesAndAutoReframeFlows() async throws {

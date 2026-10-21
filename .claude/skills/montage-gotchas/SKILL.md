@@ -15,8 +15,9 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
 - Heavy work from main-actor code/tests starves PlaybackTests: run it `Task.detached`.
 - ML jobs via `JobQueue` pass `heavy: true` (runs inside `HeavyWorkGate`, MontageEngine/Jobs/). Tests await the task a
   store flow returns (`setCutout`, `autoBeats`) instead of polling with a time budget.
-- Wall-clock asserts only via `TimingBudget` (MontageTestSupport; 3x gross bound, skipped when load > cores); precise
-  budgets belong in scripts/perf.sh + bench/perf_thresholds.json.
+- No wall-clock asserts in correctness tests: `TimingBudget.limit` returns nil (nothing asserted) unless `MONTAGE_PERF=1`
+  (scripts/perf.sh, `scripts/test.sh --perf`). Emit `TimingBudget.metric(...)`, add the test to perf.sh's `--filter` and
+  the budget to bench/perf_thresholds.json. Freeze/deadlock checks measure work (no frame while nothing is composed), not time.
 - Tests run in a private TMPDIR deleted on exit: caches that must survive go to `MONTAGE_TEST_MEDIA_DIR` / `MontagePaths`
   (unit tests: `MontagePaths.testRunCacheDirectory`), never `FileManager.default.temporaryDirectory`.
 - Use `RealLikeMedia` (iPhone HEVC HLG portrait, speech, 120 BPM music) for media features, not only testsrc: rotation,

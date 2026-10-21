@@ -32,7 +32,7 @@ public enum PlaybackProbe {
     }
 
     /// Waits until the engine has a ready player item.
-    public static func waitReady(_ engine: PlaybackEngine, timeout: Double = 10) async throws {
+    public static func waitReady(_ engine: PlaybackEngine, timeout: Double = 60) async throws {   // hang bound (load)
         let deadline = Date().addingTimeInterval(timeout)
         while engine.player.currentItem?.status != .readyToPlay {
             if Date() > deadline { throw NSError(domain: "Montage", code: 90, userInfo: [NSLocalizedDescriptionKey: "player not ready"]) }

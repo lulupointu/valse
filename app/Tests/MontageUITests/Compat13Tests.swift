@@ -20,7 +20,7 @@ import MontageCore
         t.run { seen.append(m.text) }
         #expect(seen == ["a"])
         m.text = "b"
-        for _ in 0..<50 where seen.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<3000 where seen.count < 2 { try await Task.sleep(for: .milliseconds(10)) }   // hang bound (load)
         #expect(seen == ["a", "b"])
         // a property the update didn't read doesn't re-run it
         m.other = 1
@@ -29,7 +29,7 @@ import MontageCore
         // a newer run supersedes the previous registration (no duplicate updates)
         t.run { seen.append("r" + m.text) }
         m.text = "c"
-        for _ in 0..<50 where seen.count < 4 { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<3000 where seen.count < 4 { try await Task.sleep(for: .milliseconds(10)) }
         try await Task.sleep(for: .milliseconds(100))
         #expect(seen == ["a", "b", "rb", "rc"])
     }
@@ -43,12 +43,15 @@ import MontageCore
         }
         defer { link.invalidate() }
         try await Task.sleep(for: .milliseconds(600))
+        // ticks arrive (the main actor may be busy with parallel tests: wait for them, 30 s hang bound)
+        for _ in 0..<300 where targets.count < 2 { try await Task.sleep(for: .milliseconds(100)) }
         link.invalidate()
-        // ticks arrive (the main actor may be busy with parallel tests, so only a low bound: busy vsyncs are skipped)
         #expect(targets.count >= 2, "ticks: \(targets.count)")
-        // target timestamps are CACurrentMediaTime-based (same clock, not mach ticks / absolute) and increasing
+        // target timestamps are CACurrentMediaTime-based (same clock, not mach ticks / absolute) and increasing;
+        // never ahead of now by more than a frame or two, and a late callback on a loaded machine only lowers the lag
+        // (another clock would be off by days or by ~1e8 s)
         #expect(zip(targets, targets.dropFirst()).allSatisfy { $0 < $1 })
-        #expect(lags.allSatisfy { $0 > -1 && $0 < 0.2 }, "lags: \(Array(lags.prefix(5)))")
+        #expect(lags.allSatisfy { $0 > -30 && $0 < 0.2 }, "lags: \(Array(lags.prefix(5)))")
     }
 
     /// No FFmpeg sidecar (a fresh Mac, the macOS 13 VM): MP3 is unavailable. A video-only export must stay possible

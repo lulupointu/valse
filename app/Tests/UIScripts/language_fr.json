@@ -6,6 +6,9 @@
     {"menu": "menu.view/menu.language.fr"},
     {"expect": [{"path": "ui.language", "equals": "fr"}, {"path": "ui.menu", "contains": "Fichier"},
                 {"path": "ui.anchors", "contains": "panel.timeline"}]},
-    {"snapshot": "editor-fr", "baseline": "editor-fr", "tolerance": 0.03, "threshold": 40}
+    // scoped to the panels whose French labels this checks (a full-window baseline broke on every unrelated chrome
+    // change: re-recorded 7×); player / timeline pixels are media renders, covered by their own tests
+    {"snapshot": "editor-fr-assets", "element": "id:panel.assets", "baseline": true, "tolerance": 0.03, "threshold": 40},
+    {"snapshot": "editor-fr-inspector", "element": "id:panel.inspector", "baseline": true, "tolerance": 0.03, "threshold": 40}
   ]
 }
