@@ -502,6 +502,9 @@ import MontageTestSupport
         TimingBudget.metric("unit_text_50captions_cpu_ms", cpu.sorted()[n / 2], "ms")
         TimingBudget.metric("unit_text_50captions_gpu_ms", gpu.sorted()[n / 2], "ms")
         if let lim = TimingBudget.limit(16, "50 animated captions") { #expect(ms < lim, "50 animated captions took \(ms) ms/frame") }
+        // always: the frame's cost as thread CPU + GPU time (load-robust gross bound of the same 16 ms budget)
+        let cost = cpu.sorted()[n / 2] + gpu.sorted()[n / 2]
+        #expect(cost < TimingBudget.cpuLimit(16), "50 animated captions cost \(cost) ms CPU+GPU per frame")
         #expect(r.text.rasterizationCount == 50)
     }
 

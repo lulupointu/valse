@@ -143,7 +143,7 @@ public final class ProxyManager: @unchecked Sendable {
                     }
                 }
             }
-        } onCancel: { stop.request(io.value.0) }
+        } onCancel: { stop.request() }
         stop.finish()
         if cancelled || Task.isCancelled {
             reader.cancelReading()

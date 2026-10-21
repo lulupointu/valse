@@ -38,7 +38,7 @@ if [[ $GATE == 1 ]]; then
   if [[ -z "$STAMP" || ! -f "$STAMP" ]]; then
     echo "✘ no passing gate for $BR (no ${STAMP:-worktree build/check_clean.ok}): run scripts/check_clean.sh --ui in its worktree (or --skip-gate-check)"; exit 1
   fi
-  read -r S_HASH S_DATE S_MODE < "$STAMP"
+  read -r S_HASH S_DATE S_MODE S_EXTRA < "$STAMP"   # S_EXTRA: e.g. perf-unverified=N (check_clean)
   if [[ "$S_MODE" != ui ]]; then
     echo "✘ the last passing gate ($S_DATE) was mode $S_MODE, not --ui: re-run scripts/check_clean.sh --ui${WT:+ in $WT}"; exit 1
   fi
@@ -57,6 +57,7 @@ if [[ $GATE == 1 ]]; then
     fi
     echo "  re-run scripts/check_clean.sh --ui${WT:+ in $WT} (or pass --skip-gate-check)"; exit 1
   fi
+  if [[ -n "${S_EXTRA:-}" ]]; then echo "  note: gate stamp says $S_EXTRA (perf budgets not verified under load)"; fi
 fi
 
 [[ "$(git -C "$MAIN" symbolic-ref --short -q HEAD)" == main ]] || { echo "✘ the main checkout ($MAIN) is not on main"; exit 1; }

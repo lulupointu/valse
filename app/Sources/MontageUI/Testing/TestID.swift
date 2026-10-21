@@ -85,5 +85,8 @@ public final class TestAnchors {
         frames[id] = list.last?.frame
     }
     public var ids: [String] { frames.keys.sorted() }
+    /// The live view instance currently owning `id` (changes when the view is rebuilt: a press that began on the old
+    /// instance never completes on the new one).
+    func owner(_ id: String) -> UUID? { owners[id]?.last?.token }
     public func frame(_ id: String) -> CGRect? { frames[id] }
 }

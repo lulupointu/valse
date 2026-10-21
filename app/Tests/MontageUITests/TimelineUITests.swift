@@ -174,16 +174,21 @@ import MontageCore
         v.frame = CGRect(x: 0, y: 0, width: 1600, height: 420)
         _ = v.buildCanvas()  // warm label cache
         let t0 = Date()
-        for _ in 0..<10 { _ = v.buildCanvas() }
+        let (_, cpu10) = TimingBudget.threadCPUms { for _ in 0..<10 { _ = v.buildCanvas() } }
         let ms = Date().timeIntervalSince(t0) * 100
         TimingBudget.metric("unit_timeline_canvas_600_ms", ms, "ms")
+        // gross bound in thread CPU time: always asserted (load-robust); the wall-clock one in perf runs
+        #expect(cpu10 / 10 < TimingBudget.cpuLimit(30), "buildCanvas took \(cpu10 / 10) ms CPU")
         if let lim = TimingBudget.limit(30, "buildCanvas 600 clips") { #expect(ms < lim, "buildCanvas took \(ms) ms") }
         // hit-testing is O(log n) per row
         let l = v.layoutNow
         let t1 = Date()
-        for i in 0..<1000 { _ = l.hitTest(CGPoint(x: 200 + Double(i % 1000), y: l.rows[l.mainRowIndex!].y + 20), timeline: p.timeline) }
+        let (_, hitCPU) = TimingBudget.threadCPUms {
+            for i in 0..<1000 { _ = l.hitTest(CGPoint(x: 200 + Double(i % 1000), y: l.rows[l.mainRowIndex!].y + 20), timeline: p.timeline) }
+        }
         let hitMs = Date().timeIntervalSince(t1) * 1000
         TimingBudget.metric("unit_timeline_hittest_1000_ms", hitMs, "ms")
+        #expect(hitCPU < TimingBudget.cpuLimit(50), "1000 hit tests took \(hitCPU) ms CPU")
         if let lim = TimingBudget.limit(50, "1000 hit tests") { #expect(hitMs < lim, "1000 hit tests took \(hitMs) ms") }
     }
 

@@ -12,7 +12,8 @@
 #
 # Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep]
 #   --build-only  build (incl. tests) but don't run scripts/test.sh
-#   --ui          also run every UI test script (scripts/uitest.sh --all) in the clean tree
+#   --ui          also run every UI test script (scripts/uitest.sh --all) and the perf gate (scripts/perf.sh --no-smoke,
+#                 exclusive slot) in the clean tree
 #   --keep        keep the temp worktree (its path is printed)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -99,11 +100,28 @@ if [[ $UI == 1 ]]; then
   fi
   grep -E "^⏭|skipped:|flaky|quarantined \(" "$TMP/ui.log" | sed 's/^/    /' || true
 fi
+if [[ $UI == 1 ]]; then
+  # perf gate (DX-C): wall-clock budgets (unit timing tests, timeline 500 / asset 1000 UI perf) vs bench/perf_thresholds.json,
+  # measured with EVERY slot (exclusive, so other teams' runs don't disturb it): release ours, perf.sh queues for all.
+  slots_release; unset MONTAGE_SLOT_HELD
+  PERF_UNVERIFIED=""
+  if scripts/perf.sh --no-smoke --out "$TMP/perf.json" >"$TMP/perf.log" 2>&1; then echo "✔ clean perf gate (scripts/perf.sh --no-smoke)"
+  else echo "✘ clean perf gate failed:"; python3 -c 'import json,sys; [print("    " + v) for v in json.load(open(sys.argv[1])).get("violations", [])]' "$TMP/perf.json" 2>/dev/null || tail -5 "$TMP/perf.log"
+    cp "$TMP/perf.log" "$ROOT/build/check_clean-perf.log" 2>/dev/null || true; FAIL=1
+  fi
+  PERF_UNVERIFIED="$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("unreliable", [])))' "$TMP/perf.json" 2>/dev/null || echo 0)"
+  [[ "$PERF_UNVERIFIED" == 0 ]] && PERF_UNVERIFIED=""
+  if [[ -n "$PERF_UNVERIFIED" ]]; then
+    echo "⚠ perf: $PERF_UNVERIFIED metrics unverified due to load (wall-clock / GPU-time; see build/check_clean-perf.log)"
+    cp "$TMP/perf.log" "$ROOT/build/check_clean-perf.log" 2>/dev/null || true
+  fi
+fi
 ELAPSED="$(( ($(date +%s) - START) / 60 )) min"
 if [[ $FAIL == 0 ]]; then
   # gate stamp read by scripts/merge_agent.sh: <commit> <UTC date> <ui|unit|build-only>
   MODE=build-only; [[ $TEST == 1 ]] && MODE=unit; [[ $TEST == 1 && $UI == 1 ]] && MODE=ui; [[ $TEST == 0 && $UI == 1 ]] && MODE=ui-only
-  echo "$(git rev-parse HEAD) $(date -u +%Y-%m-%dT%H:%M:%SZ) $MODE" > "$ROOT/build/check_clean.ok"
+  # 4th field (ui mode): perf metrics left unverified by the load rule (merge_agent.sh reads fields 1-3)
+  echo "$(git rev-parse HEAD) $(date -u +%Y-%m-%dT%H:%M:%SZ) $MODE${PERF_UNVERIFIED:+ perf-unverified=$PERF_UNVERIFIED}" > "$ROOT/build/check_clean.ok"
   echo "CLEAN CHECKOUT OK ($ELAPSED)"
 else
   rm -f "$ROOT/build/check_clean.ok"; echo "CLEAN CHECKOUT FAILED ($ELAPSED)"; exit 1

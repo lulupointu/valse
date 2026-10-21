@@ -69,7 +69,7 @@ run_one() {
   return $code
 }
 
-PASS=0; FAIL=0; SKIP=0; FAILED=(); SKIPPED=(); FLAKY=(); QUAR=()
+PASS=0; FAIL=0; SKIP=0; FAILED=(); SKIPPED=(); FLAKY=(); QUAR=(); SLOWEXP=()
 for s in "${SCRIPTS[@]}"; do
   [[ -f "$s" ]] || { echo "no such script: $s"; FAIL=$((FAIL + 1)); FAILED+=("$s"); continue; }
   ABS="$(cd "$(dirname "$s")" && pwd)/$(basename "$s")"
@@ -90,6 +90,9 @@ for s in "${SCRIPTS[@]}"; do
     else CODE=$CODE2; fi
   fi
   printf "%s\t%s\t%s\n" "$NAME" "$CODE" "$(( $(date +%s) - T0 ))" >> "$OUT/durations.tsv"   # name, exit, seconds
+  # an `expect` that waited > 2 s for its condition although the UI had settled = a slow reaction (latency regression)
+  W="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); w=m.get("expect_wait_ms_max",0); print(int(w) if w>2000 and m.get("quiesce_timeouts",0)==0 else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
+  [[ -n "$W" ]] && SLOWEXP+=("$NAME (an expect waited $W ms)")
   if [[ $CODE == 0 ]]; then PASS=$((PASS + 1))
   elif [[ $CODE == 3 ]]; then SKIP=$((SKIP + 1)); SKIPPED+=("$NAME")
   elif REASON="$(python3 scripts/testlib.py quarantined ui "$NAME")"; then
@@ -103,6 +106,7 @@ echo "UI tests: $PASS passed, $FAIL failed, $SKIP skipped, ${#FLAKY[@]} flaky (p
 for f in ${SKIPPED[@]+"${SKIPPED[@]}"}; do echo "  skipped: $f"; done
 for f in ${FLAKY[@]+"${FLAKY[@]}"}; do echo "  flaky (passed on retry): $f"; done
 for f in ${QUAR[@]+"${QUAR[@]}"}; do echo "  quarantined (failed, not gating): $f"; done
+for f in ${SLOWEXP[@]+"${SLOWEXP[@]}"}; do echo "  ⚠ slow expect (UI settled, condition late): $f"; done
 for f in ${FAILED[@]+"${FAILED[@]}"}; do echo "  failed: $f"; done
 if [[ $FAIL != 0 ]]; then exit 1; fi
 exit 0

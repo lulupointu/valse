@@ -27,9 +27,8 @@ import MontageTestSupport
             print("playback probe: \(String(format: "%.1f", r.fps)) fps wall, composed \(r.composed) in \(String(format: "%.2f", r.itemSeconds)) s item time, cost p95 \(String(format: "%.2f", r.composeCostP95Ms)) ms, load/core \(String(format: "%.2f", load)), attempts \(attempt)")
             #expect(r.composed > 0, "compositor never ran")
             // gross-regression bounds only (budgets: 30 fps sustainable, 20 fps composed); precise ones in scripts/perf.sh
-            if let lim = TimingBudget.limit(1000 / 30, "compositor frame cost") {
-                #expect(r.composeCostP95Ms < lim, "compositor p95 frame cost \(r.composeCostP95Ms) ms")
-            }
+            // compositor cost = encoding-thread CPU + GPU command-buffer time (CompositorStats): load-robust, always asserted
+            #expect(r.composeCostP95Ms < TimingBudget.cpuLimit(1000 / 30), "compositor p95 frame cost \(r.composeCostP95Ms) ms")
             if r.itemSeconds > 0.3, let lim = TimingBudget.limit(1000 / 20, "composed frame interval") {
                 #expect(1000 / max(r.composedFPS, 0.001) < lim, "composed \(r.composedFPS) fps of item time")
             }

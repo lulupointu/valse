@@ -185,17 +185,25 @@ public enum Exporter {
         let stop = ReaderCancel()
         let activity = ExportActivity()
         let monitor = Task.detached { [state = built.state] in
-            // stall = no sample AND no composed frame for `stallSeconds` (work-based: a slow pass on a loaded machine
-            // keeps composing and reading, so it never trips)
-            var last = (activity.samples, state.framesComposed), since = Date()
+            // stall = for `stallSeconds`: no sample read, no composition requested or composed, and NO compose in
+            // progress (work-based: a slow pass on a loaded machine, even one very slow frame, keeps it alive). The
+            // pumps are then only asked to stop: the reader is never cancelled while a pump reads (ReaderCancel).
+            var last = (activity.samples, state.framesComposed, state.requestsStarted), since = Date()
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                let now = (activity.samples, state.framesComposed)
-                if now != last { last = now; since = Date(); continue }
-                if Date().timeIntervalSince(since) > Self.stallSeconds { activity.markStalled(); stop.request(io.value.0, fallback: 2); return }
+                let now = (activity.samples, state.framesComposed, state.requestsStarted)
+                if now != last || state.composesInFlight > 0 { last = now; since = Date(); continue }
+                if Date().timeIntervalSince(since) > Self.stallSeconds { activity.markStalled(); stop.request(); return }
             }
         }
-        await withTaskCancellationHandler {
+        // The pumps run in their own task, which holds the reader / writer until every pump has returned. A USER CANCEL
+        // does not wait for them: if a read is stuck inside AVFoundation, the export is abandoned at once (job cancelled,
+        // partial file removed) and the reader stays PARKED (`ParkedReaders`) until its copy returns; only then is it
+        // cancelled and released — never while being read (ReaderCancel).
+        let outcome = PumpOutcome()
+        let pumpID = url.path
+        let hasAudio = aOut != nil
+        let pumps = Task.detached { @Sendable in
             await withTaskGroup(of: Void.self) { g in
                 g.addTask {
                     let (_, _, vOut, vIn, _, _, cover) = io.value
@@ -208,36 +216,46 @@ public enum Exporter {
                         await pumpMotionBlur(vOut, vIn, shift: shift, prefix: first, frameDuration: frameDur, rangeStart: exportRange.start, lead: lead,
                                              stop: stop, onSample: report)
                     } else {
-                        await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video", stop: stop, onSample: report)
+                        await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video", id: pumpID, stop: stop, onSample: report)
                     }
                 }
-                if aOut != nil {
+                if hasAudio {
                     g.addTask {
                         let (_, _, _, _, aOut, aIn, _) = io.value
-                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, label: "export.audio", stop: stop, onSample: { _ in activity.tick() }) }
+                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, label: "export.audio", id: pumpID, stop: stop, onSample: { _ in activity.tick() }) }
                     }
                 }
             }
-        } onCancel: {
-            // Only ask the pumps to stop (never cancelReading under a running copy: ReaderCancel); reader and writer
-            // are cancelled below, once nothing reads.
-            stop.request(io.value.0)
+            outcome.fire(.finished)
         }
-        stop.finish()
+        let finished = await withTaskCancellationHandler {
+            await outcome.wait() == .finished
+        } onCancel: {
+            // ask the pumps to stop (never cancelReading under a running copy: ReaderCancel) and stop waiting for them
+            stop.request()
+            outcome.fire(.cancelled)
+        }
         monitor.cancel()
-        if Task.isCancelled {
-            reader.cancelReading()
-            writer.cancelWriting()
+        if !finished || Task.isCancelled {
             try? FileManager.default.removeItem(at: url)
+            // reader / writer are cancelled once the pumps really returned (at once when they already have)
+            ParkedReaders.shared.park(pumpID, pumps) {
+                let (reader, writer, _, _, _, _, _) = io.value
+                reader.cancelReading()
+                writer.cancelWriting()
+                try? FileManager.default.removeItem(at: url)
+            }
             throw ExportError.cancelled
         }
+        stop.finish()
         if activity.stalled {
             reader.cancelReading()
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
             Self.noteStallRestart()
-            print("⚠️ export pass stalled (no frame for \(Int(Self.stallSeconds)) s), attempt \(attempt)")
-            if attempt < 2 { continue }
+            NSLog("Montage export: pass stalled (nothing read or composed for %d s), attempt %d", Int(Self.stallSeconds), attempt)
+            // a test never hides a stall behind the restart: it fails (UI tests: UITestDriver fails on stallRestarts)
+            if attempt < 2, !MontageProcess.isUnitTest { continue }
             throw ExportError.failed("export stalled")
         }
         if reader.status == .failed || writer.status == .failed {
@@ -253,6 +271,10 @@ public enum Exporter {
         return
         }
     }
+
+    /// Tests only: called by a pump right before each `copyNextSampleBuffer` (export output path, pump label) — a test can
+    /// block it to simulate a read stuck inside AVFoundation.
+    nonisolated(unsafe) public static var testWillCopy: (@Sendable (String, String) -> Void)?
 
     /// No sample read and no frame composed for this long = a stalled export pass (hang detector, not a speed budget).
     static let stallSeconds: Double = ProcessInfo.processInfo.environment["MONTAGE_EXPORT_STALL_SECONDS"].flatMap(Double.init) ?? 30
@@ -422,7 +444,7 @@ public enum Exporter {
     }
 
     private static func pump(_ out: AVAssetReaderOutput, _ input: AVAssetWriterInput, shift: CMTime, prefix: CMSampleBuffer?,
-                             label: String, stop: ReaderCancel, onSample: (@Sendable (Double) -> Void)?) async {
+                             label: String, id: String = "", stop: ReaderCancel, onSample: (@Sendable (Double) -> Void)?) async {
         let io = UncheckedSendable((out, input, prefix))
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             let q = DispatchQueue(label: label, qos: .userInitiated)
@@ -437,7 +459,7 @@ public enum Exporter {
                 while input.isReadyForMoreMediaData && !st.done {
                     if stop.requested {
                         st.done = true
-                    } else if let sb = out.copyNextSampleBuffer() {
+                    } else if let sb = { Self.testWillCopy?(id, label); return out.copyNextSampleBuffer() }() {
                         let pts = CMSampleBufferGetPresentationTimeStamp(sb)
                         onSample?(pts.seconds)
                         let t = CMTimeSubtract(pts, shift)
