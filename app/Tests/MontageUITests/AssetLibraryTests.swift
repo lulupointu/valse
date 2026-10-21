@@ -126,7 +126,7 @@ import MontageTestSupport
         s.addToTimeline(s.project.media[0].id, at: .zero)
         s.seek(to: Time(0.5))
         // let the engine's seek callback land first (it would otherwise race the preview under load)
-        for _ in 0..<300 where abs(s.transport.playhead.seconds - 0.5) > 0.001 { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<3000 where abs(s.transport.playhead.seconds - 0.5) > 0.001 { try await Task.sleep(for: .milliseconds(10)) }   // hang bound
         try await Task.sleep(for: .milliseconds(100))
         s.transport.playhead = Time(0.5)
         let before = s.project

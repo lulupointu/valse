@@ -182,7 +182,7 @@ import MontageTestSupport
         defer { try? FileManager.default.removeItem(at: url) }
         let s = EditorStore()
         s.importTimeline(from: url)
-        for _ in 0..<200 where s.timelineSlots.count < 2 { try await Task.sleep(for: .milliseconds(20)) }
+        for _ in 0..<1500 where s.timelineSlots.count < 2 { try await Task.sleep(for: .milliseconds(20)) }   // hang bound (load)
         #expect(s.timelineSlots.count == 2)
         #expect(s.timelineSlots.first { $0.id == s.project.activeTimelineID }?.name == "Imported cut")
         #expect(s.project.settings.frameRate == .fps25 && s.project.settings.canvasSize == Size2(1080, 1920))

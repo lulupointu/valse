@@ -156,14 +156,14 @@ import MontageTestSupport
             #expect(s.project.timeline.allClips.count == 1)
             if case .solid(let c) = s.project.timeline.allClips.first?.content { #expect(c == RGBA(0, 1, 0)) } else { Issue.record("not solid") }
             s.addStockItem(try item("gradient.fire"), at: Time(3))
-            for _ in 0..<1000 where s.project.timeline.allClips.count < 2 { try? await Task.sleep(for: .milliseconds(10)) }
+            for _ in 0..<3000 where s.project.timeline.allClips.count < 2 { try? await Task.sleep(for: .milliseconds(10)) }
             #expect(s.project.media.count == 1)
             #expect(s.project.media.first?.kind == .image)
             #expect(s.project.timeline.allClips.count == 2)
             #expect(StockLibraryState.shared.rendering.isEmpty)
             // a second add reuses the bin asset
             s.addStockItem(try item("gradient.fire"))
-            for _ in 0..<500 where s.project.timeline.allClips.count < 3 { try? await Task.sleep(for: .milliseconds(10)) }
+            for _ in 0..<3000 where s.project.timeline.allClips.count < 3 { try? await Task.sleep(for: .milliseconds(10)) }
             #expect(s.project.media.count == 1)
         }
     }

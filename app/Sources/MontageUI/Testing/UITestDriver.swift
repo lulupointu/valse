@@ -416,6 +416,10 @@ public final class UITestDriver {
         if let name = step["perf"] as? String { return try await perf(name, step) }  // may carry "drag"/"scroll" targets
         for key in ["click", "doubleClick", "rightClick", "drag", "hover"] {
             guard let t = step[key] else { continue }
+            // a previous waitFor / expect may have returned while the layout its state change causes is still pending:
+            // resolving the target from stale test-ID frames would click where the element WAS (ai_movement: a
+            // finishing job's progress line collapsed and the click hit the chip below "Shake")
+            await quiesce()
             // like a user: wait for the target to be on screen (an overloaded main thread lays it out late)
             await waitForTarget(t, step)
             if let t = t as? String, t.hasPrefix("id:"), scrollIntoView(t) { try await idle(settle: 0.2) }
@@ -624,6 +628,7 @@ public final class UITestDriver {
     /// What pending main-thread UI work changes: the on-screen test-ID frames (SwiftUI layout caught up), the edit
     /// revision, selection, inspector / asset tab, toast, first responder, app screen / modal.
     private func uiFingerprint() -> String {
+        window.contentView?.layoutSubtreeIfNeeded()   // apply pending layout now (it would run at the next pass anyway)
         var parts: [String] = []
         for id in TestAnchors.shared.ids {
             if let r = TestAnchors.shared.frame(id) {

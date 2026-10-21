@@ -98,11 +98,12 @@ import MontageTestSupport
         let d = Registries.effects["montage.effect.snow"]!
         let t = EffectThumbnails.shared
         _ = t.still(d)
-        for _ in 0..<100 where t.still(d) == nil { try await Task.sleep(for: .milliseconds(50)) }
+        // waits are hang bounds (60 s), not speed budgets: the renders queue behind other work on a loaded machine
+        for _ in 0..<1200 where t.still(d) == nil { try await Task.sleep(for: .milliseconds(50)) }
         let img = try #require(t.still(d))
         #expect(img.width == EffectThumbnails.pixels && img.height == EffectThumbnails.pixels)
         _ = t.loop(d)
-        for _ in 0..<200 where t.loop(d) == nil { try await Task.sleep(for: .milliseconds(50)) }
+        for _ in 0..<1200 where t.loop(d) == nil { try await Task.sleep(for: .milliseconds(50)) }
         #expect(t.loop(d)?.count == EffectThumbnails.frameCount)
     }
 

@@ -17,7 +17,7 @@ import MontageEngine
         return (AppModel(store: store, preferences: AppPreferences(url: nil), library: lib), lib)
     }
 
-    func waitUntil(timeout: Double = 5, _ cond: @MainActor () -> Bool) async throws {
+    func waitUntil(timeout: Double = 30, _ cond: @MainActor () -> Bool) async throws {   // hang bound (load)
         let end = Date().addingTimeInterval(timeout)
         while !cond() {
             if Date() > end { Issue.record("timed out"); return }

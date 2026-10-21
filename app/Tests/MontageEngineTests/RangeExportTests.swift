@@ -28,16 +28,26 @@ import MontageTestSupport
         return url
     }
 
-    /// Exports `range`; a stalled export is cancelled after `timeout` and reported as a failure instead of hanging.
-    static func export(_ project: Project, range: TimeRange, timeout: Double = 60) async throws -> MediaInfo {
+    /// Exports `range`; a STALLED export — no progress for `timeout` s (the B1 bug: the reader never delivers a frame,
+    /// progress stays at 0 forever) — is cancelled and reported as a failure instead of hanging. Progress-based, not
+    /// wall-clock: a slow export on a loaded machine keeps reporting progress and is never cancelled.
+    static func export(_ project: Project, range: TimeRange, timeout: Double = 90) async throws -> MediaInfo {
         var s = ExportSettings(); s.resolution = .p480
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("montage-b1-\(UUID().uuidString).\(s.fileExtension)")
         defer { try? FileManager.default.removeItem(at: url) }
-        let work = Task { try await Exporter.export(project: project, settings: s, to: url, range: range) }
-        let watchdog = Task { try await Task.sleep(nanoseconds: UInt64(timeout * 1e9)); work.cancel() }
+        let progress = ExportProgressBox()
+        let work = Task { try await Exporter.export(project: project, settings: s, to: url, range: range, progress: { progress.set($0) }) }
+        let watchdog = Task {
+            var last = progress.get(), since = Date()
+            while !Task.isCancelled {
+                try await Task.sleep(nanoseconds: 500_000_000)
+                let now = progress.get()
+                if now != last { last = now; since = Date() } else if Date().timeIntervalSince(since) > timeout { work.cancel(); return }
+            }
+        }
         defer { watchdog.cancel() }
         do { try await work.value } catch ExportError.cancelled {
-            Issue.record("range export \(range.start.seconds)+\(range.duration.seconds) s stalled (cancelled after \(timeout) s)")
+            Issue.record("range export \(range.start.seconds)+\(range.duration.seconds) s stalled (no progress for \(timeout) s, at \(progress.get()))")
             throw ExportError.cancelled
         }
         return try await MediaInfo.probe(url)
@@ -88,4 +98,12 @@ import MontageTestSupport
             #expect(abs(info.duration - 2) < 0.1, "start \(start): \(info.duration) s")
         }
     }
+}
+
+/// Last progress value of an export (watchdog of `RangeExportTests.export`).
+final class ExportProgressBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = -1.0
+    func set(_ v: Double) { lock.withLock { value = v } }
+    func get() -> Double { lock.withLock { value } }
 }

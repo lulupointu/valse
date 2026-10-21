@@ -226,7 +226,7 @@ struct DictationAndShutdownTests {
             finished.set()
         }
         while !started.value { try? await Task.sleep(nanoseconds: 5_000_000) }
-        let ok = await q.shutdown(timeout: 3)
+        let ok = await q.shutdown(timeout: 30)   // hang bound: returns as soon as the job body has returned
         #expect(ok)
         #expect(finished.value)
         #expect(await q.wait(id) == .cancelled)

@@ -8,7 +8,7 @@ import MontageTestSupport
 /// Store flows of the media pipeline: folder import keeps structure (one undo step), captions, colour clips, relink.
 @MainActor @Suite(.serialized) struct MediaStoreTests {
     func waitUntil(_ cond: () -> Bool) async {
-        for _ in 0..<400 where !cond() { try? await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<3000 where !cond() { try? await Task.sleep(for: .milliseconds(10)) }   // ≥ 30 s hang bound (load)
     }
 
     func tempDir() -> URL {

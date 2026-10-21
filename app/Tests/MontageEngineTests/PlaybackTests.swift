@@ -59,7 +59,7 @@ import MontageTestSupport
         try TimelineOps.trim(id, edge: .tail, to: 1, in: &p.project)
         engine.update(project: p.project)
         // the rebuild is async: wait for it (a fixed 0.3 s flaked under machine load)
-        for _ in 0..<100 where replaced == 0 { try await Task.sleep(nanoseconds: 50_000_000) }
+        for _ in 0..<600 where replaced == 0 { try await Task.sleep(nanoseconds: 50_000_000) }   // 30 s hang bound
         #expect(replaced == 1)
         #expect(engine.duration == Time(1))
     }
