@@ -156,7 +156,7 @@ fi
 count() { awk -F'\t' -v k="$1" '$1 == k' "$RESULTS" | wc -l | tr -d ' '; }
 detail() { awk -F'\t' -v k="$1" '$1 == k { print "  " p $3 }' p="$2" "$RESULTS"; }
 FAIL=$(count fail)
-echo "UI tests: $(( $(count pass) + $(count flaky) )) passed,$FAIL failed, $(count skip) skipped, $(count flaky) flaky (passed on retry), $(count quar) quarantined failures"
+echo "UI tests: $(( $(count pass) + $(count flaky) )) passed, $FAIL failed, $(count skip) skipped, $(count flaky) flaky (passed on retry), $(count quar) quarantined failures"
 detail skip "skipped: "
 detail flaky "flaky (passed on retry): "
 detail quar "quarantined (failed, not gating): "

@@ -2,8 +2,9 @@
 # Clean-checkout batch gate: the orchestrator runs it ONCE per batch HEAD (docs/AGENT_GUIDE.md); feature agents don't.
 # 1. Fails if any file under app/ or scripts/ is git-ignored. Such files build locally but are never committed
 #    (e.g. a `models/` rule silently hid app/Sources/MontageAI/Models on case-insensitive macOS).
-# 2. Builds (cold) and tests a fresh detached worktree of HEAD in a temp dir, so only committed files count.
-#    Uncommitted changes are NOT part of the check: commit first.
+# 2. Builds and tests a detached worktree that is exactly HEAD (no untracked / ignored file), so only committed files
+#    count. Default: a persistent clean worktree reset to HEAD keeps its .build (incremental build); --cold = a fresh
+#    temp worktree and a cold build. Uncommitted changes are NOT part of the check: commit first.
 # 3. With --ui, the full unit suite (scripts/test.sh, its usual parallel run) and every UI script (scripts/uitest.sh
 #    --all, sharded over --ui-jobs apps) run AT THE SAME TIME: same tests, same retries, ~2x shorter.
 # STAGE 2 of the gate. Feature agents run targeted tests + scripts/check_fast.sh; the orchestrator runs `--ui` per batch.
@@ -12,24 +13,26 @@
 # temp dir are deleted on exit, even on failure or Ctrl-C. On success writes build/check_clean.ok (commit, date, mode)
 # for scripts/merge_agent.sh.
 #
-# Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep] [--serial] [--ui-jobs K]
+# Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep] [--cold] [--serial] [--ui-jobs K]
 #   --build-only  build (incl. tests) but don't run scripts/test.sh
 #   --ui          also run every UI test script (scripts/uitest.sh --all) in the clean tree
-#   --keep        keep the temp worktree (its path is printed)
+#   --keep        keep the temp worktree (its path is printed; --cold only, the warm one is always kept)
+#   --cold        fresh temp worktree + cold build instead of the warm clean worktree
 #   --serial      the pre-2026-10-21 schedule: unit tests, THEN the UI scripts one app at a time (slower, same tests)
 #   --ui-jobs K   UI apps at once (default MONTAGE_UI_JOBS or 4; 1 = one at a time)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-TEST=1; UI=0; KEEP=0; SERIAL=0; UI_JOBS="${MONTAGE_UI_JOBS:-4}"
+TEST=1; UI=0; KEEP=0; SERIAL=0; UI_JOBS="${MONTAGE_UI_JOBS:-4}"; COLD=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --cold) COLD=1; shift;;
     --build-only) TEST=0; shift;;
     --ui) UI=1; shift;;
     --keep) KEEP=1; shift;;
     --serial) SERIAL=1; UI_JOBS=1; shift;;
     --ui-jobs) UI_JOBS="$2"; shift 2;;
-    -h|--help) sed -n '2,21p' "$0"; exit 0;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0;;
     *) echo "unknown arg $1"; exit 2;;
   esac
 done
@@ -60,15 +63,45 @@ fi
 
 TMP="$(mktemp -d -t montage-clean)"
 WT="$TMP/wt"
+SHA="$(git rev-parse HEAD)"
+# Warm mode: a persistent clean worktree per repository (<main checkout>/build/check_clean-cache/wt<N>, one lock each)
+# is reset to exactly HEAD — `checkout --force` + `clean -ffdx` (every untracked AND ignored file goes) except its
+# .build — then verified pristine; SwiftPM's resource bundles are deleted (it never removes a resource deleted from the
+# sources). Unchanged files keep their mtimes, so only what changed since the last gate recompiles.
+CACHE_LOCK=""
+if [[ $COLD == 0 ]]; then
+  CACHE="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)/build/check_clean-cache"; mkdir -p "$CACHE"
+  for n in 0 1; do
+    L="$CACHE/lock.$n"
+    if [[ -d "$L" ]] && ! kill -0 "$(cat "$L/pid" 2>/dev/null || echo 0)" 2>/dev/null; then rm -rf "$L"; fi  # dead holder
+    if mkdir "$L" 2>/dev/null; then echo $$ > "$L/pid"; CACHE_LOCK="$L"; WT="$CACHE/wt$n"; break; fi
+  done
+  [[ -n "$CACHE_LOCK" ]] || { echo "⚠︎ both warm clean worktrees are in use: cold build in a temp worktree"; COLD=1; }
+fi
 cleanup() {
+  if [[ -n "$CACHE_LOCK" ]]; then rm -rf "$TMP" "$CACHE_LOCK"; return; fi   # the warm worktree is the cache: kept
   if [[ $KEEP == 1 ]]; then echo "kept clean worktree: $WT"; return; fi
   git worktree remove --force "$WT" >/dev/null 2>&1 || true
   rm -rf "$TMP"
   git worktree prune >/dev/null 2>&1 || true
 }
 on_exit cleanup
-git worktree add --detach --quiet "$WT" HEAD
-echo "▶ clean worktree of $(git rev-parse --short HEAD) at $WT"
+pristine() { # the worktree is exactly HEAD: no modified, untracked or ignored path except .build/
+  [[ "$(git -C "$WT" rev-parse HEAD 2>/dev/null)" == "$SHA" ]] &&
+    [[ -z "$(git -C "$WT" status --porcelain --ignored --untracked-files=all | grep -vxF '!! .build/')" ]]
+}
+if [[ -n "$CACHE_LOCK" ]]; then
+  if ! { git -C "$WT" checkout --quiet --detach --force "$SHA" && git -C "$WT" clean -ffdxq -e /.build && pristine; } >/dev/null 2>&1; then
+    echo "  (warm worktree missing or unusable: recreating it, cold build)"
+    git worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"; git worktree prune
+    git worktree add --detach --quiet "$WT" "$SHA"
+  fi
+  pristine || { echo "✘ the clean worktree $WT is not exactly HEAD"; git -C "$WT" status --short --ignored | head; exit 1; }
+  rm -rf "$WT"/.build/*/debug/*.bundle "$WT"/.build/*/release/*.bundle
+else
+  git worktree add --detach --quiet "$WT" HEAD
+fi
+echo "▶ clean worktree of $(git rev-parse --short HEAD) at $WT$([[ -n "$CACHE_LOCK" ]] && echo " (warm .build)")"
 # Reuse the bench media (gitignored, large) if present; perf smoke tests stay opt-in anyway.
 [[ -e "$ROOT/bench/media" ]] && ln -s "$(cd "$ROOT/bench/media" && pwd -P)" "$WT/bench/media" 2>/dev/null || true
 # UI scripts start longest-first using the previous gate's timings (only the order; every script still runs)
