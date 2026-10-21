@@ -45,23 +45,37 @@ public enum SpeechSynthesis {
         voices(languages: [String(language.prefix(2))]).first { !$0.isNovelty }
     }
 
-    public static func cacheURL(text: String, voice: String, rate: Double, pitch: Double) -> URL {
-        let key = "\(voice)|\(rate)|\(pitch)|\(text)"
+    /// Neutral keeps the pre-style key, so existing cached files stay valid.
+    public static func cacheURL(text: String, voice: String, rate: Double, pitch: Double, style: TTSStyle = .neutral) -> URL {
+        let key = "\(voice)|\(rate)|\(pitch)|\(text)" + (style == .neutral ? "" : "|style=\(style.rawValue)")
         let h = SHA256.hash(data: Data(key.utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
         return directory.appendingPathComponent("tts-\(h).caf")
     }
 
-    /// Synthesizes `text` (rate 0.5…2 = CapCut speed, pitch 0.5…2). Returns the audio file URL (cached).
-    public static func synthesize(_ text: String, voice: String, rate: Double = 1, pitch: Double = 1) async throws -> URL {
-        let url = cacheURL(text: text, voice: voice, rate: rate, pitch: pitch)
-        if FileManager.default.fileExists(atPath: url.path) { return url }
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    /// The utterance for a request (also used by the inspector's voice preview). Neutral = plain text with the
+    /// utterance's rate / pitch; any other style = SSML (`TTSProsody.ssml`), which the synthesizer reads instead of
+    /// those properties (measured: with SSML, `rate` / `pitchMultiplier` are ignored, `<prosody>` / `<break>` work).
+    public static func utterance(_ text: String, voice: String, rate: Double = 1, pitch: Double = 1, style: TTSStyle = .neutral) -> AVSpeechUtterance {
+        let v = AVSpeechSynthesisVoice(identifier: voice) ?? AVSpeechSynthesisVoice(language: L10n.shared.language)
+        if style != .neutral, let u = AVSpeechUtterance(ssmlRepresentation: style.prosody.ssml(text, rate: rate, pitch: pitch)) {
+            u.voice = v
+            return u
+        }
         let utt = AVSpeechUtterance(string: text)
-        utt.voice = AVSpeechSynthesisVoice(identifier: voice) ?? AVSpeechSynthesisVoice(language: L10n.shared.language)
+        utt.voice = v
         // AVSpeech rate: 0.5 = normal; map CapCut speed 1× → default rate
         utt.rate = Float(min(max(Double(AVSpeechUtteranceDefaultSpeechRate) * rate, Double(AVSpeechUtteranceMinimumSpeechRate)),
                              Double(AVSpeechUtteranceMaximumSpeechRate)))
         utt.pitchMultiplier = Float(min(max(pitch, 0.5), 2))
+        return utt
+    }
+
+    /// Synthesizes `text` (rate 0.5…2 = CapCut speed, pitch 0.5…2, `style` preset). Returns the audio file URL (cached).
+    public static func synthesize(_ text: String, voice: String, rate: Double = 1, pitch: Double = 1, style: TTSStyle = .neutral) async throws -> URL {
+        let url = cacheURL(text: text, voice: voice, rate: rate, pitch: pitch, style: style)
+        if FileManager.default.fileExists(atPath: url.path) { return url }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let utt = utterance(text, voice: voice, rate: rate, pitch: pitch, style: style)
         let tmp = directory.appendingPathComponent("tmp-\(UUID().uuidString).caf")
         let synth = AVSpeechSynthesizer()
         let writer = TTSWriter(url: tmp)

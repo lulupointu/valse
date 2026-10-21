@@ -117,4 +117,11 @@
 "tts.voice.hqBadge" = "✦ Enhanced";
 "tts.voiceName.Grandma" = "Grandma";
 "tts.voiceName.Grandpa" = "Grandpa";
+"tts.style" = "Style";
+"tts.style.neutral" = "Neutral";
+"tts.style.cheerful" = "Cheerful";
+"tts.style.calm" = "Calm";
+"tts.style.serious" = "Serious";
+"tts.style.excited" = "Excited";
+"tts.style.help" = "Changes pace, pitch, pauses and tone of the voice. Click Generate speech to apply it.";
 "captions.advanced" = "Advanced";

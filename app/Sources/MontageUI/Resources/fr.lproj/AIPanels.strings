@@ -117,4 +117,11 @@
 "tts.voice.hqBadge" = "✦ Améliorée";
 "tts.voiceName.Grandma" = "Mamie";
 "tts.voiceName.Grandpa" = "Papi";
+"tts.style" = "Style";
+"tts.style.neutral" = "Neutre";
+"tts.style.cheerful" = "Joyeux";
+"tts.style.calm" = "Calme";
+"tts.style.serious" = "Sérieux";
+"tts.style.excited" = "Enthousiaste";
+"tts.style.help" = "Modifie le rythme, la hauteur, les pauses et le timbre de la voix. Cliquez sur Générer la voix pour l'appliquer.";
 "captions.advanced" = "Avancé";
