@@ -18,6 +18,19 @@ description: Which Montage test / gate command to run when (scripts/test.sh, uit
 | perf-sensitive change | when asked | `scripts/perf.sh` (takes ALL slots: avoid on a busy machine) | |
 
 Feature agents never run `check_clean.sh`: the orchestrator runs it once per batch (docs/AGENT_GUIDE.md).
+`check_clean.sh --ui` also runs `scripts/perf.sh --no-smoke` (exclusive slot) after the UI suite, so the batch gate
+checks the perf budgets (bench/perf_thresholds.json + perf.sh's `UNIT_TIMING` tests).
+
+## Perf under load (docs/TESTING.md "perf.sh load rule")
+- Correctness tests never assert wall clock (`TimingBudget.limit` = nil outside `MONTAGE_PERF=1`); thread-CPU (`_cpu_`),
+  memory and the gross ×4 GPU-time bounds always gate.
+- In perf.sh, wall-clock and GPU-time metrics (`launch_ms`, `_wall_`, `_gpu_`, unit wall-clock / strict GPU budgets) gate
+  only while the 1-min load average stays ≤ the core count (sampled before / after each part). Above it perf.sh waits
+  ≤ 5 min (`MONTAGE_PERF_LOAD_WAIT`), measures again, then reports each as `UNRELIABLE (load X > cores Y)` without gating.
+  `MONTAGE_PERF_CORES` overrides the core count (also for TimingBudget).
+- check_clean then prints `perf: N metrics unverified due to load` and the stamp `build/check_clean.ok` gets
+  `perf-unverified=N` (merge_agent.sh still accepts it and prints a note). Say so in the batch report; re-run
+  `scripts/perf.sh` on a quieter machine if the batch touched perf-sensitive code.
 Don't use `check_fast.sh --all-ui` as a substitute for the batch gate.
 
 check_fast's UI scripts come from `scripts/ui_select.py`: derived from your changed lines (changed declaration → test
@@ -50,6 +63,12 @@ smoke set; `app/Tests/ui_map.txt` is only smoke / `always` / directory-fallback 
   also fails on main), say so with evidence (script, error line, `/usr/bin/git log main` of that area); don't quarantine it.
 - `quarantined (failed, not gating)` = listed in `app/Tests/quarantine.txt` (`<unit|ui> <id> <date> <reason>`, validated
   by `python3 scripts/testlib.py check-quarantine`). Never add your own new failure there. Remove an entry when you fix it.
+- The quarantine is EMPTY (DX-C fixed the 8 former "load flakes" and emptied it; audio_online was a real bug). Keep it empty.
+  Instead of quarantining: reproduce with `--no-retry` (optionally under load), read failure.json / the PNGs, fix the
+  wait (state-based `waitFor`, see write-ui-script) or the app; if it is not your area, report script + error line +
+  evidence to the orchestrator, who files it. A test is never quarantined to make a gate green.
+- `⚠ slow expect` / `⚠ click warning` (uitest.sh, per script and counted in the `UI tests:` line) are not gating but
+  are quality signals (late UI reaction; a click that missed or whose target was rebuilt): mention them in your report.
 - `skipped` (UI exit code 3) = unmet `requires` (AI model / content pack / minOS). Not a failure.
 
 ## Waiting, hangs, disk

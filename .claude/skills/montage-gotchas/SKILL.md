@@ -16,10 +16,17 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
 - ML jobs via `JobQueue` pass `heavy: true` (runs inside `HeavyWorkGate`, MontageEngine/Jobs/). Tests await the task a
   store flow returns (`setCutout`, `autoBeats`) instead of polling with a time budget.
 - No wall-clock asserts in correctness tests: `TimingBudget.limit` returns nil (nothing asserted) unless `MONTAGE_PERF=1`
-  (scripts/perf.sh, `scripts/test.sh --perf`). Emit `TimingBudget.metric(...)`, add the test to perf.sh's `--filter` and
-  the budget to bench/perf_thresholds.json. Freeze/deadlock checks measure work (no frame while nothing is composed), not time.
+  (scripts/perf.sh, `scripts/test.sh --perf`). Emit `TimingBudget.metric(...)`, add the test to perf.sh's `UNIT_TIMING` and
+  the budget to bench/perf_thresholds.json (wall-clock budgets gate only while load ≤ cores, run-gates skill). Freeze/deadlock checks measure work (no frame while nothing is composed), not time.
 - Tests run in a private TMPDIR deleted on exit: caches that must survive go to `MONTAGE_TEST_MEDIA_DIR` / `MontagePaths`
   (unit tests: `MontagePaths.testRunCacheDirectory`), never `FileManager.default.temporaryDirectory`.
+- **L10n in tests**: never flip `L10n.shared`'s language from a test that runs off the main actor (main-actor UI suites
+  read it concurrently: stale / partial tables, DX-L). Use a private instance `L10n(bundles: [CoreResources.bundle],
+  language: "fr")` (see LocalizationTests, L10nConcurrencyTests). L10n swaps language + tables atomically (one State).
+- **Export cancel / AVAssetReader**: never call `cancelReading` while a pump may be inside `copyNextSampleBuffer`
+  (use-after-free crash under load). Cancel handlers / stall monitors only `ReaderCancel.request()`; the pumps stop at
+  the next sample; a cancelled export whose read is stuck is PARKED (`ParkedReaders`) and cancelled + released only after
+  its pumps return (MontageEngine/Export/ReaderCancel.swift, Exporter.swift). Keep this for any new reader loop.
 - Use `RealLikeMedia` (iPhone HEVC HLG portrait, speech, 120 BPM music) for media features, not only testsrc: rotation,
   10-bit HLG and 44.1 kHz AAC are what real footage breaks.
 

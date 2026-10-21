@@ -55,9 +55,23 @@ lists the test IDs on screen.
   (audio_online regression: last keystrokes dropped on macOS 13).
 - Before a `snapshot`, `waitFor` whatever paints it (thumbnails, results, the selected tab) so pixels are final.
 - Every `expect` right after an async action should be a `waitFor` instead.
-- The driver already helps (DX-C, docs/TESTING.md §1 "Load-independent waits"): after each input step it waits for the UI to be quiescent (≤ 10 s);
-  `expect` is re-checked until it holds (≤ 10 s); `waitFor` timeouts are floored at 30 s; click/drag targets are awaited;
-  snapshots wait for stable pixels; animations are off. Assert end states; `exists: false` only for already-true facts.
+- The driver already helps (docs/TESTING.md §1 "Load-independent waits"): after each input step it waits for the UI to
+  be quiescent (≤ 10 s; also renders the window, since SwiftUI hit-tests what it last drew); `expect` is re-checked
+  every 50 ms until it holds (≤ 10 s); `waitFor` timeouts are floored at 30 s; click/drag/hover targets are awaited
+  (≤ 10 s); animations are off. Assert end states; `exists: false` only for already-true facts.
+- `"now": true` on an expect = check once, immediately (only when immediacy IS the point: "hidden at once"). An expect
+  right after a `"settle": 0` step (e.g. a hover checking `ui.tooltipPending`) is `now` by default, without retry.
+- report.json records each expect's `waitMs` and `expect_wait_ms_max`; uitest.sh prints `⚠ slow expect` when one waited
+  > 2 s although the UI had settled = a latency regression (the app reacts late), fix it rather than ignore it.
+- Snapshots: re-rendered until two consecutive renders are identical AND (with a baseline) it matches the baseline,
+  ≤ 30 s (a hang bound, `MONTAGE_UITEST_SNAPSHOT_LIMIT`); a real difference fails with the last diff, and so does a
+  view that never renders the same twice (something keeps animating / reloading).
+- `id:` clicks are verified: if the press provably did not land inside the element's frame it is clicked once more
+  (`click_redeliveries` in report.json); a press that landed is never repeated; an element rebuilt between press and
+  release counts in `click_release_anomalies`. uitest.sh warns on both (`⚠ click redelivered` / `⚠ click release
+  anomaly`): not gating, but it means the target moved or was rebuilt under the click: investigate.
+- Transition / effect thumbnails render asynchronously: before a snapshot of the transitions tab
+  `{"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0}}` (on-screen tiles whose still is not rendered yet).
 - Flaky = bug in the test or the app: fix the wait; never "fix" by adding `wait` or raising the tolerance blindly.
 
 ## Gotcha: keys while a text field is editing

@@ -69,7 +69,7 @@ run_one() {
   return $code
 }
 
-PASS=0; FAIL=0; SKIP=0; FAILED=(); SKIPPED=(); FLAKY=(); QUAR=(); SLOWEXP=()
+PASS=0; FAIL=0; SKIP=0; FAILED=(); SKIPPED=(); FLAKY=(); QUAR=(); SLOWEXP=(); CLICKW=()
 for s in "${SCRIPTS[@]}"; do
   [[ -f "$s" ]] || { echo "no such script: $s"; FAIL=$((FAIL + 1)); FAILED+=("$s"); continue; }
   ABS="$(cd "$(dirname "$s")" && pwd)/$(basename "$s")"
@@ -92,7 +92,11 @@ for s in "${SCRIPTS[@]}"; do
   printf "%s\t%s\t%s\n" "$NAME" "$CODE" "$(( $(date +%s) - T0 ))" >> "$OUT/durations.tsv"   # name, exit, seconds
   # an `expect` that waited > 2 s for its condition although the UI had settled = a slow reaction (latency regression)
   W="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); w=m.get("expect_wait_ms_max",0); print(int(w) if w>2000 and m.get("quiesce_timeouts",0)==0 else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
-  [[ -n "$W" ]] && SLOWEXP+=("$NAME (an expect waited $W ms)")
+  if [[ -n "$W" ]]; then SLOWEXP+=("$NAME (an expect waited $W ms)"); echo "⚠ slow expect: $NAME (an expect waited $W ms although the UI had settled)"; fi
+  # an `id:` click whose press provably missed the element and was re-sent, or an element rebuilt between press and
+  # release (UITestDriver click verification): not gating, but the target moved / was rebuilt under the click
+  CW="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); r=int(m.get("click_redeliveries",0)); a=int(m.get("click_release_anomalies",0)); print(f"{r} click redelivery(ies), {a} release anomaly(ies)" if r or a else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
+  if [[ -n "$CW" ]]; then CLICKW+=("$NAME ($CW, see warnings in $OUT/$NAME/report.json)"); echo "⚠ click warning: $NAME ($CW)"; fi
   if [[ $CODE == 0 ]]; then PASS=$((PASS + 1))
   elif [[ $CODE == 3 ]]; then SKIP=$((SKIP + 1)); SKIPPED+=("$NAME")
   elif REASON="$(python3 scripts/testlib.py quarantined ui "$NAME")"; then
@@ -102,11 +106,13 @@ for s in "${SCRIPTS[@]}"; do
     FAIL=$((FAIL + 1)); FAILED+=("$NAME (exit $CODE$TWICE) → $OUT/$NAME")
   fi
 done
-echo "UI tests: $PASS passed, $FAIL failed, $SKIP skipped, ${#FLAKY[@]} flaky (passed on retry), ${#QUAR[@]} quarantined failures"
+WARNS=""; if (( ${#SLOWEXP[@]} + ${#CLICKW[@]} > 0 )); then WARNS=", ⚠ ${#SLOWEXP[@]} slow expect, ${#CLICKW[@]} click warnings"; fi
+echo "UI tests: $PASS passed, $FAIL failed, $SKIP skipped, ${#FLAKY[@]} flaky (passed on retry), ${#QUAR[@]} quarantined failures${WARNS}"
 for f in ${SKIPPED[@]+"${SKIPPED[@]}"}; do echo "  skipped: $f"; done
 for f in ${FLAKY[@]+"${FLAKY[@]}"}; do echo "  flaky (passed on retry): $f"; done
 for f in ${QUAR[@]+"${QUAR[@]}"}; do echo "  quarantined (failed, not gating): $f"; done
 for f in ${SLOWEXP[@]+"${SLOWEXP[@]}"}; do echo "  ⚠ slow expect (UI settled, condition late): $f"; done
+for f in ${CLICKW[@]+"${CLICKW[@]}"}; do echo "  ⚠ click redelivered / release anomaly: $f"; done
 for f in ${FAILED[@]+"${FAILED[@]}"}; do echo "  failed: $f"; done
 if [[ $FAIL != 0 ]]; then exit 1; fi
 exit 0
