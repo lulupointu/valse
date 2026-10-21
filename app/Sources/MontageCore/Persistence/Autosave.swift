@@ -139,8 +139,9 @@ public enum MontagePaths {
     /// test runs (several checkouts) use the same synthetic media, so content-hash-keyed entries (mattes, stems,
     /// enhanced copies) were shared and one run deleted / rewrote what another was rendering. Compiled AI models stay
     /// shared (`models` links to the user cache: compiling them is slow). Folders of runs that ended are removed.
+    /// UI-test apps (`--uitest`, AppDefaults isolated) get one too: scripts/uitest.sh `--jobs` runs several at once.
     static let testRunCacheDirectory: URL? = {
-        guard MontageProcess.isUnitTest else { return nil }
+        guard MontageProcess.isUnitTest || !AppDefaults.processSuffix.isEmpty else { return nil }
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("montage-test-cache", isDirectory: true)
         try? fm.createDirectory(at: root, withIntermediateDirectories: true)

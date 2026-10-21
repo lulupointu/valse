@@ -50,10 +50,14 @@ stacks of its processes are appended to the log (`build/test.log`), the tree is 
 copies and mock downloads never pile up; the synthetic media cache stays shared (`MONTAGE_TEST_MEDIA_DIR`, default
 `$TMPDIR/montage-test-media-v1`). check_clean reuses a persistent clean worktree
 (`<main checkout>/build/check_clean-cache/wt0|wt1`, ~1.5 GB each: reset to exactly HEAD with `checkout --force` +
-`clean -ffdx` except `.build`, verified pristine, resource bundles rebuilt) for an incremental build; `--cold` uses a
-temp `montage-clean.*` worktree removed on exit. `uitest.sh --jobs K` runs K apps at once: each UI-test app has a private
-settings domain and pasteboard (MontageCore `AppDefaults`, `AppPasteboard`), sandbox and TMPDIR, so scripts can't
-interact; check_clean runs the UI suite with `--jobs 4` while the unit suite runs. check_fast / check_clean
+`clean -ffdx` except `.build`, verified pristine, resource bundles rebuilt) for an incremental build. The `.build`
+is wiped (printed as `cold: <reason>`) when the package graph or toolchain changed (Package.swift, Package.resolved,
+target folders, `swift --version`: a removed target's leftover module would let a stale `import` compile), after 20
+gates or 24 h (`MONTAGE_WARM_MAX_GATES` / `MONTAGE_WARM_MAX_HOURS`). Locks are kernel `flock`s (no stale locks).
+`--cold` uses a temp `montage-clean.*` worktree removed on exit. `uitest.sh --jobs K` runs K apps at once: each UI-test app has a private
+settings domain and pasteboard (MontageCore `AppDefaults`, `AppPasteboard`), sandbox, cache folder
+(`montage-test-cache/run-<pid>`, compiled models shared and installed atomically: `AtomicInstall`) and TMPDIR, so
+scripts can't interact; check_clean runs the UI suite with `--jobs 4` while the unit suite runs. check_fast / check_clean
 fail fast with "DISK FULL" below 5 GB free (`MONTAGE_MIN_FREE_GB`). `MONTAGE_KEEP_TMP=1` keeps the temp dirs to debug.
 
 **Real-like fixtures (T1).** `app/Tests/UIScripts/fixtures/real/` (`RealLikeMedia` in Swift), made by

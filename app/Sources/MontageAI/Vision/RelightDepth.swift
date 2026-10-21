@@ -167,10 +167,8 @@ final class DepthEstimator {
         let built = (try? fm.attributesOfItem(atPath: dst.path))?[.modificationDate] as? Date
         if let built, let stamp, built >= stamp, fm.fileExists(atPath: dst.path) { return dst }
         let tmp = try MLModel.compileModel(at: pkg)
-        try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? fm.removeItem(at: dst)
-        try fm.moveItem(at: tmp, to: dst)
-        return dst
+        // atomic: concurrent processes share this cache (an outdated copy is renamed aside, never deleted under a reader)
+        return try AtomicInstall.place(tmp, at: dst, replace: fm.fileExists(atPath: dst.path))
     }
 
     func depth(cgImage: CGImage) throws -> DepthMap {

@@ -95,9 +95,9 @@ run_one() {
 # run_script <script> → appends "<kind>\t<name>\t<detail>" to $RESULTS (kind: pass skip flaky quar fail)
 run_script() {
   local s="$1" ABS NAME T0 CODE CODE2 L w REASON TWICE W CW FLAKYMSG=""
-  if [[ ! -f "$s" ]]; then echo "no such script: $s"; printf "fail\t%s\t%s\n" "$s" "$s" >> "$RESULTS"; return 0; fi
-  ABS="$(cd "$(dirname "$s")" && pwd)/$(basename "$s")"
   NAME="$(basename "$s" .json)"
+  if [[ ! -f "$s" ]]; then echo "no such script: $s"; printf "fail\t%s\t%s\n" "$NAME" "$s" >> "$RESULTS"; return 0; fi
+  ABS="$(cd "$(dirname "$s")" && pwd)/$(basename "$s")"
   T0=$(date +%s)
   CODE=0; run_one "$ABS" "$NAME" || CODE=$?
   if [[ $CODE != 0 && $CODE != 3 && $RETRY == 1 ]]; then
@@ -162,13 +162,17 @@ if (( JOBS > 1 && ${#SCRIPTS[@]} > 1 )); then
   for ((k = 0; k < JOBS; k++)); do worker "$k" & WORKERS="$WORKERS $!"; done
   for p in $WORKERS; do wait "$p" || true; done
   WORKERS=""
-  # every queued script must have produced exactly one result (a worker killed mid-script would lose one)
-  if [[ "$(wc -l < "$RESULTS" | tr -d ' ')" != "${#SCRIPTS[@]}" ]]; then
-    echo "✘ UI workers produced $(wc -l < "$RESULTS" | tr -d ' ') results for ${#SCRIPTS[@]} scripts"
-    printf "fail\t-\tUI worker results missing\n" >> "$RESULTS"
-  fi
 else
   for s in "${SCRIPTS[@]}"; do run_script "$s"; done
+fi
+# every scheduled script produced exactly one result: same sorted multiset of names (a worker killed mid-script
+# loses one, a double claim duplicates one) — any difference fails the run
+script_name() { local n="${1##*/}"; echo "${n%.json}"; }
+for s in "${SCRIPTS[@]}"; do script_name "$s"; done | sort > "$TMPDIR/scheduled.txt"
+cut -f2 "$RESULTS" | sort > "$TMPDIR/reported.txt"
+if ! RESDIFF="$(diff "$TMPDIR/scheduled.txt" "$TMPDIR/reported.txt")"; then
+  echo "✘ UI results don't match the scheduled scripts (< missing, > unexpected / duplicate):"; echo "$RESDIFF" | grep '^[<>]' | sed 's/^/    /'
+  printf "fail\t-\tUI results don't match the scheduled scripts\n" >> "$RESULTS"
 fi
 
 count() { awk -F'\t' -v k="$1" '$1 == k' "${2:-$RESULTS}" | wc -l | tr -d ' '; }

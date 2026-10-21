@@ -51,16 +51,19 @@ public final class LaMaInpainter: @unchecked Sendable {
         if !fm.fileExists(atPath: compiled.path) {
             let pkg = zip.deletingLastPathComponent().appendingPathComponent("LaMa.mlpackage")
             if !fm.fileExists(atPath: pkg.path) {
+                // unzip into a private folder, then rename the package into place (other processes may unzip too)
+                let scratch = zip.deletingLastPathComponent().appendingPathComponent(".unzip-\(UUID().uuidString)", isDirectory: true)
+                defer { try? fm.removeItem(at: scratch) }
+                try fm.createDirectory(at: scratch, withIntermediateDirectories: true)
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-                p.arguments = ["-x", "-k", zip.path, zip.deletingLastPathComponent().path]
+                p.arguments = ["-x", "-k", zip.path, scratch.path]
                 try p.run(); p.waitUntilExit()
                 guard p.terminationStatus == 0 else { throw AIToolError.unavailable("unzip LaMa") }
+                try AtomicInstall.place(scratch.appendingPathComponent("LaMa.mlpackage"), at: pkg)
             }
-            let tmp = try MLModel.compileModel(at: pkg)
-            try fm.createDirectory(at: compiled.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? fm.removeItem(at: compiled)
-            try fm.moveItem(at: tmp, to: compiled)
+            // compiled once, shared by every process: an existing copy (another process won the race) is kept
+            try AtomicInstall.place(try MLModel.compileModel(at: pkg), at: compiled)
         }
         let cfg = MLModelConfiguration()
         cfg.computeUnits = .all
