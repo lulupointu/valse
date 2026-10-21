@@ -652,6 +652,11 @@ public final class UITestDriver {
         parts.append("rev=\(store.session.revision) sel=\(store.selection.map(\.description).sorted()) "
                      + "tab=\(store.inspectorTab ?? "-")/\(store.activeAssetTab) toast=\(store.toast?.message ?? "-")")
         parts.append("first=\(window.firstResponder.map { String(describing: type(of: $0)) } ?? "-")")
+        // the AppKit timeline (clip: / time: / header: targets are resolved from its layout): zoom, scroll, size —
+        // not while playing (follow scrolling moves it continuously; playback steps must not wait for it)
+        if let tl = timelineView, !store.transport.isPlaying {
+            parts.append("tl=\(store.pixelsPerSecond),\(tl.scrollTime),\(tl.scrollY),\(Int(tl.bounds.width)),\(Int(tl.bounds.height))")
+        }
         if let app = StateDump.appHook?() { parts.append("app=\(app["screen"] ?? "-")/\(app["modal"] ?? "-")") }
         return parts.joined(separator: ";")
     }
