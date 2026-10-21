@@ -999,9 +999,9 @@ public final class UITestDriver {
                     ImageDiff.writePNG(img, to: url)
                     metrics["snapshot_\(name)_diff_fraction"] = r.fraction
                     if renders > 2 { metrics["snapshot_\(name)_renders"] = Double(renders) }
-                    if r.passed {
-                        if !stable { warnings.append("snapshot \(name): matched its baseline but never rendered the same twice (animated?)") }
-                        return
+                    if r.passed && stable { return }
+                    if r.passed {   // timed out: matches, but never rendered the same twice — not a deterministic picture
+                        throw Failure("snapshot \(name) matches its baseline but never rendered the same twice in \(Int(limit)) s (animated content?)")
                     }
                     if let di = d?.cgImage { ImageDiff.writePNG(di, to: out.appendingPathComponent("\(name).diff.png")) }
                     throw Failure(r.sizeMismatch ? "size \(img.width)x\(img.height) differs from baseline \(base.url.lastPathComponent)"

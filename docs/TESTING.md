@@ -70,11 +70,14 @@ the `smoke:` line only if it is fast and broad.
 
 **Load-independent tests (DX-C).** Every suite must pass with `--no-retry` on a machine loaded by other gates or CPU
 hogs; a quiet machine is never assumed. So:
-- **No wall-clock budgets in the correctness suite.** `TimingBudget.limit(budget, what)` (MontageTestSupport) returns
-  nil — nothing asserted — except in perf runs (`MONTAGE_PERF=1`: `scripts/perf.sh`, which holds every slot, or
+- **Budgets in CPU / GPU time, wall clock only in the perf gate.** A cost measurable as thread CPU time
+  (`TimingBudget.threadCPUms`) or GPU command-buffer time keeps a gross bound in every run: `TimingBudget.cpuLimit(budget)`
+  (× 4, `MONTAGE_CPU_TIMING_FACTOR`). `TimingBudget.limit(budget, what)` (wall clock) returns nil — nothing asserted —
+  except in perf runs (`MONTAGE_PERF=1`: `scripts/perf.sh`, which holds every slot, or
   `scripts/test.sh --perf`; `MONTAGE_TIMING_ASSERT=1` forces it). Emit the measurement with
-  `TimingBudget.metric("unit_…", value, "ms")`, add the test to the `--filter` in `scripts/perf.sh` (a failed timing test
-  there is a perf violation) and the precise budget to `bench/perf_thresholds.json`.
+  `TimingBudget.metric("unit_…", value, "ms")`, add the test to `UNIT_TIMING` in `scripts/perf.sh` (a failed timing test
+  there is a perf violation; it runs even with `--no-smoke`) and the precise budget to `bench/perf_thresholds.json`.
+  `scripts/check_clean.sh --ui` runs `perf.sh --no-smoke` with the exclusive slot, so the batch gate checks them.
 - **Waits are for state, timeouts only detect hangs.** Await the job / poll a condition (`waitUntil`, `job.value`); a
   timeout must be generous (≥ 30 s for anything that can queue behind other work) and never encode a speed budget.
   Freeze / deadlock checks measure *work*, not wall time: e.g. `PlaybackStressTests` calls a preview frozen when no new
@@ -197,12 +200,15 @@ dispatch such as a tooltip's pending delay). In UI tests SwiftUI animations and 
 every hosting root), so nothing is caught mid-fade.
 
 **Load-independent waits** (a loaded machine only makes them take longer; the bounds only end a wait that never ends):
-`expect` is re-checked every 50 ms until it holds, ≤ 10 s (`MONTAGE_UITEST_EXPECT_LIMIT`) — so assert the end state, and
-use `exists: false` / `notEquals` checks only for things that must already be true; `waitFor` uses
+`expect` is re-checked every 50 ms until it holds, ≤ 10 s (`MONTAGE_UITEST_EXPECT_LIMIT`) — so assert the end state;
+`"now": true` checks once, immediately (asserts whose point is immediacy: "hidden at once"), and an expect right after a
+`"settle": 0` step is `now` by default. Each expect's wait is in report.json (`waitMs`, `expect_wait_ms_max`); uitest.sh
+warns "slow expect" when one waited > 2 s although the UI had settled (a latency regression); `waitFor` uses
 max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`); before a click / drag / hover the UI is quiesced (a `waitFor`
 can return before the layout its state change causes: the target's frame would be stale) and the target (`id:`,
 `clip:`) is awaited until it resolves, ≤ 10 s; a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
-until it matches it, ≤ 10 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`; a real difference still fails, with the last diff).
+it matches it, ≤ 10 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`; a real difference fails with the last diff, and so does a match
+that never renders the same twice). A script FAILS when an export pass stalled (`Exporter.stallRestarts` moved).
 
 `expect` operators: `equals`, `notEquals`, `approx` (+`tolerance`, default 0.001), `gt`/`gte`/`lt`/`lte`, `contains` /
 `notContains` (string / array / dictionary key), `count`, `exists` (true/false). Numbers compare with 1e-6 tolerance.
