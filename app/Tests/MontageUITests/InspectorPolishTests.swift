@@ -93,4 +93,37 @@ import MontageTestSupport
         store.remove(preset.id)
         #expect(store.all.isEmpty)
     }
+
+    /// CL-013: Adjustment asset tab ▸ My presets — ⊕ adds an adjustment layer carrying the grade, "Apply to selected
+    /// clip" grades only video / image / adjustment clips, one undo step each.
+    @Test func myPresetsInTheAdjustmentTab() async throws {
+        let nav = EffectLibraryCatalog.nav(.adjustment).map(\.id)
+        #expect(Array(nav.prefix(3)) == [EffectLibraryCatalog.favoritesNav, EffectLibraryCatalog.customAdjustNav, EffectLibraryCatalog.myPresetsNav])
+        #expect(!EffectLibraryCatalog.nav(.effect).map(\.id).contains(EffectLibraryCatalog.myPresetsNav))
+
+        var p = TestProject(canvas: Size2(320, 180))
+        let v = try await p.addVideo(.solid(.blue), seconds: 2)
+        let a = try await p.addAudio(seconds: 2)
+        let s = EditorStore(project: p.project); s.autosaveEnabled = false
+        var basic = BuiltinAdjustments.basic.makeInstance(); basic.params["contrast"] = .scalar(0.3)
+        let preset = AdjustPreset(name: "P", effects: [basic], mask: Mask(shape: .circle))
+
+        let layer = try #require(s.addAdjustmentLayer(preset: preset, at: Time(1)))
+        let lc = try #require(s.project.timeline.clip(layer))
+        #expect(lc.content == .adjustment && lc.start == Time(1))
+        #expect(lc.effects.map(\.typeID) == [BuiltinAdjustments.basic.id] && lc.effects[0].params["contrast"] == .scalar(0.3))
+        #expect(lc.effects[0].id != basic.id, "fresh instance id")
+        #expect(lc.adjustMask?.shape == .circle)
+        #expect(s.selection == [layer] && s.inspectorTab == "adjust")
+        #expect(s.session.undoStack.last?.nameKey == "cmd.adjustmentLayer")
+
+        #expect(Set(AdjustTools.presetTargets(s.project, selection: [v, a, layer])) == [v, layer])
+        s.selection = [a]
+        #expect(!s.applyAdjustPresetToSelection(preset), "audio clips take no grade")
+        s.selection = [v, a]
+        #expect(s.applyAdjustPresetToSelection(preset))
+        #expect(s.project.timeline.clip(v)?.effects.first?.params["contrast"] == .scalar(0.3))
+        #expect(s.project.timeline.clip(a)?.effects.isEmpty == true)
+        #expect(s.session.undoStack.last?.nameKey == "cmd.adjust.preset")
+    }
 }

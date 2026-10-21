@@ -1,0 +1,11 @@
+// CL-013 (fr): Adjustment tab sub-nav "Mes préréglages" and its empty-state hint fit the asset panel in French.
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:asset.tab.adjustment"},
+    {"click": "id:asset.nav.fxlib.nav.myPresets"},
+    {"waitFor": {"path": "ui.anchors", "contains": "asset.presets.empty"}},
+    {"snapshot": "adjust-my-presets-empty-fr", "element": "id:panel.assets", "baseline": true}
+  ]
+}

@@ -17,6 +17,8 @@ enum EffectLibraryCatalog {
     static let curatedNav = "fxlib.nav.curated"
     /// Adjustment tab ▸ "Add adjustment": the "Custom adjustment" card (empty adjustment layer, CL-011).
     static let customAdjustNav = "fxlib.nav.customAdjust"
+    /// Adjustment tab ▸ "My presets": grades saved from the Adjust footer (CL-013, AdjustPresetLibrary.swift).
+    static let myPresetsNav = "fxlib.nav.myPresets"
 
     static let groupOrder: [EffectCategory: [String]] = [
         .effect: ["basic", "blur", "lens", "motion", "glitch", "retro", "light", "dreamy", "bling", "party", "nature", "comic",
@@ -56,7 +58,7 @@ enum EffectLibraryCatalog {
     static func nav(_ category: EffectCategory) -> [(id: String, titleKey: String)] {
         var out: [(String, String)] = [(favoritesNav, "fxlib.favorites")]
         if !curated(category).isEmpty { out.append((curatedNav, curatedTitleKey(category))) }
-        if category == .adjustment { out.append((customAdjustNav, "adjust.nav.add")) }
+        if category == .adjustment { out += [(customAdjustNav, "adjust.nav.add"), (myPresetsNav, "adjust.preset.section")] }
         return out + groups(category).map { ($0, $0) }
     }
 
@@ -230,6 +232,8 @@ struct EffectLibraryTab: View {
                             }
                             .padding(.horizontal, 12).padding(.bottom, 12)
                         }
+                    } else if current == EffectLibraryCatalog.myPresetsNav && !searching {
+                        AdjustPresetGrid(store: store, pickedID: $selected)
                     } else if items.isEmpty && current == CustomEffectLibrary.groupKey && !searching {
                         Spacer()
                     } else if items.isEmpty {
