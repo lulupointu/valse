@@ -79,7 +79,9 @@ hogs; a quiet machine is never assumed. So:
   timeout must be generous (≥ 30 s for anything that can queue behind other work) and never encode a speed budget.
   Freeze / deadlock checks measure *work*, not wall time: e.g. `PlaybackStressTests` calls a preview frozen when no new
   frame arrives while the video pipeline does no work (no composition request, nothing composed) for 4 s — a slow,
-  loaded pipeline still works — or after 30 s without a frame at all.
+  loaded pipeline still works — or after 30 s without a frame at all. The exporter itself restarts a pass that read
+  nothing and composed nothing for 30 s (an AVFoundation stall seen under load), once, then fails it ("export
+  stalled") — a stalled export never hangs a test (`MONTAGE_EXPORT_STALL_SECONDS`).
 - **UI scripts** (§1): `expect` is re-checked until it holds (≤ 10 s), `waitFor` timeouts are at least 30 s, mouse
   targets are awaited (≤ 10 s), every input step waits for the UI to settle (below), animations are off, snapshots wait
   for stable pixels. Don't add `wait` steps to "let things settle": `waitFor` the state, or rely on the above.
@@ -189,7 +191,8 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 
 After every input step the driver waits until all posted events were dispatched, `settle` seconds (default 0.25), then
 until the UI is **quiescent**: the on-screen test-ID frames, edit revision, selection, tabs, toast, first responder and
-app screen / modal unchanged over two main-loop round trips (≤ 3 s; `"settle": 0` skips this, for checks right after
+app screen / modal unchanged over two main-loop round trips (≤ 10 s, counted as `quiesce_timeouts` in report.json
+metrics when it never settles; `"settle": 0` skips this, for checks right after
 dispatch such as a tooltip's pending delay). In UI tests SwiftUI animations and transitions are off (`uitestNoMotion()` at
 every hosting root), so nothing is caught mid-fade.
 

@@ -59,7 +59,11 @@ public final class UITestWindow: NSWindow {
     private func trackSlider(_ slider: NSSlider, down: NSEvent) {
         guard let cell = slider.cell else { return }
         var events: [NSEvent] = []
-        while let e = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp], until: .distantPast, inMode: .eventTracking, dequeue: true) {
+        // the driver queues the whole gesture (… up) before the down is dispatched; still, don't give up on the first
+        // poll: a slider drag under load came back with no events and the slider never moved (u1_playhead_follow)
+        var until = Date(timeIntervalSinceNow: 2)
+        while let e = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp], until: until, inMode: .eventTracking, dequeue: true) {
+            until = .distantPast
             events.append(e)
             if e.type == .leftMouseUp { break }
         }
@@ -505,6 +509,13 @@ public final class UITestDriver {
             for _ in 0..<((step["repeat"] as? Int) ?? 1) { SyntheticEvents.key(spec, in: window) }
             try await idle(settle: settle)
         } else if let text = step["type"] as? String {
+            // typing goes to the focused text field: wait for the field editor to take focus (a click on a field
+            // focuses it a few main-loop turns later on a loaded machine; the keys were lost: home_project_flow)
+            let focusDeadline = Date().addingTimeInterval(3)
+            while !(window.firstResponder is NSText), Date() < focusDeadline {
+                try await Task.sleep(for: .milliseconds(20))
+                _ = await SyntheticEvents.drain(timeout: 1)
+            }
             if (step["replace"] as? Bool) == true { (window.firstResponder as? NSText)?.selectAll(nil) }
             SyntheticEvents.type(text, in: window)
             try await idle(settle: settle)

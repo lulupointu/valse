@@ -5,9 +5,11 @@ import MontageEffects
 @Suite struct RegistryTests {
     @Test func idsAreUniqueAndNamespaced() {
         let ids = (Registries.effects.all.map(\.id) + Registries.transitions.all.map(\.id) + Registries.animations.all.map(\.id))
-            .filter { !$0.hasPrefix("test.") && !$0.hasPrefix("user.") }  // other tests register extensions / user LUTs
+            // other tests register extensions / user LUTs / generated AI looks (ColorLooks: "ai.look.*") concurrently
+            .filter { !$0.hasPrefix("test.") && !$0.hasPrefix("user.") && !$0.hasPrefix("ai.look.") }
         #expect(Set(ids).count == ids.count)
-        #expect(ids.allSatisfy { $0.hasPrefix("montage.") })
+        let foreign = ids.filter { !$0.hasPrefix("montage.") }
+        #expect(foreign.isEmpty, "not namespaced: \(foreign)")
     }
 
     @Test func instancesCarryDefaultsAndPackInOrder() {
