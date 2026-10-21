@@ -1,0 +1,60 @@
+---
+name: run-gates
+description: Which Montage test / gate command to run when (scripts/test.sh, uitest.sh, check_fast.sh, check_clean.sh), how to run it without polling, and how to read the result - flaky vs failed vs quarantined, "waiting for test slot", HUNG / TIMEOUT runs, DISK FULL. Use before running any test or gate, when a gate fails, or when a run seems stuck.
+---
+
+# Running Montage tests and gates
+
+## Which check when
+| Moment | Who | Command | Typical time |
+|---|---|---|---|
+| iterating on logic | feature agent | `scripts/test.sh --filter <Suite>` (or `'SuiteA\|SuiteB'`, as the whole command) | 2-6 min (incremental build) |
+| iterating on UI | feature agent | `scripts/uitest.sh app/Tests/UIScripts/<a>.json <b>.json` | ~20-60 s / script + build |
+| what would check_fast pick? | feature agent | `scripts/check_fast.sh --list` | seconds |
+| done, final commit | feature agent | `scripts/check_fast.sh` (all unit tests + UI scripts selected from your diff vs main) | 5-15 min |
+| only the last commit's UI area | feature agent | `scripts/check_fast.sh --base HEAD~1` | |
+| batch of ready branches | orchestrator only | `scripts/check_clean.sh --ui` in the batch worktree | 16-35 min, more under load |
+| Intel code paths (Float16 etc.) | if you touched CPU math | `scripts/test_x86.sh --filter X` | |
+| perf-sensitive change | when asked | `scripts/perf.sh` (takes ALL slots: avoid on a busy machine) | |
+
+Feature agents never run `check_clean.sh`: the orchestrator runs it once per batch (docs/AGENT_GUIDE.md).
+Don't use `check_fast.sh --all-ui` as a substitute for the batch gate.
+
+## How to run (no polling)
+- Bash tool with `run_in_background: true`, command exactly e.g. `scripts/check_fast.sh` (no `> log; echo EXIT` wrappers
+  needed, the tool keeps the output). End your turn; you are notified when it exits. Then read the output file.
+- Never `until /usr/bin/grep -q … ; do sleep 30; done`, never `sleep 240; cat …`: refused or wasteful.
+- One heavy run of yours at a time. Don't start the next while one is waiting for a slot.
+
+## Reading results
+- Final lines: `ALL GREEN` (test.sh), `UI tests: P passed, F failed, S skipped, K flaky…, Q quarantined…` (uitest.sh),
+  `FAST CHECK OK` / `FAST CHECK FAILED` (check_fast), `CLEAN CHECKOUT OK` / `FAILED` (check_clean).
+- Logs: `build/test.log` (unit; failures marked `✘`), `build/test-retry.log`, `build/check_fast-unit.log`,
+  `build/check_fast-ui.log`, `build/check_fast-selection.txt` (why each UI script ran), `build/uitest/<script>/`
+  (`report.json`, `failure.json`, `failure.png`, snapshots, `*.diff.png`; first attempt in `<script>.attempt1/`).
+  check_clean copies failures to `build/check_clean-{build,test,test-retry,ui}.log` and `build/check_clean-uitest/`.
+- Parse with `/usr/bin/grep -E '✘|failed:|error:' build/test.log` or the Read tool (rtk-rewritten `grep`/`tail` may summarise).
+- Open failure PNGs / diff PNGs with Read and LOOK before deciding anything.
+
+## Flaky, failed, quarantined, skipped
+- Every failed unit test / UI script is retried once, alone (UI retry first waits ≤ 60 s for the load to drop).
+- `⚠ flaky (passed on retry)` / `flaky (passed on retry):` = not gating, but a bug report: if it is in your area, fix
+  the wait (see the write-ui-script skill); otherwise name it in your report.
+- `✘ failed twice` / `failed:` = gating. If it is in code you touched, it is yours. If clearly unrelated (other area,
+  also fails on main), say so with evidence (script, error line, `/usr/bin/git log main` of that area); don't quarantine it.
+- `quarantined (failed, not gating)` = listed in `app/Tests/quarantine.txt` (`<unit|ui> <id> <date> <reason>`, validated
+  by `python3 scripts/testlib.py check-quarantine`). Never add your own new failure there. Remove an entry when you fix it.
+- `skipped` (UI exit code 3) = unmet `requires` (AI model / content pack / minOS). Not a failure.
+
+## Waiting, hangs, disk
+- `waiting for test slot… (held by PIDs …)` = machine-wide semaphore (/tmp/montage-locks, 2+ slots). Normal under load;
+  keep waiting (the notification comes when your run finishes). `scripts/slots.sh status` shows holders, age, idle time.
+  Dead holders and holders idle (< 2 CPU-s) for 20 min are reclaimed automatically; `scripts/slots.sh reclaim` forces a sweep.
+- `HUNG` (test.sh / build: no output and ~0 % CPU for 10 min) or `TIMEOUT (HUNG) after 120s` (one UI script): stacks are
+  in the log / `build/uitest/<script>/hang-sample.txt`. Read them: a hang at 0 % CPU in AVFoundation reads inside async
+  tests is the cooperative-pool deadlock (montage-gotchas). A UI script TIMEOUT is usually a `waitFor` that never
+  becomes true or a modal loop ("event queue did not drain").
+- Your own run stuck (e.g. you started the wrong thing): `scripts/kill_tests.sh --dry-run`, then `scripts/kill_tests.sh`
+  (only Montage test processes of your checkout). Never `kill`/`pkill` other PIDs.
+- `DISK FULL` (< 5 GB): `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh`.
+- No test summary / crash: `build/test.log` tail shows `◇ Test … started` for the last test; rerun that suite alone.

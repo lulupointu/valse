@@ -15,7 +15,10 @@ DerivedData/
 dist/
 out/
 release/
-.claude/
+# agent worktrees / local settings stay ignored; the project skills and agent definitions are committed
+/.claude/*
+!/.claude/skills/
+!/.claude/agents/
 bench/media
 # music / SFX library audio: fetched into the scripts/fetch_music_pack.sh cache, bundled by build_app.sh, never committed
 /content-cache/

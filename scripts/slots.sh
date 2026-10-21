@@ -165,6 +165,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   set -uo pipefail
   mkdir -p "$SLOTS_DIR"
   case "${1:-status}" in
+    -h|--help) sed -n '2,18p' "$0"; exit 0;;
     status) slots_status;;
     reclaim) slots_sweep; slots_status;;
     *) sed -n '2,20p' "$0"; exit 2;;

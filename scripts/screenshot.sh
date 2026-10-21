@@ -21,6 +21,7 @@ while [[ $# -gt 0 ]]; do
     --player-state) APPARGS+=(--player-state "$2"); shift 2;;
     --home-demo) APPARGS+=(--home-demo "$2"); shift 2;;
     --ui-state) APPARGS+=(--ui-state "$2"); shift 2;;
+    -h|--help) sed -n '2,7p' "$0"; exit 0;;
     *) echo "unknown arg $1"; exit 2;;
   esac
 done
