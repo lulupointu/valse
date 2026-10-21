@@ -23,3 +23,4 @@ bench/media
 # UI-test fixtures are small and committed (the *.m4a rule above is for the music library)
 !app/Tests/UIScripts/fixtures/**/*.m4a
 .claude/settings.local.json
+__pycache__/

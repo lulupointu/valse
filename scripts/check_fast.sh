@@ -5,7 +5,8 @@
 #   1. disk check (≥ 5 GB free), quarantine file validation
 #   2. scripts/test.sh: l10n check, incremental build, the unit tests (failed tests retried once alone)
 #   3. scripts/uitest.sh on the UI scripts relevant to `git diff main...HEAD` + uncommitted changes
-#      (scripts/ui_select.py: smoke set + app/Tests/ui_map.txt + test IDs / l10n keys found in changed Swift files)
+#      (scripts/ui_select.py: small smoke set + scripts derived from the changed lines — driver actions, state-dump keys,
+#      l10n keys, the test IDs / l10n keys reached from the changed Swift declarations — + app/Tests/ui_map.txt rules)
 # One test slot is held for the whole run (scripts/slots.sh).
 #
 # Usage: scripts/check_fast.sh [--base <ref>] [--unit-filter <regex>] [--no-unit] [--no-ui] [--all-ui] [--list]

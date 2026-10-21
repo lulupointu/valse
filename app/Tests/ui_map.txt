@@ -1,15 +1,27 @@
-# Changed path → UI scripts, for STAGE 1 of the gate (scripts/check_fast.sh → scripts/ui_select.py).
-# Each rule:  <path glob (fnmatch, relative to the repo)>  <script name globs…>
-#   ALL        every script (driver / app entry point changes)
-#   BASELINES  every script with a screenshot baseline (theme / rendering of shared chrome)
-#   NONE       nothing beyond the smoke set (docs, perf, …)
-# Besides these rules, ui_select.py also picks
-#   - a changed UI script itself, scripts using a changed fixture or baseline;
-#   - scripts that reference a dotted string literal (test ID, l10n key, command name…) found in a changed Swift file,
-#     e.g. a change to a file containing .testID("inspector.tab.\(id)") selects scripts using "id:inspector.tab.…".
-# Keep it coarse; when in doubt add more scripts. Stage 2 (check_clean.sh --ui) still runs everything before merge.
+# Changed path → UI scripts, for STAGE 1 of the gate (scripts/check_fast.sh → scripts/ui_select.py --explain).
+# Most of the selection is DERIVED, not listed here (see scripts/ui_select.py):
+#   - changed scripts, scripts using a changed fixture / baseline;
+#   - UITestDriver / SyntheticEvents hunks → scripts using that action / target kind / project kind; StateDump hunks →
+#     scripts whose expect/waitFor paths go through the changed dump keys;
+#   - Resources/<lang>.lproj/*.strings → scripts in that language using / rendering (baseline snapshots) the changed keys;
+#   - any other Swift source: changed declarations → the nearest test IDs / l10n keys / command names (themselves, else
+#     the code using them, up to 3 levels) → scripts using those strings.
+# Rules: <path glob (fnmatch, relative to the repo)> <script name globs…>
+#   always <glob> …  applied whenever a matching file changes (global or pixel-level code that has no test ID)
+#   <glob> …         FALLBACK: applied only when a changed Swift declaration of that file reaches no test hook
+#                    (non-Swift files: always)
+#   ALL = every script, BASELINES = every script with a screenshot baseline, NONE = nothing beyond the smoke set.
+# Unit tests: scripts/test_ui_select.py. Stage 2 (check_clean.sh --ui) and the batch gate still run everything.
 
-smoke: split_undo timeline_edit inspector_tabs canvas_drag drag_media_to_timeline player_preview export_dialog home_library language_fr real_footage_import
+smoke: split_undo inspector_tabs drag_media_to_timeline export_dialog home_library
+
+always app/Sources/MontageApp/*              ALL
+always app/Sources/MontageUI/Theme/*         BASELINES
+always app/Sources/MontageCore/Localization/* *_fr* language_fr BASELINES
+always app/Sources/MontageEngine/Render/*    player_* canvas_* f4_cl_* f4_fx_* finish_* render_cache_bar real_footage_import
+always app/Sources/MontageEngine/Metal/*     player_* canvas_* f4_cl_* finish_* real_footage_import
+always app/Sources/MontageEngine/Composition/* player_* canvas_* playback_seek_while_playing export_range real_footage_import
+always app/Sources/MontageEngine/Playback/*  playback_seek_while_playing player_* canvas_drag fin_playback_settings real_footage_import
 
 docs/*                                       NONE
 bench/*                                      NONE
@@ -21,11 +33,6 @@ scripts/uitest.sh                            swiftui_taps c3_tooltips
 scripts/build_app.sh                         about_content_licenses
 Package.swift                                swiftui_taps
 
-app/Sources/MontageApp/*                     ALL
-app/Sources/MontageUI/Testing/*              ALL
-app/Sources/MontageUI/Theme/*                BASELINES
-app/Sources/MontageUI/Resources/*            *_fr* language_fr BASELINES
-app/Sources/MontageCore/Localization/*       *_fr* language_fr BASELINES
 app/Sources/MontageUI/Support/*              c3_tooltips c6_tooltips swiftui_taps fin_layout
 app/Sources/MontageUI/Shell/*                fin_layout fin_tips language_fr swiftui_taps inspector_tab_memory f4_se_* fin_detach_player
 app/Sources/MontageUI/Store/*                timeline_* split_undo trim_undo inspector_* c2_multi_edit canvas_drag text_add audio_volume c3b_move_clip fin_compound_group
@@ -43,10 +50,6 @@ app/Sources/MontageUI/Text/*                 text_* canvas_text_* c4_text_apply_
 app/Sources/MontageUI/AI/*                   ai_* c4_* f4_ai_* f4_fx_body_magic
 app/Sources/MontageUI/Registry/*             effects_library stickers_library w5_* filters_favorite_adjust
 
-app/Sources/MontageEngine/Playback/*         playback_seek_while_playing player_* canvas_drag fin_playback_settings real_footage_import
-app/Sources/MontageEngine/Render/*           player_* canvas_* f4_cl_* f4_fx_* finish_* render_cache_bar real_footage_import
-app/Sources/MontageEngine/Metal/*            player_* canvas_* f4_cl_* finish_* real_footage_import
-app/Sources/MontageEngine/Composition/*      player_* canvas_* playback_seek_while_playing export_range real_footage_import
 app/Sources/MontageEngine/ColorAnalysis/*    f4_cl_* ai_auto_adjust
 app/Sources/MontageEngine/EffectPreview/*    effects_library filters_favorite_adjust
 app/Sources/MontageEngine/Export/*           export_* finish_export_options f4_ex_*
@@ -67,3 +70,6 @@ app/Sources/MontageCore/Persistence/*        home_* crash_recovery_relink f3_aut
 app/Sources/MontageCore/Animation/*          w5_*
 app/Sources/MontageCore/Import/*             drag_media_to_timeline real_footage_import f3_caption_encoding
 app/Sources/MontageEffects/*                 effects_library filters_favorite_adjust w5_* f4_fx_* text_effects_names text_animation_tiles
+
+# non-.strings resources (images, json tables …)
+app/Sources/*/Resources/*                     BASELINES
