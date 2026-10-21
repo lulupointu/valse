@@ -238,6 +238,8 @@ final class ClosureTarget: NSObject {
     @objc func fire() { handler() }
 }
 
+// UI tests: private per-process settings domain + pasteboard, set before anything reads a setting (AppDefaults)
+if CommandLine.arguments.contains("--uitest") { AppDefaults.isolateForUITest() }
 if let i = CommandLine.arguments.firstIndex(of: "--imgdiff") { exit(ImageDiffCLI.run(Array(CommandLine.arguments[(i + 1)...]))) }
 // scripts/fetch_music_pack.sh: offline analysis of the content library (beats, key, peaks, similarity features)
 if let i = CommandLine.arguments.firstIndex(of: "--analyze-content") { exit(ContentAnalyzer.runCLI(Array(CommandLine.arguments[(i + 1)...]))) }

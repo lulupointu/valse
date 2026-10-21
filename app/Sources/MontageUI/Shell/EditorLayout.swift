@@ -44,7 +44,7 @@ public final class EditorLayout {
     public private(set) var activeCustom: Int?
 
     init() {
-        guard !HomeSandbox.isActive, let d = UserDefaults.standard.data(forKey: Self.defaultsKey),
+        guard !HomeSandbox.isActive, let d = AppDefaults.store.data(forKey: Self.defaultsKey),
               let s = try? JSONDecoder().decode(Stored.self, from: d) else { return }
         preset = s.preset; custom = s.custom; fractions = s.fractions
     }
@@ -69,7 +69,7 @@ public final class EditorLayout {
     private func save() {
         guard !HomeSandbox.isActive else { return }
         if let d = try? JSONEncoder().encode(Stored(preset: preset, fractions: fractions, custom: custom)) {
-            UserDefaults.standard.set(d, forKey: Self.defaultsKey)
+            AppDefaults.store.set(d, forKey: Self.defaultsKey)
         }
     }
 

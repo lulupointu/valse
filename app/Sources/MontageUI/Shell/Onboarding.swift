@@ -36,8 +36,8 @@ public final class Onboarding {
     /// Editor opened: start the walkthrough the first time (never during UI tests unless asked).
     func editorDidAppear() {
         guard !HomeSandbox.isActive, !TestAnchors.isEnabled else { return }
-        if !UserDefaults.standard.bool(forKey: Self.seenKey) { step = .importMedia; return }
-        if UserDefaults.standard.integer(forKey: Self.whatsNewKey) < Self.whatsNewVersion { showsWhatsNew = true }
+        if !AppDefaults.store.bool(forKey: Self.seenKey) { step = .importMedia; return }
+        if AppDefaults.store.integer(forKey: Self.whatsNewKey) < Self.whatsNewVersion { showsWhatsNew = true }
     }
 
     public func start() { step = .importMedia }
@@ -49,12 +49,12 @@ public final class Onboarding {
 
     public func finish() {
         step = nil
-        if !HomeSandbox.isActive { UserDefaults.standard.set(true, forKey: Self.seenKey) }
+        if !HomeSandbox.isActive { AppDefaults.store.set(true, forKey: Self.seenKey) }
     }
 
     public func closeWhatsNew() {
         showsWhatsNew = false
-        if !HomeSandbox.isActive { UserDefaults.standard.set(Self.whatsNewVersion, forKey: Self.whatsNewKey) }
+        if !HomeSandbox.isActive { AppDefaults.store.set(Self.whatsNewVersion, forKey: Self.whatsNewKey) }
     }
 
     var dump: [String: Any] { ["step": step?.stepName ?? "", "whatsNew": showsWhatsNew] }

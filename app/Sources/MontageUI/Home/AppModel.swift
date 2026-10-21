@@ -91,8 +91,8 @@ public final class AppModel {
         OnlineAudioState.openSettings = { [weak self] in self?.modal = .settings(.music) }
         // UI tests / demo screenshots (sandbox) neither read nor write the user's Home view preferences
         if !HomeSandbox.isActive {
-            if let v = UserDefaults.standard.string(forKey: "MontageHomeViewMode"), let m = ViewMode(rawValue: v) { viewMode = m }
-            if let v = UserDefaults.standard.string(forKey: "MontageHomeSort"), let s = LibrarySort(rawValue: v) { sort = s }
+            if let v = AppDefaults.store.string(forKey: "MontageHomeViewMode"), let m = ViewMode(rawValue: v) { viewMode = m }
+            if let v = AppDefaults.store.string(forKey: "MontageHomeSort"), let s = LibrarySort(rawValue: v) { sort = s }
         }
         // PM-009: plugging / ejecting a drive updates the save-folder banner and the listing
         let nc = NSWorkspace.shared.notificationCenter
@@ -112,11 +112,11 @@ public final class AppModel {
 
     public func setViewMode(_ m: ViewMode) {
         viewMode = m
-        if !HomeSandbox.isActive { UserDefaults.standard.set(m.rawValue, forKey: "MontageHomeViewMode") }
+        if !HomeSandbox.isActive { AppDefaults.store.set(m.rawValue, forKey: "MontageHomeViewMode") }
     }
     public func setSort(_ s: LibrarySort) {
         if sort == s { ascending.toggle() } else { sort = s; ascending = s == .name }
-        if !HomeSandbox.isActive { UserDefaults.standard.set(s.rawValue, forKey: "MontageHomeSort") }
+        if !HomeSandbox.isActive { AppDefaults.store.set(s.rawValue, forKey: "MontageHomeSort") }
     }
 
     // MARK: Library refresh

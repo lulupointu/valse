@@ -80,8 +80,7 @@ public final class ExportDialogModel {
     static var isUITest: Bool { TestAnchors.isEnabled }
     /// Fresh per test process (choices persist between dialogs of one script, never across runs).
     static let uiTestDefaults: UserDefaults = {
-        UserDefaults.standard.removePersistentDomain(forName: "montage.uitest.export")
-        return UserDefaults(suiteName: "montage.uitest.export") ?? .standard
+        AppDefaults.suite("montage.uitest.export")   // per process in UI tests (AppDefaults)
     }()
 
     public convenience init(project: Project, title: String, selection: Set<ClipID>, scope: ExportScope? = nil) {

@@ -214,8 +214,8 @@ struct LicenseCard: View {
                             .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                         Button {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(credit, forType: .string)
+                            AppPasteboard.general.clearContents()
+                            AppPasteboard.general.setString(credit, forType: .string)
                         } label: {
                             Text(loc: "audio.license.copyCredit").font(.system(size: 10.5, weight: .medium)).foregroundStyle(Theme.accent)
                         }

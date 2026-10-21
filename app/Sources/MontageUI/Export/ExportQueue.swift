@@ -127,11 +127,11 @@ public final class ExportQueue {
 
     private func finished(_ item: ExportJobItem) {
         onFinish?(item)
-        let sound = UserDefaults.standard.bool(forKey: Self.soundDefaultsKey) && !TestAnchors.isEnabled
+        let sound = AppDefaults.store.bool(forKey: Self.soundDefaultsKey) && !TestAnchors.isEnabled
         if case .failed = item.state, sound { NotificationSounds.play(.failure) }   // AU-040
         guard item.state == .done else { return }
         if sound { NotificationSounds.play(.success) }
-        if UserDefaults.standard.object(forKey: Self.notifyDefaultsKey) == nil || UserDefaults.standard.bool(forKey: Self.notifyDefaultsKey) {
+        if AppDefaults.store.object(forKey: Self.notifyDefaultsKey) == nil || AppDefaults.store.bool(forKey: Self.notifyDefaultsKey) {
             Self.postNotification(title: tr("export.notify.title"), body: tr("export.notify.body", item.primaryURL?.lastPathComponent ?? item.title))
         }
     }

@@ -92,9 +92,7 @@ final class EffectFavorites {
     /// UI tests get a fresh, throw-away store so scripts are deterministic and never touch the user's favourites.
     static let shared = EffectFavorites(defaults: TestAnchors.isEnabled ? testDefaults() : .standard)
     static func testDefaults() -> UserDefaults {
-        let name = "montage.uitest.favorites"
-        UserDefaults.standard.removePersistentDomain(forName: name)
-        return UserDefaults(suiteName: name) ?? .standard
+        AppDefaults.suite("montage.uitest.favorites")   // per process in UI tests (AppDefaults)
     }
     static let defaultsKey = "montage.assets.favoriteEffects"
     private(set) var ids: Set<String>

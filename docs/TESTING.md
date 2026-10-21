@@ -48,7 +48,12 @@ stacks of its processes are appended to the log (`build/test.log`), the tree is 
 **Temp files and disk.** test.sh and uitest.sh run tests / apps with a private `TMPDIR`
 (`$TMPDIR/montage-run-*`) deleted on exit, even on failure or Ctrl-C, so sandboxes (`montage-sandbox-*`), exports, project
 copies and mock downloads never pile up; the synthetic media cache stays shared (`MONTAGE_TEST_MEDIA_DIR`, default
-`$TMPDIR/montage-test-media-v1`). check_clean removes its `montage-clean.*` worktree on exit. check_fast / check_clean
+`$TMPDIR/montage-test-media-v1`). check_clean reuses a persistent clean worktree
+(`<main checkout>/build/check_clean-cache/wt0|wt1`, ~1.5 GB each: reset to exactly HEAD with `checkout --force` +
+`clean -ffdx` except `.build`, verified pristine, resource bundles rebuilt) for an incremental build; `--cold` uses a
+temp `montage-clean.*` worktree removed on exit. `uitest.sh --jobs K` runs K apps at once: each UI-test app has a private
+settings domain and pasteboard (MontageCore `AppDefaults`, `AppPasteboard`), sandbox and TMPDIR, so scripts can't
+interact; check_clean runs the UI suite with `--jobs 4` while the unit suite runs. check_fast / check_clean
 fail fast with "DISK FULL" below 5 GB free (`MONTAGE_MIN_FREE_GB`). `MONTAGE_KEEP_TMP=1` keeps the temp dirs to debug.
 
 **Real-like fixtures (T1).** `app/Tests/UIScripts/fixtures/real/` (`RealLikeMedia` in Swift), made by
@@ -89,7 +94,8 @@ hogs; a quiet machine is never assumed. So:
   `scripts/test.sh --perf`; `MONTAGE_TIMING_ASSERT=1` forces it). Emit the measurement with
   `TimingBudget.metric("unit_…", value, "ms")`, add the test to `UNIT_TIMING` in `scripts/perf.sh` (a failed timing test
   there is a perf violation; it runs even with `--no-smoke`) and the precise budget to `bench/perf_thresholds.json`.
-  `scripts/check_clean.sh --ui` runs `perf.sh --no-smoke` with the exclusive slot, so the batch gate checks them.
+  `scripts/check_clean.sh --ui` runs `perf.sh --no-smoke` with the exclusive slot, after its concurrent unit + UI phases
+  and after releasing its own slot (perf.sh queues for every slot), so the batch gate checks them.
 - **perf.sh load rule.** Taking every slot does not stop load from outside the slot system (VMs, other builds), so
   wall-clock and GPU-time metrics (`launch_ms`, timeline / asset `_wall_` / `_gpu_` numbers, the unit tests' wall-clock
   and strict GPU budgets) gate only when the 1-min load average stays ≤ the core count across the measurement (sampled

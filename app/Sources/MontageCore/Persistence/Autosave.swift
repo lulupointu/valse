@@ -99,7 +99,7 @@ public enum MontagePaths {
     public static let supportOverrideKey = "MontageSupportDirectory"
 
     static func override(_ key: String) -> URL? {
-        guard let p = UserDefaults.standard.string(forKey: key), !p.isEmpty else { return nil }
+        guard let p = AppDefaults.store.string(forKey: key), !p.isEmpty else { return nil }
         return URL(fileURLWithPath: p, isDirectory: true)
     }
 

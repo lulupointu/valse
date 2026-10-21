@@ -13,12 +13,13 @@ description: Which Montage test / gate command to run when (scripts/test.sh, uit
 | what would check_fast pick, and why? | feature agent | `python3 scripts/ui_select.py --explain` (or `check_fast.sh --list`; `--commit <sha>` replays one commit) | seconds |
 | done, final commit | feature agent | `scripts/check_fast.sh` (all unit tests + UI scripts selected from your diff vs main) | 5-15 min |
 | only the last commit's UI area | feature agent | `scripts/check_fast.sh --base HEAD~1` | |
-| batch of ready branches | orchestrator only | `scripts/check_clean.sh --ui` in the batch worktree | 16-35 min, more under load |
+| batch of ready branches | orchestrator only | `scripts/check_clean.sh --ui` in the batch worktree | 8-16 min (unit ∥ UI, 4 UI apps, warm build) + the perf gate |
 | Intel code paths (Float16 etc.) | if you touched CPU math | `scripts/test_x86.sh --filter X` | |
 | perf-sensitive change | when asked | `scripts/perf.sh` (takes ALL slots: avoid on a busy machine) | |
 
 Feature agents never run `check_clean.sh`: the orchestrator runs it once per batch (docs/AGENT_GUIDE.md).
-`check_clean.sh --ui` also runs `scripts/perf.sh --no-smoke` (exclusive slot) after the UI suite, so the batch gate
+`check_clean.sh --ui` also runs `scripts/perf.sh --no-smoke` (exclusive slot) once the concurrent unit + UI phases are done
+(`--serial`: after the UI suite) and the gate has released its own slot, so the batch gate
 checks the perf budgets (bench/perf_thresholds.json + perf.sh's `UNIT_TIMING` tests).
 
 ## Perf under load (docs/TESTING.md "perf.sh load rule")

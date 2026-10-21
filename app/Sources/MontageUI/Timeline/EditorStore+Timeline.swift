@@ -108,7 +108,7 @@ extension EditorStore {
         let media = Set(items.compactMap(\.clip.mediaID))
         let payload = ClipboardPayload(items: items, assets: project.media.filter { media.contains($0.id) })
         if let data = try? JSONEncoder().encode(payload) {
-            let pb = NSPasteboard.general
+            let pb = AppPasteboard.general
             pb.clearContents()
             pb.setData(data, forType: ClipboardPayload.type)
         }
@@ -125,7 +125,7 @@ extension EditorStore {
         if keyframeUI.clipboardActive, pasteKeyframes() { return }   // W5: keyframes copied last
         var items = ui.clipboard
         var assets: [MediaAsset] = []
-        if let data = NSPasteboard.general.data(forType: ClipboardPayload.type),
+        if let data = AppPasteboard.general.data(forType: ClipboardPayload.type),
            let payload = try? JSONDecoder().decode(ClipboardPayload.self, from: data) {
             items = payload.items; assets = payload.assets
         }
