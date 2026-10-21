@@ -84,7 +84,9 @@ import MontageTestSupport
                 }
             }
             try await Task.sleep(for: .milliseconds(400))
-            #expect(await q.shutdown(timeout: 20))
+            // hang bound, not a speed budget: shutdown returns as soon as the cancelled predictions have returned (an
+            // uninterruptible LaMa step + the denoise job take > 20 s on a machine loaded by other gates)
+            #expect(await q.shutdown(timeout: 120))
             for id in late + [other] { let s = await q.wait(id); #expect(s == .cancelled || s == .done) }
             #expect(LaMaInpainter.loadedCount == 0)
         }

@@ -125,6 +125,7 @@ public final class ProxyManager: @unchecked Sendable {
         guard reader.startReading(), writer.startWriting() else { throw reader.error ?? writer.error ?? NSError(domain: "Montage", code: 70) }
         writer.startSession(atSourceTime: .zero)
         let io = UncheckedSendable((reader, out, input))
+        let stop = ReaderCancel()   // never cancelReading under a running copy (ReaderCancel)
         let cancelled: Bool = await withTaskCancellationHandler {
             await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
                 let q = DispatchQueue(label: "montage.proxy")
@@ -132,16 +133,20 @@ public final class ProxyManager: @unchecked Sendable {
                 io.value.2.requestMediaDataWhenReady(on: q) {
                     let (reader, out, input) = io.value
                     while input.isReadyForMoreMediaData && !done.value.v {
-                        if let sb = out.copyNextSampleBuffer() {
+                        if stop.requested {
+                            done.value.v = true
+                        } else if let sb = out.copyNextSampleBuffer() {
                             progress?.report(CMSampleBufferGetPresentationTimeStamp(sb).seconds / max(duration, 0.001))
                             if !input.append(sb) { done.value.v = true }
                         } else { done.value.v = true }
-                        if done.value.v { input.markAsFinished(); c.resume(returning: reader.status == .cancelled) }
+                        if done.value.v { input.markAsFinished(); c.resume(returning: stop.requested || reader.status == .cancelled) }
                     }
                 }
             }
-        } onCancel: { io.value.0.cancelReading() }
+        } onCancel: { stop.request(io.value.0) }
+        stop.finish()
         if cancelled || Task.isCancelled {
+            reader.cancelReading()
             writer.cancelWriting(); try? FileManager.default.removeItem(at: tmp); throw CancellationError()
         }
         await writer.finishWriting()

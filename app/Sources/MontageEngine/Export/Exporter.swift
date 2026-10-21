@@ -176,6 +176,7 @@ public enum Exporter {
         let total = exportRange.duration.seconds
         let start = exportRange.start.seconds
         let io = UncheckedSendable((reader, writer, vOut, vIn, aOut, aIn, coverSample))
+        let stop = ReaderCancel()
         await withTaskCancellationHandler {
             await withTaskGroup(of: Void.self) { g in
                 g.addTask {
@@ -184,23 +185,26 @@ public enum Exporter {
                     let report: @Sendable (Double) -> Void = { pts in progress?(min(0.999, max(0, (pts - start) / max(total, 0.001)))) }
                     if blurSamples > 1 {
                         await pumpMotionBlur(vOut, vIn, shift: shift, prefix: first, frameDuration: frameDur, rangeStart: exportRange.start, lead: lead,
-                                             onSample: report)
+                                             stop: stop, onSample: report)
                     } else {
-                        await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video", onSample: report)
+                        await pump(vOut, vIn, shift: shift, prefix: first, label: "export.video", stop: stop, onSample: report)
                     }
                 }
                 if aOut != nil {
                     g.addTask {
                         let (_, _, _, _, aOut, aIn, _) = io.value
-                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, label: "export.audio", onSample: nil) }
+                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, label: "export.audio", stop: stop, onSample: nil) }
                     }
                 }
             }
         } onCancel: {
-            // Only stop the reader here: the pumps then drain and finish; the writer is cancelled below.
-            io.value.0.cancelReading()
+            // Only ask the pumps to stop (never cancelReading under a running copy: ReaderCancel); reader and writer
+            // are cancelled below, once nothing reads.
+            stop.request(io.value.0)
         }
+        stop.finish()
         if Task.isCancelled {
+            reader.cancelReading()
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
             throw ExportError.cancelled
@@ -377,7 +381,7 @@ public enum Exporter {
     }
 
     private static func pump(_ out: AVAssetReaderOutput, _ input: AVAssetWriterInput, shift: CMTime, prefix: CMSampleBuffer?,
-                             label: String, onSample: (@Sendable (Double) -> Void)?) async {
+                             label: String, stop: ReaderCancel, onSample: (@Sendable (Double) -> Void)?) async {
         let io = UncheckedSendable((out, input, prefix))
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             let q = DispatchQueue(label: label, qos: .userInitiated)
@@ -390,7 +394,9 @@ public enum Exporter {
                     if !input.append(prefix) { st.done = true; input.markAsFinished(); cont.resume(); return }
                 }
                 while input.isReadyForMoreMediaData && !st.done {
-                    if let sb = out.copyNextSampleBuffer() {
+                    if stop.requested {
+                        st.done = true
+                    } else if let sb = out.copyNextSampleBuffer() {
                         let pts = CMSampleBufferGetPresentationTimeStamp(sb)
                         onSample?(pts.seconds)
                         let t = CMTimeSubtract(pts, shift)
@@ -415,7 +421,7 @@ public enum Exporter {
     /// EX-025 video pump: the reader delivers several sub-frames per output frame; each group is averaged
     /// (`FrameAccumulator`, in place in the group's first buffer) and written once at the output frame time.
     private static func pumpMotionBlur(_ out: AVAssetReaderOutput, _ input: AVAssetWriterInput, shift: CMTime, prefix: CMSampleBuffer?,
-                                       frameDuration fd: Time, rangeStart: Time, lead: Time,
+                                       frameDuration fd: Time, rangeStart: Time, lead: Time, stop: ReaderCancel,
                                        onSample: (@Sendable (Double) -> Void)?) async {
         let io = UncheckedSendable((out, input, prefix))
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
@@ -437,7 +443,9 @@ public enum Exporter {
                     if !input.append(prefix) { st.done = true; input.markAsFinished(); cont.resume(); return }
                 }
                 while input.isReadyForMoreMediaData && !st.done {
-                    if let sb = out.copyNextSampleBuffer() {
+                    if stop.requested {
+                        st.done = true
+                    } else if let sb = out.copyNextSampleBuffer() {
                         let pts = CMSampleBufferGetPresentationTimeStamp(sb)
                         onSample?(pts.seconds)
                         let rel = pts.seconds - rangeStart.seconds

@@ -196,8 +196,9 @@ every hosting root), so nothing is caught mid-fade.
 **Load-independent waits** (a loaded machine only makes them take longer; the bounds only end a wait that never ends):
 `expect` is re-checked every 50 ms until it holds, ≤ 10 s (`MONTAGE_UITEST_EXPECT_LIMIT`) — so assert the end state, and
 use `exists: false` / `notEquals` checks only for things that must already be true; `waitFor` uses
-max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`); a click / drag / hover target (`id:`, `clip:`) is awaited until
-it resolves, ≤ 10 s; a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
+max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`); before a click / drag / hover the UI is quiesced (a `waitFor`
+can return before the layout its state change causes: the target's frame would be stale) and the target (`id:`,
+`clip:`) is awaited until it resolves, ≤ 10 s; a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
 until it matches it, ≤ 10 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`; a real difference still fails, with the last diff).
 
 `expect` operators: `equals`, `notEquals`, `approx` (+`tolerance`, default 0.001), `gt`/`gte`/`lt`/`lte`, `contains` /

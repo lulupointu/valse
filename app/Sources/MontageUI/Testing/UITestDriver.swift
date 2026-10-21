@@ -309,6 +309,9 @@ public final class UITestDriver {
         let d = UserDefaults.standard
         var args = d.volatileDomain(forName: UserDefaults.argumentDomain)
         args["AppleShowScrollBars"] = "WhenScrolling"
+        // no animated (smooth) wheel scrolling: a scroll step lands at once, so the next click never hits content that
+        // is still gliding under it (wall-clock animation; ai_remove missed its checkbox under load)
+        args["NSScrollAnimationEnabled"] = false
         d.setVolatileDomain(args, forName: UserDefaults.argumentDomain)
         let tz = ProcessInfo.processInfo.environment["MONTAGE_UITEST_TZ"] ?? "Europe/Paris"
         if let z = TimeZone(identifier: tz) { NSTimeZone.default = z }
