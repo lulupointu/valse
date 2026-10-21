@@ -214,8 +214,11 @@ every hosting root), so nothing is caught mid-fade.
 warns "slow expect" when one waited > 2 s although the UI had settled (a latency regression); `waitFor` uses
 max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`); before a click / drag / hover the UI is quiesced (a `waitFor`
 can return before the layout its state change causes: the target's frame would be stale) and the target (`id:`,
-`clip:`) is awaited until it resolves, ≤ 10 s; a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
-it matches it, ≤ 10 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`; a real difference fails with the last diff, and so does a match
+`clip:`) is awaited until it resolves, ≤ 10 s; the quiescence check also renders the window (SwiftUI hit-tests
+against what it last drew); an `id:` click is verified — its press must be dispatched inside the element's frame, else
+(provably not delivered) it is clicked once more (`click_redeliveries` in report.json; a press that landed is never
+repeated, an element rebuilt between press and release is a warning, `click_release_anomalies`); a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
+it matches it, ≤ 30 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`, a hang bound; a real difference fails with the last diff, and so does a match
 that never renders the same twice). A script FAILS when an export pass stalled (`Exporter.stallRestarts` moved).
 
 `expect` operators: `equals`, `notEquals`, `approx` (+`tolerance`, default 0.001), `gt`/`gte`/`lt`/`lte`, `contains` /
@@ -267,7 +270,8 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
 - animation search field: `anim.search`
 - inspector sub-tabs: `inspector.sub.<subTabID>` (e.g. `inspector.sub.out`); asset sub-nav: `asset.nav.<itemID>`
 - transitions (W5): `transitions.search`, `transition.tile.<id>` / `transition.add.<id>` (id without `montage.transition.`),
-  inspector `transition.duration(.field)`, `transition.param.<key>(.field)`, footer `transition.applyAll`
+  inspector `transition.duration(.field)`, `transition.param.<key>(.field)`, footer `transition.applyAll`; state `ui.transitionThumbsMissing` (on-screen tiles whose still
+  is not rendered yet: `waitFor` 0 before a snapshot)
 - animations: `anim.none`, `anim.<phase>.<name>` (e.g. `anim.in.bounce`, `anim.combo.zoomInOut`); grid tiles are lazy, so
   only tiles near the top are reachable without scrolling
 - keyframe panel (⌥K): `panel.keyframes` — during UI tests it is hosted inside the test window (normally a floating NSPanel),

@@ -209,6 +209,9 @@ struct TransitionTile: View {
         }
     }
 
+    /// UI tests (state dump `ui.assets.transitionThumbsMissing`): whether the still of a transition is ready.
+    func hasStill(_ id: String) -> Bool { stills[id] != nil }
+
     /// Resolves once no picture is being rendered (tests wait on this instead of polling with a time budget).
     func idle() async {
         if pending.isEmpty { return }

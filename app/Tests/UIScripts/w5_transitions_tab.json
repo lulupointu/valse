@@ -11,6 +11,8 @@
     {"click": "id:transition.add.heart"},
     {"expect": [{"path": "main.clips.0.transition", "equals": "montage.transition.heart"},
                 {"path": "main.clips.0.transitionDuration", "approx": 0.5}]},
+    // the tile pictures render in the background: snapshot once every visible tile has its still
+    {"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0, "timeout": 30}},
     {"snapshot": "transitions-search", "element": "id:panel.assets", "baseline": "w5_transitions_search", "threshold": 40, "tolerance": 0.03},
     {"click": "clip:1/0"},
     {"click": "id:transition.add.heart"},
@@ -20,6 +22,7 @@
     {"expect": [{"path": "ui.anchors", "contains": "transition.tile.heart"}, {"path": "ui.anchors", "contains": "transition.favorite.heart"}]},
     {"expect": {"path": "ui.anchors", "contains": "asset.nav.fxlib.nav.curated"}},
     {"click": "id:asset.nav.fxlib.nav.curated"},
+    {"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0, "timeout": 30}},
     {"snapshot": "transitions-trending", "element": "id:panel.assets", "baseline": "w5_transitions_trending", "threshold": 40, "tolerance": 0.03}
   ]
 }

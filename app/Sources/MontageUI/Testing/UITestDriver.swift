@@ -108,7 +108,13 @@ public final class UITestWindow: NSWindow {
 
     /// Mouse events are routed here like NSWindow does for an active window (hit-test on down, then the same view gets
     /// drags and the up). AppKit drops clicks on windows of an inactive app, and a test app is never active.
+    /// The `id:` target of the click being delivered, and what its press / release found when dispatched (`ClickProbe`).
+    static var clickProbe: ClickProbe?
+
     public override func sendEvent(_ event: NSEvent) {
+        if let probe = Self.clickProbe, [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp].contains(event.type) {
+            probe.record(event, in: self)
+        }
         let hit = { [self] in contentView.flatMap { $0.hitTest($0.superview?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow) } }
         if Self.debug {
             print("      [event] \(event.type.rawValue) at \(event.locationInWindow) → \(hit().map { String(describing: type(of: $0)) } ?? "nil")")
@@ -459,8 +465,31 @@ public final class UITestDriver {
             var captured: NSMenu?
             if itemPath != nil { TimelineView.uitestMenuSink = { captured = $0 } }
             defer { if itemPath != nil { TimelineView.uitestMenuSink = nil } }
-            SyntheticEvents.click(at: p, in: window, modifiers: mods, count: count, right: right)
-            try await idle(settle: settle)
+            // Verified delivery (`id:` targets): the press must be dispatched with the point inside the element's frame.
+            // If it provably was not (the element moved / disappeared between resolution and dispatch, or the events
+            // never arrived), nothing on the element can have acted: resolve and click once more (report.json
+            // `click_redeliveries`). A press that reached the element is never repeated; a release anomaly after it
+            // (element rebuilt between press and release) is reported (`click_release_anomalies`, a warning).
+            let targetID = (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : nil }
+            var point = p
+            for attempt in 1...2 {
+                let probe = targetID.map { ClickProbe(id: $0, expected: count) }
+                UITestWindow.clickProbe = probe
+                SyntheticEvents.click(at: point, in: window, modifiers: mods, count: count, right: right)
+                try await idle(settle: settle)
+                UITestWindow.clickProbe = nil
+                guard let probe else { break }
+                guard let why = probe.pressMissed() else {
+                    if let a = probe.releaseAnomaly() { warnings.append("click \(t): \(a) (not repeated)"); metrics["click_release_anomalies", default: 0] += 1 }
+                    break
+                }
+                metrics["click_redeliveries", default: 0] += 1
+                warnings.append("click \(t) (attempt \(attempt)) did not reach the element: \(why)")
+                if attempt == 2 { throw Failure("click \(t) did not reach the element twice: \(why)") }
+                await quiesce()
+                await waitForTarget(t, step)
+                point = try resolve(t, step)
+            }
             if let itemPath {
                 guard let m = captured else { throw Failure("no context menu at \(t)") }
                 try performMenu(itemPath, in: m)
@@ -655,7 +684,7 @@ public final class UITestDriver {
     /// Bound of waiting for a mouse target (`id:` element, clip row) to be on screen.
     static let targetLimit = envSeconds("MONTAGE_UITEST_TARGET_LIMIT", 10)
     /// Bound of waiting for a snapshot to render the same pixels twice / to match its baseline.
-    static let snapshotLimit = envSeconds("MONTAGE_UITEST_SNAPSHOT_LIMIT", 10)
+    static let snapshotLimit = envSeconds("MONTAGE_UITEST_SNAPSHOT_LIMIT", 30)   // a hang bound, like waitFor's floor
     /// Bound of `quiesce` (continuous change, e.g. playback, never quiesces: the step then goes on as before).
     static let quiesceLimit = envSeconds("MONTAGE_UITEST_QUIESCE_LIMIT", 10)
 
@@ -667,6 +696,9 @@ public final class UITestDriver {
     /// revision, selection, inspector / asset tab, toast, first responder, app screen / modal.
     private func uiFingerprint() -> String {
         window.contentView?.layoutSubtreeIfNeeded()   // apply pending layout now (it would run at the next pass anyway)
+        // and render it: SwiftUI hit-tests clicks against what it last rendered, not against the layout — a click on
+        // an element laid out but not yet drawn (a screen that just appeared, under load) found nothing to act on
+        window.displayIfNeeded()
         var parts: [String] = []
         for id in TestAnchors.shared.ids {
             if let r = TestAnchors.shared.frame(id) {
@@ -1350,5 +1382,42 @@ public enum StressProject {
             p.media.append(a); k += 1
         }
         return p
+    }
+}
+
+/// What the presses / releases of one synthetic click found when NSWindow dispatched them: the target element's live
+/// instance (TestAnchors owner token) and whether the point was inside its frame at that moment.
+@MainActor
+final class ClickProbe {
+    let id: String
+    let expected: Int
+    private var seen: [(down: Bool, owner: UUID?, inside: Bool)] = []
+    init(id: String, expected: Int) { self.id = id; self.expected = expected }
+
+    func record(_ e: NSEvent, in window: NSWindow) {
+        guard let host = window.contentView else { return }
+        let p = host.convert(e.locationInWindow, from: nil)   // host coordinates (top-left when flipped, like the frames)
+        let q = host.isFlipped ? p : CGPoint(x: p.x, y: host.bounds.height - p.y)
+        let inside = TestAnchors.shared.frame(id)?.insetBy(dx: -0.5, dy: -0.5).contains(q) ?? false
+        seen.append((e.type == .leftMouseDown || e.type == .rightMouseDown, TestAnchors.shared.owner(id), inside))
+    }
+
+    /// Why the click provably did NOT reach the element — its PRESS was never dispatched, or landed outside the
+    /// element / with no element there (then nothing on the element can have acted: safe to click again). nil otherwise.
+    func pressMissed() -> String? {
+        let presses = seen.filter(\.down)
+        if presses.count < expected { return "\(presses.count) of \(expected) press(es) dispatched" }
+        if presses.contains(where: { !$0.inside || $0.owner == nil }) { return "the press landed outside the element (it moved or disappeared before the event was dispatched)" }
+        return nil
+    }
+
+    /// Anomalies AFTER the press reached the element (reported, never re-clicked: the element may already have acted —
+    /// e.g. an action on press that rebuilds it).
+    func releaseAnomaly() -> String? {
+        let ups = seen.filter { !$0.down }
+        // (a release consumed by an AppKit tracking loop — NSTextField, NSSlider — never reaches sendEvent: not an anomaly)
+        if ups.count < expected { return nil }
+        if Set(seen.map { $0.owner?.uuidString ?? "-" }).count > 1 { return "the element was rebuilt between press and release" }
+        return nil
     }
 }
