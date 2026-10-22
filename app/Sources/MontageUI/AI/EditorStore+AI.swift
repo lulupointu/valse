@@ -64,15 +64,8 @@ public final class AIUIState {
     /// OB-07 "Download required" popup + bottom-right download indicator (ModelDownloadFlow.swift).
     public let downloads = ModelDownloadFlow()
     @PerceptionIgnored var ttsRefresh: Task<Void, Never>?
-    // Transcript-based editing
     /// EditPilot chat (AI-048, EditorStore+EditPilot.swift).
     public let pilot = PilotState()
-    public var transcriptOpen = false
-    public var transcriptJob: JobID?
-    public var transcriptProgress: Double = 0
-    public var transcripts: [MediaID: Transcript] = [:]
-    var transcriptSelection: Set<TranscriptPanel.Key> = []
-    var transcriptAnchor: TranscriptPanel.Key?
     public init() {}
 }
 

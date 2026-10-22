@@ -2,10 +2,8 @@ import Foundation
 import MontageCore
 import MontageEngine
 
-/// UI tests (C4): `"project": "demo-transcript"` = the demo project with a known transcript on its 3 main-track clips
-/// (no speech model needed): leading silence, a hesitation, a repetition, a context filler, pauses inside a clip and
-/// across cuts, trailing silence. `"demo-transcript:captions"` also adds a caption track made from it; `:partial` leaves the
-/// last clip untranscribed (the transcript is "out of date").
+/// UI tests (C4): `"project": "demo-transcript:captions"` = the demo project with a caption track made from known words
+/// on its 3 main-track clips (no speech model needed). `:partial` leaves the last clip without captions.
 @MainActor
 public enum TranscriptDemo {
     /// Word lists per main-track clip (media seconds).
@@ -19,12 +17,10 @@ public enum TranscriptDemo {
     public static func load(_ spec: String, into store: EditorStore) async throws {
         var p = try await DemoProject.make()
         let main = p.timeline.mainTrack?.clips ?? []
-        var transcripts: [MediaID: Transcript] = [:]
         var segments: [CaptionSegment] = []
         for (i, c) in main.prefix(spec.contains("partial") ? 2 : words.count).enumerated() {
-            guard let id = c.mediaID else { continue }
+            guard c.mediaID != nil else { continue }
             let ws = words[i].map { TranscriptWord(text: $0.0, start: $0.1, end: $0.2, confidence: 0.95) }
-            transcripts[id] = Transcript(engine: "test", language: "en", words: ws)
             let origin = c.start.seconds - c.sourceStart.seconds
             let tl = ws.map { (text: $0.text, start: $0.start + origin, end: $0.end + origin) }
             if let a = tl.first, let b = tl.last {
@@ -35,7 +31,6 @@ public enum TranscriptDemo {
             SpeechCaptions.finish(trackID: id, in: &p)
         }
         store.load(project: p)
-        store.ai.transcripts = transcripts
         store.ai.captionLanguage = nil
     }
 }

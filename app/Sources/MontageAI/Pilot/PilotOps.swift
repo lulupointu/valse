@@ -85,7 +85,7 @@ public enum PilotOps {
         }
         guard !ranges.isEmpty else { return nil }
         let before = p.timeline.duration
-        try TranscriptEditing.rippleDelete(ranges, in: &p)
+        try RippleCut.rippleDelete(ranges, in: &p)
         return tr("pilot.result.removeSilences", ranges.count, PilotFormat.seconds((before - p.timeline.duration).seconds))
     }
 

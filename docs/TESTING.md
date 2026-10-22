@@ -155,7 +155,7 @@ Run `scripts/uitest.sh app/Tests/UIScripts/<name>.json`. Output goes to `build/u
 errors, metrics), `final.json` (state dump), every `snapshot` PNG, and on failure `failure.json` + `failure.png`.
 **Open the PNGs and look at them.** Exit code 0 = pass (3 = skipped; `uitest.sh` exits 1 if any script failed or timed out twice and is not quarantined). `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
 
-Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`; per area: `timeline_edit` (move, ⌫, W, magnet), `canvas_drag` (select + drag on the preview), `inspector_tabs` (Scale + Speed fields), `audio_volume`, `text_add`, `ai_tts`, `ai_transcript_panel`.
+Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`; per area: `timeline_edit` (move, ⌫, W, magnet), `canvas_drag` (select + drag on the preview), `inspector_tabs` (Scale + Speed fields), `audio_volume`, `text_add`, `ai_tts`.
 
 ### Script keys
 
@@ -176,7 +176,7 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
   logged `⏭` and reported `"skipped"`. Use them for **expected** differences only (an API that doesn't exist on the older
   system), asserting the older system's behaviour in a `maxOS` twin step, so the newer system's assertions stay intact —
   e.g. `ai_relight` (no depth model on 13), `f4_cl_smart_brush` (no instance segmentation on 13), `ai_enhance_quality`
-  (VT super resolution is 26+), `c4_transcript_stale` (SFSpeech before 26 needs a permission tests never have).
+  (VT super resolution is 26+).
   `MONTAGE_UITEST_OS_MAJOR=13` fakes the version to check a script's 13 branch on a newer host.
 - Caption word timing: `CaptionOnsetTests` builds FR / EN speech with known word onsets, silences and noise
   (`bench/speech_onsets.swift`, cached in ~/Library/Caches/MontageDev/fixtures; bump `fixtureVersion` when the script

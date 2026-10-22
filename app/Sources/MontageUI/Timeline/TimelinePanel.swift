@@ -43,7 +43,6 @@ struct TimelineToolbar: View {
         var hasSel = false, hasTarget = false, canDelete = false
         var audioSel = false, isVideo = false, reversed = false, hasMedia = false, visualSel = false, single = false
         var mediaSel = false
-        var transcriptOpen = false
         var magnet = false, snapping = false, linkage = false, previewAxis = false
         var pixelsPerSecond: Double = 0
     }
@@ -73,7 +72,6 @@ struct TimelineToolbar: View {
                 default: return false
                 }
             }
-            m.transcriptOpen = store.ai.transcriptOpen
             m.magnet = tl.mainTrackMagnet; m.snapping = tl.snapping; m.linkage = tl.linkage
             m.previewAxis = ui.previewAxis
             m.pixelsPerSecond = store.pixelsPerSecond
@@ -120,8 +118,6 @@ struct TimelineToolbarBar: View, Equatable {
                     IconButton("rotate.right", help: tr("toolbar.rotate"), enabled: m.visualSel) { store.rotateSelection() }
                     IconButton("crop", help: tr("toolbar.crop"), enabled: m.visualSel && m.single) { store.openCropDialog() }.testID("toolbar.crop")
                 }
-                // W10 / C4: Transcript-based editing, always available (the transcript covers the whole main track)
-                IconButton("text.word.spacing", help: tr("toolbar.transcript"), active: m.transcriptOpen) { store.ai.transcriptOpen.toggle() }.testID("toolbar.transcript")
                 Spacer()
                 VoiceoverButton(store: store)
                 divider

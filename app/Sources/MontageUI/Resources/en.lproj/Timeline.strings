@@ -99,7 +99,6 @@
 "tlmenu.rotate" = "Rotate";
 "tlmenu.crop" = "Crop";
 "tlmenu.splitScenes" = "Split scenes";
-"tlmenu.transcript" = "Transcript";
 "tlmenu.separateAudio" = "Separate audio";
 "tlmenu.separateAudio.vocals" = "Vocals";
 "tlmenu.separateAudio.music" = "Background music";

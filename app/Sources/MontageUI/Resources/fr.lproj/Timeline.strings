@@ -99,7 +99,6 @@
 "tlmenu.rotate" = "Pivoter";
 "tlmenu.crop" = "Recadrer";
 "tlmenu.splitScenes" = "Diviser les scènes";
-"tlmenu.transcript" = "Transcription";
 "tlmenu.separateAudio" = "Séparer l'audio";
 "tlmenu.separateAudio.vocals" = "Voix";
 "tlmenu.separateAudio.music" = "Musique de fond";

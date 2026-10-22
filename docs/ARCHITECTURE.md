@@ -378,9 +378,9 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **Captions** use the text team's model (§17d: `TextContent.caption`, `CaptionOps`). W10 adds `Captions/SpeechCaptions.swift`
   (Core): `SpeechSegmenter` (≤ 2 lines × 28 chars, breaks on sentence ends / pauses > 0.6 s / 6 s, filler tagging/removal),
   `SpeechCaptions.segments(transcript, for: mediaClip)` → `CaptionSegment`s in timeline seconds with word timings (inverse time
-  remap `Clip.timelineTime(forSource:)`, speed curves included), `finish` (filler flags, linkage to the main clip), translations and
+  remap `Clip.timelineTime(forSource:)`, speed curves included), `finish` (linkage to the main clip), translations and
   keyword marks. `CaptionGenerator` (MontageAI) runs the job and ends with `CaptionOps.addCaptionTrack(…, origin: .auto/.lyrics,
-  replacing:)`. `TranscriptEditing` (Core) maps transcript words to main-track pieces and ripple-deletes / restores them.
+  replacing:)`. `RippleCut` (Core) ripple-deletes timeline ranges with captions following (EditPilot remove silences); transcript-based editing and filler removal were removed (FB-01 / FB-11).
 - **Speaker ID** (AI-005 / TX-038): `CaptionData.speaker` ("1", "2"…) + `Project.speakers` (`CaptionSpeaker`: name, colour;
   optional, old files decode). Core `Captions/Speakers.swift`: `SpeakerClustering` (average-linkage cosine, Auto threshold or
   fixed count, tiny clusters folded, subsample above 500 windows), `SpeakerCaptions` (split segments at speaker changes with
@@ -471,7 +471,7 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   library) derives normals from smoothed depth differences and shades after the matte pass (flat until the depth lands). UI:
   `RelightUI.swift` (section, `RelightLightTool` canvas tool, `setRelight` / `ensureRelightPass` jobs).
 - **UI** (`MontageUI/AI`): `store.ai` (`AIUIState`), `EditorStore+AI.swift` (jobs: captions, cutout, translation, stems),
-  `AutoCaptionsPanel` (Text ▸ Auto captions), `TranscriptPanel` (replaces the asset panel), `TTSInspector`, `VideoAIUI`,
+  `AutoCaptionsPanel` (Text ▸ Auto captions), `TTSInspector`, `VideoAIUI`,
   `ModelManagerSheet`, translate / LLM-keyword entries in W7's Captions tab,
   `AIInspector` (tabs/sections appended to `BuiltinInspector`). All AI work runs in `JobQueue` (progress, cancel; subject = clip id
   → progress overlay on the clip). Tests: `MontageAITests` (WER, segmentation on generated frames, compositor, TTS round trip,

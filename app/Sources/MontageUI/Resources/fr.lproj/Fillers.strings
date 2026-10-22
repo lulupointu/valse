@@ -1,4 +1,4 @@
-/* C4 refonte sous-titres & transcription : onglet Sous-titres, liste des sous-titres, Appliquer à tous les sous-titres principaux, Supprimer les tics de langage */
+/* C4 captions rework: Captions tab, caption list, Apply to all main captions (filler / transcript keys removed in FB-01 / FB-11) */
 "tab.captions" = "Sous-titres";
 "text.sub.templates" = "Modèles";
 "captions.applyAllMain" = "Appliquer à tous les sous-titres principaux";
@@ -8,14 +8,3 @@
 "captions.newCaption" = "Nouveau sous-titre";
 "cmd.captionAdd" = "Ajouter un sous-titre";
 "cmd.captionDelete" = "Supprimer le sous-titre";
-
-"transcript.status.upToDate" = "Transcription à jour";
-"transcript.status.upToDateLang" = "À jour · %@";
-"transcript.status.stale" = "Plus à jour — la timeline a changé";
-"transcript.status.staleLanguage" = "Plus à jour — la langue parlée a changé";
-"transcript.status.none" = "Pas encore transcrit";
-"transcript.status.noMedia" = "Aucun clip avec du son sur la piste principale";
-"transcript.update" = "Mettre à jour";
-"transcript.autoDetected" = "Détection auto (%@)";
-
-

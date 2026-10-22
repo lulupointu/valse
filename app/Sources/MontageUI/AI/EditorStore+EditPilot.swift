@@ -54,7 +54,6 @@ extension EditorStore {
 
     public func togglePilot() {
         pilot.isOpen.toggle()
-        if pilot.isOpen { ai.transcriptOpen = false }
     }
 
     /// Sends a chat instruction: plan (language model / rules) → prepare (analyses as a background job, progress,
