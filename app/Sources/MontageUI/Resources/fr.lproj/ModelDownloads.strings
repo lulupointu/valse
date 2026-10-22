@@ -1,0 +1,13 @@
+/* OB-07 : fenêtre « Téléchargement nécessaire » et indicateur de téléchargement en bas à droite (ModelDownloadFlow.swift) */
+"download.prompt.title" = "Téléchargement nécessaire";
+"download.prompt.body.one" = "Cette option nécessite un modèle d'IA qui n'est pas encore sur ce Mac (environ %@). Voulez-vous le télécharger maintenant ?";
+"download.prompt.body.many" = "Cette option nécessite des modèles d'IA qui ne sont pas encore sur ce Mac (environ %@ au total). Voulez-vous les télécharger maintenant ?";
+"download.prompt.privacy" = "Téléchargé une seule fois, puis tout s'exécute sur ce Mac. Vous pouvez continuer le montage pendant le téléchargement.";
+"download.prompt.cancel" = "Annuler";
+"download.prompt.download" = "Télécharger";
+"download.cancel" = "Annuler le téléchargement";
+"download.cancel.question" = "Arrêter ce téléchargement ?";
+"download.cancel.confirm" = "Arrêter";
+"download.keep" = "Continuer";
+"download.failed" = "Échec du téléchargement : %@";
+"download.dismiss" = "Fermer";

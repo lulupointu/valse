@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import Perception
 import UniformTypeIdentifiers
+import AVFoundation
 import MontageCore
 import MontageEngine
 
@@ -14,6 +15,8 @@ public final class ExportCenter {
     /// The open dialog's state (nil when closed) and the jobs its progress view shows.
     public var dialog: ExportDialogModel?
     public var shownJobs: [ExportJobItem] = []
+    /// The finished export's preview player (ExportProgressView), loaded paused (OB-06); `ui.export.preview` in tests.
+    @PerceptionIgnored public weak var previewPlayer: AVPlayer?
     public init() {}
 }
 
@@ -112,6 +115,9 @@ enum ExportStateDump {
         }
         d["jobs"] = c.queue.items.map(job)
         d["shown"] = c.shownJobs.map(job)
+        if let p = c.previewPlayer {   // OB-06: never auto-plays
+            d["preview"] = ["loaded": true, "playing": p.rate != 0 || p.timeControlStatus != .paused]
+        }
         return d
     }
 }

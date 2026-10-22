@@ -52,9 +52,11 @@ struct ExportProgressView: View {
                 }
                 .padding(.horizontal, 16).frame(height: 60)
             }
-            // finished (or stopped with some files written): play the first exported video
+            // finished (or stopped with some files written): load the first exported video, paused (OB-06: never
+            // auto-play; the user presses play)
             .onValueChange(of: running) { if !running, let u = firstVideo {
-                let p = AVPlayer(url: u); p.volume = AudioOutput.volume(1); player = p; if allDone { p.play() }
+                let p = AVPlayer(url: u); p.volume = AudioOutput.volume(1); p.actionAtItemEnd = .pause; player = p
+                store.exports.previewPlayer = p
             } }
         }
     }
@@ -68,6 +70,7 @@ struct ExportProgressView: View {
                         .background(Color.black.opacity(0.5), in: Circle())
                 }
                 .buttonStyle(.plain).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading).padding(8)
+                .testID("export.preview.playPause")
             } else {
                 Group { if let cover { Image(nsImage: cover).resizable().aspectRatio(contentMode: .fit).accessibilityLabel(Text(verbatim: tr("ax.exportPreview"))) } else { Color.black } }
                 Color.black.opacity(0.55)

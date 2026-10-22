@@ -321,6 +321,8 @@ public final class UITestDriver {
         }
         let required = ((script["requires"] as? [String: Any])?["models"] as? [String]) ?? []
         defer { ModelManager.shared.refresh() }
+        // OB-07: UI tests never download: simulated downloads (`"modelDownloads": "hold"` stops at 40 %)
+        ModelManager.shared.simulation = ModelManager.Simulation(rawValue: script["modelDownloads"] as? String ?? "") ?? .complete
         ModelCatalog.isSandboxed = required.isEmpty
         if required.isEmpty {
             ModelCatalog.directoryOverride = FileManager.default.temporaryDirectory

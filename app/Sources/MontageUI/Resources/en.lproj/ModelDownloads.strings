@@ -1,0 +1,13 @@
+/* OB-07: "Download required" popup and bottom-right download indicator (ModelDownloadFlow.swift) */
+"download.prompt.title" = "Download required";
+"download.prompt.body.one" = "This option needs an AI model that isn't on this Mac yet (about %@). Download it now?";
+"download.prompt.body.many" = "This option needs AI models that aren't on this Mac yet (about %@ in total). Download them now?";
+"download.prompt.privacy" = "Downloaded once, then everything runs on this Mac. You can keep editing while it downloads.";
+"download.prompt.cancel" = "Cancel";
+"download.prompt.download" = "Download";
+"download.cancel" = "Cancel download";
+"download.cancel.question" = "Stop this download?";
+"download.cancel.confirm" = "Stop download";
+"download.keep" = "Keep";
+"download.failed" = "Download failed: %@";
+"download.dismiss" = "Dismiss";
