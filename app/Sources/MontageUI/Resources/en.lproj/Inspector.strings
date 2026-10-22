@@ -98,6 +98,11 @@
 "adjust.preset.delete" = "Delete preset";
 "toast.presetSaved" = "Saved as “%@”";
 "cmd.adjust.preset" = "Apply preset";
+/* Adjustment asset tab ▸ My presets (CL-013) */
+"adjust.preset.empty" = "No presets yet. Adjust a clip, then click Save as preset at the bottom of the Adjust tab.";
+"adjust.preset.applyToSelected" = "Apply to selected clip";
+"adjust.preset.cardHelp" = "Add as an adjustment layer at the playhead";
+"adjust.preset.noTarget" = "Select a video or image clip first";
 
 /* Speed ▸ Velocity effects (W3-9) */
 "inspector.speed.velocity" = "Velocity effects";

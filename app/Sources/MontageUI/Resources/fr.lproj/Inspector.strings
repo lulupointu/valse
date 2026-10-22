@@ -98,6 +98,11 @@
 "adjust.preset.delete" = "Supprimer le préréglage";
 "toast.presetSaved" = "Enregistré sous « %@ »";
 "cmd.adjust.preset" = "Appliquer le préréglage";
+/* Adjustment asset tab ▸ My presets (CL-013) */
+"adjust.preset.empty" = "Aucun préréglage pour l’instant. Réglez un clip, puis cliquez sur Enregistrer comme préréglage en bas de l’onglet Ajuster.";
+"adjust.preset.applyToSelected" = "Appliquer au clip sélectionné";
+"adjust.preset.cardHelp" = "Ajouter comme calque d'ajustement à la tête de lecture";
+"adjust.preset.noTarget" = "Sélectionnez d’abord un clip vidéo ou une image";
 
 /* Speed ▸ Velocity effects (W3-9) */
 "inspector.speed.velocity" = "Effets de vitesse";

@@ -1,0 +1,32 @@
+// CL-013: Adjustment asset tab ▸ My presets lists the grades saved from the Adjust footer (empty state first);
+// selecting a preset card shows ⊕, which adds an adjustment layer carrying that grade at the playhead.
+{
+  "project": "demo",
+  "lang": "en",
+  "steps": [
+    {"click": "id:asset.tab.adjustment"},
+    {"click": "id:asset.nav.fxlib.nav.myPresets"},
+    {"waitFor": {"path": "ui.anchors", "contains": "asset.presets.empty"}},
+    // save a preset from the inspector: Brightness 50 on the first clip
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.adjust"},
+    {"click": "id:slider.Brightness.field"},
+    {"type": "50", "replace": true},
+    {"key": "return"},
+    {"click": "id:adjust.savePreset"},
+    {"waitFor": {"path": "ui.anchors", "contains": "asset.preset.0"}},
+    {"expect": {"path": "ui.anchors", "notContains": "asset.presets.empty"}},
+    {"click": "time:1@ruler"},
+    {"click": "id:asset.preset.0"},
+    {"waitFor": {"path": "ui.anchors", "contains": "asset.preset.0.add"}},
+    {"snapshot": "adjust-my-presets", "element": "id:panel.assets", "baseline": true},
+    {"click": "id:asset.preset.0.add"},
+    {"expect": [{"path": "selectedClips.0.kind", "equals": "adjustment"},
+                {"path": "selectedClips.0.effects", "contains": "montage.adjust.basic"},
+                {"path": "selectedClips.0.start", "approx": 1, "tolerance": 0.05},
+                {"path": "undo.name", "equals": "cmd.adjustmentLayer"},
+                {"path": "ui.inspectorTab", "equals": "adjust"}]},
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.name", "notEquals": "cmd.adjustmentLayer"}}
+  ]
+}
