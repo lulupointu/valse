@@ -20,7 +20,7 @@ import MontageTestSupport
         let v = try await p.addVideo(.movingBox(RGBA(0.5, 0.5, 0.5), RGBA(0.9, 0.1, 0.1)), seconds: 4, size: CGSize(width: 640, height: 360))
         let segs = SpeechCaptions.segments(Transcript(engine: "test", language: "fr", words: Self.words), for: p[v])
         let tid = try #require(CaptionOps.addCaptionTrack(segs, to: &p.project, origin: .auto, replacing: true))
-        SpeechCaptions.finish(trackID: tid, language: "fr", in: &p.project, identifyFillers: true)
+        SpeechCaptions.finish(trackID: tid, in: &p.project)
         let s = EditorStore(project: p.project); s.autosaveEnabled = false
         return (s, v)
     }

@@ -12,7 +12,6 @@ public final class AIUIState {
     public var captionLanguage: String? = nil
     public var captionEngine: SpeechEngine = .automatic
     public var captionSource: CaptionOptions.Source = .allTracks
-    public var identifyFillers = false
     /// Auto captions ▸ Identify speakers (AI-005) and the number of speakers (nil = Auto).
     public var identifySpeakers = false
     public var speakerCount: Int? = nil
@@ -141,9 +140,7 @@ extension EditorStore {
     // MARK: Auto captions
 
     public var captionOptions: CaptionOptions {
-        var s = CaptionSettings()
-        s.identifyFillers = ai.identifyFillers
-        return CaptionOptions(language: ai.captionLanguage, engine: ai.captionEngine, source: ai.captionSource, settings: s,
+        CaptionOptions(language: ai.captionLanguage, engine: ai.captionEngine, source: ai.captionSource, settings: CaptionSettings(),
                               replaceExisting: ai.replaceCaptions && hasAutoCaptions,
                               identifySpeakers: ai.identifySpeakers, speakerCount: ai.speakerCount)
     }

@@ -118,7 +118,7 @@ import Foundation
         }
         let id = CaptionOps.addCaptionTrack(segs, to: &p)!
         p.timeline.linkage = linked
-        SpeechCaptions.finish(trackID: id, language: "fr", in: &p, identifyFillers: true)
+        SpeechCaptions.finish(trackID: id, in: &p)
         return p
     }
 

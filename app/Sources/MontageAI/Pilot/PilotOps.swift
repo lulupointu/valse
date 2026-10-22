@@ -263,16 +263,13 @@ public enum PilotOps {
         var settings = CaptionSettings()
         settings.removeFillers = true
         var segments: [CaptionSegment] = []
-        var detected: [String: Int] = [:]
         for c in CaptionGenerator.sourceClips(p, .allTracks) {
             guard let t = c.mediaID.flatMap({ ctx.transcripts[$0] }), !t.words.isEmpty else { continue }
             segments += SpeechCaptions.segments(t, for: c, settings: settings)
-            detected[t.language, default: 0] += t.words.count
         }
         guard !segments.isEmpty else { return nil }
-        let lang = detected.max { $0.value < $1.value }?.key ?? language ?? "en"
         guard let id = CaptionOps.addCaptionTrack(segments, to: &p, origin: .auto, replacing: true) else { return nil }
-        SpeechCaptions.finish(trackID: id, language: lang, in: &p, identifyFillers: false)
+        SpeechCaptions.finish(trackID: id, in: &p)
         return tr("pilot.result.captions", segments.count)
     }
 

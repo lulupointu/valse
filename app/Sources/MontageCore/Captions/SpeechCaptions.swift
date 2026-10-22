@@ -15,14 +15,12 @@ public struct CaptionSettings: Hashable, Codable, Sendable {
     public var maxPause: Double
     /// Longest caption on screen (seconds).
     public var maxDuration: Double
-    /// Tag filler words / hesitations / repetitions ("Identify filler words").
-    public var identifyFillers: Bool
-    /// Drop filler words from the caption text ("Remove filler words").
+    /// Leave filler words out of the caption text (EditPilot captions).
     public var removeFillers: Bool
     public init(maxCharsPerLine: Int = 28, maxLines: Int = 2, maxPause: Double = 0.5, maxDuration: Double = 3.2,
-                identifyFillers: Bool = false, removeFillers: Bool = false) {
+                removeFillers: Bool = false) {
         self.maxCharsPerLine = maxCharsPerLine; self.maxLines = maxLines; self.maxPause = maxPause
-        self.maxDuration = maxDuration; self.identifyFillers = identifyFillers; self.removeFillers = removeFillers
+        self.maxDuration = maxDuration; self.removeFillers = removeFillers
     }
     /// How long a caption stays after its last word when silence follows (seconds).
     public static let tail = 0.2
@@ -88,7 +86,7 @@ public enum SpeechSegmenter {
     /// then the longest pause, preferring well-filled captions and never ending on an article / preposition — rather
     /// than wherever the limit is hit.
     public static func segments(_ words: [TranscriptWord], language: String, settings: CaptionSettings = CaptionSettings()) -> [SpeechSegment] {
-        let allKinds = settings.identifyFillers || settings.removeFillers
+        let allKinds = settings.removeFillers
             ? FillerWords.classify(words.map(\.text), language: language) : Array(repeating: nil, count: words.count)
         var ws: [TranscriptWord] = [], kinds: [FillerWords.Kind?] = []
         for (w, k) in zip(words, allKinds) where !w.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -217,20 +215,14 @@ public enum SpeechCaptions {
         return out
     }
 
-    /// After `CaptionOps.addCaptionTrack`: flags filler words (`CaptionWord.filler`) and links captions to the main-track
-    /// clip under them (CapCut: captions follow their source clips).
-    public static func finish(trackID: TrackID, language: String, in project: inout Project, identifyFillers: Bool) {
+    /// After `CaptionOps.addCaptionTrack`: links captions to the main-track clip under them (CapCut: captions follow
+    /// their source clips).
+    public static func finish(trackID: TrackID, in project: inout Project) {
         guard let ti = project.timeline.trackIndex(trackID) else { return }
         let main = project.timeline.mainTrack
         for i in project.timeline.tracks[ti].clips.indices {
             var c = project.timeline.tracks[ti].clips[i]
-            guard case .text(var t) = c.content, var data = t.caption else { continue }
-            if identifyFillers {
-                let kinds = FillerWords.classify(data.words.map(\.text), language: language)
-                for k in data.words.indices where kinds[k] != nil { data.words[k].filler = true }
-                t.caption = data
-                c.content = .text(t)
-            }
+            guard case .text(let t) = c.content, t.caption != nil else { continue }
             if project.timeline.linkage, let m = main?.clips.first(where: { $0.range.contains(c.start) }) { c.linkedTo = m.id }
             project.timeline.tracks[ti].clips[i] = c
         }

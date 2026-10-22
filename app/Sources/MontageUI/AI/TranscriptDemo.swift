@@ -32,7 +32,7 @@ public enum TranscriptDemo {
             }
         }
         if spec.contains("captions"), let id = CaptionOps.addCaptionTrack(segments, to: &p) {
-            SpeechCaptions.finish(trackID: id, language: "en", in: &p, identifyFillers: true)
+            SpeechCaptions.finish(trackID: id, in: &p)
         }
         store.load(project: p)
         store.ai.transcripts = transcripts

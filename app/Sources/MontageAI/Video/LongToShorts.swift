@@ -56,7 +56,7 @@ public enum LongToShorts {
             if o.captions, let clip = p.timeline.mainTrack?.clips.first {
                 let segs = SpeechCaptions.segments(t, for: clip)
                 if !segs.isEmpty, let id = CaptionOps.addCaptionTrack(segs, to: &p, origin: .auto) {
-                    SpeechCaptions.finish(trackID: id, language: t.language, in: &p, identifyFillers: false)
+                    SpeechCaptions.finish(trackID: id, in: &p)
                 }
             }
             out.append(p)

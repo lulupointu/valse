@@ -110,16 +110,16 @@ import Foundation
         #expect(segs[0].words.count == CaptionText.tokens(segs[0].text).count)
     }
 
-    func captionProject(fillers: Bool = false) throws -> (Project, TrackID) {
+    func captionProject() throws -> (Project, TrackID) {
         var (p, ids) = Fx.project(mainClips: 1, seconds: 8)
         let segs = SpeechCaptions.segments(Transcript(engine: "t", language: "fr", words: Self.words()), for: p.timeline.clip(ids[0])!)
         let id = try #require(CaptionOps.addCaptionTrack(segs, to: &p, origin: .auto, replacing: true))
-        SpeechCaptions.finish(trackID: id, language: "fr", in: &p, identifyFillers: fillers)
+        SpeechCaptions.finish(trackID: id, in: &p)
         return (p, id)
     }
 
     @Test func captionTrackUsesTextModelWithWordTimings() throws {
-        let (p, id) = try captionProject(fillers: true)
+        let (p, id) = try captionProject()
         ok(p)
         let caps = SpeechCaptions.captions(in: p.timeline)
         #expect(caps.count >= 3)
@@ -130,8 +130,6 @@ import Foundation
         #expect(w.map(\.text) == ["Bonjour", "et", "bienvenue."])
         #expect(abs(w[1].start.seconds - 0.45) < 0.01)
         #expect(caps.allSatisfy { $0.linkedTo == p.timeline.mainTrack!.clips[0].id })
-        let all = caps.flatMap { CaptionOps.text($0)?.caption?.words ?? [] }
-        #expect(all.first { $0.text == "euh" }?.filler == true)
         #expect(p.timeline.tracks.contains { $0.id == id })
     }
 
