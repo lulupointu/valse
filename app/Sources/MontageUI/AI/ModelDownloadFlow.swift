@@ -95,9 +95,15 @@ public final class ModelDownloadFlow {
     var activeSpecs: [AIModelSpec] { ModelCatalog.all.filter { manager.state($0).isBusy } }
 
     func dump() -> [String: Any] {
-        ["prompt": prompt?.specs.map(\.id).joined(separator: ",") ?? "", "pending": pending.count, "proceeded": proceeded,
-         "confirming": confirmingCancel.sorted().joined(separator: ","), "failures": failures.keys.sorted().joined(separator: ","),
-         "active": activeSpecs.map(\.id).joined(separator: ",")]
+        var d: [String: Any] = [
+            "prompt": prompt?.specs.map(\.id).joined(separator: ",") ?? "", "pending": pending.count, "proceeded": proceeded,
+            "confirming": confirmingCancel.sorted().joined(separator: ","), "failures": failures.keys.sorted().joined(separator: ","),
+            "active": activeSpecs.map(\.id).joined(separator: ",")]
+        // FB-08: the indicator's distance to the window's right / bottom edges (it sits in the bottom-right corner)
+        if let f = SnapshotRegistry.shared.floatingFrames["modelDownloads"], let b = SyntheticEvents.testWindow?.contentView?.bounds {
+            d["indicatorInset"] = [Double(b.width - f.maxX), Double(b.height - f.maxY)]
+        }
+        return d
     }
 }
 
@@ -115,11 +121,14 @@ struct ModelDownloadOverlay: View {
         WithPerceptionTracking {
             let flow = store.ai.downloads
             let _ = flow.manager.states
-            ZStack(alignment: .bottomTrailing) {
+            ZStack {
+                // FB-08: pinned to the window's bottom-right corner. Without the full-size frame the overlay shrank to
+                // the card and centred it over the player whenever the popup (which fills the window) was closed.
                 if !flow.activeSpecs.isEmpty || !flow.failures.isEmpty {
                     ModelDownloadIndicator(flow: flow)
                         .reportsSnapshotFrame { SnapshotRegistry.shared.floatingFrames["modelDownloads"] = $0 }
                         .padding(.trailing, 16).padding(.bottom, 16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
                 if let p = flow.prompt {
                     ZStack {

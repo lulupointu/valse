@@ -19,6 +19,11 @@
     {"expect": [{"path": "ui.models.flow.active", "equals": "coreml.lama-800"},
                 {"path": "ui.models.flow.pending", "equals": 1},
                 {"path": "ui.anchors", "contains": "modelDownloads.indicator"}]},
+    // FB-08: the indicator sits in the window's bottom-right corner (16 pt margins), not centred over the player
+    {"waitFor": {"path": "ui.models.flow.indicatorInset.0", "lte": 24}},
+    {"expect": [{"path": "ui.models.flow.indicatorInset.0", "gte": 8},
+                {"path": "ui.models.flow.indicatorInset.1", "gte": 8},
+                {"path": "ui.models.flow.indicatorInset.1", "lte": 24}]},
     {"snapshot": "model-download-indicator", "element": "id:modelDownloads.indicator", "baseline": true},
     // ✕ → confirmation only (still downloading); Keep → back
     {"click": "id:modelDownloads.cancel.coreml.lama-800"},

@@ -37,6 +37,7 @@ struct BlendSection: View {
                         guard let id = ctx.clip?.id else { return }
                         ctx.store.performInspector(UpdateClip(id, nameKey: "cmd.blend") { $0.blendMode = m })
                     }
+                    .testID("inspector.blendMode")   // FB-06
                 }
                 OpacityRow(ctx: ctx)
             }

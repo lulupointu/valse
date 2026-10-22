@@ -472,10 +472,11 @@ public final class UITestDriver {
             let right = step["rightClick"] != nil
             let count = step["doubleClick"] != nil ? 2 : ((step["count"] as? Int) ?? 1)
             // timeline context menu item: `{"rightClick": "clip:main/0", "menuItem": "tlmenu.separateAudio/tlmenu.splitScenes"}`
-            let itemPath = right ? step["menuItem"] as? String : nil
+            // FB-06 dropdown: `{"click": "id:…", "menuItem": "<title or key>"}` (the menu the real click builds)
+            let itemPath = step["menuItem"] as? String
             var captured: NSMenu?
-            if itemPath != nil { TimelineView.uitestMenuSink = { captured = $0 } }
-            defer { if itemPath != nil { TimelineView.uitestMenuSink = nil } }
+            if itemPath != nil { TimelineView.uitestMenuSink = { captured = $0 }; DropdownMenu.uitestMenuSink = { captured = $0 } }
+            defer { if itemPath != nil { TimelineView.uitestMenuSink = nil; DropdownMenu.uitestMenuSink = nil } }
             // Exact delivery (`id:` targets, ClickProbe): when the press is dispatched, the window is laid out and drawn
             // and the element located again; the click goes to where it is THEN (`click_retargets` in report.json when
             // it moved since it was resolved). If it is not on screen at that moment, nothing is dispatched (provably

@@ -1,0 +1,22 @@
+// FB-06: inspector dropdowns (shared `Dropdown`: Blend mode, Auto captions language, Settings…) open on a click
+// anywhere on the field. The click is a real NSEvent (NSApp.postEvent → window hit-test → SwiftUI Button); the driver
+// only intercepts the NSMenu it builds (instead of running the modal pop-up) and picks an item from it.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"waitFor": {"path": "ui.anchors", "contains": "inspector.blendMode"}},
+    {"expect": {"path": "selectedClips.0.blend", "equals": "normal"}},
+    // left part of the field (on the title), where the old transparent pop-up button never reached
+    {"click": "id:inspector.blendMode", "at": [0.1, 0.5], "menuItem": "blend.multiply"},
+    {"waitFor": {"path": "selectedClips.0.blend", "equals": "multiply"}},
+    {"expect": {"path": "undo.name", "equals": "cmd.blend"}},
+    // right edge (chevron)
+    {"click": "id:inspector.blendMode", "at": [0.95, 0.5], "menuItem": "blend.screen"},
+    {"waitFor": {"path": "selectedClips.0.blend", "equals": "screen"}},
+    {"snapshot": "fb06-blend-dropdown", "element": "id:inspector.blendMode", "baseline": true},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "selectedClips.0.blend", "equals": "multiply"}}
+  ]
+}
