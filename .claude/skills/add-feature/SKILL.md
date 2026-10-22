@@ -16,6 +16,9 @@ Commands below are exact; see CLAUDE.md "Shell in an isolated worktree" for the 
 - Owner: docs/ARCHITECTURE.md §17 work map (`/usr/bin/grep -n "^## 17" docs/ARCHITECTURE.md`) → your directories and the
   area section (§17b-g). Recipes: §16 "How to add X"; registries §12; l10n §11.
 - Load `montage-gotchas` before touching media / playback / async / SwiftUI state / persistence.
+- Unclear? The brief's owner decisions win. Still open and it changes what the user sees or the data model → don't
+  guess: keep working on your other rows, report that row `blocked: question for the owner: <question + options>`.
+  Small details → decide (CapCut parity first) and list each decision in the report's NOTES.
 
 ## 2. Implement
 - Stay in the owned directories. Shared hotspots (Clip/Project fields, `EditorStore.swift`, `CoreShaders.swift`,

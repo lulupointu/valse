@@ -17,6 +17,9 @@ agents run only the quick gate, one full gate per batch.
   Shared hotspots (model fields, `EditorStore.swift`, `CoreShaders.swift`, `BuiltinInspector.swift` sections,
   `Package.swift`, `app/Tests/ui_map.txt`): allow additive edits, expect trivial merge conflicts; serialize big ones.
 - Agents do not edit docs/STATUS.md / docs/FEATURES.md: you write statuses from their reports (one docs commit per batch).
+- Ambiguity: a row with several plausible readings, or a UX choice FEATURES.md / UX.md / the screenshots don't settle →
+  ask the owner (AskUserQuestion) BEFORE launching; put the answers in the brief as owner decisions. Agents can't reach
+  the owner: relay every `blocked: question for the owner` and every NOTES decision from their reports to the owner.
 
 ## 2. Launch
 Agent tool, `subagent_type: "feature-dev"`, `isolation: "worktree"`. Brief (short; the agent definition has the workflow):
