@@ -86,10 +86,15 @@ import MontageTestSupport
         #expect(Set(cb.effects.map(\.id)).isDisjoint(with: s.project.timeline.clip(a)!.effects.map(\.id)), "fresh instance ids")
         #expect(s.session.undoStack.last?.nameKey == "cmd.adjust.applyAll")
 
-        let store = AdjustPresets(defaults: AdjustPresets.testDefaults())
+        // a private, fresh settings domain (AppDefaults): never the shared "montage.uitest.adjustPresets" one, which
+        // concurrent test runs of other checkouts would read / empty at the same time
+        let suiteName = "montage.test.adjustPresets.\(UUID().uuidString)"
+        let defaults = AppDefaults.suite(suiteName)
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName + AppDefaults.processSuffix) }
+        let store = AdjustPresets(defaults: defaults)
         let preset = store.add(effects: AdjustTools.grading(of: s.project.timeline.clip(a)!), mask: nil)
         #expect(store.all.count == 1 && preset.name == tr("adjust.preset.name", 1))
-        #expect(AdjustPresets(defaults: UserDefaults(suiteName: "montage.uitest.adjustPresets")!).all.first?.effects.count == 2, "persisted")
+        #expect(AdjustPresets(defaults: defaults).all.first?.effects.count == 2, "persisted (a new store reads it back)")
         store.remove(preset.id)
         #expect(store.all.isEmpty)
     }

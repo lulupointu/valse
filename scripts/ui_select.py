@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Selects the UI scripts relevant to a change (stage 1 of the gate, scripts/check_fast.sh).
 
-  ui_select.py [--base main] [--explain] [--files f1 f2 …]
+  ui_select.py [--base auto|<ref>] [--explain] [--files f1 f2 …]
   ui_select.py --commit <sha> [--explain]          # replay: the diff of <sha> vs its first parent, files read at <sha>
 
 Changed files = `git diff <base>...HEAD` + uncommitted (staged, unstaged, untracked) changes, or --files / --commit.
+--base auto (default): the nearest of main / the local batch-* branches HEAD is based on (the most recent merge-base;
+a batch that already contains HEAD doesn't count), so a branch made from a batch branch isn't diffed against main.
 Prints one script path per line (app/Tests/UIScripts/<name>.json); --explain prints WHY each one was picked to stderr.
 
 What a script depends on is derived from the script itself (actions, target kinds, test IDs, state-dump paths, menu
@@ -39,10 +41,10 @@ UI_DIR = "app/Tests/UIScripts"
 MAP = "app/Tests/ui_map.txt"
 TESTING = "app/Sources/MontageUI/Testing/"
 LITERAL = re.compile(r'"((?:[A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z0-9_]*(?:\\\()?)')   # "inspector.tab.\(  /  "cmd.split"
-ACTIONS = ["click", "press", "doubleClick", "rightClick", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit",
+ACTIONS = ["click", "press", "doubleClick", "rightClick", "contextMenu", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit",
            "release", "wait", "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log",
            "a11yAudit"]
-TARGET_KEYS = ["click", "doubleClick", "rightClick", "drag", "to", "hover", "scroll", "on", "select"]
+TARGET_KEYS = ["click", "doubleClick", "rightClick", "contextMenu", "drag", "to", "hover", "scroll", "on", "select"]
 
 
 # ───────────────────────────── sources: the working tree vs a base, or one commit vs its parent ─────────────────────────────
@@ -80,10 +82,43 @@ class Source:
         return sorted(idx[1].get(word, ()))
 
 
+def auto_base(root=None):
+    """The diff base of a feature branch: the nearest of `main` / local `batch-*` branches it is based on, i.e. the one
+    whose merge-base with HEAD is the most recent (fewest commits between it and HEAD; ties → main). A branch that
+    already contains HEAD (the batch this branch was merged into) is not a base. → (ref, merge-base sha, note)."""
+    def git(*a):
+        r = subprocess.run(["git", "-C", root or ROOT, *a], capture_output=True, text=True, errors="replace")
+        return r.stdout.strip() if r.returncode == 0 else ""
+    head = git("rev-parse", "HEAD")
+    refs = ["main"] + sorted(b for b in git("for-each-ref", "--format=%(refname:short)", "refs/heads/batch-*").split("\n") if b)
+    best = None
+    for ref in refs:
+        tip = git("rev-parse", "--verify", "-q", ref + "^{commit}")
+        if not tip:
+            continue
+        if tip != head and subprocess.run(["git", "-C", root or ROOT, "merge-base", "--is-ancestor", head, tip]).returncode == 0:
+            continue                                   # HEAD already merged into it: it's not what this branch is based on
+        mb = git("merge-base", ref, "HEAD")
+        if not mb:
+            continue
+        ahead = int(git("rev-list", "--count", f"{mb}..HEAD") or 0)
+        if best is None or ahead < best[2]:
+            best = (ref, mb, ahead)
+    if best is None:
+        return "main", git("merge-base", "main", "HEAD"), "main (no main / batch-* branch is a base of HEAD)"
+    ref, mb, ahead = best
+    return ref, mb, f"{ref} (auto: nearest of main / batch-*; merge-base {mb[:7]}, {ahead} commit(s) ahead)"
+
+
 class WorkTree(Source):
-    def __init__(self, base="main", files=None):
+    def __init__(self, base="auto", files=None):
         self.files = files
-        mb = _git("merge-base", base, "HEAD").strip()
+        if base == "auto":
+            base, mb, self.note = auto_base()
+        else:
+            mb = _git("merge-base", base, "HEAD").strip()
+            self.note = f"{base} (--base; merge-base {mb[:7]})" if mb else base
+        self.ref = base
         self.base = mb or base
 
     def changed(self):
@@ -255,6 +290,8 @@ class Script:
                 self.menus |= set(step["menu"].split("/"))
             if isinstance(step.get("menuItem"), str):
                 self.menus |= set(step["menuItem"].split("/"))
+            if "contextMenu" in step and isinstance(step.get("item"), str):
+                self.menus |= set(step["item"].split("/"))
             if isinstance(step.get("snapshot"), str):
                 self.snapshots.add(step["snapshot"])
                 if "baseline" in step:
@@ -347,7 +384,8 @@ DRIVER_FUNCS = {
     "UITestDriver.swift:timelineView": lambda s: bool(s.targets & {"clip", "time", "header"}),
     "UITestDriver.swift:findView": lambda s: _id_pointer(s) or s.uses("snapshot"),
     "UITestDriver.swift:deliverScroll": _uses("scroll"),
-    "UITestDriver.swift:performMenu": _uses("menu", "menuItem"),
+    "UITestDriver.swift:performMenu": _uses("menu", "menuItem", "contextMenu"),
+    "UITestDriver.swift:contextMenu": _uses("contextMenu"),
     "UITestDriver.swift:drop": _uses("drop"),
     "UITestDriver.swift:snapshot": _uses("snapshot"),
     "UITestDriver.swift:resize": _uses("snapshot"),
@@ -580,6 +618,13 @@ HUB_SCRIPTS = 12          # a string used by more than max(this, 10 %) of the sc
 REACH_MAX_FILES = 12
 
 
+def hub_limit(scripts):
+    """Specificity rule: a link (script string, ID prefix, bridged dump key) shared by more scripts than this says nothing
+    about which feature a change touches (`undo.name`, `*.count`, every `asset.tile.*` click), so it selects nothing by
+    itself; the scripts it would pull are reached through specific links, or the fallback rules."""
+    return max(HUB_SCRIPTS, len(scripts) // 10)
+
+
 class Block:
     __slots__ = ("start", "end", "kind", "name", "indent", "parent", "local")
 
@@ -646,10 +691,12 @@ class SwiftFile:
         generic members, or when a name is used too widely)."""
         out, cur = [], b
         while cur is not None:
-            if cur.name and cur.name not in GENERIC_NAMES and len(cur.name) >= 4 and not (cur.kind == "extension"):
-                # a member of a (non-extension) type is only looked up in files that also name that type
-                owner = cur.parent
-                scope = owner.name if owner is not None and owner.kind in TYPE_KINDS - {"extension"} and owner.name else None
+            # a member of a (non-extension) type is only looked up in files that also name that type
+            owner = cur.parent
+            scope = owner.name if owner is not None and owner.kind in TYPE_KINDS - {"extension"} and owner.name else None
+            # short names (`nav`) only with that scope: following the whole type instead reached its every user
+            if (cur.name and cur.name not in GENERIC_NAMES and (len(cur.name) >= 4 or (scope and len(cur.name) >= 3))
+                    and not (cur.kind == "extension")):
                 out.append((cur.name, scope))
             cur = cur.parent
         return out
@@ -708,7 +755,7 @@ def _string_index(scripts):
                 # "panel.inspector", "undo.name": used everywhere, they link a change to no feature (measured: matching
                 # them even in the changed code itself doubles the selection; scripts using only them are reached
                 # through the state-dump bridge or the fallback rules)
-                if freq[t] > max(HUB_SCRIPTS, len(scripts) // 10) or HUB_IDS.match(t):
+                if freq[t] > hub_limit(scripts) or HUB_IDS.match(t):
                     hubs.add(t)
                     continue
                 parts = t.split(".")
@@ -717,6 +764,9 @@ def _string_index(scripts):
         _INDEX.clear()
         _INDEX[key] = (scripts, idx, hubs)
     return _INDEX[key][1], _INDEX[key][2]
+
+
+_PREFIX_USERS = {}
 
 
 def match_literals(scripts, lits):
@@ -729,6 +779,15 @@ def match_literals(scripts, lits):
                 out.setdefault(n, (t, (lit, False)))
     prefixes = sorted(l for l, p in lits if p)
     if prefixes:
+        # an interpolated-ID prefix every tile / row of the app shares ("asset.tile.") is not specific (hub_limit)
+        limit = hub_limit(scripts)
+        if _PREFIX_USERS.get("scripts") is not scripts:
+            _PREFIX_USERS.clear(); _PREFIX_USERS["scripts"] = scripts
+        def users(p):
+            if p not in _PREFIX_USERS:
+                _PREFIX_USERS[p] = sum(1 for sc in scripts.values() if any(t.startswith(p) and t not in hubs for t in sc.strings))
+            return _PREFIX_USERS[p]
+        prefixes = [p for p in prefixes if users(p) <= limit]
         for n in sorted(scripts):
             if n in out:
                 continue
@@ -877,6 +936,26 @@ class Reach:
                     label = f"{os.path.basename(f.path)}:{b.name if b else 'top level'}"
                     origins.append(label)
                     frontier.append((f, b, rng, label, label, False))
+        # A type's header line (`extension X {`, `struct X: View {`) or a one-line stored property (`let store: S`)
+        # changed together with other members of that type does nothing by itself: it is covered by those members' hooks
+        # (measured: a new file's headers / `let store` reached no hook and pulled the whole directory fallback rule).
+        for f, lns in seeds:
+            for ln in lns:
+                b = f.block_at(ln)
+                if b is None:
+                    continue
+                if b.kind in TYPE_KINDS and ln == b.start:
+                    typ = b
+                elif b.kind in ("let", "var") and b.start == b.end and b.parent is not None and b.parent.kind in TYPE_KINDS:
+                    typ = b.parent
+                else:
+                    continue
+                for ln2 in lns:
+                    b2 = f.block_at(ln2)
+                    if (b2 is not None and b2 is not b and typ.start < ln2 <= typ.end and b2.kind not in TYPE_KINDS
+                            and b2.end > b2.start):
+                        links.append((f"{os.path.basename(f.path)}:{b.name}", f"{os.path.basename(f.path)}:{b2.name}"))
+                        break
         for depth in range(REACH_DEPTH + 2):
             nxt = []
             for f, b, ranges, how, origin, render in frontier:
@@ -1146,7 +1225,10 @@ def select(src, scripts=None, map_text=None):
                     idents |= set(re.findall(r'\b([a-z][A-Za-z0-9_]{3,})\b', strip_comments(t)))
             for ident in sorted(idents & set(bridge)):
                 for k in sorted(bridge[ident]):
-                    sel.add_if(lambda sc, k=k: k in sc.segments, f"{rel}: changes `{ident}`, dumped as {k!r}")
+                    readers = [n for n, sc in scripts.items() if k in sc.segments]
+                    if len(readers) > hub_limit(scripts):
+                        continue           # `undoNameKey` → "name" (undo.name, 83 scripts): not specific (hub_limit)
+                    sel.add(readers, f"{rel}: changes `{ident}`, dumped as {k!r}")
             if dead:
                 # some changed declaration reaches no test hook: the coarse directory rule covers it (measured: the
                 # file's own test IDs instead would miss scripts, e.g. c4_caption_list for EditorStore+Fillers.swift)
@@ -1159,7 +1241,7 @@ def select(src, scripts=None, map_text=None):
 
 
 def main(argv):
-    base, explain, files, commit = "main", False, None, None
+    base, explain, files, commit = "auto", False, None, None
     i = 1
     while i < len(argv):
         a = argv[i]
@@ -1177,6 +1259,8 @@ def main(argv):
     for n in sorted(sel.why):
         print(f"{UI_DIR}/{n}.json")
     if explain:
+        if isinstance(src, WorkTree) and files is None:
+            print(f"diff base: {src.note}", file=sys.stderr)
         for n in sorted(sel.why):
             reasons = list(dict.fromkeys(sel.why[n]))
             more = f"  (+{len(reasons) - 2} more)" if len(reasons) > 2 else ""

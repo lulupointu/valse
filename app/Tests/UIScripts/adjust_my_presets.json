@@ -27,6 +27,16 @@
                 {"path": "undo.name", "equals": "cmd.adjustmentLayer"},
                 {"path": "ui.inspectorTab", "equals": "adjust"}]},
     {"key": "cmd+z"},
-    {"expect": {"path": "undo.name", "notEquals": "cmd.adjustmentLayer"}}
+    {"expect": {"path": "undo.name", "notEquals": "cmd.adjustmentLayer"}},
+    // the card's right-click menu (contextMenu step): "Apply to selected clip" grades the selected clip in one undo step
+    {"click": "clip:main/1"},
+    {"expect": {"path": "selectedClips.0.effects", "notContains": "montage.adjust.basic"}},
+    {"contextMenu": "id:asset.preset.0", "item": "adjust.preset.applyToSelected"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.adjust.preset"}},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.adjust.basic"}},
+    // "Delete" removes the preset: back to the empty state
+    {"contextMenu": "id:asset.preset.0", "item": "adjust.preset.delete"},
+    {"waitFor": {"path": "ui.anchors", "contains": "asset.presets.empty"}},
+    {"expect": {"path": "ui.anchors", "notContains": "asset.preset.0"}}
   ]
 }

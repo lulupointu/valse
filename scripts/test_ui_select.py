@@ -197,6 +197,46 @@ class SyntheticTests(unittest.TestCase):
         self.assertEqual(set(sel.why), {"clips"})
         self.assertIn("fallback rule", sel.why["clips"][0])
 
+    def test_specificity_rule_prefix(self):
+        # an interpolated-ID prefix shared by more than hub_limit scripts ("asset.tile.") links a change to no feature
+        view = "app/Sources/MontageUI/AssetPanel/Tiles.swift"
+        v = 'struct Tiles: View {\n    var body: some View {\n        Tile(x).testID("asset.tile.\\(x.id)")\n    }\n}\n'
+        def tiles(n):
+            return {f"{U.UI_DIR}/tile{i}.json": script([{"click": f"id:asset.tile.t{i}"}]) for i in range(n)}
+        for n, expect_tiles in ((13, False), (5, True)):
+            extra = tiles(n)
+            sel = selected(mem_scripts(dict(extra, **{view: v}), dict(extra, **{view: v.replace("Tile(x)", "Tile(y)")})))
+            self.assertEqual(any(k.startswith("tile") for k in sel.why), expect_tiles, (n, sorted(sel.why)))
+
+    def test_specificity_rule_bridge(self):
+        # a changed identifier the state dump writes as a key read by more than hub_limit scripts (undo.name) selects none
+        dump = U.TESTING + "StateDump.swift"
+        d = 'public enum StateDump {\n    public static func make(_ s: EditorStore) -> [String: Any] {\n        var u: [String: Any] = [:]\n        u["name"] = s.undoNameKey\n        u["gain"] = s.mixerGain\n        return u\n    }\n}\n'
+        f = "app/Sources/MontageCore/Editing/Ops.swift"
+        a = 'enum Ops {\n    static func run(_ s: EditorStore) {\n        s.undoNameKey = "a"\n        s.mixerGain = 1\n    }\n}\n'
+        readers = {f"{U.UI_DIR}/r{i}.json": script([{"expect": {"path": "undo.name", "equals": "x"}}]) for i in range(13)}
+        readers[f"{U.UI_DIR}/g.json"] = script([{"expect": {"path": "ui.gain", "equals": 1}}])
+        base = dict(readers, **{dump: d})
+        sel = selected(mem_scripts(dict(base, **{f: a}), dict(base, **{f: a.replace('"a"', '"b"')})))
+        self.assertFalse(any(k.startswith("r") and k[1:].isdigit() for k in sel.why), sorted(sel.why))
+        sel = selected(mem_scripts(dict(base, **{f: a}), dict(base, **{f: a.replace("= 1", "= 2")})))
+        self.assertIn("g", sel.why)
+
+    def test_type_header_and_stored_property_are_covered_by_members(self):
+        # a new file: its `struct … {` header and `let store` line reach no hook themselves, but the type's other
+        # members do, so the directory fallback rule is not pulled in
+        f = "app/Sources/MontageUI/AssetPanel/Grid.swift"
+        a = 'struct Grid: View {\n    let store: EditorStore\n    var body: some View {\n        Field().testID("asset.search")\n    }\n}\n'
+        m = "smoke: \napp/Sources/MontageUI/AssetPanel/*  clips\n"
+        sel = selected(mem_scripts({}, {f: a}, map_text=m))
+        self.assertEqual(set(sel.why), {"clicker"})
+        # a header-only change (new conformance) is still checked against the whole type
+        b = a.replace("struct Grid: View {", "struct Grid: View, Equatable {")
+        self.assertEqual(set(selected(mem_scripts({f: a}, {f: b}, map_text=m)).why), {"clicker"})
+        # …and a lone stored-property change without a hooked member still falls back to the directory rule
+        c = 'struct Grid {\n    let store: EditorStore\n    func f() {\n        g()\n    }\n}\n'
+        self.assertIn("clips", selected(mem_scripts({f: c}, {f: c.replace("let store: EditorStore", "let store: Store")}, map_text=m)).why)
+
     def test_always_rule_and_smoke(self):
         f = "app/Sources/MontageApp/main.swift"
         m = "smoke: scroller\nalways app/Sources/MontageApp/*  ALL\n"
@@ -204,6 +244,56 @@ class SyntheticTests(unittest.TestCase):
         self.assertEqual(set(sel.why), set(SCRIPTS))
         sel = selected(mem_scripts({}, {"docs/X.md": "x"}, map_text=m))
         self.assertEqual(set(sel.why), {"scroller"})
+
+
+class AutoBaseTests(unittest.TestCase):
+    """--base auto: the nearest of main / batch-* (scratch git repo)."""
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.d = self.tmp.name
+        self.git("init", "-q", "-b", "main")
+        self.commit("m1")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def git(self, *a):
+        return subprocess.run(["git", "-C", self.d, "-c", "user.name=t", "-c", "user.email=t@t", *a],
+                              capture_output=True, text=True, check=True).stdout.strip()
+
+    def commit(self, msg):
+        self.git("commit", "-q", "--allow-empty", "-m", msg)
+        return self.git("rev-parse", "HEAD")
+
+    def test_feature_off_main(self):
+        self.git("switch", "-q", "-c", "feat")
+        self.commit("f1")
+        ref, mb, note = U.auto_base(self.d)
+        self.assertEqual(ref, "main")
+        self.assertEqual(mb, self.git("rev-parse", "main"))
+        self.assertIn("auto", note)
+
+    def test_feature_off_a_batch_branch(self):
+        self.git("switch", "-q", "-c", "batch-7")
+        b = self.commit("b1")                       # the batch has commits main doesn't
+        self.git("switch", "-q", "-c", "feat")
+        self.commit("f1")
+        self.git("switch", "-q", "main")
+        self.commit("m2")                           # main moved on too
+        self.git("switch", "-q", "feat")
+        ref, mb, _ = U.auto_base(self.d)
+        self.assertEqual((ref, mb), ("batch-7", b))
+
+    def test_a_batch_that_already_contains_head_is_not_a_base(self):
+        self.git("switch", "-q", "-c", "feat")
+        f = self.commit("f1")
+        self.git("switch", "-q", "-c", "batch-8", "main")
+        self.git("merge", "-q", "--no-ff", "-m", "merge feat", "feat")
+        self.git("switch", "-q", "feat")
+        ref, mb, _ = U.auto_base(self.d)
+        self.assertEqual(ref, "main")
+        self.assertNotEqual(mb, f)
 
 
 def repo_file(path):

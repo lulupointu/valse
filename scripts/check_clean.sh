@@ -43,14 +43,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ "$UI_JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "--ui-jobs needs a positive integer"; exit 2; }
-# one slot = "a gate"; the extra UI apps are bounded by the machine instead: ~2.5 cores and ~4 GB RAM per app
-# (next to the unit suite), at least 1
-CAP_CPU=$(( $(sysctl -n hw.ncpu) * 2 / 5 )); CAP_RAM=$(( $(sysctl -n hw.memsize) / 1073741824 / 4 ))
-CAP=$(( CAP_CPU < CAP_RAM ? CAP_CPU : CAP_RAM )); (( CAP < 1 )) && CAP=1
-if (( UI_JOBS > CAP )); then echo "  (--ui-jobs $UI_JOBS capped at $CAP: $(sysctl -n hw.ncpu) cores, $(( $(sysctl -n hw.memsize) / 1073741824 )) GB RAM)"; UI_JOBS=$CAP; fi
 COLD_WHY=""; USES=0
 
 source scripts/lib.sh
+# one slot = "a gate"; the extra UI apps are bounded by the machine instead (lib.sh ui_jobs_cap)
+REQ_JOBS=$UI_JOBS; ui_jobs_cap "$REQ_JOBS"
+[[ -n "$UI_JOBS_CAP_NOTE" ]] && echo "  (--ui-jobs $REQ_JOBS $UI_JOBS_CAP_NOTE)"
 # fail fast on a full disk (a clean build + UI exports need several GB)
 require_free_disk || exit 1
 # machine-wide: at most N heavy runs at once across all checkouts (scripts/slots.sh); nested test.sh/uitest.sh reuse it
@@ -163,8 +161,10 @@ fi
 echo "▶ clean worktree of ${SHA:0:7} at $WT$([[ -n "$CACHE_LOCK" && -z "$COLD_WHY" ]] && echo " (warm .build, gate $(( USES + 1 )))")"
 # Reuse the bench media (gitignored, large) if present; perf smoke tests stay opt-in anyway.
 [[ -e "$ROOT/bench/media" ]] && ln -s "$(cd "$ROOT/bench/media" && pwd -P)" "$WT/bench/media" 2>/dev/null || true
-# UI scripts start longest-first using the previous gate's timings (only the order; every script still runs)
-DURATIONS="$ROOT/build/check_clean-ui-durations.tsv"
+# UI scripts start longest-first using the previous gate's timings (only the order; every script still runs). Kept in
+# the MAIN checkout's build/ (batch worktrees come and go; check_fast.sh orders its scripts with it too).
+DURATIONS="$(main_checkout)/build/ui-durations.tsv"; mkdir -p "$(dirname "$DURATIONS")"
+[[ -f "$DURATIONS" || ! -f "$ROOT/build/check_clean-ui-durations.tsv" ]] || cp "$ROOT/build/check_clean-ui-durations.tsv" "$DURATIONS"
 
 cd "$WT"
 mkdir -p "$ROOT/build"

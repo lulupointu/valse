@@ -25,7 +25,7 @@ and feature agents in git worktrees under `.claude/worktrees/`. The main checkou
 |---|---|
 | unit tests (l10n check + build + tests, retries) | `scripts/test.sh [--filter <Suite or regex>]` |
 | UI scripts | `scripts/uitest.sh app/Tests/UIScripts/<name>.json …` (`--update-baselines`, `--no-build`, `--timeout <s>`) |
-| feature-agent gate | `scripts/check_fast.sh` (`--list` = which UI scripts and why, `--unit-filter <re>`, `--base <ref>`) |
+| feature-agent gate | `scripts/check_fast.sh` (`--list` = which UI scripts and why, `--unit-filter <re>`, `--base <ref>`, default = nearest of main / batch-*) |
 | batch gate (orchestrator) | `scripts/check_clean.sh --ui` (clean checkout of HEAD, every test; writes build/check_clean.ok) |
 | merge (orchestrator) | `scripts/merge_agent.sh <branch> [--check-only] [--docs-delta-ok]` |
 | look at the UI | `scripts/screenshot.sh --demo --offscreen` (then Read the PNG) |

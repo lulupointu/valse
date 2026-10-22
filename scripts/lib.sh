@@ -5,6 +5,8 @@
 #                            (sandboxes, exports, mock downloads…) never pile up; persistent caches stay in the real TMPDIR
 #   run_watched <log> <cmd…> run cmd (stdout+stderr → log) under the hang watchdog; returns its exit code, 124 = HUNG
 #   tree_pids <pid> / tree_cpu <pid> / kill_tree <pid>   process-tree helpers
+#   ui_jobs_cap <K>          UI_JOBS = K capped at the machine's UI-app capacity next to a unit suite (+ UI_JOBS_CAP_NOTE)
+#   main_checkout            absolute path of the main checkout (shared build/ files such as ui-durations.tsv)
 [[ -n "${_MONTAGE_LIB_SH:-}" ]] && return 0
 _MONTAGE_LIB_SH=1
 
@@ -60,6 +62,21 @@ tree_cpu() { # root pid → CPU seconds used by the live tree (integer)
     { n = split($1, p, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + p[i]; t += s }
     END { printf "%d", t }'
 }
+
+# UI apps at once next to the unit suite (check_clean / check_fast): ~2.5 cores and ~4 GB RAM per app, at least 1.
+# One gate = one test slot; this bounds the extra apps by the machine instead (4 on a 10-core 16 GB Mac).
+ui_jobs_cap() { # requested K → UI_JOBS = min(K, cap); UI_JOBS_CAP_NOTE = why it was lowered (empty if not)
+  local k="$1" cpu ram cap
+  cpu=$(( $(sysctl -n hw.ncpu) * 2 / 5 )); ram=$(( $(sysctl -n hw.memsize) / 1073741824 / 4 ))
+  cap=$(( cpu < ram ? cpu : ram )); (( cap < 1 )) && cap=1
+  UI_JOBS_CAP_NOTE=""
+  if (( k > cap )); then
+    UI_JOBS_CAP_NOTE="capped at $cap: $(sysctl -n hw.ncpu) cores, $(( $(sysctl -n hw.memsize) / 1073741824 )) GB RAM"; k=$cap
+  fi
+  UI_JOBS=$k
+}
+
+main_checkout() { (cd "$(git rev-parse --git-common-dir)/.." && pwd -P); }
 
 kill_tree() { # root pid: TERM the whole tree, KILL what is left after 3 s
   local pids; pids="$(tree_pids "$1")"

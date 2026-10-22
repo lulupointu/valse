@@ -5,15 +5,20 @@
 #      has its cwd inside it, or its .build was written in the last --hours (the main checkout is never touched)
 #   3. $TMPDIR/montage-* leftovers older than --hours (the shared synthetic-media cache montage-test-media-v1 is kept)
 #   4. dead / hung test-slot locks (scripts/slots.sh reclaim)
-# Usage: scripts/cleanup.sh [--dry-run] [--hours 3]
+#   --merged-worktrees: step 2 instead removes the .build of every worktree whose HEAD commit (branch or detached) is
+#      an ancestor of main or of a batch-* branch (its work is integrated), whose `git status` is clean (untracked files
+#      ignored: scratch) and that no process uses (cwd or open file inside it), however recently it was built.
+#      Orchestrator duty after each batch merge and whenever free disk < 10 GB (orchestrate-features skill).
+# Usage: scripts/cleanup.sh [--dry-run] [--hours 3] [--merged-worktrees]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-DRY=0; HOURS=3
+DRY=0; HOURS=3; MERGED_WT=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run|-n) DRY=1; shift;;
     --hours) HOURS="$2"; shift 2;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0;;
+    --merged-worktrees) MERGED_WT=1; shift;;
+    -h|--help) sed -n '2,14p' "$0"; exit 0;;
     *) echo "unknown arg $1"; exit 2;;
   esac
 done
@@ -40,7 +45,19 @@ in_use() {
   return 1
 }
 
-echo "▶ worktrees (main checkout: $MAIN)"
+INTEGRATION=""; OPEN=""
+if [[ $MERGED_WT == 1 ]]; then
+  # integration branches: main + every local batch-*
+  INTEGRATION="main $(git -C "$MAIN" for-each-ref --format='%(refname:short)' 'refs/heads/batch-*' | tr '\n' ' ')"
+  # every file any process has open (an editor indexer, a running build inside .build/…)
+  OPEN="$(lsof -Fn 2>/dev/null | sed -n 's/^n\(\/.*\)/\1/p' | sort -u)"
+fi
+opened_in() { # dir → 0 if a process has a file open inside it
+  local d; d="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+  awk -v p="$d/" 'index($0, p) == 1 { f = 1; exit } END { exit !f }' <<< "$OPEN"
+}
+
+echo "▶ worktrees (main checkout: $MAIN$([[ $MERGED_WT == 1 ]] && echo "; --merged-worktrees: HEAD in $INTEGRATION"))"
 [[ $DRY == 1 ]] || git -C "$MAIN" worktree prune
 WTLIST="$(git -C "$MAIN" worktree list --porcelain | awk '/^worktree /{w=substr($0,10)} /^branch /{b=substr($0,8)} /^detached/{b="(detached)"} /^$/{print w "\t" b; w=""; b=""} END{if (w != "") print w "\t" b}')"
 while IFS=$'\t' read -r WT BR; do
@@ -55,7 +72,27 @@ while IFS=$'\t' read -r WT BR; do
     continue
   fi
   [[ -d "$WTP/.build" ]] || continue
+  [[ "$WTP" == "$MAIN/build/check_clean-cache/"* ]] && continue   # check_clean.sh's warm gate worktrees: never
   B="${BR#refs/heads/}"
+  if [[ $MERGED_WT == 1 ]]; then
+    H="$(git -C "$WTP" rev-parse HEAD 2>/dev/null || true)"
+    INTO=""
+    for R in $INTEGRATION; do
+      if [[ -n "$H" ]] && git -C "$MAIN" merge-base --is-ancestor "$H" "$R" 2>/dev/null; then INTO="$R"; break; fi
+    done
+    if [[ -z "$INTO" ]]; then echo "  keep $WTP/.build ($B @ ${H:0:7}: not in main / batch-*)"; continue; fi
+    if [[ "$B" == "$INTO" && "$INTO" != main ]]; then echo "  keep $WTP/.build (the $B worktree itself)"; continue; fi
+    # HEAD = an integration tip: maybe a worktree just made from it (a new agent before its first commit)
+    if [[ "$H" == "$(git -C "$MAIN" rev-parse "$INTO")" && -n "$(find "$WTP/.build" -maxdepth 3 -mmin -"$MINS" -print -quit 2>/dev/null)" ]]; then
+      echo "  keep $WTP/.build ($B = the tip of $INTO and built in the last $HOURS h: a fresh worktree?)"; continue
+    fi
+    if [[ -n "$(git -C "$WTP" status --porcelain --untracked-files=no 2>/dev/null || echo "?")" ]]; then
+      echo "  keep $WTP/.build ($B in $INTO, but uncommitted changes)"; continue
+    fi
+    if in_use "$WTP" || opened_in "$WTP"; then echo "  keep $WTP/.build ($B in $INTO, but a process uses it)"; continue; fi
+    zap "$WTP/.build" "$WTP/.build ($B @ ${H:0:7} is in $INTO)"
+    continue
+  fi
   if [[ "$BR" == "(detached)" ]] || ! git -C "$MAIN" merge-base --is-ancestor "$B" main 2>/dev/null; then
     echo "  keep $WTP/.build ($B: not merged into main)"; continue
   fi

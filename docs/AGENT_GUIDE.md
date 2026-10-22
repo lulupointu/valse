@@ -43,8 +43,10 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   `orchestrate-features` skill. The full gate still runs on every line of code that reaches main — once.
 
 ## Test tools
-- **Quick check: `scripts/check_fast.sh`** (typically 5–12 min). Incremental build of your working tree
-  (uncommitted changes included), every unit test, and only the UI scripts relevant to `git diff main...HEAD` + your
+- **Quick check: `scripts/check_fast.sh`** (typically 5–10 min). Incremental build of your working tree
+  (uncommitted changes included), then every unit test AND the selected UI scripts at the same time (`uitest.sh --jobs`,
+  capped like check_clean; heavy ML scripts one at a time; same retries), the UI scripts being those relevant to
+  `git diff <base>...HEAD` (base auto = the nearest of main / batch-*, printed; `--base <ref>` overrides) + your
   uncommitted files: a 5-script smoke set + scripts linked to the changed lines (test IDs / l10n keys reached from the
   changed declarations, driver actions, state-dump keys; `scripts/ui_select.py`, docs/TESTING.md) + changed scripts /
   fixtures / baselines; `app/Tests/ui_map.txt` only holds always / fallback directory rules. `--list` shows what it would run and why;

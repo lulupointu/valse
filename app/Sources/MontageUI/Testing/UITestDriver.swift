@@ -440,7 +440,7 @@ public final class UITestDriver {
 
     // MARK: Steps
 
-    static let actions = ["click", "press", "doubleClick", "rightClick", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit", "release", "wait",
+    static let actions = ["click", "press", "doubleClick", "rightClick", "contextMenu", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit", "release", "wait",
                           "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log", "a11yAudit"]
 
     static func describe(_ step: [String: Any]) -> String {
@@ -455,7 +455,7 @@ public final class UITestDriver {
         let mods = SyntheticEvents.modifiers((step["modifiers"] as? [String]) ?? [])
         let settle = (step["settle"] as? NSNumber)?.doubleValue ?? 0.25
         if let name = step["perf"] as? String { return try await perf(name, step) }  // may carry "drag"/"scroll" targets
-        for key in ["click", "doubleClick", "rightClick", "drag", "hover"] {
+        for key in ["click", "doubleClick", "rightClick", "contextMenu", "drag", "hover"] {
             guard let t = step[key] else { continue }
             // a previous waitFor / expect may have returned while the layout its state change causes is still pending:
             // resolving the target from stale test-ID frames would click where the element WAS (ai_movement: a
@@ -518,6 +518,15 @@ public final class UITestDriver {
                 try performMenu(itemPath, in: m)
                 try await idle(settle: max(settle, 0.4))
             }
+        } else if let t = step["contextMenu"] {
+            // a view's context menu (SwiftUI `.contextMenu`, AppKit `menu` / `menu(for:)`), driven without popping it up
+            // (a real popup runs a modal tracking loop): `{"contextMenu": "id:asset.preset.0", "item": "adjust.preset.delete"}`
+            guard let item = step["item"] as? String else {
+                throw Failure("contextMenu needs \"item\": an l10n key, title or item identifier (\"a/b\" for a submenu)")
+            }
+            let menu = try contextMenu(at: try resolve(t, step), target: t, modifiers: mods)
+            try performMenu(item, in: menu)
+            try await idle(settle: max(settle, 0.4))
         } else if let t = step["drag"] {
             let a = try resolve(t, step)
             let b: CGPoint
@@ -1028,12 +1037,31 @@ public final class UITestDriver {
     }
 
     /// `"menu.edit/menu.undo"`: menu path by localization key (or literal title) from the menu bar.
+    /// The context menu a right-click at `p` (window coordinates) would open: the hit view's or the nearest ancestor's
+    /// `menu(for:)` (SwiftUI's hosting view builds `.contextMenu` items there; AppKit views return their `menu`).
+    private func contextMenu(at p: CGPoint, target: Any, modifiers: NSEvent.ModifierFlags) throws -> NSMenu {
+        guard let host = window.contentView,
+              let event = SyntheticEvents.mouse(.rightMouseDown, at: p, in: window, modifiers: modifiers) else {
+            throw Failure("contextMenu \(target): no content view / event")
+        }
+        var view = host.hitTest(host.superview?.convert(p, from: nil) ?? p)
+        while let v = view {
+            if let m = v.menu(for: event), !m.items.isEmpty {
+                m.update()
+                return m
+            }
+            view = v.superview
+        }
+        throw Failure("contextMenu \(target): no context menu there")
+    }
+
     private func performMenu(_ path: String, in root: NSMenu? = nil) throws {
         var menu = root ?? NSApp.mainMenu
         let parts = path.split(separator: "/").map(String.init)
         for (i, part) in parts.enumerated() {
             guard let m = menu else { throw Failure("menu \(path): no menu at \(part)") }
-            guard let idx = m.items.firstIndex(where: { $0.title == tr(part) || $0.title == part || $0.submenu?.title == tr(part) }) else {
+            guard let idx = m.items.firstIndex(where: { $0.title == tr(part) || $0.title == part || $0.submenu?.title == tr(part)
+                                                        || $0.identifier?.rawValue == part }) else {
                 throw Failure("menu \(path): no item \(part) (have: \(m.items.map(\.title).joined(separator: ", ")))")
             }
             if i == parts.count - 1 {

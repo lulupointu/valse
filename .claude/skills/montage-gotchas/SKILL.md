@@ -62,6 +62,9 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
 - `a11yAudit`: the offscreen window's real AX tree is often empty under load → in-process fallback misses SwiftUI names;
   the step re-reads for ~6 s (UITestDriver.swift, Testing/AccessibilityAuditAX.swift). Audit with the step, never by
   walking NSView accessibility children (SwiftUI builds its AX tree only for real AX clients).
+- Text clip editor (MontageUI/Text/RichTextEditor.swift): typing is ONE gesture `cmd.text` (each keystroke updates it);
+  it is committed to undo only after 900 ms without typing, or when editing ends. A script that types then checks
+  `undo.name` / `undo.depth` must `waitFor` them (or `undo.inGesture` false), never `expect` right after the `type`.
 - Tooltips: `.help(tr(…))` inside MontageUI is Montage's own tooltip (Support/Tooltips.swift); don't set AppKit `toolTip`.
 - UI tests are environment-independent: AI models sandboxed (`requires.models` else SKIP), fixed cache sizes / clock,
   overlay scroll bars, Europe/Paris TZ. Tests never make sound (`MONTAGE_MUTE_AUDIO=1`, `AudioOutput.isSilenced`).

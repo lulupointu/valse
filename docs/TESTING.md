@@ -81,8 +81,10 @@ to the colour tests and `RealLikeFootageTests.ownerFootageProbesAndPlays`, as ar
 
 **Stage-1 UI selection.** `scripts/ui_select.py --explain [--files …]` prints what `check_fast.sh` would run and WHY
 (one line per script: the changed declaration → the test ID / l10n key / dump key that links it).
-The diff base is `main` (the whole branch); `check_fast.sh --base HEAD~1` limits it to the last commit;
-`ui_select.py --commit <sha>` replays one commit. The selection is derived from the changed LINES, not directories:
+The diff base (`--base auto`, default) is the nearest of `main` / the local `batch-*` branches the branch is based on
+(the most recent merge-base with HEAD; a batch that already contains HEAD doesn't count), printed as `diff base: …`; so a
+branch made from `batch-3` is not diffed against main. `--base <ref>` overrides it (`check_fast.sh --base HEAD~1` = the
+last commit only); `ui_select.py --commit <sha>` replays one commit. The selection is derived from the changed LINES:
 - a Swift change → the test IDs / l10n keys / command names of the changed declaration, else of the code using it
   (up to 3 levels, nearest hook wins; `"transition.duration"` also matches `id:transition.duration.field`) → scripts
   using them; plus scripts reading a state-dump key fed by an identifier on a changed line (`.editingGuide`);
@@ -92,7 +94,10 @@ The diff base is `main` (the whole branch); `check_fast.sh --base HEAD~1` limits
   of a view rendering the key.
 `app/Tests/ui_map.txt` keeps the 5-script smoke set, `always` rules (app entry, theme, render / playback engine) and
 directory FALLBACK rules used only when a changed declaration reaches no test hook. If check_fast misses your script,
-give the UI you test a `.testID` the script uses (that is what links code to scripts). `scripts/test_ui_select.py`
+give the UI you test a `.testID` the script uses (that is what links code to scripts). Specificity rule (`hub_limit`): a link
+shared by more than max(12, 10 %) of the scripts — a script string (`panel.inspector`, `undo.name`), an interpolated ID
+prefix (`asset.tile.`), a dump key an identifier bridges to (`undoNameKey` → `name`) — selects nothing by itself; a
+type's header line / one-line stored property changed along with other members of that type is covered by them. `scripts/test_ui_select.py`
 (run by `scripts/test.sh`) keeps the selector honest; stage 2 / the batch gate still run every script.
 
 **Load-independent tests (DX-C).** Every suite must pass with `--no-retry` on a machine loaded by other gates or CPU
@@ -214,6 +219,7 @@ Any step may add `"offset": [dx, dy]` (points, +y down) and `"modifiers": ["cmd"
 |---|---|
 | click / doubleClick / rightClick | `{"click": "id:inspector.tab.speed"}` · `{"click": "clip:main/0", "modifiers": ["shift"]}` |
 | timeline context-menu item | `{"rightClick": "clip:main/0", "menuItem": "tlmenu.separateAudio/stem.vocals"}` (l10n keys or titles; the menu is captured, not popped up) |
+| any view's context menu (SwiftUI `.contextMenu`, AppKit `menu(for:)`) | `{"contextMenu": "id:asset.preset.0", "item": "adjust.preset.delete"}` (item: l10n key, title or NSMenuItem identifier, `a/b` for a submenu; the menu the hit view (or an ancestor) returns from `menu(for:)` is built and its item performed, never popped up) |
 | drag (press, N moves, release) | `{"drag": "clip:main/0:trailing", "by": [-60, 0]}` · `{"drag": "id:slider.opacity", "at": [0.9, 0.5], "to": "id:slider.opacity", "toAt": [0.2, 0.5], "steps": 12}` |
 | scroll | `{"scroll": "id:timeline", "dx": -200, "dy": 0}` · zoom: `{"scroll": "id:timeline", "dy": 10, "modifiers": ["cmd"]}` · trackpad gesture (U1): `"phase": "began" \| "changed" \| "ended"` (continuous events, rubber-band checks; `u1_settings_no_hscroll.json`) |
 | hover | `{"hover": "clip:main/0"}` |
@@ -353,7 +359,7 @@ to views that accept "first mouse", so in the test process every SwiftUI hosting
 (`UITestWindow.acceptFirstMouse`). Custom SwiftUI sliders built from `DragGesture` can be dragged; NSSlider drags are
 replayed as described above. `"press": "id:x"` (in-process accessibility press) also exists.
 Also not covered: real NSMenu popups (SwiftUI `Menu`/`Picker` menus open a modal tracking loop — use the menu bar `menu`
-step or set the value via a setup step), NSOpenPanel/NSSavePanel, hover-only visuals that read the real cursor.
+step or set the value via a setup step; right-click menus: the `contextMenu` step), NSOpenPanel/NSSavePanel, hover-only visuals that read the real cursor.
 Autosave is disabled during tests; the language preference is restored on exit.
 
 ## 2. Screenshot tests

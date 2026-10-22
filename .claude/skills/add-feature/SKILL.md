@@ -43,10 +43,14 @@ Commands below are exact; see CLAUDE.md "Shell in an isolated worktree" for the 
 2. `scripts/uitest.sh app/Tests/UIScripts/<yours>.json …` until green (and `"lang": "fr"` variant if layout-sensitive).
 3. Commit (`/usr/bin/git add <paths>` then `/usr/bin/git -c user.name=Montage -c user.email=dev@montage.local commit -m "<ID>: …"`
    with the Co-Authored-By trailer). Untracked or git-ignored files under app/ or scripts/ break the clean gate: commit them.
-4. Rebase on current main if it moved: `/usr/bin/git rebase main` (resolve keeping both sides' intent; never
-   `reset --hard`, never `rebase --skip` a commit with real changes).
-5. `scripts/check_fast.sh` once on the final commit → must print `FAST CHECK OK`. Fix real failures; flaky lines go in the
-   report. Do NOT run `scripts/check_clean.sh` and do NOT merge into main.
+4. Update your base if it moved. Your base is what your worktree was made from: `main`, or the `batch-<n>` branch your
+   brief names (check: the `diff base:` line of `python3 scripts/ui_select.py --explain`). Based on main:
+   `/usr/bin/git rebase main`. Based on `batch-<n>`: `/usr/bin/git rebase batch-<n>` (NOT main: rebasing a batch-based
+   branch onto main drags the batch's unmerged commits into your branch); if the batch was merged meanwhile, rebasing on
+   main is right. Resolve keeping both sides' intent; never `reset --hard`, never `rebase --skip` a commit with real changes.
+5. `scripts/check_fast.sh` once on the final commit → must print `FAST CHECK OK` (its first line names the diff base it
+   picked automatically: the nearest of main / batch-*; `--base <ref>` overrides). Fix real failures; flaky lines go in
+   the report. Do NOT run `scripts/check_clean.sh` and do NOT merge into main.
 
 ## 6. Report (format: .claude/agents/feature-dev.md "Report")
 Branch, HEAD SHA, base main SHA, rows done / partial (what is missing) / blocked (why), gate evidence (the

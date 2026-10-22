@@ -31,7 +31,9 @@ the first failure). Output: `build/uitest/<name>/report.json`, `final.json` (sta
 ```
 
 ## Steps (actions in `UITestDriver.actions`)
-click / doubleClick / rightClick (+`"menuItem": "tlmenu.a/tlmenu.b"` for the timeline context menu) · press (AX press
+click / doubleClick / rightClick (+`"menuItem": "tlmenu.a/tlmenu.b"` for the timeline context menu) · contextMenu (any
+view's right-click menu, SwiftUI `.contextMenu` included: `{"contextMenu": "id:asset.preset.0", "item": "adjust.preset.delete"}`,
+item = l10n key / title / NSMenuItem identifier, `a/b` for a submenu; performed without popping up) · press (AX press
 of `id:`) · drag (`"by": [dx, dy]` or `"to"`, `"at"/"toAt"`, `"steps"`, `"hold": true` + later `{"release": true}`) ·
 scroll (`dx`, `dy`, `"modifiers": ["cmd"]` zoom, `"phase"`) · hover · key (`"cmd+b"`, `"space"`, `"shift+left"`,
 `"repeat"`) · type (`"replace": true` selects all first) · menu (`"menu.edit/menu.undo"`, l10n keys) · drop
@@ -44,7 +46,9 @@ expect / waitFor operators: `equals notEquals approx(+tolerance) gt gte lt lte c
 State paths (StateDump.swift): `playhead`, `selection`, `selectedClips.0.opacity`, `main.clips.count`, `tracks.2.clips`,
 `undo.{name,depth}`, `media.count`, `ui.{inspectorTab, toast, anchors, export.dialog.canExport, activeJobs, models.<id>}`,
 `app.{screen, modal, …}`. Use `{"dump": "x"}` then Read `build/uitest/<name>/x.json` to discover paths; `ui.anchors`
-lists the test IDs on screen.
+lists only the test IDs ON SCREEN now (scrolled-out rows / lazy tiles are absent), while an `id:` click / hover / drag
+first scrolls its target into view: `{"waitFor": {"path": "ui.anchors", "contains": "x"}}` on an off-screen row never
+holds, but `{"click": "id:x"}` works. Wait for something the element's appearance proves instead (a count, a model value).
 
 ## Load-robust by construction (the machine is never quiet; 10+ heavy runs overlap)
 - NEVER rely on time: no `{"wait": s}` to let async work finish, no tight timeouts. Wait on the state that proves it:
@@ -95,6 +99,8 @@ that must react to ↑ / ↓ / Return / Esc should handle them in the field (`co
   unrelated UI change (settings-performance.png was re-recorded 9x, editor-fr.png 7x): avoid them in new scripts.
 - Volatile pixels (dates, sizes, clocks, media frames): `"mask": ["id:x"]`; regions with video/thumbnails/fonts:
   `"threshold": 32-48, "tolerance": 0.01-0.03`; pure chrome keeps defaults (threshold 16, tolerance 0.005).
+- A snapshot is compared to (or creates) a baseline ONLY with `"baseline": true` (or `"baseline": "<file name>"`) on the
+  step; without it the PNG is just written to `build/uitest/<name>/` and nothing is checked.
 - First run creates `app/Tests/Baselines/<name>.png` ("baseline created — LOOK at it and commit it"). Intentional change:
   `scripts/uitest.sh --update-baselines app/Tests/UIScripts/<script>.json`, Read the new PNG, commit it.
 - `app/Tests/Baselines/macos13/<name>.png` overrides on macOS 13 only (1x text, native control looks). Only for
@@ -103,7 +109,8 @@ that must react to ↑ / ↓ / Return / Esc should handle them in the field (`co
 
 ## Test IDs and selection
 - Add IDs to what you build: SwiftUI `.testID("area.thing")`, AppKit `setAccessibilityIdentifier`. Never localized text.
-- Not reachable: real NSMenu popups (SwiftUI `Menu`/`Picker`: use the `menu` step or a setup step), NSOpen/SavePanel,
+- Not reachable: real NSMenu popups (SwiftUI `Menu`/`Picker`: use the `menu` step or a setup step; right-click menus:
+  `contextMenu`), NSOpen/SavePanel,
   lazy grid tiles far down (scroll first). SwiftUI accessibility is audited with `{"a11yAudit": "name", "element": "id:x"}`.
 - check_fast selects scripts with `scripts/ui_select.py` from the changed LINES (docs/TESTING.md "Stage-1 UI
   selection"): changed Swift declaration → its test IDs / l10n keys / command names (else those of the code using it,
@@ -111,6 +118,10 @@ that must react to ↑ / ↓ / Return / Esc should handle them in the field (`co
   path; `.strings` changes → scripts in that language using the key; plus changed scripts / fixtures / baselines.
 - So the link from code to script IS the `.testID` (or l10n key / dump path) the script uses: give the UI you test a
   `.testID` and target it (`id:…`) or `waitFor` a dump key it feeds, otherwise check_fast won't pick your script.
+- Specificity: a link shared by > max(12, 10 %) of the scripts (`undo.name`, `panel.inspector`, every
+  `asset.tile.*` ID via the `"asset.tile.\(…)"` prefix) selects nothing by itself, so link your script through an ID /
+  dump key specific to your feature (`asset.preset.0`, not only `panel.assets`). Generic identifiers in your code don't
+  pull unrelated scripts any more: no need to rename them.
 - Verify: `python3 scripts/ui_select.py --explain` (one line per script: changed declaration → linking ID/key; `--files
   …`, `--commit <sha>`), or `scripts/check_fast.sh --list`. `app/Tests/ui_map.txt` now only holds the 5-script
   `smoke:` set, `always` rules and directory FALLBACK rules (used when a change reaches no test hook): don't add

@@ -11,7 +11,7 @@ feedback, missing control, or something that looks unfinished). **P2** is polish
 
 | Workstream | P0 | P1 | P2 | Total |
 |---|---|---|---|---|
-| W12 Home, project, settings, shell | 1 | 3 | 4 | 8 |
+| W12 Home, project, settings, shell, all fixed but W12-6 (partly) | 1 | 3 | 4 | 8 |
 | W13 Asset library | 0 | 3 | 5 | 8 |
 | W8 Audio (audio library UI), all fixed (POL-B) | 0 | 1 | 1 | 2 |
 | W1 Timeline | 0 | 4 | 5 | 9 |
@@ -38,7 +38,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 
 ## W12: Home, project management, settings, shell (title bar, toasts, menu bar)
 
-**W12-1 · P0 · There is no home screen.**
+**W12-1 · P0 · There is no home screen.** — FIXED (W12, afe04c7: Home window HomeView.swift with hero, project grid, hover menu; verified 2026-10-22, DX-V2)
 - CapCut ([02_home](ux/02_home.png), [03](ux/03_home_card_hover.png), [04](ux/04_home_card_menu.png)): the app launches on Home
   with a "New project" hero (one click opens an empty editor) and a project grid (hover `…` → Rename / Duplicate / Delete). Leaving
   the editor shows the toast "Saved to project".
@@ -48,7 +48,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: build the home window from UX §2.1 (hero, project grid at 98 pt with hover `…` menu, Trash delete with undo, empty state).
   Add a "Back to home" command and show the "Saved to project" toast when leaving the editor.
 
-**W12-2 · P1 · The title bar is 67 pt tall instead of 36 pt, and the traffic lights sit on a separate strip.**
+**W12-2 · P1 · The title bar is 67 pt tall instead of 36 pt, and the traffic lights sit on a separate strip.** — FIXED (W12, a0ec8c2: 36 pt title bar, hosting views drop the safe area, IsolatedHost.swift)
 - CapCut ([15](ux/15_editor_video_selected.png)): a single 36 pt bar holds the traffic lights, "Auto saved: 13:08:45", the
   project name, the icons and Export.
 - Montage ([03_titlebar_height](ux_review/03_titlebar_height.png)): the panels start at y = 67 pt (measured from pixels). The
@@ -58,7 +58,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: add `.ignoresSafeArea(.container, edges: .top)` on the editor stack (or host `TitleBar` in the title-bar area), keep the
   76 pt traffic-light inset, and check in a real window during phase 4.
 
-**W12-3 · P1 · There is no Settings window (⌘,).**
+**W12-3 · P1 · There is no Settings window (⌘,).** — FIXED (W12: Home/SettingsView.swift, App menu ▸ Settings… `menu.settings`)
 - CapCut ([06](ux/06_settings_project.png)–[09](ux/09_settings_general.png)): a 512 pt modal with Project · Edit · Performance ·
   General tabs (image duration, step frames, proxy, hardware encoding, cache, language).
 - Montage: there is no Settings menu item or window. The language can only be changed from a globe menu in the title bar.
@@ -66,7 +66,7 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
   and the export sound (W11 → W12). These are open in STATUS cross-team requests.
 - Fix: build the Settings window from UX §2.5 and connect the keys listed in STATUS.md.
 
-**W12-4 · P1 · There is no shortcut window and no Help menu, and the menu bar is minimal.**
+**W12-4 · P1 · There is no shortcut window and no Help menu, and the menu bar is minimal.** — FIXED (W12: Home/ShortcutEditor.swift, Help ▸ Keyboard shortcuts, Clip / Timeline / Marker menus in AppMenu.swift)
 - CapCut ([50_shortcuts_1](ux/50_shortcuts_1.png), [52](ux/52_dialog_discard_confirm.png)): Help ▸ Shortcut and a ⌨ title-bar
   icon open a 720 pt editor with Timeline · Player · Basic · Other tabs and five presets. UX §8.1 also asks for a *richer* Mac menu
   bar (Clip, Timeline, Marker, View) than CapCut's.
@@ -76,13 +76,13 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: add the shortcut editor from UX §8.2, add Help ▸ Keyboard shortcuts, and add Clip, Timeline and Marker menus that mirror
   `ShortcutRegistry`.
 
-**W12-5 · P2 · The title-bar controls differ from CapCut.**
+**W12-5 · P2 · The title-bar controls differ from CapCut.** — FIXED (W12, a0ec8c2: ⌨ shortcuts icon instead of the globe; language in Settings)
 - CapCut ([15](ux/15_editor_video_selected.png)): a layout button with a chevron, a shortcuts ⌨ icon, then Export.
 - Montage ([01_editor_overview](ux_review/01_editor_overview.png)): a globe language menu, then Export. Changing the language from
   the title bar is programmer UI.
 - Fix: move the language setting to Settings ▸ General, and add the shortcuts icon (and the layout menu when layouts exist).
 
-**W12-6 · P2 · New-project defaults differ from CapCut.**
+**W12-6 · P2 · New-project defaults differ from CapCut.** — PARTLY FIXED (W12: MMdd names "1018 (1)", ProjectLibrary.swift; Details still shows "Not saved yet", no Free layer row)
 - CapCut ([10](ux/10_editor_empty.png)): the name is the date as MMDD ("1018", then "1018 (1)"). Details shows Ratio *Original*,
   Resolution *Adapted*, Free layer *Turned on*, and a real save path (autosaved from the start).
 - Montage ([02_empty_editor](ux_review/02_empty_editor.png)): the name is "Untitled project", Ratio is "16:9", Resolution is
@@ -90,13 +90,13 @@ CapCut), "Undo: Split" toasts, delete with linkage, full localization (2,336 key
 - Fix: use CapCut's defaults (UX §2.2), autosave into a project folder at once, and show Original/Adapted until the first clip sets
   the canvas.
 
-**W12-7 · P2 · ⌘S gives no feedback, and Save / Save As… contradict the autosave model.**
+**W12-7 · P2 · ⌘S gives no feedback, and Save / Save As… contradict the autosave model.** — FIXED (W12, a0ec8c2: ⌘S flashes the "Saved" toast, no Save As…)
 - CapCut: there is no Save command; the title bar shows "Auto saved: HH:MM:SS". UX §2.6 asks for ⌘S to be a no-op that flashes
   "Saved".
 - Montage: ⌘S shows no toast (the state dump `ui.toast` stays null), and the File menu has Save and Save As….
 - Fix: make ⌘S flash a "Saved" toast, and rename Save As… to "Duplicate project…" or drop it.
 
-**W12-8 · P2 · Toasts have low contrast.**
+**W12-8 · P2 · Toasts have low contrast.** — FIXED (W12, a0ec8c2: white pill, black text, EditorView.swift toast)
 - CapCut (UX §9): a centred white pill with black 12 pt text.
 - Montage ([24_undo_toast](ux_review/24_undo_toast.png)): a `#2E2E2E` pill over the player header, almost the same colour as the
   header strip.

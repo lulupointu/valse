@@ -35,7 +35,14 @@ When 2-4 branches are ready (or 1 if nothing else is close), and no other batch 
    Never more than one batch gate at a time; don't start other heavy runs meanwhile.
 6. `CLEAN CHECKOUT OK` → from the main checkout: `scripts/merge_agent.sh batch-<n>` (checks the stamp names the exact
    batch HEAD in mode ui, ff-only merges main, builds the app, removes the batch .build). `--check-only` verifies first.
-7. Clean up: `git worktree remove .claude/worktrees/batch-<n>`, the merged agent worktrees, `scripts/cleanup.sh`.
+7. Clean up (your duty, every batch): `git worktree remove .claude/worktrees/batch-<n>`, the merged agent worktrees, then
+   `scripts/cleanup.sh --merged-worktrees` (deletes the `.build` (~1-2 GB each) of every worktree whose HEAD is in main
+   or a batch-* branch, with a clean `git status` and no process using it; `--dry-run` first if unsure).
+   Run it too whenever free disk is < 10 GB (`df -h .`): gates need 5 GB and fail with DISK FULL below that.
+
+## Disk
+- < 10 GB free → `scripts/cleanup.sh --merged-worktrees` (above); still low → `scripts/cleanup.sh --dry-run` shows the
+  rest (temp dirs, unmerged worktrees' builds are kept: ask before deleting those).
 
 ## 4. Failed batch
 - Read the `✘` lines and `build/check_clean-uitest/<script>/failure.png` in the batch worktree. Map each failure to a
