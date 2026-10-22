@@ -87,6 +87,10 @@ public final class PlaybackEngine {
     /// Loop playback (PB-009): when set, playing past `end` jumps back to `start`.
     public var loopRange: TimeRange? { didSet { if oldValue != loopRange { installLoopObserver() } } }
     private var loopObserver: Any?
+    /// Quick cut preview (TL-048): sorted, disjoint ranges that forward playback jumps over (the project is unchanged).
+    /// A boundary observer at each start seeks to its end; `play()` from inside one starts at its end.
+    public var skipRanges: [TimeRange] = [] { didSet { if oldValue != skipRanges { installSkipObserver() } } }
+    private var skipObserver: Any?
     private var endObserver: (any NSObjectProtocol)?
     private var proxyObserver: (any NSObjectProtocol)?
     /// Emulated reverse shuttle (when the item can't play backwards): negative rate, driven by a timer.
@@ -107,6 +111,7 @@ public final class PlaybackEngine {
                 guard let self, self.player.rate != 0 else { return }
                 self.requestedTime = Time(cmTime: t)
                 self.onTimeUpdate?(self.requestedTime)
+                if !self.skipRanges.isEmpty { self.skipIfInside() }   // a boundary missed (seek landing inside a range)
             }
         }
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] p, _ in
@@ -289,6 +294,7 @@ public final class PlaybackEngine {
         performSeek(min(t, max(.zero, project.duration)), exact: true)
         if wasPlaying && reverseShuttleRate == 0 { resume(atRate: rate) }
         installLoopObserver()
+        installSkipObserver()
     }
 
     // MARK: Transport
@@ -301,7 +307,32 @@ public final class PlaybackEngine {
         stopReverseShuttle()
         if let r = loopRange, !r.contains(currentTime) { seek(to: r.start) }
         else if currentTime >= duration - project.settings.frameRate.frameDuration { seek(to: .zero) }
+        if let r = skipRange(containing: requestedTime) { seek(to: r.end) }
         resume(atRate: 1)
+    }
+
+    /// The skip range playback at `t` is inside (nil when none).
+    func skipRange(containing t: Time) -> TimeRange? {
+        var lo = 0, hi = skipRanges.count
+        while lo < hi { let m = (lo + hi) / 2; if skipRanges[m].end <= t { lo = m + 1 } else { hi = m } }
+        guard lo < skipRanges.count else { return nil }
+        let r = skipRanges[lo]
+        // a hair before the start counts (the boundary fires a little early), the last frame before the end does not
+        return t >= r.start - Time(0.02) && t < r.end - Time(0.02) ? r : nil
+    }
+
+    private func installSkipObserver() {
+        if let o = skipObserver { player.removeTimeObserver(o); skipObserver = nil }
+        guard !skipRanges.isEmpty else { return }
+        skipObserver = player.addBoundaryTimeObserver(forTimes: skipRanges.map { NSValue(time: $0.start.cmTime) }, queue: .main) { [weak self] in
+            MainActor.assumeIsolated { self?.skipIfInside() }
+        }
+    }
+
+    /// Playing forward inside a skip range: jump to its end (keeps playing once the seek lands, like the loop wrap).
+    private func skipIfInside() {
+        guard player.rate > 0, !seekInFlight, let r = skipRange(containing: Time(cmTime: player.currentTime())) else { return }
+        seek(to: r.end)
     }
 
     public func pause() {

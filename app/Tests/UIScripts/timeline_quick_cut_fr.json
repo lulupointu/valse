@@ -1,0 +1,28 @@
+// TL-048 Quick cut in French: popover wording and decimal commas ("0,2 s", "3 blancs · −1,3 s", toast
+// "3 blancs supprimés (−1,3 s)"); a selected clip narrows the scope. LOOK at quick-cut-popover-fr.
+{
+  "project": "empty",
+  "lang": "fr",
+  "steps": [
+    {"drop": {"files": ["fixtures/real/iphone_hlg_portrait.mov"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 30}},
+    {"drop": {"files": ["fixtures/real/speech_en.m4a"]}, "on": "time:0@main", "offset": [0, 70]},
+    {"waitFor": {"path": "media.count", "equals": 2, "timeout": 30}},
+    {"waitFor": {"path": "tracks.count", "gte": 2, "timeout": 10}},
+    {"click": "clip:main/0"},
+    {"waitFor": {"path": "selection.count", "equals": 1}},
+    {"click": "id:toolbar.quickCut"},
+    {"waitFor": {"path": "ui.quickCut.open", "equals": true}},
+    {"expect": [{"path": "ui.quickCut.scope", "equals": "S'applique au clip média sélectionné"}, {"path": "ui.quickCut.targets", "equals": 1}]},
+    {"waitFor": {"path": "ui.quickCut.analysing", "equals": false, "timeout": 60, "progress": ["ui.quickCut.analysed"]}},
+    {"click": "id:quickcut.field"},
+    {"type": "0,2", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "ui.quickCut.value", "equals": 0.2}},
+    {"waitFor": {"path": "ui.quickCut.summary", "equals": "1 blanc · −0,4 s"}},
+    {"snapshot": "quick-cut-popover-fr", "element": "id:quickcut.popover", "baseline": true},
+    {"click": "id:quickcut.apply"},
+    {"expect": [{"path": "ui.toast", "equals": "1 blanc supprimé (−0,4 s)"}, {"path": "undo.name", "equals": "cmd.quickCut"}]},
+    {"expect": {"path": "tracks.1.clips.count", "equals": 1}}
+  ]
+}

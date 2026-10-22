@@ -125,6 +125,7 @@ final class TimelineView: NSView {
             _ = self.store.transport.isPlaying   // U1-6: follow on play start
             _ = self.ui.scrollTime; _ = self.ui.scrollY; _ = self.ui.tool
             _ = self.ui.selectedTransition; _ = self.ui.selectedMarker; _ = self.ui.selectedKeyframe
+            _ = self.ui.quickCut?.planRevision   // TL-048 Quick cut preview
             _ = self.store.jobs   // C2: job progress on clips redraws with the inspector's (one source: store.jobs)
             self.dirty = true
             self.followPlayhead()
@@ -271,6 +272,7 @@ final class TimelineView: NSView {
             let ripple = row.isMain ? dropPlan?.rippleIndex : nil
             if let ripple, let plan = dropPlan { drawRipplePreview(&c, row: row, track: track, layout: l, dim: dim, ctx: ctx, index: ripple, shift: plan.duration) }
             else { drawClips(&c, row: row, track: track, layout: l, dim: dim, ctx: ctx) }
+            if let qc = ui.quickCut, ripple == nil { drawQuickCut(&c, row: row, track: track, layout: l, session: qc) }   // TL-048
             // transitions straddling cuts
             let vis = track.clips(in: visible).indices
             track.clips.withUnsafeBufferPointer { clips in
