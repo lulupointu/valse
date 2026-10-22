@@ -498,41 +498,72 @@ struct Dropdown<ID: Hashable>: View {
     let selection: ID
     var enabled = true
     let onSelect: (ID) -> Void
+    @State private var anchor = DropdownMenu.Anchor()
     var body: some View {
         WithPerceptionTracking {
-            // The visible field is drawn by us (borderless menus centre their label and put the chevron first);
-            // a transparent Menu on top provides the native pop-up.
-            HStack {
-                Text(verbatim: items.first { $0.id == selection }?.title ?? "")
-                    .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                Spacer()
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textPrimary)
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
-            .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
-            .overlay {
-                Menu {
-                    ForEach(items, id: \.id) { item in
-                        WithPerceptionTracking {
-                            Button {
-                                onSelect(item.id)
-                            } label: {
-                                if item.id == selection { Label(item.title, systemImage: "checkmark") } else { Text(verbatim: item.title) }
-                            }
-                        }
-                    }
-                } label: {
-                    Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+            // FB-06: the whole field is a plain Button that pops a native NSMenu under itself. It used to be a
+            // near-transparent borderless SwiftUI `Menu` laid over the field (label `Color.clear`): AppKit sized that
+            // pop-up button to its empty label, so a real click on the field almost never landed on it and the menu
+            // never opened. A Button's hit area is its whole (content-shaped) label.
+            Button {
+                let titles = items.map(\.title)
+                let selected = items.firstIndex { $0.id == selection }
+                DropdownMenu.show(titles: titles, selected: selected, under: anchor.view) { i in
+                    if items.indices.contains(i) { onSelect(items[i].id) }
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .opacity(0.011)
-                .accessibilityLabel(Text(verbatim: items.first { $0.id == selection }?.title ?? tr("ax.menu")))   // SE-017
+            } label: {
+                HStack {
+                    Text(verbatim: items.first { $0.id == selection }?.title ?? "")
+                        .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    Spacer()
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textPrimary)
+                }
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
+                .background(IStyle.dropdown, in: RoundedRectangle(cornerRadius: 4))
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .background(DropdownMenu.AnchorView(anchor: anchor))
+            .accessibilityLabel(Text(verbatim: items.first { $0.id == selection }?.title ?? tr("ax.menu")))   // SE-017
             .disabled(!enabled)
             .opacity(enabled ? 1 : 0.4)
         }
+    }
+}
+
+/// FB-06: the pop-up menu of `Dropdown` (native NSMenu with ✓ on the selection, opened under the field, at least as
+/// wide as it, like CapCut's dropdown lists).
+@MainActor
+enum DropdownMenu {
+    /// UI tests (`{"click": "id:…", "menuItem": "<title or l10n key>"}`): receives the menu instead of popping it up
+    /// (a real pop-up runs a modal tracking loop the driver can't reach). The click itself is a real NSEvent.
+    static var uitestMenuSink: ((NSMenu) -> Void)?
+
+    final class Anchor { weak var view: NSView? }
+
+    /// Zero-interaction NSView behind the field: where the menu is anchored.
+    struct AnchorView: NSViewRepresentable {
+        let anchor: Anchor
+        final class V: NSView { override func hitTest(_ point: NSPoint) -> NSView? { nil } }
+        func makeNSView(context: Context) -> NSView { let v = V(); anchor.view = v; return v }
+        func updateNSView(_ v: NSView, context: Context) { anchor.view = v }
+    }
+
+    static func show(titles: [String], selected: Int?, under view: NSView?, onSelect: @escaping (Int) -> Void) {
+        let m = NSMenu()
+        m.autoenablesItems = false
+        for (i, t) in titles.enumerated() {
+            let item = PlayerMenuAction.item(t) { onSelect(i) }
+            item.state = i == selected ? .on : .off
+            m.addItem(item)
+        }
+        if let sink = uitestMenuSink { sink(m); return }
+        if TestAnchors.isEnabled { return }   // UI tests never run a real (modal) menu tracking loop
+        guard let view, view.window != nil else { m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil); return }
+        m.minimumWidth = view.bounds.width
+        let below = NSPoint(x: 0, y: view.isFlipped ? view.bounds.maxY + 2 : -2)
+        m.popUp(positioning: nil, at: below, in: view)
     }
 }
 
