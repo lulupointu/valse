@@ -41,10 +41,13 @@ import MontageTestSupport
 /// Finisher rows: TL-032 / AU-023 scrub audio grains, AU-040 notification sounds, AU-024 device lists.
 @Suite struct FinisherAudioTests {
     static func toneProject() async throws -> Project {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("fin-scrub-tone.m4a")
-        if !FileManager.default.fileExists(atPath: url.path) { try await SyntheticMedia.writeAudio(to: url, seconds: 3, hz: 440) }
+        // one file per call: the suite's tests run in parallel, and a shared file could be probed while another test
+        // was still writing it (no asset → index out of range crashed the whole test process)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("fin-scrub-tone-\(UUID().uuidString).m4a")
+        try await SyntheticMedia.writeAudio(to: url, seconds: 3, hz: 440)
         var p = Project()
         let (assets, _) = await MediaProbe.probeAll([url])
+        try #require(assets.count == 1)
         p.media = assets
         try TimelineOps.insert(TimelineOps.makeClip(for: assets[0], at: .zero), into: &p)
         return p
