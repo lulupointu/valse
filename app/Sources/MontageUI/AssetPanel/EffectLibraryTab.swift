@@ -365,6 +365,7 @@ struct EffectCard: View {
                             }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text(verbatim: tr(descriptor.nameKey)))   // FB-10: was the (removed) name tooltip
                     if hover || selected {
                         CardBadges(id: descriptor.id, fav: fav, add: add)
                     } else if fav {

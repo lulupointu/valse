@@ -107,6 +107,7 @@ struct TransitionTile: View {
                                           lineWidth: selected ? 2 : 1.5))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text(verbatim: tr(descriptor.nameKey)))   // FB-10: was the (removed) name tooltip
                     .testID("transition.tile.\(shortID)")
                     let fav = EffectFavorites.shared.contains(descriptor.id)
                     if hover || highlighted {
