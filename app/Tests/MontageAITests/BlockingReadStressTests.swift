@@ -39,6 +39,7 @@ import MontageTestSupport
             ("reverse", { try await ReverseManager.generate(source: url, to: out("mov")) }),
             ("sceneCuts", { _ = try await SceneDetector.cuts(url) }),
             ("levels", { _ = try await ActivityAnalyzer.levels(url: url) }),
+            ("quickCut", { _ = try await QuickCutAnalyzer.compute(url: url) }),
             ("motion", { _ = try await ActivityAnalyzer.motion(url: url) }),
             ("meanLuma", { let av = AVURLAsset(url: url)
                 let t = try #require(try await av.loadTracks(withMediaType: .video).first)

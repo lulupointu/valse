@@ -117,22 +117,38 @@ public enum EditPilotExecutor {
         ctx.selection = selection
         // 1. analyses (progress 0 … 0.85)
         let needsActivity = steps.contains(where: \.needsActivity)
+        let needsQuickCut = steps.contains(where: \.needsQuickCut)
         let needsTranscript = steps.contains(where: \.needsTranscript)
         let needsLoudness = steps.contains { if case .normalizeLoudness = $0 { return true }; return false }
-        let parts = Double([needsActivity, needsTranscript, needsLoudness].filter { $0 }.count)
+        let parts = Double([needsActivity || needsQuickCut, needsTranscript, needsLoudness].filter { $0 }.count)
         var base = 0.0
         func sub(_ f: Double) -> Double { parts == 0 ? 0 : 0.85 * (base + f) / parts }
+        if needsQuickCut {
+            // "remove silences" = Quick cut's speech masks (TL-048), shared cache with the timeline's Quick cut
+            phase?(.analyzing)
+            let assets = QuickCut.media(of: PilotOps.silenceTargets(project), in: project)
+            let share = needsActivity ? 0.5 : 1.0
+            for (i, a) in assets.enumerated() {
+                try Task.checkCancellation()
+                let b = base
+                ctx.quickCut[a.id] = try await QuickCutAnalyzer.shared.analyze(a) { f in
+                    progress?(parts == 0 ? 0 : 0.85 * (b + share * (Double(i) + f) / Double(max(assets.count, 1))) / parts)
+                }
+            }
+            base += share
+        }
         if needsActivity {
             phase?(.analyzing)
             let assets = uniqueAssets(PilotOps.mainMediaClips(project), project)
+            let share = needsQuickCut ? 0.5 : 1.0
             for (i, a) in assets.enumerated() {
                 try Task.checkCancellation()
                 let b = base
                 ctx.activity[a.id] = try await ActivityAnalyzer.shared.profile(a) { f in
-                    progress?(parts == 0 ? 0 : 0.85 * (b + (Double(i) + f) / Double(max(assets.count, 1))) / parts)
+                    progress?(parts == 0 ? 0 : 0.85 * (b + share * (Double(i) + f) / Double(max(assets.count, 1))) / parts)
                 }
             }
-            base += 1
+            base += share
         }
         if needsTranscript {
             phase?(.transcribing)

@@ -6,6 +6,7 @@
 "cmd.move" = "Déplacer";
 "cmd.trim" = "Rogner";
 "cmd.split" = "Fractionner";
+"cmd.quickCut" = "Coupe rapide";
 "cmd.delete" = "Supprimer";
 "cmd.speed" = "Vitesse";
 "cmd.transition" = "Transition";

@@ -8,6 +8,8 @@ import MontageEffects
 public struct PilotContext: Sendable {
     public var selection: Set<ClipID> = []
     public var activity: [MediaID: ActivityProfile] = [:]
+    /// Quick cut speech masks (TL-048) for "remove silences": one detector for the app.
+    public var quickCut: [MediaID: QuickCutMask] = [:]
     /// Transcripts with disfluencies kept (used for filler removal and captions).
     public var transcripts: [MediaID: Transcript] = [:]
     /// Integrated loudness per clip (LUFS) for "normalize loudness".
@@ -76,16 +78,20 @@ public enum PilotOps {
 
     // MARK: Cuts
 
+    /// Main-track media clips (with the audio extracted from them) that "remove silences" works on.
+    static func silenceTargets(_ p: Project) -> [QuickCutTarget] {
+        let main = Set((p.timeline.mainTrack?.clips ?? []).map(\.id))
+        return QuickCut.targets(p, selection: []).filter { main.contains($0.primary) }
+    }
+
+    /// Quick cut's detector and planner (TL-048, owner decision "one detector") on the main track: blanks longer than
+    /// `minPause` ripple out, captions and extracted audio follow.
     static func removeSilences(minPause: Double, in p: inout Project, _ ctx: PilotContext) throws -> String? {
-        var ranges: [TimeRange] = []
-        for c in mainMediaClips(p) {
-            guard let mid = c.mediaID, let prof = ctx.activity[mid] else { continue }
-            ranges += prof.silences(minimum: minPause, in: c.sourceRange).compactMap { timelineRange($0, in: c) }
-        }
-        guard !ranges.isEmpty else { return nil }
+        let plan = QuickCut.plan(p, targets: silenceTargets(p), maxBlank: minPause, masks: ctx.quickCut)
+        guard !plan.isEmpty else { return nil }
         let before = p.timeline.duration
-        try RippleCut.rippleDelete(ranges, in: &p)
-        return tr("pilot.result.removeSilences", ranges.count, PilotFormat.seconds((before - p.timeline.duration).seconds))
+        try QuickCut.apply(plan, to: &p)
+        return tr("pilot.result.removeSilences", plan.count, PilotFormat.seconds((before - p.timeline.duration).seconds))
     }
 
     // MARK: Timing
