@@ -38,6 +38,9 @@ public enum NumericFieldKeys {
     private static var active: (token: UUID, step: (Int) -> Void)?
     private static var monitor: Any?
 
+    /// A numeric field is focused and takes ↑ / ↓ (UI test state `ui.numericFieldKeys`).
+    public static var isActive: Bool { active != nil }
+
     /// Steps per press: ±1, ⇧ ±10.
     nonisolated static func steps(keyCode: UInt16, shift: Bool) -> Int? {
         let k = shift ? 10 : 1

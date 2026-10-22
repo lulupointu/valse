@@ -144,6 +144,7 @@ public enum StateDump {
         ui["playback"] = ["framesSinceSeek": store.engine.framesSinceSeek, "lastFrameTime": store.engine.lastFrameTime.seconds,
                           "rate": Double(store.engine.player.rate)] as [String: Any]   // C3-5 freeze checks
         ui["focusedPanel"] = PanelFocus.shared.current?.rawValue ?? ""   // SE-017
+        ui["numericFieldKeys"] = NumericFieldKeys.isActive   // OB-11: a focused numeric field takes ↑ / ↓
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
         ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}

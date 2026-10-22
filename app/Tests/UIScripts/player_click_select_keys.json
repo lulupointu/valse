@@ -12,6 +12,7 @@
     {"expect": {"path": "selectedClips.0.kind", "equals": "text"}},
     {"click": "clip:1/0"},
     {"click": "id:slider.opacity.field"},
+    {"waitFor": {"path": "ui.numericFieldKeys", "equals": true}},
     {"key": "down"},
     {"waitFor": {"path": "selectedClips.0.opacity", "approx": 0.99, "tolerance": 0.001}},
     {"key": "shift+down"},
