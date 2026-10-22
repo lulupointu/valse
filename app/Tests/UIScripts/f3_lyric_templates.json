@@ -8,7 +8,7 @@
     {"select": ["clip:1/0"]},
     {"click": "id:inspector.tab.text"},
     {"click": "id:inspector.sub.templates"},
-    {"expect": [{"path": "ui.anchors", "contains": "inspector.section.captions.templates"}, {"path": "tracks.1.clips.count", "equals": 3}]},
+    {"expect": [{"path": "ui.anchors", "contains": "text.templates.caption"}, {"path": "tracks.1.clips.count", "equals": 3}]},
     {"snapshot": "lyric-track", "element": "id:panel.inspector"}
   ]
 }

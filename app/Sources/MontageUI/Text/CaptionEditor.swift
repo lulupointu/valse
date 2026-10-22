@@ -304,20 +304,33 @@ final class CaptionNSTextView: NSTextView {
     }
 }
 
-/// Text ▸ Templates (captions, C4 [18]): karaoke / caption looks, applied to every caption of the track ("Apply to
-/// all main captions" on) or only to the selected one.
+/// Text ▸ Templates ▸ Caption (captions, C4 [18], OB-10: first category of the Templates sub-tab): karaoke / caption
+/// looks, applied to every caption of the track ("Apply to all main captions" on) or only to the selected one. Their
+/// spoken-word values are then editable in Text ▸ Spoken word.
 struct CaptionTemplatesSection: View {
     let ctx: InspectorContext
+    /// Lower-cased search text of the Templates sub-tab ("" = all).
+    var query = ""
     var body: some View {
         WithPerceptionTracking {
-            TileGrid {
-                ForEach(Registries.captionTemplates.all) { d in
-                    WithPerceptionTracking {
-                        Tile(title: tr(d.nameKey)) { ctx.store.applyCaptionTemplate(d) } content: {
-                            TextPreviewImage(key: "captionTemplate:\(d.id)", content: Self.preview(d), fontPx: 30, padding: 4)
+            let cat = tr("text.templates.caption")
+            let items = Registries.captionTemplates.all.filter {
+                query.isEmpty || tr($0.nameKey).lowercased().contains(query) || cat.lowercased().contains(query) || tr($0.groupKey).lowercased().contains(query)
+            }
+            if !items.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(verbatim: cat).font(.system(size: 12, weight: .medium)).foregroundStyle(IStyle.caption)
+                    TileGrid {
+                        ForEach(items) { d in
+                            WithPerceptionTracking {
+                                Tile(title: tr(d.nameKey), testID: "captionTemplate.\(d.id)") { ctx.store.applyCaptionTemplate(d) } content: {
+                                    TextPreviewImage(key: "captionTemplate:\(d.id)", content: Self.preview(d), fontPx: 30, padding: 4)
+                                }
+                            }
                         }
                     }
                 }
+                .testID("text.templates.caption")
             }
         }
     }

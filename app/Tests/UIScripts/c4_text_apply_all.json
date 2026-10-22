@@ -1,4 +1,4 @@
-// C4: Text ▸ Basic | Templates | Bubble | Effects for captions (CapCut [11][18]); ☑ Apply to all main captions (on by
+// C4 / OB-10: Text ▸ Basic | Bubble | Templates (first category Caption) | Spoken word for captions (CapCut [11][18]); ☑ Apply to all main captions (on by
 // default) makes a font-size edit on one caption restyle the whole track in one undo step; off = only that caption.
 {
   "project": "demo-transcript:captions",
@@ -23,7 +23,7 @@
     {"key": "return"},
     {"expect": [{"path": "ui.transcript.captions.1.fontSize", "equals": 30}, {"path": "ui.transcript.captions.0.fontSize", "notEquals": 30}]},
     {"click": "id:inspector.sub.templates"},
-    {"expect": {"path": "ui.anchors", "contains": "inspector.section.captions.templates"}},
+    {"expect": {"path": "ui.anchors", "contains": "text.templates.caption"}},
     {"snapshot": "text-templates", "element": "id:panel.inspector"}
   ]
 }
