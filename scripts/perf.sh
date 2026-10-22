@@ -32,11 +32,11 @@ source scripts/slots.sh; slots_acquire_all
 [[ $BUILD == 1 ]] && swift build -c release --product Montage >&2
 BIN="$(swift build -c release --show-bin-path)/Montage"
 
-# Load rule (DX-C): wall-clock and GPU-time metrics GATE only when the 1-min load average stays <= the core count across
+# Load rule (DX-C, OB-PERF): wall-clock, GPU-time and thread-CPU metrics GATE only when the 1-min load average stays <= the core count across
 # the measurement (sampled before / after each part, max taken; MONTAGE_PERF_CORES overrides the core count). Taking
 # every slot does not stop load from outside the slot system (VMs, other builds). Above it, the measurement is retried
 # once after waiting <= 5 min for the load to drop; if still loaded, those metrics are reported "UNRELIABLE" and don't
-# gate. Thread-CPU, memory and gross GPU-time bounds always gate.
+# gate. Memory and gross GPU-time bounds always gate.
 CORES="${MONTAGE_PERF_CORES:-$(sysctl -n hw.ncpu)}"
 export MONTAGE_PERF_CORES="$CORES"   # TimingBudget uses the same core count for its load rule
 LOADMAX=0
@@ -129,9 +129,9 @@ metrics = {k: v for k, v in metrics.items() if not k.startswith("snapshot_")}
 limits = json.load(open(th)).get(mode, {})
 violations, unreliable = [], []
 def load_ruled(k):
-    # thread-CPU ("_cpu_") and memory metrics are load-robust: they always gate; wall-clock / GPU-time ones follow the
-    # load rule (see the top of this script)
-    return not ("_cpu_" in k or k.endswith("_cpu_ms") or "memory" in k or k.endswith("_mb"))
+    # memory metrics are load-robust: they always gate; wall-clock, GPU-time and thread-CPU ones follow the load rule
+    # (see the top of this script). Thread-CPU inflates 3-4x above load = cores (OB-PERF 2026-10-22: main 0.8 → 3.5 ms)
+    return not ("memory" in k or k.endswith("_mb"))
 for k, lim in limits.items():
     if k not in metrics: continue
     v = metrics[k]

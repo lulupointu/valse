@@ -117,8 +117,8 @@ hogs; a quiet machine is never assumed. So:
   before / after each part, max taken; `MONTAGE_PERF_CORES` overrides the core count, also for TimingBudget). Above it,
   perf.sh waits ≤ 5 min and measures once more; if still loaded it reports each as `UNRELIABLE (load X > cores Y)` with
   its value and does not gate on them; check_clean prints "perf: N metrics unverified due to load" and appends
-  `perf-unverified=N` to `build/check_clean.ok`. Thread-CPU (`_cpu_`), memory and the gross ×4 GPU-time bounds always
-  gate. `launch_ms` is measured after one untimed warm-up launch (app launch, not the first launch after a build).
+  `perf-unverified=N` to `build/check_clean.ok`. Thread-CPU (`_cpu_`) metrics follow the same rule (they inflate 3-4×
+  above load = cores; owner decision 2026-10-22). Memory and the gross ×4 GPU-time bounds always gate. `launch_ms` is measured after one untimed warm-up launch (app launch, not the first launch after a build).
 - **Waits are for state, timeouts only detect hangs.** Await the job / poll a condition (`waitUntil`, `job.value`); a
   timeout must be generous (≥ 30 s for anything that can queue behind other work) and never encode a speed budget.
   Freeze / deadlock checks measure *work*, not wall time: e.g. `PlaybackStressTests` calls a preview frozen when no new

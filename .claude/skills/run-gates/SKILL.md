@@ -23,9 +23,9 @@ Feature agents never run `check_clean.sh`: the orchestrator runs it once per bat
 checks the perf budgets (bench/perf_thresholds.json + perf.sh's `UNIT_TIMING` tests).
 
 ## Perf under load (docs/TESTING.md "perf.sh load rule")
-- Correctness tests never assert wall clock (`TimingBudget.limit` = nil outside `MONTAGE_PERF=1`); thread-CPU (`_cpu_`),
-  memory and the gross ×4 GPU-time bounds always gate.
-- In perf.sh, wall-clock and GPU-time metrics (`launch_ms`, `_wall_`, `_gpu_`, unit wall-clock / strict GPU budgets) gate
+- Correctness tests never assert wall clock (`TimingBudget.limit` = nil outside `MONTAGE_PERF=1`); memory and the
+  gross ×4 GPU-time bounds always gate; thread-CPU (`_cpu_`) follows the load rule below (inflates 3-4× under load).
+- In perf.sh, wall-clock, GPU-time and thread-CPU metrics (`launch_ms`, `_wall_`, `_gpu_`, `_cpu_`, unit wall-clock / strict GPU budgets) gate
   only while the 1-min load average stays ≤ the core count (sampled before / after each part). Above it perf.sh waits
   ≤ 5 min (`MONTAGE_PERF_LOAD_WAIT`), measures again, then reports each as `UNRELIABLE (load X > cores Y)` without gating.
   `MONTAGE_PERF_CORES` overrides the core count (also for TimingBudget).
