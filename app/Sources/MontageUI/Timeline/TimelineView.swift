@@ -65,6 +65,8 @@ final class TimelineView: NSView {
         case volume(ClipID, grabY: CGFloat, origin: Clip, grab: ClipVolumeLine.Grab)
     }
     var drag: Drag = .none
+    /// OB-02/03: the running plain click moves the playhead on mouse-up (see `TimelineClickPolicy`).
+    var clickSeeks = false
     var snapIndex: SnapIndex?
     var snapLine: Time?
     var dropIndicator: (time: Time, row: Int?)?

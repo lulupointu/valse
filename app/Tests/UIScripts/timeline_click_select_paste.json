@@ -1,0 +1,45 @@
+// OB-02 click vs selection vs playhead, OB-03 grey header column = click at 0, OB-05 "Paste" on empty track space.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"click": "time:10@1"},
+    {"expect": [{"path": "selection.count", "equals": 0}, {"path": "playhead", "approx": 10, "tolerance": 0.1}]},
+    // unselected clip: selected, the playhead stays
+    {"click": "clip:main/0"},
+    {"expect": [{"path": "selection.count", "equals": 1}, {"path": "playhead", "approx": 10, "tolerance": 0.1}]},
+    // click inside the sole selection: the playhead moves to the clicked time
+    {"click": "clip:main/0:0.25"},
+    {"expect": [{"path": "selection.count", "equals": 1}, {"path": "playhead", "approx": 1.5, "tolerance": 0.15}]},
+    // several selected + click on one of them: it becomes the only selection, the playhead stays
+    {"click": "clip:main/2", "modifiers": ["shift"]},
+    {"expect": {"path": "selection.count", "equals": 2}},
+    {"click": "clip:main/2"},
+    {"expect": [{"path": "selection.count", "equals": 1}, {"path": "selectedClips.0.start", "approx": 10.5, "tolerance": 0.1},
+                {"path": "playhead", "approx": 1.5, "tolerance": 0.15}]},
+    // empty track space with a selection: deselect only; again (nothing selected): seek
+    {"click": "time:10@1"},
+    {"expect": [{"path": "selection.count", "equals": 0}, {"path": "playhead", "approx": 1.5, "tolerance": 0.15}]},
+    {"click": "time:10@1"},
+    {"expect": {"path": "playhead", "approx": 10, "tolerance": 0.1}},
+    // OB-03: the grey header space next to the Cover button = a click at time 0 (same selection rule)
+    {"click": "clip:main/1"},
+    {"expect": {"path": "selection.count", "equals": 1}},
+    {"click": "time:0@main", "offset": [-20, 30]},
+    {"expect": [{"path": "selection.count", "equals": 0}, {"path": "playhead", "approx": 10, "tolerance": 0.1}]},
+    {"click": "time:0@main", "offset": [-20, 30]},
+    {"expect": {"path": "playhead", "approx": 0, "tolerance": 0.05}},
+    // overlay track header (reorderable): a click without moving is a click at 0 too
+    {"click": "time:10@1"},
+    {"expect": {"path": "playhead", "approx": 10, "tolerance": 0.1}},
+    {"click": "time:0@1", "offset": [-20, 0]},
+    {"expect": {"path": "playhead", "approx": 0, "tolerance": 0.05}},
+    // OB-05: copy a clip, right-click empty space of its track ▸ Paste = pasted at the clicked time, playhead stays
+    {"click": "clip:1/0"},
+    {"key": "cmd+c"},
+    {"rightClick": "time:10@1", "menuItem": "tlmenu.paste"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.paste"}},
+    {"expect": [{"path": "selectedClips.0.start", "approx": 10, "tolerance": 0.1}, {"path": "selectedClips.0.track", "equals": 1},
+                {"path": "playhead", "approx": 0, "tolerance": 0.05}]}
+  ]
+}
