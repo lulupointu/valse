@@ -1,0 +1,12 @@
+// AU-030 (fr): the Style chips fit in French (Neutre / Joyeux / Calme / Sérieux / Enthousiaste), Excited selected.
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"select": ["clip:2/0"]},
+    {"click": "id:inspector.tab.tts"},
+    {"expect": [{"path": "ui.inspectorTab", "equals": "tts"}, {"path": "ui.anchors", "contains": "tts.style.excited"}]},
+    {"click": "id:tts.style.excited"},
+    {"snapshot": "tts-styles-fr", "element": "id:tts.styles", "baseline": true}
+  ]
+}

@@ -14,6 +14,29 @@ import MontageTestSupport
         #expect(SpeechSynthesis.defaultVoice("fr")?.isNovelty == false)
     }
 
+    /// AU-030 styles really change the rendered speech: calm (slower + longer pauses) is longer than neutral, excited
+    /// shorter; each style is its own cached file; neutral keeps the pre-style cache key.
+    @Test func stylesChangeTheSynthesizedSpeech() async throws {
+        try await HeavyWorkGate.run {
+            guard let voice = SpeechSynthesis.defaultVoice("fr") else { print("skip: no French voice"); return }
+            let text = "Bonjour et bienvenue. Voici la suite de la vidéo. Merci beaucoup !"
+            #expect(SpeechSynthesis.cacheURL(text: text, voice: voice.id, rate: 1, pitch: 1)
+                    == SpeechSynthesis.cacheURL(text: text, voice: voice.id, rate: 1, pitch: 1, style: .neutral))
+            #expect(SpeechSynthesis.cacheURL(text: text, voice: voice.id, rate: 1, pitch: 1, style: .calm)
+                    != SpeechSynthesis.cacheURL(text: text, voice: voice.id, rate: 1, pitch: 1))
+            var seconds: [TTSStyle: Double] = [:]
+            for style in [TTSStyle.neutral, .calm, .excited] {
+                let url = try await SpeechSynthesis.synthesize(text, voice: voice.id, style: style)
+                let asset = try await MediaProbe.probe(url)
+                #expect(asset.hasAudio)
+                seconds[style] = asset.duration.seconds
+            }
+            print("metric tts_style_seconds neutral=\(seconds[.neutral]!) calm=\(seconds[.calm]!) excited=\(seconds[.excited]!)")
+            #expect(seconds[.calm]! > seconds[.neutral]! * 1.1)
+            #expect(seconds[.excited]! < seconds[.neutral]! * 0.95)
+        }
+    }
+
     @Test func synthesizeFrenchAndPlaceOnTimeline() async throws {
         try await HeavyWorkGate.run {   // keep real-time probes / ML tests from starving each other
             guard let voice = SpeechSynthesis.defaultVoice("fr") else { print("skip: no French voice"); return }

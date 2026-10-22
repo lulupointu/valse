@@ -24,6 +24,8 @@ enum TTSInspector {
     var rate: Double = 1
     var pitch: Double = 1
     var autoUpdate = true
+    /// Picked style (AU-030); nil = the selected text's speech clip style, else neutral.
+    var style: TTSStyle?
     var language = "auto"
     var query = ""
     var generating: Set<ClipID> = []
@@ -78,6 +80,24 @@ struct TTSVoicesSection: View {
                         }
                     }
                 }
+                // AU-030 emotion / style presets (prosody + EQ tilt, see TTSStyle), above the long voice list so they stay
+                // in view; persisted in TTSInfo
+                GroupCaption(title: tr("tts.style"))
+                let style = st.style ?? existing?.style ?? .neutral
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 120), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(TTSStyle.allCases, id: \.self) { s in
+                        WithPerceptionTracking {
+                            Text(verbatim: tr(s.nameKey)).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                                .lineLimit(1).minimumScaleFactor(0.8).padding(.horizontal, 8).frame(maxWidth: .infinity).frame(height: 28)
+                                .background(style == s ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
+                                .contentShape(Capsule())
+                                .onTapGesture { st.style = s }
+                                .help(tr("tts.style.help"))
+                                .testID("tts.style.\(s.rawValue)")
+                        }
+                    }
+                }
+                .testID("tts.styles")
                 // one group per locale ("Français (Canada)"), each voice name once per group (best quality kept)
                 ForEach(Self.groups(voices), id: \.locale) { g in
                     WithPerceptionTracking {
@@ -123,10 +143,8 @@ struct TTSVoicesSection: View {
         st.preview.stopSpeaking(at: .immediate)
         var text = tr("tts.sample")
         if case .text(let t)? = ctx.clip?.content, !t.string.isEmpty { text = String(t.string.prefix(80)) }
-        let u = AVSpeechUtterance(string: text)
-        u.voice = AVSpeechSynthesisVoice(identifier: v.id)
-        u.rate = Float(Double(AVSpeechUtteranceDefaultSpeechRate) * st.rate)
-        u.pitchMultiplier = Float(st.pitch)
+        guard !AudioOutput.isSilenced else { return }   // SSML utterances ignore `volume`: never speak in tests
+        let u = SpeechSynthesis.utterance(text, voice: v.id, rate: st.rate, pitch: st.pitch, style: st.style ?? existing?.style ?? .neutral)
         u.volume = AudioOutput.volume(1)
         st.preview.speak(u)
     }
@@ -160,13 +178,15 @@ extension EditorStore {
         let lang = { let r = NLLanguageRecognizer(); r.processString(text); return r.dominantLanguage?.rawValue ?? L10n.shared.language }()
         guard let voice = reuse?.voice ?? st.voice ?? TTSOps.speechClip(for: textID, in: project.timeline)?.tts?.voice ?? SpeechSynthesis.defaultVoice(lang)?.id else { return }
         let rate = reuse?.rate ?? st.rate, pitch = reuse?.pitch ?? st.pitch, auto = reuse?.autoUpdate ?? st.autoUpdate
+        // the style follows the speech clip on "Update speech according to script" (reuse), else the picker
+        let style = reuse?.style ?? st.style ?? TTSOps.speechClip(for: textID, in: project.timeline)?.tts?.style ?? .neutral
         st.generating.insert(textID)
         Task {
             defer { st.generating.remove(textID) }
             do {
-                let url = try await SpeechSynthesis.synthesize(text, voice: voice, rate: rate, pitch: pitch)
+                let url = try await SpeechSynthesis.synthesize(text, voice: voice, rate: rate, pitch: pitch, style: style)
                 let asset = try await MediaProbe.probe(url)
-                let info = TTSInfo(sourceText: textID, voice: voice, rate: rate, pitch: pitch, text: t.string, autoUpdate: auto)
+                let info = TTSInfo(sourceText: textID, voice: voice, rate: rate, pitch: pitch, text: t.string, autoUpdate: auto, style: style)
                 if perform(Edit("cmd.tts") { p in
                     var a = asset
                     if let e = p.media.first(where: { $0.contentHash == asset.contentHash }) { a = e }
