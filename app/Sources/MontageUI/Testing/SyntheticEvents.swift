@@ -257,6 +257,7 @@ enum SyntheticEvents {
 
     static func drain(timeout: Double = 10) async -> Bool {
         installKeyRouting()
+        UITestDriver.heartbeat()   // every driver wait goes through here (scripts/uitest.sh hang detection)
         if monitor == nil {
             monitor = NSEvent.addLocalMonitorForEvents(matching: .applicationDefined) { e in
                 if e.subtype.rawValue == 0x7E57 { MainActor.assumeIsolated { SyntheticEvents.seen = max(SyntheticEvents.seen, e.data1) } }

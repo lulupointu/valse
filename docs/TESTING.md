@@ -43,7 +43,13 @@ gate. `--no-retry` disables retries. A crash (no test summary) or a hang is neve
 **Hang watchdog.** `swift build`/`swift test` in test.sh, uitest.sh and check_clean.sh run under a watchdog: no new log
 output AND < 1 % CPU (whole process tree) for `MONTAGE_HANG_MINUTES` (default 10) → the process tree, then `sample`
 stacks of its processes are appended to the log (`build/test.log`), the tree is killed and the run fails with
-**"HUNG"**. A UI script past `--timeout` is `sample`d into `<out>/<name>/hang-sample.txt` before being killed.
+**"HUNG"**. A UI script's `--timeout` (default 120 s) is a hang detector too, not a total limit: the driver touches
+`<out>/<name>/.heartbeat` when a step starts and while it polls (every driver wait has its own progress-based bound), and
+an app whose heartbeat is older than `--timeout` is `sample`d into `<out>/<name>/hang-sample.txt` and killed
+("TIMEOUT (HUNG): no driver progress for 120s"); a slow script that keeps progressing is not (sanity ceiling
+`MONTAGE_UITEST_MAX_SECONDS`, 1800 s). With `--jobs`, **heavy** scripts (`"requires": {"models": …}` = real ML inference,
+or `"heavy": true`) are started first and run one at a time (the other workers take light scripts meanwhile): three of
+them at once each ran ~3× slower.
 
 **Temp files and disk.** test.sh and uitest.sh run tests / apps with a private `TMPDIR`
 (`$TMPDIR/montage-run-*`) deleted on exit, even on failure or Ctrl-C, so sandboxes (`montage-sandbox-*`), exports, project
@@ -115,7 +121,8 @@ hogs; a quiet machine is never assumed. So:
   loaded pipeline still works — or after 30 s without a frame at all. The exporter itself restarts a pass that read
   nothing and composed nothing for 30 s (an AVFoundation stall seen under load), once, then fails it ("export
   stalled") — a stalled export never hangs a test (`MONTAGE_EXPORT_STALL_SECONDS`).
-- **UI scripts** (§1): `expect` is re-checked until it holds (≤ 10 s), `waitFor` timeouts are at least 30 s, mouse
+- **UI scripts** (§1): `expect` is re-checked until it holds (≤ 10 s), `waitFor` timeouts are at least 30 s and count
+  from the last observed progress (job progress, the waited value), mouse
   targets are awaited (≤ 10 s), every input step waits for the UI to settle (below), animations are off, snapshots wait
   for stable pixels. Don't add `wait` steps to "let things settle": `waitFor` the state, or rely on the above.
 
@@ -234,12 +241,19 @@ every hosting root), so nothing is caught mid-fade.
 `"now": true` checks once, immediately (asserts whose point is immediacy: "hidden at once"), and an expect right after a
 `"settle": 0` step is `now` by default. Each expect's wait is in report.json (`waitMs`, `expect_wait_ms_max`); uitest.sh
 warns "slow expect" when one waited > 2 s although the UI had settled (a latency regression); `waitFor` uses
-max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`); before a click / drag / hover the UI is quiesced (a `waitFor`
+max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`) as a **no-progress** bound: it fails only when the condition
+does not hold and none of the progress signals changed for that long — `ui.jobs` (progress / state), `ui.activeJobs`,
+`ui.audioStage` (incl. `progress`), `ui.export.jobs`, `ui.models.progress`, the waited path's own value, plus the step's
+`"progress": ["path", …]` — so an AI job a loaded machine makes 3× slower is waited for and a stuck one fails
+(`MONTAGE_UITEST_WAIT_CEILING`, 1800 s, ends a wait whose signals never stop changing); before a click / drag / hover the UI is quiesced (a `waitFor`
 can return before the layout its state change causes: the target's frame would be stale) and the target (`id:`,
 `clip:`) is awaited until it resolves, ≤ 10 s; the quiescence check also renders the window (SwiftUI hit-tests
-against what it last drew); an `id:` click is verified — its press must be dispatched inside the element's frame, else
-(provably not delivered) it is clicked once more (`click_redeliveries` in report.json; a press that landed is never
-repeated, an element rebuilt between press and release is a warning, `click_release_anomalies`); a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
+against what it last drew); an `id:` click is delivered exactly (UITestDriver `ClickProbe`) — when NSWindow
+dispatches the press, the window is laid out and drawn and the element located again, and the press / release go to
+where it is then (`click_retargets` in report.json when it moved after resolution: checking the frame only after
+dispatch gave false "landed outside" misses for AppKit targets such as `id:timeline` and under load); an element not
+on screen at that moment gets nothing and is clicked again when it is (`click_redeliveries`, ≤ 3; a dispatched press is
+never repeated, an element rebuilt between press and release is a warning, `click_release_anomalies`); a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
 it matches it, ≤ 30 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`, a hang bound; a real difference fails with the last diff, and so does a match
 that never renders the same twice). A script FAILS when an export pass stalled (`Exporter.stallRestarts` moved).
 

@@ -111,9 +111,13 @@ public final class UITestWindow: NSWindow {
     /// The `id:` target of the click being delivered, and what its press / release found when dispatched (`ClickProbe`).
     static var clickProbe: ClickProbe?
 
-    public override func sendEvent(_ event: NSEvent) {
-        if let probe = Self.clickProbe, [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp].contains(event.type) {
-            probe.record(event, in: self)
+    public override func sendEvent(_ original: NSEvent) {
+        let event: NSEvent
+        if let probe = Self.clickProbe, [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp].contains(original.type) {
+            guard let e = probe.filter(original, in: self) else { return }   // the element is gone: the click is not delivered
+            event = e
+        } else {
+            event = original
         }
         let hit = { [self] in contentView.flatMap { $0.hitTest($0.superview?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow) } }
         if Self.debug {
@@ -226,6 +230,8 @@ public final class UITestDriver {
         try? FileManager.default.removeItem(at: out)
         try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
         log("▶ \(name)  (out: \(out.path))")
+        Self.heartbeatURL = out.appendingPathComponent(".heartbeat")
+        Self.heartbeat(force: true)
 
         // Launch to an editor window that has laid out and drawn once (before the script's project is loaded).
         window.contentView?.layoutSubtreeIfNeeded()
@@ -245,6 +251,7 @@ public final class UITestDriver {
             for (i, raw) in steps.enumerated() {
                 guard let step = raw as? [String: Any] else { throw Failure("step \(i + 1) is not an object") }
                 let s0 = Date()
+                Self.heartbeat(force: true)
                 let label = Self.describe(step)
                 if let why = Self.osConditionUnmet(step) {
                     report.append(["index": i + 1, "step": label, "ok": true, "skipped": why])
@@ -467,30 +474,41 @@ public final class UITestDriver {
             var captured: NSMenu?
             if itemPath != nil { TimelineView.uitestMenuSink = { captured = $0 } }
             defer { if itemPath != nil { TimelineView.uitestMenuSink = nil } }
-            // Verified delivery (`id:` targets): the press must be dispatched with the point inside the element's frame.
-            // If it provably was not (the element moved / disappeared between resolution and dispatch, or the events
-            // never arrived), nothing on the element can have acted: resolve and click once more (report.json
-            // `click_redeliveries`). A press that reached the element is never repeated; a release anomaly after it
-            // (element rebuilt between press and release) is reported (`click_release_anomalies`, a warning).
+            // Exact delivery (`id:` targets, ClickProbe): when the press is dispatched, the window is laid out and drawn
+            // and the element located again; the click goes to where it is THEN (`click_retargets` in report.json when
+            // it moved since it was resolved). If it is not on screen at that moment, nothing is dispatched (provably
+            // not delivered): wait for it and click again (`click_redeliveries`, ≤ 3 attempts). A dispatched press is
+            // never repeated; an element rebuilt between press and release is reported (`click_release_anomalies`).
             // An `offset` click deliberately lands beside the element (ai_relight: the section checkbox 22 pt above
-            // `relight.top`): "outside the element" is then the intent, not a miss, so it is never verified / re-sent.
+            // `relight.top`): it is dispatched where the script says, never moved / re-sent.
             let targetID = step["offset"] != nil ? nil
                 : (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : nil }
             var point = p
-            for attempt in 1...2 {
-                let probe = targetID.map { ClickProbe(id: $0, expected: count) }
+            for attempt in 1...3 {
+                // fault injection (driver self-test): a stale resolved point / an element missing at dispatch
+                let skew = targetID != nil ? Self.injectClickSkew : nil
+                let vanish = attempt == 1 && Self.injectClickVanish
+                let probe = targetID.map { id in
+                    ClickProbe(id: id, expected: count) { [self] in vanish ? nil : try? resolve(t, step) }
+                }
                 UITestWindow.clickProbe = probe
-                SyntheticEvents.click(at: point, in: window, modifiers: mods, count: count, right: right)
+                let aim = skew.map { CGPoint(x: point.x + $0.dx, y: point.y - $0.dy) } ?? point
+                SyntheticEvents.click(at: aim, in: window, modifiers: mods, count: count, right: right)
                 try await idle(settle: settle)
                 UITestWindow.clickProbe = nil
                 guard let probe else { break }
-                guard let why = probe.pressMissed() else {
+                if let r = probe.retarget {
+                    // not a failure: the press went where the element is at dispatch (report.json `click_retargets`)
+                    metrics["click_retargets", default: 0] += 1
+                    warnings.append("click \(t): the element \(r); pressed at its position at dispatch")
+                }
+                guard let why = probe.notDelivered() else {
                     if let a = probe.releaseAnomaly() { warnings.append("click \(t): \(a) (not repeated)"); metrics["click_release_anomalies", default: 0] += 1 }
                     break
                 }
                 metrics["click_redeliveries", default: 0] += 1
-                warnings.append("click \(t) (attempt \(attempt)) did not reach the element: \(why)")
-                if attempt == 2 { throw Failure("click \(t) did not reach the element twice: \(why)") }
+                warnings.append("click \(t) (attempt \(attempt)) was not delivered: \(why)")
+                if attempt == 3 { throw Failure("click \(t) was not delivered 3 times: \(why)") }
                 await quiesce()
                 await waitForTarget(t, step)
                 point = try resolve(t, step)
@@ -611,17 +629,12 @@ public final class UITestDriver {
                 let errors = specs.compactMap { JSONPath.check(state, $0) }
                 if errors.isEmpty { break }
                 if Date() >= deadline { throw Failure(errors.joined(separator: "\n      ") + (now ? " (checked at once: \"now\")" : "")) }
+                Self.heartbeat()
                 try await Task.sleep(for: .milliseconds(50))
             }
             lastExpectWaitMs = Int(Date().timeIntervalSince(t0) * 1000)
         } else if let e = step["waitFor"] as? [String: Any] {
-            // the script's timeout only detects a hang, it is never a speed budget: at least `waitForFloor` s
-            let deadline = Date().addingTimeInterval(max((e["timeout"] as? NSNumber)?.doubleValue ?? 10, Self.waitForFloor))
-            var spec = e; spec["timeout"] = nil
-            while let err = JSONPath.check(StateDump.make(store, includeProject: false), spec) {
-                if Date() > deadline { throw Failure("timed out: \(err)") }
-                try await Task.sleep(for: .milliseconds(50))
-            }
+            try await waitFor(e)
         } else if let t = step["seek"] as? NSNumber {
             store.seek(to: Time(t.doubleValue))
             try await idle(settle: settle)
@@ -693,8 +706,85 @@ public final class UITestDriver {
     /// Bound of `quiesce` (continuous change, e.g. playback, never quiesces: the step then goes on as before).
     static let quiesceLimit = envSeconds("MONTAGE_UITEST_QUIESCE_LIMIT", 10)
 
+    /// Driver self-test fault injection for `id:` clicks: `MONTAGE_UITEST_INJECT_CLICK_SKEW="dx,dy"` aims every press
+    /// dx, dy pt (+y down) off the resolved point (= a stale resolved point: the element moved before dispatch);
+    /// `MONTAGE_UITEST_INJECT_CLICK_VANISH=1` makes the element absent at the first attempt's dispatch. Scripts must
+    /// pass either way, with each click delivered exactly once.
+    static let injectClickSkew: CGVector? = {
+        let p = (ProcessInfo.processInfo.environment["MONTAGE_UITEST_INJECT_CLICK_SKEW"] ?? "").split(separator: ",").compactMap { Double($0) }
+        return p.count == 2 ? CGVector(dx: p[0], dy: p[1]) : nil
+    }()
+    static let injectClickVanish = ProcessInfo.processInfo.environment["MONTAGE_UITEST_INJECT_CLICK_VANISH"] == "1"
+
+    /// Absolute bound of one `waitFor` whose progress signals keep changing (a sanity net, not a speed budget).
+    static let waitCeiling = envSeconds("MONTAGE_UITEST_WAIT_CEILING", 1800)
+
     nonisolated static func envSeconds(_ key: String, _ d: Double) -> Double {
         ProcessInfo.processInfo.environment[key].flatMap(Double.init) ?? d
+    }
+
+    /// State that moves while long work (AI / background jobs, offline audio stages, exports, model downloads) advances.
+    static let progressPaths = ["ui.jobs", "ui.activeJobs", "ui.audioStage", "ui.export.jobs", "ui.models.progress"]
+
+    /// `{"waitFor": {"path": …, <operator>: …, "timeout": s, "progress": ["extra.path", …]}}`: waits until the condition
+    /// holds. `timeout` (≥ `waitForFloor`) is a HANG bound counted from the last observed progress, never a total: any
+    /// change of the progress signals (`progressPaths`, the waited path's own value, the script's `progress` paths)
+    /// restarts it. A job that a loaded machine makes slow keeps moving and is waited for; a stuck one (no change for
+    /// `timeout` s) fails. `waitCeiling` ends a wait whose signals never stop changing.
+    func waitFor(_ e: [String: Any]) async throws {
+        let bound = max((e["timeout"] as? NSNumber)?.doubleValue ?? 10, Self.waitForFloor)
+        var spec = e; spec["timeout"] = nil; spec["progress"] = nil
+        let extra = (e["progress"] as? [String]) ?? (e["progress"] as? String).map { [$0] } ?? []
+        let paths = Self.progressPaths + [(e["path"] as? String) ?? ""].filter { !$0.isEmpty } + extra
+        func signature(_ s: [String: Any]) -> String {
+            paths.map { p -> String in
+                guard let v = JSONPath.get(s, p) else { return "-" }
+                if let d = try? JSONSerialization.data(withJSONObject: v, options: [.fragmentsAllowed, .sortedKeys]) {
+                    return String(decoding: d, as: UTF8.self)
+                }
+                return "\(v)"
+            }.joined(separator: "|")
+        }
+        // the same state `expect` reads (the full project JSON only when a path needs it: it is the costly part)
+        let needsProject = ([(e["path"] as? String) ?? ""] + extra).contains { $0 == "project" || $0.hasPrefix("project.") }
+        let t0 = Date()
+        var lastChange = t0, lastSig = "", progressed = 0
+        while true {
+            let state = StateDump.make(store, includeProject: needsProject)
+            guard let err = JSONPath.check(state, spec) else { break }
+            let now = Date(), sig = signature(state)
+            if sig != lastSig {
+                if !lastSig.isEmpty { progressed += 1 }
+                lastSig = sig; lastChange = now
+            }
+            if now.timeIntervalSince(lastChange) > bound {
+                throw Failure("timed out: no progress for \(Int(bound)) s (waited \(Int(now.timeIntervalSince(t0))) s, \(progressed) progress change(s)): \(err)")
+            }
+            if now.timeIntervalSince(t0) > Self.waitCeiling {
+                throw Failure("timed out: still not true after \(Int(Self.waitCeiling)) s although progressing (MONTAGE_UITEST_WAIT_CEILING): \(err)")
+            }
+            Self.heartbeat()
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let waited = Date().timeIntervalSince(t0)
+        if waited > bound { log(String(format: "      waited %.0f s (> the %.0f s hang bound: progress kept it alive, %d change(s))", waited, bound, progressed)) }
+    }
+
+    // MARK: Heartbeat (scripts/uitest.sh hang detection)
+    //
+    // uitest.sh kills a UI-test app only when the driver stopped making progress (no heartbeat for `--timeout` s), not
+    // after a total time: a slow script on a loaded machine keeps beating, a hung main thread / an await that never
+    // returns does not. The driver beats when a step starts and while it polls a condition (every wait in it has its
+    // own bound); the file is `<out>/.heartbeat` (mtime).
+    private static var heartbeatURL: URL?
+    private static var lastBeat = Date.distantPast
+    static func heartbeat(force: Bool = false) {
+        guard let u = heartbeatURL else { return }
+        let now = Date()
+        guard force || now.timeIntervalSince(lastBeat) >= 1 else { return }
+        lastBeat = now
+        if !FileManager.default.fileExists(atPath: u.path) { FileManager.default.createFile(atPath: u.path, contents: nil) }
+        try? FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: u.path)
     }
 
     /// What pending main-thread UI work changes: the on-screen test-ID frames (SwiftUI layout caught up), the edit
@@ -1390,39 +1480,78 @@ public enum StressProject {
     }
 }
 
-/// What the presses / releases of one synthetic click found when NSWindow dispatched them: the target element's live
-/// instance (TestAnchors owner token) and whether the point was inside its frame at that moment.
+/// Delivery of one synthetic `id:` click, decided when NSWindow dispatches its PRESS (not checked afterwards).
+///
+/// The point the driver resolved can be stale by the time the main loop dispatches the event: a layout pass ran in
+/// between (an element moved / collapsed), or the layout moved without being drawn yet — SwiftUI hit-tests against what
+/// it last rendered, so a frame check against TestAnchors after the fact could disagree with where the press really
+/// landed (the old "verify, then re-send" check: false "landed outside" misses under load — ai_editpilot_fr
+/// pilot.suggestion.3 / pilot.close, perf timeline_500 toolbar.zoomFit — and a re-send risked a second press on an
+/// element that had acted). Now, at the press: the window is laid out AND drawn (then layout = what SwiftUI
+/// hit-tests), the target is located again (`locate` = the driver's `resolve`) and the press, its release and a double
+/// click's second pair are dispatched THERE. An element that is not on screen at that moment gets nothing (the events
+/// are dropped): provably not delivered, so the driver may click again. A dispatched press is never repeated.
 @MainActor
 final class ClickProbe {
     let id: String
     let expected: Int
-    private var seen: [(down: Bool, owner: UUID?, inside: Bool)] = []
-    init(id: String, expected: Int) { self.id = id; self.expected = expected }
+    private let locate: () -> CGPoint?
+    /// Offset applied to every event of the click (fresh position − resolved point), fixed at the first press.
+    private var delta: CGVector?
+    private var dropped: String?
+    private var owners: [UUID?] = []
+    private var presses = 0, releases = 0
+    /// How far the press was moved to the element's position at dispatch (nil = it was where the driver aimed).
+    private(set) var retarget: String?
 
-    func record(_ e: NSEvent, in window: NSWindow) {
-        guard let host = window.contentView else { return }
-        let p = host.convert(e.locationInWindow, from: nil)   // host coordinates (top-left when flipped, like the frames)
-        let q = host.isFlipped ? p : CGPoint(x: p.x, y: host.bounds.height - p.y)
-        let inside = TestAnchors.shared.frame(id)?.insetBy(dx: -0.5, dy: -0.5).contains(q) ?? false
-        seen.append((e.type == .leftMouseDown || e.type == .rightMouseDown, TestAnchors.shared.owner(id), inside))
+    init(id: String, expected: Int, locate: @escaping () -> CGPoint?) {
+        self.id = id; self.expected = expected; self.locate = locate
     }
 
-    /// Why the click provably did NOT reach the element — its PRESS was never dispatched, or landed outside the
-    /// element / with no element there (then nothing on the element can have acted: safe to click again). nil otherwise.
-    func pressMissed() -> String? {
-        let presses = seen.filter(\.down)
-        if presses.count < expected { return "\(presses.count) of \(expected) press(es) dispatched" }
-        if presses.contains(where: { !$0.inside || $0.owner == nil }) { return "the press landed outside the element (it moved or disappeared before the event was dispatched)" }
+    /// The event to dispatch instead of `e` (nil = drop it).
+    func filter(_ e: NSEvent, in window: NSWindow) -> NSEvent? {
+        if dropped != nil { return nil }
+        let down = e.type == .leftMouseDown || e.type == .rightMouseDown
+        if delta == nil {
+            guard down else { return e }
+            window.contentView?.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()   // render the layout: SwiftUI hit-tests against the last rendered frame
+            guard let p = locate() else {
+                dropped = "the element was not on screen when the press was dispatched (nothing was delivered)"
+                return nil
+            }
+            let d = CGVector(dx: p.x - e.locationInWindow.x, dy: p.y - e.locationInWindow.y)
+            delta = d
+            if abs(d.dx) > 0.5 || abs(d.dy) > 0.5 {
+                retarget = String(format: "moved %.1f, %.1f pt between resolution and dispatch", d.dx, -d.dy)
+            }
+        }
+        if down { presses += 1 } else { releases += 1 }
+        owners.append(TestAnchors.shared.owner(id))
+        guard retarget != nil, let d = delta else { return e }
+        let p = CGPoint(x: e.locationInWindow.x + d.dx, y: e.locationInWindow.y + d.dy)
+        guard let moved = NSEvent.mouseEvent(with: e.type, location: p, modifierFlags: e.modifierFlags, timestamp: e.timestamp,
+                                             windowNumber: e.windowNumber, context: nil, eventNumber: e.eventNumber,
+                                             clickCount: e.clickCount, pressure: e.pressure) else { return e }
+        SyntheticEvents.windowLocation = p
+        SyntheticEvents.screenLocation = window.convertPoint(toScreen: p)
+        return moved
+    }
+
+    /// Why the click provably did NOT reach the element (nothing was dispatched to it: safe to click again); nil otherwise.
+    func notDelivered() -> String? {
+        if let dropped { return dropped }
+        if presses < expected { return "\(presses) of \(expected) press(es) dispatched" }
         return nil
     }
 
     /// Anomalies AFTER the press reached the element (reported, never re-clicked: the element may already have acted —
     /// e.g. an action on press that rebuilds it).
     func releaseAnomaly() -> String? {
-        let ups = seen.filter { !$0.down }
         // (a release consumed by an AppKit tracking loop — NSTextField, NSSlider — never reaches sendEvent: not an anomaly)
-        if ups.count < expected { return nil }
-        if Set(seen.map { $0.owner?.uuidString ?? "-" }).count > 1 { return "the element was rebuilt between press and release" }
+        if releases < expected { return nil }
+        if Set(owners.map { $0?.uuidString ?? "-" }).count > 1 { return "the element was rebuilt between press and release" }
         return nil
     }
 }
+

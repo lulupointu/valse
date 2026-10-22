@@ -7,13 +7,17 @@
 #   --update-baselines    rewrite screenshot baselines (app/Tests/Baselines) instead of comparing
 #   --release             use a release build (default: debug build, faster to compile)
 #   --no-build            don't rebuild
-#   --timeout <s>         per-script timeout (default 120); a timed-out app is `sample`d (<out>/<name>/hang-sample.txt)
+#   --timeout <s>         per-script HANG bound (default 120): an app whose driver made no progress (heartbeat) for <s>
+#                         is `sample`d (<out>/<name>/hang-sample.txt) and killed; a slow but progressing script is not
+#                         (total ceiling MONTAGE_UITEST_MAX_SECONDS, default 1800)
 #   --out <dir>           output root (default build/uitest); each script writes <out>/<name>/{report.json,final.json,*.png}
 #   --no-retry            don't retry failed scripts (default: a failed script is re-run ONCE; the first attempt is kept
 #                         in <out>/<name>.attempt1)
 #   --jobs <K>            run K apps at once (default 1, or MONTAGE_UI_JOBS); each worker has its own TMPDIR, every app its
 #                         own settings domain / pasteboard / sandbox (MontageCore AppDefaults), so scripts can't interact
 #   --order <tsv>         a previous <out>/durations.tsv: start the longest scripts first (better --jobs balance)
+#   With --jobs, HEAVY scripts (`"requires": {"models": …}` = real ML inference, or `"heavy": true`) start first and
+#   run mutually exclusive (at most one at a time; the other workers take light scripts meanwhile).
 # Exit code: 0 if every script passed, was SKIPPED (unmet precondition, e.g. a missing AI model: app exit code 3), passed
 #            on its retry ("flaky") or is quarantined (app/Tests/quarantine.txt: reported, not gating);
 #            1 if any other script failed or timed out twice.
@@ -34,11 +38,12 @@ while [[ $# -gt 0 ]]; do
     --no-retry) RETRY=0; shift;;
     --jobs) JOBS="$2"; shift 2;;
     --order) ORDER="$2"; shift 2;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0;;
     *) SCRIPTS+=("$1"); shift;;
   esac
 done
-[[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,22p' "$0"; exit 2; }
+[[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,24p' "$0"; exit 2; }
+MAX_SECONDS="${MONTAGE_UITEST_MAX_SECONDS:-1800}"
 [[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "--jobs needs a positive integer"; exit 2; }
 source scripts/lib.sh
 # machine-wide: at most N heavy runs at once across all checkouts (scripts/slots.sh)
@@ -74,14 +79,25 @@ run_one() {
   rm -rf "$OUT/$name"; mkdir -p "$OUT/$name"
   "$BIN" --uitest "$abs" --uitest-out "$OUT/$name" --baselines "$ROOT/app/Tests/Baselines" ${EXTRA[@]+"${EXTRA[@]}"} < /dev/null &
   pid=$!
+  # Hang detector, not a total limit: the driver touches <out>/<name>/.heartbeat when a step starts and while it polls
+  # (each of its waits has its own progress-based bound), so a slow script on a loaded machine keeps running; an app
+  # whose driver stopped beating for $TIMEOUT s (hung main thread, an await that never returns) is sampled and killed.
+  # $MAX_SECONDS is only a sanity ceiling for a script that keeps progressing forever.
   (
     trap - EXIT INT TERM HUP
-    sleep "$TIMEOUT"
-    kill -0 $pid 2>/dev/null || exit 0
+    why=""; hb="$OUT/$name/.heartbeat"; start=$(date +%s)
+    while kill -0 $pid 2>/dev/null; do
+      sleep 2
+      now=$(date +%s); last=$start
+      if [[ -f "$hb" ]]; then last=$(stat -f %m "$hb" 2>/dev/null || echo "$start"); (( last < start )) && last=$start; fi
+      if (( now - last >= TIMEOUT )); then why="no driver progress for ${TIMEOUT}s (after $(( now - start ))s)"; break; fi
+      if (( now - start >= MAX_SECONDS )); then why="still running after ${MAX_SECONDS}s (MONTAGE_UITEST_MAX_SECONDS ceiling)"; break; fi
+    done
+    [[ -n "$why" ]] && kill -0 $pid 2>/dev/null || exit 0
     sample $pid 3 -file "$OUT/$name/hang-sample.txt" >/dev/null 2>&1 || true
     touch "$OUT/$name/.timeout"
     kill_tree $pid
-    echo "✘ $name: TIMEOUT (HUNG) after ${TIMEOUT}s — stacks: $OUT/$name/hang-sample.txt"
+    echo "✘ $name: TIMEOUT (HUNG): $why — stacks: $OUT/$name/hang-sample.txt"
   ) &
   watch=$!
   set +e; wait $pid; code=$?; set -e
@@ -91,6 +107,10 @@ run_one() {
   [[ -f "$OUT/$name/.timeout" ]] && code=124
   return $code
 }
+
+# is_heavy <script>: real ML inference (`"requires": {"models": …}`) or an explicit `"heavy": true`
+is_heavy() { grep -qE '"heavy"[[:space:]]*:[[:space:]]*true|"models"[[:space:]]*:' "$1" 2>/dev/null; }
+script_name() { local n="${1##*/}"; echo "${n%.json}"; }
 
 # run_script <script> → appends "<kind>\t<name>\t<detail>" to $RESULTS (kind: pass skip flaky quar fail)
 run_script() {
@@ -117,9 +137,10 @@ run_script() {
   # an `expect` that waited > 2 s for its condition although the UI had settled = a slow reaction (latency regression)
   W="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); w=m.get("expect_wait_ms_max",0); print(int(w) if w>2000 and m.get("quiesce_timeouts",0)==0 else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
   if [[ -n "$W" ]]; then printf "slowexp\t%s\t%s\n" "$NAME" "$NAME (an expect waited $W ms)" >> "$WARNINGS"; echo "⚠ slow expect: $NAME (an expect waited $W ms although the UI had settled)"; fi
-  # an `id:` click whose press provably missed the element and was re-sent, or an element rebuilt between press and
-  # release (UITestDriver click verification): not gating, but the target moved / was rebuilt under the click
-  CW="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); r=int(m.get("click_redeliveries",0)); a=int(m.get("click_release_anomalies",0)); print(f"{r} click redelivery(ies), {a} release anomaly(ies)" if r or a else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
+  # an `id:` click whose element was not on screen at dispatch (nothing delivered, clicked again), was pressed where the
+  # element had moved to since it was resolved, or was rebuilt between press and release (UITestDriver ClickProbe):
+  # not gating, but the target moved / was rebuilt under the click
+  CW="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); r=int(m.get("click_redeliveries",0)); t=int(m.get("click_retargets",0)); a=int(m.get("click_release_anomalies",0)); print(f"{r} click redelivery(ies), {t} moved target(s), {a} release anomaly(ies)" if r or t or a else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
   if [[ -n "$CW" ]]; then printf "clickw\t%s\t%s\n" "$NAME" "$NAME ($CW, see warnings in $OUT/$NAME/report.json)" >> "$WARNINGS"; echo "⚠ click warning: $NAME ($CW)"; fi
   if [[ $CODE == 0 && -n "$FLAKYMSG" ]]; then printf "flaky\t%s\t%s\n" "$NAME" "$FLAKYMSG" >> "$RESULTS"
   elif [[ $CODE == 0 ]]; then printf "pass\t%s\t-\n" "$NAME" >> "$RESULTS"
@@ -146,15 +167,33 @@ fi
 
 if (( JOBS > 1 && ${#SCRIPTS[@]} > 1 )); then
   # K workers claim scripts from a queue (mv is atomic: each script runs exactly once), each with its own TMPDIR
-  BASE_TMP="$TMPDIR"; Q="$BASE_TMP/queue"; mkdir -p "$Q/todo" "$Q/taken"
-  i=0; for s in "${SCRIPTS[@]}"; do printf "%s\n" "$s" > "$Q/todo/$(printf %05d $i)"; i=$((i + 1)); done
+  # Heavy scripts (real ML inference: `"requires": {"models": …}`, or `"heavy": true`) each saturate the CPU for
+  # minutes; several at once made each ~3x slower (ai_relight_model, ai_stems_inference, f3_isolate_music: ~300 s
+  # together vs ~60-100 s alone). They go to their own queue, are claimed first and run one at a time (an mkdir lock);
+  # while one runs, the other workers take light scripts.
+  BASE_TMP="$TMPDIR"; Q="$BASE_TMP/queue"; mkdir -p "$Q/todo" "$Q/heavy" "$Q/taken"
+  i=0; for s in "${SCRIPTS[@]}"; do
+    d=todo; if is_heavy "$s"; then d=heavy; fi
+    printf "%s\n" "$s" > "$Q/$d/$(printf %05d $i)"; i=$((i + 1))
+  done
+  # claim <queue dir> <worker> → prints the claimed entry name (mv is atomic: each script runs exactly once)
+  claim() { local f; for f in $(ls "$1"); do if mv "$1/$f" "$Q/taken/$f.$2" 2>/dev/null; then echo "$f"; return 0; fi; done; return 1; }
   worker() {
     trap - EXIT INT TERM HUP
     local w="$1" f
     export TMPDIR="${BASE_TMP}w$w/"; mkdir -p "$TMPDIR"
-    for f in $(ls "$Q/todo"); do
-      mv "$Q/todo/$f" "$Q/taken/$f.$w" 2>/dev/null || continue
-      run_script "$(cat "$Q/taken/$f.$w")"
+    while :; do
+      if [[ -n "$(ls "$Q/heavy")" ]] && mkdir "$Q/heavy.lock" 2>/dev/null; then
+        if f="$(claim "$Q/heavy" "$w")"; then
+          echo "⚙ heavy (one at a time): $(script_name "$(cat "$Q/taken/$f.$w")")"
+          run_script "$(cat "$Q/taken/$f.$w")"; rmdir "$Q/heavy.lock"; continue
+        fi
+        rmdir "$Q/heavy.lock"
+      fi
+      if f="$(claim "$Q/todo" "$w")"; then run_script "$(cat "$Q/taken/$f.$w")"; continue; fi
+      # only heavy scripts left and one is running on another worker: wait for its lock (or the end)
+      if [[ -z "$(ls "$Q/heavy")" ]]; then break; fi
+      sleep 1
     done
   }
   WORKERS=""
@@ -167,7 +206,6 @@ else
 fi
 # every scheduled script produced exactly one result: same sorted multiset of names (a worker killed mid-script
 # loses one, a double claim duplicates one) — any difference fails the run
-script_name() { local n="${1##*/}"; echo "${n%.json}"; }
 for s in "${SCRIPTS[@]}"; do script_name "$s"; done | sort > "$TMPDIR/scheduled.txt"
 cut -f2 "$RESULTS" | sort > "$TMPDIR/reported.txt"
 if ! RESDIFF="$(diff "$TMPDIR/scheduled.txt" "$TMPDIR/reported.txt")"; then
@@ -185,7 +223,7 @@ detail skip "skipped: "
 detail flaky "flaky (passed on retry): "
 detail quar "quarantined (failed, not gating): "
 detail slowexp "⚠ slow expect (UI settled, condition late): " "$WARNINGS"
-detail clickw "⚠ click redelivered / release anomaly: " "$WARNINGS"
+detail clickw "⚠ click warning (redelivered / moved target / release anomaly): " "$WARNINGS"
 detail fail "failed: "
 if [[ $FAIL != 0 ]]; then exit 1; fi
 exit 0

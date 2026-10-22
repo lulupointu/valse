@@ -154,7 +154,8 @@ public enum StateDump {
         if let c = store.singleSelectedClip, let a = c.mediaID.flatMap(p.asset) {
             let spec = ClipAudioPlan.make(c.audio).render
             ui["audioStage"] = ["busy": AudioRenderCache.shared.isBusy, "identity": spec.isIdentity, "musicVocals": spec.musicVocals == true,
-                                "ready": AudioRenderCache.shared.readyURL(for: a, spec: spec) != nil] as [String: Any]
+                                "ready": AudioRenderCache.shared.readyURL(for: a, spec: spec) != nil,
+                                "progress": AudioRenderCache.shared.progress(for: a, spec: spec) ?? -1] as [String: Any]
         }
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}

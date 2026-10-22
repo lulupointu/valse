@@ -76,10 +76,14 @@ smoke set; `app/Tests/ui_map.txt` is only smoke / `always` / directory-fallback 
 - `waiting for test slot… (held by PIDs …)` = machine-wide semaphore (/tmp/montage-locks, 2+ slots, FIFO queue). Normal under load;
   keep waiting (the notification comes when your run finishes). `scripts/slots.sh status` shows holders, age, idle time.
   Dead holders and holders idle (< 2 CPU-s) for 20 min are reclaimed automatically; `scripts/slots.sh reclaim` forces a sweep.
-- `HUNG` (test.sh / build: no output and ~0 % CPU for 10 min) or `TIMEOUT (HUNG) after 120s` (one UI script): stacks are
+- `HUNG` (test.sh / build: no output and ~0 % CPU for 10 min) or `TIMEOUT (HUNG): no driver progress for 120s` (one UI
+  script; the driver's heartbeat stopped: a hung main thread or an await that never returns — a slow, progressing
+  script is never killed, `--timeout` is not a total limit): stacks are
   in the log / `build/uitest/<script>/hang-sample.txt`. Read them: a hang at 0 % CPU in AVFoundation reads inside async
-  tests is the cooperative-pool deadlock (montage-gotchas). A UI script TIMEOUT is usually a `waitFor` that never
-  becomes true or a modal loop ("event queue did not drain").
+  tests is the cooperative-pool deadlock (montage-gotchas). A `waitFor` that never becomes true fails by itself
+  ("timed out: no progress for N s": its timeout counts from the last job-progress / value change).
+- UI scripts with `"requires": {"models": …}` (or `"heavy": true`) are heavy: `uitest.sh --jobs` starts them first and
+  runs them one at a time.
 - Your own run stuck (e.g. you started the wrong thing): `scripts/kill_tests.sh --dry-run`, then `scripts/kill_tests.sh`
   (only Montage test processes of your checkout). Never `kill`/`pkill` other PIDs.
 - `DISK FULL` (< 5 GB): `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh`.

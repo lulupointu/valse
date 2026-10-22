@@ -89,6 +89,18 @@ import MontageTestSupport
         #expect(window.luma > 0.6, "top-left window \(window)")
     }
 
+    /// Concurrent requests for the same thumbnail all get it (a caller arriving while it was being made used to get nil,
+    /// and a media card that got nil kept its placeholder for good: a card rebuilt mid-request, e.g. a language switch).
+    @Test func concurrentRequestsForOneThumbnailAllGetIt() async throws {
+        let a = try await MediaProbe.probe(Self.clip)
+        let t = Time(2.6)   // a time no other test asks for (not cached in memory yet)
+        let got = await withTaskGroup(of: Bool.self) { g in
+            for _ in 0..<4 { g.addTask { await ThumbnailCache.shared.thumbnail(a, at: t, height: 77) != nil } }
+            return await g.reduce(into: [Bool]()) { $0.append($1) }
+        }
+        #expect(got == [true, true, true, true], "\(got)")
+    }
+
     /// Speech waveform: loud words, a real pause (~3.4 – 4.5 s) close to silence.
     @Test func speechWaveformShowsThePause() async throws {
         let w = try await WaveformCache.compute(RealLikeMedia.speech)

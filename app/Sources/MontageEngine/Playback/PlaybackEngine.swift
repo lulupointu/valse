@@ -73,6 +73,10 @@ public final class PlaybackEngine {
     private var structureKey: Int?
     private let structureCache = StructureKeyCache()
     private var buildTask: Task<Void, Never>?
+    /// A composition build is queued or running (it ends with an installed item or `lastBuildError`).
+    public private(set) var isBuilding = false
+    /// Why the last composition build failed (nil after a successful one).
+    public private(set) var lastBuildError: Error?
     private var timeObserver: Any?
     private var rateObservation: NSKeyValueObservation?
     private var seekInFlight = false
@@ -240,15 +244,21 @@ public final class PlaybackEngine {
     private func rebuild(_ project: Project, debounce: Bool) {
         buildTask?.cancel()
         let size = renderSize, chooser = sourceChooser, state = self.state, audioState = self.audioState
+        isBuilding = true
         buildTask = Task { [weak self] in
             do {
                 if debounce { try await Task.sleep(for: .milliseconds(40)) }
                 let built = try await CompositionBuilder.build(project: project, purpose: .preview, renderSize: size,
                                                                state: state, audioState: audioState, sources: chooser)
                 guard !Task.isCancelled else { return }
+                self?.isBuilding = false
+                self?.lastBuildError = nil
                 self?.install(built)
             } catch is CancellationError {
             } catch {
+                guard !Task.isCancelled else { return }
+                self?.isBuilding = false
+                self?.lastBuildError = error
                 EngineLog.error("composition build failed: \(error)")
             }
         }
