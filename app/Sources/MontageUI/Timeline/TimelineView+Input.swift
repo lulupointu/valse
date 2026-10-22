@@ -21,6 +21,7 @@ extension TimelineView {
         let tl = store.project.timeline
         let mods = e.modifierFlags
         lastDrag = nil; lastAutoscrollTime = nil   // U1-7
+        clickSeeks = false
         if let anchor = previewAnchor { previewAnchor = nil; _ = anchor }
         // Clicking the timeline ends inspector field editing so shortcuts (⇧⌥K, ⌘B…) reach the editor again.
         if window?.firstResponder is NSTextView { window?.makeFirstResponder(nil) }
@@ -72,6 +73,8 @@ extension TimelineView {
             }
         case .track, .newTrack, .none:
             let additive = mods.contains(.shift) || mods.contains(.command)
+            // OB-02: with a selection a plain click only deselects; OB-03: the grey header column = a click at 0
+            clickSeeks = TimelineClickPolicy.emptyClickSeeks(hadSelection: store.hasTimelineSelection, additive: additive)
             if !additive { store.deselectAll() }
             drag = .marquee(anchor: MarqueeAnchor(viewPoint: pt, layout: l), current: pt, base: additive ? store.selection : [])
         case .header(let ri):
@@ -100,14 +103,21 @@ extension TimelineView {
                 store.blade(id, at: t)
                 return
             }
-            if mods.contains(.shift) || mods.contains(.command) {
+            let additive = mods.contains(.shift) || mods.contains(.command)
+            // OB-02: only a click on the clip that already is the sole selection moves the playhead (on mouse-up)
+            clickSeeks = TimelineClickPolicy.clipClickSeeks(selectionBefore: store.selection,
+                                                            clickedGroup: TimelineOps.expandGroups([id], in: tl), additive: additive)
+            if additive {
                 let group = TimelineOps.expandGroups([id], in: tl)
                 if store.selection.contains(id) { store.selection.subtract(group) } else { store.select(group, adding: true) }
             } else if !store.selection.contains(id) {
                 store.select([id])
             }
             ui.selectedTransition = nil; ui.selectedMarker = nil
-            if tl.tracks[l.rows[ri].trackIndex].isLocked { return }
+            if tl.tracks[l.rows[ri].trackIndex].isLocked {
+                if clickSeeks { store.seek(to: l.time(atX: pt.x), exact: true) }   // no drag on a locked track
+                return
+            }
             drag = .pending(pt, id, region, ri)
         }
     }
@@ -369,11 +379,12 @@ extension TimelineView {
             lastDrag = nil; lastAutoscrollTime = nil
         }
         switch drag {
-        case .pending(_, let id, _, _):
+        case .pending(let p0, let id, _, _):
             if !e.modifierFlags.contains(.shift), !e.modifierFlags.contains(.command), store.selection.count > 1 {
                 let g = TimelineOps.expandGroups([id], in: store.project.timeline)
                 if g != store.selection { store.select([id]) }
             }
+            if clickSeeks { store.seek(to: l.time(atX: p0.x), exact: true) }   // OB-02: click inside the sole selection
             if e.clickCount == 2, let c = store.project.timeline.clip(id) {
                 if case .compound = c.content { store.enterCompound(id); return }   // TL-021 edit inside
                 if c.groupID != nil { store.enterGroup(id); return }                // TL-020 enter the group
@@ -382,7 +393,10 @@ extension TimelineView {
         case .scrub: store.seek(to: l.time(atX: pt.x), exact: true)
         case .marquee(let a, _, _):
             let o = a.viewPoint(l)
-            if hypot(pt.x - o.x, pt.y - o.y) <= 3, pt.x > TimelineLayout.headerWidth { store.seek(to: l.time(atX: pt.x), exact: true) }
+            // a click (no marquee): OB-02 seeks only when nothing was selected; OB-03 the header column = time 0
+            if hypot(pt.x - o.x, pt.y - o.y) <= 3, clickSeeks {
+                store.seek(to: pt.x > TimelineLayout.headerWidth ? l.time(atX: pt.x) : .zero, exact: true)
+            }
         case .move(let m) where m.lifted != nil:
             let plan = dropPlan
             clearMovePreview()
@@ -397,7 +411,8 @@ extension TimelineView {
             guard let ri = l.rowIndex(atY: y) else { break }
             let row = l.rows[ri]
             let tl = store.project.timeline
-            guard row.kind.isVisual, row.trackID != id else { break }
+            if row.trackID == id { headerZeroClick(); break }   // released on its own header: a click (OB-03)
+            guard row.kind.isVisual else { break }
             var above: TrackID? = row.trackID
             if y >= row.y + row.height / 2 {
                 // below this row = right below it in compositing order
@@ -482,7 +497,14 @@ extension TimelineView {
             }
             return
         }
-        if !row.isMain, track.kind.isVisual { drag = .trackReorder(track.id, y: pt.y) }
+        // OB-03: the empty header space is a click at time 0 (OB-02 rule); a reorderable header decides on mouse-up
+        clickSeeks = TimelineClickPolicy.emptyClickSeeks(hadSelection: store.hasTimelineSelection, additive: false)
+        if !row.isMain, track.kind.isVisual { drag = .trackReorder(track.id, y: pt.y) } else { headerZeroClick() }
+    }
+
+    /// OB-03: a click on the grey header column = a click at time 0: deselect when something is selected, else seek to 0.
+    func headerZeroClick() {
+        if clickSeeks { store.seek(to: .zero, exact: true) } else { store.deselectAll() }
     }
 
     /// U1-7: display-link edge autoscroll (see `EdgeAutoscroll`): horizontal for every positional drag, vertical too for

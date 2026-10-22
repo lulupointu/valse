@@ -45,7 +45,7 @@ extension TimelineView {
         case .track(let ri):
             let row = l.rows[ri]
             let t = l.time(atX: pt.x)
-            if TimelineOps.gap(at: t, on: row.trackID, in: tl) != nil { m = gapMenu(at: t, track: row.trackID) }
+            m = emptyTrackMenu(at: t, row: row, gap: TimelineOps.gap(at: t, on: row.trackID, in: tl) != nil)
         case .header(let ri):
             m = trackMenu(tl.tracks[l.rows[ri].trackIndex])
         default: break
@@ -314,12 +314,28 @@ extension TimelineView {
 
     // MARK: Gap
 
-    func gapMenu(at t: Time, track: TrackID) -> NSMenu {
+    func gapMenu(at t: Time, track: TrackID) -> NSMenu { menu(gapItems(at: t, track: track)) }
+
+    func gapItems(at t: Time, track: TrackID) -> [NSMenuItem] {
         let s = store
-        return menu([
+        return [
             item("gap.close") { s.closeGap(at: t, track: track) },
             item("gap.closeAll") { s.closeAllGaps(track: track) },
-        ])
+        ]
+    }
+
+    // MARK: Empty track space (OB-05)
+
+    /// Right-click on an empty part of a track: Paste (at the clicked time, files onto the clicked track; greyed out
+    /// when the clipboard holds nothing pasteable), plus the gap items when the point is inside a gap.
+    func emptyTrackMenu(at t: Time, row: TimelineLayout.Row, gap: Bool) -> NSMenu {
+        let s = store
+        let target: InsertTarget = row.isMain ? .automatic : .track(row.trackID)
+        var items: [NSMenuItem] = [
+            item("tlmenu.paste", "v", .command, enabled: s.timelinePasteContent() != nil) { s.paste(at: t, target: target) },
+        ]
+        if gap { items += [.separator()] + gapItems(at: t, track: row.trackID) }
+        return menu(items)
     }
 
     // MARK: Track volume (TL-018)

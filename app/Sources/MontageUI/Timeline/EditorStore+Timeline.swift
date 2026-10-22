@@ -129,8 +129,12 @@ extension EditorStore {
            let payload = try? JSONDecoder().decode(ClipboardPayload.self, from: data) {
             items = payload.items; assets = payload.assets
         }
+        pasteItems(items, assets: assets, at: playhead)
+    }
+
+    /// Pastes clipboard items so the earliest starts at `t` (one undo step); the pasted clips become the selection.
+    func pasteItems(_ items: [ClipboardItem], assets: [MediaAsset], at t: Time) {
         guard !items.isEmpty else { return }
-        let t = playhead
         let box = ResultBox([ClipID]())
         let (items0, assets0) = (items, assets)
         let ok = edit("cmd.paste") { p in
