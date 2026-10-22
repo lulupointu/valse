@@ -54,6 +54,7 @@ Updated by the orchestrator after every merge / wave; agents append to "Cross-te
 | B1 | Engine bugs: (1) range export starting mid-project hung (IMG_9079 @ 1 s / 10 s): the base track was the 1-s blank stretched to the project duration, reads starting inside stretched samples never deliver for ~1/3 of durations → 60-s blank tiled unscaled (`RangeExportTests`, ffmpeg HLG HEVC fixture + opt-in owner clip); (2) every remaining `copyNextSampleBuffer` loop in MontageEngine / MontageAI off the cooperative pool (`OffPool.run` / new `OffPool.next`, ScrubAudio on GCD; `BlockingReadStressTests` deadlocks pre-fix); (3) load flakes: ML `JobQueue` jobs `heavy: true` respect `HeavyWorkGate` in tests (gate moved to MontageEngine, re-entrant, taken before a slot), per-run unit-test cache folder (concurrent runs deleted each other's mattes: RelightRenderTests), cutout / auto-beats tests await the job task, animation tiles hold the end pose under UI tests (w5_animation_apply), assets_media_tab waits for state | 4 | ready to merge | worktree-agent-a5b5cbfb73ba84b18 |
 
 ## C4 — "Remove filler words": three apply styles to try (owner picks one)
+**Obsolete (2026-10-22, FB-11): the owner removed "Remove filler words" and this setting; kept for history.**
 Switch in **Settings ▸ Edit ▸ Labs ▸ Filler removal style** (stored as `fillerRemovalStyle` in
 `~/Library/Application Support/Montage/settings.json`: `"instant"`, `"review"` (default) or `"inline"`; takes effect on the next click,
 no restart). Every style starts the same way — one click on **Remove filler words** in the Transcript panel (toolbar ▸ Transcript, no
@@ -177,6 +178,12 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Owner bug reports (fixed)
+- 2026-10-22 batch-fb1 owner feedback: FB-04 Spoken word off keeps its style (`TextContent.inactiveKaraoke`), on restores
+  it; FB-05 magnet toolbar icon redrawn as monoline like its neighbours; FB-06 `Dropdown` was a clear borderless `Menu`
+  over a drawn field (real clicks missed it) → full-field Button opening a native NSMenu (all ~70 uses); FB-07 modal
+  dialogs own the cursor / tooltips (`ModalHoverGate`, `.modalHoverShield()`); FB-08 model download card pinned
+  bottom-right; FB-09 Settings steppers 22×14 halves, whole half clickable. Pending: macos13 re-record of
+  ai_captions_identify_speakers / ai_speakers_section overrides (FB-11 changed the host baselines).
 - 2026-10-19 Crash selecting / moving / deleting a TTS audio clip (project 1018): not a model problem — any audio clip
   on the Basic tab trapped in `AudioInspector.clipBinding` (force unwrap) when the selection went away before the panel
   dropped the section. Fixed (placeholder fallback, no-op set on a missing clip); `AudioUITests.audioSectionChromeSurvivesClipRemoval`,
@@ -225,6 +232,11 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
     f3_motion_blur (exit 139), TimeRemapTests.reversedAudioIsSampleReversed.
 
 ## Decisions log
+- 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
+  filler words" (FB-02), "Remove filler words" + its Labs style setting (AI-020 / AU-027, FB-11), Highlight keywords incl.
+  Spoken word keyword emphasis and EditPilot highlight_keywords (TX-022 / AI-004, FB-03). Old projects / settings still decode.
+  Kept: `RippleCut` (EditPilot remove_silences), `FillerWords` lexicon (captions text cleanup). Tooltip policy (FB-10): hover
+  help only on icon-only controls or when the visible text is unclear (Support/Tooltips.swift, montage-gotchas).
 - 2026-10-19 Owner: NO AI-generated/procedural music. Music & SFX library must offer real ONLINE search (Instagram-like) — explicit exception to local-only, limited to the music/SFX browser (user-supplied API keys e.g. Pixabay/Freesound, download-on-add so projects work offline). Rest of app stays offline.
 - 2026-10-19 HDR media import keeps the project SDR by default (CapCut default; HDR footage now tone-maps like Photos/
   QuickTime). Timeline thumbnails stay on AVAssetImageGenerator: Apple's conversion is the reference the SDR curve is fitted to.
