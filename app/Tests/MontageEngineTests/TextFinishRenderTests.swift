@@ -56,42 +56,49 @@ import MontageTestSupport
         #expect(end > start * 3)   // "0" → "8,888"-ish: many more lit pixels
         let desc = FrameEvaluator.evaluate(p.project, at: Time(1))
         guard case .layer(let l) = desc.items.last, case .text(let tc) = l.source else { Issue.record("no text layer"); return }
-        // the count spans the clip up to its last frame (OB-01): 1 s of (2 s − 1 frame)
-        let k = TextCounter(from: 0, to: 8888, easeOut: false, countFraction: 1)
-        let fd = p.project.settings.frameRate.frameDuration
-        #expect(tc.string == k.string(at: Time(1), duration: Time(2), frameDuration: fd, language: "en")
-                || tc.string == k.string(at: Time(1), duration: Time(2), frameDuration: fd, language: "fr"))
-        let lastFrame = FrameEvaluator.evaluate(p.project, at: Time(2) - fd)
-        guard case .layer(let ll) = lastFrame.items.last, case .text(let ltc) = ll.source else { Issue.record("no text layer"); return }
-        #expect(ltc.string == "8,888" || ltc.string == "8\u{202F}888")
+        #expect(tc.string == "4,444" || tc.string == "4\u{202F}444")
     }
 
-    /// OB-01: a 0 → 100 counter shows 100 on the clip's last frame (it stopped at 99: the last frame is one frame before
-    /// the clip end, and values round toward the start).
-    @Test func counterReachesTheEndValueOnTheLastFrame() {
-        for fps in [FrameRate.fps24, .fps30, .fps60] {
-            let fd = fps.frameDuration
-            for ease in [true, false] {
-                for fraction in [0.8, 1.0] {
-                    let k = TextCounter(from: 0, to: 100, easeOut: ease, countFraction: fraction)
-                    for dur in [Time(1), Time(4), Time(7.5)] {
-                        let last = dur - fd
-                        #expect(k.string(at: last, duration: dur, frameDuration: fd, language: "en") == "100",
-                                "fps \(fps.fps) ease \(ease) fraction \(fraction) duration \(dur.seconds)")
-                        #expect(k.string(at: .zero, duration: dur, frameDuration: fd, language: "en") == "0")
-                    }
-                    // one frame earlier is not yet the end value when counting over the whole clip
-                    if fraction == 1, !ease {
-                        let before = k.string(at: Time(4) - fd - fd, duration: Time(4), frameDuration: fd, language: "en")
-                        #expect(["98", "99"].contains(before), "fps \(fps.fps): \(before)")
-                    }
-                }
-            }
-        }
-        // countdowns land on their end value too
-        let timer = TextCounter.defaults(.timer)
-        #expect(timer.string(at: Time(10) - FrameRate.fps30.frameDuration, duration: Time(10),
-                             frameDuration: FrameRate.fps30.frameDuration, language: "en") == "0:00")
+    /// Frames 0..<frames of a clip lasting exactly `frames` frames at 30 fps → how many frames show each string.
+    func framesPerValue(_ k: TextCounter, frames: Int) -> [String: Int] {
+        let fd = FrameRate.fps30.frameDuration
+        let dur = Time(ticks: fd.ticks * Int64(frames))
+        var out: [String: Int] = [:]
+        for i in 0..<frames { out[k.string(at: Time(ticks: fd.ticks * Int64(i)), duration: dur, language: "en"), default: 0] += 1 }
+        return out
+    }
+
+    func frame(_ i: Int) -> Time { Time(ticks: FrameRate.fps30.frameDuration.ticks * Int64(i)) }
+
+    /// OB-01 (owner rule): the count span is split into equal buckets, one per displayed value: 1 → 10 over 100 frames
+    /// shows each number for exactly 10 frames, and the end value is reached (it stopped at 99 before).
+    @Test func counterGivesEveryValueEqualTime() {
+        let ten = Dictionary(uniqueKeysWithValues: (1...10).map { (String($0), 10) })
+        let k10 = TextCounter(from: 1, to: 10, easeOut: false, countFraction: 1)
+        #expect(framesPerValue(k10, frames: 100) == ten)
+        #expect(k10.string(at: frame(9), duration: frame(100), language: "en") == "1")
+        #expect(k10.string(at: frame(10), duration: frame(100), language: "en") == "2")
+        #expect(k10.string(at: frame(99), duration: frame(100), language: "en") == "10")
+        // 0 → 100: all 101 values, 2 frames each over 202 frames
+        let hundred = framesPerValue(TextCounter(from: 0, to: 100, easeOut: false, countFraction: 1), frames: 202)
+        #expect(hundred.count == 101 && hundred.values.allSatisfy { $0 == 2 } && hundred["100"] == 2)
+        // descending: 10 → 1 over 100 frames, 10 frames each, 10 first and 1 last
+        let k = TextCounter(from: 10, to: 1, easeOut: false, countFraction: 1)
+        #expect(framesPerValue(k, frames: 100) == ten)
+        #expect(k.string(at: .zero, duration: frame(100), language: "en") == "10")
+        #expect(k.string(at: frame(99), duration: frame(100), language: "en") == "1")
+        // Duration 50 %: 1 → 10 over the first 100 of 200 frames (10 each), then 10 holds (10 + 100 frames)
+        let half = framesPerValue(TextCounter(from: 1, to: 10, easeOut: false, countFraction: 0.5), frames: 200)
+        #expect(half == Dictionary(uniqueKeysWithValues: (1...10).map { (String($0), $0 == 10 ? 110 : 10) }))
+        // decimals: one bucket per displayed step (0.0 → 1.0 = 11 values over 110 frames)
+        let dec = framesPerValue(TextCounter(from: 0, to: 1, decimals: 1, easeOut: false, countFraction: 1), frames: 110)
+        #expect(dec.count == 11 && dec.values.allSatisfy { $0 == 10 })
+        // ease-out bends time before bucketing: every value shows, early ones briefly, the end value longest
+        let eased = framesPerValue(TextCounter(from: 1, to: 10, easeOut: true, countFraction: 1), frames: 100)
+        #expect(eased.count == 10 && (eased["1"] ?? 0) < 10 && (eased["10"] ?? 0) > 10)
+        // countdown timer 10 → 0 s over 11 s: each second shown 30 frames, 0:00 included
+        let timer = framesPerValue(TextCounter.defaults(.timer), frames: 330)
+        #expect(timer.count == 11 && timer.values.allSatisfy { $0 == 30 } && timer["0:00"] == 30)
     }
 
     @Test func separatedTemplatePartsRenderLikeTheTemplate() async throws {

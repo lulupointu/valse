@@ -54,29 +54,34 @@ public struct TextCounter: Hashable, Codable, Sendable {
         return (date.timeIntervalSinceReferenceDate / 86_400).rounded()
     }
 
-    /// Counting progress 0…1 at clip-local `t` of a clip lasting `duration`. With `frameDuration`, the count ends at the
-    /// latest on the clip's LAST frame (`duration − frameDuration`), not at its end time that is never rendered (OB-01:
-    /// a 100 % count stopped at 99).
-    public func progress(at t: Time, duration: Time, frameDuration: Time? = nil) -> Double {
-        var span = duration.seconds * min(max(countFraction, 0.05), 1)
-        if let fd = frameDuration, fd.seconds > 0, duration.seconds > fd.seconds {
-            span = min(span, duration.seconds - fd.seconds)
-        }
-        span = max(span, 1e-6)
+    /// Counting progress 0…1 at clip-local `t` of a clip lasting `duration` (eased when `easeOut`).
+    public func progress(at t: Time, duration: Time) -> Double {
+        let span = max(duration.seconds * min(max(countFraction, 0.05), 1), 1e-6)
         let p = min(max(t.seconds / span, 0), 1)
         return easeOut ? 1 - pow(1 - p, 3) : p
     }
 
-    /// Value at progress `p` (timers and dates step on whole units, numbers on the last decimal).
-    public func value(progress p: Double) -> Double {
-        let v = from + (to - from) * p
-        let q = kind == .number ? pow(10, Double(min(max(decimals, 0), 4))) : (kind == .timer && decimals > 0 ? 100 : 1)
-        // round toward the start so the end value appears exactly at p = 1
-        return to >= from ? (v * q + 1e-7).rounded(.down) / q : (v * q - 1e-7).rounded(.up) / q
+    /// Displayed steps per unit: 1, 10^decimals for numbers, 100 for timers with hundredths.
+    var stepsPerUnit: Double {
+        kind == .number ? pow(10, Double(min(max(decimals, 0), 4))) : (kind == .timer && decimals > 0 ? 100 : 1)
     }
 
-    public func string(at t: Time, duration: Time, frameDuration: Time? = nil, language: String = L10n.shared.language) -> String {
-        prefix + format(value(progress: progress(at: t, duration: duration, frameDuration: frameDuration)), language: language) + suffix
+    /// Number of distinct values shown, `from` and `to` included.
+    public var valueCount: Int { Int((abs(to - from) * stepsPerUnit + 1e-6).rounded(.down)) + 1 }
+
+    /// Value at progress `p` (OB-01, owner rule): the count span is split into `valueCount` equal buckets, one per
+    /// displayed value, so 1 → 10 over 100 frames shows each number for 10 frames and `to` holds the last bucket.
+    /// Easing bends `p` before bucketing (linear = equal buckets).
+    public func value(progress p: Double) -> Double {
+        let n = valueCount
+        let k = min(Int((min(max(p, 0), 1) * Double(n) + 1e-9).rounded(.down)), n - 1)
+        if k == n - 1 { return to }
+        let q = stepsPerUnit
+        return (from * q + (to >= from ? 1 : -1) * Double(k)) / q
+    }
+
+    public func string(at t: Time, duration: Time, language: String = L10n.shared.language) -> String {
+        prefix + format(value(progress: progress(at: t, duration: duration)), language: language) + suffix
     }
 
     public func format(_ v: Double, language: String) -> String {
@@ -101,7 +106,7 @@ public struct TextCounter: Hashable, Codable, Sendable {
             let whole = Int(total.rounded(.down))
             let h = whole / 3600, m = (whole % 3600) / 60, s = whole % 60
             var out = h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
-            if decimals > 0 { out += String(format: ".%02d", Int(((total - Double(whole)) * 100).rounded(.down)) % 100) }
+            if decimals > 0 { out += String(format: ".%02d", Int(((total - Double(whole)) * 100 + 1e-6).rounded(.down)) % 100) }
             return out
         case .date:
             let date = Date(timeIntervalSinceReferenceDate: v.rounded() * 86_400)
