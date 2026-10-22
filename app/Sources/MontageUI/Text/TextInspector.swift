@@ -17,12 +17,13 @@ enum TextInspector {
 
     static let textTab = InspectorTab(id: "text", titleKey: "inspector.tab.text", order: 0, subTabs: [
         InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
-        InspectorSubTab(id: "bubble", titleKey: "text.sub.bubble", order: 2),
         // OB-10: the word-art library is "Templates" (was "Effects"); for captions its first category is "Caption"
         // (the caption templates, formerly their own sub-tab)
-        InspectorSubTab(id: "templates", titleKey: "text.sub.templates", order: 3),
+        InspectorSubTab(id: "templates", titleKey: "text.sub.templates", order: 1),
         // OB-10c: manual controls for what caption templates do to the spoken word, captions only
-        InspectorSubTab(id: "spokenWord", titleKey: "text.sub.spokenWord", order: 4, appliesTo: isCaption),
+        InspectorSubTab(id: "spokenWord", titleKey: "text.sub.spokenWord", order: 2, appliesTo: isCaption),
+        // OB-10 (owner): Bubble is the rightmost sub-tab
+        InspectorSubTab(id: "bubble", titleKey: "text.sub.bubble", order: 3),
     ], footer: { ctx, _ in
         AnyView(PillButton(title: tr("inspector.saveAsPreset"), accent: true) { ctx.store.saveTextPreset() })
     }, appliesTo: { $0.kind == .text })

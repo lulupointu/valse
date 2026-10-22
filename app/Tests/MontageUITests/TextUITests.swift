@@ -36,16 +36,16 @@ import MontageTestSupport
         #expect(tabs(s) == ["text", "animation", "tts", "tracking"])   // + W10 Text to speech, Tracking
         let ctx = InspectorContext(store: s)
         let textTab = InspectorRegistry.allTabs.first { $0.id == "text" }!
-        #expect(InspectorRegistry.subTabs(of: textTab, ctx: ctx).map(\.id) == ["basic", "bubble", "templates"])   // OB-10: Effects → Templates
+        #expect(InspectorRegistry.subTabs(of: textTab, ctx: ctx).map(\.id) == ["basic", "templates", "bubble"])   // OB-10: Effects → Templates, Bubble rightmost
         let basic = InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: ctx).map(\.id)
         #expect(basic == ["text.content", "text.counter", "text.transform", "text.opacity", "text.stroke", "text.background", "text.glow", "text.shadow", "text.curve"])
         let (c, ids) = captionStore()
         c.selection = [ids[0]]
         #expect(tabs(c) == ["captions", "text", "animation", "tts"])   // C4: Captions first, like CapCut
-        // C4 / OB-10: captions get Text ▸ Basic | Bubble | Templates (caption templates first) | Spoken word, and the
+        // C4 / OB-10: captions get Text ▸ Basic | Templates (caption templates first) | Spoken word | Bubble, and the
         // "Apply to all main captions" row
         let cctx = InspectorContext(store: c)
-        #expect(InspectorRegistry.subTabs(of: textTab, ctx: cctx).map(\.id) == ["basic", "bubble", "templates", "spokenWord"])
+        #expect(InspectorRegistry.subTabs(of: textTab, ctx: cctx).map(\.id) == ["basic", "templates", "spokenWord", "bubble"])
         #expect(InspectorRegistry.sections(tab: textTab, subTab: "templates", ctx: cctx).map(\.id) == ["text.templates"])
         #expect(InspectorRegistry.sections(tab: textTab, subTab: "spokenWord", ctx: cctx).map(\.id) == ["captions.spokenWord"])
         #expect(InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: cctx).first?.id == "text.applyAllCaptions")
