@@ -73,7 +73,7 @@ import MontageEffects
     /// and through undo; the first time on gives the defaults.
     @Test func turningSpokenWordOffKeepsItsValues() throws {
         let (s, ids) = captionStore()
-        TextUIState.shared.applyToAllCaptions = false
+        TextUIState.shared.applyToAllCaptions = true   // the default (persisted in the test process's defaults: never leave it off)
         s.selection = [ids[0]]
         let ctx = InspectorContext(store: s)
         let toggle = { (on: Bool) in CaptionSpokenWordSection.chrome(ctx).isEnabled?.wrappedValue = on }
