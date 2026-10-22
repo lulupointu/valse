@@ -59,16 +59,14 @@ struct CaptionEditorSection: View {
             SmallIconButton(symbol: "wand.and.stars", help: tr("transcript.removeFillers"), size: 13) { store.showFillerWords() }
                 .testID("captions.removeFillers")
             Menu {
-                Button(tr("captions.keywords.highlight")) { store.highlightKeywordsAI() }   // W10: on-device LLM, statistical fallback
-                Button(tr("captions.keywords.clear")) { store.clearCaptionKeywords() }
-                Divider()
                 ForEach([(16, 1), (24, 1), (24, 2), (32, 2), (42, 2)], id: \.0) { c, l in
                     WithPerceptionTracking {
                         Button(tr("captions.wrap.option", c, l)) { store.wrapCaptions(maxChars: c, maxLines: l) }
                     }
                 }
-            } label: { Image(systemName: "highlighter").font(.system(size: 13)) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.keywords"))
+            } label: { Image(systemName: "text.justify.left").font(.system(size: 13)) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(tr("captions.wrap"))
+                .testID("captions.wrap")
             // W10: on-device translation (Apple Translation) → bilingual captions
             Menu {
                 ForEach(CaptionLanguages.codes, id: \.self) { code in

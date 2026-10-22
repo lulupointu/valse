@@ -23,10 +23,24 @@ struct TextModelTests {
         t.glow = TextGlowStyle(color: .blue); t.fill = .gradient(TextGradient([.red, .blue], angle: 30))
         t.path = TextPathShape(.wave, amount: 0.3); t.boxWidth = 0.5; t.bubbleID = "b"
         t.applyStyle(TextRunStyle(color: .green, bold: true), to: TextSpan(0, 5))
-        t.caption = CaptionData(words: [CaptionWord("Hello", start: 0, end: 0.5, keyword: true)], translation: "Bonjour", origin: .auto)
+        t.caption = CaptionData(words: [CaptionWord("Hello", start: 0, end: 0.5, filler: true)], translation: "Bonjour", origin: .auto)
         t.karaoke = KaraokeStyle(mode: .reveal)
         t.template = TextTemplateInstance(templateID: "x", texts: ["a"])
         let back = try JSONDecoder().decode(TextContent.self, from: JSONEncoder().encode(t))
+        #expect(back == t)
+    }
+
+    /// FB-03: "Highlight keywords" is gone; projects saved with keyword flags / keyword styling still open (keys ignored).
+    @Test func legacyKeywordFieldsAreIgnored() throws {
+        var t = TextContent(string: "Hello")
+        t.caption = CaptionData(words: [CaptionWord("Hello", start: 0, end: 0.5)], origin: .auto)
+        t.karaoke = KaraokeStyle(mode: .fillSpoken)
+        var j = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(t)) as? [String: Any])
+        var cap = try #require(j["caption"] as? [String: Any]), words = try #require(cap["words"] as? [[String: Any]])
+        words[0]["keyword"] = true; cap["words"] = words; j["caption"] = cap
+        var k = try #require(j["karaoke"] as? [String: Any])
+        k["keywordColor"] = ["r": 1, "g": 0, "b": 0, "a": 1]; k["keywordScale"] = 1.25; j["karaoke"] = k
+        let back = try JSONDecoder().decode(TextContent.self, from: JSONSerialization.data(withJSONObject: j))
         #expect(back == t)
     }
 

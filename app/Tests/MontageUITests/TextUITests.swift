@@ -129,7 +129,6 @@ import MontageTestSupport
         s.selection = [ids[0]]
         s.applyCaptionLookToAll()
         #expect(CaptionOps.text(s.project.timeline.clip(ids[1])!)?.color == .red)
-        s.highlightCaptionKeywords()
         s.wrapCaptions(maxChars: 8, maxLines: 1)
         #expect(s.project.timeline.tracks[ti].clips.count > 2)
         #expect(TimelineOps.validate(s.project.timeline).isEmpty)

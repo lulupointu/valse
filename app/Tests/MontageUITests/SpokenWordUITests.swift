@@ -49,7 +49,7 @@ import MontageEffects
             CaptionSpokenWordSection.set(ctx) { k in
                 k.mode = want.mode; k.highlightColor = want.highlightColor; k.highlightStroke = want.highlightStroke
                 k.highlightScale = want.highlightScale; k.boxColor = want.boxColor; k.unspokenOpacity = want.unspokenOpacity
-                k.bounce = want.bounce; k.keywordColor = want.keywordColor; k.keywordScale = want.keywordScale
+                k.bounce = want.bounce
             }
             #expect(karaoke(s, ids[0]) == want, "\(d.id)")
             #expect(karaoke(s, ids[1]) == want, "\(d.id): Apply to all main captions")

@@ -9,14 +9,11 @@ public struct CaptionWord: Hashable, Codable, Sendable {
     public var text: String
     public var start: Time
     public var end: Time
-    /// Emphasised word (CapCut "Highlight keywords"): rendered with the karaoke keyword style.
-    public var keyword: Bool?
     /// Filler word ("um", "euh") identified by speech recognition.
     public var filler: Bool?
-    public init(_ text: String, start: Time, end: Time, keyword: Bool? = nil, filler: Bool? = nil) {
-        self.text = text; self.start = start; self.end = end; self.keyword = keyword; self.filler = filler
+    public init(_ text: String, start: Time, end: Time, filler: Bool? = nil) {
+        self.text = text; self.start = start; self.end = end; self.filler = filler
     }
-    public var isKeyword: Bool { keyword ?? false }
 }
 
 /// How a caption with a translation shows (CapCut "Bilingual" / "Translation only").
@@ -82,15 +79,11 @@ public struct KaraokeStyle: Hashable, Codable, Sendable {
     public var unspokenOpacity: Double
     /// Upward bounce of a word when it starts, em.
     public var bounce: Double
-    /// Keyword (emphasis) colour and scale.
-    public var keywordColor: RGBA?
-    public var keywordScale: Double
     public init(mode: KaraokeMode = .highlightWord, highlightColor: RGBA = RGBA(hex: 0xFFE14D), highlightStroke: RGBA? = nil,
-                highlightScale: Double = 1.1, boxColor: RGBA? = nil, unspokenOpacity: Double = 1, bounce: Double = 0,
-                keywordColor: RGBA? = RGBA(hex: 0x4DE1FF), keywordScale: Double = 1.15) {
+                highlightScale: Double = 1.1, boxColor: RGBA? = nil, unspokenOpacity: Double = 1, bounce: Double = 0) {
         self.mode = mode; self.highlightColor = highlightColor; self.highlightStroke = highlightStroke
         self.highlightScale = highlightScale; self.boxColor = boxColor; self.unspokenOpacity = unspokenOpacity
-        self.bounce = bounce; self.keywordColor = keywordColor; self.keywordScale = keywordScale
+        self.bounce = bounce
     }
 }
 

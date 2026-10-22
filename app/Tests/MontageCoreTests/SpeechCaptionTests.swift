@@ -135,14 +135,12 @@ import Foundation
         #expect(p.timeline.tracks.contains { $0.id == id })
     }
 
-    @Test func translationsAndKeywords() throws {
+    @Test func translations() throws {
         var (p, _) = try captionProject()
         let caps = SpeechCaptions.captions(in: p.timeline)
         SpeechCaptions.setTranslations([caps[0].id: "Hello and welcome."], display: .both, in: &p.timeline)
         let t = try #require(CaptionOps.text(p.timeline.clip(caps[0].id)!))
         #expect(t.caption?.translation == "Hello and welcome." && t.caption?.display == .both)
-        let n = SpeechCaptions.markKeywords(["séquence", "Bonjour"], in: &p.timeline)
-        #expect(n == 2)
         SpeechCaptions.clearTranslations(in: &p.timeline)
         #expect(CaptionOps.text(p.timeline.clip(caps[0].id)!)?.caption?.translation == nil)
     }

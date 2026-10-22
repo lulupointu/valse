@@ -11,7 +11,7 @@
 "model.demucs6" = "HTDemucs (6 pistes)";
 "model.demucs6.desc" = "Séparation de sources musicales, avec aussi la guitare et le piano.";
 "model.qwen3" = "Qwen3 4B (IA de texte locale)";
-"model.qwen3.desc" = "Écrit et réécrit des scripts, choisit les temps forts et les mots-clés sur ce Mac quand Apple Intelligence est désactivé.";
+"model.qwen3.desc" = "Écrit et réécrit des scripts, choisit les temps forts sur ce Mac quand Apple Intelligence est désactivé.";
 "model.lama" = "LaMa (suppression d'objets)";
 "model.lama.desc" = "Supprime les objets que tu peins dans les images et les vidéos courtes.";
 "model.depth" = "Depth Anything V2 (ajout de lumière)";

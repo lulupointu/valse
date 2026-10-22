@@ -50,7 +50,6 @@
 "pilot.step.removeFillers" = "Couper les tics de langage et les répétitions";
 "pilot.step.addCaptions" = "Ajouter des sous-titres (%@)";
 "pilot.step.addCaptionsTranslated" = "Ajouter des sous-titres (%1$@) traduits en %2$@";
-"pilot.step.highlightKeywords" = "Mettre en évidence les mots-clés des sous-titres";
 "pilot.step.setAspect" = "Passer au format %@";
 "pilot.step.setAspectFill" = "Passer au format %@ et remplir le cadre";
 "pilot.step.setSpeed" = "Vitesse %1$@ sur %2$@";
@@ -84,7 +83,6 @@
 "pilot.result.normalize" = "%d clips normalisés à −14 LUFS";
 "pilot.result.captions" = "%d sous-titres ajoutés";
 "pilot.result.title" = "Titre ajouté";
-"pilot.result.keywords" = "%d mots-clés mis en évidence";
 "pilot.result.translated" = "traduites en %@";
 "pilot.result.translationMissing" = "traduction ignorée : la langue %@ n'est pas installée";
 "pilot.diff.title" = "Modifications";

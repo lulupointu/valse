@@ -24,7 +24,7 @@ public enum CaptionStyleSync {
         guard lookChanged || clipChanged else { return }
         let ti = loc.track
         let siblings = after.timeline.tracks[ti].clips.indices.filter { after.timeline.tracks[ti].clips[$0].id != source }
-        // the edit restyled other captions itself (templates, "apply to all", keyword highlight…): leave it alone
+        // the edit restyled other captions itself (templates, "apply to all"…): leave it alone
         if let bt = before.timeline.trackIndex(after.timeline.tracks[ti].id) {
             let beforeByID = Dictionary(before.timeline.tracks[bt].clips.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             for i in siblings {

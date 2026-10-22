@@ -404,14 +404,6 @@ import MontageTestSupport
         #expect(abs(s.midX - 320) < 10)                       // the current word is centred
     }
 
-    @Test func keywordsUseTheKeywordColour() {
-        var t = caption("big NEWS", words: [("big", 0, 1), ("NEWS", 1, 2)], KaraokeStyle(mode: .highlightWord, highlightColor: .white, highlightScale: 1, keywordColor: RGBA(1, 0, 0)))
-        t.caption?.words[1].keyword = true
-        let img = render(project(t, duration: 2).0, at: 0.2)
-        let red = box(img, Self.isRed)!, all = box(img, Self.lit)!
-        #expect(red.minX > all.minX + 30 && red.height > box(render(text("NEWS", size: 0.12)), Self.lit)!.height)
-    }
-
     @Test func bilingualCaptionStacksTranslation() {
         var t = text("Hello", size: 0.1)
         t.caption = CaptionData(translation: "Bonjour", display: .both, subStyle: CaptionSubStyle(color: RGBA(1, 1, 0)))

@@ -260,24 +260,4 @@ public enum SpeechCaptions {
             tl[clip: c.id] = c
         }
     }
-
-    /// Flags keyword words (normalised match) on every caption; returns how many words were flagged.
-    @discardableResult
-    public static func markKeywords(_ keywords: Set<String>, in tl: inout Timeline) -> Int {
-        let keys = Set(keywords.map(CaptionText.normalize))
-        var n = 0
-        for c0 in captions(in: tl) {
-            guard var c = tl.clip(c0.id), case .text(var t) = c.content, t.caption != nil else { continue }
-            var ws = CaptionOps.words(of: c)
-            for k in ws.indices {
-                let hit = keys.contains(CaptionText.normalize(ws[k].text))
-                ws[k].keyword = hit ? true : nil
-                if hit { n += 1 }
-            }
-            t.caption?.words = ws
-            c.content = .text(t)
-            tl[clip: c.id] = c
-        }
-        return n
-    }
 }

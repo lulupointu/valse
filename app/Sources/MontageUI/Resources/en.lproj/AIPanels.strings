@@ -31,8 +31,6 @@
 "captions.replace" = "Find and replace";
 "captions.replaceWith" = "Replace with";
 "captions.replaceAll" = "Replace all";
-"captions.highlightKeywords" = "Highlight keywords";
-"captions.keywordsDone" = "%d keywords highlighted";
 "captions.translateTo" = "Translate to";
 "captions.translate" = "Translate";
 "captions.translated" = "Captions translated";
@@ -54,7 +52,6 @@
 "cmd.captionStyleAll" = "Apply to all captions";
 "cmd.captionDisplay" = "Bilingual display";
 "cmd.captionTranslate" = "Translate captions";
-"cmd.captionKeywords" = "Highlight keywords";
 "cmd.cutout" = "Auto removal";
 "cmd.cutoutCustom" = "Custom removal";
 "cutout.job.auto" = "Applying auto removal...";

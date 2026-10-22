@@ -14,7 +14,7 @@ public struct GlyphState: Sendable, Equatable {
     /// Degrees, clockwise, around the unit centre.
     public var rotation: Double
     public var opacity: Double
-    /// 0…1 mix towards the highlight variant (karaoke / keyword style).
+    /// 0…1 mix towards the highlight variant (karaoke style).
     public var highlight: Double
     public init(offset: Vec2 = .zero, scale: Vec2 = .one, rotation: Double = 0, opacity: Double = 1, highlight: Double = 0) {
         self.offset = offset; self.scale = scale; self.rotation = rotation; self.opacity = opacity; self.highlight = highlight

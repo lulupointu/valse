@@ -151,7 +151,6 @@ public enum PilotRules {
                 out.append(.addCaptions(language: nil, translateTo: lang))
             }
         }
-        if has(s, ["keyword", "mot-cle", "mot cle", "mots cles", "mots-cles"]) { out.append(.highlightKeywords) }
         // aspect ratio
         if let r = normalizeRatio(s), has(s, ["ratio", "format", "aspect", "make it", "en ", "mets", "passe", "convert", "resize",
                                                  "redimension", "turn", "vertical", "portrait", "square", "carre", "horizontal",

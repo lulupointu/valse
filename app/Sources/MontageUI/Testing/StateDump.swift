@@ -44,7 +44,7 @@ public enum StateDump {
                 d["strokeWidth"] = t.strokeWidth; d["strokePosition"] = t.strokePosition.rawValue   // F3 TX-005
                 if let k = t.karaoke {   // OB-10 Text ▸ Spoken word
                     d["spokenWord"] = ["mode": k.mode.rawValue, "scale": (k.highlightScale * 100).rounded(), "box": k.boxColor != nil,
-                                       "outline": k.highlightStroke != nil, "keyword": k.keywordColor != nil,
+                                       "outline": k.highlightStroke != nil,
                                        "unspokenOpacity": (k.unspokenOpacity * 100).rounded(), "bounce": (k.bounce * 100).rounded()]
                 }
             }

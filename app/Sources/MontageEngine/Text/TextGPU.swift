@@ -118,7 +118,7 @@ enum TextAnimator {
     }
 
     /// Karaoke state of word `w` at time `t` (seconds, clip-local).
-    static func karaoke(_ k: KaraokeStyle, words: [(start: Double, end: Double, keyword: Bool)], w: Int, t: Double)
+    static func karaoke(_ k: KaraokeStyle, words: [(start: Double, end: Double)], w: Int, t: Double)
         -> (state: GlyphState, boxOpacity: Double) {
         guard w >= 0, w < words.count else { return (GlyphState(), 0) }
         let wt = words[w]
@@ -157,7 +157,7 @@ enum TextAnimator {
     final class BlockInfo {
         let em: CGFloat, center: CGPoint
         let karaoke: KaraokeStyle?
-        let wordTimes: [(start: Double, end: Double, keyword: Bool)]
+        let wordTimes: [(start: Double, end: Double)]
         let charPivots: [CGPoint], wordPivots: [CGPoint], linePivots: [CGPoint]
         let visibleCharCount: Int, wordCount: Int, lineCount: Int
         init(_ b: TextScene.Block) {
@@ -245,7 +245,7 @@ enum TextAnimator {
         var extent: Double = 0.1
         for b in scene.blocks {
             for a in blockAnims(b, input) ?? [] { extent = max(extent, a.spec.extent) }
-            if let k = b.karaoke { extent = max(extent, (max(k.highlightScale, k.keywordScale) - 1) * 2 + k.bounce + 0.2) }
+            if let k = b.karaoke { extent = max(extent, (k.highlightScale - 1) * 2 + k.bounce + 0.2) }
         }
         let em = scene.blocks.map(\.em).max() ?? 10
         if scene.blocks.contains(where: { $0.karaoke?.mode == .singleWord }) { return max(CGFloat(extent) * em, scene.bounds.width / 2) }

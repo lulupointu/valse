@@ -236,8 +236,8 @@ struct DictationAndShutdownTests {
 
     /// AI QA: the local model planned "Rends la vidéo carrée pour Instagram" as 9:16; the request's own ratio word wins.
     @Test func modelAspectIsReconciledWithTheRequest() {
-        let llm: [PilotAction] = [.setAspect(ratio: "9:16", fill: true), .highlightKeywords]
-        #expect(PilotRules.reconcile(llm, request: "Rends la vidéo carrée pour Instagram") == [.setAspect(ratio: "1:1", fill: true), .highlightKeywords])
+        let llm: [PilotAction] = [.setAspect(ratio: "9:16", fill: true), .fade(seconds: 1)]
+        #expect(PilotRules.reconcile(llm, request: "Rends la vidéo carrée pour Instagram") == [.setAspect(ratio: "1:1", fill: true), .fade(seconds: 1)])
         #expect(PilotRules.reconcile(llm, request: "Make it 16:9 for YouTube").first == .setAspect(ratio: "16:9", fill: true))
         #expect(PilotRules.reconcile(llm, request: "Une version pour Instagram") == llm, "no explicit ratio: the model decides")
     }

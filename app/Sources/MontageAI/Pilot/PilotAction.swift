@@ -20,7 +20,6 @@ public enum PilotAction: Hashable, Codable, Sendable {
     case removeFillers
     /// Auto captions; `translateTo` adds bilingual captions (skipped when it is the spoken language).
     case addCaptions(language: String?, translateTo: String?)
-    case highlightKeywords
     case setAspect(ratio: String, fill: Bool)
     case setSpeed(factor: Double, scope: PilotScope)
     /// Speeds up the quiet, low-motion ("boring") parts of the main track instead of cutting them.
@@ -51,7 +50,6 @@ public enum PilotAction: Hashable, Codable, Sendable {
         case .volume, .mute, .reduceNoise, .enhanceVoice, .normalizeLoudness: return 5
         case .fade: return 6
         case .addCaptions: return 7
-        case .highlightKeywords: return 8
         case .addTitle: return 9
         }
     }
@@ -70,7 +68,6 @@ public enum PilotAction: Hashable, Codable, Sendable {
         case .removeSilences: return "waveform.badge.minus"
         case .removeFillers: return "text.badge.minus"
         case .addCaptions: return "captions.bubble"
-        case .highlightKeywords: return "highlighter"
         case .setAspect: return "aspectratio"
         case .setSpeed, .speedUpQuiet, .fitDuration: return "speedometer"
         case .addTransitions: return "rectangle.on.rectangle.angled"
@@ -96,7 +93,6 @@ public enum PilotAction: Hashable, Codable, Sendable {
             let spoken = l.map { PilotLanguages.title($0) } ?? tr("captions.autoDetect")
             if let t { return tr("pilot.step.addCaptionsTranslated", spoken, PilotLanguages.title(t)) }
             return tr("pilot.step.addCaptions", spoken)
-        case .highlightKeywords: return tr("pilot.step.highlightKeywords")
         case .setAspect(let r, let fill): return tr(fill ? "pilot.step.setAspectFill" : "pilot.step.setAspect", r)
         case .setSpeed(let f, let s): return tr("pilot.step.setSpeed", PilotFormat.factor(f), scope(s))
         case .speedUpQuiet(let f): return tr("pilot.step.speedUpQuiet", PilotFormat.factor(f))
@@ -245,7 +241,6 @@ public enum PilotCallParser {
         case "remove_silences", "cut_silences": return .removeSilences(minPause: clamp(num("min_pause") ?? 0.8, 0.3, 5))
         case "remove_fillers", "remove_filler_words": return .removeFillers
         case "add_captions", "captions": return .addCaptions(language: lang("language"), translateTo: lang("translate_to"))
-        case "highlight_keywords": return .highlightKeywords
         case "set_aspect", "set_ratio", "aspect_ratio":
             guard let r = str("ratio").flatMap(PilotRules.normalizeRatio) else { return nil }
             return .setAspect(ratio: r, fill: (args["fill"] as? Bool) ?? true)

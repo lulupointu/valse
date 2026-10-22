@@ -322,29 +322,6 @@ extension EditorStore {
         perform(Edit("cmd.captionWrap") { p in CaptionOps.wrap(trackIndex: ti, maxCharsPerLine: maxChars, maxLines: maxLines, in: &p) })
     }
 
-    func highlightCaptionKeywords() {
-        guard let ti = activeCaptionTrackIndex else { return }
-        var n = 0
-        let ok = perform(Edit("cmd.captionKeywords") { p in
-            _ = CaptionOps.highlightKeywords(trackIndex: ti, in: &p)
-            // karaoke keyword colours need a karaoke style: give plain captions the keyword emphasis only
-            for i in p.timeline.tracks[ti].clips.indices {
-                guard case .text(var t) = p.timeline.tracks[ti].clips[i].content else { continue }
-                if t.karaoke == nil { t.karaoke = KaraokeStyle(mode: .highlightWord, highlightColor: t.color, highlightScale: 1) }
-                p.timeline.tracks[ti].clips[i].content = .text(t)
-            }
-        })
-        if ok, let tr2 = activeCaptionTrackIndex {
-            n = project.timeline.tracks[tr2].clips.reduce(0) { $0 + (CaptionOps.text($1)?.caption?.words.filter(\.isKeyword).count ?? 0) }
-        }
-        showToast(tr("captions.keywords.done", n))
-    }
-
-    func clearCaptionKeywords() {
-        guard let ti = activeCaptionTrackIndex else { return }
-        perform(Edit("cmd.captionKeywords") { p in CaptionOps.clearKeywords(trackIndex: ti, in: &p) })
-    }
-
     func setBilingualDisplay(_ d: BilingualDisplay) {
         guard let ti = activeCaptionTrackIndex else { return }
         perform(Edit("cmd.captionBilingual") { p in
