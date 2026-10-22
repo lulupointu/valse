@@ -155,10 +155,10 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 | UXR-W1 | W12 | Home thumbnail / package cover.jpg: render `Project.cover` with `CoverRenderer.jpeg` (nil cover = first frame) | TL-045 |
 | W5 | W7 | Per-glyph/word text In/Out/Loop presets: register `AnimationDescriptor`s (targets `.text`) in `Registries.animations`; bind ‹◇› on text style rows to the new `ParamKey.text*` | TX-020, KF-009 |
 | W5 | W13 | Sticker/effect tiles: hover-play animated stickers (`LottieLibrary`) like transition tiles do; favourites for the Transitions tab | TR-001, ST-* |
-| W3 | W13 | Adjustment asset tab ▸ My presets: list `AdjustPresets.shared` (saved from the Adjust footer), apply = `AdjustTools.apply` | CL-013 |
 
 
 ## Done cross-team items
+- W3 → W13: Adjustment asset tab ▸ My presets (`AdjustPresets.shared` listed, add as adjustment layer / apply to selected clip / delete) — done by pilot-1 (CL-013).
 - W13 × W2: one library preview mode — W2 `Player/PlayerPreview.swift` (`store.isPreviewing`, `exitPreview()`, `PlayerUIState.preview`) now also has W13's `previewStock`, `previewTransition` (Transitions tab click), sample gradient under effects on an empty timeline, and exit on a click outside the asset panel + player; W13's duplicate LibraryPreview.swift removed. W13's 36-track MusicLibrary + AudioLibraryTab replace POL-B's 8-track pack / AudioLibraryView.
 - W2 (UX polish) for W7: canvas text edge pills set `TextContent.boxWidth` (TX-011). For W4/W13: player preview mode (`store.previewMedia/previewEffect/previewSticker/exitPreview`, "Previewing — …"); effect/filter/sticker/media card clicks call it (FX-001, W13-1/W13-3).
 - W12 did W6's + W2's requests: Settings ▸ Performance (preview quality + proxies persisted from Settings and the player menu, proxy policy/location/size, render cache size/cap/auto render) and the green render-cache bar under the ruler.
