@@ -1,0 +1,17 @@
+// OB-10 (fr): Texte ▸ Mot prononcé lays out the spoken-word controls with the French labels (longest strings).
+{
+  "project": "demo-transcript:captions",
+  "lang": "fr",
+  "steps": [
+    {"select": ["clip:1/1"]},
+    {"click": "id:inspector.tab.text"},
+    {"click": "id:inspector.sub.templates"},
+    {"waitFor": {"path": "ui.anchors", "contains": "text.templates.caption"}},
+    {"click": "id:captionTemplate.montage.captionTemplate.fillYellow"},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.mode", "equals": "fillSpoken"}},
+    {"expect": {"path": "selectedClips.0.spokenWord.outline", "equals": true}},
+    {"click": "id:inspector.sub.spokenWord"},
+    {"waitFor": {"path": "ui.anchors", "contains": "spokenWord.outline.color"}},
+    {"snapshot": "spoken-word-fr", "element": "id:panel.inspector", "baseline": "ob10_caption_spoken_word_fr"}
+  ]
+}

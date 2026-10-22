@@ -36,15 +36,18 @@ import MontageTestSupport
         #expect(tabs(s) == ["text", "animation", "tts", "tracking"])   // + W10 Text to speech, Tracking
         let ctx = InspectorContext(store: s)
         let textTab = InspectorRegistry.allTabs.first { $0.id == "text" }!
-        #expect(InspectorRegistry.subTabs(of: textTab, ctx: ctx).map(\.id) == ["basic", "bubble", "effects"])
+        #expect(InspectorRegistry.subTabs(of: textTab, ctx: ctx).map(\.id) == ["basic", "bubble", "templates"])   // OB-10: Effects → Templates
         let basic = InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: ctx).map(\.id)
         #expect(basic == ["text.content", "text.counter", "text.transform", "text.opacity", "text.stroke", "text.background", "text.glow", "text.shadow", "text.curve"])
         let (c, ids) = captionStore()
         c.selection = [ids[0]]
         #expect(tabs(c) == ["captions", "text", "animation", "tts"])   // C4: Captions first, like CapCut
-        // C4: captions get Text ▸ Basic | Templates | Bubble | Effects and the "Apply to all main captions" row
+        // C4 / OB-10: captions get Text ▸ Basic | Bubble | Templates (caption templates first) | Spoken word, and the
+        // "Apply to all main captions" row
         let cctx = InspectorContext(store: c)
-        #expect(InspectorRegistry.subTabs(of: textTab, ctx: cctx).map(\.id) == ["basic", "templates", "bubble", "effects"])
+        #expect(InspectorRegistry.subTabs(of: textTab, ctx: cctx).map(\.id) == ["basic", "bubble", "templates", "spokenWord"])
+        #expect(InspectorRegistry.sections(tab: textTab, subTab: "templates", ctx: cctx).map(\.id) == ["text.templates"])
+        #expect(InspectorRegistry.sections(tab: textTab, subTab: "spokenWord", ctx: cctx).map(\.id) == ["captions.spokenWord"])
         #expect(InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: cctx).first?.id == "text.applyAllCaptions")
     }
 
@@ -182,7 +185,7 @@ import MontageTestSupport
         let id = try #require(s.singleSelectedClip?.id)
         s.updateText(id) { $0.strokeWidth = 0.08; $0.shadowColor = RGBA(0, 0, 0, 0.8) }
         let ui = InspectorUIState.shared
-        for sub in ["basic", "bubble", "effects"] {
+        for sub in ["basic", "bubble", "templates"] {
             s.inspectorTab = "text"; ui.subTab["text"] = sub
             try snapshot(InspectorPanel(store: s), "inspector-text-\(sub)-\(lang).png", dir)
         }

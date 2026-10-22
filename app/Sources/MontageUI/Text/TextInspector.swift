@@ -17,10 +17,12 @@ enum TextInspector {
 
     static let textTab = InspectorTab(id: "text", titleKey: "inspector.tab.text", order: 0, subTabs: [
         InspectorSubTab(id: "basic", titleKey: "inspector.sub.basic", order: 0),
-        // C4: caption templates live under Text like CapCut (Basic | Templates | Bubble | Effects), captions only
-        InspectorSubTab(id: "templates", titleKey: "text.sub.templates", order: 1, appliesTo: isCaption),
         InspectorSubTab(id: "bubble", titleKey: "text.sub.bubble", order: 2),
-        InspectorSubTab(id: "effects", titleKey: "text.sub.effects", order: 3),
+        // OB-10: the word-art library is "Templates" (was "Effects"); for captions its first category is "Caption"
+        // (the caption templates, formerly their own sub-tab)
+        InspectorSubTab(id: "templates", titleKey: "text.sub.templates", order: 3),
+        // OB-10c: manual controls for what caption templates do to the spoken word, captions only
+        InspectorSubTab(id: "spokenWord", titleKey: "text.sub.spokenWord", order: 4, appliesTo: isCaption),
     ], footer: { ctx, _ in
         AnyView(PillButton(title: tr("inspector.saveAsPreset"), accent: true) { ctx.store.saveTextPreset() })
     }, appliesTo: { $0.kind == .text })
@@ -54,10 +56,10 @@ enum TextInspector {
         InspectorSection(id: "text.curve", tab: "text", subTab: "basic", order: 70, titleKey: "text.curve",
                          chrome: TextCurveSection.chrome) { AnyView(TextCurveSection(ctx: $0)) },
         InspectorSection(id: "text.bubble", tab: "text", subTab: "bubble", order: 0, titleKey: nil) { AnyView(TextBubbleSection(ctx: $0)) },
-        InspectorSection(id: "text.effects", tab: "text", subTab: "effects", order: 0, titleKey: nil) { AnyView(TextEffectsSection(ctx: $0)) },
+        InspectorSection(id: "text.templates", tab: "text", subTab: "templates", order: 0, titleKey: nil) { AnyView(TextEffectsSection(ctx: $0)) },
         InspectorSection(id: "captions.list", tab: "captions", order: 0, titleKey: nil) { AnyView(CaptionEditorSection(ctx: $0)) },
-        InspectorSection(id: "captions.templates", tab: "text", subTab: "templates", order: 0, titleKey: nil,
-                         appliesTo: isCaption) { AnyView(CaptionTemplatesSection(ctx: $0)) },
+        InspectorSection(id: "captions.spokenWord", tab: "text", subTab: "spokenWord", order: 0, titleKey: "spokenWord.section",
+                         appliesTo: isCaption, chrome: CaptionSpokenWordSection.chrome) { AnyView(CaptionSpokenWordSection(ctx: $0)) },
     ]
 
     // MARK: Row helpers
@@ -535,7 +537,8 @@ struct TextBubbleSection: View {
     }
 }
 
-/// Text ▸ Effects: the word-art library (same as the asset panel's Text effects), searchable, grouped.
+/// Text ▸ Templates (OB-10, was "Effects"): the word-art library (same as the asset panel's Text effects), searchable,
+/// grouped; for captions the first category is "Caption" (the caption templates, C4).
 struct TextEffectsSection: View {
     let ctx: InspectorContext
     var body: some View {
@@ -545,6 +548,9 @@ struct TextEffectsSection: View {
             let q = ui.effectSearch.trimmingCharacters(in: .whitespaces).lowercased()
             VStack(alignment: .leading, spacing: 10) {
                 SearchField(text: Binding.perceived(get: { ui.effectSearch }, set: { ui.effectSearch = $0 }), placeholder: tr("text.effects.search"))
+                if TextInspector.isCaption(ctx) {
+                    CaptionTemplatesSection(ctx: ctx, query: q)
+                }
                 ForEach(BuiltinTextStyles.effectGroups, id: \.self) { g in
                     WithPerceptionTracking {
                         let items = Registries.textStyles(.effect).filter { $0.groupKey == g && (q.isEmpty || $0.displayName.lowercased().contains(q) || tr(g).lowercased().contains(q)) }

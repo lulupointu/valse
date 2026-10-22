@@ -1,0 +1,29 @@
+// OB-10: for a caption, Text ▸ Templates starts with the "Caption" category (caption templates); picking one shows its
+// spoken-word values in Text ▸ Spoken word, where every one of them can be changed by hand (one undo step each).
+{
+  "project": "demo-transcript:captions",
+  "steps": [
+    {"select": ["clip:1/1"]},
+    {"click": "id:inspector.tab.text"},
+    {"click": "id:inspector.sub.templates"},
+    {"waitFor": {"path": "ui.anchors", "contains": "text.templates.caption"}},
+    {"click": "id:captionTemplate.montage.captionTemplate.boxGreen"},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.box", "equals": true}},
+    {"expect": [{"path": "selectedClips.0.spokenWord.mode", "equals": "highlightWord"}, {"path": "selectedClips.0.spokenWord.scale", "equals": 105}]},
+    {"click": "id:inspector.sub.spokenWord"},
+    {"waitFor": {"path": "ui.anchors", "contains": "spokenWord.mode"}},
+    {"expect": [{"path": "ui.anchors", "contains": "spokenWord.box.color"}, {"path": "ui.anchors", "contains": "spokenWord.unspokenOpacity"}]},
+    {"snapshot": "spoken-word", "element": "id:panel.inspector", "baseline": "ob10_caption_spoken_word"},
+    {"click": "id:spokenWord.box", "at": [0.95, 0.5]},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.box", "equals": false}},
+    {"expect": {"path": "ui.anchors", "notContains": "spokenWord.box.color"}},
+    {"click": "id:spokenWord.scale.field"},
+    {"type": "150", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.scale", "equals": 150}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.scale", "equals": 105}},
+    {"click": "id:spokenWord.outline", "at": [0.95, 0.5]},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.outline", "equals": true}}
+  ]
+}

@@ -56,7 +56,42 @@ import MontageTestSupport
         #expect(end > start * 3)   // "0" → "8,888"-ish: many more lit pixels
         let desc = FrameEvaluator.evaluate(p.project, at: Time(1))
         guard case .layer(let l) = desc.items.last, case .text(let tc) = l.source else { Issue.record("no text layer"); return }
-        #expect(tc.string == "4,444" || tc.string == "4\u{202F}444")
+        // the count spans the clip up to its last frame (OB-01): 1 s of (2 s − 1 frame)
+        let k = TextCounter(from: 0, to: 8888, easeOut: false, countFraction: 1)
+        let fd = p.project.settings.frameRate.frameDuration
+        #expect(tc.string == k.string(at: Time(1), duration: Time(2), frameDuration: fd, language: "en")
+                || tc.string == k.string(at: Time(1), duration: Time(2), frameDuration: fd, language: "fr"))
+        let lastFrame = FrameEvaluator.evaluate(p.project, at: Time(2) - fd)
+        guard case .layer(let ll) = lastFrame.items.last, case .text(let ltc) = ll.source else { Issue.record("no text layer"); return }
+        #expect(ltc.string == "8,888" || ltc.string == "8\u{202F}888")
+    }
+
+    /// OB-01: a 0 → 100 counter shows 100 on the clip's last frame (it stopped at 99: the last frame is one frame before
+    /// the clip end, and values round toward the start).
+    @Test func counterReachesTheEndValueOnTheLastFrame() {
+        for fps in [FrameRate.fps24, .fps30, .fps60] {
+            let fd = fps.frameDuration
+            for ease in [true, false] {
+                for fraction in [0.8, 1.0] {
+                    let k = TextCounter(from: 0, to: 100, easeOut: ease, countFraction: fraction)
+                    for dur in [Time(1), Time(4), Time(7.5)] {
+                        let last = dur - fd
+                        #expect(k.string(at: last, duration: dur, frameDuration: fd, language: "en") == "100",
+                                "fps \(fps.fps) ease \(ease) fraction \(fraction) duration \(dur.seconds)")
+                        #expect(k.string(at: .zero, duration: dur, frameDuration: fd, language: "en") == "0")
+                    }
+                    // one frame earlier is not yet the end value when counting over the whole clip
+                    if fraction == 1, !ease {
+                        let before = k.string(at: Time(4) - fd - fd, duration: Time(4), frameDuration: fd, language: "en")
+                        #expect(["98", "99"].contains(before), "fps \(fps.fps): \(before)")
+                    }
+                }
+            }
+        }
+        // countdowns land on their end value too
+        let timer = TextCounter.defaults(.timer)
+        #expect(timer.string(at: Time(10) - FrameRate.fps30.frameDuration, duration: Time(10),
+                             frameDuration: FrameRate.fps30.frameDuration, language: "en") == "0:00")
     }
 
     @Test func separatedTemplatePartsRenderLikeTheTemplate() async throws {

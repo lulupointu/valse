@@ -284,7 +284,7 @@ public enum FrameEvaluator {
                 text.caption!.words = text.caption!.words.map { var w = $0; w.start = w.start - d; w.end = w.end - d; return w }
             }
             // TX-039: counters show their value at this frame (template slot 0 reads the same string)
-            if let k = text.counter { text.string = k.string(at: local, duration: c.duration); text.runs = [] }
+            if let k = text.counter { text.string = k.string(at: local, duration: c.duration, frameDuration: project.settings.frameRate.frameDuration); text.runs = [] }
             source = .text(text); size = .zero
         case .solid(let color):
             source = .solid(color); size = project.settings.canvasSize

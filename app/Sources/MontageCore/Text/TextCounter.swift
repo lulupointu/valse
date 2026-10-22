@@ -54,9 +54,15 @@ public struct TextCounter: Hashable, Codable, Sendable {
         return (date.timeIntervalSinceReferenceDate / 86_400).rounded()
     }
 
-    /// Counting progress 0…1 at clip-local `t` of a clip lasting `duration`.
-    public func progress(at t: Time, duration: Time) -> Double {
-        let span = max(duration.seconds * min(max(countFraction, 0.05), 1), 1e-6)
+    /// Counting progress 0…1 at clip-local `t` of a clip lasting `duration`. With `frameDuration`, the count ends at the
+    /// latest on the clip's LAST frame (`duration − frameDuration`), not at its end time that is never rendered (OB-01:
+    /// a 100 % count stopped at 99).
+    public func progress(at t: Time, duration: Time, frameDuration: Time? = nil) -> Double {
+        var span = duration.seconds * min(max(countFraction, 0.05), 1)
+        if let fd = frameDuration, fd.seconds > 0, duration.seconds > fd.seconds {
+            span = min(span, duration.seconds - fd.seconds)
+        }
+        span = max(span, 1e-6)
         let p = min(max(t.seconds / span, 0), 1)
         return easeOut ? 1 - pow(1 - p, 3) : p
     }
@@ -69,8 +75,8 @@ public struct TextCounter: Hashable, Codable, Sendable {
         return to >= from ? (v * q + 1e-7).rounded(.down) / q : (v * q - 1e-7).rounded(.up) / q
     }
 
-    public func string(at t: Time, duration: Time, language: String = L10n.shared.language) -> String {
-        prefix + format(value(progress: progress(at: t, duration: duration)), language: language) + suffix
+    public func string(at t: Time, duration: Time, frameDuration: Time? = nil, language: String = L10n.shared.language) -> String {
+        prefix + format(value(progress: progress(at: t, duration: duration, frameDuration: frameDuration)), language: language) + suffix
     }
 
     public func format(_ v: Double, language: String) -> String {
