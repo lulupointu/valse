@@ -126,7 +126,7 @@ extension TimelineView {
                 item("tlmenu.separateAudio.vocals", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: true) } },
                 item("tlmenu.separateAudio.music", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: false) } },
             ] + (StemSeparator.availableStems.isEmpty
-                 ? [item("tlmenu.separateAudio.getStems") { s.ai.isModelSheetPresented = true; s.activeAssetTab = "text" }]
+                 ? [item("tlmenu.separateAudio.getStems") { s.requireModels([ModelCatalog.demucs4]) {} }]  // OB-07 download prompt; the stems appear in the menu once installed
                  : StemSeparator.availableStems.map { st in
                     item(st.nameKey, enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, part: .stem(st)) } }
                  })),

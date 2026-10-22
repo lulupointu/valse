@@ -204,6 +204,25 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   AVAssetReader whose time range starts inside the stretched samples never delivers a frame — also with Apple's own
   compositor and without the clip. Now a 60-s 1-fps blank is tiled unscaled. `RangeExportTests` (ffmpeg 10-bit HLG
   HEVC iPhone-like fixture; owner clip opt-in `MONTAGE_B1_CLIP=<copy of IMG_9079.mov>`).
+- 2026-10-22 owner TODO list, batch-ob1 (IDs OB-01…12; OB-08 magnet + OB-09 overlay clip look in a later batch):
+  - OB-01 counter: count span split into one equal bucket per displayed value (1→10 over 100 frames = 10 frames each).
+  - OB-02/03 timeline click: a click that changes the selection never moves the playhead; a click in the sole selected
+    clip seeks; the empty header column = click at 0 (`TimelineClickPolicy`). OB-05: right-click on empty track space → Paste
+    (clips / media files / image / text at the clicked time, greyed when nothing pasteable).
+  - OB-04 text box edge pills resize from the centre (⌥ = one side; inverts TX-011's earlier F3 wording).
+  - OB-06 export finish screen never auto-plays. OB-07 `store.requireModels` (ModelDownloadFlow): popup → bottom-right
+    indicator with confirmed cancel → the action proceeds; AI remove, AI writer, Isolate music. Timeline "Get stems" still
+    opens the model sheet (moved to the OB-08/09 task).
+  - OB-10 Text sub-tabs Basic | Templates (Caption category first for captions) | Spoken word (captions) | Bubble.
+  - OB-11 arrows/Home/End go to the focused text field even when a menu has the key equivalent (`TextFieldKeys.route`);
+    ↑/↓ step inspector numeric fields (⇧ ×10). Settings' NumberSetting and slider fields don't have ↑/↓ yet.
+  - OB-12 a click on the selected layer's body selects the topmost unlocked layer under the pointer.
+  - Open: macos13 override of `ai_remove_track` may need re-recording (Remove enabled before the model is installed);
+    test-media cache writes are not atomic (a 0-byte `montage-test-media-v1/face-walk-v1.mov` crashed every unit run);
+    unverified risk: `SliderRowView` is `.equatable()` without comparing closures (stale clip after switching between two
+    clips with equal values). Flaky during agent gates: player_preview, timeline_edit, inspector_fr_formats,
+    f4_se_a11y_editor, f3_waveform, finish_pen_mask_draw, c2_inspector_expand_unticked, ai_relight_model,
+    f3_motion_blur (exit 139), TimeRemapTests.reversedAudioIsSampleReversed.
 
 ## Decisions log
 - 2026-10-19 Owner: NO AI-generated/procedural music. Music & SFX library must offer real ONLINE search (Instagram-like) — explicit exception to local-only, limited to the music/SFX browser (user-supplied API keys e.g. Pixabay/Freesound, download-on-add so projects work offline). Rest of app stays offline.
