@@ -384,7 +384,6 @@ struct EffectCard: View {
                 Button(tr("asset.addToTrack"), action: add)
                 if descriptor.groupKey == CustomEffectLibrary.groupKey { CustomEffectMenuItems(effectID: descriptor.id) }   // FX-018
             }
-            .help(tr(descriptor.nameKey))
         }
     }
 

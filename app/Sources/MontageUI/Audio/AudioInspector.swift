@@ -363,6 +363,5 @@ struct VoiceChangerView: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : .clear, lineWidth: 2))
             .contentShape(Rectangle())
             .onTapGesture { ctx.store.applyVoice(d?.makeEffect(), toAll: applyToAll) }
-            .help(d.map { tr($0.nameKey) } ?? tr("voice.original"))
     }
 }

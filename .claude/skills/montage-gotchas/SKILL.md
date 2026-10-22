@@ -66,6 +66,11 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
   it is committed to undo only after 900 ms without typing, or when editing ends. A script that types then checks
   `undo.name` / `undo.depth` must `waitFor` them (or `undo.inGesture` false), never `expect` right after the `type`.
 - Tooltips: `.help(tr(…))` inside MontageUI is Montage's own tooltip (Support/Tooltips.swift); don't set AppKit `toolTip`.
+  Owner policy (FB-10): only on symbol-only controls or when the visible text is not clear on its own (explains an
+  action, full truncated path / file name); never a tooltip that repeats the visible label (`.help("")` = none).
+- In-window modals (Settings, dialogs, export / crop / cover / recorder) put `.modalHoverShield()` on their card: views
+  underneath then must not change the cursor; set cursors with `NSCursor.setUnlessCovered(at:in:)` or guard hover
+  handlers with `ModalHoverGate.isBlocked` (FB-07, Support/ModalHoverGate.swift).
 - UI tests are environment-independent: AI models sandboxed (`requires.models` else SKIP), fixed cache sizes / clock,
   overlay scroll bars, Europe/Paris TZ. Tests never make sound (`MONTAGE_MUTE_AUDIO=1`, `AudioOutput.isSilenced`).
 

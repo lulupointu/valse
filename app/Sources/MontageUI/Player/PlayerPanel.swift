@@ -107,7 +107,7 @@ struct TransportBar: View {
                     IconButton("plus.magnifyingglass", help: tr("player.zoom"), active: ui.isZoomBarVisible || ui.isZoomed) {
                         ui.isZoomBarVisible.toggle()
                     }
-                    PopupButton(help: tr("player.ratio")) { BoxLabel(text: tr("player.ratio")) } menu: { PlayerMenus.ratio(store) }
+                    PopupButton(help: "") { BoxLabel(text: tr("player.ratio")) } menu: { PlayerMenus.ratio(store) }
                     Rectangle().fill(Theme.separator).frame(width: 1, height: 14).padding(.horizontal, 2)
                     IconButton(ui.isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                help: tr(ui.isFullscreen ? "player.exitFullscreen" : "player.fullscreen")) {

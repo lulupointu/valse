@@ -244,6 +244,7 @@ struct RecorderModal: View {
                     .padding(16)
                 }
                 .testID("record.dialog")
+                .modalHoverShield()   // FB-07
                 // offscreen snapshots redraw the modal above the panels / Metal views (SnapshotRegistry.modalFrame)
                 .background(GeometryReader { g in
                     WithPerceptionTracking {

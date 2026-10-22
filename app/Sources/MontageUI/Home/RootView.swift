@@ -28,6 +28,7 @@ public struct RootView: View {
                         .onTapGesture { if modal.dismissesOnBackdrop { app.modal = nil } }
                         .transition(.opacity)
                     ModalHost(app: app, modal: modal)
+                        .modalHoverShield()   // FB-07: the editor / Home underneath stop changing the cursor
                         .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0.55) }
                         .onDisappear { if app.modal == nil { SnapshotRegistry.shared.modal = nil } }
                         .transition(.opacity.combined(with: .scale(scale: 0.97)))

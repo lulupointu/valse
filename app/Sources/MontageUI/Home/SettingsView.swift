@@ -246,12 +246,8 @@ struct NumberSetting: View {
                     .onValueChange(of: focused) { _, f in if !f { commit() } }
                     .testID("settings.field.\(id)")
                 Text(verbatim: unit).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                VStack(spacing: 1) {
-                    Button { set(value + step) } label: { Image(systemName: "chevron.up").font(.system(size: 7, weight: .bold)).frame(width: 18, height: 12) }
-                    Button { set(value - step) } label: { Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold)).frame(width: 18, height: 12) }
-                }
-                .buttonStyle(.plain).foregroundStyle(Theme.textSecondary)
-                .background(Theme.stepper, in: RoundedRectangle(cornerRadius: 4))
+                // FB-09: same height as the field, each half a full 22 × 14 pt hit target (was the 7 pt glyph only)
+                StepperButton(width: 22, halfHeight: 14, testID: "settings.field.\(id)") { d in set(value + Double(d) * step) }
             }
             .onAppear { text = format(value) }
             .onValueChange(of: value) { _, v in if !focused { text = format(v) } }

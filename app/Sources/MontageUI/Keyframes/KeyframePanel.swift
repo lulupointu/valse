@@ -333,7 +333,7 @@ struct EasingPresetGrid: View {
                 ForEach(EasingPreset.all) { p in
                     WithPerceptionTracking {
                         Button { apply(p.easing) } label: { presetLabel(p) }
-                            .buttonStyle(.plain).help(tr(p.nameKey)).testID("keyframes.preset.\(p.id)")
+                            .buttonStyle(.plain).testID("keyframes.preset.\(p.id)")
                     }
                 }
             }

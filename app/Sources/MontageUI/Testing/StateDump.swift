@@ -131,6 +131,7 @@ public enum StateDump {
         ui["tooltipDelayMs"] = Tooltips.currentDelayMilliseconds()   // C3: hover tooltip delay app-wide
         ui["tooltip"] = TooltipCenter.shared.shownText ?? NSNull()          // C6: visible tooltip text
         ui["tooltipPending"] = TooltipCenter.shared.pendingText ?? NSNull()
+        ui["modalHoverShield"] = ModalHoverGate.isActive()   // FB-07: an in-window modal owns the pointer
         // on-screen transition tiles whose still thumbnail has not been rendered yet (snapshots waitFor 0)
         let tiles = TestAnchors.shared.ids.filter { $0.hasPrefix("transition.tile.") }
         ui["transitionThumbsMissing"] = tiles.filter { !TransitionThumbnails.shared.hasStill("montage.transition." + $0.dropFirst("transition.tile.".count)) }.count

@@ -136,7 +136,6 @@ struct TransitionTile: View {
                 Button(tr(EffectFavorites.shared.contains(descriptor.id) ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
                 Button(tr("asset.addToTrack"), action: add)
             }
-            .help(tr(descriptor.nameKey))
         }
     }
 

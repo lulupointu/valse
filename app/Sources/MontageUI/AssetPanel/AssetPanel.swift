@@ -232,7 +232,6 @@ struct SubNav: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .help(item.title)
                             .testID("asset.nav.\(item.id)")
                         }
                     }

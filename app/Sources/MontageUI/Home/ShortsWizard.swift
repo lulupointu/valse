@@ -129,6 +129,7 @@ struct ShortsWizardHost: View {
                     DialogCard(title: tr("shorts.title"), width: 560, onClose: { st.close() }) {
                         ShortsWizardView(app: app).padding(20)
                     }
+                    .modalHoverShield()   // FB-07
                     .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0.55) }
                     .onDisappear { SnapshotRegistry.shared.modal = nil }
                     .testID("shorts.dialog")

@@ -429,6 +429,7 @@ extension TimelineView {
     // MARK: Hover
 
     override func mouseMoved(with e: NSEvent) {
+        guard !ModalHoverGate.isBlocked(e.locationInWindow, in: window) else { return }   // FB-07: a dialog covers it
         let pt = point(e)
         let l = layoutNow
         hoverPoint = pt
