@@ -125,7 +125,7 @@ struct TimelineToolbarBar: View, Equatable {
                 Spacer()
                 VoiceoverButton(store: store)
                 divider
-                IconButton("magnet", help: tr(m.magnet ? "toolbar.magnet.off" : "toolbar.magnet.on"), active: m.magnet) {
+                MagnetToggleButton(isOn: m.magnet, help: tr(m.magnet ? "toolbar.magnet.off" : "toolbar.magnet.on")) {   // OB-08
                     store.setOption(.magnet(!store.project.timeline.mainTrackMagnet))
                 }.testID("toolbar.magnet")
                 IconButton("arrow.right.and.line.vertical.and.arrow.left", help: tr(m.snapping ? "toolbar.snapping.off" : "toolbar.snapping.on"), active: m.snapping) {

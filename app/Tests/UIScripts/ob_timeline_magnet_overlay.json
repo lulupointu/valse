@@ -1,0 +1,22 @@
+// OB-08: the main track magnet toggle shows a drawn magnet (teal when on), its tooltip is on it and it toggles.
+// OB-09: a video with audio on an overlay track draws like on the main track (name chip band, filmstrip, waveform strip).
+{
+  "project": "demo",
+  "steps": [
+    {"expect": {"path": "project.timeline.mainTrackMagnet", "equals": true}},
+    {"snapshot": "magnet-on", "element": "id:toolbar.magnet", "baseline": true},
+    {"hover": "id:toolbar.magnet"},
+    {"waitFor": {"path": "ui.tooltip", "equals": "Turn off main track magnet (P)"}},
+    {"click": "id:toolbar.magnet"},
+    {"expect": {"path": "project.timeline.mainTrackMagnet", "equals": false}},
+    {"hover": "id:toolbar.zoomFit"},
+    {"snapshot": "magnet-off", "element": "id:toolbar.magnet", "baseline": true},
+    {"click": "id:toolbar.magnet"},
+    {"expect": {"path": "project.timeline.mainTrackMagnet", "equals": true}},
+    {"drop": {"media": 0}, "on": "time:8@1"},
+    {"waitFor": {"path": "tracks.1.clips.count", "equals": 2}},
+    {"expect": {"path": "tracks.1.clips.1.start", "gte": 6}},
+    {"click": "time:0@ruler"},
+    {"snapshot": "overlay-video-bands", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02}
+  ]
+}

@@ -616,10 +616,12 @@ final class TimelineView: NSView {
         c.rect(r, bg, radius: 4)
         let visL = max(r.minX, TimelineLayout.headerWidth)
 
-        // Filmstrip
-        if let asset, asset.kind != .audio, track.kind != .audio, r.height >= 30 {
-            let audioStrip: CGFloat = track.isMain && asset.hasAudio && r.height >= 60 ? 16 : 0
-            let stripTop = r.minY + (r.height >= 60 ? 18 : 0)
+        // Filmstrip (OB-09: same bands on every visual track, scaled by the lane height)
+        let filmstrip = asset.map { $0.kind != .audio && track.kind != .audio && r.height >= 30 } ?? false
+        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: asset?.hasAudio == true)
+        if let asset, filmstrip {
+            let audioStrip = bands.audioStrip
+            let stripTop = r.minY + bands.nameBand
             let stripH = r.maxY - audioStrip - stripTop
             let th = Int(stripH * 2)
             let tileW = max(24, stripH * (assetRef?.aspect ?? 16 / 9))
@@ -663,6 +665,7 @@ final class TimelineView: NSView {
             }
         }
         // Label chip: icon + name + duration
+        let chip = filmstrip ? (top: bands.chipTop, height: bands.chipHeight, font: bands.chipFont) : TimelineLayout.defaultChip
         var labelX = visL + 4
         let room = r.maxX - labelX - 4
         if room > 14 {
@@ -672,16 +675,19 @@ final class TimelineView: NSView {
                 labelX += 16
             }
             let label = r.width > 90 ? names.long : names.short
-            let w = min(c.measure(label) + 8, r.maxX - labelX - 4)
+            let w = min(c.measure(label, size: chip.font) + 8, r.maxX - labelX - 4)
             if w > 8 {
-                c.rect(CGRect(x: labelX, y: r.minY + 2.5, width: w, height: 15), RGBA(1, 1, 1, 0.15 * dim), radius: 3)
-                c.text(label, at: CGPoint(x: labelX + 4, y: r.minY + 3), size: 10.5, color: RGBA(1, 1, 1, dim), maxWidth: w - 8)
+                // Over the filmstrip (no name band) the chip needs a dark backing to stay legible.
+                let chipBG = filmstrip && bands.nameBand == 0 ? RGBA(0, 0, 0, 0.45 * dim) : RGBA(1, 1, 1, 0.15 * dim)
+                c.rect(CGRect(x: labelX, y: r.minY + chip.top, width: w, height: chip.height), chipBG, radius: 3)
+                c.text(label, at: CGPoint(x: labelX + 4, y: r.minY + chip.top + 0.5), size: chip.font,
+                       color: RGBA(1, 1, 1, dim), maxWidth: w - 8)
                 labelX += w + 3
             }
             // Effects / filters applied *to* this clip: chips next to the name (UX.md §6.5)
             if clip.content != .adjustment {
                 for sym in Self.appliedEffectSymbols(clip) where labelX + 17 < r.maxX - 4 {
-                    let cr = CGRect(x: labelX, y: r.minY + 2.5, width: 17, height: 15)
+                    let cr = CGRect(x: labelX, y: r.minY + chip.top, width: 17, height: chip.height)
                     c.rect(cr, RGBA(1, 1, 1, 0.15 * dim), radius: 3)
                     if let img = SymbolImages.image(sym) { c.image(img, in: cr.insetBy(dx: 1, dy: 0), alpha: 0.95 * dim, fill: false) }
                     labelX += 20
@@ -695,8 +701,9 @@ final class TimelineView: NSView {
             if let text { w += c.measure(text, size: 9.5) + 3 }
             guard bx - w > labelX + 30 else { return }
             bx -= w
-            if let img = SymbolImages.image(symbol) { c.image(img, in: CGRect(x: bx, y: r.minY + 4, width: 11, height: 11), alpha: 0.95 * dim, fill: false) }
-            if let text { c.text(text, at: CGPoint(x: bx + 13, y: r.minY + 3.5), size: 9.5, color: color) }
+            let by = r.minY + chip.top + 1.5   // 4 pt under the default chip
+            if let img = SymbolImages.image(symbol) { c.image(img, in: CGRect(x: bx, y: by, width: 11, height: 11), alpha: 0.95 * dim, fill: false) }
+            if let text { c.text(text, at: CGPoint(x: bx + 13, y: by - 0.5), size: 9.5, color: color) }
             bx -= 4
         }
         if r.width > 40 {
@@ -712,7 +719,7 @@ final class TimelineView: NSView {
         // Speed curve: dotted line in the name strip
         if case .curve = clip.speed, r.width > 60 {
             var x = visL + 2
-            while x < r.maxX - 2 { c.rect(CGRect(x: x, y: r.minY + 19, width: 2, height: 1), RGBA(hex: 0xF2C230, alpha: 0.7)); x += 5 }
+            while x < r.maxX - 2 { c.rect(CGRect(x: x, y: r.minY + chip.top + chip.height + 1.5, width: 2, height: 1), RGBA(hex: 0xF2C230, alpha: 0.7)); x += 5 }
         }
         // Animation ramps
         if let a = clip.animations.inAnim {

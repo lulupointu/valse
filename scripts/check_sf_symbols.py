@@ -44,7 +44,8 @@ NOT_SYMBOLS = {
     "MontageUI/Recording/RecorderView.swift": {"microphone"},
 }
 LIT = re.compile(r'"((?:[^"\\]|\\.)*)"')
-API = re.compile(r'(systemName|systemImage|systemSymbolName)\s*:\s*"([^"\\]+)"')
+# IconButton("name", …) (MontageUI Support/Controls) takes its symbol unlabelled: OB-08, "magnet" is no SF Symbol.
+API = re.compile(r'(systemName\s*:|systemImage\s*:|systemSymbolName\s*:|IconButton\()\s*"([^"\\]+)"')
 PAIR = re.compile(r'^\s*"([a-z0-9.]+)"\s*:\s*"([a-z0-9.]+)"\s*,')
 
 
