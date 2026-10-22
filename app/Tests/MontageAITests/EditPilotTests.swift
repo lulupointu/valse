@@ -120,17 +120,21 @@ struct EditPilotTests {
     @Test func removeSilencesCutsTheSilentMediaRanges() async throws {
         var p = try await threeClips().project
         let first = p.timeline.mainTrack!.clips[0]
-        // speech 0–1.5 s, silence 1.5–3 s, speech 3–4 s (50 ms steps)
-        let levels: [Float] = (0..<80).map { i in (30..<60).contains(i) ? -70 : -18 }
+        // TL-048: Quick cut's speech mask (one detector). The synthetic videos are silent: pretend the first one speaks
+        // 0–1.5 s and 3–4 s (10 ms frames)
+        p.media[p.media.firstIndex { $0.id == first.mediaID! }!].hasAudio = true
         var ctx = PilotContext()
-        ctx.activity[first.mediaID!] = ActivityProfile(levels: levels, motion: [])
+        ctx.quickCut[first.mediaID!] = QuickCutMask(speech: (0..<400).map { !(150..<300).contains($0) }, hasDynamics: true)
         let before = p.timeline.duration.seconds
+        var q = p
         let r = try PilotOps.apply(.removeSilences(minPause: 0.8), to: &p, context: ctx)
         #expect(r != nil)
         let cut = before - p.timeline.duration.seconds
-        #expect(abs(cut - (1.5 - 0.24)) < 0.06)   // 1.5 s silence minus the 0.12 s breath kept on both sides
+        #expect(abs(cut - (1.5 - 0.2)) < 0.02)   // 1.5 s silence minus Quick cut's handles (140 ms after, 60 ms before)
         #expect(p.timeline.mainTrack!.clips.count == 4)
         #expect(TimelineOps.validate(p.timeline).isEmpty)
+        // a silence shorter than the minimum pause stays
+        #expect(try PilotOps.apply(.removeSilences(minPause: 2), to: &q, context: ctx) == nil)
     }
 
     @Test func speedUpQuietSpeedsOnlyTheBoringRun() async throws {

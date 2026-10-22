@@ -6,7 +6,8 @@ import MontageEngine
 
 /// Measures `ActivityProfile`s (audio level per 50 ms + visual motion per 0.25 s) of a media file, once per content hash
 /// (memory + `Caches/Montage/activity/<hash>.json`). Cheap DSP, no model: 16 kHz mono decode for the level, a 64 px
-/// luma decode (proxy when ready) for motion. Used by EditPilot (AI-048) for silence cuts and "boring parts".
+/// luma decode (proxy when ready) for motion. Used by EditPilot (AI-048) for "boring parts" (speed up quiet parts);
+/// silence cuts use Quick cut's detector (`QuickCutAnalyzer`, TL-048).
 public final class ActivityAnalyzer: @unchecked Sendable {
     public static let shared = ActivityAnalyzer()
     private let lock = NSLock()

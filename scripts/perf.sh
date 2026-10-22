@@ -49,7 +49,7 @@ if [[ ! -e bench/media ]]; then
   MAIN="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
   [[ -f "$MAIN/bench/media/.done" && "$MAIN" != "$ROOT" ]] && ln -s "$MAIN/bench/media" bench/media
 fi
-UNIT_TIMING='canvasBuildScalesTo600Clips|fiftyAnimatedCaptionsRenderFast|playbackDeliversFramesInRealTime|everyEffectFitsTheRealTimeBudget|manyCaptionsSyncFast|enhanceQualityRunsInRealTimeBudget'
+UNIT_TIMING='canvasBuildScalesTo600Clips|fiftyAnimatedCaptionsRenderFast|playbackDeliversFramesInRealTime|everyEffectFitsTheRealTimeBudget|manyCaptionsSyncFast|enhanceQualityRunsInRealTimeBudget|planIsFastEnoughForTheSlider|applyManyCutsIsQuick|thirtyMinutesIsFastAndCancellable'
 swift build -c release --build-tests --scratch-path .build/perf -Xswiftc -enable-testing >&2  # incremental; needed even with --no-build
 
 measure() {

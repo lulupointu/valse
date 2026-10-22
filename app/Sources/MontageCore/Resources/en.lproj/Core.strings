@@ -6,6 +6,7 @@
 "cmd.move" = "Move";
 "cmd.trim" = "Trim";
 "cmd.split" = "Split";
+"cmd.quickCut" = "Quick cut";
 "cmd.delete" = "Delete";
 "cmd.speed" = "Speed";
 "cmd.transition" = "Transition";

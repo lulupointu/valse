@@ -59,7 +59,13 @@ public enum PilotAction: Hashable, Codable, Sendable {
     }
     /// Needs the audio/motion activity profile of the media.
     public var needsActivity: Bool {
-        switch self { case .removeSilences, .speedUpQuiet: return true; default: return false }
+        switch self { case .speedUpQuiet: return true; default: return false }
+    }
+
+    /// Needs Quick cut speech masks ("remove silences", TL-048).
+    public var needsQuickCut: Bool {
+        if case .removeSilences = self { return true }
+        return false
     }
 
     public var symbol: String {
