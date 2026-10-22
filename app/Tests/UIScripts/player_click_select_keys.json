@@ -1,0 +1,29 @@
+// OB-12: with the full-frame video selected, a click on the text above it on the player selects the text.
+// OB-11: in a focused inspector numeric field ↑ / ↓ step the value (⇧ = 10), clamped to its range, one undo step per
+// press; ← / → stay with the field (the playhead doesn't move).
+{
+  "project": "demo",
+  "lang": "en",
+  "steps": [
+    {"click": "time:1@ruler"},
+    {"click": "player:0.2,0.2"},
+    {"expect": {"path": "selectedClips.0.kind", "equals": "media"}},
+    {"click": "player:0.5,0.726"},
+    {"expect": {"path": "selectedClips.0.kind", "equals": "text"}},
+    {"click": "clip:1/0"},
+    {"click": "id:slider.opacity.field"},
+    {"waitFor": {"path": "ui.numericFieldKeys", "equals": true}},
+    {"key": "down"},
+    {"waitFor": {"path": "selectedClips.0.opacity", "approx": 0.99, "tolerance": 0.001}},
+    {"key": "shift+down"},
+    {"waitFor": {"path": "selectedClips.0.opacity", "approx": 0.89, "tolerance": 0.001}},
+    {"key": "shift+up"},
+    {"key": "shift+up"},
+    {"waitFor": {"path": "selectedClips.0.opacity", "approx": 1.0, "tolerance": 0.001}},
+    {"expect": {"path": "undo.depth", "equals": 4}},
+    {"key": "left"},
+    {"key": "left"},
+    {"expect": [{"path": "playhead", "approx": 1, "tolerance": 0.001}, {"path": "selectedClips.0.opacity", "approx": 1.0, "tolerance": 0.001}]},
+    {"snapshot": "opacity-field", "element": "id:slider.opacity.field"}
+  ]
+}

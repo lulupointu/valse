@@ -248,6 +248,8 @@ enum SyntheticEvents {
                 let e = box.value
                 guard let w = e.window as? UITestWindow, w.firstResponder is NSText,
                       !e.modifierFlags.contains(.command) else { return false }
+                // OB-11: ↑ / ↓ of a focused numeric field step it, like the app key monitor (`TextFieldKeys.route`)
+                if NumericFieldKeys.handle(e, window: w) { return true }
                 w.sendEvent(e)
                 return true
             }
