@@ -49,7 +49,7 @@ import MontageEffects
             CaptionSpokenWordSection.set(ctx) { k in
                 k.mode = want.mode; k.highlightColor = want.highlightColor; k.highlightStroke = want.highlightStroke
                 k.highlightScale = want.highlightScale; k.boxColor = want.boxColor; k.unspokenOpacity = want.unspokenOpacity
-                k.bounce = want.bounce; k.keywordColor = want.keywordColor; k.keywordScale = want.keywordScale
+                k.bounce = want.bounce
             }
             #expect(karaoke(s, ids[0]) == want, "\(d.id)")
             #expect(karaoke(s, ids[1]) == want, "\(d.id): Apply to all main captions")
@@ -59,9 +59,43 @@ import MontageEffects
             s.applyCaptionTemplate(d)
             #expect(karaoke(s, ids[0]) == want, "\(d.id) template")
         }
-        // the tab's toggle turns the default spoken-word style on
+        // FB-04: the tab's toggle keeps the last style while off and restores it when turned back on
+        let last = karaoke(s, ids[0])
+        #expect(last != nil && last != KaraokeStyle())
         CaptionSpokenWordSection.chrome(ctx).isEnabled?.wrappedValue = false
+        #expect(karaoke(s, ids[0]) == nil && karaoke(s, ids[1]) == nil)
         CaptionSpokenWordSection.chrome(ctx).isEnabled?.wrappedValue = true
+        #expect(karaoke(s, ids[0]) == last)
+        #expect(karaoke(s, ids[1]) == last, "Apply to all main captions")
+    }
+
+    /// FB-04: turning Spoken word off then on restores the previous values, also after saving / reopening the project
+    /// and through undo; the first time on gives the defaults.
+    @Test func turningSpokenWordOffKeepsItsValues() throws {
+        let (s, ids) = captionStore()
+        TextUIState.shared.applyToAllCaptions = true   // the default (persisted in the test process's defaults: never leave it off)
+        s.selection = [ids[0]]
+        let ctx = InspectorContext(store: s)
+        let toggle = { (on: Bool) in CaptionSpokenWordSection.chrome(ctx).isEnabled?.wrappedValue = on }
+        toggle(true)
         #expect(karaoke(s, ids[0]) == KaraokeStyle())
+        CaptionSpokenWordSection.set(ctx) { $0.mode = .reveal; $0.highlightScale = 1.5; $0.boxColor = RGBA(1, 0, 0) }
+        let custom = try #require(karaoke(s, ids[0]))
+        toggle(false)
+        #expect(karaoke(s, ids[0]) == nil)
+        // stored but inactive, and saved with the project
+        let text = { () -> TextContent? in if case .text(let t) = s.project.timeline.clip(ids[0])?.content { return t }; return nil }
+        #expect(text()?.inactiveKaraoke == custom)
+        let saved = try JSONDecoder().decode(Project.self, from: JSONEncoder().encode(s.project))
+        if case .text(let t) = saved.timeline.clip(ids[0])?.content { #expect(t.inactiveKaraoke == custom && t.karaoke == nil) }
+        else { Issue.record("caption missing after round trip") }
+        toggle(true)
+        #expect(karaoke(s, ids[0]) == custom)
+        #expect(text()?.inactiveKaraoke == nil)
+        s.undo()
+        #expect(karaoke(s, ids[0]) == nil && text()?.inactiveKaraoke == custom)
+        // a template applied while off replaces the remembered look
+        s.applyCaptionTemplate(Registries.captionTemplates["montage.captionTemplate.boxPurple"]!)
+        #expect(text()?.inactiveKaraoke == nil && karaoke(s, ids[0])?.boxColor != nil)
     }
 }

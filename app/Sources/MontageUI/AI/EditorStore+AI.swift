@@ -233,32 +233,6 @@ extension EditorStore {
         perform(Edit("cmd.captionTranslate") { p in SpeechCaptions.clearTranslations(in: &p.timeline) })
     }
 
-    /// Highlight keywords (TX-022 / AI-004) with the on-device LLM when Apple Intelligence is available, else the
-    /// statistical picker; flags `CaptionWord.keyword` (rendered by the text team's karaoke keyword style).
-    public func highlightKeywordsAI() {
-        guard OnDeviceLLM.isAvailable else { highlightCaptionKeywords(); return }   // W7 statistical picker
-        let caps = SpeechCaptions.captions(in: project.timeline)
-        guard !caps.isEmpty else { return }
-        let texts = caps.compactMap { CaptionOps.text($0)?.string }
-        let lang = captionLanguage
-        Task {
-            let keys = await KeywordExtractor.keywords(texts, language: lang)
-            if perform(Edit("cmd.captionKeywords") { p in
-                _ = SpeechCaptions.markKeywords(keys, in: &p.timeline)
-                // keyword emphasis renders through a karaoke style (same default as the text team's picker)
-                for ti in p.timeline.tracks.indices where CaptionOps.isCaptionTrack(p.timeline.tracks[ti]) {
-                    for i in p.timeline.tracks[ti].clips.indices {
-                        guard case .text(var t) = p.timeline.tracks[ti].clips[i].content, t.karaoke == nil else { continue }
-                        t.karaoke = KaraokeStyle(mode: .highlightWord, highlightColor: t.color, highlightScale: 1)
-                        p.timeline.tracks[ti].clips[i].content = .text(t)
-                    }
-                }
-            }) {
-                showToast(tr("captions.keywordsDone", keys.count))
-            }
-        }
-    }
-
     // MARK: Cutout
 
     /// Ticks / unticks Auto cutout (or applies a customized selection) on a clip: sets `Clip.matte` (one undo step)

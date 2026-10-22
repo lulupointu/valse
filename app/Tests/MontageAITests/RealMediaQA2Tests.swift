@@ -70,10 +70,6 @@ import MontageTestSupport
             }
             #expect(r.count > 0)
             for (i, c) in caps.prefix(3).enumerated() { try await Self.snap(p, (c.start + c.duration * 0.5).seconds, "captions-\(i)") }
-            // keyword highlight (AI-004) on the recognised lines
-            let lines = caps.compactMap { c -> String? in if case .text(let tc) = c.content { return tc.string }; return nil }
-            let (kw, tk) = await Self.time { await KeywordExtractor.keywords(lines, language: r.language) }
-            print("QA2 keywords (\(OnDeviceLLM.isAvailable ? "LLM" : "statistical"), \(tk)s): \(kw.sorted())")
         }
     }
 

@@ -30,8 +30,6 @@
 "captions.replace" = "Rechercher et remplacer";
 "captions.replaceWith" = "Remplacer par";
 "captions.replaceAll" = "Tout remplacer";
-"captions.highlightKeywords" = "Mettre en évidence les mots-clés";
-"captions.keywordsDone" = "%d mots-clés mis en évidence";
 "captions.translateTo" = "Traduire en";
 "captions.translate" = "Traduire";
 "captions.translated" = "Sous-titres traduits";
@@ -53,7 +51,6 @@
 "cmd.captionStyleAll" = "Appliquer à tous les sous-titres";
 "cmd.captionDisplay" = "Affichage bilingue";
 "cmd.captionTranslate" = "Traduire les sous-titres";
-"cmd.captionKeywords" = "Mettre en évidence les mots-clés";
 "cmd.cutout" = "Suppression automatique";
 "cmd.cutoutCustom" = "Suppression personnalisée";
 "cutout.job.auto" = "Application de la suppression automatique…";

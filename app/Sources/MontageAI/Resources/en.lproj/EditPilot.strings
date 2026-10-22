@@ -49,7 +49,6 @@
 "pilot.step.removeSilences" = "Cut silences longer than %@ s";
 "pilot.step.addCaptions" = "Add captions (%@)";
 "pilot.step.addCaptionsTranslated" = "Add captions (%1$@) translated to %2$@";
-"pilot.step.highlightKeywords" = "Highlight keywords in the captions";
 "pilot.step.setAspect" = "Change the ratio to %@";
 "pilot.step.setAspectFill" = "Change the ratio to %@ and fill the frame";
 "pilot.step.setSpeed" = "Set speed to %1$@ on %2$@";
@@ -82,7 +81,6 @@
 "pilot.result.normalize" = "%d clips normalized to −14 LUFS";
 "pilot.result.captions" = "%d captions added";
 "pilot.result.title" = "Title added";
-"pilot.result.keywords" = "%d keywords highlighted";
 "pilot.result.translated" = "translated to %@";
 "pilot.result.translationMissing" = "translation skipped: the %@ language pack isn't installed";
 "pilot.diff.title" = "Changes";

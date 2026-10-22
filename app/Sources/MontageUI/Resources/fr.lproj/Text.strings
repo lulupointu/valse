@@ -28,10 +28,6 @@
 "captions.import.done" = "%d sous-titres importés";
 "captions.import.failed" = "Impossible d'importer le fichier.";
 "captions.import.tooLarge" = "Impossible d'importer le fichier. Il ne doit pas dépasser 3 Mo.";
-"captions.keywords" = "Mettre en évidence les mots-clés";
-"captions.keywords.highlight" = "Mettre en évidence automatiquement";
-"captions.keywords.clear" = "Tout effacer";
-"captions.keywords.done" = "%d mots-clés mis en évidence";
 "captions.nudge" = "Décaler d'une image";
 "captions.playFrom" = "Lire depuis ce sous-titre";
 "captions.script" = "Saisir un script";
@@ -44,7 +40,6 @@
 "cmd.captionApplyAll" = "Appliquer à tous les sous-titres";
 "cmd.captionBilingual" = "Sous-titres bilingues";
 "cmd.captionImport" = "Importer des sous-titres";
-"cmd.captionKeywords" = "Mots-clés";
 "cmd.captionMerge" = "Fusionner les sous-titres";
 "cmd.captionReplace" = "Remplacer dans les sous-titres";
 "cmd.captionScript" = "Script en sous-titres";
@@ -151,16 +146,12 @@
 "spokenWord.mode.singleWord.hint" = "Seul le mot en cours de prononciation est affiché.";
 "spokenWord.group.active" = "Mot en cours";
 "spokenWord.group.unspoken" = "Mots pas encore prononcés";
-"spokenWord.group.keywords" = "Mots-clés";
 "spokenWord.outline" = "Contour";
 "spokenWord.box" = "Encadré";
 "spokenWord.scale" = "Échelle";
-"spokenWord.keywordScale" = "Échelle des mots-clés";
 "spokenWord.bounce" = "Rebond";
 "spokenWord.unspokenOpacity" = "Opacité";
 "spokenWord.hint" = "Les modèles de sous-titres définissent ces valeurs : en choisir un les affiche ici. Nécessite le minutage des mots (sous-titres automatiques) ; sinon, les mots sont répartis uniformément.";
-"spokenWord.keywords" = "Mettre en évidence les mots-clés";
 "spokenWord.textColor" = "Couleur du texte";
 "spokenWord.outline.color" = "Teinte";
 "spokenWord.box.color" = "Teinte";
-"spokenWord.keyword.color" = "Teinte";

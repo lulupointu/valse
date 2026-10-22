@@ -50,7 +50,6 @@ public enum EditPilotPlanner {
         Only use these tools:
         - remove_silences {"min_pause": seconds, default 0.8}: cut silent pauses on the main track.
         - add_captions {"language": spoken language code or null, "translate_to": language code or null}
-        - highlight_keywords {}: highlight keywords in the captions.
         - set_aspect {"ratio": "16:9"|"9:16"|"1:1"|"4:3"|"3:4"|"4:5"|"2.35:1", "fill": true}: square / carré = 1:1, vertical = 9:16, horizontal = 16:9.
         - set_speed {"factor": 0.1-10, "scope": "all"|"selected"}
         - speed_up_quiet {"factor": default 2}: speed up quiet, static (boring) parts instead of cutting them.
@@ -166,12 +165,6 @@ public enum EditPilotExecutor {
             var detail: String?
             do {
                 switch step {
-                case .highlightKeywords:
-                    let caps = SpeechCaptions.captions(in: p.timeline).compactMap { CaptionOps.text($0)?.string }
-                    if !caps.isEmpty {
-                        let lang = PilotOps.captionLanguage(p.timeline) ?? L10n.shared.language
-                        detail = PilotOps.markKeywords(await KeywordExtractor.keywords(caps, language: lang), in: &p)
-                    }
                 case .addCaptions(_, let target):
                     detail = try PilotOps.apply(step, to: &p, context: ctx)
                     if detail != nil, let target { detail = await translate(&p, to: target).map { "\(detail!) · \($0)" } ?? detail }

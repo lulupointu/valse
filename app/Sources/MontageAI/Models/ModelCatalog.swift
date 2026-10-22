@@ -75,7 +75,7 @@ public enum ModelCatalog {
         bytes: 54_855_129, sha256: "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856", license: "MIT", runtimeMB: 900)
 
     /// Qwen3-4B-Instruct-2507, Q4_K_M GGUF (Apache-2.0, Alibaba; quantized by Unsloth) for llama.cpp: local text
-    /// generation FR/EN (AI writer, AI clipper highlights, keywords) when Apple Intelligence is off. ~45 tok/s on M-series
+    /// generation FR/EN (AI writer, AI clipper highlights) when Apple Intelligence is off. ~45 tok/s on M-series
     /// Metal, ~3 GB resident while a job runs (sidecar, unloaded afterwards).
     public static let qwen3_4b = AIModelSpec(
         id: "llm.qwen3-4b-instruct-q4km", kind: .llm, nameKey: "model.qwen3", descriptionKey: "model.qwen3.desc",

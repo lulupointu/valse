@@ -42,7 +42,7 @@ struct TextScene: @unchecked Sendable {
         var layer: TextTemplateLayer?
         var karaoke: KaraokeStyle?
         /// Clip-local word timings (seconds) aligned with `layout.words`.
-        var wordTimes: [(start: Double, end: Double, keyword: Bool)]
+        var wordTimes: [(start: Double, end: Double)]
         var charPivots: [CGPoint] = []
         var wordPivots: [CGPoint] = []
         var linePivots: [CGPoint] = []
@@ -104,16 +104,7 @@ enum TextSceneBuilder {
         func textBlock(_ style: TextContent, px: CGFloat, string: String? = nil, layer: TextTemplateLayer? = nil) -> TextScene.Block {
             var st = style
             if let s = string { st.string = s; st.runs = [] }
-            // keyword colouring is part of the base look
             let words = wordTimes(st, karaoke: st.karaoke, duration: duration)
-            if let k = st.karaoke, words.contains(where: \.keyword) {
-                // keyword emphasis is laid out (bigger font, reflowed line), not just scaled
-                let ranges = TextTokenizer.words(in: st.displayString)
-                for (i, w) in words.enumerated() where w.keyword && i < ranges.count {
-                    st.runs.append(TextRun(ranges[i], TextRunStyle(color: k.keywordColor, sizeScale: k.keywordScale == 1 ? nil : k.keywordScale)))
-                }
-                st.runs = TextContent.normalized(st.runs, length: st.displayString.utf16.count)
-            }
             let layout = TextLayoutEngine.layout(st, fontPx: px, boxWidthPx: boxW)
             var hi: TextContent?
             if dynamic, let k = st.karaoke {
@@ -235,14 +226,14 @@ enum TextSceneBuilder {
     }
 
     /// Clip-local word timings (seconds) for karaoke, spreading words evenly when none are stored.
-    static func wordTimes(_ t: TextContent, karaoke: KaraokeStyle?, duration: Double) -> [(start: Double, end: Double, keyword: Bool)] {
+    static func wordTimes(_ t: TextContent, karaoke: KaraokeStyle?, duration: Double) -> [(start: Double, end: Double)] {
         let tokens = TextTokenizer.tokens(t.displayString)
         if let w = t.caption?.words, w.count == tokens.count, !w.isEmpty {
-            return w.map { ($0.start.seconds, $0.end.seconds, $0.isKeyword) }
+            return w.map { ($0.start.seconds, $0.end.seconds) }
         }
         guard karaoke != nil, !tokens.isEmpty else { return [] }
         let even = CaptionOps.evenWords(tokens, start: .zero, end: Time(max(duration, 0.1)))
-        return even.map { ($0.start.seconds, $0.end.seconds, false) }
+        return even.map { ($0.start.seconds, $0.end.seconds) }
     }
 
     static func assemble(_ blocksIn: [TextScene.Block], clip: TextContent, dynamic: Bool, hidden: Set<Int> = []) -> TextScene {

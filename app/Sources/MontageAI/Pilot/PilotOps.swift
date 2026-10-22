@@ -22,7 +22,6 @@ public enum PilotOps {
         switch a {
         case .removeSilences(let m): return try removeSilences(minPause: m, in: &p, ctx)
         case .addCaptions(let lang, _): return addCaptions(language: lang, in: &p, ctx)
-        case .highlightKeywords: return nil   // async (language model), done by the executor
         case .setAspect(let r, let fill): return setAspect(r, fill: fill, in: &p)
         case .setSpeed(let f, let s): return try setSpeed(f, clips: targets(s, p, ctx, visual: true), in: &p)
         case .speedUpQuiet(let f): return try speedUpQuiet(factor: f, in: &p, ctx)
@@ -274,20 +273,5 @@ public enum PilotOps {
         let track = TimelineOps.addTrack(.text, to: &p.timeline)
         try TimelineOps.insert(c, into: &p, target: .track(track))
         return tr("pilot.result.title")
-    }
-
-    /// Marks keywords (from the language model / statistical picker) on the auto captions with the karaoke keyword
-    /// style, like Captions ▸ Highlight keywords.
-    static func markKeywords(_ keys: Set<String>, in p: inout Project) -> String? {
-        let n = SpeechCaptions.markKeywords(keys, in: &p.timeline)
-        guard n > 0 else { return nil }
-        for ti in p.timeline.tracks.indices where CaptionOps.isCaptionTrack(p.timeline.tracks[ti]) {
-            for i in p.timeline.tracks[ti].clips.indices {
-                guard case .text(var t) = p.timeline.tracks[ti].clips[i].content, t.karaoke == nil else { continue }
-                t.karaoke = KaraokeStyle(mode: .highlightWord, highlightColor: t.color, highlightScale: 1)
-                p.timeline.tracks[ti].clips[i].content = .text(t)
-            }
-        }
-        return tr("pilot.result.keywords", keys.count)
     }
 }

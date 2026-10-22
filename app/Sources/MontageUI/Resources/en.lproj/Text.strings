@@ -28,10 +28,6 @@
 "captions.import.done" = "%d captions imported";
 "captions.import.failed" = "Couldn't import file.";
 "captions.import.tooLarge" = "Couldn't import file. File needs to be no more than 3MB.";
-"captions.keywords" = "Highlight keywords";
-"captions.keywords.highlight" = "Highlight keywords automatically";
-"captions.keywords.clear" = "Clear all";
-"captions.keywords.done" = "%d keywords highlighted";
 "captions.nudge" = "Nudge by one frame";
 "captions.playFrom" = "Play from this caption";
 "captions.script" = "Enter scripts";
@@ -44,7 +40,6 @@
 "cmd.captionApplyAll" = "Apply to all captions";
 "cmd.captionBilingual" = "Bilingual captions";
 "cmd.captionImport" = "Import captions";
-"cmd.captionKeywords" = "Highlight keywords";
 "cmd.captionMerge" = "Merge captions";
 "cmd.captionReplace" = "Replace in captions";
 "cmd.captionScript" = "Script to captions";
@@ -151,16 +146,12 @@
 "spokenWord.mode.singleWord.hint" = "Only the word being spoken is shown.";
 "spokenWord.group.active" = "Word being spoken";
 "spokenWord.group.unspoken" = "Words not spoken yet";
-"spokenWord.group.keywords" = "Keywords";
 "spokenWord.outline" = "Outline";
 "spokenWord.box" = "Box";
 "spokenWord.scale" = "Scale";
-"spokenWord.keywordScale" = "Keyword scale";
 "spokenWord.bounce" = "Bounce";
 "spokenWord.unspokenOpacity" = "Opacity";
 "spokenWord.hint" = "Caption templates set these values: picking one shows them here. Needs word timings (auto captions); without them words are spread evenly.";
-"spokenWord.keywords" = "Emphasize keywords";
 "spokenWord.textColor" = "Text color";
 "spokenWord.outline.color" = "Outline color";
 "spokenWord.box.color" = "Box color";
-"spokenWord.keyword.color" = "Keyword color";

@@ -125,19 +125,6 @@ struct CaptionTests {
         #expect(zip(segs, segs.dropFirst()).allSatisfy { abs($0.end - $1.start) < 1e-9 })
     }
 
-    @Test func keywordHighlighterFlagsContentWords() {
-        var p = Project(name: "k")
-        CaptionOps.addCaptionTrack([CaptionSegment(text: "we visited the gorgeous Lisbon", start: 0, end: 2),
-                                    CaptionSegment(text: "and it was", start: 2, end: 3)], to: &p)
-        let ti = CaptionOps.captionTracks(p.timeline)[0]
-        let n = CaptionOps.highlightKeywords(trackIndex: ti, in: &p)
-        #expect(n == 1)
-        let w = CaptionOps.text(p.timeline.tracks[ti].clips[0])!.caption!.words
-        #expect(w.first { $0.isKeyword }?.text == "Lisbon")
-        CaptionOps.clearKeywords(trackIndex: ti, in: &p)
-        #expect(!CaptionOps.text(p.timeline.tracks[ti].clips[0])!.caption!.words.contains { $0.isKeyword })
-    }
-
     @Test func segmentsExportBilingual() {
         var (p, ti) = project()
         var c = p.timeline.tracks[ti].clips[0]

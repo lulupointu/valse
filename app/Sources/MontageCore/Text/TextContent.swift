@@ -230,6 +230,9 @@ public struct TextContent: Hashable, Codable, Sendable {
     public var caption: CaptionData?
     /// Word-highlight (karaoke) styling; needs `caption.words` (or spreads words evenly over the clip).
     public var karaoke: KaraokeStyle?
+    /// Last Spoken word style while Spoken word is turned off (FB-04): kept (and saved) so turning it back on restores it.
+    /// Not rendered. Always nil while `karaoke` is set.
+    public var inactiveKaraoke: KaraokeStyle?
     /// Multi-layer text template this clip instantiates.
     public var template: TextTemplateInstance?
     /// Animated number / timer / date counter replacing the displayed string (TX-039); nil = plain text.
@@ -269,8 +272,22 @@ public struct TextContent: Hashable, Codable, Sendable {
         bubbleColor = try c.decodeIfPresent(RGBA.self, forKey: .bubbleColor)
         caption = try c.decodeIfPresent(CaptionData.self, forKey: .caption)
         karaoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .karaoke)
+        inactiveKaraoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .inactiveKaraoke)
         template = try c.decodeIfPresent(TextTemplateInstance.self, forKey: .template)
         counter = try c.decodeIfPresent(TextCounter.self, forKey: .counter)
+    }
+
+    /// Spoken word values shown in the inspector: the active style, else the remembered one, else the defaults.
+    public var spokenWordStyle: KaraokeStyle { karaoke ?? inactiveKaraoke ?? KaraokeStyle() }
+
+    /// Turns Spoken word on / off without losing its values (FB-04): off parks the style in `inactiveKaraoke`, on brings
+    /// it back (defaults the first time).
+    public mutating func setSpokenWord(_ on: Bool) {
+        if on {
+            karaoke = spokenWordStyle; inactiveKaraoke = nil
+        } else if let k = karaoke {
+            inactiveKaraoke = k; karaoke = nil
+        }
     }
 
     /// How far the outlines reach outside the glyph edge, em (primary stroke by position + extra layers).
