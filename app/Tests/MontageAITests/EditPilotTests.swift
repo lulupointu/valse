@@ -35,7 +35,6 @@ struct EditPilotTests {
 
     @Test func rulesMiscellaneous() {
         #expect(PilotRules.plan("cut the silences").contains(.removeSilences(minPause: 0.8)))
-        #expect(PilotRules.plan("remove the ums and uhs").contains(.removeFillers))
         #expect(PilotRules.plan("make it a 1 min video").contains(.fitDuration(seconds: 60)))
         #expect(PilotRules.plan("slow down the selected clip").contains(.setSpeed(factor: 0.5, scope: .selected)))
         #expect(PilotRules.plan("make it louder by 3 dB").contains(.volume(db: 3, scope: .all)))

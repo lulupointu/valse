@@ -47,7 +47,6 @@
 "pilot.scope.selected" = "selected clips";
 "pilot.secondsUnit" = "%@ s";
 "pilot.step.removeSilences" = "Cut silences longer than %@ s";
-"pilot.step.removeFillers" = "Cut filler words and repetitions";
 "pilot.step.addCaptions" = "Add captions (%@)";
 "pilot.step.addCaptionsTranslated" = "Add captions (%1$@) translated to %2$@";
 "pilot.step.highlightKeywords" = "Highlight keywords in the captions";
@@ -69,7 +68,6 @@
 "pilot.step.stabilize" = "Stabilize %@";
 "pilot.result.nothing" = "Nothing to change";
 "pilot.result.removeSilences" = "%1$d silences cut (−%2$@ s)";
-"pilot.result.removeFillers" = "%1$d filler words cut (−%2$@ s)";
 "pilot.result.speedUpQuiet" = "%1$d parts sped up (−%2$@ s)";
 "pilot.result.fitDuration" = "%1$@ → %2$@";
 "pilot.result.aspect" = "Ratio %@";

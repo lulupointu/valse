@@ -9,7 +9,6 @@
 "captions.track.all" = "Toutes les pistes";
 "captions.track.main" = "Piste principale";
 "captions.track.audio" = "Audio %d";
-"captions.identifyFillers" = "Identifier les tics de langage";
 "captions.deleteCurrent" = "Supprimer les sous-titres actuels";
 "captions.autoLyrics" = "Paroles automatiques";
 "captions.engine" = "Reconnaissance vocale";

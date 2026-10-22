@@ -19,7 +19,7 @@ enum CaptionLanguages {
 }
 
 /// Text ▸ Auto captions (UX_AI §1.2, [119]): Spoken language (Auto detect), Bilingual captions, track selector,
-/// Identify filler words, speech model card; footer: ☐ Delete current captions · [Generate]. Non-blocking progress.
+/// Identify speakers, speech model card; footer: ☐ Delete current captions · [Generate]. Non-blocking progress.
 struct AutoCaptionsPanel: View {
     let store: EditorStore
 
@@ -40,10 +40,6 @@ struct AutoCaptionsPanel: View {
                         if sources.count > 2 {
                             label("captions.selectTrack")
                             Dropdown(items: sources, selection: sourceKey(ai.captionSource)) { k in ai.captionSource = source(for: k) }
-                        }
-                        HStack(spacing: 8) {
-                            CapCheckbox(isOn: Binding.perceived(get: { ai.identifyFillers }, set: { ai.identifyFillers = $0 }))
-                            Text(loc: "captions.identifyFillers").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                         }
                         // AI-005: speaker ID (diarization) → captions split and coloured per speaker
                         HStack(spacing: 8) {

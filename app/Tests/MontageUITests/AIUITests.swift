@@ -20,7 +20,7 @@ import MontageTestSupport
         let v = try await p.addVideo(.movingBox(RGBA(0.5, 0.5, 0.5), RGBA(0.9, 0.1, 0.1)), seconds: 4, size: CGSize(width: 640, height: 360))
         let segs = SpeechCaptions.segments(Transcript(engine: "test", language: "fr", words: Self.words), for: p[v])
         let tid = try #require(CaptionOps.addCaptionTrack(segs, to: &p.project, origin: .auto, replacing: true))
-        SpeechCaptions.finish(trackID: tid, language: "fr", in: &p.project, identifyFillers: true)
+        SpeechCaptions.finish(trackID: tid, in: &p.project)
         let s = EditorStore(project: p.project); s.autosaveEnabled = false
         return (s, v)
     }
@@ -76,47 +76,6 @@ import MontageTestSupport
         #expect(abs(q.x - 0.75) < 0.01 && abs(q.y - 0.25) < 0.01)
         tool.mouseDown(at: Vec2(160, 90)); tool.mouseUp(at: Vec2(160, 90))
         #expect(tool.strokes.count == 1)
-    }
-
-    @Test func transcriptDeleteRestoreAndFillerCleanup() async throws {
-        let (s, v) = try await captionStore()
-        let mid = s.project.timeline.clip(v)!.mediaID!
-        var words = Self.words
-        words.insert(TranscriptWord(text: "euh", start: 1.15, end: 1.4), at: 3)
-        s.ai.transcripts = [mid: Transcript(engine: "t", language: "fr", words: words)]
-        let before = s.project.timeline.mainTrack!.clips.map(\.duration).reduce(.zero, +)
-        var placed = TranscriptEditing.placedWords(transcripts: s.ai.transcripts, timeline: s.project.timeline)
-        s.deleteTranscriptWords(placed.filter { $0.word.text == "couper" })
-        let after = s.project.timeline.mainTrack!.clips.map(\.duration).reduce(.zero, +)
-        #expect(after < before)
-        placed = TranscriptEditing.placedWords(transcripts: s.ai.transcripts, timeline: s.project.timeline)
-        #expect(placed.first { $0.word.text == "couper" }?.isDeleted == true)
-        s.restoreTranscriptWords(placed.filter(\.isDeleted))
-        #expect(abs((s.project.timeline.mainTrack!.clips.map(\.duration).reduce(.zero, +) - before).seconds) < 0.05)
-        placed = TranscriptEditing.placedWords(transcripts: s.ai.transcripts, timeline: s.project.timeline)
-        let fillers = placed.filter { $0.filler != nil }
-        #expect(fillers.map(\.word.text) == ["euh"])
-        // C4 review flow: everything found is dropped by default; keep the pauses, cut the filler — one undo step
-        s.ai.cleanupPauses = true
-        let found = s.fillerCandidates(scope: nil)
-        #expect(found.contains { $0.text == "euh" })
-        s.ai.fillers.candidates = found
-        s.ai.fillers.dropped = Set(found.map(\.id))
-        s.ai.fillers.reviewing = true
-        for c in found where c.kind == .pause { s.toggleFiller(c.id) }
-        let depth = s.session.undoStack.count
-        s.applyFillerReview()
-        #expect(s.session.undoStack.count == depth + 1 && s.session.undoNameKey == "cmd.removeFillers")
-        #expect(!s.ai.fillers.reviewing)
-        #expect(s.toast?.actionTitle != nil)   // Undo in the toast
-        placed = TranscriptEditing.placedWords(transcripts: s.ai.transcripts, timeline: s.project.timeline)
-        #expect(placed.first { $0.word.text == "euh" }?.isDeleted == true)
-        s.toast?.action?()
-        #expect(s.session.undoStack.count == depth)
-        #expect(TimelineOps.validate(s.project.timeline).isEmpty)
-        if let dir = ProcessInfo.processInfo.environment["MONTAGE_SNAPSHOT_DIR"] {
-            try snapshot(TranscriptPanel(store: s), to: URL(fileURLWithPath: dir).appendingPathComponent("ai-transcript.png"), size: CGSize(width: 520, height: 520))
-        }
     }
 
     func waitIdle(_ s: EditorStore, _ until: () -> Bool) async throws {

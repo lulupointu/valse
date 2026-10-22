@@ -17,7 +17,6 @@ public enum PilotScope: String, Codable, Sendable, CaseIterable {
 
 public enum PilotAction: Hashable, Codable, Sendable {
     case removeSilences(minPause: Double)
-    case removeFillers
     /// Auto captions; `translateTo` adds bilingual captions (skipped when it is the spoken language).
     case addCaptions(language: String?, translateTo: String?)
     case highlightKeywords
@@ -43,7 +42,7 @@ public enum PilotAction: Hashable, Codable, Sendable {
     /// Execution order: cuts first, then timing, structure, looks, audio, fades, captions (on the final timeline), titles.
     public var phase: Int {
         switch self {
-        case .removeSilences, .removeFillers: return 0
+        case .removeSilences: return 0
         case .speedUpQuiet, .setSpeed: return 1
         case .addTransitions: return 2
         case .fitDuration: return 3
@@ -58,7 +57,7 @@ public enum PilotAction: Hashable, Codable, Sendable {
 
     /// Needs the transcript (speech recognition) of the media.
     public var needsTranscript: Bool {
-        switch self { case .removeFillers, .addCaptions: return true; default: return false }
+        switch self { case .addCaptions: return true; default: return false }
     }
     /// Needs the audio/motion activity profile of the media.
     public var needsActivity: Bool {
@@ -68,7 +67,6 @@ public enum PilotAction: Hashable, Codable, Sendable {
     public var symbol: String {
         switch self {
         case .removeSilences: return "waveform.badge.minus"
-        case .removeFillers: return "text.badge.minus"
         case .addCaptions: return "captions.bubble"
         case .highlightKeywords: return "highlighter"
         case .setAspect: return "aspectratio"
@@ -91,7 +89,6 @@ public enum PilotAction: Hashable, Codable, Sendable {
         let scope: (PilotScope) -> String = { tr("pilot.scope.\($0.rawValue)") }
         switch self {
         case .removeSilences(let m): return tr("pilot.step.removeSilences", PilotFormat.seconds(m))
-        case .removeFillers: return tr("pilot.step.removeFillers")
         case .addCaptions(let l, let t):
             let spoken = l.map { PilotLanguages.title($0) } ?? tr("captions.autoDetect")
             if let t { return tr("pilot.step.addCaptionsTranslated", spoken, PilotLanguages.title(t)) }
@@ -243,7 +240,6 @@ public enum PilotCallParser {
         }
         switch name {
         case "remove_silences", "cut_silences": return .removeSilences(minPause: clamp(num("min_pause") ?? 0.8, 0.3, 5))
-        case "remove_fillers", "remove_filler_words": return .removeFillers
         case "add_captions", "captions": return .addCaptions(language: lang("language"), translateTo: lang("translate_to"))
         case "highlight_keywords": return .highlightKeywords
         case "set_aspect", "set_ratio", "aspect_ratio":

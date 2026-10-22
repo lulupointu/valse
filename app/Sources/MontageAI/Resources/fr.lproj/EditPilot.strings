@@ -47,7 +47,6 @@
 "pilot.scope.selected" = "les clips sélectionnés";
 "pilot.secondsUnit" = "%@ s";
 "pilot.step.removeSilences" = "Couper les silences de plus de %@ s";
-"pilot.step.removeFillers" = "Couper les tics de langage et les répétitions";
 "pilot.step.addCaptions" = "Ajouter des sous-titres (%@)";
 "pilot.step.addCaptionsTranslated" = "Ajouter des sous-titres (%1$@) traduits en %2$@";
 "pilot.step.highlightKeywords" = "Mettre en évidence les mots-clés des sous-titres";
@@ -69,7 +68,6 @@
 "pilot.step.stabilize" = "Stabiliser %@";
 "pilot.result.nothing" = "Rien à modifier";
 "pilot.result.removeSilences" = "%1$d silences coupés (−%2$@ s)";
-"pilot.result.removeFillers" = "%1$d tics de langage coupés (−%2$@ s)";
 "pilot.result.speedUpQuiet" = "%1$d passages accélérés (−%2$@ s)";
 "pilot.result.fitDuration" = "%1$@ → %2$@";
 "pilot.result.aspect" = "Format %@";

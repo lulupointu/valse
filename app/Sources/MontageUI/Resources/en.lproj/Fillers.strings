@@ -1,6 +1,5 @@
-/* C4 captions & transcript rework: Captions tab, caption list, Apply to all main captions, Remove filler words */
+/* C4 captions rework: Captions tab, caption list, Apply to all main captions (filler / transcript keys removed in FB-01 / FB-11) */
 "tab.captions" = "Captions";
-"captions.nav.fillers" = "Filler words";
 "text.sub.templates" = "Templates";
 "captions.applyAllMain" = "Apply to all main captions";
 "captions.applyAllMain.help" = "Style changes made to this caption also apply to every caption of its track";
@@ -9,45 +8,3 @@
 "captions.newCaption" = "New caption";
 "cmd.captionAdd" = "Add caption";
 "cmd.captionDelete" = "Delete caption";
-
-"transcript.status.upToDate" = "Transcript up to date";
-"transcript.status.upToDateLang" = "Up to date · %@";
-"transcript.status.stale" = "Out of date — timeline changed";
-"transcript.status.staleLanguage" = "Out of date — spoken language changed";
-"transcript.status.none" = "Not transcribed yet";
-"transcript.status.noMedia" = "No clip with sound in the main track";
-"transcript.update" = "Update";
-"transcript.autoDetected" = "Auto detect (%@)";
-
-"fillers.found" = "%d filler words and pauses found";
-"fillers.reviewHint" = "Checked items are removed. Click a row to play from there.";
-"fillers.inlineHint" = "Red words and pauses are removed — click one to keep it.";
-"fillers.scope.all" = "Everywhere";
-"fillers.scope.selected" = "In the %d selected clips";
-"fillers.options" = "Filler types and minimum pause";
-"fillers.removed" = "Removed %d filler words and pauses (%@ s)";
-"fillers.undo" = "Undo";
-"fillers.badge.pause" = "Pause";
-"fillers.badge.hesitation" = "Hesitation";
-"fillers.badge.filler" = "Filler";
-"fillers.badge.repetition" = "Repeat";
-"fillers.pause.leading" = "Pause at the start";
-"fillers.pause.middle" = "Pause";
-"fillers.pause.trailing" = "Pause at the end";
-"fillers.pause.whole" = "Silent clip";
-"fillers.clickToKeep" = "Click to keep";
-"fillers.clickToRemove" = "Click to remove";
-"fillers.keepAll" = "Keep all";
-"fillers.removeAll" = "Remove all";
-"fillers.saves" = "Saves %@ s";
-"fillers.applyN" = "Apply (%d)";
-"fillers.removeN" = "Remove %d";
-
-"settings.labs" = "Labs";
-"fillers.style.title" = "Filler removal style";
-"fillers.style.instant" = "Instant — remove at once, undo from the notification";
-"fillers.style.review" = "Review list — check each filler, then Remove";
-"fillers.style.inline" = "Inline — click the highlighted words to keep or drop them, then Apply";
-"fillers.style.instant.hint" = "Remove filler words cuts every filler and pause it finds in one step.";
-"fillers.style.review.hint" = "Remove filler words lists what it found; uncheck what to keep.";
-"fillers.style.inline.hint" = "Remove filler words highlights what it found in the transcript; click to keep or drop.";

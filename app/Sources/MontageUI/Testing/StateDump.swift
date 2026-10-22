@@ -167,7 +167,6 @@ public enum StateDump {
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)
         ui["transcript"] = store.transcriptStateDump()   // C4: {open, status, words, language, captionsNav, applyToAllCaptions}
-        ui["fillers"] = store.fillersStateDump()   // C4: {reviewing, style, count, dropped, pending, candidates}
         // background jobs (AI, proxies…): `{"waitFor": {"path": "ui.activeJobs", "equals": 0}}` waits for them
         ui["jobs"] = store.jobs.map { ["title": $0.titleKey, "progress": $0.progress, "state": "\($0.state)"] as [String: Any] }
         ui["activeJobs"] = store.jobs.filter { $0.state == .queued || $0.state == .running }.count

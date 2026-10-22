@@ -12,7 +12,6 @@ public final class AIUIState {
     public var captionLanguage: String? = nil
     public var captionEngine: SpeechEngine = .automatic
     public var captionSource: CaptionOptions.Source = .allTracks
-    public var identifyFillers = false
     /// Auto captions ▸ Identify speakers (AI-005) and the number of speakers (nil = Auto).
     public var identifySpeakers = false
     public var speakerCount: Int? = nil
@@ -65,20 +64,8 @@ public final class AIUIState {
     /// OB-07 "Download required" popup + bottom-right download indicator (ModelDownloadFlow.swift).
     public let downloads = ModelDownloadFlow()
     @PerceptionIgnored var ttsRefresh: Task<Void, Never>?
-    // Transcript-based editing
     /// EditPilot chat (AI-048, EditorStore+EditPilot.swift).
     public let pilot = PilotState()
-    public var transcriptOpen = false
-    public var transcriptJob: JobID?
-    public var transcriptProgress: Double = 0
-    public var transcripts: [MediaID: Transcript] = [:]
-    var transcriptSelection: Set<TranscriptPanel.Key> = []
-    var transcriptAnchor: TranscriptPanel.Key?
-    public var minPause: Double = 1.0
-    public var cleanupPauses = true
-    public var cleanupKinds: Set<FillerWords.Kind> = [.hesitation, .filler, .repetition]
-    /// C4 "Remove filler words" review (EditorStore+Fillers.swift).
-    public let fillers = FillerUIState()
     public init() {}
 }
 
@@ -141,9 +128,7 @@ extension EditorStore {
     // MARK: Auto captions
 
     public var captionOptions: CaptionOptions {
-        var s = CaptionSettings()
-        s.identifyFillers = ai.identifyFillers
-        return CaptionOptions(language: ai.captionLanguage, engine: ai.captionEngine, source: ai.captionSource, settings: s,
+        CaptionOptions(language: ai.captionLanguage, engine: ai.captionEngine, source: ai.captionSource, settings: CaptionSettings(),
                               replaceExisting: ai.replaceCaptions && hasAutoCaptions,
                               identifySpeakers: ai.identifySpeakers, speakerCount: ai.speakerCount)
     }

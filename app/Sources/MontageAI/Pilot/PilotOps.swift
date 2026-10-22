@@ -21,7 +21,6 @@ public enum PilotOps {
     public static func apply(_ a: PilotAction, to p: inout Project, context ctx: PilotContext) throws -> String? {
         switch a {
         case .removeSilences(let m): return try removeSilences(minPause: m, in: &p, ctx)
-        case .removeFillers: return try removeFillers(in: &p, ctx)
         case .addCaptions(let lang, _): return addCaptions(language: lang, in: &p, ctx)
         case .highlightKeywords: return nil   // async (language model), done by the executor
         case .setAspect(let r, let fill): return setAspect(r, fill: fill, in: &p)
@@ -86,16 +85,8 @@ public enum PilotOps {
         }
         guard !ranges.isEmpty else { return nil }
         let before = p.timeline.duration
-        try TranscriptEditing.rippleDelete(ranges, in: &p)
+        try RippleCut.rippleDelete(ranges, in: &p)
         return tr("pilot.result.removeSilences", ranges.count, PilotFormat.seconds((before - p.timeline.duration).seconds))
-    }
-
-    static func removeFillers(in p: inout Project, _ ctx: PilotContext) throws -> String? {
-        let words = TranscriptEditing.placedWords(transcripts: ctx.transcripts, timeline: p.timeline).filter { $0.filler != nil && !$0.isDeleted }
-        guard !words.isEmpty else { return nil }
-        let before = p.timeline.duration
-        try TranscriptEditing.deleteWords(words, in: &p)
-        return tr("pilot.result.removeFillers", words.count, PilotFormat.seconds((before - p.timeline.duration).seconds))
     }
 
     // MARK: Timing
@@ -263,16 +254,13 @@ public enum PilotOps {
         var settings = CaptionSettings()
         settings.removeFillers = true
         var segments: [CaptionSegment] = []
-        var detected: [String: Int] = [:]
         for c in CaptionGenerator.sourceClips(p, .allTracks) {
             guard let t = c.mediaID.flatMap({ ctx.transcripts[$0] }), !t.words.isEmpty else { continue }
             segments += SpeechCaptions.segments(t, for: c, settings: settings)
-            detected[t.language, default: 0] += t.words.count
         }
         guard !segments.isEmpty else { return nil }
-        let lang = detected.max { $0.value < $1.value }?.key ?? language ?? "en"
         guard let id = CaptionOps.addCaptionTrack(segments, to: &p, origin: .auto, replacing: true) else { return nil }
-        SpeechCaptions.finish(trackID: id, language: lang, in: &p, identifyFillers: false)
+        SpeechCaptions.finish(trackID: id, in: &p)
         return tr("pilot.result.captions", segments.count)
     }
 

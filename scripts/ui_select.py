@@ -1234,7 +1234,7 @@ def select(src, scripts=None, map_text=None):
                     sel.add(readers, f"{rel}: changes `{ident}`, dumped as {k!r}")
             if dead:
                 # some changed declaration reaches no test hook: the coarse directory rule covers it (measured: the
-                # file's own test IDs instead would miss scripts, e.g. c4_caption_list for EditorStore+Fillers.swift)
+                # file's own test IDs instead would miss scripts, e.g. c4_caption_list for EditorStore+CaptionSync.swift)
                 for n, why in rule_scripts(rel, always_only=False).items():
                     sel.add([n], f"{why} (no test ID / l10n key reached from {', '.join(dead[:2])})")
             continue

@@ -13,8 +13,8 @@ public struct AssetPanel: View {
 
     public var body: some View {
         WithPerceptionTracking {
-            // AI: EditPilot chat (AI2) and the transcript (W10) replace the asset panel
-            if store.ai.pilot.isOpen { EditPilotPanel(store: store) } else if store.ai.transcriptOpen { TranscriptPanel(store: store) } else { tabs }
+            // AI: EditPilot chat (AI2) replaces the asset panel
+            if store.ai.pilot.isOpen { EditPilotPanel(store: store) } else { tabs }
         }
     }
 

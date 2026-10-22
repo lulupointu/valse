@@ -1,19 +1,15 @@
 // C4: Captions is its own top-level asset tab between Transitions and Filters (CapCut [21]): Auto captions · Local
-// captions · Filler words (the same transcript / filler review as the Transcript panel); Text no longer lists captions.
+// captions (FB-11: the Filler words entry was removed); Text no longer lists captions.
 {
   "project": "demo-transcript:captions",
   "steps": [
     {"dump": "start"},
     {"click": "id:asset.tab.captions"},
     {"expect": [{"path": "ui.assetTab", "equals": "captions"}, {"path": "ui.anchors", "contains": "captions.panel"},
-                {"path": "ui.anchors", "contains": "asset.nav.fillers"}]},
+                {"path": "ui.anchors", "notContains": "asset.nav.fillers"}]},
     {"snapshot": "captions-tab", "element": "id:panel.assets"},
     {"click": "id:asset.nav.local"},
     {"expect": {"path": "ui.anchors", "contains": "captions.script.editor"}},
-    {"click": "id:asset.nav.fillers"},
-    {"expect": [{"path": "ui.anchors", "contains": "captions.fillers"}, {"path": "ui.transcript.status", "equals": "upToDate"},
-                {"path": "ui.anchors", "contains": "fillers.remove"}]},
-    {"snapshot": "captions-fillers", "element": "id:panel.assets"},
     {"click": "id:asset.tab.text"},
     {"expect": [{"path": "ui.anchors", "notContains": "asset.nav.auto"}, {"path": "ui.anchors", "notContains": "asset.nav.local"}]}
   ]

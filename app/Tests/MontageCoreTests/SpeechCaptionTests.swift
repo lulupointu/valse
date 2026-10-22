@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import MontageCore
 
-/// W10 speech → captions (on the W7 caption model), fillers, WER, transcript-based editing.
+/// W10 speech → captions (on the W7 caption model), fillers, WER, ripple cuts.
 @Suite struct SpeechCaptionTests {
     func ok(_ p: Project) { #expect(TimelineOps.validate(p.timeline).isEmpty, "\(TimelineOps.validate(p.timeline))") }
 
@@ -110,16 +110,16 @@ import Foundation
         #expect(segs[0].words.count == CaptionText.tokens(segs[0].text).count)
     }
 
-    func captionProject(fillers: Bool = false) throws -> (Project, TrackID) {
+    func captionProject() throws -> (Project, TrackID) {
         var (p, ids) = Fx.project(mainClips: 1, seconds: 8)
         let segs = SpeechCaptions.segments(Transcript(engine: "t", language: "fr", words: Self.words()), for: p.timeline.clip(ids[0])!)
         let id = try #require(CaptionOps.addCaptionTrack(segs, to: &p, origin: .auto, replacing: true))
-        SpeechCaptions.finish(trackID: id, language: "fr", in: &p, identifyFillers: fillers)
+        SpeechCaptions.finish(trackID: id, in: &p)
         return (p, id)
     }
 
     @Test func captionTrackUsesTextModelWithWordTimings() throws {
-        let (p, id) = try captionProject(fillers: true)
+        let (p, id) = try captionProject()
         ok(p)
         let caps = SpeechCaptions.captions(in: p.timeline)
         #expect(caps.count >= 3)
@@ -130,8 +130,6 @@ import Foundation
         #expect(w.map(\.text) == ["Bonjour", "et", "bienvenue."])
         #expect(abs(w[1].start.seconds - 0.45) < 0.01)
         #expect(caps.allSatisfy { $0.linkedTo == p.timeline.mainTrack!.clips[0].id })
-        let all = caps.flatMap { CaptionOps.text($0)?.caption?.words ?? [] }
-        #expect(all.first { $0.text == "euh" }?.filler == true)
         #expect(p.timeline.tracks.contains { $0.id == id })
     }
 
@@ -147,34 +145,17 @@ import Foundation
         #expect(CaptionOps.text(p.timeline.clip(caps[0].id)!)?.caption?.translation == nil)
     }
 
-    // MARK: Transcript-based editing
+    // MARK: Ripple cuts (EditPilot remove silences)
 
-    @Test func deletingWordsRippleCutsTheMainTrack() throws {
-        var (p, ids) = Fx.project(mainClips: 1, seconds: 8)
-        let mid = p.timeline.clip(ids[0])!.mediaID!
-        let tr = [mid: Transcript(engine: "t", language: "fr", words: Self.words())]
-        var placed = TranscriptEditing.placedWords(transcripts: tr, timeline: p.timeline)
-        #expect(placed.count == Self.words().count)
-        try TranscriptEditing.deleteWords(placed.filter { $0.word.text == "euh" }, in: &p)
+    @Test func rippleCutShortensMainAndCaptionsFollow() throws {
+        var (p, _) = try captionProject()
+        let start = { (p: Project) in SpeechCaptions.captions(in: p.timeline).first { CaptionOps.text($0)?.string.hasPrefix("Aujourd") == true }!.start.seconds }
+        let before = start(p)
+        try RippleCut.rippleDelete([TimeRange(start: Time(1.2), end: Time(1.9))], in: &p)
         ok(p)
-        #expect(p.timeline.mainTrack!.clips.count == 2)
-        #expect(abs(p.timeline.duration.seconds - (8 - 0.2)) < 0.02)
-        placed = TranscriptEditing.placedWords(transcripts: tr, timeline: p.timeline)
-        #expect(placed.first { $0.word.text == "euh" }?.isDeleted == true)
-        #expect(placed.first { $0.word.text == "nous" }?.isDeleted == false)
-        try TranscriptEditing.restore(placed.filter(\.isDeleted), in: &p)
-        ok(p)
-        #expect(abs(p.timeline.duration.seconds - 8) < 0.02)
-        #expect(TranscriptEditing.placedWords(transcripts: tr, timeline: p.timeline).allSatisfy { !$0.isDeleted })
-    }
-
-    @Test func pausesAreReported() {
-        let (p, ids) = Fx.project(mainClips: 1, seconds: 8)
-        let mid = p.timeline.clip(ids[0])!.mediaID!
-        let placed = TranscriptEditing.placedWords(transcripts: [mid: Transcript(engine: "t", language: "fr", words: Self.words())], timeline: p.timeline)
-        let pauses = TranscriptEditing.pauses(placed, minimum: 0.5)
-        #expect(pauses.count == 1)
-        #expect(abs(pauses[0].seconds - 0.9) < 1e-6)
+        #expect(abs(p.timeline.duration.seconds - (8 - 0.7)) < 0.02)
+        #expect(abs(start(p) - (before - 0.7)) < 0.02)
+        #expect(throws: EditError.self) { try RippleCut.rippleDelete([], in: &p) }
     }
 
     @Test func inverseTimeRemapOnCurves() throws {

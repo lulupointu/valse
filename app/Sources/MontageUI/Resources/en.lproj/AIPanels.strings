@@ -9,7 +9,6 @@
 "captions.track.all" = "All tracks";
 "captions.track.main" = "Main track";
 "captions.track.audio" = "Audio %d";
-"captions.identifyFillers" = "Identify filler words";
 "captions.deleteCurrent" = "Delete current captions";
 "captions.autoLyrics" = "Auto lyrics";
 "captions.engine" = "Speech recognition";

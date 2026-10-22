@@ -77,7 +77,7 @@ public enum CaptionGenerator {
         var transcripts: [MediaID: [Transcript]] = [:]
         var detected: [String: Int] = [:]
         var engineUsed = ""
-        let keepFillers = o.settings.identifyFillers || o.settings.removeFillers
+        let keepFillers = o.settings.removeFillers
         for (asset, range) in jobs {
             try Task.checkCancellation()
             // Auto lyrics (AI-002): recognise the separated vocals, not the band
@@ -121,7 +121,7 @@ public enum CaptionGenerator {
         }
         phase?(.splitting)
         var settings = o.settings
-        if o.lyrics { settings.identifyFillers = false; settings.removeFillers = false; settings.maxPause = 1.2 }
+        if o.lyrics { settings.removeFillers = false; settings.maxPause = 1.2 }
         // lines that fit the frame at the caption size (≈ 25 characters on 9:16, ≤ 40 on 16:9)
         let canvas = p.settings.canvasSize
         settings.maxCharsPerLine = min(settings.maxCharsPerLine,
@@ -148,14 +148,13 @@ public enum CaptionGenerator {
         let replace = o.replaceExisting
         let origin: CaptionOrigin = o.lyrics ? .lyrics : .auto
         let style = o.style
-        let fillers = settings.identifyFillers
         let final = segments
         let tagged = speakers
         let cmd = Edit(o.lyrics ? "cmd.lyrics" : "cmd.captions") { p in
             guard let id = CaptionOps.addCaptionTrack(final, to: &p, style: style, origin: origin, replacing: replace) else {
                 throw EditError.nothingToDo
             }
-            SpeechCaptions.finish(trackID: id, language: lang, in: &p, identifyFillers: fillers)
+            SpeechCaptions.finish(trackID: id, in: &p)
             if tagged { SpeakerCaptions.finish(in: &p) } else { SpeakerCaptions.syncSpeakers(in: &p) }
         }
         return CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
