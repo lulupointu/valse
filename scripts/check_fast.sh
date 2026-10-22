@@ -95,7 +95,7 @@ report_ui() { # rc duration
     grep -E "^✘|^  failed:" build/check_fast-ui.log | head -30 | sed 's/^/  /' || true
     FAIL=1
   fi
-  grep -E "^  (flaky|quarantined|⚠)" build/check_fast-ui.log || true
+  grep -E "^  (flaky|quarantined|⚠ slow expect|⚠ click warning)" build/check_fast-ui.log || true
 }
 
 if [[ $UNIT == 1 && $UIRUN == 1 && $SERIAL == 0 ]]; then

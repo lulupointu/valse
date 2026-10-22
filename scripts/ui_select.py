@@ -1018,15 +1018,18 @@ class Reach:
                 for cand, scope in f.follow_names(b):
                     users = self.users_of(cand, scope, f.path)
                     if users is not None:
-                        name = cand; break
+                        name, nscope = cand, scope; break
                     skipped.add(cand)
                 if name is None:
                     continue
                 pat = re.compile(rf'\b{re.escape(name)}\b')
+                # a short member name (`nav`) counts outside its own file only where it is qualified (`Catalog.nav`)
+                qual = re.compile(rf'\b{re.escape(nscope)}\s*\.\s*{re.escape(name)}\b') if nscope and len(name) < 4 else None
                 for u in users:
                     uf = self.file(u)
+                    upat = qual if qual is not None and u != f.path else pat
                     for i, l in enumerate(uf.lines):
-                        if not pat.search(l) or l.strip().startswith("//"):
+                        if not upat.search(l) or l.strip().startswith("//"):
                             continue
                         ub = uf.block_at(i + 1)
                         if ub is not None and ub.name == name and ub.start == i + 1:
