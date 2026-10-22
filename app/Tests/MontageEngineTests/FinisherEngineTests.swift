@@ -44,7 +44,14 @@ import MontageTestSupport
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("fin-scrub-tone.m4a")
         if !FileManager.default.fileExists(atPath: url.path) { try await SyntheticMedia.writeAudio(to: url, seconds: 3, hz: 440) }
         var p = Project()
-        let (assets, _) = await MediaProbe.probeAll([url])
+        var (assets, _) = await MediaProbe.probeAll([url])
+        if assets.isEmpty {
+            // a run killed mid-write leaves a truncated shared file: every later run would crash here (index out of range)
+            try? FileManager.default.removeItem(at: url)
+            try await SyntheticMedia.writeAudio(to: url, seconds: 3, hz: 440)
+            (assets, _) = await MediaProbe.probeAll([url])
+        }
+        try #require(!assets.isEmpty, "tone fixture \(url.path) is unreadable")
         p.media = assets
         try TimelineOps.insert(TimelineOps.makeClip(for: assets[0], at: .zero), into: &p)
         return p
