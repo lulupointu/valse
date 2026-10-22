@@ -138,9 +138,6 @@ public enum PilotRules {
         if has(s, ["silence", "pause", "blancs", "dead air"]) && !has(s, speedUp) {
             out.append(.removeSilences(minPause: number(s, before: ["s", "sec", "second", "seconde"]).map { min(max($0, 0.3), 5) } ?? 0.8))
         }
-        if has(s, ["filler", " um", " uh", "hesitation", "tics", "tic de langage", "euh", "mots parasites", "repetition"]) {
-            out.append(.removeFillers)
-        }
         // captions / subtitles
         if has(s, ["caption", "subtitle", "sous-titre", "sous titre", "soustitre", "legende", "transcri"]) {
             let lang = language(s)

@@ -47,14 +47,10 @@ struct TranscriptWorkspace: View {
     var body: some View {
         WithPerceptionTracking {
             let ai = store.ai
-            let f = ai.fillers
             VStack(spacing: 0) {
                 TranscriptStatusBar(store: store)
-                FillerBar(store: store)
                 if ai.transcripts.isEmpty {
                     emptyHint
-                } else if f.reviewing && f.style == .review {
-                    FillerChecklist(store: store)
                 } else {
                     textToolbar
                     TranscriptText(store: store, query: query, showDeleted: showDeleted)
@@ -62,7 +58,6 @@ struct TranscriptWorkspace: View {
                 footer
             }
             .onAppear { store.loadCachedTranscripts() }
-            .onValueChange(of: store.session.revision) { store.refreshFillerReview() }   // undo / edits during a review
             .testID(context == .panel ? "transcript.workspace" : "captions.fillers")
         }
     }
@@ -96,10 +91,7 @@ struct TranscriptWorkspace: View {
 
     @ViewBuilder var footer: some View {
         let ai = store.ai
-        let f = ai.fillers
-        if f.reviewing {
-            FillerReviewFooter(store: store)
-        } else if !ai.transcripts.isEmpty {
+        if !ai.transcripts.isEmpty {
             let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: store.project.timeline)
             let selected = words.filter { ai.transcriptSelection.contains(TranscriptPanel.Key(media: $0.media, index: $0.index)) }
             let selectedDeleted = selected.filter(\.isDeleted)
@@ -195,47 +187,28 @@ struct TranscriptText: View {
     var body: some View {
         WithPerceptionTracking {
             let ai = store.ai
-            let f = ai.fillers
             let tl = store.project.timeline
             let words = TranscriptEditing.placedWords(transcripts: ai.transcripts, timeline: tl)
-            let inline = f.reviewing && f.style == .inline
-            let wordCands = inline ? Dictionary(f.candidates.filter { $0.kind != .pause }.map { ($0.anchor, $0) }, uniquingKeysWith: { a, _ in a }) : [:]
-            let pauseList = inline ? f.candidates.filter { $0.kind == .pause }
-                : FillerCleanup.pauses(words: words, transcripts: ai.transcripts, timeline: tl,
-                                       options: FillerCleanup.Options(minPause: ai.minPause))
-            let pausesBefore = Dictionary(grouping: pauseList, by: \.anchor)
+            let pausesBefore = Dictionary(grouping: TranscriptEditing.pauses(words, minimum: 1.0), by: { $0.after + 1 })
             let playhead = store.transport.playhead
             let current = words.lastIndex { !$0.isDeleted && $0.time <= playhead }
             ScrollView {
                 FlowLayout(spacing: 3, lineSpacing: 6) {
                     ForEach(Array(words.enumerated()), id: \.offset) { i, w in
                         WithPerceptionTracking {
-                            ForEach(pausesBefore[i] ?? [], id: \.id) { p in WithPerceptionTracking { pauseChip(p, inline: inline) } }
+                            ForEach(pausesBefore[i] ?? [], id: \.after) { p in
+                                WithPerceptionTracking { PauseChip(seconds: p.seconds).onTapGesture { store.seek(to: w.time) } }
+                            }
                             if showDeleted || !w.isDeleted {
-                                if let c = wordCands[i] {
-                                    FillerWordChip(text: w.word.text, dropped: f.dropped.contains(c.id), kind: c.kind) { store.toggleFiller(c.id) }
-                                        .testID("fillers.word.\(i)")
-                                } else {
-                                    WordChip(word: w, selected: ai.transcriptSelection.contains(TranscriptPanel.Key(media: w.media, index: w.index)),
-                                             current: i == current, hit: matches(w)) { shift in click(i, words, shift: shift) }
-                                }
+                                WordChip(word: w, selected: ai.transcriptSelection.contains(TranscriptPanel.Key(media: w.media, index: w.index)),
+                                         current: i == current, hit: matches(w)) { shift in click(i, words, shift: shift) }
                             }
                         }
                     }
-                    ForEach(pausesBefore[words.count] ?? [], id: \.id) { p in WithPerceptionTracking { pauseChip(p, inline: inline) } }
                 }
                 .padding(12)
             }
             .testID("transcript.text")
-        }
-    }
-
-    @ViewBuilder func pauseChip(_ p: FillerCleanup.Candidate, inline: Bool) -> some View {
-        if inline {
-            FillerPauseChip(seconds: p.seconds, dropped: store.ai.fillers.dropped.contains(p.id)) { store.toggleFiller(p.id) }
-                .testID("fillers.pause.\(p.anchor)")
-        } else {
-            PauseChip(seconds: p.seconds).onTapGesture { store.seek(to: p.range.start) }
         }
     }
 
@@ -354,7 +327,6 @@ extension EditorStore {
         let assets = onlyMissing ? all.filter { ai.transcripts[$0.id] == nil } : all
         guard !assets.isEmpty else {
             if all.isEmpty { showToast(tr("transcript.noMain"), error: true) }
-            if ai.fillers.pendingRemove { startFillerRemoval() }
             return
         }
         let lang = ai.captionLanguage, engine = ai.captionEngine
@@ -384,17 +356,14 @@ extension EditorStore {
             ai.transcriptJob = nil
             if st == .done {
                 for (k, v) in box.all { ai.transcripts[k] = v }
-                if ai.transcripts.values.allSatisfy({ $0.words.isEmpty }) { showToast(tr("ai.error.noSpeech"), error: true); ai.fillers.pendingRemove = false }
-                else if ai.fillers.pendingRemove { startFillerRemoval() }
+                if ai.transcripts.values.allSatisfy({ $0.words.isEmpty }) { showToast(tr("ai.error.noSpeech"), error: true) }
             } else {
-                ai.fillers.pendingRemove = false
                 if case .failed = st { showToast(tr("captions.error.failed"), error: true) }
             }
         }
     }
 
     public func cancelTranscript() {
-        ai.fillers.pendingRemove = false
         if let id = ai.transcriptJob { Task { await JobQueue.shared.cancel(id) } }
     }
 

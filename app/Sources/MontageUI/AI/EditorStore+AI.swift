@@ -73,11 +73,6 @@ public final class AIUIState {
     public var transcripts: [MediaID: Transcript] = [:]
     var transcriptSelection: Set<TranscriptPanel.Key> = []
     var transcriptAnchor: TranscriptPanel.Key?
-    public var minPause: Double = 1.0
-    public var cleanupPauses = true
-    public var cleanupKinds: Set<FillerWords.Kind> = [.hesitation, .filler, .repetition]
-    /// C4 "Remove filler words" review (EditorStore+Fillers.swift).
-    public let fillers = FillerUIState()
     public init() {}
 }
 

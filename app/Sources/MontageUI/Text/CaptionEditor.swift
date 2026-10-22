@@ -55,9 +55,6 @@ struct CaptionEditorSection: View {
             .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
             SmallIconButton(symbol: "arrow.left.arrow.right", help: tr("captions.replaceAll"), active: ui.showReplace, size: 12) { ui.showReplace.toggle() }
                 .testID("captions.replace")
-            // C4: the shared "Remove filler words" review (Captions ▸ Filler words)
-            SmallIconButton(symbol: "wand.and.stars", help: tr("transcript.removeFillers"), size: 13) { store.showFillerWords() }
-                .testID("captions.removeFillers")
             Menu {
                 Button(tr("captions.keywords.highlight")) { store.highlightKeywordsAI() }   // W10: on-device LLM, statistical fallback
                 Button(tr("captions.keywords.clear")) { store.clearCaptionKeywords() }

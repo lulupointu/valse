@@ -49,7 +49,6 @@ public enum EditPilotPlanner {
         Reply with ONLY a JSON array of tool calls, no prose. Each call is {"tool": "<name>", ...arguments}. Reply [] if nothing matches.
         Only use these tools:
         - remove_silences {"min_pause": seconds, default 0.8}: cut silent pauses on the main track.
-        - remove_fillers {}: cut filler words (um, uh, euh) and repetitions.
         - add_captions {"language": spoken language code or null, "translate_to": language code or null}
         - highlight_keywords {}: highlight keywords in the captions.
         - set_aspect {"ratio": "16:9"|"9:16"|"1:1"|"4:3"|"3:4"|"4:5"|"2.35:1", "fill": true}: square / carré = 1:1, vertical = 9:16, horizontal = 16:9.
