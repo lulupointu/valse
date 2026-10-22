@@ -206,6 +206,7 @@ struct CoverEditorModal: View {
                 Color.black.opacity(0.45).ignoresSafeArea().onTapGesture {}
                 CoverEditorView(store: store, model: model)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .modalHoverShield()   // FB-07
                     .background(GeometryReader { g in
                         WithPerceptionTracking {
                             // offscreen snapshots redraw the modal above the Metal views (see SnapshotRegistry.modalFrame)

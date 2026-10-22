@@ -195,25 +195,34 @@ struct NumericField: View {
     }
 }
 
-/// The ⇕ button next to numeric fields (two halves).
+/// The ⇕ button next to numeric fields (two halves). FB-09: each half is a full rectangle hit target (no gap between
+/// them, the whole half clicks, not only the chevron glyph); Settings uses the larger `width` / `halfHeight`.
 struct StepperButton: View {
     var enabled = true
+    var width: CGFloat = 14
+    var halfHeight: CGFloat = 12
+    /// Test ids `<testID>.up` / `<testID>.down` when set.
+    var testID: String?
     let step: (Int) -> Void
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 0) {
-                Button { step(1) } label: {
-                    Image(systemName: "chevron.up").font(.system(size: 7, weight: .bold)).frame(width: 14, height: 12).contentShape(Rectangle())
-                }
-                Button { step(-1) } label: {
-                    Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold)).frame(width: 14, height: 12).contentShape(Rectangle())
-                }
+                half(+1, "chevron.up", "up")
+                half(-1, "chevron.down", "down")
             }
             .buttonStyle(.plain)
             .foregroundStyle(Theme.textPrimary.opacity(0.85))
             .background(Theme.stepper, in: RoundedRectangle(cornerRadius: 4))
             .disabled(!enabled)
         }
+    }
+
+    @ViewBuilder private func half(_ d: Int, _ symbol: String, _ suffix: String) -> some View {
+        let b = Button { step(d) } label: {
+            Image(systemName: symbol).font(.system(size: halfHeight > 12 ? 8 : 7, weight: .bold))
+                .frame(width: width, height: halfHeight).contentShape(Rectangle())
+        }
+        if let testID { b.testID("\(testID).\(suffix)") } else { b }
     }
 }
 

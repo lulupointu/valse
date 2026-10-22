@@ -217,12 +217,16 @@ struct Splitter: View {
     /// New size for the panel (unclamped: the caller clamps).
     let onDrag: (CGFloat) -> Void
     @State private var start: CGFloat?
+    @State private var pushed = false
     var body: some View {
         WithPerceptionTracking {
             Rectangle().fill(Color.clear)
                 .contentShape(Rectangle())
                 .onHover { inside in
-                    if inside { (axis == .vertical ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push() } else { NSCursor.pop() }
+                    // FB-07: no resize cursor through a dialog; pop only what was pushed
+                    if inside, !pushed, !ModalHoverGate.isActive() {
+                        (axis == .vertical ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push(); pushed = true
+                    } else if !inside, pushed { NSCursor.pop(); pushed = false }
                 }
                 .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global).onChanged { v in
                     let s = start ?? value

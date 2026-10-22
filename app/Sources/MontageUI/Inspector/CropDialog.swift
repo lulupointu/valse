@@ -148,6 +148,7 @@ struct CropDialogModal: View {
                     .frame(width: 780, height: 600)
                     .background(Theme.panel)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .modalHoverShield()   // FB-07
                     .background(GeometryReader { g in
                         WithPerceptionTracking {
                             Color.clear

@@ -32,7 +32,13 @@ public enum Tooltips {
 
 extension View {
     /// Montage tooltip (shadows SwiftUI's `help(_: StringProtocol)` for `String` arguments in MontageUI, see `Tooltips`).
-    /// The text stays the accessibility help of the view.
+    /// The text stays the accessibility help of the view. An empty text adds nothing.
+    ///
+    /// Policy (FB-10, owner): a tooltip must add something. Put one on symbol-only controls (icon buttons, ⓘ, status
+    /// dots) and where the visible text is not clear on its own (it explains an action / a consequence, shows a full
+    /// path or file name that is truncated, a date…). Never on a control whose visible label already says it all
+    /// ("Add text" on "Add text", an effect tile's name under the tile). Shortcuts go in the tooltip of icon-only
+    /// controls (or when the tooltip already adds information), not as the only content on a labelled button.
     func help(_ text: String) -> some View { modifier(TooltipModifier(text: text)) }
 }
 
@@ -130,6 +136,7 @@ final class TooltipCenter {
 
     func enter(_ a: TooltipAnchorView) {
         guard current !== a else { return }
+        guard !Self.coveredByModal(a) else { if let c = current { exit(c) }; return }   // FB-07
         if dismissed !== a { dismissed = nil }   // the mouse left the dismissed element
         hide()
         current = a
@@ -154,6 +161,18 @@ final class TooltipCenter {
     func textChanged(_ a: TooltipAnchorView) {
         guard current === a, shownText != nil else { return }
         show(a)
+    }
+
+    /// FB-07: an anchor under an in-window modal (outside its card) never shows its tooltip.
+    static func coveredByModal(_ a: TooltipAnchorView) -> Bool {
+        guard ModalHoverGate.isActive(in: a.window) else { return false }
+        guard let r = a.windowRect else { return true }
+        return ModalHoverGate.isBlocked(CGPoint(x: r.midX, y: r.midY), in: a.window)
+    }
+
+    /// A modal just appeared: drop the tooltip of an element it covers.
+    func modalDidAppear() {
+        if let c = current, Self.coveredByModal(c) { exit(c) }
     }
 
     /// Click, scroll or key press: the tooltip goes away and stays away until the mouse enters another element.

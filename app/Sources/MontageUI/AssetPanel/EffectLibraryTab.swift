@@ -365,6 +365,7 @@ struct EffectCard: View {
                             }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(Text(verbatim: tr(descriptor.nameKey)))   // FB-10: was the (removed) name tooltip
                     if hover || selected {
                         CardBadges(id: descriptor.id, fav: fav, add: add)
                     } else if fav {
@@ -384,7 +385,6 @@ struct EffectCard: View {
                 Button(tr("asset.addToTrack"), action: add)
                 if descriptor.groupKey == CustomEffectLibrary.groupKey { CustomEffectMenuItems(effectID: descriptor.id) }   // FX-018
             }
-            .help(tr(descriptor.nameKey))
         }
     }
 

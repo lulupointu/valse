@@ -1,0 +1,27 @@
+// FB-07 / FB-09: Settings over the editor owns the pointer (no tooltip from the toolbar underneath, the card's own
+// tooltips still work) and its stepper halves click anywhere in the half, not only on the chevron glyph.
+{
+  "project": "demo",
+  "steps": [
+    {"idle": 1},
+    {"menu": "menu.app/menu.settings"},
+    {"expect": [{"path": "app.modal", "equals": "settings"}, {"path": "ui.modalHoverShield", "equals": true}]},
+    // the timeline toolbar is under the dimmed backdrop: hovering it shows nothing
+    {"hover": "id:toolbar.split", "settle": 0},
+    {"expect": [{"path": "ui.tooltip", "exists": false}, {"path": "ui.tooltipPending", "exists": false}], "now": true},
+    {"wait": 0.35},
+    {"expect": {"path": "ui.tooltip", "exists": false}},
+    // inside the card, the icon-only close button keeps its tooltip
+    {"hover": "id:dialog.close"},
+    {"waitFor": {"path": "ui.tooltip", "equals": "Close"}},
+    // stepper halves: clicks near the corners of each half count
+    {"click": "id:settings.tab.edit"},
+    {"click": "id:settings.field.stepFrames.up", "at": [0.9, 0.15]},
+    {"click": "id:settings.field.stepFrames.up", "at": [0.1, 0.85]},
+    {"click": "id:settings.field.stepFrames.down", "at": [0.9, 0.85]},
+    {"click": "id:settings.field.stepFrames.up", "at": [0.5, 0.5]},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.modal", "equals": ""}, {"path": "app.settings.stepFrames", "equals": 12},
+                {"path": "ui.modalHoverShield", "equals": false}]}
+  ]
+}
