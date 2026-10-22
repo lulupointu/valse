@@ -1,5 +1,4 @@
 import AppKit
-import MontageEngine
 
 /// OB-11: keys that belong to the focused text field, not to editor shortcuts.
 ///
@@ -31,12 +30,11 @@ public enum TextFieldKeys {
 }
 
 /// OB-11: ↑ / ↓ in a focused numeric field step its value (⇧ = 10 steps), one undoable edit per press, clamped by the
-/// field's own `step` closure. The focused field registers its step closure; a local key monitor (re-installed on each
-/// focus so it runs before older monitors, the UI test driver's key routing included) handles the keys.
+/// field's own `step` closure. The focused field registers its step closure; the app key monitor (`TextFieldKeys.route`)
+/// and the UI test driver's key routing call `handle` before delivering the key to the field.
 @MainActor
 public enum NumericFieldKeys {
     private static var active: (token: UUID, step: (Int) -> Void)?
-    private static var monitor: Any?
 
     /// A numeric field is focused and takes ↑ / ↓ (UI test state `ui.numericFieldKeys`).
     public static var isActive: Bool { active != nil }
@@ -53,12 +51,6 @@ public enum NumericFieldKeys {
 
     static func focus(_ token: UUID, step: @escaping (Int) -> Void) {
         active = (token, step)
-        if let m = monitor { NSEvent.removeMonitor(m) }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
-            let box = UncheckedSendable(e)
-            let handled = MainActor.assumeIsolated { NumericFieldKeys.handle(box.value) }
-            return handled ? nil : e
-        }
     }
 
     /// The field re-rendered with a new value: its step closure captures it.
@@ -69,7 +61,6 @@ public enum NumericFieldKeys {
     static func blur(_ token: UUID) {
         guard active?.token == token else { return }
         active = nil
-        if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
     }
 
     /// Handles ↑ / ↓ (keyDown) for the registered field while its text is being edited.
