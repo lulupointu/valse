@@ -91,6 +91,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildMenu()
         makeWindow()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            // OB-11: arrows / Home / End move the caret of a focused text field (any window, modals included)
+            if TextFieldKeys.route(e) { return nil }
             guard let self, e.window === self.window, self.app.modal == nil else { return e }
             if self.app.screen == .home {
                 // ⌫ / ⌘⌫ on Home: trash the selected projects (in the Trash: delete forever)

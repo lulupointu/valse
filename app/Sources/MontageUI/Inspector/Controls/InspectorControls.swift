@@ -137,6 +137,14 @@ struct NumericField: View {
     let step: (Int) -> Void
     @State private var text = ""
     @FocusState private var focused: Bool
+    /// OB-11: ↑ / ↓ registration while focused (`NumericFieldKeys`).
+    @State private var keyToken = UUID()
+
+    /// ↑ / ↓ press: drops any half-typed text (the field then shows the stepped value) and steps the model value.
+    private func keyStep(_ d: Int) {
+        text = display
+        step(d)
+    }
 
     var body: some View {
         WithPerceptionTracking {
@@ -174,8 +182,15 @@ struct NumericField: View {
             .disabled(!enabled)
             .onAppear { text = display }
             // also while focused when the field still shows the previous value (after ⏎ the commit re-renders `display`)
-            .onValueChange(of: display) { old, v in if focused && text == old { text = v } }
-            .onValueChange(of: focused) { _, f in text = display }
+            .onValueChange(of: display) { old, v in
+                if focused && text == old { text = v }
+                if focused { NumericFieldKeys.update(keyToken, step: keyStep) }
+            }
+            .onValueChange(of: focused) { _, f in
+                text = display
+                if f && enabled { NumericFieldKeys.focus(keyToken, step: keyStep) } else { NumericFieldKeys.blur(keyToken) }
+            }
+            .onDisappear { NumericFieldKeys.blur(keyToken) }
         }
     }
 }

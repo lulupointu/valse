@@ -579,8 +579,10 @@ final class CanvasOverlayView: NSView {
             if mt.layer.geometry.contains(p) { return }
         }
         let all = layers
+        // OB-12: the selection's handles win, but a click on its body selects the topmost layer under the pointer
         if let sel = selectedLayers.first, store.selection.count == 1, !sel.isLocked,
-           let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale) {
+           let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale),
+           h != .body || CanvasLayers.bodyPressTarget(all, selected: sel.clipID, at: p) == nil {
             if h == .delete { store.deleteSelection(); return }
             if h == .body, e.clickCount == 2, sel.isText { store.playerUI.editingTextClip = sel.clipID; return }
             startTransform(h, sel, all, p, v)
@@ -705,10 +707,15 @@ final class CanvasOverlayView: NSView {
                 angleLabel = r
                 apply(id) { $0.setValue(.rotation, .scalar(r), at: local) }
             case .edge(let edge):
-                // TX-011: one side by default (opposite edge fixed), ⌥ = from the centre
+                // OB-04: the box centre stays fixed by default; ⌥ = one side (opposite edge fixed, TX-011)
                 let sx = abs(base.value(.scale, at: local)?.vec2?.x ?? 1)
-                let r = CanvasHandles.textBoxResize(layer.geometry, edge: edge, dragTo: p, fromCenter: e.modifierFlags.contains(.option),
-                                                    layerScale: sx, canvasWidth: canvas.width)
+                let baseText: TextContent? = { if case .text(let t) = base.content { return t }; return nil }()
+                let halfWidth: ((Double) -> Double)? = baseText.map { t0 in { w in
+                    var t = t0; t.boxWidth = w
+                    return TextMetrics.size(of: t, canvasHeight: canvas.height, canvasWidth: canvas.width).width * sx / 2
+                } }
+                let r = CanvasHandles.textBoxResize(layer.geometry, edge: edge, dragTo: p, fromCenter: !e.modifierFlags.contains(.option),
+                                                    layerScale: sx, canvasWidth: canvas.width, halfWidth: halfWidth)
                 let pos = base.value(.position, at: local)?.vec2 ?? .zero
                 let np = CanvasDrag.moved(pos, by: r.shift, canvas: canvas)
                 apply(id) { c in

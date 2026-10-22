@@ -104,6 +104,14 @@ nonisolated enum CanvasLayers {
     static func hit(_ layers: [CanvasLayer], at p: Vec2) -> CanvasLayer? {
         layers.last { !$0.isLocked && $0.geometry.contains(p) }
     }
+
+    /// OB-12: a press inside the selected layer's body goes to the topmost unlocked layer under the pointer when that is
+    /// another layer (stacked above the selection, e.g. a text over the selected full-frame video), like CapCut.
+    /// nil = the selected layer itself is the topmost hit (keep transforming it).
+    static func bodyPressTarget(_ layers: [CanvasLayer], selected: ClipID, at p: Vec2) -> CanvasLayer? {
+        guard let top = hit(layers, at: p), top.clipID != selected else { return nil }
+        return top
+    }
 }
 
 /// What a mouse-down on the selection box grabbed.
@@ -156,22 +164,27 @@ nonisolated enum CanvasHandles {
         return min(max(2 * lx / max(abs(layerScale), 0.01) / max(canvasWidth, 1), 0.03), 4)
     }
 
-    /// TX-011 (F3): dragging edge pill `edge` (1 right, 3 left). Default = one-side resize (the opposite edge stays put, so
-    /// the box centre moves by half the change); ⌥ = resize from the centre (CapCut "Resize the text box from the center").
-    /// Returns the new `boxWidth` (fraction of the canvas width) and the centre shift in canvas px.
+    /// TX-011 / OB-04: dragging edge pill `edge` (1 right, 3 left). `fromCenter` (the canvas default, owner bug OB-04)
+    /// keeps the box centre fixed: only the wrap width changes, the position never moves. One-side (⌥ on the canvas):
+    /// the opposite edge stays put, the centre moves by half the change of the box's real width.
+    /// `halfWidth` = the laid-out box's half width (canvas px, layer scale included) for a given `boxWidth`: text hugs
+    /// its lines and cannot wrap narrower than its longest word, so the box is not always `boxWidth` wide; the shift
+    /// follows the real width (at a limit the width stops changing, so nothing moves). nil = exactly `boxWidth`.
+    /// Returns the new `boxWidth` (fraction of the canvas width) and the centre shift in canvas px. Computed from the
+    /// gesture's starting geometry `g`, so repeated drag updates are idempotent.
     static func textBoxResize(_ g: LayerGeometry, edge: Int, dragTo p: Vec2, fromCenter: Bool, layerScale: Double,
-                              canvasWidth: Double) -> (width: Double, shift: Vec2) {
+                              canvasWidth: Double, halfWidth: ((Double) -> Double)? = nil) -> (width: Double, shift: Vec2) {
         if fromCenter { return (textBoxWidth(g, dragTo: p, layerScale: layerScale, canvasWidth: canvasWidth), .zero) }
         let axis = Vec2(cos(g.rotation), sin(g.rotation))
         let side: Double = edge == 3 ? -1 : 1
-        let fixed = g.center - axis * (side * abs(g.halfSize.x))         // the edge that stays
+        let oldHalf = abs(g.halfSize.x)
+        let fixed = g.center - axis * (side * oldHalf)                   // the edge that stays
         let d = p - fixed
         let reach = max(side * (d.x * axis.x + d.y * axis.y), 0)        // drag distance along the box, outward
         let scale = max(abs(layerScale), 0.01)
         let width = min(max(reach / scale / max(canvasWidth, 1), 0.03), 4)
-        let newHalf = width * max(canvasWidth, 1) * scale / 2
-        let newCenter = fixed + axis * (side * newHalf)
-        return (width, newCenter - g.center)
+        let newHalf = halfWidth?(width) ?? width * max(canvasWidth, 1) * scale / 2
+        return (width, axis * (side * (newHalf - oldHalf)))
     }
 }
 
