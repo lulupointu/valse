@@ -1,29 +1,43 @@
 import SwiftUI
 import Perception
 
-/// OB-08: horseshoe magnet glyph for the "main track magnet" toggle. SF Symbols has no magnet (on any macOS), so the
-/// former IconButton with the "magnet" name rendered an empty 26 pt button: the owner only saw its tooltip. Drawn as a path:
-/// U-shaped body plus two pole tips separated by a small gap, stroked in the button's foreground colour.
+/// OB-08 / FB-05: horseshoe magnet glyph for the "main track magnet" toggle. SF Symbols has no magnet (on any macOS),
+/// so it is drawn: a monoline OUTLINE of a horseshoe (outer and inner U joined at the poles) with a band line across
+/// each pole, stroked at the weight of the neighbouring 14 pt regular SF Symbols (FB-05: the former filled, 3 pt
+/// thick glyph looked heavier and bolder than every other toolbar icon).
 struct MagnetShape: Shape {
     func path(in rect: CGRect) -> Path {
         let s = min(rect.width, rect.height)
         let ox = rect.midX - s / 2, oy = rect.midY - s / 2
         func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: ox + x * s, y: oy + y * s) }
-        let l: CGFloat = 0.2, rr: CGFloat = 0.8, radius = (rr - l) / 2, arcY: CGFloat = 0.55
+        // Legs: outer x 0.12 / 0.88, inner x 0.38 / 0.62; poles at the top (y 0.08), arcs centred at y 0.5.
+        let ol: CGFloat = 0.12, or_: CGFloat = 0.88, il: CGFloat = 0.38, ir: CGFloat = 0.62
+        let top: CGFloat = 0.08, arcY: CGFloat = 0.5, band: CGFloat = 0.3
+        let k: CGFloat = 0.5523   // cubic quarter-circle constant
+        let ro = (or_ - ol) / 2, ri = (ir - il) / 2
         var path = Path()
-        // Body: two legs and the rounded bottom (cubic approximation of a half circle).
-        path.move(to: p(l, 0.34))
-        path.addLine(to: p(l, arcY))
-        path.addCurve(to: p(rr, arcY), control1: p(l, arcY + radius * 4 / 3), control2: p(rr, arcY + radius * 4 / 3))
-        path.addLine(to: p(rr, 0.34))
-        // Pole tips, separated from the body by a visible gap.
-        path.move(to: p(l, 0.0)); path.addLine(to: p(l, 0.25))
-        path.move(to: p(rr, 0.0)); path.addLine(to: p(rr, 0.25))
+        path.move(to: p(ol, top))
+        path.addLine(to: p(ol, arcY))
+        // outer half circle (two quarter arcs) down and around to the right leg
+        path.addCurve(to: p(0.5, arcY + ro), control1: p(ol, arcY + ro * k), control2: p(0.5 - ro * k, arcY + ro))
+        path.addCurve(to: p(or_, arcY), control1: p(0.5 + ro * k, arcY + ro), control2: p(or_, arcY + ro * k))
+        path.addLine(to: p(or_, top))
+        path.addLine(to: p(ir, top))
+        path.addLine(to: p(ir, arcY))
+        // inner half circle back to the left
+        path.addCurve(to: p(0.5, arcY + ri), control1: p(ir, arcY + ri * k), control2: p(0.5 + ri * k, arcY + ri))
+        path.addCurve(to: p(il, arcY), control1: p(0.5 - ri * k, arcY + ri), control2: p(il, arcY + ri * k))
+        path.addLine(to: p(il, top))
+        path.closeSubpath()
+        // pole bands
+        path.move(to: p(ol, band)); path.addLine(to: p(il, band))
+        path.move(to: p(ir, band)); path.addLine(to: p(or_, band))
         return path
     }
 }
 
-/// Toolbar toggle with the drawn magnet, styled like `IconButton` (26 pt, accent when on, tooltip = action).
+/// Toolbar toggle with the drawn magnet, styled exactly like `IconButton` (26 pt hit box, ~14 pt glyph, 1.2 pt
+/// monoline stroke, accent tint when on, `textPrimary` 85 % when off; tooltip = action), like snapping / linkage.
 struct MagnetToggleButton: View {
     let isOn: Bool
     let help: String
@@ -33,9 +47,9 @@ struct MagnetToggleButton: View {
         WithPerceptionTracking {
             Button(action: action) {
                 MagnetShape()
-                    .stroke(style: StrokeStyle(lineWidth: 3, lineCap: .butt, lineJoin: .round))
-                    .frame(width: 15, height: 15)
-                    .rotationEffect(.degrees(45))   // tilted horseshoe: reads as a magnet, not a "U"
+                    .stroke(style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+                    .frame(width: 14, height: 14)
+                    .rotationEffect(.degrees(45))   // tilted horseshoe (poles up-right): reads as a magnet, not a "U"
                     .frame(width: 26, height: 26)
                     .foregroundStyle(isOn ? Theme.accent : Theme.textPrimary.opacity(0.85))
                     .contentShape(Rectangle())
