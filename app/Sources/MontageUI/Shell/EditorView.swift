@@ -101,6 +101,7 @@ public struct EditorView: View {
                 }
             }
         }
+        .overlay { ModelDownloadOverlay(store: store) }   // OB-07 download popup + bottom-right progress
         .sheet(isPresented: Binding.perceived(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
             WithPerceptionTracking {
                 ModelManagerSheet { store.ai.isModelSheetPresented = false }   // W10 AI models

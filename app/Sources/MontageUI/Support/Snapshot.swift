@@ -17,6 +17,9 @@ public final class SnapshotRegistry {
     /// Frame (content coordinates, top-left origin) of an in-window modal (export dialog) drawn by SwiftUI above the
     /// Metal views: when set, the Metal views are dimmed like the modal backdrop and the modal is redrawn on top.
     public var modalFrame: CGRect?
+    /// Floating SwiftUI cards over the Metal views without a backdrop (OB-07 download indicator), by key: redrawn on
+    /// top like `modalFrame`, without dimming anything.
+    public var floatingFrames: [String: CGRect] = [:]
 
     public func snapshot(window: NSWindow) -> CGImage? {
         guard let content = window.contentView else { return nil }
@@ -46,6 +49,12 @@ public final class SnapshotRegistry {
                 let y = content.isFlipped ? bounds.height - r.maxY : r.minY
                 ctx.draw(img, in: CGRect(x: r.minX * scale, y: y * scale, width: r.width * scale, height: r.height * scale))
             }
+        }
+        for m in floatingFrames.values {
+            let rect = CGRect(x: m.minX * scale, y: (bounds.height - m.maxY) * scale, width: m.width * scale, height: m.height * scale)
+            ctx.saveGState(); ctx.clip(to: rect)
+            ctx.draw(base, in: CGRect(x: 0, y: 0, width: base.width, height: base.height))
+            ctx.restoreGState()
         }
         if let m = modalFrame {
             for view in [player as NSView?, timeline as NSView?].compactMap({ $0 }) where view.window === window {

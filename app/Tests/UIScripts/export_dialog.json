@@ -22,6 +22,10 @@
     {"click": "id:export.confirm"},
     {"waitFor": {"path": "ui.export.shown.0.state", "equals": "done", "timeout": 90}},
     {"expect": [{"path": "ui.export.shown.0.written.count", "equals": 3}, {"path": "ui.export.jobs.count", "equals": 1}]},
+    // OB-06: the finished video is loaded in the preview but never auto-plays
+    {"waitFor": {"path": "ui.export.preview.loaded", "equals": true}},
+    {"expect": {"path": "ui.export.preview.playing", "equals": false}, "now": true},
+    {"expect": {"path": "ui.anchors", "contains": "export.preview.playPause"}},
     {"snapshot": "dialog-done", "element": "id:export.dialog"},
     {"click": "id:export.close"},
     {"expect": [{"path": "ui.exportSheet", "equals": false}]},

@@ -51,7 +51,12 @@ struct AIWriterPanel: View {
                         HStack {
                             Spacer()
                             PillButton(title: tr(st.busy ? "writer.generating" : "writer.generate"), accent: true,
-                                       enabled: AIWriter.isAvailable && !st.busy && !st.topic.trimmingCharacters(in: .whitespaces).isEmpty) { generate() }
+                                       enabled: !st.busy && !st.topic.trimmingCharacters(in: .whitespaces).isEmpty) {
+                                // OB-07: without an on-device LLM, ask to download the local one, then generate
+                                // (UI tests on the empty model sandbox ignore Apple Intelligence, like EditPilot)
+                                let ready = LlamaRuntime.isAvailable || (OnDeviceLLM.hasFoundationModels && !ModelCatalog.isSandboxed)
+                                if ready { generate() } else { store.requireModels([ModelCatalog.qwen3_4b]) { generate() } }
+                            }
                                 .testID("writer.generate")
                         }
                         if let e = st.error { HintText(text: e, color: IStyle.warning) }

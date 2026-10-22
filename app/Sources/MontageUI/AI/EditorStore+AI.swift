@@ -62,6 +62,8 @@ public final class AIUIState {
     public var enhanceJobs: [ClipID: (job: JobID, target: VideoEnhancement)] = [:]
     // Models sheet
     public var isModelSheetPresented = false
+    /// OB-07 "Download required" popup + bottom-right download indicator (ModelDownloadFlow.swift).
+    public let downloads = ModelDownloadFlow()
     @PerceptionIgnored var ttsRefresh: Task<Void, Never>?
     // Transcript-based editing
     /// EditPilot chat (AI-048, EditorStore+EditPilot.swift).
@@ -359,6 +361,7 @@ extension EditorStore {
             }
         }
         d["progress"] = progress
+        d["flow"] = ai.downloads.dump()   // OB-07 popup / indicator
         return d
     }
 }

@@ -60,7 +60,10 @@ struct AIRemoveSection: View {
                     HStack {
                         Spacer()
                         PillButton(title: tr("remove.clear"), enabled: !tool.strokes.isEmpty) { tool.clear() }
-                        PillButton(title: tr("remove.apply"), accent: true, enabled: !tool.strokes.isEmpty && LaMaInpainter.isAvailable) { store.applyRemoveBrush() }
+                        // OB-07: without LaMa, Remove asks to download it, then removes
+                        PillButton(title: tr("remove.apply"), accent: true, enabled: !tool.strokes.isEmpty) {
+                            if LaMaInpainter.isAvailable { store.applyRemoveBrush() } else { store.requireModels([ModelCatalog.lama]) { store.applyRemoveBrush() } }
+                        }
                             .testID("remove.apply")
                     }
                 } else if ctx.clip?.removal != nil {

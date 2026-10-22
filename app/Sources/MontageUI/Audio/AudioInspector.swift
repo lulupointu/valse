@@ -174,7 +174,8 @@ struct SeparationSection: View {
                         Text(loc: "audio.isolate.music.needsModel").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer()
-                        Button(tr("audio.isolate.music.getModel")) { ctx.store.ai.isModelSheetPresented = true }
+                        // OB-07: download prompt + progress, then the audio is re-planned with the stems model
+                        Button(tr("audio.isolate.music.getModel")) { let s = ctx.store; s.requireModels([ModelCatalog.demucs4]) { s.engine.forceRebuild() } }
                             .buttonStyle(SecondaryButtonStyle()).testID("audio.isolate.getModel")
                     }
                 }

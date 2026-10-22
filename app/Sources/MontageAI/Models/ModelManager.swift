@@ -41,15 +41,52 @@ public final class ModelManager {
     public private(set) var states: [String: AIModelState] = [:]
     @PerceptionIgnored private var tasks: [String: Task<Void, Never>] = [:]
     @PerceptionIgnored private var downloads: [String: URLSessionDownloadTask] = [:]
+    @PerceptionIgnored private var finishWaiters: [String: [@MainActor (AIModelState) -> Void]] = [:]
 
-    init() { refresh() }
+    /// Simulated downloads (UI tests: never the network). `.complete` reports progress then marks the model installed
+    /// (in memory only: no file is written, so features still see it missing on disk); `.hold` stops at 40 % until
+    /// cancelled (download-indicator / cancel checks).
+    public enum Simulation: String, Sendable { case complete, hold }
+    @PerceptionIgnored public var simulation: Simulation?
+    @PerceptionIgnored private var simulatedInstalled: Set<String> = []
+
+    public init() { refresh() }
 
     public func state(_ spec: AIModelSpec) -> AIModelState { states[spec.id] ?? .notInstalled }
 
     /// Re-scans the disk (cheap).
     public func refresh() {
-        for s in ModelCatalog.all where !(states[s.id]?.isBusy ?? false) {
+        for s in ModelCatalog.all where !(states[s.id]?.isBusy ?? false) && !simulatedInstalled.contains(s.id) {
             states[s.id] = ModelCatalog.installedURL(s).map(AIModelState.installed) ?? .notInstalled
+        }
+    }
+
+    /// Calls `body` once when the current (or next) download / import of `spec` ends: `.installed`, `.failed`, or
+    /// `.notInstalled` (cancelled). Fires at once when nothing is in progress.
+    public func whenFinished(_ spec: AIModelSpec, _ body: @escaping @MainActor (AIModelState) -> Void) {
+        guard state(spec).isBusy else { body(state(spec)); return }
+        finishWaiters[spec.id, default: []].append(body)
+    }
+
+    private func finish(_ id: String, _ s: AIModelState) {
+        states[id] = s
+        tasks[id] = nil
+        downloads[id] = nil
+        let w = finishWaiters.removeValue(forKey: id) ?? []
+        for f in w { f(s) }
+    }
+
+    /// Ends a download task: maps the result to the model's state, then notifies `whenFinished` waiters.
+    private func complete(_ id: String, _ error: Error?) {
+        let spec = ModelCatalog.spec(id)
+        guard let error else {
+            finish(id, spec.flatMap(ModelCatalog.installedURL).map(AIModelState.installed) ?? .failed("missing")); return
+        }
+        switch error {
+        case is CancellationError: finish(id, .notInstalled)
+        case let e as ModelError where e == .cancelled: finish(id, .notInstalled)
+        case let e as ModelError: finish(id, .failed(tr(e.messageKey)))
+        default: finish(id, .failed(tr("model.error.network")))
         }
     }
 
@@ -58,6 +95,7 @@ public final class ModelManager {
         guard !state(spec).isBusy, !state(spec).isInstalled else { return }
         states[spec.id] = .downloading(0)
         let id = spec.id
+        if let simulation { simulate(spec, simulation); return }
         if spec.parts != nil { downloadParts(spec); return }
         tasks[id] = Task { [weak self] in
             do {
@@ -73,18 +111,31 @@ public final class ModelManager {
                 }
                 self?.states[id] = .verifying
                 try await Self.verifyAndInstall(tmp, spec: spec, move: true)
-                self?.states[id] = ModelCatalog.installedURL(spec).map(AIModelState.installed) ?? .failed("missing")
-            } catch is CancellationError {
-                self?.states[id] = .notInstalled
-            } catch let e as ModelError where e == .cancelled {
-                self?.states[id] = .notInstalled
-            } catch let e as ModelError {
-                self?.states[id] = .failed(tr(e.messageKey))
+                self?.complete(id, nil)
             } catch {
-                self?.states[id] = .failed(tr("model.error.network"))
+                self?.complete(id, error)
             }
-            self?.tasks[id] = nil
-            self?.downloads[id] = nil
+        }
+    }
+
+    /// UI-test download: progress ticks (a moving `ui.models.progress` keeps scripts' waits alive), no network, no file.
+    private func simulate(_ spec: AIModelSpec, _ mode: Simulation) {
+        let id = spec.id
+        tasks[id] = Task { [weak self] in
+            do {
+                var p = 0.0
+                while true {
+                    try await Task.sleep(nanoseconds: 60_000_000)
+                    if mode == .hold && p >= 0.4 { continue }
+                    p = min(1, p + 0.1)
+                    self?.states[id] = .downloading(p)
+                    if p >= 1 { break }
+                }
+                self?.simulatedInstalled.insert(id)
+                self?.finish(id, .installed(ModelCatalog.modelsDirectory.appendingPathComponent(spec.fileName)))
+            } catch {
+                self?.complete(id, error)
+            }
         }
     }
 
@@ -114,18 +165,10 @@ public final class ModelManager {
                 }
                 self?.states[id] = .verifying
                 try await Self.verifyAndInstallDirectory(stage, spec: spec, move: true)
-                self?.states[id] = ModelCatalog.installedURL(spec).map(AIModelState.installed) ?? .failed("missing")
-            } catch is CancellationError {
-                self?.states[id] = .notInstalled
-            } catch let e as ModelError where e == .cancelled {
-                self?.states[id] = .notInstalled
-            } catch let e as ModelError {
-                self?.states[id] = .failed(tr(e.messageKey))
+                self?.complete(id, nil)
             } catch {
-                self?.states[id] = .failed(tr("model.error.network"))
+                self?.complete(id, error)
             }
-            self?.tasks[id] = nil
-            self?.downloads[id] = nil
         }
     }
 
@@ -159,17 +202,17 @@ public final class ModelManager {
             do {
                 if spec.parts != nil { try await Self.verifyAndInstallDirectory(url, spec: spec, move: false) }
                 else { try await Self.verifyAndInstall(url, spec: spec, move: false) }
-                self?.states[id] = ModelCatalog.installedURL(spec).map(AIModelState.installed) ?? .failed("missing")
+                self?.complete(id, nil)
             } catch let e as ModelError {
-                self?.states[id] = .failed(tr(e.messageKey))
+                self?.finish(id, .failed(tr(e.messageKey)))
             } catch {
-                self?.states[id] = .failed(tr("model.error.io"))
+                self?.finish(id, .failed(tr("model.error.io")))
             }
-            self?.tasks[id] = nil
         }
     }
 
     public func remove(_ spec: AIModelSpec) {
+        simulatedInstalled.remove(spec.id)
         if let u = ModelCatalog.installedURL(spec) { try? FileManager.default.removeItem(at: u) }
         for c in spec.companions { try? FileManager.default.removeItem(at: ModelCatalog.modelsDirectory.appendingPathComponent(c.path)) }
         states[spec.id] = .notInstalled

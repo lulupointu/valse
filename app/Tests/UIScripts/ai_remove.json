@@ -1,5 +1,6 @@
 // W10: Video ▸ Basic ▸ ☐ AI remove without the LaMa model (the default in UI tests: the models folder is an empty sandbox
-// on every machine) → "needs model" hint + Download button; brushing works but Remove starts no job.
+// on every machine) → "needs model" hint + Download button; brushing works; Remove asks to download LaMa first (OB-07)
+// and Cancel in that popup starts no download and no job.
 // The inference path is ai_remove_inference.json (requires the model, SKIPPED when it isn't installed).
 {
   "project": "demo",
@@ -13,10 +14,15 @@
                 {"path": "ui.anchors", "contains": "remove.apply"}]},
     {"drag": "player:0.3,0.5", "to": "player:0.4,0.55", "steps": 8},
     {"snapshot": "remove-needs-model", "element": "id:panel.inspector"},
-    // Remove is disabled without the model: no background job
+    // OB-07: Remove without the model → "Download required" popup; Cancel → nothing downloads, no job
     {"click": "id:remove.apply"},
-    {"wait": 0.5},
-    {"expect": {"path": "ui.anchors", "notContains": "remove.progress"}},
+    {"waitFor": {"path": "ui.models.flow.prompt", "equals": "coreml.lama-800"}},
+    {"click": "id:modelPrompt.cancel"},
+    {"waitFor": {"path": "ui.models.flow.prompt", "equals": ""}},
+    {"expect": [{"path": "ui.models.coreml_lama-800", "equals": "notInstalled"},
+                {"path": "ui.models.flow.pending", "equals": 0},
+                {"path": "ui.anchors", "notContains": "remove.progress"},
+                {"path": "ui.anchors", "notContains": "modelDownloads.indicator"}]},
     {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.08]}
   ]
 }

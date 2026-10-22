@@ -1,0 +1,39 @@
+// OB-07: AI remove without LaMa → "Download required" popup (name + size) → Download → popup closes, bottom-right
+// indicator (name + progress); ✕ only reveals an inline confirmation (Keep / Stop download); Stop cancels it and the
+// removal never runs. Downloads are simulated in UI tests ("hold": stops at 40 % until cancelled, never the network).
+{
+  "project": "demo",
+  "modelDownloads": "hold",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "id:inspector.tab.video"},
+    {"scroll": "id:inspector.section.video.stabilize", "dx": 0, "dy": -800},
+    {"click": "id:inspector.section.video.aiRemove", "at": [0.035, 0.5]},
+    {"drag": "player:0.3,0.5", "to": "player:0.4,0.55", "steps": 8},
+    {"click": "id:remove.apply"},
+    {"waitFor": {"path": "ui.models.flow.prompt", "equals": "coreml.lama-800"}},
+    {"snapshot": "model-prompt", "element": "id:modelPrompt", "baseline": true},
+    {"click": "id:modelPrompt.download"},
+    {"waitFor": {"path": "ui.models.flow.prompt", "equals": ""}},
+    {"waitFor": {"path": "ui.models.progress.coreml_lama-800", "gte": 0.4}},
+    {"expect": [{"path": "ui.models.flow.active", "equals": "coreml.lama-800"},
+                {"path": "ui.models.flow.pending", "equals": 1},
+                {"path": "ui.anchors", "contains": "modelDownloads.indicator"}]},
+    {"snapshot": "model-download-indicator", "element": "id:modelDownloads.indicator", "baseline": true},
+    // ✕ → confirmation only (still downloading); Keep → back
+    {"click": "id:modelDownloads.cancel.coreml.lama-800"},
+    {"expect": [{"path": "ui.models.flow.confirming", "equals": "coreml.lama-800"},
+                {"path": "ui.models.coreml_lama-800", "equals": "downloading"}]},
+    {"snapshot": "model-download-confirm", "element": "id:modelDownloads.indicator", "baseline": true},
+    {"click": "id:modelDownloads.keep.coreml.lama-800"},
+    {"expect": [{"path": "ui.models.flow.confirming", "equals": ""}, {"path": "ui.models.coreml_lama-800", "equals": "downloading"}]},
+    // ✕ → Stop download: cancelled, the indicator goes away, Remove never ran
+    {"click": "id:modelDownloads.cancel.coreml.lama-800"},
+    {"click": "id:modelDownloads.confirmCancel.coreml.lama-800"},
+    {"waitFor": {"path": "ui.models.coreml_lama-800", "equals": "notInstalled"}},
+    {"expect": [{"path": "ui.models.flow.pending", "equals": 0},
+                {"path": "ui.models.flow.proceeded", "equals": 0},
+                {"path": "ui.anchors", "notContains": "modelDownloads.indicator"},
+                {"path": "ui.anchors", "notContains": "remove.progress"}]}
+  ]
+}
