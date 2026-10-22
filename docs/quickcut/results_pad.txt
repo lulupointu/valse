@@ -1,0 +1,99 @@
+corpus: 4 takes, 150 s audio
+cols per X: speechCut ms / cutEvents | pause removed % | missed/pauses | spurious
+== clean
+S0 app ActivityProfile     | X=0.3 aud   0     0/0   85%  0/27 sp0  | X=0.5 aud   0     0/0   86%  0/25 sp0  | X=1.0 aud   0     0/0   89%  0/19 sp0 
+S1 fixed -40dBFS           | X=0.3 aud   0    10/0   86%  0/27 sp1  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   90%  0/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud   0     0/0   83%  0/27 sp0  | X=0.5 aud   0     0/0   83%  0/25 sp0  | X=1.0 aud   0     0/0   86%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud   0    50/1   84%  0/27 sp2  | X=0.5 aud   0     0/0   83%  0/25 sp0  | X=1.0 aud   0     0/0   86%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud  90   210/2   88%  0/27 sp2  | X=0.5 aud   0     0/0   89%  0/25 sp0  | X=1.0 aud   0     0/0   91%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud   0     0/0   88%  0/27 sp0  | X=0.5 aud   0     0/0   89%  0/25 sp0  | X=1.0 aud   0     0/0   91%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud   0     0/0   88%  0/27 sp0  | X=0.5 aud   0     0/0   89%  0/25 sp0  | X=1.0 aud   0     0/0   91%  0/19 sp0 
+== quiet-30dB
+S0 app ActivityProfile     | X=0.3 aud   0     0/0   87%  0/27 sp0  | X=0.5 aud   0     0/0   88%  0/25 sp0  | X=1.0 aud   0     0/0   91%  0/19 sp0 
+S1 fixed -40dBFS           | X=0.3 aud88340 95840/4  100%  0/27 sp4  | X=0.5 aud88340 95840/4  100%  0/25 sp4  | X=1.0 aud88340 95840/4  100%  0/19 sp4 
+S2 adaptive-band 0.35      | X=0.3 aud   0    50/1   85%  0/27 sp2  | X=0.5 aud   0     0/0   84%  0/25 sp0  | X=1.0 aud   0     0/0   88%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud   0    50/1   86%  0/27 sp2  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   90%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud  90   210/2   91%  0/27 sp5  | X=0.5 aud   0     0/0   91%  0/25 sp1  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud  20   100/1   91%  0/27 sp4  | X=0.5 aud   0     0/0   91%  0/25 sp1  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud   0     0/0   91%  0/27 sp2  | X=0.5 aud   0     0/0   91%  0/25 sp1  | X=1.0 aud   0     0/0   93%  0/19 sp0 
+== hot+15dB-clip
+S0 app ActivityProfile     | X=0.3 aud   0     0/0   85%  0/27 sp0  | X=0.5 aud   0     0/0   86%  0/25 sp0  | X=1.0 aud   0     0/0   89%  0/19 sp0 
+S1 fixed -40dBFS           | X=0.3 aud   0     0/0   83%  0/27 sp0  | X=0.5 aud   0     0/0   83%  0/25 sp0  | X=1.0 aud   0     0/0   86%  0/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud   0     0/0   83%  0/27 sp0  | X=0.5 aud   0     0/0   82%  0/25 sp0  | X=1.0 aud   0     0/0   83%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud   0    50/1   83%  0/27 sp2  | X=0.5 aud   0     0/0   82%  0/25 sp0  | X=1.0 aud   0     0/0   84%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud  90   210/2   88%  0/27 sp2  | X=0.5 aud   0     0/0   89%  0/25 sp0  | X=1.0 aud   0     0/0   91%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud   0     0/0   88%  0/27 sp0  | X=0.5 aud   0     0/0   89%  0/25 sp0  | X=1.0 aud   0     0/0   91%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud   0     0/0   88%  0/27 sp0  | X=0.5 aud   0     0/0   89%  0/25 sp0  | X=1.0 aud   0     0/0   91%  0/19 sp0 
+== pink-snr25
+S0 app ActivityProfile     | X=0.3 aud 140   280/3   90%  0/27 sp2  | X=0.5 aud 140   280/3   90%  0/25 sp4  | X=1.0 aud  50    60/1   92%  0/19 sp1 
+S1 fixed -40dBFS           | X=0.3 aud   0     0/0   61%  2/27 sp0  | X=0.5 aud   0     0/0   58%  1/25 sp0  | X=1.0 aud   0     0/0   43%  7/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud  20    90/3   86%  0/27 sp4  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   90%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud 220   350/4   87%  0/27 sp6  | X=0.5 aud 100   150/1   86%  0/25 sp0  | X=1.0 aud 100   150/1   91%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud 150   320/4   91%  0/27 sp6  | X=0.5 aud  90   220/2   92%  0/25 sp3  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud 150   320/4   91%  0/27 sp6  | X=0.5 aud  90   220/2   92%  0/25 sp3  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud 120   260/3   91%  0/27 sp6  | X=0.5 aud   0     0/0   92%  0/25 sp1  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+== pink-snr12
+S0 app ActivityProfile     | X=0.3 aud1040  1470/12  90%  0/27 sp9  | X=0.5 aud 630   950/7   90%  0/25 sp6  | X=1.0 aud 190   320/3   90%  1/19 sp1 
+S1 fixed -40dBFS           | X=0.3 aud   0     0/0    0% 25/27 sp0  | X=0.5 aud   0     0/0    0% 22/25 sp0  | X=1.0 aud   0     0/0    0% 17/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud  70   150/4   87%  0/27 sp5  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   90%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud 420   580/7   88%  0/27 sp9  | X=0.5 aud 120   170/1   89%  0/25 sp0  | X=1.0 aud 110   160/1   92%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud 180   340/3   89%  0/27 sp6  | X=0.5 aud 180   330/3   90%  0/25 sp4  | X=1.0 aud   0    10/0   92%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud 180   340/3   89%  0/27 sp6  | X=0.5 aud 180   330/3   90%  0/25 sp4  | X=1.0 aud   0    10/0   92%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud   0     0/0   40% 11/27 sp0  | X=0.5 aud   0     0/0   40%  8/25 sp0  | X=1.0 aud   0     0/0   37%  8/19 sp0 
+== hum50-snr20
+S0 app ActivityProfile     | X=0.3 aud 550   800/7   90%  0/27 sp5  | X=0.5 aud 550   770/6   91%  0/25 sp6  | X=1.0 aud 140   200/2   93%  0/19 sp1 
+S1 fixed -40dBFS           | X=0.3 aud   0     0/0   22% 18/27 sp0  | X=0.5 aud   0     0/0   22% 16/25 sp0  | X=1.0 aud   0     0/0   23% 13/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud   0    50/1   86%  0/27 sp3  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   90%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud 220   340/3   86%  0/27 sp4  | X=0.5 aud 100   150/1   85%  0/25 sp0  | X=1.0 aud 100   150/1   91%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud 150   310/4   91%  0/27 sp6  | X=0.5 aud  20   100/1   92%  0/25 sp2  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud 150   310/4   91%  0/27 sp6  | X=0.5 aud  20   100/1   92%  0/25 sp2  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud 120   260/3   91%  0/27 sp6  | X=0.5 aud   0     0/0   91%  0/25 sp1  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+== traffic-varying
+S0 app ActivityProfile     | X=0.3 aud 510   670/5   43%  8/27 sp4  | X=0.5 aud 510   670/5   44%  8/25 sp4  | X=1.0 aud 100   100/1   36%  9/19 sp1 
+S1 fixed -40dBFS           | X=0.3 aud   0     0/0    3% 23/27 sp0  | X=0.5 aud   0     0/0    2% 21/25 sp0  | X=1.0 aud   0     0/0    0% 17/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud  20    90/3   56%  5/27 sp3  | X=0.5 aud   0     0/0   55%  5/25 sp0  | X=1.0 aud   0     0/0   55%  5/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud 120   200/3   81%  1/27 sp5  | X=0.5 aud   0     0/0   80%  1/25 sp0  | X=1.0 aud   0     0/0   86%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud 140   290/3   90%  0/27 sp6  | X=0.5 aud  20   110/1   90%  0/25 sp2  | X=1.0 aud   0     0/0   92%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud 140   290/3   90%  0/27 sp6  | X=0.5 aud  20   110/1   90%  0/25 sp2  | X=1.0 aud   0     0/0   92%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud  20   100/1   80%  0/27 sp3  | X=0.5 aud   0     0/0   80%  0/25 sp1  | X=1.0 aud   0     0/0   77%  2/19 sp0 
+== breaths+clicks+room
+S0 app ActivityProfile     | X=0.3 aud  90   220/2   77%  0/27 sp2  | X=0.5 aud  90   220/2   77%  0/25 sp2  | X=1.0 aud   0     0/0   81%  0/19 sp0 
+S1 fixed -40dBFS           | X=0.3 aud   0    10/0   64%  4/27 sp1  | X=0.5 aud   0     0/0   63%  4/25 sp0  | X=1.0 aud   0     0/0   55%  3/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud   0    50/1   85%  0/27 sp3  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   90%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud 120   190/2   86%  0/27 sp4  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   90%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud 120   260/3   91%  0/27 sp6  | X=0.5 aud   0     0/0   92%  0/25 sp1  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud 120   260/3   89%  1/27 sp6  | X=0.5 aud   0     0/0   91%  0/25 sp0  | X=1.0 aud   0     0/0   94%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud  90   210/2   86%  4/27 sp5  | X=0.5 aud   0     0/0   87%  1/25 sp0  | X=1.0 aud   0     0/0   93%  0/19 sp0 
+== reverb-rt400
+S0 app ActivityProfile     | X=0.3 aud   0     0/0   84%  0/27 sp0  | X=0.5 aud   0     0/0   85%  0/25 sp0  | X=1.0 aud   0     0/0   88%  0/19 sp0 
+S1 fixed -40dBFS           | X=0.3 aud   0     0/0   81%  0/27 sp0  | X=0.5 aud   0     0/0   81%  0/25 sp0  | X=1.0 aud   0     0/0   86%  0/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud   0     0/0   79%  0/27 sp0  | X=0.5 aud   0     0/0   80%  0/25 sp0  | X=1.0 aud   0     0/0   83%  0/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud   0     0/0   80%  0/27 sp1  | X=0.5 aud   0     0/0   81%  0/25 sp0  | X=1.0 aud   0     0/0   86%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud   0     0/0   84%  0/27 sp0  | X=0.5 aud   0     0/0   83%  0/25 sp0  | X=1.0 aud   0     0/0   89%  0/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud   0     0/0   84%  0/27 sp0  | X=0.5 aud   0     0/0   83%  0/25 sp0  | X=1.0 aud   0     0/0   89%  0/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud   0     0/0   83%  0/27 sp0  | X=0.5 aud   0     0/0   83%  0/25 sp0  | X=1.0 aud   0     0/0   88%  0/19 sp0 
+== music-bed-20dB
+S0 app ActivityProfile     | X=0.3 aud  20   110/1   49%  4/27 sp1  | X=0.5 aud  20   110/1   45%  8/25 sp3  | X=1.0 aud   0     0/0   44%  7/19 sp0 
+S1 fixed -40dBFS           | X=0.3 aud   0     0/0   20% 11/27 sp0  | X=0.5 aud   0     0/0   14% 14/25 sp0  | X=1.0 aud   0     0/0    8% 15/19 sp0 
+S2 adaptive-band 0.35      | X=0.3 aud  50   100/3   70%  0/27 sp4  | X=0.5 aud   0     0/0   66%  1/25 sp0  | X=1.0 aud   0     0/0   59%  3/19 sp0 
+S3 voiced 0.2/0.5          | X=0.3 aud 250   330/3   81%  0/27 sp4  | X=0.5 aud 100   150/1   79%  1/25 sp0  | X=1.0 aud 100   150/1   81%  0/19 sp0 
+S4 hybrid 0.3 w150 v4      | X=0.3 aud 160   190/2   53%  1/27 sp4  | X=0.5 aud 110   120/1   45%  2/25 sp1  | X=1.0 aud   0     0/0   33%  6/19 sp0 
+S5 hybrid 0.3 w150 v4      | X=0.3 aud 110   120/1   51%  1/27 sp2  | X=0.5 aud   0     0/0   44%  2/25 sp0  | X=1.0 aud   0     0/0   33%  6/19 sp0 
+S5 hybrid 0.25 w150 v4     | X=0.3 aud   0     0/0   27%  3/27 sp0  | X=0.5 aud   0     0/0   20%  9/25 sp0  | X=1.0 aud   0     0/0   10% 14/19 sp0 
+feature extraction: 0.50 s for 1496 s audio (2988x realtime, 1 core, naive)
+pink-snr12 en_daniel removed 7.67-8.00 speech frames 11 (7.67-7.77) peakBand -36.9 dB voiced 0.00 p97 -18.1
+pink-snr12 fr_flo removed 7.67-7.99 speech frames 11 (7.67-7.77) peakBand -34.1 dB voiced 0.00 p97 -14.3
+pink-snr12 fr_flo removed 24.13-24.46 speech frames 10 (24.13-24.22) peakBand -34.8 dB voiced 0.00 p97 -14.3
+music-bed-20dB en_daniel removed 24.49-24.83 speech frames 12 (24.49-24.60) peakBand -42.6 dB voiced 0.88 p97 -18.1
+real_speech_en 9.4s floor p10 -92.5 p97 -14.7 keep:  0.00-0.48 0.66-3.47 4.50-5.57 5.70-7.55 7.79-9.37
+  X=0.3 removes 1 gaps, 0.8 s
+  X=0.5 removes 1 gaps, 0.8 s
+  X=1.0 removes 1 gaps, 0.8 s
+real_speech_fr 45.3s floor p10 -41.5 p97 -12.1 keep:  0.02-1.30 1.38-1.47 1.52-3.15 3.34-4.06 4.24-6.71 6.90-8.62 8.71-8.82 8.89-9.21 9.28-10.92 11.12-14.43 14.62-15.32 15.50-17.88 17.93-19.47 19.65-20.71 21.04-22.89 22.97-23.18 23.24-25.13 25.32-28.24 28.41-31.10 31.28-33.01 33.07-34.92 35.09-35.60 35.78-38.36 38.54-41.24 41.41-43.21 43.38-45.30
+  X=0.3 removes 1 gaps, 0.1 s
+  X=0.5 removes 0 gaps, 0.0 s
+  X=1.0 removes 0 gaps, 0.0 s
+real_a 60.0s floor p10 -21.1 p97 -21.1 keep:  
+  X=0.3 removes 1 gaps, 60.0 s
+  X=0.5 removes 1 gaps, 60.0 s
+  X=1.0 removes 1 gaps, 60.0 s
