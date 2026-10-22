@@ -188,6 +188,16 @@ import MontageTestSupport
         #expect(en.string("quickcut.summary.many", [12, "18.4"]) == "12 blanks · −18.4 s")
     }
 
+    @Test func tinySlicesAreDrawnAtLeastThreePointsWide() {
+        let clip = CGRect(x: 100, y: 0, width: 200, height: 60)
+        #expect(TimelineView.quickCutSliceRect(x0: 150, x1: 150.5, in: clip)?.width == 3)
+        #expect(TimelineView.quickCutSliceRect(x0: 150, x1: 150.5, in: clip)?.midX == 150.25)
+        #expect(TimelineView.quickCutSliceRect(x0: 299.5, x1: 300, in: clip)?.maxX == 300)   // stays inside the clip
+        #expect(TimelineView.quickCutSliceRect(x0: 120, x1: 180, in: clip)?.width == 60)
+        #expect(TimelineView.quickCutSliceRect(x0: 50, x1: 120, in: clip)?.minX == 100)
+        #expect(TimelineView.quickCutSliceRect(x0: 310, x1: 320, in: clip) == nil)
+    }
+
     @Test func engineSkipRangeLookup() {
         let e = PlaybackEngine(project: Project())
         e.skipRanges = [TimeRange(start: Time(1), end: Time(2)), TimeRange(start: Time(4), end: Time(4.5))]

@@ -32,6 +32,9 @@
     {"snapshot": "quick-cut-popover", "element": "id:quickcut.popover", "baseline": true},
     {"snapshot": "quick-cut-timeline", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02},
     {"snapshot": "quick-cut-window"},
+    // zoomed far out: tiny slices are still drawn at least 3 pt wide
+    {"key": "cmd+-", "repeat": 8},
+    {"snapshot": "quick-cut-timeline-zoomed-out", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02},
     // the field took the value and gave the keyboard back: Space plays (slices skipped), Space pauses
     {"key": "space"},
     {"waitFor": {"path": "isPlaying", "equals": true}},

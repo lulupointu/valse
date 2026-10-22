@@ -2,24 +2,30 @@ import AppKit
 import MontageCore
 
 /// Quick cut live preview on the timeline (TL-048, docs/QUICK_CUT.md §1): while the popover is open, every slice the
-/// plan removes is drawn over its clip (dark translucent veil + diagonal hatching + thin accent edges, the thumbnails and
-/// waveform still show through), and clips Quick cut doesn't work on are dimmed. Drawn after the clips of a row; only
-/// visible clips are visited, so a slider tick on a 30-clip timeline is one cheap canvas rebuild.
+/// plan removes is drawn over its clip so it reads at a glance without looking like an error: a strong darken, an
+/// accent tint, 45° white hatching and an accent outline (thumbnails / waveform stay faintly visible), at least
+/// `quickCutMinWidth` wide so tiny slices stay visible on a zoomed-out timeline. Clips Quick cut doesn't work on are
+/// dimmed. Drawn after the clips of a row; only visible clips are visited, so a slider tick on a 30-clip timeline is one
+/// cheap canvas rebuild.
 extension TimelineView {
-    static let quickCutVeil = RGBA(0.03, 0.03, 0.04, 0.62)
-    static let quickCutEdge = RGBA(0.34, 0.75, 0.8, 0.95)
+    static let quickCutDarken = RGBA(0.02, 0.02, 0.03, 0.7)
+    static let quickCutTint = RGBA(0.34, 0.75, 0.8, 0.25)   // accent 0x57BECB
+    static let quickCutEdge = RGBA(0.34, 0.75, 0.8, 1)
     static let quickCutDim = RGBA(0.106, 0.106, 0.11, 0.62)
     /// Hatch tile side (points); the tile repeats seamlessly.
-    static let quickCutHatchSize: CGFloat = 12
+    static let quickCutHatchSize: CGFloat = 10
+    /// Narrowest drawn slice (points), centred on the slice.
+    static let quickCutMinWidth: CGFloat = 3
+    static let quickCutOutline: CGFloat = 1.5
 
-    /// 12 × 12 pt tile (2× pixels) of 45° stripes: white at low alpha.
+    /// 10 × 10 pt tile (2× pixels) of 45° stripes, 1.5 pt white lines at 50 %.
     static let quickCutHatch: CGImage? = {
         let px = Int(quickCutHatchSize * 2)
         guard let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: px * 4,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        ctx.setStrokeColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.3))
-        ctx.setLineWidth(2.4)
+        ctx.setStrokeColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.5))
+        ctx.setLineWidth(3)   // 1.5 pt
         let s = CGFloat(px)
         // three parallel lines so the stripes continue across tile edges
         for k in -1...1 {
@@ -29,6 +35,18 @@ extension TimelineView {
         ctx.strokePath()
         return ctx.makeImage()
     }()
+
+    /// Drawn rect of a slice from x0 to x1 inside clip rect `r`: at least `quickCutMinWidth` wide, kept in the clip.
+    static func quickCutSliceRect(x0: CGFloat, x1: CGFloat, in r: CGRect) -> CGRect? {
+        guard x1 > x0, x1 > r.minX, x0 < r.maxX else { return nil }
+        var a = max(x0, r.minX), b = min(x1, r.maxX)
+        if b - a < quickCutMinWidth {
+            let w = min(quickCutMinWidth, r.width), m = (a + b) / 2
+            a = min(max(m - w / 2, r.minX), r.maxX - w)
+            b = a + w
+        }
+        return CGRect(x: a, y: r.minY, width: max(1, b - a), height: r.height)
+    }
 
     func drawQuickCut(_ c: inout Canvas2D, row: TimelineLayout.Row, track: Track, layout l: TimelineLayout,
                       session s: QuickCutSession) {
@@ -42,29 +60,26 @@ extension TimelineView {
             guard r.maxX > TimelineLayout.headerWidth, r.minX < bounds.width else { continue }
             guard s.targetClips.contains(clip.id) else { c.rect(r, Self.quickCutDim, radius: 4); continue }
             for slice in plan.slices(for: clip.id) {
-                let x0 = max(l.x(slice.start), r.minX), x1 = min(l.x(slice.end), r.maxX)
-                guard x1 > x0 else { continue }
-                let sr = CGRect(x: x0, y: r.minY, width: max(1, x1 - x0), height: r.height)
-                c.rect(sr, Self.quickCutVeil)
-                if sr.width >= 4, let hatch = Self.quickCutHatch {
-                    let clipRect = lane.map { $0.intersection(sr) } ?? sr
-                    if !clipRect.isNull, clipRect.width > 0 {
+                guard let sr = Self.quickCutSliceRect(x0: l.x(slice.start), x1: l.x(slice.end), in: r) else { continue }
+                c.rect(sr, Self.quickCutDarken)
+                c.rect(sr, Self.quickCutTint)
+                if sr.width >= 5, let hatch = Self.quickCutHatch {
+                    let inner = sr.insetBy(dx: Self.quickCutOutline, dy: Self.quickCutOutline)
+                    let clipRect = lane.map { $0.intersection(inner) } ?? inner
+                    if !clipRect.isNull, clipRect.width > 0, clipRect.height > 0 {
                         c.clip = clipRect
                         // tiles anchored to timeline time 0: the hatching scrolls with the clips
                         let t = Self.quickCutHatchSize, origin = l.x(.zero)
-                        var x = origin + ((sr.minX - origin) / t).rounded(.down) * t
-                        while x < sr.maxX {
-                            var y = sr.minY
-                            while y < sr.maxY { c.image(hatch, in: CGRect(x: x, y: y, width: t, height: t), fill: false); y += t }
+                        var x = origin + ((inner.minX - origin) / t).rounded(.down) * t
+                        while x < inner.maxX {
+                            var y = inner.minY
+                            while y < inner.maxY { c.image(hatch, in: CGRect(x: x, y: y, width: t, height: t), fill: false); y += t }
                             x += t
                         }
                         c.clip = lane
                     }
                 }
-                if sr.width >= 3 {
-                    c.rect(CGRect(x: sr.minX, y: sr.minY, width: 1, height: sr.height), Self.quickCutEdge)
-                    c.rect(CGRect(x: sr.maxX - 1, y: sr.minY, width: 1, height: sr.height), Self.quickCutEdge)
-                }
+                c.rect(sr, Self.quickCutEdge, radius: 2, border: Self.quickCutOutline)
             }
         }
     }
