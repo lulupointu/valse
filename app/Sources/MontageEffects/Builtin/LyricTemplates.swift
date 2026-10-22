@@ -13,7 +13,7 @@ public enum BuiltinLyricTemplates {
           inAnim: inAnim) { c in
             c.color = .white; c.bold = false; c.italic = false; c.strokeColor = .black; c.strokeWidth = 0
             c.backgroundColor = .clear; c.shadowColor = RGBA(0, 0, 0, 0.55); c.shadow = TextShadowStyle(distance: 0.04, angle: 90, blur: 0.12)
-            c.glow = nil; c.fill = nil; c.karaoke = nil; c.textCase = .none; c.letterSpacing = 0
+            c.glow = nil; c.fill = nil; c.karaoke = nil; c.inactiveKaraoke = nil; c.textCase = .none; c.letterSpacing = 0
             body(&c)
         }
     }

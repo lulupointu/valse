@@ -16,23 +16,24 @@ struct CaptionSpokenWordSection: View {
 
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
         TextInspector.chrome(ctx, isOn: { $0.karaoke != nil },
-                             toggle: { t, on in t.karaoke = on ? (t.karaoke ?? KaraokeStyle()) : nil },
-                             reset: { t in t.karaoke = KaraokeStyle() })
+                             // FB-04: off keeps the values (stored, inactive), on restores them
+                             toggle: { t, on in t.setSpokenWord(on) },
+                             reset: { t in t.karaoke = KaraokeStyle(); t.inactiveKaraoke = nil })
     }
 
     static func set(_ ctx: InspectorContext, _ body: @escaping (inout KaraokeStyle) -> Void) {
         guard let id = ctx.clip?.id else { return }
         ctx.store.updateText(id, nameKey: "cmd.spokenWord") { t in
-            var k = t.karaoke ?? KaraokeStyle()
+            var k = t.spokenWordStyle
             body(&k)
-            t.karaoke = k
+            t.karaoke = k; t.inactiveKaraoke = nil
         }
     }
 
     private func row(_ label: String, _ id: String, range: ClosedRange<Double>, get: @escaping (KaraokeStyle) -> Double,
                      set: @escaping (inout KaraokeStyle, Double) -> Void) -> some View {
-        var r = TextInspector.row(ctx, label, range: range, get: { t in t.karaoke.map(get) ?? range.lowerBound },
-                                  set: { t, v in var k = t.karaoke ?? KaraokeStyle(); set(&k, v); t.karaoke = k })
+        var r = TextInspector.row(ctx, label, range: range, get: { t in get(t.spokenWordStyle) },
+                                  set: { t, v in var k = t.spokenWordStyle; set(&k, v); t.karaoke = k; t.inactiveKaraoke = nil })
         r.testID = id   // slider "<id>", field "<id>.field"
         return r
     }
@@ -58,7 +59,7 @@ struct CaptionSpokenWordSection: View {
 
     var body: some View {
         WithPerceptionTracking {
-            let k = TextInspector.text(ctx)?.karaoke ?? KaraokeStyle()
+            let k = TextInspector.text(ctx)?.spokenWordStyle ?? KaraokeStyle()
             VStack(alignment: .leading, spacing: 4) {
                 InlineRow(label: tr("spokenWord.mode")) {
                     Dropdown(items: KaraokeMode.allCases.map { ($0, tr("spokenWord.mode.\($0.rawValue)")) }, selection: k.mode) { m in

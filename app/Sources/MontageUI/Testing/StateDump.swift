@@ -42,11 +42,14 @@ public enum StateDump {
             if case .text(let t) = c.content {
                 d["text"] = t.string; if let w = t.boxWidth { d["boxWidth"] = w }
                 d["strokeWidth"] = t.strokeWidth; d["strokePosition"] = t.strokePosition.rawValue   // F3 TX-005
-                if let k = t.karaoke {   // OB-10 Text ▸ Spoken word
-                    d["spokenWord"] = ["mode": k.mode.rawValue, "scale": (k.highlightScale * 100).rounded(), "box": k.boxColor != nil,
-                                       "outline": k.highlightStroke != nil,
-                                       "unspokenOpacity": (k.unspokenOpacity * 100).rounded(), "bounce": (k.bounce * 100).rounded()]
+                func spoken(_ k: KaraokeStyle) -> [String: Any] {
+                    ["mode": k.mode.rawValue, "scale": (k.highlightScale * 100).rounded(), "box": k.boxColor != nil,
+                     "outline": k.highlightStroke != nil,
+                     "unspokenOpacity": (k.unspokenOpacity * 100).rounded(), "bounce": (k.bounce * 100).rounded()]
                 }
+                if let k = t.karaoke { d["spokenWord"] = spoken(k) }   // OB-10 Text ▸ Spoken word
+                if let k = t.inactiveKaraoke { d["spokenWordOff"] = spoken(k) }   // FB-04: remembered while off
+                if t.caption != nil { d["spokenWordOn"] = t.karaoke != nil }
             }
             if let t = c.transitionOut { d["transition"] = t.typeID; d["transitionDuration"] = t.duration.seconds }
             // W5: animations and keyframe counts per property

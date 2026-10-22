@@ -30,6 +30,25 @@ struct TextModelTests {
         #expect(back == t)
     }
 
+    /// FB-04: Spoken word off keeps its style (inactive, persisted); on restores it, defaults the first time.
+    @Test func spokenWordToggleRemembersItsStyle() throws {
+        var t = TextContent(string: "Hello")
+        t.setSpokenWord(false)
+        #expect(t.karaoke == nil && t.inactiveKaraoke == nil)
+        t.setSpokenWord(true)
+        #expect(t.karaoke == KaraokeStyle() && t.inactiveKaraoke == nil)
+        let custom = KaraokeStyle(mode: .fillSpoken, highlightColor: .red, highlightScale: 1.4, unspokenOpacity: 0.3, bounce: 0.2)
+        t.karaoke = custom
+        t.setSpokenWord(false)
+        #expect(t.karaoke == nil && t.inactiveKaraoke == custom && t.spokenWordStyle == custom)
+        let back = try JSONDecoder().decode(TextContent.self, from: JSONEncoder().encode(t))
+        #expect(back.inactiveKaraoke == custom && back.karaoke == nil)
+        t.setSpokenWord(false)   // already off: unchanged
+        #expect(t.inactiveKaraoke == custom)
+        t.setSpokenWord(true)
+        #expect(t.karaoke == custom && t.inactiveKaraoke == nil)
+    }
+
     /// FB-03: "Highlight keywords" is gone; projects saved with keyword flags / keyword styling still open (keys ignored).
     @Test func legacyKeywordFieldsAreIgnored() throws {
         var t = TextContent(string: "Hello")

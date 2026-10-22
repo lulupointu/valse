@@ -103,6 +103,7 @@ public enum CaptionStyleSync {
             f("orientation", \.orientation), f("extraStrokes", \.extraStrokes), f("background", \.background), f("shadow", \.shadow),
             f("glow", \.glow), f("fill", \.fill), f("curve", \.curve), f("path", \.path), f("boxWidth", \.boxWidth),
             f("bubbleID", \.bubbleID), f("bubbleColor", \.bubbleColor), f("karaoke", \.karaoke),
+            f("inactiveKaraoke", \.inactiveKaraoke),
         ]
         static let knownKeys = Set(fields.map(\.name))
     }

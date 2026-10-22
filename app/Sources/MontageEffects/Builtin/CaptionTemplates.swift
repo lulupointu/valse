@@ -14,7 +14,7 @@ public enum BuiltinCaptionTemplates {
           inAnim: inAnim) { c in
             // common caption base: bold, outlined, no box
             c.color = .white; c.bold = true; c.strokeColor = .black; c.strokeWidth = 0.08
-            c.backgroundColor = .clear; c.shadowColor = .clear; c.glow = nil; c.fill = nil; c.karaoke = nil
+            c.backgroundColor = .clear; c.shadowColor = .clear; c.glow = nil; c.fill = nil; c.karaoke = nil; c.inactiveKaraoke = nil
             body(&c)
         }
     }

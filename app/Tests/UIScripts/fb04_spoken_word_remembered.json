@@ -1,0 +1,28 @@
+// FB-04: turning Text ▸ Spoken word off keeps its values (stored, inactive) and turning it back on restores them.
+{
+  "project": "demo-transcript:captions",
+  "steps": [
+    {"select": ["clip:1/1"]},
+    {"click": "id:inspector.tab.text"},
+    {"click": "id:inspector.sub.templates"},
+    {"waitFor": {"path": "ui.anchors", "contains": "text.templates.caption"}},
+    {"click": "id:captionTemplate.montage.captionTemplate.boxGreen"},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.box", "equals": true}},
+    {"click": "id:inspector.sub.spokenWord"},
+    {"waitFor": {"path": "ui.anchors", "contains": "spokenWord.mode"}},
+    {"click": "id:spokenWord.scale.field"},
+    {"type": "150", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "selectedClips.0.spokenWord.scale", "equals": 150}},
+    {"click": "id:inspector.check.captions.spokenWord"},
+    {"waitFor": {"path": "selectedClips.0.spokenWordOn", "equals": false}},
+    {"expect": [{"path": "selectedClips.0.spokenWordOff.scale", "equals": 150}, {"path": "selectedClips.0.spokenWordOff.box", "equals": true},
+                {"path": "selectedClips.0.spokenWordOff.mode", "equals": "highlightWord"}]},
+    {"click": "id:inspector.check.captions.spokenWord"},
+    {"waitFor": {"path": "selectedClips.0.spokenWordOn", "equals": true}},
+    {"expect": [{"path": "selectedClips.0.spokenWord.scale", "equals": 150}, {"path": "selectedClips.0.spokenWord.box", "equals": true},
+                {"path": "selectedClips.0.spokenWordOff", "exists": false}]},
+    {"waitFor": {"path": "ui.anchors", "contains": "spokenWord.box.color"}},
+    {"snapshot": "spoken-word-restored", "element": "id:panel.inspector", "baseline": "fb04_spoken_word_remembered"}
+  ]
+}
