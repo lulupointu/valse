@@ -13,7 +13,11 @@ extension TimelineView {
         guard let asset = drawCache.asset(clip.mediaID)?.asset, asset.hasAudio, !clip.isFreezeFrame else { return nil }
         let r = l.clipRect(clip, row: row).insetBy(dx: 0.5, dy: 0)
         if track.kind == .audio { return CGRect(x: r.minX, y: r.minY + 16, width: r.width, height: r.height - 18) }
-        if asset.kind != .audio, track.isMain, r.height >= 60 { return CGRect(x: r.minX, y: r.maxY - 16, width: r.width, height: 16) }
+        // OB-09: any video lane whose audio strip is tall enough (main track; overlay lanes at the tall height).
+        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: true)
+        if asset.kind != .audio, track.kind == .video, r.height >= 30, bands.hasVolumeLine {
+            return CGRect(x: r.minX, y: r.maxY - bands.audioStrip, width: r.width, height: bands.audioStrip)
+        }
         return nil
     }
 
@@ -64,7 +68,7 @@ extension TimelineView {
         guard pt.x > TimelineLayout.headerWidth, let ri = l.rowIndex(atY: pt.y) else { return nil }
         let row = l.rows[ri]
         let track = store.project.timeline.tracks[row.trackIndex]
-        guard !track.isLocked, track.kind == .audio || track.isMain else { return nil }
+        guard !track.isLocked, track.kind == .audio || track.kind == .video else { return nil }
         let t = l.time(atX: pt.x)
         let tol = l.duration(points: Self.volumeKeyframeGrab)
         for clip in track.clips(in: TimeRange(start: t - tol, end: t + tol + Time(ticks: 1))).reversed() {

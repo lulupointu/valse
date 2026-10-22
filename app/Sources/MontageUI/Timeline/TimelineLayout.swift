@@ -59,6 +59,33 @@ public struct TimelineLayout {
         return (base * CGFloat((preset ?? .standard).scale)).rounded()
     }
 
+    /// OB-09: vertical bands of a video / image clip. Same rule on every visual track (main or overlay), scaled by the
+    /// lane height: name band (chip) on top, filmstrip, audio strip (waveform) at the bottom when the media has audio.
+    public struct VideoClipBands: Equatable, Sendable {
+        /// Height of the name band above the filmstrip (0 = the chip sits over the filmstrip).
+        public var nameBand: CGFloat
+        /// Height of the audio strip under the filmstrip (0 = none).
+        public var audioStrip: CGFloat
+        /// Name chip geometry: top inset, height, font size.
+        public var chipTop: CGFloat, chipHeight: CGFloat, chipFont: CGFloat
+        /// The audio strip is tall enough to carry the draggable volume line (C3-2).
+        public var hasVolumeLine: Bool { audioStrip >= 12 }
+    }
+
+    /// Default chip geometry (text / sticker / audio clips and lanes too short for a name band).
+    public static let defaultChip = (top: CGFloat(2.5), height: CGFloat(15), font: CGFloat(10.5))
+
+    public static func videoBands(height h: CGFloat, hasAudio: Bool) -> VideoClipBands {
+        if h >= 60 {
+            return VideoClipBands(nameBand: 18, audioStrip: hasAudio ? 16 : 0, chipTop: 2.5, chipHeight: 15, chipFont: 10.5)
+        }
+        if h >= 34 {   // overlay lanes (40 pt), short main track (49 pt): compact chip, thinner waveform strip
+            return VideoClipBands(nameBand: 14, audioStrip: hasAudio ? max(8, (h * 0.2).rounded()) : 0,
+                                  chipTop: 1.5, chipHeight: 12, chipFont: 9)
+        }
+        return VideoClipBands(nameBand: 0, audioStrip: 0, chipTop: defaultChip.top, chipHeight: defaultChip.height, chipFont: defaultChip.font)
+    }
+
     public let rows: [Row]
     public let pixelsPerSecond: Double
     /// Leftmost visible time (scroll position).
