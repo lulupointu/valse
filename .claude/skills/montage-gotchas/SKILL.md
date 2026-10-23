@@ -8,10 +8,18 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
 ## Async tests, AVFoundation, load
 - **Cooperative-pool deadlock**: blocking AVFoundation reads (`copyNextSampleBuffer`, `AudioFileIO.read`, semaphores
   around async loads) inside `async` tests exhaust Swift's pool when ~10 overlap → whole suite hangs at 0 % CPU (only
-  under the full parallel suite). Do blocking media work on GCD (`withCheckedContinuation` + `DispatchQueue.global().async`,
-  see `FinisherAudioTests.grain` in MontageEngineTests/FinisherEngineTests.swift); engine loops use `OffPool.run` /
-  `await OffPool.next(output)` (MontageEngine/Media/OffPool.swift). Stress test: MontageAITests/BlockingReadStressTests.swift.
+  under the full parallel suite). Do blocking media work through `OffPool.run` / `await OffPool.next(output)`
+  (MontageEngine/Media/OffPool.swift: its own threads), in tests too. Stress tests: MontageAITests/BlockingReadStressTests,
+  MontageEngineTests/EncoderLoadStressTests (opt-in `MONTAGE_ENCODER_STRESS=<n>`).
   A watchdog for such a hang needs its own `Thread` (GCD gets no new workers either). No in-process `OSLogStore` enumeration.
+- **GCD soft limit (64 threads)**: blocking reads parked on GCD plus export pumps reach "Dispatch Thread Soft Limit 64" →
+  AVFoundation gets no workers, process hangs (FLAKY-SYS-UNIT). Never park blocking calls on `DispatchQueue.global()`;
+  exports / reverse renders go through `ExportGate` (≤ cores/2 each, `MONTAGE_EXPORT_CONCURRENCY`).
+- **Writers under load**: AVAssetWriter adaptor pools vanish and HEVC VideoToolbox fails transiently (-12902) when the
+  machine is busy: allocate frames from your own CVPixelBufferPool, throw the writer's real error, retry transient VT codes
+  (Export/VideoToolboxErrors.swift); never spin on `isReadyForMoreMediaData` of a failed writer.
+- **Shared test-media cache**: write to a temp file + atomic rename, regenerate empty files, check ffmpeg's exit status;
+  never write in place (a 0-byte cached movie crashes every later run).
 - Heavy work from main-actor code/tests starves PlaybackTests: run it `Task.detached`.
 - ML jobs via `JobQueue` pass `heavy: true` (runs inside `HeavyWorkGate`, MontageEngine/Jobs/). Tests await the task a
   store flow returns (`setCutout`, `autoBeats`) instead of polling with a time budget.

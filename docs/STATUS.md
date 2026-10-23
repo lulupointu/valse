@@ -316,6 +316,31 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   delivers press + release at the located element, redelivers on real moves, drops stale / non-synthetic mouse events
   (metrics click_event_relocated, click_foreign_events). Also flaky: player_click_select_keys (batch-qcfix6 gate),
   ExportFormatTests.hdrToneMappedToSDR, ai_camera_custom_box (batch-qcfix5 gate).
+- 2026-10-23 batch-flaky1 (owner: fix flakes until gates show none, general fixes preferred).
+  FLAKY-SYS-UI: (1) posted NSEvents reach the window at another (even non-finite) location → every synthetic mouse,
+  scroll and magnify event's intended location recorded and restored at dequeue (swizzled nextEvent) and dispatch
+  (UITestWindow.sendEvent); exact ClickProbe delivery for player:/offset clicks too; metric mouse_event_relocated;
+  self-test MONTAGE_UITEST_INJECT_EVENT_SKEW. Scroll root cause (confirmed): offscreen window → NSEvent(cgEvent:) window-
+  less, locationInWindow = screen point → cmd-scroll zoom anchored at x ≈ -29500 (test-only jump); SyntheticEvents.placed.
+  (2) ai_camera_custom_box (confirmed): ticking Camera tracking starts Face detection, which fails on the faceless demo clip
+  and collapses the section before the Custom box click → script expands by title; CameraLockBoxTests covers Custom box
+  cancelling a running detection. (3) load barrier before step 1 (timeline geometry finite + rows, player sized; 10 s,
+  metric load_barrier_timeouts). (4) demo media encoded once per uitest.sh run (MONTAGE_UITEST_SHARED_MEDIA, atomic
+  install). player_preview: fixed 0.5 s wait between two spaces → waitFor ui.preview.time. player_click_select_keys:
+  likely class 1, unconfirmed. 132/132 stress runs of 22 historically flaky scripts --no-retry at load 10-18.
+  Open: language_fr editor-fr-assets snapshot 0.05 % off once (Overlay card thumbnail top row): ThumbnailCache requests
+  frames with ±quantum/2 tolerance, so the chosen frame can vary.
+  FLAKY-SYS-UNIT (C = confirmed, L = likely): (C) GCD soft-limit deadlock (OffPool on GCD + export pumps) → OffPool own
+  threads, ExportGate ≤ cores/2 exports and reverse renders; (C) test helpers' blocking reads on the cooperative pool
+  (TimeRemap, HDR, ExportFormat, AudioPipeline, CaptionTiming, F4AI, RelightDepth) moved off it; (C) transient HEVC VT
+  -12902 under load → Exporter / ReverseManager retry ≤ 2 (likely the HDR / hdrToneMappedToSDR flakes; original logs gone);
+  (C) writers losing their pixel buffer pool (TimeRemap Code=62, RelightRender Code=92) → retries / standalone buffers;
+  (C) non-atomic test-media cache writers → temp + rename, empty files regenerated, ffmpeg status checked; (C) ReverseManager
+  double render on one key deleted the first file → one render per key; (L) MediaInfo.ffprobe blocked the pool and fell
+  back silently (colorTransfer nil) → off pool, 3 retries, then throws; (L) EffectsPerf GPU time includes other processes'
+  GPU work → over-limit entries re-measured ≤ 5×, min kept, limits unchanged; (C) PlaybackResume tolerance 10 ms < one
+  512-frame tap buffer (10.67 ms) → tolerance = buffer duration. EncoderLoadStressTests: hung at 400 jobs before, 1200
+  jobs 0 failures after. test.sh: flaky lines carry attempt-1's issue; history in <main>/build/flaky-unit-history.log.
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
