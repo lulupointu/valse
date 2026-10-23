@@ -3,10 +3,9 @@
 {
   "project": "demo",
   "steps": [
-    {"idle": 1},
+    {"waitFor": {"path": "main.clips.count", "equals": 3}},
     {"menu": "menu.view/layout.title/layout.vertical"},
-    {"expect": {"path": "ui.layout.preset", "equals": "vertical"}},
-    {"idle": 0.5},
+    {"waitFor": {"path": "ui.layout.preset", "equals": "vertical"}},
     {"snapshot": "layout-vertical"},
     {"menu": "menu.view/layout.title/layout.player"},
     {"expect": [{"path": "ui.layout.preset", "equals": "player"}, {"path": "ui.layout.top", "approx": 0.64}]},
