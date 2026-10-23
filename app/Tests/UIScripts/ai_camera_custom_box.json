@@ -6,8 +6,10 @@
   "steps": [
     {"click": "clip:main/0"},
     {"click": "id:inspector.tab.video"},
-    // ticking starts the default (Face) detection; Custom box replaces it with a drawn box
-    {"click": "id:inspector.section.video.cameraLock", "at": [0.035, 0.5]},
+    // expand the (unticked) section and pick Custom box: ticking it would start the default Face detection, which on
+    // this faceless demo clip fails within moments and unticks + collapses the section again (FLAKY-SYS-UI: on a loaded
+    // machine that beat the Custom box click, so whether the box replaced a running detection was load-dependent anyway)
+    {"click": "id:inspector.section.video.cameraLock", "at": [0.15, 0.5]},
     {"waitFor": {"path": "ui.anchors", "contains": "cameraLock.customBox", "timeout": 5}},
     {"click": "id:cameraLock.customBox"},
     {"expect": {"path": "ui.anchors", "contains": "cameraLock.track"}},

@@ -81,7 +81,14 @@ holds, but `{"click": "id:x"}` works. Wait for something the element's appearanc
   goes where it is THEN (`click_retargets`); an element not on screen at that moment gets nothing
   and is clicked again once it is (`click_redeliveries`, ≤ 3 attempts); a dispatched press is never repeated; an
   element rebuilt between press and release counts in `click_release_anomalies`. uitest.sh prints `⚠ click warning`
-  for all three: not gating, but the target moved / was rebuilt under the click. `offset` clicks are sent as written.
+  for all three: not gating, but the target moved / was rebuilt under the click. `clip:` / `time:` / `header:` /
+  `player:` and `offset` clicks get the same exact delivery (FLAKY-SYS-UI). Every synthetic mouse event (drags and
+  hovers too) is put back where it was posted (`mouse_event_relocated`). The first step runs once the editor is usable
+  (timeline geometry finite, player sized: `load_barrier_timeouts`), so no leading `idle` / `wait` is needed.
+- Race to avoid: an action that starts a background job whose END changes the UI you click next (ticking Camera tracking
+  starts Face detection, which fails at once on the faceless demo clip and unticks the section; ai_camera_custom_box).
+  Reach the control without starting the job (expand the section via its title: `"at": [0.15, 0.5]`), or `waitFor` the
+  job's end state first.
   Driver self-test: `MONTAGE_UITEST_INJECT_CLICK_SKEW=0,40` / `MONTAGE_UITEST_INJECT_CLICK_VANISH=1` /
   `MONTAGE_UITEST_INJECT_AX_NO_WINDOWS=1` (a11yAudit with an empty AXWindows) (scripts must pass).
 - `waitFor` reads the same state as `expect` (`project.*` paths included).
