@@ -194,7 +194,7 @@ public enum SyntheticMedia {
 
     /// Waits for `input` to take more data. A writer that failed (an encoder error under load) never makes its inputs
     /// ready again: throw instead of polling forever (a UI test hung 2 min building the demo media this way).
-    static func waitUntilReady(_ input: AVAssetWriterInput, _ writer: AVAssetWriter) async throws {
+    public static func waitUntilReady(_ input: AVAssetWriterInput, _ writer: AVAssetWriter) async throws {
         while !input.isReadyForMoreMediaData {
             if writer.status == .failed || writer.status == .cancelled { throw writer.error ?? NSError(domain: "Montage", code: 68) }
             try await Task.sleep(nanoseconds: 1_000_000)
