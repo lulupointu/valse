@@ -537,13 +537,17 @@ import MontageTestSupport
         let track = try #require(try await asset.loadTracks(withMediaType: .video).first)
         let r = try AVAssetReader(asset: asset)
         let o = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
-        r.add(o); r.startReading()
-        let sb = try #require(o.copyNextSampleBuffer())
-        let pb = try #require(CMSampleBufferGetImageBuffer(sb))
-        CVPixelBufferLockBaseAddress(pb, .readOnly); defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
-        let bpr = CVPixelBufferGetBytesPerRow(pb), h = CVPixelBufferGetHeight(pb)
-        let data = [UInt8](UnsafeRawBufferPointer(start: CVPixelBufferGetBaseAddress(pb), count: bpr * h))
-        r.cancelReading()
-        return BGRAFrame(w: CVPixelBufferGetWidth(pb), h: h, bpr: bpr, data: data)
+        r.add(o)
+        // blocking read: off the cooperative pool (montage-gotchas)
+        let frame: BGRAFrame? = try await OffPool.run { _ in
+            r.startReading()
+            defer { r.cancelReading() }
+            guard let sb = o.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(sb) else { return nil }
+            CVPixelBufferLockBaseAddress(pb, .readOnly); defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+            let bpr = CVPixelBufferGetBytesPerRow(pb), h = CVPixelBufferGetHeight(pb)
+            let data = [UInt8](UnsafeRawBufferPointer(start: CVPixelBufferGetBaseAddress(pb), count: bpr * h))
+            return BGRAFrame(w: CVPixelBufferGetWidth(pb), h: h, bpr: bpr, data: data)
+        }
+        return try #require(frame, "no first frame in \(url.lastPathComponent): \(r.error.map { "\($0)" } ?? "-")")
     }
 }

@@ -2,7 +2,7 @@
 """Helpers for scripts/test.sh and scripts/uitest.sh: failing tests from a swift-testing xUnit report, the quarantine
 list (app/Tests/quarantine.txt) and its validation.
 
-  testlib.py unit-failures <xunit.xml>   one line per failed test: <Suite.test>\t<--filter regex>\t<quarantine reason|->
+  testlib.py unit-failures <xunit.xml>   one line per failed test: <Suite.test>\t<--filter regex>\t<quarantine reason|->\t<first issue|->
   testlib.py passed <xunit.xml>          exit 0 when the report has ≥ 1 test and no failure
   testlib.py quarantined <ui|unit> <id>  prints the reason and exits 0 when <id> is quarantined, else exits 1
   testlib.py check-quarantine            validates the file (format, date, reason, the test / script exists)
@@ -66,7 +66,10 @@ def unit_failures(path):
         suite = cls.split(".", 1)[1] if "." in cls else cls
         flt = re.escape(cls) + "/" + re.escape(name)
         reason = reason_for("unit", suite, func) or "-"
-        print(f"{suite}.{func}\t{flt}\t{reason}")
+        # 4th column: the first issue's message on one line (a flake's evidence; the run's logs are overwritten later)
+        el = tc.find("failure") if tc.find("failure") is not None else tc.find("error")
+        msg = re.sub(r"\s+", " ", (el.get("message") or el.text or "").strip())[:400] or "-"
+        print(f"{suite}.{func}\t{flt}\t{reason}\t{msg}")
 
 
 def passed(path):

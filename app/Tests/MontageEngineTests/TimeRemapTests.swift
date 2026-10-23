@@ -128,14 +128,17 @@ enum AudioPCM {
             AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false])
         r.add(o)
-        r.startReading()
-        var out: [Int16] = []
-        while let sb = o.copyNextSampleBuffer() {
-            guard let b = CMSampleBufferGetDataBuffer(sb) else { continue }
-            var tmp = [Int16](repeating: 0, count: CMBlockBufferGetDataLength(b) / 2)
-            tmp.withUnsafeMutableBytes { _ = CMBlockBufferCopyDataBytes(b, atOffset: 0, dataLength: $0.count, destination: $0.baseAddress!) }
-            out += tmp
+        // blocking read loop: off the cooperative pool (a pool full of these deadlocked the process, montage-gotchas)
+        return try await OffPool.run { _ in
+            r.startReading()
+            var out: [Int16] = []
+            while let sb = o.copyNextSampleBuffer() {
+                guard let b = CMSampleBufferGetDataBuffer(sb) else { continue }
+                var tmp = [Int16](repeating: 0, count: CMBlockBufferGetDataLength(b) / 2)
+                tmp.withUnsafeMutableBytes { _ = CMBlockBufferCopyDataBytes(b, atOffset: 0, dataLength: $0.count, destination: $0.baseAddress!) }
+                out += tmp
+            }
+            return out
         }
-        return out
     }
 }

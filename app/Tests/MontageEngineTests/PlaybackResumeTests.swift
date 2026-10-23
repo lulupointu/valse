@@ -34,6 +34,14 @@ import MontageTestSupport
         return times[mark...].first { $0.isFinite && $0 != stale }
     }
 
+    /// Duration of one tap buffer during steady playback before index `mark` (median step between consecutive buffer
+    /// starts), at least 10 ms.
+    static func bufferDuration(_ times: [Double], before mark: Int) -> Double {
+        let t = times[..<min(mark, times.count)].filter(\.isFinite)
+        let steps = zip(t, t.dropFirst()).map { $1 - $0 }.filter { $0 > 0.001 && $0 < 0.1 }.sorted()
+        return max(0.01, steps.isEmpty ? 0.01 : steps[steps.count / 2])
+    }
+
     @Test func pausePlayKeepsTheAudioHead() async throws {
         var p = TestProject()
         _ = try await p.addMedia(try await TestMedia.video(.frameIndex, seconds: 8, audioHz: 440))
@@ -57,7 +65,12 @@ import MontageTestSupport
             engine.play()
             try await Self.play(engine, seconds: 0.4)
             let resumed = try #require(Self.firstNewBuffer(log.snapshot, after: mark), "no audio after resume")
-            #expect(resumed <= paused + 0.01, "resume rendered audio from \(resumed) s, paused at \(paused) s: \(String(format: "%.0f", (resumed - paused) * 1000)) ms lost")
+            // tolerance = one tap buffer: the paused time can fall inside a buffer the tap had already rendered when the
+            // pause landed (a loaded machine reads `requestedTime` later), and the first NEW buffer then starts at that
+            // buffer's end. The fixed 10 ms was just under one 512-frame buffer (10.67 ms at 48 kHz) and failed once by
+            // 10.5 ms under load (FLAKY-SYS-UNIT); the bug this guards lost ~150 ms.
+            let slack = Self.bufferDuration(log.snapshot, before: mark) + 0.001
+            #expect(resumed <= paused + slack, "resume rendered audio from \(resumed) s, paused at \(paused) s: \(String(format: "%.0f", (resumed - paused) * 1000)) ms lost (one buffer = \(String(format: "%.1f", slack * 1000)) ms)")
 
             // control: pause, seek, play (was always gapless)
             engine.pause()
@@ -68,7 +81,7 @@ import MontageTestSupport
             engine.play()
             try await Self.play(engine, seconds: 0.4)
             let sought = try #require(Self.firstNewBuffer(log.snapshot, after: mark), "no audio after seek")
-            #expect(sought <= target + 0.01, "seek → play rendered from \(sought) s, target \(target) s")
+            #expect(sought <= target + Self.bufferDuration(log.snapshot, before: mark) + 0.001, "seek → play rendered from \(sought) s, target \(target) s")
             engine.pause()
         }
     }

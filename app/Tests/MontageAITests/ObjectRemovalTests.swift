@@ -27,9 +27,11 @@ import MontageTestSupport
     @Test func removesTheBrushedObjectFromAnImage() async throws {
         try await HeavyWorkGate.run {
             guard LaMaInpainter.isAvailable else { print("skip: LaMa model not installed"); return }
-            let url = TestMedia.directory.appendingPathComponent("remove-scene-v1.png")
-            let dst = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)!
-            CGImageDestinationAddImage(dst, Self.scene(), nil); CGImageDestinationFinalize(dst)
+            // atomic in the shared cache (rewritten in place on every run, under other runs reading it)
+            let url = try TestMedia.cachedSync(TestMedia.directory.appendingPathComponent("remove-scene-v1.png")) { tmp in
+                let dst = CGImageDestinationCreateWithURL(tmp as CFURL, UTType.png.identifier as CFString, 1, nil)!
+                CGImageDestinationAddImage(dst, Self.scene(), nil); CGImageDestinationFinalize(dst)
+            }
             var p = TestProject(canvas: Size2(640, 360))
             let id = try await p.addMedia(url)
             let before = try await p.render(at: 0.5)[0.475, 0.5]

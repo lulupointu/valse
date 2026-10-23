@@ -24,8 +24,22 @@ public enum TestMovies {
         }
     }
 
+    /// AVAssetWriter's encoder fails now and then on a loaded machine (its pixel buffer pool then disappears: a bare
+    /// "Code=92" flaked RelightRenderTests, FLAKY-SYS-UNIT): the movie is rewritten, twice at most.
     static func write(to url: URL, times: [Double], end: Double, codec: AVVideoCodecType, size: CGSize, audioStreams: Int = 0,
                       fill: @escaping @Sendable (CVPixelBuffer, Int) -> Void) async throws {
+        for attempt in 1... {
+            do {
+                return try await writeOnce(to: url, times: times, end: end, codec: codec, size: size, audioStreams: audioStreams, fill: fill)
+            } catch where attempt < 3 && !(error is CancellationError) {
+                print("TestMovies: writing \(url.lastPathComponent) failed (attempt \(attempt)): \(error)")
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 300_000_000)
+            }
+        }
+    }
+
+    static func writeOnce(to url: URL, times: [Double], end: Double, codec: AVVideoCodecType, size: CGSize, audioStreams: Int,
+                          fill: @escaping @Sendable (CVPixelBuffer, Int) -> Void) async throws {
         try? FileManager.default.removeItem(at: url)
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         var vs: [String: Any] = [AVVideoCodecKey: codec, AVVideoWidthKey: Int(size.width), AVVideoHeightKey: Int(size.height)]
@@ -48,19 +62,22 @@ public enum TestMovies {
         guard writer.startWriting() else { throw writer.error ?? NSError(domain: "Montage", code: 90) }
         writer.startSession(atSourceTime: .zero)
         for (i, t) in times.enumerated() {
-            while !vIn.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+            try await SyntheticMedia.waitUntilReady(vIn, writer)
             var pbOut: CVPixelBuffer?
-            CVPixelBufferPoolCreatePixelBuffer(nil, adaptor.pixelBufferPool!, &pbOut)
-            guard let pb = pbOut else { throw NSError(domain: "Montage", code: 92) }
+            // the writer's pool is gone once its encoder failed: report the writer's error (not a bare code)
+            if let pool = adaptor.pixelBufferPool { CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut) }
+            guard let pb = pbOut else { throw writer.error ?? NSError(domain: "Montage", code: 92) }
             fill(pb, i)
-            adaptor.append(pb, withPresentationTime: CMTime(seconds: t, preferredTimescale: 6000))
+            guard adaptor.append(pb, withPresentationTime: CMTime(seconds: t, preferredTimescale: 6000)) else {
+                throw writer.error ?? NSError(domain: "Montage", code: 93)
+            }
         }
         vIn.markAsFinished()
         for (k, aIn) in aIns.enumerated() {
             let total = Int(end * 48000)
             var pos = 0
             while pos < total {
-                while !aIn.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+                try await SyntheticMedia.waitUntilReady(aIn, writer)
                 let n = min(4800, total - pos)
                 if let sb = SyntheticMedia.sineSampleBuffer(start: pos, count: n, hz: 440 * Double(k + 1)) { aIn.append(sb) }
                 pos += n

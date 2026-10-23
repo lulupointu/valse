@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import Foundation
 import MontageCore
+import MontageEngine
 
 /// File facts for export checks. Uses ffprobe when installed (frame counts, codec names), else AVFoundation.
 public struct MediaInfo: Sendable, CustomStringConvertible {
@@ -40,7 +41,22 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
     }
 
     public static func probe(_ url: URL) async throws -> MediaInfo {
-        if let ff = ffprobePath, let info = ffprobe(ff, url) { return info }
+        if let ff = ffprobePath {
+            // ffprobe blocks (process + pipe) for up to seconds under load: off the cooperative pool. A failed run (spawn
+            // refused / killed on a loaded machine) is retried; if ffprobe still fails the probe THROWS instead of falling
+            // back to AVFoundation, whose MediaInfo lacks the ffprobe-only fields (pixel format, colour tags…): the
+            // fallback made export tests fail on a nil colorTransfer instead of saying ffprobe failed.
+            var last = "?"
+            for attempt in 1...3 {
+                let r = try await OffPool.run { _ in ffprobe(ff, url) }
+                switch r {
+                case .success(let info): return info
+                case .failure(let why): last = why
+                }
+                if attempt < 3 { try await Task.sleep(nanoseconds: 200_000_000) }
+            }
+            throw NSError(domain: "MediaInfo", code: 1, userInfo: [NSLocalizedDescriptionKey: "ffprobe failed on \(url.lastPathComponent): \(last)"])
+        }
         let asset = AVURLAsset(url: url)
         let dur = try await asset.load(.duration).seconds
         let v = try await asset.loadTracks(withMediaType: .video).first
@@ -62,16 +78,25 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
         return info
     }
 
-    static func ffprobe(_ path: String, _ url: URL) -> MediaInfo? {
+    enum ProbeResult: Sendable { case success(MediaInfo), failure(String) }
+
+    static func ffprobe(_ path: String, _ url: URL) -> ProbeResult {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: path)
         p.arguments = ["-v", "error", "-count_packets", "-show_entries",
                        "stream=codec_type,codec_name,profile,width,height,avg_frame_rate,r_frame_rate,nb_read_packets,pix_fmt,color_transfer,color_primaries,color_space,start_time,sample_rate,channels,bit_rate:format=duration,bit_rate,format_name:format_tags=major_brand", "-of", "json", url.path]
-        let pipe = Pipe(); p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
-        guard (try? p.run()) != nil else { return nil }
+        // stderr to a file, not a pipe: a full stderr pipe would block ffprobe while we read stdout
+        let errURL = FileManager.default.temporaryDirectory.appendingPathComponent("ffprobe-\(UUID().uuidString).err")
+        FileManager.default.createFile(atPath: errURL.path, contents: nil)
+        defer { try? FileManager.default.removeItem(at: errURL) }
+        let pipe = Pipe(); p.standardOutput = pipe; p.standardError = (try? FileHandle(forWritingTo: errURL)) ?? FileHandle.nullDevice
+        do { try p.run() } catch { return .failure("launch: \(error)") }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
-        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], p.terminationStatus == 0 else {
+            let err = (try? String(contentsOf: errURL, encoding: .utf8)) ?? ""
+            return .failure("exit \(p.terminationStatus) (\(p.terminationReason == .uncaughtSignal ? "signal" : "exit")), \(data.count) bytes out, stderr: \(err.prefix(300))")
+        }
         let streams = obj["streams"] as? [[String: Any]] ?? []
         let v = streams.first { $0["codec_type"] as? String == "video" }
         let a = streams.first { $0["codec_type"] as? String == "audio" }
@@ -81,7 +106,7 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
             return parts.count == 2 && parts[1] != 0 ? parts[0] / parts[1] : (parts.first ?? 0)
         }
         let dur = Double((obj["format"] as? [String: Any])?["duration"] as? String ?? "") ?? 0
-        return MediaInfo(videoCodec: v?["codec_name"] as? String, width: v?["width"] as? Int ?? 0, height: v?["height"] as? Int ?? 0,
+        return .success(MediaInfo(videoCodec: v?["codec_name"] as? String, width: v?["width"] as? Int ?? 0, height: v?["height"] as? Int ?? 0,
                          fps: rate(v?["avg_frame_rate"] as? String), frameCount: Int(v?["nb_read_packets"] as? String ?? ""),
                          duration: dur, hasAudio: a != nil, audioCodec: a?["codec_name"] as? String,
                          pixelFormat: v?["pix_fmt"] as? String, colorTransfer: v?["color_transfer"] as? String,
@@ -94,6 +119,6 @@ public struct MediaInfo: Sendable, CustomStringConvertible {
                          videoBitRate: Int(v?["bit_rate"] as? String ?? ""),
                          majorBrand: ((obj["format"] as? [String: Any])?["tags"] as? [String: Any])?["major_brand"] as? String,
                          formatName: (obj["format"] as? [String: Any])?["format_name"] as? String,
-                         nominalFPS: v.map { rate($0["r_frame_rate"] as? String) })
+                         nominalFPS: v.map { rate($0["r_frame_rate"] as? String) }))
     }
 }

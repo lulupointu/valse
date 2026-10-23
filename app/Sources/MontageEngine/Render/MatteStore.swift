@@ -120,11 +120,19 @@ public final class MatteVideoWriter: @unchecked Sendable {
 
     /// Appends the matte of the source frame presented at media time `time` (the image's luminance = alpha).
     public func append(_ image: CGImage, at time: Time) async throws {
-        while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
-        guard let pool = adaptor.pixelBufferPool else { throw NSError(domain: "Montage", code: 91) }
+        // a failed writer never becomes ready again (SyntheticMedia.waitUntilReady throws its error instead of spinning)
+        try await SyntheticMedia.waitUntilReady(input, writer)
+        guard let pool = adaptor.pixelBufferPool else { throw writer.error ?? NSError(domain: "Montage", code: 91) }
         var pbOut: CVPixelBuffer?
         CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut)
-        guard let pb = pbOut else { throw NSError(domain: "Montage", code: 92) }
+        if pbOut == nil {
+            // the writer's encoder failed (its error says why), or transient IOSurface pressure on a loaded machine
+            // (a bare "Code=92" flaked RelightRenderTests, FLAKY-SYS-UNIT): a standalone buffer is just as good
+            if writer.status == .failed || writer.status == .cancelled { throw writer.error ?? NSError(domain: "Montage", code: 92) }
+            CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA,
+                                [kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary, &pbOut)
+        }
+        guard let pb = pbOut else { throw writer.error ?? NSError(domain: "Montage", code: 92) }
         CVPixelBufferLockBaseAddress(pb, [])
         if let base = CVPixelBufferGetBaseAddress(pb),
            let ctx = CGContext(data: base, width: width, height: height, bitsPerComponent: 8,

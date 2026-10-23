@@ -83,9 +83,9 @@ import MontageTestSupport
     @Test func stabilizationAnalysisRecoversJitterAndSteadiesThePicture() async throws {
         // a box whose position jitters ±6 % per frame (camera shake), on black
         let jitter: [Double] = (0..<45).map { i in [0.0, 0.05, -0.04, 0.06, -0.05, 0.02, -0.06, 0.04][i % 8] }
-        let url = TestMedia.directory.appendingPathComponent("shake-v2.mp4")
-        if !FileManager.default.fileExists(atPath: url.path) {
-            try await SyntheticMedia.writeVideo(to: url, size: CGSize(width: 320, height: 180), seconds: 1.5, fps: 30,
+        // atomic in the shared cache (the in-place writer first deleted a file other runs may have been reading)
+        let url = try await TestMedia.cached(TestMedia.directory.appendingPathComponent("shake-v2.mp4")) { tmp in
+            try await SyntheticMedia.writeVideo(to: tmp, size: CGSize(width: 320, height: 180), seconds: 1.5, fps: 30,
                                                 codec: .h264, audioHz: nil) { f, _ in
                 SyntheticMedia.Paint(background: (0, 0, 0),
                                      box: (CGRect(x: 0.4 + jitter[f], y: 0.35, width: 0.2, height: 0.3), (255, 255, 255)))

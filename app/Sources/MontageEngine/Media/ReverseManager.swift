@@ -19,6 +19,8 @@ public final class ReverseManager: @unchecked Sendable {
     private let lock = NSLock()
     private var ready: Set<String> = []
     private var pending: [String: JobID] = [:]
+    /// Render requested (enqueue in progress or job running) per key: one render per key at a time.
+    private var enqueuing: [String: Task<JobID, Never>] = [:]
     /// Main actor: a reversed render finished (argument = content hash).
     @MainActor public var onReady: ((String) -> Void)?
 
@@ -56,15 +58,32 @@ public final class ReverseManager: @unchecked Sendable {
     @discardableResult
     public func request(source src: URL, key: String, detail: String = "", subject: String? = nil) async -> JobID? {
         if readyURL(key: key) != nil { return nil }
-        if let j = lock.withLock({ pending[key] }) { return j }
+        // check-and-reserve atomically: two callers both passing a `pending` check across the enqueue's await started
+        // two renders of one key, and the second's `removeItem(dst)` + rename made the first's waiter find no file
+        // ("reverse failed", FLAKY-SYS-UNIT stress with concurrent `ensure` of one asset)
         let dst = reversedURL(key: key)
-        let id = await JobQueue.shared.enqueue(titleKey: "job.reverse", detail: detail, priority: 1, subject: subject ?? key) { progress in
-            try await ReverseManager.generate(source: src, to: dst, progress: progress)
+        let (enqueue, isNew): (Task<JobID, Never>, Bool) = lock.withLock {
+            if let t = enqueuing[key] { return (t, false) }
+            let t = Task<JobID, Never> {
+                await JobQueue.shared.enqueue(titleKey: "job.reverse", detail: detail, priority: 1, subject: subject ?? key) { progress in
+                    // a transient VideoToolbox failure (saturated hardware codecs) is retried, like export passes
+                    for attempt in 1... {
+                        do { try await ReverseManager.generate(source: src, to: dst, progress: progress); return }
+                        catch where attempt < 3 && VideoToolboxErrors.isTransient(error) {
+                            try await Task.sleep(nanoseconds: UInt64(attempt) * 300_000_000)
+                        }
+                    }
+                }
+            }
+            enqueuing[key] = t
+            return (t, true)
         }
+        let id = await enqueue.value
+        guard isNew else { return id }
         lock.withLock { pending[key] = id }
         Task {
             let state = await JobQueue.shared.wait(id)
-            self.lock.withLock { self.pending[key] = nil }
+            self.lock.withLock { self.pending[key] = nil; self.enqueuing[key] = nil }
             if state == .done {
                 self.lock.withLock { _ = self.ready.insert(key) }
                 await MainActor.run { self.onReady?(key) }
@@ -97,6 +116,10 @@ public final class ReverseManager: @unchecked Sendable {
 
     /// Writes the reversed version of `source` to `dst` (atomic: temp file + rename).
     public static func generate(source: URL, to dst: URL, progress: JobProgress? = nil) async throws {
+        try await ExportGate.reverse.run { try await generatePass(source: source, to: dst, progress: progress) }
+    }
+
+    private static func generatePass(source: URL, to dst: URL, progress: JobProgress?) async throws {
         let asset = AVURLAsset(url: source, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         let duration = try await asset.load(.duration)
         let vTrack = try await asset.loadTracks(withMediaType: .video).first

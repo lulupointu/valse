@@ -11,9 +11,9 @@ import MontageTestSupport
 @Suite(.serialized) struct HDRTests {
     /// 10-bit HEVC HLG/BT.2020 file whose every pixel has luma code `y10` (0…1023, video range) and neutral chroma.
     static func hlgVideo(y10: Int, seconds: Double = 1) async throws -> URL {
-        let url = TestMedia.directory.appendingPathComponent("hlg-\(y10)-\(seconds).mov")
-        if FileManager.default.fileExists(atPath: url.path) { return url }
-        let tmp = TestMedia.directory.appendingPathComponent("tmp-\(UUID().uuidString).mov")
+        // TestMedia.cached: retried when the encoder fails under load, and only a COMPLETE file enters the shared cache
+        // (this used to move the file into the cache even when the writer had failed)
+        try await TestMedia.cached(TestMedia.directory.appendingPathComponent("hlg-\(y10)-\(seconds).mov")) { tmp in
         let w = 320, h = 180, fps: Int32 = 30
         let writer = try AVAssetWriter(outputURL: tmp, fileType: .mov)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -26,14 +26,17 @@ import MontageTestSupport
             kCVPixelBufferWidthKey as String: w, kCVPixelBufferHeightKey as String: h,
             kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()])
         writer.add(input)
-        #expect(writer.startWriting())
+        guard writer.startWriting() else { throw writer.error ?? NSError(domain: "HDRTests", code: 1) }
         writer.startSession(atSourceTime: .zero)
         let frames = Int(seconds * Double(fps))
         for f in 0..<frames {
-            while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+            while !input.isReadyForMoreMediaData {
+                if writer.status == .failed { throw writer.error ?? NSError(domain: "HDRTests", code: 2) }
+                try await Task.sleep(nanoseconds: 1_000_000)
+            }
             var pbOut: CVPixelBuffer?
-            CVPixelBufferPoolCreatePixelBuffer(nil, adaptor.pixelBufferPool!, &pbOut)
-            let pb = pbOut!
+            if let pool = adaptor.pixelBufferPool { CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut) }
+            guard let pb = pbOut else { throw writer.error ?? NSError(domain: "HDRTests", code: 3) }
             CVPixelBufferLockBaseAddress(pb, [])
             for (plane, value) in [(0, UInt16(y10 << 6)), (1, UInt16(512 << 6))] {
                 let base = CVPixelBufferGetBaseAddressOfPlane(pb, plane)!
@@ -47,13 +50,14 @@ import MontageTestSupport
             CVBufferSetAttachment(pb, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_2020, .shouldPropagate)
             CVBufferSetAttachment(pb, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_2100_HLG, .shouldPropagate)
             CVBufferSetAttachment(pb, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_2020, .shouldPropagate)
-            adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(f), timescale: fps))
+            guard adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(f), timescale: fps)) else {
+                throw writer.error ?? NSError(domain: "HDRTests", code: 4)
+            }
         }
         input.markAsFinished()
         await writer.finishWriting()
-        #expect(writer.status == .completed)
-        try? FileManager.default.moveItem(at: tmp, to: url)
-        return url
+        if writer.status != .completed { throw writer.error ?? NSError(domain: "HDRTests", code: 5) }
+        }
     }
 
     /// Mean 10-bit luma code of the first frame (decoded natively to x420, no colour conversion).
@@ -64,20 +68,23 @@ import MontageTestSupport
         let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange])
         reader.add(out)
-        reader.startReading()
-        guard let sb = out.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(sb) else { return -1 }
-        CVPixelBufferLockBaseAddress(pb, .readOnly)
-        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
-        let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)!
-        let bpr = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
-        let w = CVPixelBufferGetWidthOfPlane(pb, 0), h = CVPixelBufferGetHeightOfPlane(pb, 0)
-        var sum = 0.0, n = 0.0
-        for y in stride(from: h / 4, to: 3 * h / 4, by: 4) {
-            let row = (base + y * bpr).assumingMemoryBound(to: UInt16.self)
-            for x in stride(from: w / 4, to: 3 * w / 4, by: 4) { sum += Double(row[x] >> 6); n += 1 }
+        // blocking read: off the cooperative pool (montage-gotchas)
+        return try await OffPool.run { _ in
+            reader.startReading()
+            defer { reader.cancelReading() }
+            guard let sb = out.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(sb) else { return -1 }
+            CVPixelBufferLockBaseAddress(pb, .readOnly)
+            defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+            let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)!
+            let bpr = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
+            let w = CVPixelBufferGetWidthOfPlane(pb, 0), h = CVPixelBufferGetHeightOfPlane(pb, 0)
+            var sum = 0.0, n = 0.0
+            for y in stride(from: h / 4, to: 3 * h / 4, by: 4) {
+                let row = (base + y * bpr).assumingMemoryBound(to: UInt16.self)
+                for x in stride(from: w / 4, to: 3 * w / 4, by: 4) { sum += Double(row[x] >> 6); n += 1 }
+            }
+            return sum / n
         }
-        reader.cancelReading()
-        return sum / n
     }
 
     static func code10(_ v: Double) -> Double { 64 + v * 876 }
@@ -190,6 +197,7 @@ import MontageTestSupport
         try ppm.write(to: src)
         defer { try? FileManager.default.removeItem(at: src) }
         let tmp = TestMedia.directory.appendingPathComponent("tmp-\(UUID().uuidString).mov")
+        defer { try? FileManager.default.removeItem(at: tmp) }   // left only when ffmpeg failed (shell throws)
         _ = try shell(ff, ["-v", "error", "-y", "-loop", "1", "-i", src.path, "-t", "1", "-r", "30",
                            "-vf", "scale=in_range=pc:out_color_matrix=bt2020:out_range=tv,format=yuv420p10le",
                            "-c:v", "libx265", "-x265-params", "log-level=error:crf=4:colorprim=bt2020:transfer=\(trc):colormatrix=bt2020nc:range=limited",
@@ -274,6 +282,11 @@ import MontageTestSupport
         try p.run()
         let d = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
+        // a failed / killed ffmpeg leaves a partial output that the callers would rename into the shared media cache
+        guard p.terminationStatus == 0 else {
+            throw NSError(domain: "HDRTests.shell", code: Int(p.terminationStatus),
+                          userInfo: [NSLocalizedDescriptionKey: "\(URL(fileURLWithPath: exe).lastPathComponent) exited \(p.terminationStatus)"])
+        }
         return String(decoding: d, as: UTF8.self)
     }
 }

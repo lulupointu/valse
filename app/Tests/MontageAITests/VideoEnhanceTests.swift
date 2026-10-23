@@ -14,7 +14,11 @@ import MontageTestSupport
     /// Grey scene + per-frame noise (±24) + a walking white box; odd frames 25 % brighter when `flicker`.
     static func noisyVideo(flicker: Bool) async throws -> URL {
         let url = TestMedia.directory.appendingPathComponent("noisy-\(flicker ? "flicker" : "steady")-v1.mov")
-        if FileManager.default.fileExists(atPath: url.path) { return url }
+        // shared cache: written beside and renamed into place (TestMedia.cached), never read half-written by another run
+        return try await TestMedia.cached(url) { tmp in try await writeNoisyVideo(to: tmp, flicker: flicker) }
+    }
+
+    static func writeNoisyVideo(to url: URL, flicker: Bool) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: w, AVVideoHeightKey: h,
                                                                             AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: 20_000_000]])
@@ -44,7 +48,7 @@ import MontageTestSupport
         }
         input.markAsFinished()
         await writer.finishWriting()
-        return url
+        if writer.status != .completed { throw writer.error ?? NSError(domain: "VideoEnhanceTests", code: 1) }
     }
 
     /// Luma frames of a video (8-bit grey via image generator).
@@ -90,9 +94,7 @@ import MontageTestSupport
     /// was read back as BT.709 and looked grey and washed out. The output now carries the source's tags (HEVC Main10).
     @Test func enhancedCopyKeepsHLGColourTags() async throws {
         try await HeavyWorkGate.run {
-            let url = TestMedia.directory.appendingPathComponent("enhance-hlg-src.mov")
-            if !FileManager.default.fileExists(atPath: url.path) {
-                let tmp = TestMedia.directory.appendingPathComponent("tmp-\(UUID().uuidString).mov")
+            let url = try await TestMedia.cached(TestMedia.directory.appendingPathComponent("enhance-hlg-src.mov")) { tmp in
                 let (w, h) = (320, 180)
                 let writer = try AVAssetWriter(outputURL: tmp, fileType: .mov)
                 let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -121,7 +123,7 @@ import MontageTestSupport
                     #expect(ad.append(pb, withPresentationTime: CMTime(value: CMTimeValue(f), timescale: 30)))
                 }
                 input.markAsFinished(); await writer.finishWriting()
-                try FileManager.default.moveItem(at: tmp, to: url)
+                if writer.status != .completed { throw writer.error ?? NSError(domain: "VideoEnhanceTests", code: 2) }
             }
             let a = try await MediaProbe.probe(url)
             #expect(a.transfer == .hlg)

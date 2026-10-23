@@ -15,6 +15,8 @@ import MontageTestSupport
 @Suite(.serialized) struct EffectsPerfTests {
     static let strict = ProcessInfo.processInfo.environment["MONTAGE_PERF"] == "1"
     static let budgetMs = Double(ProcessInfo.processInfo.environment["MONTAGE_FX_BUDGET_MS"] ?? "") ?? 3.5
+    /// Extra measurements (5 command buffers each) of an entry first measured over the limit.
+    static let remeasures = 5
 
     @Test func everyEffectFitsTheRealTimeBudget() {
         let r = EffectPreviewRenderer.shared
@@ -26,8 +28,22 @@ import MontageTestSupport
             }
             times.append((d.id, ms))
         }
-        times.sort { $0.1 > $1.1 }
         let limit = Self.budgetMs * (Self.strict ? 1 : 2)
+        // GPU time of a command buffer includes the time the GPU spends on OTHER processes' work interleaved with it
+        // (other checkouts' tests / apps share the GPU; the CPU load average doesn't see it: lightRays measured 3.73 ms
+        // vs its usual 1.5-1.9 with 3 agents running). Contention only ever ADDS time, so an entry over the limit is
+        // re-measured a few times, spread over ~1 s, and keeps its minimum: a real regression stays over every time.
+        times = times.map { id, ms in
+            guard ms > limit, let d = all.first(where: { $0.id == id }) else { return (id, ms) }
+            var best = ms
+            for _ in 0..<Self.remeasures where best > limit {
+                Thread.sleep(forTimeInterval: 0.2)
+                if let again = r.gpuMilliseconds(d, width: 1920, height: 1080, time: 1.1, runs: 5) { best = min(best, again) }
+            }
+            if best < ms { print(String(format: "  re-measured %@: %.2f → %.2f ms (GPU contention)", id, ms, best)) }
+            return (id, best)
+        }
+        times.sort { $0.1 > $1.1 }
         print("effects perf (1080p GPU ms, budget \(Self.budgetMs), limit \(limit)), slowest:")
         for (id, ms) in times.prefix(15) { print(String(format: "  %6.2f  %@", ms, id)) }
         let total = times.reduce(0) { $0 + $1.1 }

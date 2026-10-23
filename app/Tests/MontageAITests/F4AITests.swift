@@ -234,7 +234,11 @@ import MontageTestSupport
                               RemovalStroke(points: [Vec2(0.5, 0.5)], radius: 0.1)]
 
     /// Frames (centre crop of the logo area, RGB 0…255) of a movie.
-    static func frames(_ url: URL) throws -> [(t: Double, px: [UInt8])] {
+    static func frames(_ url: URL) async throws -> [(t: Double, px: [UInt8])] {
+        try await OffPool.run { _ in try framesBlocking(url) }   // blocking read loop: off the cooperative pool
+    }
+
+    static func framesBlocking(_ url: URL) throws -> [(t: Double, px: [UInt8])] {
         let asset = AVURLAsset(url: url)
         let reader = try AVAssetReader(asset: asset)
         let track = asset.tracks(withMediaType: .video)[0]
@@ -285,7 +289,7 @@ import MontageTestSupport
                     DispatchQueue.global().async { Task { do { c.resume(returning: try await ObjectRemover.process(asset, strokes: Self.logoStrokes)) } catch { c.resume(throwing: error) } } }
                 }
                 defer { try? FileManager.default.removeItem(at: out) }
-                let fs = try Self.frames(out)
+                let fs = try await Self.frames(out)
                 #expect(fs.count == 20)
                 #expect(fs.allSatisfy { Self.redness($0.px) < 40 }, "logo removed")
                 results[on] = Self.flicker(fs)
@@ -313,7 +317,7 @@ import MontageTestSupport
                 DispatchQueue.global().async { Task { do { c.resume(returning: try await ObjectRemover.process(asset, strokes: Self.logoStrokes, range: range)) } catch { c.resume(throwing: error) } } }
             }
             defer { try? FileManager.default.removeItem(at: out) }
-            let fs = try Self.frames(out)
+            let fs = try await Self.frames(out)
             #expect(fs.count == 200)
             for f in fs {
                 let red = Self.redness(f.px)
