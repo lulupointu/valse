@@ -47,8 +47,14 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     private let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 8)
     private var last: ClipID?
 
-    init(clips: [Clip], state: AudioMixState) {
-        entries = clips.sorted { $0.start < $1.start }.map { Entry(id: $0.id, start: $0.start.seconds, end: $0.end.seconds, clip: $0) }
+    /// `skip`: timeline ranges the composition leaves out (quick cut preview) — entries are in composition time.
+    init(clips: [Clip], state: AudioMixState, skip: SkipTimeMap = .identity) {
+        entries = clips.sorted { $0.start < $1.start }.flatMap { c in
+            skip.kept(c.range).map { k in
+                let s = skip.item(k.start)
+                return Entry(id: c.id, start: s.seconds, end: (s + k.duration).seconds, clip: c)
+            }
+        }
         self.state = state
         for e in entries { chains[e.id] = LiveChain(state.liveChain(e.id), sampleRate: 48000) }
         seenVersion = state.currentVersion

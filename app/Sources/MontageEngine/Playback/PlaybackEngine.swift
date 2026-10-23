@@ -87,10 +87,18 @@ public final class PlaybackEngine {
     /// Loop playback (PB-009): when set, playing past `end` jumps back to `start`.
     public var loopRange: TimeRange? { didSet { if oldValue != loopRange { installLoopObserver() } } }
     private var loopObserver: Any?
-    /// Quick cut preview (TL-048): sorted, disjoint ranges that forward playback jumps over (the project is unchanged).
-    /// A boundary observer at each start seeks to its end; `play()` from inside one starts at its end.
-    public var skipRanges: [TimeRange] = [] { didSet { if oldValue != skipRanges { installSkipObserver() } } }
-    private var skipObserver: Any?
+    /// Quick cut preview (TL-048): sorted, disjoint ranges that playback runs over (the project is unchanged).
+    /// PB-QC: they are left out of the preview composition (no seek at each one: seamless, audio included); the
+    /// engine maps item time ↔ timeline time with `itemSkip`. `play()` from inside one starts at its end.
+    public var skipRanges: [TimeRange] = [] {
+        didSet { if oldValue != skipRanges { rebuild(project, debounce: true) } }   // slider drags coalesce
+    }
+    /// Skipped ranges of the INSTALLED item (the requested ones once their build is in place).
+    public private(set) var itemSkip: SkipTimeMap = .identity
+    /// Timeline time of a player-item time.
+    private func timeline(_ t: CMTime) -> Time { itemSkip.timeline(Time(cmTime: t)) }
+    /// Duration of the installed item (the timeline's, less the skipped ranges).
+    private var itemDuration: Time { itemSkip.item(project.duration) }
     private var endObserver: (any NSObjectProtocol)?
     private var proxyObserver: (any NSObjectProtocol)?
     /// Emulated reverse shuttle (when the item can't play backwards): negative rate, driven by a timer.
@@ -109,9 +117,8 @@ public final class PlaybackEngine {
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] t in
             MainActor.assumeIsolated {
                 guard let self, self.player.rate != 0 else { return }
-                self.requestedTime = Time(cmTime: t)
+                self.requestedTime = self.timeline(t)
                 self.onTimeUpdate?(self.requestedTime)
-                if !self.skipRanges.isEmpty { self.skipIfInside() }   // a boundary missed (seek landing inside a range)
             }
         }
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] p, _ in
@@ -119,7 +126,7 @@ public final class PlaybackEngine {
             Task { @MainActor in
                 guard let self else { return }
                 // stopped by itself (end of item): the playhead is where the player stopped
-                if !playing, !self.seekInFlight, self.reverseShuttleRate == 0, self.resumeRate == nil { self.requestedTime = Time(cmTime: self.player.currentTime()) }
+                if !playing, !self.seekInFlight, self.reverseShuttleRate == 0, self.resumeRate == nil { self.requestedTime = self.timeline(self.player.currentTime()) }
                 // a seek while playing holds the rate at 0 for a moment: still "playing" for the UI
                 self.onPlayStateChange?(self.isPlaying)
             }
@@ -190,6 +197,7 @@ public final class PlaybackEngine {
         for s in RenderCache.shared.validSegments(project, size: size) { h.combine(s.key) }
         let key = h.finalize()
         if force || key != structureKey {
+            if key != structureKey { audioTapsDisabled = false }   // new structure: live audio taps again (see watchClock)
             structureKey = key
             renderSize = size
             rebuild(project, debounce: !force)
@@ -249,12 +257,14 @@ public final class PlaybackEngine {
     private func rebuild(_ project: Project, debounce: Bool) {
         buildTask?.cancel()
         let size = renderSize, chooser = sourceChooser, state = self.state, audioState = self.audioState
+        let mixes = mixesAudioFormatsForTesting, taps = !audioTapsDisabled, skips = skipRanges
         isBuilding = true
         buildTask = Task { [weak self] in
             do {
                 if debounce { try await Task.sleep(for: .milliseconds(40)) }
                 let built = try await CompositionBuilder.build(project: project, purpose: .preview, renderSize: size,
-                                                               state: state, audioState: audioState, sources: chooser)
+                                                               state: state, audioState: audioState, mixesAudioFormats: mixes,
+                                                               audioTaps: taps, skipping: skips, sources: chooser)
                 guard !Task.isCancelled else { return }
                 self?.isBuilding = false
                 self?.lastBuildError = nil
@@ -286,22 +296,22 @@ public final class PlaybackEngine {
         player.replaceCurrentItem(with: item)
         state.clearRecent()
         onItemReplaced?()
-        lastShownTime = .invalid; stallWatch = nil
+        lastShownTime = .invalid; stallWatch = nil; clockWatch = nil
         seekInFlight = false
         pendingSeek = nil
         let rate = resumeRate ?? (player.rate != 0 ? player.rate : 1)
         resumeRate = nil
+        itemSkip = built.skip
         performSeek(min(t, max(.zero, project.duration)), exact: true)
         if wasPlaying && reverseShuttleRate == 0 { resume(atRate: rate) }
         installLoopObserver()
-        installSkipObserver()
     }
 
     // MARK: Transport
 
     public var isPlaying: Bool { player.rate != 0 || reverseShuttleRate != 0 || resumeRate != nil }
 
-    public var currentTime: Time { player.rate != 0 ? Time(cmTime: player.currentTime()) : requestedTime }
+    public var currentTime: Time { player.rate != 0 ? timeline(player.currentTime()) : requestedTime }
 
     public func play() {
         stopReverseShuttle()
@@ -321,25 +331,11 @@ public final class PlaybackEngine {
         return t >= r.start - Time(0.02) && t < r.end - Time(0.02) ? r : nil
     }
 
-    private func installSkipObserver() {
-        if let o = skipObserver { player.removeTimeObserver(o); skipObserver = nil }
-        guard !skipRanges.isEmpty else { return }
-        skipObserver = player.addBoundaryTimeObserver(forTimes: skipRanges.map { NSValue(time: $0.start.cmTime) }, queue: .main) { [weak self] in
-            MainActor.assumeIsolated { self?.skipIfInside() }
-        }
-    }
-
-    /// Playing forward inside a skip range: jump to its end (keeps playing once the seek lands, like the loop wrap).
-    private func skipIfInside() {
-        guard player.rate > 0, !seekInFlight, let r = skipRange(containing: Time(cmTime: player.currentTime())) else { return }
-        seek(to: r.end)
-    }
-
     public func pause() {
         if reverseShuttleRate != 0 { stopReverseShuttle(); onTimeUpdate?(requestedTime); return }
         // Only a playing player's clock is news: when already paused, `requestedTime` is authoritative and the player
         // may still be mid-seek (reading it back raced the seek and moved the playhead — flaky library preview test).
-        if player.rate != 0 { requestedTime = Time(cmTime: player.currentTime()) }
+        if player.rate != 0 { requestedTime = timeline(player.currentTime()) }
         let held = resumeRate != nil
         resumeRate = nil
         player.pause()
@@ -355,7 +351,7 @@ public final class PlaybackEngine {
     public func setRate(_ rate: Float) {
         guard rate != 0 else { pause(); return }
         if rate < 0, player.currentItem?.canPlayReverse != true {
-            if player.rate != 0 { player.pause(); requestedTime = Time(cmTime: player.currentTime()) }
+            if player.rate != 0 { player.pause(); requestedTime = timeline(player.currentTime()) }
             resumeRate = nil   // a seek in flight must not restart forward playback
             startReverseShuttle(rate)
             return
@@ -411,7 +407,7 @@ public final class PlaybackEngine {
         if let o = loopObserver { player.removeTimeObserver(o); loopObserver = nil }
         guard let r = loopRange, !r.isEmpty else { return }
         // Fire a frame before the end so the wrap happens before the item reaches its end and pauses.
-        let end = max(r.start, r.end - project.settings.frameRate.frameDuration)
+        let end = itemSkip.item(max(r.start, r.end - project.settings.frameRate.frameDuration))
         loopObserver = player.addBoundaryTimeObserver(forTimes: [NSValue(time: end.cmTime)], queue: .main) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, self.player.rate > 0, let r = self.loopRange else { return }
@@ -462,7 +458,7 @@ public final class PlaybackEngine {
         seekGeneration &+= 1
         let gen = seekGeneration
         let tol = exact ? CMTime.zero : CMTime(value: 1, timescale: 10)
-        player.seek(to: t.cmTime, toleranceBefore: tol, toleranceAfter: tol) { [weak self] _ in
+        player.seek(to: itemSkip.item(t).cmTime, toleranceBefore: tol, toleranceAfter: tol) { [weak self] _ in
             Task { @MainActor in
                 guard let self, gen == self.seekGeneration else { return }   // superseded (item replaced)
                 self.seekInFlight = false
@@ -503,11 +499,12 @@ public final class PlaybackEngine {
     public func pixelBuffer(forHostTime host: CFTimeInterval) -> (CVPixelBuffer, Time)? {
         guard let out = videoOutput else { return nil }
         let itemTime = out.itemTime(forHostTime: host)
+        watchClock(itemTime, host: host)
         guard out.hasNewPixelBuffer(forItemTime: itemTime) else { watchForStall(itemTime); return nil }
         var shown = CMTime.invalid
         guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { watchForStall(itemTime); return nil }
         framesSinceSeek += 1
-        lastFrameTime = Time(cmTime: shown)
+        lastFrameTime = timeline(shown)
         // the output can hand back the frame it already showed (same display time): the preview is still frozen, so
         // that must not reset the stall watch (the watchdog then never fired: C3b, 8 s freeze under load)
         if shown.isValid, shown == lastShownTime { watchForStall(itemTime) } else { stallWatch = nil; futilePrimes = 0 }
@@ -547,9 +544,9 @@ public final class PlaybackEngine {
         guard let since = stallWatch else { stallWatch = itemTime; return }
         let span = CMTimeSubtract(itemTime, since).seconds
         if span < 0 { stallWatch = itemTime; return }
-        guard span >= Self.stallSpan, project.duration.seconds - itemTime.seconds > 0.2 else { return }
+        guard span >= Self.stallSpan, itemDuration.seconds - itemTime.seconds > 0.2 else { return }
         stallWatch = nil
-        let t = Time(cmTime: itemTime).clamped(.zero, max(project.duration, .zero))
+        let t = timeline(itemTime).clamped(.zero, max(project.duration, .zero))
         requestedTime = t
         if futilePrimes >= Self.maxFutilePrimes {
             // re-seeking did not wake the pipeline: a new player item at the same time (install keeps playing)
@@ -561,6 +558,39 @@ public final class PlaybackEngine {
         futilePrimes += 1
         stallRecoveries += 1
         performSeek(t, exact: true)
+    }
+
+    // MARK: Frozen clock (PB-QC)
+
+    /// Item time and display host time when the item clock last moved while playing (nil = not watching).
+    private var clockWatch: (item: CMTime, host: CFTimeInterval)?
+    /// Times the engine replaced a player item whose clock had stopped while playing (diagnostics / tests).
+    public private(set) var clockRebuilds = 0
+    /// Wall-clock seconds the item clock may stand still at rate > 0, "playing", before the item is replaced.
+    static let frozenClockSeconds = 1.5
+    /// Tests only: build with the pre-PB-QC audio lane layout (formats mixed on a lane) to exercise the recovery.
+    var mixesAudioFormatsForTesting = false
+
+    /// Preview builds without the lanes' processing taps (live EQ / voice colour / channel edits not heard) after the
+    /// clock froze; cleared by the next structural change.
+    public private(set) var audioTapsDisabled = false
+
+    /// The item clock follows the audio device: it only stands still while playing when the audio render chain is
+    /// wedged (PB-QC: a lane's processing tap left unprepared after a seek — sound gone, then play did nothing, and no
+    /// seek brought it back). Nothing inside the item recovers from that, and the same composition wedges again, so
+    /// the item is rebuilt at the same time WITHOUT the audio taps (the wedge needs a tap; install keeps playing).
+    /// Wall time is fine here: a loaded machine slows decoding, never the audio clock.
+    private func watchClock(_ itemTime: CMTime, host: CFTimeInterval) {
+        guard player.rate > 0, player.timeControlStatus == .playing, !seekInFlight, resumeRate == nil, reverseShuttleRate == 0,
+              !isBuilding, itemTime.isValid, itemDuration.seconds - itemTime.seconds > 0.25 else { clockWatch = nil; return }
+        guard let w = clockWatch, w.item == itemTime else { clockWatch = (itemTime, host); return }
+        guard host - w.host >= Self.frozenClockSeconds else { return }
+        clockWatch = nil
+        clockRebuilds += 1
+        audioTapsDisabled = true
+        EngineLog.error("playback clock frozen at \(String(format: "%.2f", itemTime.seconds)) s while playing: rebuilding the player item without audio taps")
+        requestedTime = timeline(itemTime).clamped(.zero, max(project.duration, .zero))
+        forceRebuild()
     }
 
     /// Re-renders the frame at the playhead from the last decoded sources with the LATEST project (paused edits).

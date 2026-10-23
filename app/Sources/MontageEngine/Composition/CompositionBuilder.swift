@@ -12,6 +12,8 @@ public struct BuiltComposition: @unchecked Sendable {
     public let state: RenderState
     /// Live audio parameters read by the lane taps (W8, `MontageEngine/Audio`).
     public let audioState: AudioMixState
+    /// Timeline ranges left out of this composition (quick cut preview); `duration` is the composition's.
+    public var skip: SkipTimeMap = .identity
 }
 
 /// Which files back a media item in this build (preview uses proxies when ready; export uses originals).
@@ -39,6 +41,12 @@ public actor AssetCache {
             if let index, audios.indices.contains(index) { return audios[index] }
             return audio.map { ($0, audioRange) }
         }
+        /// Encoded format of each audio stream (`CompositionBuilder.audioFormatKey`), parallel to `audios`.
+        var audioFormats: [String] = []
+        func audioFormat(_ index: Int?) -> String {
+            if let index, audioFormats.indices.contains(index) { return audioFormats[index] }
+            return audioFormats.first ?? ""
+        }
     }
     private var entries: [URL: Entry] = [:]
 
@@ -50,7 +58,10 @@ public actor AssetCache {
         let vr = try await v?.load(.timeRange) ?? .zero
         let ar = try await a?.load(.timeRange) ?? .zero
         var e = Entry(asset: asset, video: v, audio: a, videoRange: vr, audioRange: ar)
-        for t in try await asset.loadTracks(withMediaType: .audio) { e.audios.append((t, try await t.load(.timeRange))) }
+        for t in try await asset.loadTracks(withMediaType: .audio) {
+            e.audios.append((t, try await t.load(.timeRange)))
+            e.audioFormats.append(CompositionBuilder.audioFormatKey(try await t.load(.formatDescriptions)))
+        }
         entries[url] = e
         return e
     }
@@ -69,8 +80,7 @@ public actor AssetCache {
 public enum CompositionBuilder {
     /// Builds are serialized: AVAssetTracks are shared through `AssetCache`, and concurrent `insertTimeRange` calls on the
     /// same source track fail intermittently (-12780).
-    static let buildLock = AsyncSemaphore(limit: 1)
-    /// Builds finished in this process (any outcome). A build waiting for `buildLock` behind others sees this move:
+    static let buildLock = AsyncSemaphore(limit: 1)    /// Builds finished in this process (any outcome). A build waiting for `buildLock` behind others sees this move:
     /// tests use it to tell "queued behind other work" (keep waiting) from "stuck" (PlaybackProbe.waitReady).
     public static var finishedBuilds: Int { finishedLock.withLock { finished } }
     private nonisolated(unsafe) static var finished = 0
@@ -79,14 +89,17 @@ public enum CompositionBuilder {
     public static func build(project: Project, purpose: RenderPurpose, renderSize: CGSize? = nil,
                              frameRate: FrameRate? = nil, state existingState: RenderState? = nil,
                              audioState existingAudioState: AudioMixState? = nil,
-                             highPrecision: Bool = false,
+                             highPrecision: Bool = false, mixesAudioFormats: Bool = false, audioTaps: Bool = true,
+                             skipping skipRanges: [TimeRange] = [],
                              sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
         defer { finishedLock.withLock { finished += 1 }; Task { await buildLock.signal() } }
         try Task.checkCancellation()
         let comp = AVMutableComposition()
-        let duration = max(project.duration, project.settings.frameRate.frameDuration)
+        // Quick cut preview: the composition leaves `skipRanges` out; every insert / ramp / tap entry is placed in item time.
+        let skip = SkipTimeMap(skipRanges, duration: project.duration)
+        let duration = max(skip.item(project.duration), project.settings.frameRate.frameDuration)
         var trackMap: [ClipID: CMPersistentTrackID] = [:]
         var videoTrackIDs: [CMPersistentTrackID] = []
         var audioParams: [AVMutableAudioMixInputParameters] = []
@@ -110,10 +123,12 @@ public enum CompositionBuilder {
             // A/B lanes where neighbours overlap: the main track and overlay tracks with transitions (PiP, TR-004)
             let lanes = track.isMain || track.clips.contains(where: { $0.transitionOut != nil }) ? 2 : 1
             var vLanes: [AVMutableCompositionTrack?] = Array(repeating: nil, count: lanes)
-            var aLanes: [(AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?] = Array(repeating: nil, count: lanes)
+            // Audio lanes: one composition track per (A/B lane, encoded format) — see `AudioLaneKey`.
+            var aLanes: [AudioLaneKey: (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)] = [:]
+            var aOrder: [AudioLaneKey] = []
             var auxLanes: [String: AVMutableCompositionTrack] = [:]
             var auxOrder: [CMPersistentTrackID] = []
-            var laneClips: [[Clip]] = Array(repeating: [], count: lanes)
+            var laneClips: [AudioLaneKey: [Clip]] = [:]
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = lanes == 2 ? i % 2 : 0
@@ -131,7 +146,9 @@ public enum CompositionBuilder {
                         EngineLog.info("reversed render not ready (clip \(clip.id.short)): showing forwards")
                     }
                 }
-                let segments = remapSegments(mapped, asset: asset, frameRate: fr)
+                // Segments in item time (absolute): `placed` is the clip with start 0 that `insert` lays them out from.
+                let segments = place(remapSegments(mapped, asset: asset, frameRate: fr), clipStart: clip.start, skip: skip)
+                mapped.start = .zero
 
                 if asset.kind == .video, asset.hasVideo, track.kind.isVisual {
                     let entry = try await AssetCache.shared.entry(videoURL)
@@ -162,27 +179,30 @@ public enum CompositionBuilder {
                 let processedURL = audible ? try await AudioPipeline.audioSource(clip: clip, asset: asset, original: audioURL, purpose: purpose) : nil
                 var audioEntry: AssetCache.Entry?
                 if let processedURL { audioEntry = try await AssetCache.shared.entry(processedURL) }
-                if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(clip.reversed && reversedURL != nil ? 0 : clip.audioStreamIndex) {
-                    if aLanes[lane] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+                let streamIndex = clip.reversed && reversedURL != nil ? 0 : clip.audioStreamIndex
+                if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(streamIndex) {
+                    let key = AudioLaneKey(lane: lane, format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex))
+                    if aLanes[key] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                         let p = AVMutableAudioMixInputParameters(track: at)
                         p.trackID = at.trackID
                         p.audioTimePitchAlgorithm = .spectral
                         p.setVolume(0, at: .zero)
-                        aLanes[lane] = (at, p)
+                        aLanes[key] = (at, p)
+                        aOrder.append(key)
                     }
-                    if let (at, p) = aLanes[lane] {
+                    if let (at, p) = aLanes[key] {
                         try insert(clip: mapped, segments: segments, from: src, sourceRange: srcAudioRange, into: at)
                         applyVolume(clip, to: p, gain: ClipAudioPlan.make(clip).staticGain,
-                                    duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms))
-                        laneClips[lane].append(clip)
+                                    duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms), skip: skip)
+                        laneClips[key, default: []].append(clip)
                     }
                 }
             }
             for v in vLanes.compactMap({ $0 }) { videoTrackIDs.append(v.trackID) }
             videoTrackIDs += auxOrder
-            for (l, a) in aLanes.enumerated() {
-                guard let a else { continue }
-                a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[l], state: audioState))
+            for key in aOrder {
+                guard let a = aLanes[key] else { continue }
+                if audioTaps { a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[key] ?? [], state: audioState, skip: skip)) }
                 audioParams.append(a.1)
             }
         }
@@ -190,7 +210,7 @@ public enum CompositionBuilder {
         // Preview render cache: valid pre-rendered segments as passthrough lanes (see RenderCache).
         var cached: [(range: TimeRange, key: String, track: CMPersistentTrackID)] = []
         let size = renderSize ?? CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
-        if purpose == .preview {
+        if purpose == .preview, skip.isIdentity {   // cached segments are laid out in timeline time
             for seg in RenderCache.shared.validSegments(project, size: size) {
                 guard let src = try await AssetCache.shared.entry(seg.url).video,
                       let ct = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
@@ -221,11 +241,54 @@ public enum CompositionBuilder {
         // PQ: washed out). Untagged, every path delivers the decoded frames untouched; the compositor stamps its output
         // with the project's tags (`MontageCompositor.stamp`).
         vc.instructions = [MontageInstruction(timeRange: CMTimeRange(start: .zero, duration: duration.cmTime),
-                                              trackIDs: videoTrackIDs, state: state)]
+                                              trackIDs: videoTrackIDs, state: state, skip: skip)]
         var mix: AVMutableAudioMix?
         if !audioParams.isEmpty { mix = AVMutableAudioMix(); mix!.inputParameters = audioParams }
-        return BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
-                                duration: duration, state: state, audioState: audioState)
+        var built = BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
+                                     duration: duration, state: state, audioState: audioState)
+        built.skip = skip
+        return built
+    }
+
+    /// Clip-relative speed segments → absolute item-time segments with the skipped timeline ranges cut out (each
+    /// segment is linear, so a kept piece takes the matching slice of its source range).
+    static func place(_ segments: [(output: TimeRange, source: TimeRange)], clipStart: Time, skip: SkipTimeMap)
+    -> [(output: TimeRange, source: TimeRange)] {
+        var out: [(output: TimeRange, source: TimeRange)] = []
+        for s in segments {
+            let abs = s.output.offset(by: clipStart)
+            guard !skip.isIdentity else { out.append((abs, s.source)); continue }
+            let rate = s.output.duration.ticks > 0 ? s.source.duration / s.output.duration : 1
+            for k in skip.kept(abs) where k.duration.ticks > Time.ticksPerSecond / 2000 {   // < 0.5 ms: nothing to play
+                let src = TimeRange(start: s.source.start + (k.start - abs.start) * rate, duration: k.duration * rate)
+                out.append((TimeRange(start: skip.item(k.start), duration: k.duration), src))
+            }
+        }
+        return out
+    }
+
+    /// Composition audio track of a timeline track: its A/B lane AND the encoded format of the files inserted into it.
+    /// PB-QC: a lane holding segments of different formats (a clip's rendered audio stage, ALAC/LPCM CAF, next to the
+    /// iPhone AAC of the neighbouring clips — what quick cut produces: many short clips alternating lanes) made AVPlayer
+    /// rebuild that lane's audio chain on a seek across the formats; with an MTAudioProcessingTap on the lane the chain
+    /// was left unprepared for good (tap `unprepare` with no `prepare` after it), the mixer waited for it forever and the
+    /// audio-driven clock stopped: sound gone, then play did nothing (rate 1, "playing", time frozen) until the item was
+    /// replaced. One format per composition track never reconfigures.
+    struct AudioLaneKey: Hashable { let lane: Int; let format: String }
+
+    /// Format identity of an audio stream: codec, sample rate, channels, channel layout.
+    static func audioFormatKey(_ descriptions: [CMFormatDescription]) -> String {
+        guard let d = descriptions.first else { return "" }
+        let sub = CMFormatDescriptionGetMediaSubType(d)
+        var key = String(sub, radix: 16)
+        if let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(d)?.pointee {
+            key += "-\(Int(asbd.mSampleRate))-\(asbd.mChannelsPerFrame)-\(asbd.mBitsPerChannel)-\(asbd.mFormatFlags)"
+        }
+        var size = 0
+        if let layout = CMAudioFormatDescriptionGetChannelLayout(d, sizeOut: &size), size > 0 {
+            key += "-L\(layout.pointee.mChannelLayoutTag)-\(layout.pointee.mChannelBitmap.rawValue)-\(layout.pointee.mNumberChannelDescriptions)"
+        }
+        return key
     }
 
     /// The base track covers `[0, duration)` with copies of the blank file, back to back and unscaled (B1). It used to
@@ -334,7 +397,8 @@ public enum CompositionBuilder {
     static let volumeCurveSteps = 16
 
     /// Clip gain, fades and volume keyframes as linear ramps on the lane.
-    static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters, gain: Double = 1, duck: Ducking.Envelope? = nil) {
+    static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters, gain: Double = 1, duck: Ducking.Envelope? = nil,
+                            skip: SkipTimeMap = .identity) {
         let start = clip.start, end = clip.end
         func v(_ local: Time) -> Float {
             var g = (clip.value(.volume, at: local)?.scalar ?? clip.audio.volume) * gain
@@ -369,13 +433,21 @@ public enum CompositionBuilder {
                 prev = g
             }
         }
+        // skipped ranges (quick cut preview): every span is then wholly kept or wholly skipped; kept spans in item time
+        for r in skip.skips where r.end > start && r.start < end {
+            if r.start > start { points.insert((r.start - start).ticks) }
+            if r.end < end { points.insert((r.end - start).ticks) }
+        }
         let sorted = points.sorted().map { Time(ticks: $0) }
         for i in 0..<(sorted.count - 1) {
             let a = sorted[i], b = sorted[i + 1]
+            if !skip.isIdentity, skip.skip(containing: start + a + (b - a) * 0.5) != nil { continue }
+            let ia = skip.item(start + a), ib = skip.item(start + b)
+            guard ib > ia else { continue }
             p.setVolumeRamp(fromStartVolume: v(a), toEndVolume: v(b),
-                            timeRange: CMTimeRange(start: (start + a).cmTime, duration: (b - a).cmTime))
+                            timeRange: CMTimeRange(start: ia.cmTime, duration: (ib - ia).cmTime))
         }
-        p.setVolume(0, at: end.cmTime)
+        p.setVolume(0, at: skip.item(end).cmTime)
     }
 
     /// Hash of everything that requires rebuilding the AVComposition (vs. live property edits).
