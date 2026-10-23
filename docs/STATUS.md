@@ -230,6 +230,15 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
     clips with equal values). Flaky during agent gates: player_preview, timeline_edit, inspector_fr_formats,
     f4_se_a11y_editor, f3_waveform, finish_pen_mask_draw, c2_inspector_expand_unticked, ai_relight_model,
     f3_motion_blur (exit 139), TimeRemapTests.reversedAudioIsSampleReversed.
+- 2026-10-23 TL-048 Quick cut (batch-qc1 engine/core, batch-qc2 UI; spec + research bench docs/QUICK_CUT.md, docs/quickcut/).
+  Owner decisions: clips with nothing detected stay untouched; all tracks (main ripples, others close up in their own
+  footprint); EditPilot remove_silences uses the same detector. batch-qc1 merged with --skip-gate-check (owner
+  2026-10-23): every build / unit / UI test green, perf gate failed on metrics that also fail on main 795294b (perf.sh
+  alone: assets_scroll_main_cpu_p95_ms 3.41 > 3, inspector_drag_main_cpu_p50_ms 11.84 > 8, timeline_scroll_cpu_p95_ms
+  2.32 > 2; assets_scroll was 0.83 in batch-dx 2026-10-22 02:39, 4.11 in batch-fb1): regression on main, fix task open.
+  Flaky in these gates: ai_relight_model, c3b_volume_keyframes, effects_library, model_download_proceed,
+  ai_camera_custom_box, HDRTests.hlgSourcePassesThroughHLGProject. Apply with 300 cuts: 170-195 ms release (RippleCut
+  per-range O(n) copying, budget 300 ms).
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
