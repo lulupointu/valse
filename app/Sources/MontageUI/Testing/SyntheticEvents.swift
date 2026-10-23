@@ -79,6 +79,7 @@ enum SyntheticEvents {
     /// Matched by type + event number + timestamp; by type + number alone only when that is unambiguous (a drag's
     /// events share one number).
     static func pinned(_ e: NSEvent) -> NSEvent {
+        if gestureTypes.contains(e.type) { return pinnedGesture(e) }
         guard pointerTypes.contains(e.type), e.window is UITestWindow else { return e }
         let same = posted.filter { $0.type == e.type.rawValue && $0.number == e.eventNumber }
         guard let rec = same.last(where: { abs($0.timestamp - e.timestamp) < 1e-6 }) ?? (same.count == 1 ? same[0] : nil) else { return e }
@@ -97,6 +98,47 @@ enum SyntheticEvents {
         return fixed
     }
     private(set) static var relocationCount = 0
+
+    // Scroll / magnify events carry no event number (reading it raises): they are matched by their timestamp alone,
+    // which `scroll` sets from the same strictly increasing clock.
+    static let gestureTypes: Set<NSEvent.EventType> = [.scrollWheel, .magnify]
+    private static var postedGestures: [(timestamp: TimeInterval, location: CGPoint)] = []
+
+    private static func recordGesture(_ e: NSEvent, at p: CGPoint) {
+        postedGestures.append((e.timestamp, p))
+        if postedGestures.count > 256 { postedGestures.removeFirst(postedGestures.count - 256) }
+    }
+
+    private static func pinnedGesture(_ e: NSEvent) -> NSEvent {
+        guard e.window == nil || e.window is UITestWindow,
+              let rec = postedGestures.last(where: { abs($0.timestamp - e.timestamp) < 1e-6 }) else { return e }
+        let at = e.locationInWindow
+        if abs(at.x - rec.location.x) <= 0.01, abs(at.y - rec.location.y) <= 0.01 { return e }
+        guard let w = testWindow, let cg = e.cgEvent?.copy(), let fixed = placed(cg, at: rec.location, in: w) else { return e }
+        if relocations.count < 20 {
+            relocations.append(String(format: "event type %d at %.3f arrived at %.1f,%.1f instead of %.1f,%.1f",
+                                      Int(e.type.rawValue), e.timestamp, at.x, at.y, rec.location.x, rec.location.y))
+        }
+        relocationCount += 1
+        return fixed
+    }
+
+    /// An NSEvent made from `cg` whose `locationInWindow` is `p` in `w`. For the far-offscreen test window the
+    /// WindowServer finds no window under the screen point, so AppKit makes a window-less event whose
+    /// `locationInWindow` is the SCREEN location (FLAKY-SYS-UI: a synthetic ⌘-scroll zoom at 30 % of the timeline
+    /// anchored at screen x ≈ -29500 and moved scrollTime 0 → 148 s; a real one zooms around the pointer): such an
+    /// event is placed at the window point instead (the views convert it `from: nil` = window coordinates).
+    static func placed(_ cg: CGEvent, at p: CGPoint, in w: NSWindow) -> NSEvent? {
+        let primaryH = NSScreen.screens.first?.frame.height ?? 0
+        let screen = w.convertPoint(toScreen: p)
+        func close(_ e: NSEvent) -> Bool { abs(e.locationInWindow.x - p.x) <= 0.01 && abs(e.locationInWindow.y - p.y) <= 0.01 }
+        cg.location = CGPoint(x: screen.x, y: primaryH - screen.y)
+        if let e = NSEvent(cgEvent: cg), e.window === w, close(e) { return e }
+        guard let c2 = cg.copy() else { return nil }
+        c2.location = CGPoint(x: p.x, y: primaryH - p.y)
+        if let e = NSEvent(cgEvent: c2), e.window == nil || e.window === w, close(e) { return e }
+        return nil
+    }
 
     static func post(_ e: NSEvent?) {
         guard let e else { return }
@@ -198,17 +240,19 @@ enum SyntheticEvents {
                        phase: Int64? = nil) -> NSEvent? {
         guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: Int32(dy.rounded()),
                                wheel2: Int32(dx.rounded()), wheel3: 0) else { return nil }
-        let screen = w.convertPoint(toScreen: p)
-        let primaryH = NSScreen.screens.first?.frame.height ?? 0
-        cg.location = CGPoint(x: screen.x, y: primaryH - screen.y)
         cg.flags = CGEventFlags(rawValue: UInt64(modifiers.rawValue))
+        cg.timestamp = UInt64((timestamp() * 1e9).rounded())
         cg.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(w.windowNumber))
         cg.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(w.windowNumber))
         if let phase {
             cg.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
             cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
         }
-        return NSEvent(cgEvent: cg)
+        // at the window point whatever AppKit resolves the window to (`placed`); self-test: created skewed, pinned back
+        let created = injectEventSkew.map { CGPoint(x: p.x + $0.dx, y: p.y - $0.dy) } ?? p
+        guard let e = placed(cg, at: created, in: w) else { return nil }
+        recordGesture(e, at: p)
+        return e
     }
 
     // MARK: Keys

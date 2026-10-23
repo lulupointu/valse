@@ -11,6 +11,9 @@
     // ~200 pt/s, scrolled to 15.9 s: half-second majors "00:16, 15f, 00:17"
     {"scroll": "id:timeline", "at": [0.3, 0.5], "dx": 0, "dy": 161, "modifiers": ["cmd"]},
     {"waitFor": {"path": "ui.pixelsPerSecond", "approx": 200, "tolerance": 2}},
+    // ⌘-scroll zooms around the pointer (30 % across = 8.23 s stays under it: scrollTime 0 → 6.59 s; FLAKY-SYS-UI, the
+    // synthetic event used to carry a screen location and jumped to ~148 s). The scrolls below set absolute positions.
+    {"expect": {"path": "ui.scrollTime", "approx": 6.59, "tolerance": 0.05}},
     {"scroll": "id:timeline", "dx": 100000, "dy": 0},
     {"waitFor": {"path": "ui.scrollTime", "equals": 0}},
     {"scroll": "id:timeline", "dx": -3180, "dy": 0},
@@ -21,6 +24,7 @@
     // max zoom (1200 pt/s) at 16.9 s: 2-frame majors rolling over to 00:17
     {"scroll": "id:timeline", "at": [0.3, 0.5], "dx": 0, "dy": 1000, "modifiers": ["cmd"]},
     {"waitFor": {"path": "ui.pixelsPerSecond", "equals": 1200}},
+    {"expect": {"path": "ui.scrollTime", "approx": 17.26, "tolerance": 0.05}},
     {"scroll": "id:timeline", "dx": 100000, "dy": 0},
     {"waitFor": {"path": "ui.scrollTime", "equals": 0}},
     {"scroll": "id:timeline", "dx": -20280, "dy": 0},

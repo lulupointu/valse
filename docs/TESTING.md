@@ -269,7 +269,8 @@ an element not on screen (or with a degenerate frame) at that moment gets nothin
 (`click_redeliveries`, ≤ 3; a dispatched press is
 never repeated, an element rebuilt between press and release is a warning, `click_release_anomalies`). The same exact
 delivery covers `clip:` / `time:` / `header:` / `player:` clicks and `offset` clicks (element + offset located again).
-**Every** synthetic mouse event (any target, drags, hovers) is put back where it was posted when it is dequeued /
+**Every** synthetic mouse and scroll event (any target, drags, hovers, wheel / ⌘-zoom; scrolls are built at the window
+point even though the offscreen window makes AppKit return window-less events carrying the screen location) is put back where it was posted when it is dequeued /
 dispatched (`SyntheticEvents.pinned`, FLAKY-SYS-UI; `mouse_event_relocated` + a warning per event in report.json,
 uitest.sh "click warning"). Before the first step the driver waits for the editor showing the loaded project to be usable
 (timeline laid out with finite geometry and rows, player sized; ≤ 10 s, else `load_barrier_timeouts` + a warning).

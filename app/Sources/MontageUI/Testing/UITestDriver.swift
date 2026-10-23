@@ -1150,7 +1150,7 @@ public final class UITestDriver {
         if e.window === window {
             SyntheticEvents.post(e)
         } else if let host = window.contentView, let v = host.hitTest(host.superview?.convert(p, from: nil) ?? p) {
-            v.scrollWheel(with: e)
+            v.scrollWheel(with: SyntheticEvents.pinned(e))   // handed over directly: pinned here (not dequeued)
         } else {
             throw Failure("nothing to scroll at \(p)")
         }
@@ -1394,7 +1394,7 @@ public final class UITestDriver {
         for i in 0..<frames {
             let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
             if dx != 0 || dy != 0, let e = SyntheticEvents.scroll(at: p, in: window, dx: dx * sign, dy: dy * sign, modifiers: mods) {
-                tl.scrollWheel(with: e)
+                tl.scrollWheel(with: SyntheticEvents.pinned(e))
             }
             let (c, g, w) = probe.measure(tl)
             cpu.append(c); gpu.append(g); wall.append(w)
@@ -1518,7 +1518,7 @@ public final class UITestDriver {
             guard let e = SyntheticEvents.scroll(at: p, in: window, dx: 0, dy: dy * sign) else { continue }
             let t0 = DispatchTime.now().uptimeNanoseconds
             let before = sv.contentView.bounds.origin.y
-            sv.scrollWheel(with: e)
+            sv.scrollWheel(with: SyntheticEvents.pinned(e))
             if sv.contentView.bounds.origin.y == before, let doc = sv.documentView {
                 // SwiftUI's hosting scroll view ignores phase-less synthetic wheel events: move the viewport the same
                 // distance directly (the same clip-view bounds change a real wheel scroll makes).
