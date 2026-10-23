@@ -19,7 +19,10 @@
     {"snapshot": "media-added", "element": "id:panel.assets"},
     // ☆ on the cursor card (buttons show on the keyboard cursor too)
     {"click": "id:media.card.2"},
-    // per-card id: the hovered card and the cursor card both show ☆ (FLAKY-UI2)
+    {"waitFor": {"path": "ui.assets.mediaSelection.count", "equals": 1}},
+    // per-card id: the hovered card and the cursor card both show ☆; hovered too, so the ☆ stays shown even if the
+    // keyboard focus (cursor buttons) is dropped at the press (FLAKY-UI2: once keyboardTab was nil at the ☆ press)
+    {"hover": "id:media.card.2"},
     {"click": "id:media.card.2.favorite"},
     {"expect": {"path": "ui.assets.favorites.media.count", "equals": 1}},
     {"click": "id:asset.nav.favorites"},
