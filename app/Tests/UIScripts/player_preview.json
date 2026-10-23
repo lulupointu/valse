@@ -19,10 +19,12 @@
     {"wait": 0.4},
     {"expect": [{"path": "ui.preview.kind", "equals": "video"}, {"path": "ui.preview.time", "approx": 0}]},
     {"snapshot": "preview-media", "element": "id:panel.player"},
+    // space plays the source preview: wait until it has advanced (a fixed 0.5 s wait failed under load: the preview
+    // player had not started when the second space paused it, time 0; FLAKY-SYS-UI), then space pauses it
     {"key": "space"},
-    {"wait": 0.5},
+    {"waitFor": {"path": "ui.preview.time", "gt": 0.1}},
     {"key": "space"},
-    {"expect": [{"path": "ui.preview.time", "gt": 0.1}, {"path": "playhead", "approx": 2}]},
+    {"expect": [{"path": "ui.preview.time", "gt": 0.1}, {"path": "playhead", "approx": 2}, {"path": "isPlaying", "equals": false}]},
     {"click": "player:0.5,0.5"},
     {"expect": [{"path": "ui.preview", "exists": false}, {"path": "playhead", "approx": 2}]}
   ]
