@@ -330,6 +330,15 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   likely class 1, unconfirmed. 132/132 stress runs of 22 historically flaky scripts --no-retry at load 10-18.
   Open: language_fr editor-fr-assets snapshot 0.05 % off once (Overlay card thumbnail top row): ThumbnailCache requests
   frames with ±quantum/2 tolerance, so the chosen frame can vary.
+- 2026-10-23 batch-flaky2 FLAKY-THUMB. The ±quantum/2 tolerance theory was refuted (AVAssetImageGenerator returns the
+  same pixels for any request order / shared or fresh generator / 40 concurrent decoders; demo encodes bit-stable;
+  tolerance kept: exact frames cost ~20 %). Confirmed nondeterminism: ThumbnailCache kept the raw IOSurface frame in
+  memory while a disk hit returned a lazily decoded JPEG (different pixels), so what a card showed depended on cache
+  state → both paths return the same JPEG bytes decoded into an owned 8-bit RGBX bitmap (canonical / decode / flatten,
+  also stock card stills), atomic disk writes; < 1 ms per 512×288 thumbnail. Clip-end filmstrip tile: the last quantum
+  had no frame in the tolerance window → empty tile regenerated on every redraw (15× per clip) → falls back to the last
+  earlier frame, cached (editor-fr-timeline baseline re-recorded; macOS 13 VM not re-checked). The language_fr card flake
+  itself: likely this cause, not reproduced; keep both .attempt1 and retry PNGs if it recurs.
   FLAKY-SYS-UNIT (C = confirmed, L = likely): (C) GCD soft-limit deadlock (OffPool on GCD + export pumps) → OffPool own
   threads, ExportGate ≤ cores/2 exports and reverse renders; (C) test helpers' blocking reads on the cooperative pool
   (TimeRemap, HDR, ExportFormat, AudioPipeline, CaptionTiming, F4AI, RelightDepth) moved off it; (C) transient HEVC VT
