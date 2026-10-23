@@ -46,6 +46,15 @@ public enum Exporter {
                               options: ExportOptions = ExportOptions(),
                               progress: (@Sendable (Double) -> Void)? = nil) async throws {
         guard project.duration > .zero else { throw ExportError.emptyProject }
+        // bounded concurrency (GCD soft-limit deadlock with dozens of exports at once, ExportGate)
+        // (a cancel while waiting throws CancellationError, like the pass's own Task.checkCancellation)
+        try await ExportGate.shared.run {
+            try await exportPass(project: project, settings: settings, to: url, range: range, options: options, progress: progress)
+        }
+    }
+
+    private static func exportPass(project: Project, settings: ExportSettings, to url: URL, range: TimeRange?,
+                                   options: ExportOptions, progress: (@Sendable (Double) -> Void)?) async throws {
         let sourceSpace = project.settings.colorSpace
         var project = prepare(project, for: settings)
         // EX-018 AI ultra HD: super-resolve small sources first (first part of the progress bar).
@@ -173,8 +182,8 @@ public enum Exporter {
             writer.add(i); aIn = i
         }
 
-        guard reader.startReading() else { throw ExportError.failed(reader.error?.localizedDescription ?? "reader") }
-        guard writer.startWriting() else { throw ExportError.failed(writer.error?.localizedDescription ?? "writer") }
+        guard reader.startReading() else { throw ExportError.failed(reader.error.map { "reader: " + Self.describe($0) } ?? "reader") }
+        guard writer.startWriting() else { throw ExportError.failed(writer.error.map { "writer: " + Self.describe($0) } ?? "writer") }
         writer.startSession(atSourceTime: .zero)
 
         // file time = composition time − shift
@@ -259,17 +268,45 @@ public enum Exporter {
             throw ExportError.failed("export stalled")
         }
         if reader.status == .failed || writer.status == .failed {
-            let msg = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "read failed"
+            let msg = reader.error.map { "reader: " + Self.describe($0) } ?? writer.error.map { "writer: " + Self.describe($0) } ?? "read failed"
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
+            // VideoToolbox refuses / loses a hardware session now and then when the media engines are saturated (other
+            // exports, apps, checkouts' tests: -12902 seen on 1 of ~150 HEVC Main10 exports under load). That is
+            // transient: the pass restarts (twice at most) instead of failing the user's export.
+            if attempt < 3, let e = writer.error ?? reader.error, VideoToolboxErrors.isTransient(e) {
+                reader.cancelReading()   // the pumps have returned: nothing is inside copyNextSampleBuffer
+                Self.noteTransientRestart()
+                NSLog("Montage export: transient encoder/decoder failure (%@), attempt %d: restarting the pass", Self.describe(e), attempt)
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 300_000_000)
+                continue
+            }
             throw ExportError.failed(msg)
         }
         writer.endSession(atSourceTime: (exportRange.duration + lead).cmTime)
         await writer.finishWriting()
-        guard writer.status == .completed else { throw ExportError.failed(writer.error?.localizedDescription ?? "write failed") }
+        guard writer.status == .completed else {
+            if attempt < 3, let e = writer.error, VideoToolboxErrors.isTransient(e) {
+                try? FileManager.default.removeItem(at: url)
+                Self.noteTransientRestart()
+                NSLog("Montage export: transient encoder failure at finish (%@), attempt %d: restarting the pass", Self.describe(e), attempt)
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 300_000_000)
+                continue
+            }
+            throw ExportError.failed(writer.error.map { "writer: " + Self.describe($0) } ?? "write failed")
+        }
         progress?(1)
         return
         }
+    }
+
+    /// Error text with its domain / code chain ("The operation could not be completed" alone said nothing; FLAKY-SYS-UNIT).
+    static func describe(_ e: Error) -> String {
+        let n = e as NSError
+        var s = "\(n.localizedDescription) [\(n.domain) \(n.code)"
+        var u = n.userInfo[NSUnderlyingErrorKey] as? NSError
+        while let x = u { s += " ← \(x.domain) \(x.code)"; u = x.userInfo[NSUnderlyingErrorKey] as? NSError }
+        return s + "]"
     }
 
     /// Tests only: called by a pump right before each `copyNextSampleBuffer` (export output path, pump label) — a test can
@@ -283,6 +320,10 @@ public enum Exporter {
     /// Export passes abandoned as stalled since launch (diagnostics / tests).
     public static var stallRestarts: Int { stallLock.withLock { _stallRestarts } }
     static func noteStallRestart() { stallLock.withLock { _stallRestarts += 1 } }
+    nonisolated(unsafe) private static var _transientRestarts = 0
+    /// Export passes restarted after a transient VideoToolbox failure since launch (diagnostics / tests).
+    public static var transientRestarts: Int { stallLock.withLock { _transientRestarts } }
+    static func noteTransientRestart() { stallLock.withLock { _transientRestarts += 1 } }
 
     /// The project as the export renders it: output colour space (smart HDR→SDR), platform aspect, transparent
     /// background for alpha codecs, caption tracks hidden when captions aren't burnt in.

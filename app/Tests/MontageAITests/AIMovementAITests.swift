@@ -16,8 +16,7 @@ import MontageTestSupport
 @Suite(.serialized) struct AIMovementAITests {
     /// 960×540 PNG: grey background, one glyph drawn at `x` (left edge, px) at 260 pt.
     static func glyphImage(_ glyph: String, x: Int, name: String) throws -> URL {
-        let url = TestMedia.directory.appendingPathComponent("\(name).png")
-        if FileManager.default.fileExists(atPath: url.path) { return url }
+        try TestMedia.cachedSync(TestMedia.directory.appendingPathComponent("\(name).png")) { url in   // atomic in the shared cache
         let (w, h) = (960, 540)
         let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -28,7 +27,7 @@ import MontageTestSupport
         let dst = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)!
         CGImageDestinationAddImage(dst, ctx.makeImage()!, nil)
         CGImageDestinationFinalize(dst)
-        return url
+        }
     }
 
     @Test func stillKenBurnsZoomsOntoTheFace() async throws {
@@ -74,8 +73,7 @@ import MontageTestSupport
 
     /// 2 s, 640×360: a ✋ glyph walking right (≈ +8 px/frame).
     static func handVideo() async throws -> URL {
-        let url = TestMedia.directory.appendingPathComponent("hand-walk-v1.mov")
-        if FileManager.default.fileExists(atPath: url.path) { return url }
+        try await TestMedia.cached(TestMedia.directory.appendingPathComponent("hand-walk-v1.mov")) { url in   // atomic in the shared cache
         let (w, h) = (640, 360)
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: w, AVVideoHeightKey: h])
@@ -100,7 +98,8 @@ import MontageTestSupport
         }
         input.markAsFinished()
         await writer.finishWriting()
-        return url
+        if writer.status != .completed { throw writer.error ?? NSError(domain: "AIMovementAITests", code: 1) }
+        }
     }
 
     @Test func cameraTrackingHandCentresTheHand() async throws {

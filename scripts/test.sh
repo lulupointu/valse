@@ -64,7 +64,18 @@ if [[ -z "$FAILED_LIST" ]]; then
   echo "TESTS FAILED (no failing test in the xUnit report to retry; see build/test.log)"; exit 1
 fi
 FLAKY=(); HARD=(); QUAR=()
-while IFS=$'\t' read -r ID FILTER REASON; do
+# Flakes' first-attempt evidence outlives this run's logs (FLAKY-SYS-UNIT: the HDR flakes' messages were lost):
+# one block per flaky test in the main checkout's build/flaky-unit-history.log (date, checkout, issue lines).
+FLAKY_HISTORY="$(main_checkout 2>/dev/null || pwd)/build/flaky-unit-history.log"
+note_flaky() { # <ID> <first issue>
+  local fn="${1##*.}"
+  {
+    echo "===== $(date '+%Y-%m-%d %H:%M:%S') $(pwd) load $(sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}') $1"
+    echo "  issue: $2"
+    grep -A4 -E "^✘ Test ${fn}\(.*recorded an issue" "$LOG" | grep -vE "^(✔|◇|--)" | head -12 | sed 's/^/  /' || true
+  } >> "$FLAKY_HISTORY" 2>/dev/null || true
+}
+while IFS=$'\t' read -r ID FILTER REASON MSG; do
   [[ -z "$ID" ]] && continue
   if [[ $RETRY == 1 ]]; then
     echo "↻ retrying $ID alone…"
@@ -76,7 +87,7 @@ while IFS=$'\t' read -r ID FILTER REASON; do
     set -e
     cat build/test-retry.one.log >> build/test-retry.log
     if [[ $RC == 0 ]] && python3 scripts/testlib.py passed "build/test-retry-xunit-swift-testing.xml"; then
-      FLAKY+=("$ID"); continue
+      FLAKY+=("$ID — attempt 1: ${MSG:--}"); note_flaky "$ID" "${MSG:--}"; continue
     fi
   fi
   if [[ "$REASON" != "-" ]]; then QUAR+=("$ID — $REASON"); else HARD+=("$ID"); fi

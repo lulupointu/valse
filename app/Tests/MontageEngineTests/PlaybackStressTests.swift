@@ -121,7 +121,7 @@ import MontageTestSupport
     static func iPhoneLikeClip(_ i: Int, seconds: Int = 12) async throws -> URL? {
         guard let ff = HDRTests.ffmpegPath else { return nil }
         let url = TestMedia.directory.appendingPathComponent("iphone-like-\(i)-\(seconds)s-v1.mov")
-        if FileManager.default.fileExists(atPath: url.path) { return url }
+        if TestMedia.isUsable(url) { return url }
         let tmp = TestMedia.directory.appendingPathComponent("tmp-\(UUID().uuidString).mov")
         let args = ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30000/1001:duration=\(seconds)",
                     "-f", "lavfi", "-i", "sine=frequency=\(300 + 110 * i):duration=\(seconds)",
@@ -130,11 +130,13 @@ import MontageTestSupport
                     "-tag:v", "hvc1", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc",
                     "-c:a", "aac", "-shortest", tmp.path]
         // blocking process: off the cooperative pool (STATUS gotcha)
-        await withCheckedContinuation { (k: CheckedContinuation<Void, Never>) in
-            DispatchQueue.global().async { _ = try? HDRTests.shell(ff, args); k.resume() }
+        // (a failed ffmpeg must not rename its partial output into the shared cache: shell throws on a non-zero exit)
+        let ok = await withCheckedContinuation { (k: CheckedContinuation<Bool, Never>) in
+            DispatchQueue.global().async { k.resume(returning: (try? HDRTests.shell(ff, args)) != nil) }
         }
+        guard ok else { try? FileManager.default.removeItem(at: tmp); throw NSError(domain: "PlaybackStressTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "ffmpeg failed"]) }
         guard FileManager.default.fileExists(atPath: tmp.path) else { return nil }
-        try? FileManager.default.moveItem(at: tmp, to: url)
+        TestMedia.publishFile(tmp, as: url)
         return url
     }
 

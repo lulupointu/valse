@@ -46,19 +46,19 @@ import MontageTestSupport
         return s / n
     }
 
-    static func frameCount(_ url: URL) throws -> Int {
+    static func frameCount(_ url: URL) async throws -> Int {
         let av = AVURLAsset(url: url)
-        let sem = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) var track: AVAssetTrack?
-        Task { track = try? await av.loadTracks(withMediaType: .video).first; sem.signal() }
-        sem.wait()
-        guard let track else { return 0 }
+        // (was a semaphore waiting for a Task from a pool thread + a blocking read loop on the pool: deadlock-prone)
+        guard let track = try await av.loadTracks(withMediaType: .video).first else { return 0 }
         let r = try AVAssetReader(asset: av)
         let o = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
-        r.add(o); r.startReading()
-        var n = 0
-        while o.copyNextSampleBuffer() != nil { n += 1 }
-        return n
+        r.add(o)
+        return try await OffPool.run { _ in
+            r.startReading()
+            var n = 0
+            while o.copyNextSampleBuffer() != nil { n += 1 }
+            return n
+        }
     }
 
     @Test func modelDepthIsNearerAtTheBottomOfAGroundPlane() async throws {
@@ -92,7 +92,7 @@ import MontageTestSupport
             let s = RelightSettings.preset(.object)   // target both: no person matte needed
             try await RelightJob.run(a, settings: s)
             #expect(RelightDepth.isReady(a, s))
-            let info = try Self.frameCount(MatteStore.shared.matteVideoURL(media: a, kind: RelightOps.depthKind))
+            let info = try await Self.frameCount(MatteStore.shared.matteVideoURL(media: a, kind: RelightOps.depthKind))
             #expect(info >= 10 && info <= 14, "≤ 12 fps sampling: \(info) frames")
         }
     }

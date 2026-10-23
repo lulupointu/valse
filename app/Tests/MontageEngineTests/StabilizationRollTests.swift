@@ -16,8 +16,8 @@ import MontageTestSupport
 
     /// A textured "world" (random gray tiles + discs) seen through a shaking camera; a white box walks across it.
     static func shakyVideo() async throws -> URL {
-        let url = TestMedia.directory.appendingPathComponent("shake-roll-v1.mp4")
-        if FileManager.default.fileExists(atPath: url.path) { return url }
+        // atomic in the shared cache (TestMedia.cached): a failed / concurrent write never leaves a partial file there
+        try await TestMedia.cached(TestMedia.directory.appendingPathComponent("shake-roll-v1.mp4")) { url in
         let w = 640, h = 360
         var rng = SplitMix(seed: 7)
         let tiles = (0..<(24 * 14)).map { _ in CGFloat(rng.next() % 200 + 30) / 255 }
@@ -60,7 +60,7 @@ import MontageTestSupport
         input.markAsFinished()
         await writer.finishWriting()
         if writer.status != .completed { throw writer.error ?? NSError(domain: "test", code: 1) }
-        return url
+        }
     }
 
     @Test func similarityFitRecoversRollAndIgnoresTheMovingSubject() async throws {

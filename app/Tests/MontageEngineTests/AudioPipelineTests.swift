@@ -185,17 +185,21 @@ import MontageTestSupport
         let reader = try AVAssetReader(asset: asset)
         let vt = try await asset.loadTracks(withMediaType: .video).first!
         let vo = AVAssetReaderTrackOutput(track: vt, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
-        reader.add(vo); reader.startReading()
-        var flash: Double?
-        while flash == nil, let sb = vo.copyNextSampleBuffer() {
-            guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
-            CVPixelBufferLockBaseAddress(pb, .readOnly)
-            let base = CVPixelBufferGetBaseAddress(pb)!.assumingMemoryBound(to: UInt8.self)
-            let mid = base + CVPixelBufferGetHeight(pb) / 2 * CVPixelBufferGetBytesPerRow(pb) + CVPixelBufferGetWidth(pb) / 2 * 4
-            if mid[1] > 128 { flash = CMSampleBufferGetPresentationTimeStamp(sb).seconds }
-            CVPixelBufferUnlockBaseAddress(pb, .readOnly)
+        reader.add(vo)
+        // blocking read loop: off the cooperative pool (montage-gotchas)
+        let flash: Double? = try await OffPool.run { _ in
+            reader.startReading()
+            defer { reader.cancelReading() }
+            while let sb = vo.copyNextSampleBuffer() {
+                guard let pb = CMSampleBufferGetImageBuffer(sb) else { continue }
+                CVPixelBufferLockBaseAddress(pb, .readOnly)
+                defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+                let base = CVPixelBufferGetBaseAddress(pb)!.assumingMemoryBound(to: UInt8.self)
+                let mid = base + CVPixelBufferGetHeight(pb) / 2 * CVPixelBufferGetBytesPerRow(pb) + CVPixelBufferGetWidth(pb) / 2 * 4
+                if mid[1] > 128 { return CMSampleBufferGetPresentationTimeStamp(sb).seconds }
+            }
+            return nil
         }
-        reader.cancelReading()
         let audio = try await AudioFileIO.read(r.url)
         let onset = S.onset(audio, threshold: 0.1)
         #expect(flash != nil && onset != nil)

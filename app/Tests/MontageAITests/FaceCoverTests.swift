@@ -12,8 +12,8 @@ import MontageTestSupport
 /// Face mosaic (AI-051): faces matte follows a moving face (a 🧑 glyph Vision detects), cover clip linked above.
 @Suite(.serialized) struct FaceCoverTests {
     static func faceVideo() async throws -> URL {
-        let url = TestMedia.directory.appendingPathComponent("face-walk-v1.mov")
-        if FileManager.default.fileExists(atPath: url.path) { return url }
+        // atomic in the shared cache (a 0-byte face-walk-v1.mov written in place crashed every unit run)
+        try await TestMedia.cached(TestMedia.directory.appendingPathComponent("face-walk-v1.mov")) { url in
         let (w, h) = (640, 360)
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: w, AVVideoHeightKey: h])
@@ -38,7 +38,8 @@ import MontageTestSupport
         }
         input.markAsFinished()
         await writer.finishWriting()
-        return url
+        if writer.status != .completed { throw writer.error ?? NSError(domain: "FaceCoverTests", code: 1) }
+        }
     }
 
     @Test func facesMatteFollowsTheFaceAndCoverIsLinked() async throws {

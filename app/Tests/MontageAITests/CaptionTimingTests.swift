@@ -59,7 +59,7 @@ import MontageTestSupport
         writer.add(wi)
         #expect(reader.startReading())
         writer.startWriting(); writer.startSession(atSourceTime: .zero)
-        while let sb = ro.copyNextSampleBuffer() {
+        while let sb = await OffPool.next(ro) {   // blocking read: off the cooperative pool
             while !wi.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
             wi.append(sb)
         }

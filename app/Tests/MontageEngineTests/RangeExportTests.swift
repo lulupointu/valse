@@ -16,6 +16,7 @@ import MontageTestSupport
         let url = TestMedia.directory.appendingPathComponent("b1-iphone-hlg-46s.mov")
         if FileManager.default.fileExists(atPath: url.path) { return url }
         let tmp = TestMedia.directory.appendingPathComponent("tmp-\(UUID().uuidString).mov")
+        defer { try? FileManager.default.removeItem(at: tmp) }   // left only when ffmpeg failed (shell throws)
         _ = try HDRTests.shell(ff, ["-v", "error", "-y", "-display_rotation", "90",
                                     "-f", "lavfi", "-i", "testsrc2=size=192x108:rate=30",
                                     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "46",
