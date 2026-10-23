@@ -100,10 +100,23 @@ public enum SyntheticMedia {
                     try await waitUntilReady(vIn, writer)
                     guard let pool = adaptor.pixelBufferPool else { throw NSError(domain: "Montage", code: 61) }
                     var pbOut: CVPixelBuffer?
-                    CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut)
-                    guard let pb = pbOut else { throw NSError(domain: "Montage", code: 62) }
+                    let rc = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut)
+                    if pbOut == nil {
+                        // The pool stops vending buffers when the writer's encoder failed (a loaded machine: UI tests
+                        // flaked with a bare "Code=62" building the demo media): report the writer's error. Otherwise
+                        // (transient IOSurface pressure) a standalone buffer is just as good for the adaptor.
+                        if writer.status == .failed || writer.status == .cancelled { throw writer.error ?? NSError(domain: "Montage", code: 68) }
+                        CVPixelBufferCreate(nil, w, h, kCVPixelFormatType_32BGRA,
+                                            [kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary, &pbOut)
+                    }
+                    guard let pb = pbOut else {
+                        throw NSError(domain: "Montage", code: 62, userInfo: [NSLocalizedDescriptionKey:
+                            "pixel buffer allocation failed (CVReturn \(rc), writer status \(writer.status.rawValue))"])
+                    }
                     fill(pb, w: w, h: h, paint: paint(f, frames))
-                    adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(f), timescale: fps))
+                    guard adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(f), timescale: fps)) else {
+                        throw writer.error ?? NSError(domain: "Montage", code: 69)
+                    }
                 }
                 vIn.markAsFinished()
             }

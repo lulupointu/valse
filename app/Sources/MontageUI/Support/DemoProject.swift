@@ -7,6 +7,19 @@ import MontageEngine
 /// `--demo`: builds a small project from synthetic media (no user files) that exercises every visible feature:
 /// main-track clips with a transition, an overlay, text, a sticker, a filter clip and a music track.
 public enum DemoProject {
+    /// Runs a synthetic-media write up to 5 times, waiting 0.25 / 0.5 / 1 / 2 s between attempts (a transient encoder or
+    /// IOSurface failure on a loaded machine clears in a moment; a second back-to-back attempt often hit it too).
+    static func withEncoderRetries(_ write: () async throws -> Void) async throws {
+        var delay: UInt64 = 250_000_000
+        for _ in 0..<4 {
+            do { try await write(); return } catch {
+                try await Task.sleep(nanoseconds: delay)
+                delay *= 2
+            }
+        }
+        try await write()
+    }
+
     public static func make() async throws -> Project {
         let dir = MontagePaths.cacheDirectory.appendingPathComponent("demo-media-v1", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -14,14 +27,15 @@ public enum DemoProject {
             let u = dir.appendingPathComponent("\(name).mp4")
             if !FileManager.default.fileExists(atPath: u.path) {
                 // atomic (a failed / interrupted write never leaves a partial file that later runs take as done), and
-                // retried once: the encoder can fail under heavy load (SyntheticMedia then throws instead of hanging)
+                // retried with backoff: the encoder can fail under heavy load (SyntheticMedia then throws instead of
+                // hanging). One immediate retry was not enough: every UI-test launch builds this media in its own
+                // cache, and a busy machine failed both back-to-back attempts (FLAKY-FIN, setup "Code=62").
                 let tmp = dir.appendingPathComponent(".tmp-\(UUID().uuidString).mp4")
                 defer { try? FileManager.default.removeItem(at: tmp) }
-                func write() async throws {
+                try await withEncoderRetries {
                     try await SyntheticMedia.writeVideo(to: tmp, size: CGSize(width: 1280, height: 720), seconds: seconds, fps: 30,
                                                         pattern: pattern, audioHz: hz)
                 }
-                do { try await write() } catch { try await write() }
                 try? FileManager.default.removeItem(at: u)
                 try FileManager.default.moveItem(at: tmp, to: u)
             }
@@ -37,7 +51,7 @@ public enum DemoProject {
         if !FileManager.default.fileExists(atPath: musicURL.path) {
             let tmp = dir.appendingPathComponent(".tmp-\(UUID().uuidString).m4a")
             defer { try? FileManager.default.removeItem(at: tmp) }
-            do { try await SyntheticMedia.writeAudio(to: tmp, seconds: 12, hz: 220) } catch { try await SyntheticMedia.writeAudio(to: tmp, seconds: 12, hz: 220) }
+            try await withEncoderRetries { try await SyntheticMedia.writeAudio(to: tmp, seconds: 12, hz: 220) }
             try? FileManager.default.removeItem(at: musicURL)
             try FileManager.default.moveItem(at: tmp, to: musicURL)
         }
