@@ -283,7 +283,21 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   pure TimelineRuler generator on whole frames, CapCut ladder (fps-dividing frame rungs, then 1 s … 1 h, majors ≥ 80 pt,
   minors ≥ 12 pt, ≤ 10 per major), labels mm:ss / hh:mm:ss / Nf; non-integer fps counted like Timecode (non-drop).
   Open: a synthetic cmd-scroll zoom moved scrollTime far away (zoom(by:around:) location from SyntheticEvents.scroll?);
-  check whether real cmd-scroll zoom jumps too.
+  owner 2026-10-23: real cmd-scroll zoom does not jump → test-driver-only issue (SyntheticEvents.scroll location).
+  Owner round 3: the trailing gap is still ~8 frames (≈ 0.27 s; owner hears speech end at 00:00:25:25, slice at 26:03 on
+  "1018 (1)") vs ~3 frames at onsets: fix2's "35 dB under p97" end is not the perceived end → TL-048-fix3 (perceptual
+  criterion, same in both directions) in progress.
+- 2026-10-23 batch-qcfix5 FLAKY-UI2. assets_media_tab exit 139 (confirmed, .ips): SIGSEGV in
+  CVPixelBufferPool::createPixelBuffer from SyntheticMedia.writeVideo: the adaptor.pixelBufferPool is owned by the
+  AVAssetWriter and torn down on its queue when the encoder fails under load → writeVideo uses its own IOSurface BGRA
+  pool (f3_motion_blur exit 139 is probably the same crash, unchecked). ai_auto_adjust / ai_relight_model step-1
+  clip:main/0 click selected nothing: timeline geometry briefly non-finite right after load (point (inf,-inf); likely
+  TimelineHost.sizeThatFits passing infinite proposals, unconfirmed) → driver: clip:/time:/header: targets refuse
+  non-finite points and go through ClickProbe (re-located at dispatch, redelivered). ai_relight(_model) step-12 untick
+  was an offset click after a wheel scroll (offset clicks never re-aimed) → id:inspector.check.video.relight.
+  assets_media_tab star: hovered + cursor cards shared one ID → media.card.<i>.favorite/.add; keyboardTab nil at star
+  press (AssetPanelFocus mouse-down monitor?, app unfixed) → script hovers first. Also flaky seen: f4_se_a11y_editor
+  (a11yAudit unlabeled), ai_tts_style (retargeted click), timeline_quick_cut step 36 (time:0.5@ruler click no seek).
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
