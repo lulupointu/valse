@@ -1,0 +1,40 @@
+// TL-RULER: the timeline ruler picks a CapCut-style step at every zoom (mm:ss on seconds, "Nf" sub-second, never "30f").
+// Owner bug: around 00:16 zoomed in the ruler read "00:15, 00:16, 30f, 30f…". Logic: TimelineRuler (TimelineRulerTests).
+{
+  "project": "demo",
+  "steps": [
+    // default zoom (40 pt/s): 2 s majors
+    {"waitFor": {"path": "ui.rulerLabels", "contains": "00:02"}},
+    {"expect": [{"path": "ui.pixelsPerSecond", "equals": 40}, {"path": "ui.rulerLabels", "contains": "00:04"},
+                {"path": "ui.rulerLabels", "notContains": "00:01"}]},
+    {"snapshot": "ruler-default", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02},
+    // ~200 pt/s, scrolled to 15.9 s: half-second majors "00:16, 15f, 00:17"
+    {"scroll": "id:timeline", "at": [0.3, 0.5], "dx": 0, "dy": 161, "modifiers": ["cmd"]},
+    {"waitFor": {"path": "ui.pixelsPerSecond", "approx": 200, "tolerance": 2}},
+    {"scroll": "id:timeline", "dx": 100000, "dy": 0},
+    {"waitFor": {"path": "ui.scrollTime", "equals": 0}},
+    {"scroll": "id:timeline", "dx": -3180, "dy": 0},
+    {"waitFor": {"path": "ui.scrollTime", "gt": 15}},
+    {"expect": [{"path": "ui.rulerLabels", "contains": "00:16"}, {"path": "ui.rulerLabels", "contains": "15f"},
+                {"path": "ui.rulerLabels", "contains": "00:17"}, {"path": "ui.rulerLabels", "notContains": "30f"}]},
+    {"snapshot": "ruler-half-seconds", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02},
+    // max zoom (1200 pt/s) at 16.9 s: 2-frame majors rolling over to 00:17
+    {"scroll": "id:timeline", "at": [0.3, 0.5], "dx": 0, "dy": 1000, "modifiers": ["cmd"]},
+    {"waitFor": {"path": "ui.pixelsPerSecond", "equals": 1200}},
+    {"scroll": "id:timeline", "dx": 100000, "dy": 0},
+    {"waitFor": {"path": "ui.scrollTime", "equals": 0}},
+    {"scroll": "id:timeline", "dx": -20280, "dy": 0},
+    {"waitFor": {"path": "ui.scrollTime", "gt": 16.5}},
+    {"expect": [{"path": "ui.rulerLabels", "contains": "00:17"}, {"path": "ui.rulerLabels", "contains": "2f"},
+                {"path": "ui.rulerLabels", "contains": "28f"}, {"path": "ui.rulerLabels", "notContains": "30f"}]},
+    {"snapshot": "ruler-frames", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02},
+    // min zoom (2 pt/s) from 0: 1 min majors
+    {"scroll": "id:timeline", "at": [0.3, 0.5], "dx": 0, "dy": -2000, "modifiers": ["cmd"]},
+    {"waitFor": {"path": "ui.pixelsPerSecond", "equals": 2}},
+    {"scroll": "id:timeline", "dx": 100000, "dy": 0},
+    {"waitFor": {"path": "ui.scrollTime", "equals": 0}},
+    {"expect": [{"path": "ui.rulerLabels", "contains": "00:00"}, {"path": "ui.rulerLabels", "contains": "01:00"},
+                {"path": "ui.rulerLabels", "notContains": "00:30"}]},
+    {"snapshot": "ruler-minutes", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02}
+  ]
+}

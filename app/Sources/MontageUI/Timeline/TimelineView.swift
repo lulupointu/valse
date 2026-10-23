@@ -237,7 +237,6 @@ final class TimelineView: NSView {
         let tl = p.timeline
         let W = bounds.width, H = bounds.height
         let headerW = TimelineLayout.headerWidth
-        let fps = p.settings.frameRate.fps
         let accent = Self.accent
 
         // Lanes
@@ -376,18 +375,15 @@ final class TimelineView: NSView {
             let x0 = l.x(r.start), x1 = l.x(r.end)
             c.rect(CGRect(x: x0, y: TimelineLayout.rulerHeight - 2, width: max(1, x1 - x0), height: 2), RGBA(0.33, 0.8, 0.45, 1))
         }
-        let (major, minor) = TimelineLayout.tickStep(pixelsPerSecond: l.pixelsPerSecond, fps: fps)
-        var t = (scrollTime / minor).rounded(.down) * minor
-        let end = scrollTime + Double(W) / l.pixelsPerSecond
-        while t <= end {
-            let x = l.x(Time(t))
-            let isMajor = abs((t / major).rounded() * major - t) < minor / 4
-            c.rect(CGRect(x: x, y: isMajor ? 14 : 20, width: 1, height: isMajor ? 10 : 4), RGBA(hex: 0x5A5A5A))
-            if isMajor {
-                c.text(Self.cachedRulerLabel(t, fps: fps, step: major), at: CGPoint(x: x + 3, y: 2), size: 10, weight: .regular,
-                       color: RGBA(hex: 0x8A8A8A), mono: true)
+        // TL-RULER: integer-unit ticks from `TimelineRuler` (no float accumulation, labels never "30f").
+        let (rulerScale, rulerTicks) = rulerTicks(layout: l, width: Double(W), rate: p.settings.frameRate)
+        for tick in rulerTicks {
+            let x = l.x(tick.time)
+            c.rect(CGRect(x: x, y: tick.isMajor ? 14 : 20, width: 1, height: tick.isMajor ? 10 : 4), RGBA(hex: 0x5A5A5A))
+            if tick.isMajor {
+                c.text(Self.cachedRulerLabel(tick.frame, unitsPerSecond: rulerScale.unitsPerSecond), at: CGPoint(x: x + 3, y: 2),
+                       size: 10, weight: .regular, color: RGBA(hex: 0x8A8A8A), mono: true)
             }
-            t += minor
         }
         // Markers
         for m in tl.markers {
@@ -850,24 +846,14 @@ final class TimelineView: NSView {
     }
 
     private static var rulerLabels: [Int64: String] = [:]
-    /// `rulerLabel` memoized per (time in frames, sub-second step): no `String(format:)` per tick per frame.
-    static func cachedRulerLabel(_ t: Double, fps: Double, step: Double) -> String {
-        let k = Int64((t * fps).rounded()) &* 4 &+ (step < 1 ? 1 : 0) &+ Int64(fps.rounded()) &* (1 << 40)
+    /// `TimelineRuler.label` memoized per (unit, units per second): no `String(format:)` per tick per frame.
+    static func cachedRulerLabel(_ unit: Int64, unitsPerSecond n: Int) -> String {
+        let k = unit &* 1024 &+ Int64(n & 1023)
         if let s = rulerLabels[k] { return s }
         if rulerLabels.count > 4096 { rulerLabels.removeAll(keepingCapacity: true) }
-        let s = rulerLabel(t, fps: fps, step: step)
+        let s = TimelineRuler.label(frame: unit, unitsPerSecond: n)
         rulerLabels[k] = s
         return s
-    }
-
-    static func rulerLabel(_ t: Double, fps: Double, step: Double) -> String {
-        let total = Int(t.rounded(.down))
-        let mm = total / 60, ss = total % 60
-        if step < 1 {
-            let f = Int(((t - Double(total)) * fps).rounded())
-            return f == 0 ? String(format: "%02d:%02d", mm, ss) : "\(f)f"
-        }
-        return String(format: "%02d:%02d", mm, ss)
     }
 
     // MARK: Snapshot
