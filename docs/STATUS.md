@@ -287,6 +287,14 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   Owner round 3: the trailing gap is still ~8 frames (≈ 0.27 s; owner hears speech end at 00:00:25:25, slice at 26:03 on
   "1018 (1)") vs ~3 frames at onsets: fix2's "35 dB under p97" end is not the perceived end → TL-048-fix3 (perceptual
   criterion, same in both directions) in progress.
+  TL-048-fix3 (batch-qcfix6): at the owner's point (IMG_9026 src 2.567 s) the voice stops at 2.60-2.62 s, then a
+  ~110 ms post-phrase exhale (broadband, unvoiced, -19 dB) that follows 6/10 phrases; fix2's 35 dB edge kept it (its
+  "0.05 s" was measured against its own edge). New rule: one level L = speaker p97 (or run peak if quieter) - 25 dB;
+  start = first frame ≥ L, end = last voiced frame's decay < L (dips ≤ 30 ms bridged); detached unvoiced runs dropped
+  unless sibilant (> 4 kHz ≥ 5 dB over the detection band, Features.high). Owner clips at X 0.3: kept after speech
+  0.08-0.21 s → 0.05 s, before 0.05 s everywhere; handles unchanged 0.05/0.05; mask cache v3. Risk: a final
+  non-sibilant consonant after a closure is dropped like an exhale (bench: TTS "clips," 90 ms cut). Bench numbers in
+  docs/quickcut/results_fix3.txt. gen_corpus.sh can't find the music bed from a worktree (unfixed).
 - 2026-10-23 batch-qcfix5 FLAKY-UI2. assets_media_tab exit 139 (confirmed, .ips): SIGSEGV in
   CVPixelBufferPool::createPixelBuffer from SyntheticMedia.writeVideo: the adaptor.pixelBufferPool is owned by the
   AVAssetWriter and torn down on its queue when the encoder fails under load → writeVideo uses its own IOSurface BGRA
