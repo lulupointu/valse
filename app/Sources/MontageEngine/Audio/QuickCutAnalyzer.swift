@@ -4,7 +4,7 @@ import MontageCore
 
 /// Quick cut analysis per media (TL-048): decodes the first audio track at 16 kHz mono (audio only, never the video),
 /// runs `QuickCutDetector` while streaming, and caches the `QuickCutMask` per content hash in memory and on disk
-/// (`Caches/Montage/quickcut/<contentHash>.v2`). ≈ 1000× realtime per file; work runs off the main thread and off the
+/// (`Caches/Montage/quickcut/<contentHash>.v3`). ≈ 1000× realtime per file; work runs off the main thread and off the
 /// cooperative pool (`OffPool`), at most 4 files at once, cancellable, and concurrent requests for one media share
 /// one decode.
 ///
@@ -28,8 +28,9 @@ public final class QuickCutAnalyzer: @unchecked Sendable {
     public init(directory: URL? = nil) { root = directory }
 
     var directory: URL { root ?? MontagePaths.cacheDirectory.appendingPathComponent("quickcut", isDirectory: true) }
-    /// Disk cache suffix, bumped whenever the detector's output changes (v2 = TL-048-fix2 speech edges).
-    static let cacheVersion = "v2"
+    /// Disk cache suffix, bumped whenever the detector's output changes (v2 = TL-048-fix2 speech edges, v3 = fix3:
+    /// 25 dB edge level, exhales dropped, fricatives kept).
+    static let cacheVersion = "v3"
     func file(_ hash: String) -> URL { directory.appendingPathComponent("\(hash).\(Self.cacheVersion)") }
 
     static func key(_ a: MediaAsset) -> String { a.contentHash.isEmpty ? "url:" + a.url.path : a.contentHash }

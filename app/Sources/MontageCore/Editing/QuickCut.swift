@@ -45,8 +45,8 @@ public struct QuickCutPlan: Sendable, Equatable {
 public enum QuickCut {
     /// Handles kept around speech (s): before the next speech / after the previous one (§4 "Per clip"). Owner decision
     /// 2026-10-23: symmetric, a cut pause plays as 0.1 s (0.05 s after the end of the speech + 0.05 s before the next).
-    /// The detector's speech runs already include word tails (hysteresis on the decay, attached unvoiced runs), so the
-    /// end handle needs no extra length (the former 0.14 s left an audible blank after each cut).
+    /// The detector places the end of speech by the same audibility level as its start (TL-048-fix3: decay down to
+    /// 25 dB under the voice, final fricatives included, exhales excluded), so the end handle needs no extra length.
     public static let handleBefore = 0.05
     public static let handleAfter = 0.05
     /// Slices shorter than this are not removed.

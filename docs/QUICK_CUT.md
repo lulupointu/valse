@@ -87,15 +87,33 @@ Per **media** (source time, cached by content hash, independent of any clip):
    `e > lf + max(3, 0.3·(pk − lf)) − 6` (hysteresis); gaps ≤ 40 ms closed.
 6. A loud run is **speech** if it has ≥ 4 voiced frames (autocorr > 0.5), or lasts ≥ 80 ms with a peak > `pk − 12 dB`.
    An unvoiced run ≥ 30 ms within 200 ms of a speech run is kept as speech too (consonants, word tails).
-7. **Speech edges** (TL-048-fix2, owner report on the "1018 (1)" iPhone rushes): the leading / trailing frames of each
-   speech run whose **full-band** energy (same 25 ms window, fricatives above 4 kHz included) is more than 35 dB under
-   the media's full-band p97 are dropped; an attached run (step 6) entirely under that level is dropped, a speech run
-   entirely under it (quiet speaker) is kept whole. One level for both edges: onsets rise through it within a frame,
-   but word endings decay over 200–300 ms (plus room reverb), and step 5's hysteresis followed that decay down to the
-   floor, so ≈ 0.1 s more was kept after speech than before it. Measured on the owner's two clips (X = 0.3: 9 cuts before, 11 after since pauses get longer;
-   reference = last / first frame within 35 dB of the full-band peak): kept after speech 0.10–0.16 s (mean 0.12 s)
-   before vs 0.05 s after the fix; kept before speech 0.05–0.08 s before vs 0.05 s after. Bench corpus: no more audible
-   speech cut than before in any condition (30 dB started clipping word endings, 25 dB more so).
+7. **Speech edges** (TL-048-fix3; fix2's 35 dB edge failed by ear). One audibility level `L` = 25 dB under the
+   speaker's level (full-band energy, same 25 ms window; the speaker's level = the media's full-band p97, or the run's
+   own peak when quieter; an attached run takes the level of the speech it is attached to):
+   - **start** = the run's first frame ≥ `L` (a consonant's burst, aspiration or fricative is the word's first sound,
+     even with a closure dip before the vowel);
+   - **end** = where the last voiced frame's decay sinks under `L` (dips ≤ 30 ms bridged). Sound cut off from the voice
+     by a longer dip (an **exhale**, a breath) is not speech, unless it is **sibilant**: unvoiced frames from `L` − 6 dB
+     whose energy above 4 kHz (new feature, 4th-order 4 kHz high-pass) exceeds the detection band's by ≥ 5 dB on
+     average (a final /s/, also searched up to 100 ms outside the loud run, since the 150–4000 Hz band misses it; the
+     same search before the start). An attached unvoiced run (step 6) is kept when speech follows it, or when sibilant.
+   Owner ground truth (project "1018 (1)", clip IMG_9026, timeline 00:00:25:25): the voice is heard to stop at
+   25.83–25.87 s; the voiced decay crosses `L` at 25.88 s; the detector (fix2) ran on to 26.04 s because 50 ms after the
+   decay the speaker exhales (≈ 110 ms of broadband hiss 19 dB under the voice, as much energy above 4 kHz as below,
+   unvoiced) and the 35 dB edge kept that plus the last 30–60 ms of the decay; the slice started at 26.09 (26:03). The
+   same exhale (90–160 ms, 19–23 dB under the voice, after a 50–60 ms dip that stays ≈ 20 dB above the room floor)
+   follows 6 of the 10 phrases of that clip. Onsets have no such thing (abrupt, or a consonant that is kept). Measured
+   on both clips at X = 0.3 (reference = this criterion): kept after speech 0.08–0.21 s (mean 0.13 s) before vs 0.05 s
+   after; kept before speech 0.05–0.07 s before vs 0.05 s after. Limits (by design, conservative elsewhere): a
+   non-sibilant consonant after a closure at the very end of a phrase (TTS "clips," whose /s/ has little energy above
+   4 kHz) is dropped like an exhale; a real /s/ measured +6 … +9 dB, exhales −5 … +3.5 dB.
+   Bench (`Hybrid(attach: true, edgeDrop: 25)` = the app, vs S5 without edges, both with the app's 50 / 50 ms handles;
+   raw: `docs/quickcut/results_fix3.txt`), audible speech cut in ms at X = 0.3 / 0.5 / 1.0: clean 0/0/0 → 90/90/0,
+   −30 dB 110/30/20 → 90/90/0, clipped 0/0/0 → 90/90/0 (all three: that TTS "clips," /s/), pink 25 dB and 12 dB, hum,
+   music bed unchanged (410/150/40, 470/340/50, 410/80/40, 490/320/0 → 470/320/0), traffic 340/80/40 → 340/150/40,
+   breaths 310/40/40 → 230/110/20, reverb 0/0/0 → 20/0/0. Most of the extra in noisy conditions are frames the base
+   detector never found (not speech in either mask) that now fall inside a gap grown past X. Median kept pause at
+   X = 0.5 (after / before speech): clean 70/60 → 40/50 ms, reverb 400 ms 170/50 → 120/50 ms.
 8. Store: the speech mask (1 bit per 10 ms ≈ 750 B per minute) + `hasDynamics` (false when nothing qualifies or
    `pk − floor < 10 dB` → whole clip untouched).
 
@@ -106,8 +124,9 @@ Per **clip**, at every slider change (pure, MontageCore):
 3. A blank run qualifies when its **raw** timeline length > X (what the user means by "a blank of more than X").
 4. Removed slice = the run minus handles: **50 ms after the previous speech and 50 ms before the next speech**, so a
    cut pause plays as 0.1 s in total, symmetric (owner decision 2026-10-23; `QuickCut.handleAfter` / `handleBefore`).
-   Word tails stay audible because they are part of the detected speech run (down to 35 dB under the peak, step 7;
-   step 6 attaches unvoiced consonants), not because of a longer end handle. A run that touches the clip's start or
+   Word tails stay audible because they are part of the detected speech run (the decay down to 25 dB under the voice
+   and final fricatives, step 7), not because of a longer end handle. With fix3 the 50 ms after the end of speech
+   matches the 50 ms before the onset that the owner hears as ≈ 3 frames. A run that touches the clip's start or
    end keeps only the speech-side handle. Drop slices < 40 ms.
    Why the end used to leave a blank: the former handles (140 ms after, 60 ms before) measured on the bench corpus at
    X = 0.5 as a median of 140–160 ms kept after the end of speech vs 60–70 ms before its start. With 50 / 50 ms the
@@ -123,4 +142,5 @@ Per **clip**, at every slider change (pure, MontageCore):
 - Slider drag: plan for 30 clips + overlay redraw within one frame (plan computation < 2 ms total, measured in a unit
   test).
 - Apply on 30 clips with ~300 cuts: < 300 ms, one undo step.
-- Cache: `Caches/Montage/quickcut/<contentHash>.v2` (suffix bumped whenever the detector's output changes; v2 = step 7), memory + disk. Proxies are irrelevant (audio only).
+- Cache: `Caches/Montage/quickcut/<contentHash>.v3` (suffix bumped whenever the detector's output changes; v2 = fix2
+  edges, v3 = fix3 step 7), memory + disk. Proxies are irrelevant (audio only).

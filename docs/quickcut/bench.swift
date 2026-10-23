@@ -127,7 +127,7 @@ let scenarios: [Scenario] = [
 ]
 
 // MARK: - features
-struct Feat { var e: [Float]; var be: [Float]; var voiced: [Float] }
+struct Feat { var e: [Float]; var be: [Float]; var voiced: [Float]; var hi: [Float] = [] }   // hi: energy above 4 kHz (fix3)
 func features(_ x: [Float]) -> Feat {
     let n = x.count / HOP
     var band = x; var hp = Biquad.hp(150), lp = Biquad.lp(4000); hp.run(&band); lp.run(&band)
@@ -135,7 +135,8 @@ func features(_ x: [Float]) -> Feat {
     // 8 kHz decimated band signal for voicing
     var d = [Float](repeating: 0, count: band.count / 2); for i in d.indices { d[i] = 0.5 * (band[2 * i] + band[2 * i + 1]) }
     let W = 256, minLag = 20, maxLag = 120 // 32 ms window, 67-400 Hz
-    for i in 0..<n { let a = max(0, i * HOP + HOP / 2 - 200), b = min(x.count, a + 400); e[i] = db(rms(x[a..<b])); be[i] = db(rms(band[a..<b])) }
+    var hx = x; var h1 = Biquad.hp(4000), h2 = Biquad.hp(4000); h1.run(&hx); h2.run(&hx); var hi = e
+    for i in 0..<n { let a = max(0, i * HOP + HOP / 2 - 200), b = min(x.count, a + 400); e[i] = db(rms(x[a..<b])); be[i] = db(rms(band[a..<b])); hi[i] = db(rms(hx[a..<b])) }
     // voicing only where the band energy is clearly above the clip floor (the rest can't be speech anyway)
     let gate = max(percentile(be, 0.10), -90) + 4
     d.withUnsafeBufferPointer { p in let base = p.baseAddress!
@@ -151,7 +152,7 @@ func features(_ x: [Float]) -> Feat {
             let o = base[c + lag], nw = base[c + lag + W]; el += nw * nw - o * o }
         vo[i] = best }
     }
-    return Feat(e: e, be: be, voiced: vo)
+    return Feat(e: e, be: be, voiced: vo, hi: hi)
 }
 
 // MARK: - detectors -> speech mask (true = keep)
@@ -189,7 +190,8 @@ struct Voiced: Detector { var frac: Float; var vthr: Float; var name: String { "
         }
         return dilate(m, before: 3, after: 8)
     } }
-struct Hybrid: Detector { var frac: Float; var localWin: Int; var vmin: Int; var attach = false; var name: String { "S\(attach ? 5 : 4) hybrid \(frac) w\(localWin) v\(vmin)" }
+struct Hybrid: Detector { var frac: Float; var localWin: Int; var vmin: Int; var attach = false; var edgeDrop: Float? = nil
+    var name: String { "S\(attach ? 5 : 4) hybrid \(frac) w\(localWin) v\(vmin)" + (edgeDrop.map { " e\(Int($0))" } ?? "") }
     func mask(_ f: Feat) -> [Bool] {
         let e = f.be, n = e.count
         // smoothed energy (200 ms mean) -> sliding minimum = local noise floor
@@ -208,12 +210,49 @@ struct Hybrid: Detector { var frac: Float; var localWin: Int; var vmin: Int; var
         while i < n { if loud[i] { var j = i; var v = 0; var pk: Float = -200; while j < n && loud[j] { if f.voiced[j] > 0.5 { v += 1 }; pk = max(pk, e[j]); j += 1 }
             // speech = voiced; conservative: a loud (near speech level) run of >= 80 ms is kept too
             runs.append((i..<j, v >= vmin || (attach && j - i >= 8 && pk > peak - 12))); i = j } else { i += 1 } }
+        var attached = [Bool](repeating: false, count: runs.count)
         if attach { // unvoiced runs close to speech are consonants / word tails: keep them
             for k in runs.indices where !runs[k].1 {
-                let near = (k > 0 && runs[k - 1].1 && runs[k].0.lowerBound - runs[k - 1].0.upperBound <= 20) || (k + 1 < runs.count && runs[k + 1].1 && runs[k + 1].0.lowerBound - runs[k].0.upperBound <= 20)
-                if near && runs[k].0.count >= 3 { runs[k].1 = true } } }
+                let near = (k > 0 && runs[k - 1].1 && !attached[k - 1] && runs[k].0.lowerBound - runs[k - 1].0.upperBound <= 20) || (k + 1 < runs.count && runs[k + 1].1 && runs[k + 1].0.lowerBound - runs[k].0.upperBound <= 20)
+                if near && runs[k].0.count >= 3 { runs[k].1 = true; attached[k] = true } } }
         var m = [Bool](repeating: false, count: n)
-        for (r, keep) in runs where keep { for k in r { m[k] = true } }
+        guard let drop = edgeDrop else { for (r, keep) in runs where keep { for k in r { m[k] = true } }; return m }
+        // app speech edges (TL-048-fix3, QuickCutDetector.mask): one level `drop` dB under the speaker's full-band level;
+        // speech starts at the run's first frame above it, ends where the last voiced frame's decay sinks under it (dips
+        // ≤ 3 frames bridged); sound after a longer dip (an exhale) only if sibilant (full − band ≥ 4 dB)
+        let fe = f.e, ml = percentile(fe, 0.97)
+        func sib(_ s: Range<Int>, _ l: Float) -> Range<Int>? { var lo = Int.max, hi = Int.min, c = 0; var sum: Float = 0
+            for k in s where fe[k] >= l - 6 && f.voiced[k] <= 0.5 { lo = min(lo, k); hi = max(hi, k); sum += f.hi[k] - e[k]; c += 1 }
+            return c >= 3 && sum / Float(c) >= 5 ? lo..<(hi + 1) : nil }
+        func sibNear(_ edge: Int, _ fwd: Bool, _ limit: Int, _ l: Float) -> Range<Int>? {
+            let low = l - 6, st = fwd ? 1 : -1; func ins(_ j: Int) -> Bool { fwd ? j < limit : j >= limit }
+            var j = fwd ? edge : edge - 1, sk = 0
+            while ins(j) && sk < 10 && (fe[j] < low || f.voiced[j] > 0.5) { j += st; sk += 1 }
+            guard ins(j) && fe[j] >= low && f.voiced[j] <= 0.5 else { return nil }
+            let j0 = j; var last = j, gap = 0
+            while ins(j) && abs(j - j0) < 40 { if fe[j] >= low { last = j; gap = 0 } else { gap += 1; if gap > 3 { break } }; j += st }
+            return sib(fwd ? j0..<(last + 1) : last..<(j0 + 1), l) }
+        var level = runs.map { r -> Float in min(ml, r.0.map { fe[$0] }.max() ?? -200) - drop }
+        for k in runs.indices where attached[k] { var l: Float = -200
+            if k > 0 && runs[k - 1].1 && !attached[k - 1] { l = max(l, level[k - 1]) }
+            if k + 1 < runs.count && runs[k + 1].1 && !attached[k + 1] { l = max(l, level[k + 1]) }
+            level[k] = l > -200 ? l : ml - drop }
+        for k in runs.indices where runs[k].1 {
+            let r = runs[k].0, l = level[k]; var a: Int, b: Int
+            if let c0 = r.first(where: { f.voiced[$0] > 0.5 && fe[$0] >= l }), let c1 = r.last(where: { f.voiced[$0] > 0.5 && fe[$0] >= l }) {
+                a = r[r.lowerBound...c0].first(where: { fe[$0] >= l }) ?? c0; b = c1 + 1
+                grow: while b < r.upperBound { for j in b..<min(r.upperBound, b + 4) where fe[j] >= l { b = j + 1; continue grow }; break }
+                let bef = k > 0 ? runs[k - 1].0.upperBound : 0, aft = k + 1 < runs.count ? runs[k + 1].0.lowerBound : n
+                if let s = sibNear(b, true, aft, l) { b = s.upperBound }
+                if let s = sibNear(a, false, bef, l) { a = s.lowerBound }
+            } else if attached[k] {
+                let next = k + 1 < runs.count && runs[k + 1].1 && runs[k + 1].0.lowerBound - r.upperBound <= 20
+                if next, let lo = r.first(where: { fe[$0] >= l }), let hi = r.last(where: { fe[$0] >= l }) { a = lo; b = hi + 1 }
+                else if let s = sib(r, l) { a = s.lowerBound; b = s.upperBound }
+                else { continue }
+            } else { a = r.first(where: { fe[$0] >= l }) ?? r.lowerBound; b = (r.last(where: { fe[$0] >= l }) ?? (r.upperBound - 1)) + 1 }
+            for i in a..<b { m[i] = true }
+        }
         return m
     } }
 func dropShort(_ m: inout [Bool], _ minLen: Int) {
@@ -223,7 +262,7 @@ func dropShort(_ m: inout [Bool], _ minLen: Int) {
 // removal plan: gaps (runs of !mask) longer than X seconds; removed fully (padding already in mask)
 // a gap qualifies on its raw length (what the user means by "a blank of more than X"); the removed part keeps
 // handles of PRE before / POST after speech so attacks and tails survive; leading/trailing gaps keep only the inner handle
-var PRE = 6, POST = 14
+var PRE = 5, POST = 5   // the app's QuickCut.handleBefore / handleAfter (TL-048-fix1; the research ran with 6 / 14)
 func plan(_ m: [Bool], _ X: Double) -> [Range<Int>] {
     var r: [Range<Int>] = []; var i = 0
     while i < m.count { if !m[i] { var j = i; while j < m.count && !m[j] { j += 1 }
@@ -278,7 +317,19 @@ let loudTruths: [[Bool]] = takes.map { t in let n = t.clean.count / HOP; let e =
     let p = percentile(e, 0.97); return e.map { $0 > p - 30 } }
 var curLoud: [Bool] = []
 let detectors: [Detector] = [Fixed(t: -40), Adaptive(frac: 0.35, band: true),
-                             Voiced(frac: 0.2, vthr: 0.5), Hybrid(frac: 0.3, localWin: 150, vmin: 4), Hybrid(frac: 0.3, localWin: 150, vmin: 4, attach: true), Hybrid(frac: 0.25, localWin: 150, vmin: 4, attach: true)]
+                             Voiced(frac: 0.2, vthr: 0.5), Hybrid(frac: 0.3, localWin: 150, vmin: 4), Hybrid(frac: 0.3, localWin: 150, vmin: 4, attach: true), Hybrid(frac: 0.25, localWin: 150, vmin: 4, attach: true),
+                             Hybrid(frac: 0.3, localWin: 150, vmin: 4, attach: true, edgeDrop: 30),
+                             Hybrid(frac: 0.3, localWin: 150, vmin: 4, attach: true, edgeDrop: 25)]   // e25 = the app (TL-048-fix3)
+// kept pause around speech at X: median of (slice start − end of the clean speech) and (next onset − slice end), ms
+func keptMedians(_ truth: [Bool], _ m: [Bool], _ X: Double) -> (after: [Int], before: [Int]) {
+    let n = min(truth.count, m.count); var after: [Int] = [], before: [Int] = []
+    for r in plan(Array(m[0..<n]), X) where r.lowerBound > 0 && r.upperBound < n {
+        if let e = (0..<r.lowerBound).last(where: { truth[$0] }), r.lowerBound - e - 1 < 100 { after.append((r.lowerBound - e - 1) * 10) }
+        if let s = (r.upperBound..<n).first(where: { truth[$0] }), s - r.upperBound < 100 { before.append((s - r.upperBound) * 10) }
+    }
+    return (after, before)
+}
+func median(_ v: [Int]) -> Int { v.isEmpty ? -1 : v.sorted()[v.count / 2] }
 let Xs = [0.3, 0.5, 1.0]
 var t0 = Date(), featTime = 0.0, audioSec = 0.0
 print(String(format: "corpus: %d takes, %.0f s audio", takes.count, takes.reduce(0) { $0 + Double($1.clean.count) / Double(SR) }))
@@ -298,6 +349,11 @@ for (sname, sfn) in scenarios {
         for X in Xs { var tot = Score()
             for (i, f) in feats.enumerated() { curLoud = loudTruths[i]; tot.add(evaluate(truths[i], d.mask(f), X)) }
             line += String(format: " | X=%.1f aud%4.0f %5.0f/%-2d %3.0f%% %2d/%-2d sp%-2d", X, tot.audible, tot.cutMs, tot.cutEvents, 100 * tot.removedInPause / max(tot.pauseTime, 1e-9), tot.missed, tot.pauses, tot.spurious) }
+        if let h = d as? Hybrid, h.attach {
+            var a: [Int] = [], b: [Int] = []
+            for (i, f) in feats.enumerated() { let k = keptMedians(truths[i], h.mask(f), 0.5); a += k.after; b += k.before }
+            line += " | X=0.5 kept after/before median \(median(a))/\(median(b)) ms"
+        }
         print(line)
     }
 }
