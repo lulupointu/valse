@@ -171,6 +171,7 @@ public enum StateDump {
         ui["quickCut"] = store.timelineUI.quickCut?.dump ?? ["open": false]   // TL-048 {open, value, count, removed, scope, summary, analysed, total, slices…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)
+        ui["relight"] = ["pending": RelightUIState.shared.pendingCount]   // AI2 Relight: depth passes starting / running
         ui["transcript"] = store.transcriptStateDump()   // C4: {open, status, words, language, captionsNav, applyToAllCaptions}
         // background jobs (AI, proxies…): `{"waitFor": {"path": "ui.activeJobs", "equals": 0}}` waits for them
         ui["jobs"] = store.jobs.map { ["title": $0.titleKey, "progress": $0.progress, "state": "\($0.state)"] as [String: Any] }

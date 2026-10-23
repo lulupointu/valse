@@ -13,8 +13,17 @@ public enum DemoProject {
         func video(_ name: String, _ pattern: SyntheticMedia.Pattern, seconds: Double, hz: Double?) async throws -> URL {
             let u = dir.appendingPathComponent("\(name).mp4")
             if !FileManager.default.fileExists(atPath: u.path) {
-                try await SyntheticMedia.writeVideo(to: u, size: CGSize(width: 1280, height: 720), seconds: seconds, fps: 30,
-                                                    pattern: pattern, audioHz: hz)
+                // atomic (a failed / interrupted write never leaves a partial file that later runs take as done), and
+                // retried once: the encoder can fail under heavy load (SyntheticMedia then throws instead of hanging)
+                let tmp = dir.appendingPathComponent(".tmp-\(UUID().uuidString).mp4")
+                defer { try? FileManager.default.removeItem(at: tmp) }
+                func write() async throws {
+                    try await SyntheticMedia.writeVideo(to: tmp, size: CGSize(width: 1280, height: 720), seconds: seconds, fps: 30,
+                                                        pattern: pattern, audioHz: hz)
+                }
+                do { try await write() } catch { try await write() }
+                try? FileManager.default.removeItem(at: u)
+                try FileManager.default.moveItem(at: tmp, to: u)
             }
             return u
         }
@@ -25,7 +34,13 @@ public enum DemoProject {
             try await video(tr("demo.clip.overlay"), .split(RGBA(hex: 0x8E44AD), RGBA(hex: 0x57BECB)), seconds: 4, hz: nil),
         ]
         let musicURL = dir.appendingPathComponent("\(tr("demo.clip.music")).m4a")
-        if !FileManager.default.fileExists(atPath: musicURL.path) { try await SyntheticMedia.writeAudio(to: musicURL, seconds: 12, hz: 220) }
+        if !FileManager.default.fileExists(atPath: musicURL.path) {
+            let tmp = dir.appendingPathComponent(".tmp-\(UUID().uuidString).m4a")
+            defer { try? FileManager.default.removeItem(at: tmp) }
+            do { try await SyntheticMedia.writeAudio(to: tmp, seconds: 12, hz: 220) } catch { try await SyntheticMedia.writeAudio(to: tmp, seconds: 12, hz: 220) }
+            try? FileManager.default.removeItem(at: musicURL)
+            try FileManager.default.moveItem(at: tmp, to: musicURL)
+        }
 
         var p = Project(name: tr("demo.name"))
         let (assets, _) = await MediaProbe.probeAll(urls + [musicURL])

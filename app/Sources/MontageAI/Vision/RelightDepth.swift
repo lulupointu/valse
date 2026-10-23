@@ -34,7 +34,11 @@ public enum RelightDepth {
         let needsPerson = settings.target.usesPersonMatte && !MatteGenerator.isReady(a, .person)
         let split = needsPerson ? 0.6 : 1.0
         if !isDepthReady(a) {
-            let estimator = try DepthEstimator()
+            // Loading the Core ML model (ANE compile through the system's shared `aned` on a cold cache) is one opaque
+            // blocking call that took 18 s to > 90 s on a loaded machine: keep it off Swift's cooperative pool, and
+            // report a first step once it is done so progress observers can tell "model loaded" from "stuck".
+            let estimator = try await OffPool.run { _ in UncheckedSendable(try DepthEstimator()) }.value
+            progress?(0.01 * split)
             if a.kind == .image {
                 guard let src = CGImageSourceCreateWithURL(a.url as CFURL, nil),
                       let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { throw AIToolError.noInput }
@@ -83,7 +87,7 @@ public enum RelightDepth {
             if let p = previous, p.width == d.width, p.height == d.height { d.blend(towards: p, keep: 0.4) }
             previous = d
             try await writer.append(d.cgImage(), at: Time(cmTime: t))
-            progress?(min(0.99, t.seconds / total))
+            progress?(min(0.99, max(0.01, t.seconds / total)))
         }
         if reader.status == .failed { throw reader.error ?? AIToolError.noInput }
         try await writer.finish()

@@ -29,6 +29,11 @@ enum RelightInspector {
     var selectedLight = 0
     /// Depth / person-matte passes (clip → job).
     var jobs: [ClipID: JobID] = [:]
+    /// Clips whose pass is being enqueued (set synchronously on tick, before the job id exists), so the progress line
+    /// shows at once and UI tests waiting for the pass to end never see a gap between tick and job.
+    var starting: Set<ClipID> = []
+    /// Passes started or running (UI tests: `ui.relight.pending`).
+    var pendingCount: Int { Set(jobs.keys).union(starting).count }
     var tool: RelightLightTool?
 }
 
@@ -43,8 +48,8 @@ struct RelightSection: View {
             let sel = min(st.selectedLight, max(r.lights.count - 1, 0))
             VStack(alignment: .leading, spacing: 6) {
                 Color.clear.frame(maxWidth: .infinity).frame(height: 1).testID("relight.top")   // UI tests: header is just above
-                if let id = ctx.clip?.id, let job = st.jobs[id] {
-                    let p = ctx.store.jobProgress(job) ?? 0
+                if let id = ctx.clip?.id, st.jobs[id] != nil || st.starting.contains(id) {
+                    let p = st.jobs[id].flatMap { ctx.store.jobProgress($0) } ?? 0
                     JobProgressLine(text: tr("relight.applying", JobInfo.percent(p)), progress: p) { ctx.store.setRelight(id, on: false) }
                         .testID("relight.progress")
                 }
@@ -300,11 +305,16 @@ extension EditorStore {
     public func ensureRelightPass(_ clipID: ClipID) {
         let st = RelightUIState.shared
         guard st.jobs[clipID] == nil, let clip = project.timeline.clip(clipID), let settings = clip.relight,
+              !st.starting.contains(clipID),
               let asset = clip.mediaID.flatMap(project.asset), !RelightDepth.isReady(asset, settings) else { return }
+        st.starting.insert(clipID)
         Task {
             let id = await JobQueue.shared.enqueue(titleKey: "relight.job", priority: 0, heavy: true, subject: clipID.description) { progress in
                 try await RelightJob.run(asset, settings: settings) { progress.report($0) }
             }
+            st.starting.remove(clipID)
+            // unticked / undone while the job was being enqueued: `relightProjectDidChange` saw no job id to cancel
+            guard project.timeline.clip(clipID)?.relight != nil else { await JobQueue.shared.cancel(id); return }
             st.jobs[clipID] = id
             let state = await JobQueue.shared.wait(id)
             if st.jobs[clipID] == id { st.jobs[clipID] = nil }
