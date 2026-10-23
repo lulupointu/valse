@@ -92,12 +92,12 @@ public enum SyntheticMedia {
         let frames = max(1, Int((seconds * Double(fps)).rounded()))
         let w = Int(size.width), h = Int(size.height)
 
-        let box = UncheckedSendable((vIn, adaptor, aIn))
+        let box = UncheckedSendable((vIn, adaptor, aIn, writer))
         try await withThrowingTaskGroup(of: Void.self) { g in
             g.addTask {
-                let (vIn, adaptor, _) = box.value
+                let (vIn, adaptor, _, writer) = box.value
                 for f in 0..<frames {
-                    while !vIn.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+                    try await waitUntilReady(vIn, writer)
                     guard let pool = adaptor.pixelBufferPool else { throw NSError(domain: "Montage", code: 61) }
                     var pbOut: CVPixelBuffer?
                     CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut)
@@ -109,12 +109,12 @@ public enum SyntheticMedia {
             }
             if let hz = audioHz {
                 g.addTask {
-                    let (_, _, aIn) = box.value
+                    let (_, _, aIn, writer) = box.value
                     guard let aIn else { return }
                     let total = Int(seconds * 48000)
                     var pos = 0
                     while pos < total {
-                        while !aIn.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+                        try await waitUntilReady(aIn, writer)
                         let n = min(4800, total - pos)
                         if let sb = sineBuffer(start: pos, count: n, hz: hz) { aIn.append(sb) }
                         pos += n
@@ -160,7 +160,7 @@ public enum SyntheticMedia {
         let total = Int(seconds * 48000)
         var pos = 0
         while pos < total {
-            while !aIn.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
+            try await waitUntilReady(aIn, writer)
             let n = min(4800, total - pos)
             if let sb = sineBuffer(start: pos, count: n, hz: hz) { aIn.append(sb) }
             pos += n
@@ -168,6 +168,15 @@ public enum SyntheticMedia {
         aIn.markAsFinished()
         await writer.finishWriting()
         if writer.status != .completed { throw writer.error ?? NSError(domain: "Montage", code: 67) }
+    }
+
+    /// Waits for `input` to take more data. A writer that failed (an encoder error under load) never makes its inputs
+    /// ready again: throw instead of polling forever (a UI test hung 2 min building the demo media this way).
+    static func waitUntilReady(_ input: AVAssetWriterInput, _ writer: AVAssetWriter) async throws {
+        while !input.isReadyForMoreMediaData {
+            if writer.status == .failed || writer.status == .cancelled { throw writer.error ?? NSError(domain: "Montage", code: 68) }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
     }
 
     static func fill(_ pb: CVPixelBuffer, w: Int, h: Int, paint: Paint) {

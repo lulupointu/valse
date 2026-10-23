@@ -33,8 +33,19 @@ enum AssetStateDump {
                         "item": store.playerUI.preview?.itemID ?? "",
                         "time": store.playerUI.preview.map { (store.playerUI.previewTime - $0.range.start).seconds } ?? 0,
                         "duration": store.playerUI.preview?.range.duration.seconds ?? 0] as [String: Any],
+            // on-screen Media ▸ Library cards whose async picture has not landed yet (snapshots waitFor 0)
+            "stockThumbsMissing": stockThumbsMissing(),
             "media": ["layout": p.layout.rawValue, "columns": s.layout["media"].map { $0.1 } ?? 0, "sort": p.sort.rawValue, "ascending": p.ascending, "filter": p.filter.rawValue] as [String: Any],
         ]
+    }
+
+    /// Stock cards on screen (`asset.tile.stock.<id>`) drawn with `LibraryArt.async` whose image isn't cached yet.
+    static func stockThumbsMissing() -> Int {
+        TestAnchors.shared.ids.filter { a in
+            guard a.hasPrefix("asset.tile.stock."), let i = StockLibrary[String(a.dropFirst("asset.tile.stock.".count))] else { return false }
+            if case .solid = i.kind { return false }
+            return LibraryArtCache.shared.get("stock.\(i.id)") == nil
+        }.count
     }
 }
 

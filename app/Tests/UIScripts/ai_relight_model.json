@@ -7,11 +7,14 @@
     {"click": "clip:main/0"},
     {"click": "id:inspector.tab.video"},
     {"click": "id:inspector.section.video.relight", "at": [0.035, 0.5]},
-    {"expect": [{"path": "undo.name", "equals": "cmd.relight"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.relight"}, {"path": "ui.relight.pending", "equals": 1},
                 {"path": "ui.anchors", "notContains": "relight.needsModel"}]},
-    {"waitFor": {"path": "ui.anchors", "notContains": "relight.progress", "timeout": 90}},
+    // the depth pass: loading the Core ML model is one call with no progress (18 s cold on a quiet machine, > 90 s seen
+    // under 10+ concurrent runs: the ANE compile goes through the system-wide aned), then progress moves every frame
+    {"waitFor": {"path": "ui.relight.pending", "equals": 0, "timeout": 300}},
+    {"expect": {"path": "ui.anchors", "notContains": "relight.progress"}},
     {"click": "id:relight.preset.object"},
-    {"wait": 1},
+    {"expect": {"path": "undo.name", "equals": "cmd.relight"}},
     {"snapshot": "relight-model-player", "element": "id:panel.player"},
     {"scroll": "id:inspector.section.video.relight", "dx": 0, "dy": 3000},
     {"click": "id:relight.top", "at": [0.02, 0.5], "offset": [0, -22]},

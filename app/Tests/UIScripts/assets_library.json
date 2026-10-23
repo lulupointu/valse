@@ -5,30 +5,34 @@
   "steps": [
     {"click": "id:asset.nav.stock.backgrounds"},
     {"expect": [{"path": "ui.assets.nav.media", "equals": "stock.backgrounds"}, {"path": "ui.assets.count.media", "gte": 12}]},
-    {"wait": 4},
+    {"waitFor": {"path": "ui.assets.stockThumbsMissing", "equals": 0, "timeout": 60}},
     {"snapshot": "library-backgrounds", "element": "id:panel.assets"},
     {"click": "id:asset.tile.stock.bg.aurora"},
     {"click": "id:asset.tile.stock.bg.aurora.add"},
+    // the 8 s 1080p render runs in-process (no job progress): 60 s no-progress bound
     {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 60}},
+    {"waitFor": {"path": "ui.assets.rendering", "count": 0}},
     {"expect": [{"path": "main.clips.0.kind", "equals": "media"}, {"path": "main.clips.0.duration", "approx": 8, "tolerance": 0.05},
                 {"path": "ui.assets.recents.media.0", "equals": "stock.bg.aurora"}]},
     // drop a gradient still onto a new track at 2 s
     {"drop": {"string": "montage-stock:gradient.sunset"}, "on": "time:2@main", "offset": [0, -40]},
     {"waitFor": {"path": "tracks.count", "gte": 2, "timeout": 30}},
+    {"waitFor": {"path": "ui.assets.rendering", "count": 0}},
     // drop two bin items at once (multi-selection drag) at the end of the main track
     {"drop": {"mediaList": [0, 1]}, "on": "time:30@main"},
     {"waitFor": {"path": "main.clips.count", "equals": 3, "timeout": 10}},
     {"click": "id:asset.nav.recent"},
     {"expect": {"path": "ui.assets.count.media", "gte": 1}},
     {"click": "id:asset.nav.stock.greenscreen"},
-    {"wait": 3},
+    {"waitFor": {"path": "ui.assets.stockThumbsMissing", "equals": 0, "timeout": 60}},
     {"snapshot": "library-greenscreen", "element": "id:panel.assets"},
     {"click": "id:asset.nav.stock.countdowns"},
-    {"wait": 3},
+    {"waitFor": {"path": "ui.assets.stockThumbsMissing", "equals": 0, "timeout": 60}},
     {"snapshot": "library-countdowns", "element": "id:panel.assets"},
     {"click": "id:asset.nav.stock.gradients"},
-    {"wait": 2},
+    {"waitFor": {"path": "ui.assets.stockThumbsMissing", "equals": 0, "timeout": 60}},
     {"snapshot": "library-gradients", "element": "id:panel.assets"},
+    {"expect": {"path": "ui.assets.preview.active", "equals": false}},
     {"snapshot": "library-window"}
   ]
 }
