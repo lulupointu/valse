@@ -21,8 +21,8 @@
     {"type": "0.2", "replace": true},
     {"key": "return"},
     {"waitFor": {"path": "ui.quickCut.value", "equals": 0.2}},
-    {"waitFor": {"path": "ui.quickCut.count", "equals": 3}},
-    {"expect": {"path": "ui.quickCut.summary", "equals": "3 blanks · −1.6 s"}},
+    {"waitFor": {"path": "ui.quickCut.count", "equals": 4}},
+    {"expect": {"path": "ui.quickCut.summary", "equals": "4 blanks · −1.8 s"}},
     {"expect": [{"path": "ui.quickCut.canApply", "equals": true}, {"path": "ui.quickCut.skipRanges", "gt": 0},
                 {"path": "undo.depth", "equals": 4}]},
     {"dump": "open"},
@@ -62,9 +62,9 @@
     {"waitFor": {"path": "ui.quickCut.canApply", "equals": true}},
     {"click": "id:quickcut.apply"},
     {"waitFor": {"path": "ui.quickCut.open", "equals": false}},
-    {"expect": [{"path": "ui.toast", "equals": "Removed 3 blanks (−1.6 s)"}, {"path": "undo.name", "equals": "cmd.quickCut"},
+    {"expect": [{"path": "ui.toast", "equals": "Removed 4 blanks (−1.8 s)"}, {"path": "undo.name", "equals": "cmd.quickCut"},
                 {"path": "undo.depth", "equals": 5}]},
-    // the main clip lost its silent tail (3.51–4 s: 50 ms kept after the speech), the speech clip its two pauses (closed up inside its footprint)
+    // the main clip lost its silent tail (3.51–4 s: 50 ms kept after the speech), the speech clip its three pauses (closed up inside its footprint; TL-048-fix3's speech ends make the 0.2 s pause at 5.5 s one more)
     {"expect": [{"path": "main.clips.0.duration", "approx": 3.51, "tolerance": 0.03}, {"path": "tracks.1.clips.count", "gt": 1}]},
     {"key": "cmd+z"},
     {"waitFor": {"path": "main.clips.0.duration", "approx": 4, "tolerance": 0.02}},
