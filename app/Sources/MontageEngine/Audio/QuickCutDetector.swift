@@ -20,21 +20,25 @@ public struct QuickCutDetector: Sendable {
     static let localWin = 150
     static let vmin = 4
 
-    /// Per-frame features (exposed for tests): band energy (dB) and voicing (0 … 1, 0 where not computed).
+    /// Per-frame features (exposed for tests): band energy (dB), voicing (0 … 1, 0 where not computed) and full-band
+    /// energy (dB, same 25 ms window: decides the speech edges, fricatives above 4 kHz included).
     public struct Features: Sendable {
         public var energy: [Float]
         public var voicing: [Float]
+        public var full: [Float]
     }
 
     private let filter = BandFilter()      // 150 Hz HP + 4 kHz LP (vDSP biquad cascade, keeps its state)
     private var total = 0                  // samples fed
     private var band: [Float] = []         // band signal, band[0] = sample `bandBase`
+    private var raw: [Float] = []          // input signal, same indexing as `band`
     private var bandBase = 0
     private var dec: [Float] = []          // 8 kHz decimated band, dec[0] = sample `decBase`
     private var decBase = 0
     private var decCount = 0               // decimated samples produced
     private var energy: [Float] = []
     private var voicing: [Float] = []
+    private var full: [Float] = []
     /// Scratch of `voicing` (correlations, lag energies, squares).
     private var corr = [Float](repeating: 0, count: QuickCutDetector.workCount)
     static let workCount = 3 * (maxLag - minLag + 1) + vWindow
@@ -47,6 +51,7 @@ public struct QuickCutDetector: Sendable {
         let start = band.count
         band.append(contentsOf: repeatElement(0, count: x.count))
         band.withUnsafeMutableBufferPointer { b in filter.run(src, b.baseAddress! + start, x.count) }
+        raw.append(contentsOf: x)
         total += x.count
         decimate()
         process(final: false)
@@ -57,7 +62,7 @@ public struct QuickCutDetector: Sendable {
     /// Features of everything fed (call once, at the end).
     public mutating func finishFeatures() -> Features {
         process(final: true)
-        return Features(energy: energy, voicing: voicing)
+        return Features(energy: energy, voicing: voicing, full: full)
     }
 
     /// The speech mask of everything fed.
@@ -95,14 +100,18 @@ public struct QuickCutDetector: Sendable {
         let n = total / Self.hop   // frames of the whole signal so far (bench: x.count / HOP)
         // energy: frame i uses band[a ..< a + 400], a = max(0, i·160 − 120)
         band.withUnsafeBufferPointer { b in
-            while energy.count < n {
-                let i = energy.count
-                let a = max(0, i * Self.hop + Self.hop / 2 - Self.window / 2)
-                let e = min(total, a + Self.window)
-                if !final && a + Self.window > total { break }
-                var ms: Float = 0
-                vDSP_measqv(b.baseAddress! + (a - bandBase), 1, &ms, vDSP_Length(e - a))
-                energy.append(20 * log10f(max(sqrtf(ms), 1e-6)))
+            raw.withUnsafeBufferPointer { r in
+                while energy.count < n {
+                    let i = energy.count
+                    let a = max(0, i * Self.hop + Self.hop / 2 - Self.window / 2)
+                    let e = min(total, a + Self.window)
+                    if !final && a + Self.window > total { break }
+                    var ms: Float = 0, mf: Float = 0
+                    vDSP_measqv(b.baseAddress! + (a - bandBase), 1, &ms, vDSP_Length(e - a))
+                    vDSP_measqv(r.baseAddress! + (a - bandBase), 1, &mf, vDSP_Length(e - a))
+                    energy.append(20 * log10f(max(sqrtf(ms), 1e-6)))
+                    full.append(20 * log10f(max(sqrtf(mf), 1e-6)))
+                }
             }
         }
         // voicing: frame i, decimated window start c = i·80 + 40 − 128; needs c ≥ 0 and c + 256 + 120 < decimated count
@@ -127,7 +136,7 @@ public struct QuickCutDetector: Sendable {
         let keepBand = max(0, nextE * Self.hop + Self.hop / 2 - Self.window / 2)
         let keepBandFrom = min(keepBand, 2 * decCount)   // samples not yet decimated stay too
         if keepBandFrom - bandBase > 1 << 15 {
-            band.removeFirst(keepBandFrom - bandBase); bandBase = keepBandFrom
+            band.removeFirst(keepBandFrom - bandBase); raw.removeFirst(keepBandFrom - bandBase); bandBase = keepBandFrom
         }
         let nextV = voicing.count
         let keepDec = max(0, nextV * Self.hop / 2 + Self.hop / 4 - Self.vWindow / 2)
@@ -169,7 +178,16 @@ public struct QuickCutDetector: Sendable {
         return s[min(s.count - 1, Int(Float(s.count - 1) * p))]
     }
 
-    public static func mask(_ f: Features) -> QuickCutMask {
+    /// Speech edges (dB): a run's leading / trailing frames whose full-band energy is more than this far below the
+    /// media's full-band speech peak (p97) are not speech (TL-048-fix2, docs/QUICK_CUT.md §4 step 7). One level for the
+    /// onset and the end of speech: onsets rise through it within a frame, but a word's decay (and the room's reverb)
+    /// takes 200–300 ms to sink from there to the detection threshold, which used to be kept as a blank before every
+    /// cut. 35 dB: no audible speech cut on the bench corpus (30 dB started clipping word endings).
+    static let edgeDrop: Float = 35
+
+    public static func mask(_ f: Features) -> QuickCutMask { mask(f, edgeDrop: edgeDrop) }
+
+    static func mask(_ f: Features, edgeDrop: Float) -> QuickCutMask {
         let e = f.energy, n = e.count
         guard n > 0 else { return .empty }
         // voicing only counts where the band energy is clearly above the media's floor (bench gate)
@@ -194,7 +212,7 @@ public struct QuickCutDetector: Sendable {
         }
         closeGaps(&loud, 4)
         // a loud run is speech when voiced (or loud and long enough), else a breath / click / noise swell
-        var runs: [(r: Range<Int>, keep: Bool)] = []
+        var runs: [(r: Range<Int>, keep: Bool, attached: Bool)] = []
         var i = 0
         while i < n {
             guard loud[i] else { i += 1; continue }
@@ -204,18 +222,33 @@ public struct QuickCutDetector: Sendable {
                 if e[j] > gate && f.voicing[j] > 0.5 { v += 1 }
                 pk = max(pk, e[j]); j += 1
             }
-            runs.append((i..<j, v >= vmin || (j - i >= 8 && pk > peak - 12)))
+            runs.append((i..<j, v >= vmin || (j - i >= 8 && pk > peak - 12), false))
             i = j
         }
         // unvoiced runs next to speech are consonants / word tails
         for k in runs.indices where !runs[k].keep {
-            let near = (k > 0 && runs[k - 1].keep && runs[k].r.lowerBound - runs[k - 1].r.upperBound <= 20)
+            let near = (k > 0 && runs[k - 1].keep && !runs[k - 1].attached && runs[k].r.lowerBound - runs[k - 1].r.upperBound <= 20)
                 || (k + 1 < runs.count && runs[k + 1].keep && runs[k + 1].r.lowerBound - runs[k].r.upperBound <= 20)
-            if near && runs[k].r.count >= 3 { runs[k].keep = true }
+            if near && runs[k].r.count >= 3 { runs[k].keep = true; runs[k].attached = true }
         }
         var m = [Bool](repeating: false, count: n)
         var any = false
-        for (r, keep) in runs where keep { any = true; for k in r { m[k] = true } }
+        // edges: the same level decides where speech starts and ends (`edgeDrop` below the media's full-band speech
+        // peak, so fricatives above the detection band count). A speech run entirely below it (a quiet speaker in a
+        // loud media) is kept whole; an attached unvoiced run below it is inaudible and dropped.
+        let fe = f.full.count == n ? f.full : e
+        let edge = percentile(fe, 0.97) - edgeDrop
+        for (r, keep, attached) in runs where keep {
+            var a = r.lowerBound, b = r.upperBound
+            while a < b && fe[a] < edge { a += 1 }
+            while b > a && fe[b - 1] < edge { b -= 1 }
+            if a == b {
+                if attached { continue }
+                a = r.lowerBound; b = r.upperBound
+            }
+            any = true
+            for k in a..<b { m[k] = true }
+        }
         return QuickCutMask(speech: m, hasDynamics: any && peak - floor >= 10)
     }
 
