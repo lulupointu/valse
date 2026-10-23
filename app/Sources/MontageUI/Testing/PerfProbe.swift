@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import os
 @preconcurrency import Metal
 import MontageCore
 import MontageEngine
@@ -71,6 +72,38 @@ nonisolated public enum ProcessLaunch {
         let start = Double(st.tv_sec) + Double(st.tv_usec) / 1e6
         return (Date().timeIntervalSince1970 - start) * 1000
     }
+}
+
+/// PERF-R1: keeps the CPU clocks up while a `perf` step measures, so its thread-CPU metrics measure the work, not the
+/// DVFS state of a quiet machine.
+///
+/// The perf steps are bursty (one event, then up to 16 ms idle). On an otherwise quiet machine (load ≈ 5 of 10 cores)
+/// Apple Silicon clocks the performance cluster down between bursts and every main-thread metric inflated 1.5-4× with
+/// the same binary (assets_scroll p95 0.8 → 3.5 ms, inspector_drag p50 6 → 12 ms, timeline_scroll p95 0.5 → 2 ms); a
+/// busy machine (other builds) kept the clocks up, which is why the gate passed at load 24-60 and failed alone. A
+/// sibling thread spinning at user-interactive QoS holds the cluster's frequency; it is another thread, so it never
+/// counts in the measured main-thread CPU (`ThreadCPU` is per thread). `MONTAGE_PERF_WARM=0` turns it off.
+nonisolated final class PerfClockWarmer: Sendable {
+    private let running = OSAllocatedUnfairLock(initialState: false)
+    static let enabled = ProcessInfo.processInfo.environment["MONTAGE_PERF_WARM"] != "0"
+
+    func start() {
+        guard Self.enabled else { return }
+        let wasRunning = running.withLock { r -> Bool in let was = r; r = true; return was }
+        guard !wasRunning else { return }
+        let t = Thread { [self] in
+            var x: UInt64 = 0
+            repeat {
+                for _ in 0..<20_000 { x = x &* 6364136223846793005 &+ 1 }
+            } while running.withLock { $0 }
+            withExtendedLifetime(x) {}
+        }
+        t.qualityOfService = .userInteractive
+        t.name = "montage.perf.clockWarmer"
+        t.start()
+    }
+
+    func stop() { running.withLock { $0 = false } }
 }
 
 /// CPU time consumed by the calling thread (ns).

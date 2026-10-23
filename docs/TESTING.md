@@ -117,8 +117,12 @@ hogs; a quiet machine is never assumed. So:
   before / after each part, max taken; `MONTAGE_PERF_CORES` overrides the core count, also for TimingBudget). Above it,
   perf.sh waits ≤ 5 min and measures once more; if still loaded it reports each as `UNRELIABLE (load X > cores Y)` with
   its value and does not gate on them; check_clean prints "perf: N metrics unverified due to load" and appends
-  `perf-unverified=N` to `build/check_clean.ok`. Thread-CPU (`_cpu_`) metrics follow the same rule (they inflate 3-4×
-  above load = cores; owner decision 2026-10-22). Memory and the gross ×4 GPU-time bounds always gate. `launch_ms` is measured after one untimed warm-up launch (app launch, not the first launch after a build).
+  `perf-unverified=N` to `build/check_clean.ok`. Thread-CPU (`_cpu_`) metrics follow the same rule (owner decision
+  2026-10-22), but load is not what inflates them: low load is (PERF-R1, 2026-10-23). The perf steps are bursty (one
+  event, ≤ 16 ms idle), so on a quiet machine the cores clock down between events and the same binary measured 1.5-4×
+  more main-thread CPU (assets_scroll p95 0.8 → 3.5 ms) than on a busy one. Every `perf` step therefore runs
+  `PerfClockWarmer` (MontageUI/Testing/PerfProbe.swift): a sibling thread spinning at user-interactive QoS while it
+  measures, never counted in the per-thread numbers; `MONTAGE_PERF_WARM=0` turns it off. Memory and the gross ×4 GPU-time bounds always gate. `launch_ms` is measured after one untimed warm-up launch (app launch, not the first launch after a build).
 - **Waits are for state, timeouts only detect hangs.** Await the job / poll a condition (`waitUntil`, `job.value`); a
   timeout must be generous (≥ 30 s for anything that can queue behind other work) and never encode a speed budget.
   Freeze / deadlock checks measure *work*, not wall time: e.g. `PlaybackStressTests` calls a preview frozen when no new
