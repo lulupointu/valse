@@ -1650,6 +1650,8 @@ final class ClickProbe {
         if dropped != nil { return nil }
         let down = e.type == .leftMouseDown || e.type == .rightMouseDown
         guard (firstEventNumber..<(firstEventNumber + expected)).contains(e.eventNumber) else {
+            // posted by the driver while handling this click (the slider emulation re-posts its release): as is
+            if e.eventNumber >= firstEventNumber, e.eventNumber <= SyntheticEvents.eventNumber { return e }
             // not one of this click's events (a real or stale event): never delivered to the test window
             foreign.append(String(format: "%@ #%d at %.0f,%.0f (click #%d)", down ? "press" : "release", e.eventNumber,
                                   e.locationInWindow.x, e.locationInWindow.y, firstEventNumber))
