@@ -24,7 +24,8 @@ checks the perf budgets (bench/perf_thresholds.json + perf.sh's `UNIT_TIMING` te
 
 ## Perf under load (docs/TESTING.md "perf.sh load rule")
 - Correctness tests never assert wall clock (`TimingBudget.limit` = nil outside `MONTAGE_PERF=1`); memory and the
-  gross ×4 GPU-time bounds always gate; thread-CPU (`_cpu_`) follows the load rule below (inflates 3-4× under load).
+  gross ×4 GPU-time bounds always gate; thread-CPU (`_cpu_`) follows the load rule below; it is measured with the clocks held up (PERF-R1 `PerfClockWarmer`: a quiet machine,
+  not load, inflated it 1.5-4×).
 - In perf.sh, wall-clock, GPU-time and thread-CPU metrics (`launch_ms`, `_wall_`, `_gpu_`, `_cpu_`, unit wall-clock / strict GPU budgets) gate
   only while the 1-min load average stays ≤ the core count (sampled before / after each part). Above it perf.sh waits
   ≤ 5 min (`MONTAGE_PERF_LOAD_WAIT`), measures again, then reports each as `UNRELIABLE (load X > cores Y)` without gating.

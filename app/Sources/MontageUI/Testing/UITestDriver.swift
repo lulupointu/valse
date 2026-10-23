@@ -1258,6 +1258,11 @@ public final class UITestDriver {
     ///   "alternate": true}` — delivers one scroll event per frame through the real `scrollWheel` path, then measures the
     /// timeline frame (CPU build + GPU encode). Metrics: `<name>_cpu_p50_ms`, `_cpu_p95_ms`, `_cpu_max_ms`, `_gpu_p95_ms`.
     private func perf(_ name: String, _ step: [String: Any]) async throws {
+        // PERF-R1: measure at full clocks, not at the DVFS state of a quiet machine (see PerfClockWarmer)
+        let warmer = PerfClockWarmer()
+        warmer.start()
+        defer { warmer.stop() }
+        if PerfClockWarmer.enabled { try await Task.sleep(for: .milliseconds(50)) }   // let the cluster ramp up
         if step["drag"] != nil || step["scroll"] != nil || step["edit"] != nil { return try await perfInteraction(name, step) }
         if name.hasPrefix("asset") || step["view"] as? Bool == true { try await viewScrollPerf(name, step); return }
         guard let tl = timelineView else { throw Failure("no timeline view") }

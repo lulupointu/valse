@@ -32,6 +32,8 @@ source scripts/slots.sh; slots_acquire_all
 [[ $BUILD == 1 ]] && swift build -c release --product Montage >&2
 BIN="$(swift build -c release --show-bin-path)/Montage"
 
+# Thread-CPU (`_cpu_`) metrics are measured with the CPU clocks held up (PERF-R1: UITestDriver's PerfClockWarmer, off
+# with MONTAGE_PERF_WARM=0): on a quiet machine the bursty perf steps let the cores clock down and they inflated 1.5-4x.
 # Load rule (DX-C, OB-PERF): wall-clock, GPU-time and thread-CPU metrics GATE only when the 1-min load average stays <= the core count across
 # the measurement (sampled before / after each part, max taken; MONTAGE_PERF_CORES overrides the core count). Taking
 # every slot does not stop load from outside the slot system (VMs, other builds). Above it, the measurement is retried
@@ -130,7 +132,8 @@ limits = json.load(open(th)).get(mode, {})
 violations, unreliable = [], []
 def load_ruled(k):
     # memory metrics are load-robust: they always gate; wall-clock, GPU-time and thread-CPU ones follow the load rule
-    # (see the top of this script). Thread-CPU inflates 3-4x above load = cores (OB-PERF 2026-10-22: main 0.8 → 3.5 ms)
+    # (see the top of this script). PERF-R1: thread-CPU did NOT inflate under load (OB-PERF's 0.8 → 3.5 ms was a quiet
+    # machine clocking down between the bursty perf events); the UI driver's PerfClockWarmer keeps the clocks up.
     return not ("memory" in k or k.endswith("_mb"))
 for k, lim in limits.items():
     if k not in metrics: continue
