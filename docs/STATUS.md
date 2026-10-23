@@ -260,6 +260,12 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   skipRanges (SkipTimeMap), no boundary seek; trade-offs: 40 ms debounced rebuild on skip change, preview render-cache
   lanes unused while skipping, paused seek inside a slice shows the slice-end frame. Opt-in check:
   MONTAGE_QA_CUT_PROJECT=<copy of .montage> scripts/test.sh --filter PlaybackCutStallTests. Flaky in agent gate: fin_layout.
+- 2026-10-23 batch-qcfix3 FLAKY-FIN: fin_layout (and attempt-1 failures of c2_inspector_expand_unticked, language_fr,
+  w5_transitions_tab, timeline_click_select_paste) = setup `Montage Code=62`: CVPixelBufferPoolCreatePixelBuffer nil
+  under load while each UI-test launch rebuilds the 4 demo videos in its per-pid cache. Fix: SyntheticMedia falls back to
+  CVPixelBufferCreate (or throws the writer's real error), a false append throws (code 69); DemoProject.withEncoderRetries
+  5 attempts with backoff 0.25-2 s; fin_layout idles → waitFor. Not reproducible on demand: fallback vs retry unconfirmed.
+  Watch: one cold run had `snapshot layout-vertical` take 138 s ("never settled in 2 s"), 0.8 s afterwards.
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
