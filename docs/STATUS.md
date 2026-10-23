@@ -250,7 +250,16 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   progress 1 % after load, 300 s bound; ai_relight race (job registered after an async hop) → RelightUIState.starting /
   ui.relight.pending; SyntheticMedia writer loops spun forever after AVAssetWriter failure (demo project 2 min hang) →
   throw + DemoProject temp-file + 1 retry; assets_library fixed sleeps → ui.assets.stockThumbsMissing (cause likely,
-  no failure artifact found). Still open: playback stall after quick cut apply (Projet 1018) + skip hitch (PB-QC).
+  no failure artifact found).
+- 2026-10-23 batch-qcfix2 PB-QC. Playback freeze after quick cut (owner Projet 1018): one composition audio track held
+  both a rendered voice-changer stage (ALAC CAF) and original AAC segments; seeking across formats made AVPlayer rebuild
+  the lane's chain, the MTAudioProcessingTap got unprepare without prepare, mixer waited forever, audio clock froze at
+  rate 1 (sound gone, play/seek dead until item replaced). Fix: audio composition tracks keyed by (A/B lane, encoded
+  format), export too; safety net PlaybackEngine.watchClock (clock still 1.5 s while playing, no seek) rebuilds the item
+  without taps. Stress on a copy of 1018: 20/120 stalls before, 0/60 after. Skip hitch: preview composition now omits
+  skipRanges (SkipTimeMap), no boundary seek; trade-offs: 40 ms debounced rebuild on skip change, preview render-cache
+  lanes unused while skipping, paused seek inside a slice shows the slice-end frame. Opt-in check:
+  MONTAGE_QA_CUT_PROJECT=<copy of .montage> scripts/test.sh --filter PlaybackCutStallTests. Flaky in agent gate: fin_layout.
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
