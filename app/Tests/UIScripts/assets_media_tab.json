@@ -19,7 +19,8 @@
     {"snapshot": "media-added", "element": "id:panel.assets"},
     // ☆ on the cursor card (buttons show on the keyboard cursor too)
     {"click": "id:media.card.2"},
-    {"click": "id:media.card.favorite"},
+    // per-card id: the hovered card and the cursor card both show ☆ (FLAKY-UI2)
+    {"click": "id:media.card.2.favorite"},
     {"expect": {"path": "ui.assets.favorites.media.count", "equals": 1}},
     {"click": "id:asset.nav.favorites"},
     {"expect": [{"path": "ui.assets.nav.media", "equals": "favorites"}, {"path": "ui.assets.count.media", "equals": 1}]},

@@ -454,6 +454,10 @@ struct MediaCard: View {
 
     var selected: Bool { state.mediaSelection.contains(asset.id) }
     var isCursor: Bool { state.cursor[tab] == asset.id.description && state.keyboardTab == tab }
+    /// Position in the shown list: the ☆ / ⊕ test IDs are per card (`media.card.<i>.favorite`), since the hovered card
+    /// and the keyboard-cursor card both show them (one shared ID made a click resolve to either: FLAKY-UI2).
+    /// Only evaluated while the buttons are shown.
+    var cardIndex: Int { order.firstIndex { $0.id == asset.id } ?? -1 }
 
     var body: some View {
         WithPerceptionTracking {
@@ -477,13 +481,13 @@ struct MediaCard: View {
                                         .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
                                 }
                                 .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
-                                .testID("media.card.favorite")
+                                .testID("media.card.\(cardIndex).favorite")
                                 Button { store.addToTimeline(asset.id) } label: {
                                     Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
                                         .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                                 }
                                 .buttonStyle(.plain).help(tr("asset.addToTrack"))
-                                .testID("media.card.add")
+                                .testID("media.card.\(cardIndex).add")
                             }
                             .padding(4)
                         }
@@ -643,6 +647,8 @@ struct MediaRow: View {
     private var lib: AssetLibraryStore { AssetLibraryStore.shared }
     var selected: Bool { state.mediaSelection.contains(asset.id) }
     var isCursor: Bool { state.cursor[tab] == asset.id.description && state.keyboardTab == tab }
+    /// See `MediaCard.cardIndex`.
+    var cardIndex: Int { order.firstIndex { $0.id == asset.id } ?? -1 }
 
     /// Source time under x on a strip / card `width` wide (nil for still images).
     static func hoverTime(_ a: MediaAsset, x: CGFloat, width: CGFloat) -> Time? {
@@ -750,13 +756,13 @@ struct MediaRow: View {
                     .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
             }
             .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
-            .testID("media.card.favorite")
+            .testID("media.card.\(cardIndex).favorite")
             Button { store.addToTimeline(asset.id) } label: {
                 Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
                     .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
             }
             .buttonStyle(.plain).help(tr("asset.addToTrack"))
-            .testID("media.card.add")
+            .testID("media.card.\(cardIndex).add")
         }
         .padding(4)
     }
