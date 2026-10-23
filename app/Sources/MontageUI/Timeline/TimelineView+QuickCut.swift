@@ -48,6 +48,16 @@ extension TimelineView {
         return CGRect(x: a, y: r.minY, width: max(1, b - a), height: r.height)
     }
 
+    /// Mouse down while the Quick cut popover is open (QUICK_CUT.md §1): the ruler, empty track space and clip bodies
+    /// all act like the ruler (seek + scrub on drag, exact seek on release); the header column seeks to 0 (OB-03).
+    /// Nothing is selected or deselected, so the scope and the preview stay as they are. `QuickCutEvents` lets these
+    /// clicks through without closing the popover.
+    func quickCutMouseDown(_ pt: CGPoint, layout l: TimelineLayout) {
+        guard pt.x > TimelineLayout.headerWidth else { store.seek(to: .zero, exact: true); return }
+        drag = .scrub
+        store.seek(to: l.time(atX: pt.x), exact: false)
+    }
+
     func drawQuickCut(_ c: inout Canvas2D, row: TimelineLayout.Row, track: Track, layout l: TimelineLayout,
                       session s: QuickCutSession) {
         let vis = track.clips(in: l.visibleRange).indices

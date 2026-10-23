@@ -209,4 +209,14 @@ import MontageTestSupport
         #expect(e.skipRange(containing: Time(9)) == nil)
         e.skipRanges = []
     }
+
+    /// The owner's scissors-and-sparkles SVG (24-unit view box) maps onto the frame: geometry bounds x 3.5…23,
+    /// y 1.5…19.5 in SVG units, scaled and centred.
+    @Test func quickCutGlyphFollowsTheSVG() {
+        let b = QuickCutShape().path(in: CGRect(x: 0, y: 0, width: 24, height: 24)).boundingRect
+        #expect(abs(b.minX - 3.5) < 0.01 && abs(b.maxX - 23) < 0.01, "\(b)")
+        #expect(abs(b.minY - 1.5) < 0.01 && abs(b.maxY - 19.5) < 0.01, "\(b)")
+        let big = QuickCutShape().path(in: CGRect(x: 10, y: 0, width: 48, height: 48)).boundingRect
+        #expect(abs(big.minX - (10 + 7)) < 0.02 && abs(big.maxY - 39) < 0.02, "\(big)")
+    }
 }

@@ -28,7 +28,7 @@ struct QuickCutButton: View {
     let isOpen: Bool
     var body: some View {
         WithPerceptionTracking {
-            IconButton("waveform.path.badge.minus", help: tr("quickcut.tooltip"), active: isOpen) { store.toggleQuickCut() }
+            QuickCutIconButton(active: isOpen, help: tr("quickcut.tooltip")) { store.toggleQuickCut() }
                 .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { store.timelineUI.quickCutButtonFrame = $0 }
                 .testID("toolbar.quickCut")
         }
@@ -153,7 +153,8 @@ struct QuickCutValueField: View {
 
 /// While the popover is open: Esc closes it (outside text fields; the value field closes it on Esc itself, see
 /// `onExitCommand`), a click outside it and its button closes it and still goes through, except clicks in the
-/// player (play / pause, scrubbing: the preview is what the user is listening to).
+/// player (play / pause, scrubbing: the preview is what the user is listening to) and left clicks on the timeline
+/// canvas (they only move the playhead there, see `TimelineView.quickCutMouseDown`).
 @MainActor
 final class QuickCutEvents {
     static let shared = QuickCutEvents()
@@ -191,12 +192,24 @@ final class QuickCutEvents {
         let p = content.convert(e.locationInWindow, from: nil)
         let top = CGPoint(x: p.x, y: content.isFlipped ? p.y : content.bounds.height - p.y)   // SwiftUI global space
         if popoverFrame.contains(top) || store.timelineUI.quickCutButtonFrame.contains(top) { return false }
+        // a left click on the timeline itself only moves the playhead (TimelineView.quickCutMouseDown): stay open
+        if e.type == .leftMouseDown, Self.hitsTimeline(e, in: content) { return false }
         if let player = PanelFocus.shared.host(.player), player.window === window {
             let local = player.convert(e.locationInWindow, from: nil)
             if player.bounds.contains(local) { return false }
         }
         session.close()
         uninstall()
+        return false
+    }
+
+    /// The view under the event is the timeline canvas (or inside it); the toolbar above it doesn't count.
+    static func hitsTimeline(_ e: NSEvent, in content: NSView) -> Bool {
+        var v = content.hitTest(content.superview?.convert(e.locationInWindow, from: nil) ?? e.locationInWindow)
+        while let x = v {
+            if x is TimelineView { return true }
+            v = x.superview
+        }
         return false
     }
 }
