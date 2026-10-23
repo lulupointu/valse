@@ -25,7 +25,7 @@ import MontageTestSupport
     static func analyzer(_ masks: [(MediaAsset, QuickCutMask)]) throws -> QuickCutAnalyzer {
         let dir = MontagePaths.cacheDirectory.appendingPathComponent("quickcut-ui-tests/\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        for (a, m) in masks { try JSONEncoder().encode(m).write(to: dir.appendingPathComponent("\(a.contentHash).v1")) }
+        for (a, m) in masks { try JSONEncoder().encode(m).write(to: dir.appendingPathComponent("\(a.contentHash).\(QuickCutAnalyzer.cacheVersion)")) }
         return QuickCutAnalyzer(directory: dir)
     }
 

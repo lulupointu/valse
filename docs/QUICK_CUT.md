@@ -87,7 +87,16 @@ Per **media** (source time, cached by content hash, independent of any clip):
    `e > lf + max(3, 0.3·(pk − lf)) − 6` (hysteresis); gaps ≤ 40 ms closed.
 6. A loud run is **speech** if it has ≥ 4 voiced frames (autocorr > 0.5), or lasts ≥ 80 ms with a peak > `pk − 12 dB`.
    An unvoiced run ≥ 30 ms within 200 ms of a speech run is kept as speech too (consonants, word tails).
-7. Store: the speech mask (1 bit per 10 ms ≈ 750 B per minute) + `hasDynamics` (false when nothing qualifies or
+7. **Speech edges** (TL-048-fix2, owner report on the "1018 (1)" iPhone rushes): the leading / trailing frames of each
+   speech run whose **full-band** energy (same 25 ms window, fricatives above 4 kHz included) is more than 35 dB under
+   the media's full-band p97 are dropped; an attached run (step 6) entirely under that level is dropped, a speech run
+   entirely under it (quiet speaker) is kept whole. One level for both edges: onsets rise through it within a frame,
+   but word endings decay over 200–300 ms (plus room reverb), and step 5's hysteresis followed that decay down to the
+   floor, so ≈ 0.1 s more was kept after speech than before it. Measured on the owner's two clips (X = 0.3: 9 cuts before, 11 after since pauses get longer;
+   reference = last / first frame within 35 dB of the full-band peak): kept after speech 0.10–0.16 s (mean 0.12 s)
+   before vs 0.05 s after the fix; kept before speech 0.05–0.08 s before vs 0.05 s after. Bench corpus: no more audible
+   speech cut than before in any condition (30 dB started clipping word endings, 25 dB more so).
+8. Store: the speech mask (1 bit per 10 ms ≈ 750 B per minute) + `hasDynamics` (false when nothing qualifies or
    `pk − floor < 10 dB` → whole clip untouched).
 
 Per **clip**, at every slider change (pure, MontageCore):
@@ -97,7 +106,7 @@ Per **clip**, at every slider change (pure, MontageCore):
 3. A blank run qualifies when its **raw** timeline length > X (what the user means by "a blank of more than X").
 4. Removed slice = the run minus handles: **50 ms after the previous speech and 50 ms before the next speech**, so a
    cut pause plays as 0.1 s in total, symmetric (owner decision 2026-10-23; `QuickCut.handleAfter` / `handleBefore`).
-   Word tails stay audible because they are part of the detected speech run (step 5's hysteresis follows the decay,
+   Word tails stay audible because they are part of the detected speech run (down to 35 dB under the peak, step 7;
    step 6 attaches unvoiced consonants), not because of a longer end handle. A run that touches the clip's start or
    end keeps only the speech-side handle. Drop slices < 40 ms.
    Why the end used to leave a blank: the former handles (140 ms after, 60 ms before) measured on the bench corpus at
@@ -114,4 +123,4 @@ Per **clip**, at every slider change (pure, MontageCore):
 - Slider drag: plan for 30 clips + overlay redraw within one frame (plan computation < 2 ms total, measured in a unit
   test).
 - Apply on 30 clips with ~300 cuts: < 300 ms, one undo step.
-- Cache: `Caches/Montage/quickcut/<contentHash>.v1`, memory + disk. Proxies are irrelevant (audio only).
+- Cache: `Caches/Montage/quickcut/<contentHash>.v2` (suffix bumped whenever the detector's output changes; v2 = step 7), memory + disk. Proxies are irrelevant (audio only).

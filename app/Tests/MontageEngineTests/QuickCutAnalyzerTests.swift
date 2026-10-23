@@ -151,6 +151,39 @@ import MontageTestSupport
         #expect(Self.speechFraction(m, 4.55, 4.75) > 0.9)
     }
 
+    /// TL-048-fix2 (owner's "1018 (1)" iPhone rushes): words end with a 200–300 ms decay that sinks from speech level to
+    /// the room floor (−78 dB), onsets are abrupt. The end of speech is decided by the same level as the onset
+    /// (`edgeDrop` under the full-band peak), so the time kept after that crossing matches the time kept before the
+    /// next onset (the former detector kept ≈ 0.1 s more at the end: hysteresis followed the decay to the floor).
+    @Test func decayingTailEndsLikeTheOnset() {
+        var rng = RNG(s: 21)
+        var s = Self.noise(6, rms: 0.00012, rng: &rng)
+        var word = Self.voiced(1.2, amp: 0.2, rng: &rng)
+        // exponential decay over the last 300 ms: −150 dB/s, like the measured word endings
+        let dn = Int(0.3 * Double(Self.sr))
+        for k in 0..<dn { word[word.count - dn + k] *= powf(10, -150 * Float(k) / Float(Self.sr) / 20) }
+        Self.mix(word, at: 1, into: &s)
+        Self.mix(Self.voiced(1.2, amp: 0.2, rng: &rng), at: 3.5, into: &s)   // abrupt onset at 3.5 s
+        var d = QuickCutDetector()
+        d.feed(s)
+        let f = d.finishFeatures()
+        let m = QuickCutDetector.mask(f)
+        let runs = m.speechRuns
+        #expect(runs.count == 2, "\(runs)")
+        guard runs.count == 2 else { return }
+        let lvl = QuickCutDetector.percentile(f.full, 0.97) - QuickCutDetector.edgeDrop
+        // last frame above the edge level before the pause, first one after it
+        let lastAbove = (0..<runs[0].upperBound + 50).last { f.full[$0] >= lvl && $0 < 300 }!
+        let firstAbove = (300..<f.full.count).first { f.full[$0] >= lvl }!
+        let keptAfter = runs[0].upperBound - (lastAbove + 1), keptBefore = firstAbove - runs[1].lowerBound
+        #expect(keptAfter >= 0 && keptAfter <= 1, "end of speech \(runs[0].upperBound) vs crossing \(lastAbove + 1)")
+        #expect(keptBefore >= 0 && keptBefore <= 1, "onset \(runs[1].lowerBound) vs crossing \(firstAbove)")
+        #expect(abs(runs[1].lowerBound - 350) <= 2)
+        // the old criterion (no edge) ends ≥ 80 ms later, in the decay
+        let old = QuickCutDetector.mask(f, edgeDrop: 1000).speechRuns
+        #expect(old.count == 2 && old[0].upperBound - runs[0].upperBound >= 8, "\(old)")
+    }
+
     /// Feeding in arbitrary chunks gives exactly the whole-signal result.
     @Test func streamingMatchesWholeSignal() {
         var rng = RNG(s: 5)
@@ -288,7 +321,7 @@ import MontageTestSupport
         #expect(r1 == r2 && r1.hasSpeech)
         #expect(an.decodes == 1)
         #expect(r1 == QuickCutDetector.mask(samples: s))   // the file decode gives the in-memory result
-        let file = dir.appendingPathComponent("cache/\(a.contentHash).v1")
+        let file = dir.appendingPathComponent("cache/\(a.contentHash).\(QuickCutAnalyzer.cacheVersion)")
         #expect(FileManager.default.fileExists(atPath: file.path))
         // a fresh analyzer (next launch) reads it from disk without decoding
         let next = QuickCutAnalyzer(directory: dir.appendingPathComponent("cache"))
