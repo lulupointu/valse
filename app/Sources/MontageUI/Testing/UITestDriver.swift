@@ -482,17 +482,20 @@ public final class UITestDriver {
             // it moved since it was resolved). If it is not on screen at that moment, nothing is dispatched (provably
             // not delivered): wait for it and click again (`click_redeliveries`, ≤ 3 attempts). A dispatched press is
             // never repeated; an element rebuilt between press and release is reported (`click_release_anomalies`).
-            // An `offset` click deliberately lands beside the element (ai_relight: the section checkbox 22 pt above
-            // `relight.top`): it is dispatched where the script says, never moved / re-sent.
+            // An `offset` click deliberately lands beside the element: it is dispatched where the script says, never
+            // moved / re-sent (so it can miss when the layout moves under it: target the element's own id instead).
+            // `clip:` targets too (FLAKY-UI2: ai_auto_adjust's first `clip:main/0` click selected nothing once under
+            // load): located again from the timeline layout at dispatch, and the press must land on the timeline view
             let targetID = step["offset"] != nil ? nil
-                : (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : nil }
+                : (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : ($0.hasPrefix("clip:") ? $0 : nil) }
+            let onView: NSView? = (t as? String)?.hasPrefix("clip:") == true ? timelineView : nil
             var point = p
             for attempt in 1...3 {
                 // fault injection (driver self-test): a stale resolved point / an element missing at dispatch
                 let skew = targetID != nil ? Self.injectClickSkew : nil
                 let vanish = attempt == 1 && Self.injectClickVanish
                 let probe = targetID.map { id in
-                    ClickProbe(id: id, expected: count) { [self] in vanish ? nil : try? resolve(t, step) }
+                    ClickProbe(id: id, expected: count, onView: onView) { [self] in vanish ? nil : try? resolve(t, step) }
                 }
                 UITestWindow.clickProbe = probe
                 let aim = skew.map { CGPoint(x: point.x + $0.dx, y: point.y - $0.dy) } ?? point
@@ -1540,8 +1543,12 @@ final class ClickProbe {
     /// How far the press was moved to the element's position at dispatch (nil = it was where the driver aimed).
     private(set) var retarget: String?
 
-    init(id: String, expected: Int, locate: @escaping () -> CGPoint?) {
-        self.id = id; self.expected = expected; self.locate = locate
+    /// AppKit view the press must hit (`clip:` targets: the timeline). Something else on top of that point at dispatch
+    /// (an overlay, a view not laid out yet) = provably not delivered: dropped, clicked again once it is clear.
+    private weak var onView: NSView?
+
+    init(id: String, expected: Int, onView: NSView? = nil, locate: @escaping () -> CGPoint?) {
+        self.id = id; self.expected = expected; self.onView = onView; self.locate = locate
     }
 
     /// The event to dispatch instead of `e` (nil = drop it).
@@ -1555,6 +1562,13 @@ final class ClickProbe {
             guard let p = locate() else {
                 dropped = "the element was not on screen when the press was dispatched (nothing was delivered)"
                 return nil
+            }
+            if let onView, let host = window.contentView {
+                let hit = host.hitTest(host.superview?.convert(p, from: nil) ?? p)
+                if !(hit.map { $0 === onView || $0.isDescendant(of: onView) } ?? false) {
+                    dropped = "the press point was covered by \(hit.map { String(describing: type(of: $0)) } ?? "nothing") at dispatch (nothing was delivered)"
+                    return nil
+                }
             }
             let d = CGVector(dx: p.x - e.locationInWindow.x, dy: p.y - e.locationInWindow.y)
             delta = d
