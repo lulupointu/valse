@@ -233,14 +233,6 @@ public struct TimelineLayout {
     public func snap(_ t: Time, timeline: Timeline, playhead: Time, excluding: Set<ClipID> = [], tolerance: CGFloat = 8) -> (Time, snapped: Bool) {
         SnapIndex(timeline: timeline, excluding: excluding).snap(t, playhead: playhead, pixelsPerSecond: pixelsPerSecond, tolerance: tolerance)
     }
-
-    /// Adaptive ruler tick spacing (seconds) for the zoom level: major ticks ≥ 80 pt apart.
-    public static func tickStep(pixelsPerSecond: Double, fps: Double) -> (major: Double, minor: Double) {
-        let steps: [Double] = [1 / fps, 2 / fps, 5 / fps, 10 / fps, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800]
-        let major = steps.first { $0 * pixelsPerSecond >= 80 } ?? 3600
-        let minor = steps.last { $0 < major && $0 * pixelsPerSecond >= 10 } ?? major
-        return (major, minor)
-    }
 }
 
 /// Sorted snap candidates (clip edges, markers, beats, in/out, 0), built once per drag gesture; queries are O(log n).

@@ -111,6 +111,7 @@ public enum StateDump {
             "scrollTime": timeline?.scrollTime ?? 0,
             "scrollY": Double(timeline?.scrollY ?? 0),
             "followManual": timeline?.follow.manual ?? false,   // U1-6: user scrolled during playback (no auto follow)
+            "rulerLabels": timeline?.visibleRulerLabels ?? [],   // TL-RULER: major tick labels on screen, left to right
             "menu": (NSApp.mainMenu?.items ?? []).compactMap { $0.submenu?.title },
             "firstResponder": (SyntheticEvents.testWindow?.firstResponder).map { String(describing: type(of: $0)) } ?? "",
             "editingText": (SyntheticEvents.testWindow?.firstResponder as? NSText)?.string ?? NSNull(),
