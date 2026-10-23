@@ -318,7 +318,21 @@ public final class PlaybackEngine {
         if let r = loopRange, !r.contains(currentTime) { seek(to: r.start) }
         else if currentTime >= duration - project.settings.frameRate.frameDuration { seek(to: .zero) }
         if let r = skipRange(containing: requestedTime) { seek(to: r.end) }
+        primeIfPausedInPlace()
         resume(atRate: 1)
+    }
+
+    /// Paused while playing and not sought since.
+    private var pausedInPlace = false
+
+    /// PB-RESUME: AVPlayer resumes a paused item by restarting its clock AT ONCE while its audio chain re-renders from
+    /// a little after the pause point (the audio it had queued past that point is flushed): the first ~150 ms of
+    /// sound were lost on every pause → play. After a seek it instead holds the clock until the audio is primed from
+    /// before the target (a seek → play was gapless). So resuming in place first re-primes with an exact seek to the
+    /// paused time; `resume` then starts once it lands, like every seek while playing.
+    private func primeIfPausedInPlace() {
+        guard pausedInPlace, !seekInFlight, player.currentItem != nil else { return }
+        performSeek(requestedTime, exact: true)
     }
 
     /// The skip range playback at `t` is inside (nil when none).
@@ -335,7 +349,7 @@ public final class PlaybackEngine {
         if reverseShuttleRate != 0 { stopReverseShuttle(); onTimeUpdate?(requestedTime); return }
         // Only a playing player's clock is news: when already paused, `requestedTime` is authoritative and the player
         // may still be mid-seek (reading it back raced the seek and moved the playhead — flaky library preview test).
-        if player.rate != 0 { requestedTime = timeline(player.currentTime()) }
+        if player.rate != 0 { requestedTime = timeline(player.currentTime()); pausedInPlace = true }
         let held = resumeRate != nil
         resumeRate = nil
         player.pause()
@@ -357,6 +371,7 @@ public final class PlaybackEngine {
             return
         }
         stopReverseShuttle()
+        if player.rate == 0 { primeIfPausedInPlace() }
         if seekInFlight { resume(atRate: rate) } else { player.rate = rate }
     }
 
@@ -450,6 +465,7 @@ public final class PlaybackEngine {
     private func performSeek(_ t: Time, exact: Bool) {
         guard player.currentItem != nil else { return }
         seekInFlight = true
+        pausedInPlace = false
         // Seeking while playing: hold the clock for the seek and resume when the last coalesced seek lands. Seeking with
         // the timebase running (rate 1, `automaticallyWaitsToMinimizeStalling` off) sometimes left the custom-compositor
         // video pipeline without a preroll: AVPlayer stopped requesting frames for seconds while audio and the clock ran

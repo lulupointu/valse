@@ -31,6 +31,14 @@ public final class AudioMixState: @unchecked Sendable {
 
     var currentVersion: Int { lock.withLock { version } }
     func liveChain(_ id: ClipID) -> [LiveNode] { lock.withLock { live[id] ?? [] } }
+
+    /// What the lane taps see (tests / diagnostics): called on the audio render thread, keep it cheap.
+    public enum TapEvent: Sendable { case prepare, reset, buffer(time: Double, frames: Int) }
+    private var _tapObserver: (@Sendable (TapEvent) -> Void)?
+    public var tapObserver: (@Sendable (TapEvent) -> Void)? {
+        get { lock.withLock { _tapObserver } }
+        set { lock.withLock { _tapObserver = newValue } }
+    }
 }
 
 /// The tap processor of one composition audio lane: routes each buffer to the live chain of the clip playing at that
@@ -64,12 +72,14 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     func prepare(sampleRate: Double, channels: Int, maxFrames: Int) {
         self.sampleRate = sampleRate
         for c in chains.values { c.prepare(sampleRate: sampleRate); c.reset() }
+        state.tapObserver?(.prepare)
     }
 
-    func reset() { for c in chains.values { c.reset() }; last = nil }
+    func reset() { for c in chains.values { c.reset() }; last = nil; state.tapObserver?(.reset) }
 
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime) {
         guard frames > 0, buffers.count > 0 else { return }
+        if let o = state.tapObserver { o(.buffer(time: time.isNumeric ? time.seconds : .nan, frames: frames)) }
         let v = state.currentVersion
         if v != seenVersion {
             seenVersion = v
