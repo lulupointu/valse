@@ -58,6 +58,9 @@ fi
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/Montage"
 [[ -x "$BIN" ]] || { echo "no binary at $BIN (drop --no-build)"; exit 2; }
 use_private_tmpdir uitest
+# demo media (MontageUI DemoProject) encoded once per run and shared by every app of it, all workers included (FLAKY-SYS-UI:
+# per-launch encoding under load was the demo setup failure class); removed with the run's TMPDIR
+export MONTAGE_UITEST_SHARED_MEDIA="${TMPDIR}shared-media"; mkdir -p "$MONTAGE_UITEST_SHARED_MEDIA"
 RESULTS="$TMPDIR/results.tsv"; : > "$RESULTS"
 WARNINGS="$TMPDIR/warnings.tsv"; : > "$WARNINGS"   # "<slowexp|clickw>\t<name>\t<detail>" (not gating)
 PREFS="$HOME/Library/Preferences"
@@ -140,7 +143,7 @@ run_script() {
   # an `id:` click whose element was not on screen at dispatch (nothing delivered, clicked again), was pressed where the
   # element had moved to since it was resolved, or was rebuilt between press and release (UITestDriver ClickProbe):
   # not gating, but the target moved / was rebuilt under the click
-  CW="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); r=int(m.get("click_redeliveries",0)); t=int(m.get("click_retargets",0)); a=int(m.get("click_release_anomalies",0)); print(f"{r} click redelivery(ies), {t} moved target(s), {a} release anomaly(ies)" if r or t or a else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
+  CW="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])).get("metrics",{}); r=int(m.get("click_redeliveries",0)); t=int(m.get("click_retargets",0)); a=int(m.get("click_release_anomalies",0)); e=int(m.get("mouse_event_relocated",0)); b=int(m.get("load_barrier_timeouts",0)); print(f"{r} click redelivery(ies), {t} moved target(s), {a} release anomaly(ies), {e} relocated mouse event(s), {b} load barrier timeout(s)" if r or t or a or e or b else "")' "$OUT/$NAME/report.json" 2>/dev/null || true)"
   if [[ -n "$CW" ]]; then printf "clickw\t%s\t%s\n" "$NAME" "$NAME ($CW, see warnings in $OUT/$NAME/report.json)" >> "$WARNINGS"; echo "⚠ click warning: $NAME ($CW)"; fi
   if [[ $CODE == 0 && -n "$FLAKYMSG" ]]; then printf "flaky\t%s\t%s\n" "$NAME" "$FLAKYMSG" >> "$RESULTS"
   elif [[ $CODE == 0 ]]; then printf "pass\t%s\t-\n" "$NAME" >> "$RESULTS"

@@ -20,8 +20,28 @@ public enum DemoProject {
         try await write()
     }
 
+    /// Where the demo media is built: `MONTAGE_UITEST_SHARED_MEDIA` (set by scripts/uitest.sh to a folder of its private
+    /// TMPDIR) is shared by every app of one UI-test run, so the media is encoded once per run instead of once per
+    /// script launch (FLAKY-SYS-UI: each launch encoding 5 files while the machine is loaded was the setup failure class
+    /// of FLAKY-FIN `Code=62` / FLAKY-UI2's SIGSEGV in the pixel-buffer pool). The files are only read once written
+    /// (written to a temp name, moved in atomically; a concurrent app that lost the race keeps the winner's file).
+    static var mediaDirectory: URL {
+        if let s = ProcessInfo.processInfo.environment["MONTAGE_UITEST_SHARED_MEDIA"], !s.isEmpty {
+            return URL(fileURLWithPath: s, isDirectory: true).appendingPathComponent("demo-media-v1", isDirectory: true)
+        }
+        return MontagePaths.cacheDirectory.appendingPathComponent("demo-media-v1", isDirectory: true)
+    }
+
+    /// Moves a finished temp file to `u`, unless another process put it there first (then that one is kept: same content).
+    private static func install(_ tmp: URL, at u: URL) throws {
+        do { try FileManager.default.moveItem(at: tmp, to: u) } catch {
+            if FileManager.default.fileExists(atPath: u.path) { return }
+            throw error
+        }
+    }
+
     public static func make() async throws -> Project {
-        let dir = MontagePaths.cacheDirectory.appendingPathComponent("demo-media-v1", isDirectory: true)
+        let dir = mediaDirectory
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         func video(_ name: String, _ pattern: SyntheticMedia.Pattern, seconds: Double, hz: Double?) async throws -> URL {
             let u = dir.appendingPathComponent("\(name).mp4")
@@ -36,8 +56,7 @@ public enum DemoProject {
                     try await SyntheticMedia.writeVideo(to: tmp, size: CGSize(width: 1280, height: 720), seconds: seconds, fps: 30,
                                                         pattern: pattern, audioHz: hz)
                 }
-                try? FileManager.default.removeItem(at: u)
-                try FileManager.default.moveItem(at: tmp, to: u)
+                try install(tmp, at: u)
             }
             return u
         }
@@ -52,8 +71,7 @@ public enum DemoProject {
             let tmp = dir.appendingPathComponent(".tmp-\(UUID().uuidString).m4a")
             defer { try? FileManager.default.removeItem(at: tmp) }
             try await withEncoderRetries { try await SyntheticMedia.writeAudio(to: tmp, seconds: 12, hz: 220) }
-            try? FileManager.default.removeItem(at: musicURL)
-            try FileManager.default.moveItem(at: tmp, to: musicURL)
+            try install(tmp, at: musicURL)
         }
 
         var p = Project(name: tr("demo.name"))

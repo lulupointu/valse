@@ -267,7 +267,15 @@ redelivered once the UI settled; only the last attempt goes to where it is then 
 frame only after dispatch gave false "landed outside" misses for AppKit targets such as `id:timeline` and under load);
 an element not on screen (or with a degenerate frame) at that moment gets nothing and is clicked again when it is
 (`click_redeliveries`, ≤ 3; a dispatched press is
-never repeated, an element rebuilt between press and release is a warning, `click_release_anomalies`); a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
+never repeated, an element rebuilt between press and release is a warning, `click_release_anomalies`). The same exact
+delivery covers `clip:` / `time:` / `header:` / `player:` clicks and `offset` clicks (element + offset located again).
+**Every** synthetic mouse and scroll event (any target, drags, hovers, wheel / ⌘-zoom; scrolls are built at the window
+point even though the offscreen window makes AppKit return window-less events carrying the screen location) is put back where it was posted when it is dequeued /
+dispatched (`SyntheticEvents.pinned`, FLAKY-SYS-UI; `mouse_event_relocated` + a warning per event in report.json,
+uitest.sh "click warning"). Before the first step the driver waits for the editor showing the loaded project to be usable
+(timeline laid out with finite geometry and rows, player sized; ≤ 10 s, else `load_barrier_timeouts` + a warning).
+`wait` sleeps, then lets the queued input be dispatched (no quiesce: it is for time-based behaviour). The `demo` media
+is encoded once per uitest.sh run (`MONTAGE_UITEST_SHARED_MEDIA`, shared by all its apps), not once per launch. A `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
 it matches it, ≤ 30 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`, a hang bound; a real difference fails with the last diff, and so does a match
 that never renders the same twice). A script FAILS when an export pass stalled (`Exporter.stallRestarts` moved).
 

@@ -102,7 +102,7 @@ public final class UITestWindow: NSWindow {
             guard let d = SyntheticEvents.mouse(.leftMouseDown, at: p, in: self, modifiers: down.modifierFlags),
                   let u = SyntheticEvents.mouse(.leftMouseUp, at: p, in: self, modifiers: down.modifierFlags) else { return }
             NSApp.postEvent(u, atStart: true)
-            slider.mouseDown(with: d)
+            slider.mouseDown(with: SyntheticEvents.pinned(d))   // handed over directly, not dequeued: pin it here
             return
         }
         var last = local(down)
@@ -132,7 +132,10 @@ public final class UITestWindow: NSWindow {
     /// The `id:` target of the click being delivered, and what its press / release found when dispatched (`ClickProbe`).
     static var clickProbe: ClickProbe?
 
-    public override func sendEvent(_ original: NSEvent) {
+    public override func sendEvent(_ received: NSEvent) {
+        // every synthetic mouse event at the location it was posted at (also when dispatched without the main loop's
+        // nextEvent, or re-located after it: FLAKY-SYS-UI)
+        let original = SyntheticEvents.pinned(received)
         let event: NSEvent
         if let probe = Self.clickProbe, [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp].contains(original.type) {
             guard let e = probe.filter(original, in: self) else { return }   // the element is gone: the click is not delivered
@@ -306,6 +309,11 @@ public final class UITestDriver {
         let stalls = Exporter.stallRestarts - stalls0
         metrics["export_stall_restarts"] = Double(stalls)
         if failed == nil, stalls > 0 { failed = "\(stalls) export pass(es) stalled and were restarted (Exporter.stallRestarts)" }
+        // synthetic mouse events that reached the app elsewhere than posted and were put back (SyntheticEvents.pinned)
+        if SyntheticEvents.relocationCount > 0 {
+            metrics["mouse_event_relocated"] = Double(SyntheticEvents.relocationCount)
+            for r in SyntheticEvents.relocations { warnings.append("synthetic mouse \(r); delivered where posted") }
+        }
         // How long `expect`s had to wait for their condition (a latency regression shows here; uitest.sh warns)
         let waits = report.compactMap { $0["waitMs"] as? Int }
         metrics["expect_wait_ms_max"] = Double(waits.max() ?? 0)
@@ -429,6 +437,7 @@ public final class UITestDriver {
         let project = (script["project"] as? String) ?? "empty"
         if let hook = Self.projectHook, try await hook(project) {
             try await idle(settle: (script["settle"] as? NSNumber)?.doubleValue ?? 1.5)
+            await loadBarrier()
             return
         }
         switch project {
@@ -463,6 +472,45 @@ public final class UITestDriver {
         }
         store.autosaveEnabled = false
         try await idle(settle: (script["settle"] as? NSNumber)?.doubleValue ?? 1.5)
+        await loadBarrier()
+    }
+
+    /// FLAKY-SYS-UI: the first step runs only once the editor that shows the loaded project is usable — the timeline
+    /// laid out with finite geometry and rows for its tracks, the player sized (FLAKY-UI2 caught the timeline geometry
+    /// non-finite right after a load: the first `clip:main/0` click selected nothing) — instead of a wall-clock settle
+    /// that a loaded machine can outlast. A hang bound (`targetLimit`), not a speed budget: reported, then the script goes on.
+    private func loadBarrier() async {
+        let deadline = Date().addingTimeInterval(Self.targetLimit)
+        var why = editorNotReady()
+        while why != nil, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+            _ = await SyntheticEvents.drain(timeout: 1)
+            why = editorNotReady()
+        }
+        if let why {
+            metrics["load_barrier_timeouts", default: 0] += 1
+            warnings.append("the editor was not ready \(Int(Self.targetLimit)) s after the project load: \(why)")
+        } else {
+            await quiesce()
+        }
+    }
+
+    /// Why the editor showing the project is not usable yet (nil = ready, or no editor on screen: Home, a modal start).
+    private func editorNotReady() -> String? {
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+        guard let tl = timelineView, !tl.isHiddenOrHasHiddenAncestor else { return nil }
+        guard tl.bounds.width > 0, tl.bounds.height > 0 else { return "timeline bounds \(tl.bounds)" }
+        let l = tl.layoutNow
+        let origin = tl.convert(CGPoint(x: l.x(.zero), y: TimelineLayout.rulerHeight / 2), to: nil)
+        guard origin.x.isFinite, origin.y.isFinite else { return "timeline geometry not finite (\(origin))" }
+        let tracks = store.project.timeline.tracks
+        if tracks.contains(where: { !$0.clips.isEmpty }), l.rows.isEmpty { return "no timeline rows for \(tracks.count) track(s)" }
+        if let pv = SnapshotRegistry.shared.player, pv.window === window, !pv.isHiddenOrHasHiddenAncestor,
+           pv.bounds.width < 1 || pv.bounds.height < 1 {
+            return "player bounds \(pv.bounds)"
+        }
+        return nil
     }
 
     // MARK: Steps
@@ -509,15 +557,18 @@ public final class UITestDriver {
             // moment, nothing is dispatched (provably
             // not delivered): wait for it and click again (`click_redeliveries`, ≤ 3 attempts). A dispatched press is
             // never repeated; an element rebuilt between press and release is reported (`click_release_anomalies`).
-            // An `offset` click deliberately lands beside the element: it is dispatched where the script says, never
-            // moved / re-sent (so it can miss when the layout moves under it: target the element's own id instead).
+            // An `offset` click (beside the element) is located the same way: element + offset at dispatch.
             // Timeline targets (`clip:` / `time:` / `header:`) too (FLAKY-UI2: ai_auto_adjust / ai_relight_model's first
             // `clip:main/0` click selected nothing under load; with this probe the timeline geometry at dispatch was
             // caught non-finite once): located again from the timeline layout at dispatch, and the press must land on
             // the timeline view
             let timelineTarget = (t as? String).map { $0.hasPrefix("clip:") || $0.hasPrefix("time:") || $0.hasPrefix("header:") } ?? false
-            let targetID = step["offset"] != nil ? nil
-                : (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : (timelineTarget ? $0 : nil) }
+            // FLAKY-SYS-UI: `offset` clicks too (FLAKY-UI2's ai_relight untick was an offset click that missed after the
+            // layout moved): the probe locates element + offset again at dispatch, like any other exact click
+            // `player:` points too: located again from the player view at dispatch (a player resized under the click)
+            let targetID = (t as? String).flatMap {
+                $0.hasPrefix("id:") ? String($0.dropFirst(3)) : (timelineTarget || $0.hasPrefix("player:") ? $0 : nil)
+            }
             let onView: NSView? = timelineTarget ? timelineView : nil
             var point = p
             for attempt in 1...3 {
@@ -664,6 +715,9 @@ public final class UITestDriver {
             try await idle(settle: settle)
         } else if let w = step["wait"] as? NSNumber {
             try await Task.sleep(for: .seconds(w.doubleValue))
+            // and the input queued before / during it is dispatched (a loaded main loop may not have run it yet when the
+            // time is up). No quiesce: a `wait` is for time-based behaviour (playback, tooltip delays) that keeps moving.
+            _ = await SyntheticEvents.drain(timeout: 2)
         } else if step["idle"] != nil {
             try await idle(settle: (step["idle"] as? NSNumber)?.doubleValue ?? settle)
         } else if let name = step["snapshot"] as? String {
@@ -1096,7 +1150,7 @@ public final class UITestDriver {
         if e.window === window {
             SyntheticEvents.post(e)
         } else if let host = window.contentView, let v = host.hitTest(host.superview?.convert(p, from: nil) ?? p) {
-            v.scrollWheel(with: e)
+            v.scrollWheel(with: SyntheticEvents.pinned(e))   // handed over directly: pinned here (not dequeued)
         } else {
             throw Failure("nothing to scroll at \(p)")
         }
@@ -1107,7 +1161,7 @@ public final class UITestDriver {
     /// `menu(for:)` (SwiftUI's hosting view builds `.contextMenu` items there; AppKit views return their `menu`).
     private func contextMenu(at p: CGPoint, target: Any, modifiers: NSEvent.ModifierFlags) throws -> NSMenu {
         guard let host = window.contentView,
-              let event = SyntheticEvents.mouse(.rightMouseDown, at: p, in: window, modifiers: modifiers) else {
+              let event = SyntheticEvents.mouse(.rightMouseDown, at: p, in: window, modifiers: modifiers).map(SyntheticEvents.pinned) else {
             throw Failure("contextMenu \(target): no content view / event")
         }
         var view = host.hitTest(host.superview?.convert(p, from: nil) ?? p)
@@ -1340,7 +1394,7 @@ public final class UITestDriver {
         for i in 0..<frames {
             let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
             if dx != 0 || dy != 0, let e = SyntheticEvents.scroll(at: p, in: window, dx: dx * sign, dy: dy * sign, modifiers: mods) {
-                tl.scrollWheel(with: e)
+                tl.scrollWheel(with: SyntheticEvents.pinned(e))
             }
             let (c, g, w) = probe.measure(tl)
             cpu.append(c); gpu.append(g); wall.append(w)
@@ -1464,7 +1518,7 @@ public final class UITestDriver {
             guard let e = SyntheticEvents.scroll(at: p, in: window, dx: 0, dy: dy * sign) else { continue }
             let t0 = DispatchTime.now().uptimeNanoseconds
             let before = sv.contentView.bounds.origin.y
-            sv.scrollWheel(with: e)
+            sv.scrollWheel(with: SyntheticEvents.pinned(e))
             if sv.contentView.bounds.origin.y == before, let doc = sv.documentView {
                 // SwiftUI's hosting scroll view ignores phase-less synthetic wheel events: move the viewport the same
                 // distance directly (the same clip-view bounds change a real wheel scroll makes).
