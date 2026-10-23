@@ -243,6 +243,14 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   same): on a quiet machine the CPU clocks down between bursty perf events, inflating main-thread CPU 1.5-4x; old gates
   passed only because load (24-60) kept clocks up. Fix (owner 2026-10-23): PerfClockWarmer spins a sibling thread during
   perf steps (MONTAGE_PERF_WARM=0 = off); assets_scroll p95 0.67-0.90, inspector_drag p50 ~5, timeline_scroll p95 ~0.6.
+- 2026-10-23 batch-qcfix1 (owner feedback). TL-048-fix: in quick cut mode, clicks on the ruler / track space / clip body
+  only seek (header column = 0), selection kept; handles symmetric 50/50 ms (old 140 ms after / 60 ms before was the
+  trailing-blank cause; cost: a bit more speech cut in noise, 90 → 150 ms at 25 dB pink); scissors-sparkles icon.
+  FLAKY-UI: ai_relight_model = cold Core ML load (17 s, up to > 90 s under ANE load, no progress) → loads off the pool,
+  progress 1 % after load, 300 s bound; ai_relight race (job registered after an async hop) → RelightUIState.starting /
+  ui.relight.pending; SyntheticMedia writer loops spun forever after AVAssetWriter failure (demo project 2 min hang) →
+  throw + DemoProject temp-file + 1 retry; assets_library fixed sleeps → ui.assets.stockThumbsMissing (cause likely,
+  no failure artifact found). Still open: playback stall after quick cut apply (Projet 1018) + skip hitch (PB-QC).
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
