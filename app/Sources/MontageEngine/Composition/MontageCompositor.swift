@@ -128,11 +128,14 @@ public final class MontageInstruction: NSObject, AVVideoCompositionInstructionPr
     public let requiredSourceTrackIDs: [NSValue]?
     public let passthroughTrackID: CMPersistentTrackID = kCMPersistentTrackID_Invalid
     public let state: RenderState
+    /// Timeline ranges this composition leaves out (quick cut preview): frames are evaluated at `skip.timeline(t)`.
+    public let skip: SkipTimeMap
 
-    public init(timeRange: CMTimeRange, trackIDs: [CMPersistentTrackID], state: RenderState) {
+    public init(timeRange: CMTimeRange, trackIDs: [CMPersistentTrackID], state: RenderState, skip: SkipTimeMap = .identity) {
         self.timeRange = timeRange
         self.requiredSourceTrackIDs = trackIDs.isEmpty ? nil : trackIDs.map { NSNumber(value: $0) }
         self.state = state
+        self.skip = skip
     }
 }
 
@@ -195,7 +198,7 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
         }
         let (project, media, trackMap) = instr.state.snapshot()
         Self.stamp(out, space: project.settings.colorSpace)
-        let t = Time(cmTime: request.compositionTime)
+        let t = instr.skip.timeline(Time(cmTime: request.compositionTime))
         if let tid = instr.state.cachedTrack(at: t), let pb = request.sourceFrame(byTrackID: tid) {
             renderCached(pb, request: request, project: project, out: out, outTex: outTex, outCV: outCV, cmd: cmd, state: instr.state, clock0: clock0, onEnd: onEnd)
             return

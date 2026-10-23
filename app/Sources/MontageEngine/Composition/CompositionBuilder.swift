@@ -12,6 +12,8 @@ public struct BuiltComposition: @unchecked Sendable {
     public let state: RenderState
     /// Live audio parameters read by the lane taps (W8, `MontageEngine/Audio`).
     public let audioState: AudioMixState
+    /// Timeline ranges left out of this composition (quick cut preview); `duration` is the composition's.
+    public var skip: SkipTimeMap = .identity
 }
 
 /// Which files back a media item in this build (preview uses proxies when ready; export uses originals).
@@ -88,13 +90,16 @@ public enum CompositionBuilder {
                              frameRate: FrameRate? = nil, state existingState: RenderState? = nil,
                              audioState existingAudioState: AudioMixState? = nil,
                              highPrecision: Bool = false, mixesAudioFormats: Bool = false, audioTaps: Bool = true,
+                             skipping skipRanges: [TimeRange] = [],
                              sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
         defer { finishedLock.withLock { finished += 1 }; Task { await buildLock.signal() } }
         try Task.checkCancellation()
         let comp = AVMutableComposition()
-        let duration = max(project.duration, project.settings.frameRate.frameDuration)
+        // Quick cut preview: the composition leaves `skipRanges` out; every insert / ramp / tap entry is placed in item time.
+        let skip = SkipTimeMap(skipRanges, duration: project.duration)
+        let duration = max(skip.item(project.duration), project.settings.frameRate.frameDuration)
         var trackMap: [ClipID: CMPersistentTrackID] = [:]
         var videoTrackIDs: [CMPersistentTrackID] = []
         var audioParams: [AVMutableAudioMixInputParameters] = []
@@ -141,7 +146,9 @@ public enum CompositionBuilder {
                         EngineLog.info("reversed render not ready (clip \(clip.id.short)): showing forwards")
                     }
                 }
-                let segments = remapSegments(mapped, asset: asset, frameRate: fr)
+                // Segments in item time (absolute): `placed` is the clip with start 0 that `insert` lays them out from.
+                let segments = place(remapSegments(mapped, asset: asset, frameRate: fr), clipStart: clip.start, skip: skip)
+                mapped.start = .zero
 
                 if asset.kind == .video, asset.hasVideo, track.kind.isVisual {
                     let entry = try await AssetCache.shared.entry(videoURL)
@@ -186,7 +193,7 @@ public enum CompositionBuilder {
                     if let (at, p) = aLanes[key] {
                         try insert(clip: mapped, segments: segments, from: src, sourceRange: srcAudioRange, into: at)
                         applyVolume(clip, to: p, gain: ClipAudioPlan.make(clip).staticGain,
-                                    duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms))
+                                    duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms), skip: skip)
                         laneClips[key, default: []].append(clip)
                     }
                 }
@@ -195,7 +202,7 @@ public enum CompositionBuilder {
             videoTrackIDs += auxOrder
             for key in aOrder {
                 guard let a = aLanes[key] else { continue }
-                if audioTaps { a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[key] ?? [], state: audioState)) }
+                if audioTaps { a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[key] ?? [], state: audioState, skip: skip)) }
                 audioParams.append(a.1)
             }
         }
@@ -203,7 +210,7 @@ public enum CompositionBuilder {
         // Preview render cache: valid pre-rendered segments as passthrough lanes (see RenderCache).
         var cached: [(range: TimeRange, key: String, track: CMPersistentTrackID)] = []
         let size = renderSize ?? CGSize(width: project.settings.canvasSize.width, height: project.settings.canvasSize.height)
-        if purpose == .preview {
+        if purpose == .preview, skip.isIdentity {   // cached segments are laid out in timeline time
             for seg in RenderCache.shared.validSegments(project, size: size) {
                 guard let src = try await AssetCache.shared.entry(seg.url).video,
                       let ct = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
@@ -234,11 +241,30 @@ public enum CompositionBuilder {
         // PQ: washed out). Untagged, every path delivers the decoded frames untouched; the compositor stamps its output
         // with the project's tags (`MontageCompositor.stamp`).
         vc.instructions = [MontageInstruction(timeRange: CMTimeRange(start: .zero, duration: duration.cmTime),
-                                              trackIDs: videoTrackIDs, state: state)]
+                                              trackIDs: videoTrackIDs, state: state, skip: skip)]
         var mix: AVMutableAudioMix?
         if !audioParams.isEmpty { mix = AVMutableAudioMix(); mix!.inputParameters = audioParams }
-        return BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
-                                duration: duration, state: state, audioState: audioState)
+        var built = BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
+                                     duration: duration, state: state, audioState: audioState)
+        built.skip = skip
+        return built
+    }
+
+    /// Clip-relative speed segments → absolute item-time segments with the skipped timeline ranges cut out (each
+    /// segment is linear, so a kept piece takes the matching slice of its source range).
+    static func place(_ segments: [(output: TimeRange, source: TimeRange)], clipStart: Time, skip: SkipTimeMap)
+    -> [(output: TimeRange, source: TimeRange)] {
+        var out: [(output: TimeRange, source: TimeRange)] = []
+        for s in segments {
+            let abs = s.output.offset(by: clipStart)
+            guard !skip.isIdentity else { out.append((abs, s.source)); continue }
+            let rate = s.output.duration.ticks > 0 ? s.source.duration / s.output.duration : 1
+            for k in skip.kept(abs) where k.duration.ticks > Time.ticksPerSecond / 2000 {   // < 0.5 ms: nothing to play
+                let src = TimeRange(start: s.source.start + (k.start - abs.start) * rate, duration: k.duration * rate)
+                out.append((TimeRange(start: skip.item(k.start), duration: k.duration), src))
+            }
+        }
+        return out
     }
 
     /// Composition audio track of a timeline track: its A/B lane AND the encoded format of the files inserted into it.
@@ -371,7 +397,8 @@ public enum CompositionBuilder {
     static let volumeCurveSteps = 16
 
     /// Clip gain, fades and volume keyframes as linear ramps on the lane.
-    static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters, gain: Double = 1, duck: Ducking.Envelope? = nil) {
+    static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters, gain: Double = 1, duck: Ducking.Envelope? = nil,
+                            skip: SkipTimeMap = .identity) {
         let start = clip.start, end = clip.end
         func v(_ local: Time) -> Float {
             var g = (clip.value(.volume, at: local)?.scalar ?? clip.audio.volume) * gain
@@ -406,13 +433,21 @@ public enum CompositionBuilder {
                 prev = g
             }
         }
+        // skipped ranges (quick cut preview): every span is then wholly kept or wholly skipped; kept spans in item time
+        for r in skip.skips where r.end > start && r.start < end {
+            if r.start > start { points.insert((r.start - start).ticks) }
+            if r.end < end { points.insert((r.end - start).ticks) }
+        }
         let sorted = points.sorted().map { Time(ticks: $0) }
         for i in 0..<(sorted.count - 1) {
             let a = sorted[i], b = sorted[i + 1]
+            if !skip.isIdentity, skip.skip(containing: start + a + (b - a) * 0.5) != nil { continue }
+            let ia = skip.item(start + a), ib = skip.item(start + b)
+            guard ib > ia else { continue }
             p.setVolumeRamp(fromStartVolume: v(a), toEndVolume: v(b),
-                            timeRange: CMTimeRange(start: (start + a).cmTime, duration: (b - a).cmTime))
+                            timeRange: CMTimeRange(start: ia.cmTime, duration: (ib - ia).cmTime))
         }
-        p.setVolume(0, at: end.cmTime)
+        p.setVolume(0, at: skip.item(end).cmTime)
     }
 
     /// Hash of everything that requires rebuilding the AVComposition (vs. live property edits).
