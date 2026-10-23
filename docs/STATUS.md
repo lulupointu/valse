@@ -266,6 +266,24 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   CVPixelBufferCreate (or throws the writer's real error), a false append throws (code 69); DemoProject.withEncoderRetries
   5 attempts with backoff 0.25-2 s; fin_layout idles → waitFor. Not reproducible on demand: fallback vs retry unconfirmed.
   Watch: one cold run had `snapshot layout-vertical` take 138 s ("never settled in 2 s"), 0.8 s afterwards.
+  batch-qcfix3 gate run 1 failed only on EffectsPerfTests (lightRays 3.73 > 3.5 ms GPU, 3 agents running), run 2 green.
+  Flaky in these gates: assets_media_tab (exit 139), ai_auto_adjust, ai_relight_model (step 12 facial preset anchor, a
+  new failure after FLAKY-UI): fix task FLAKY-UI2 open.
+- 2026-10-23 batch-qcfix4 (owner feedback round 2).
+  TL-048-fix2: trailing blank still ~0.5 s on owner "1018 (1)": onsets jump 10 ms from the floor, word ends decay ~35 dB
+  over 200-300 ms and the hysteresis followed them to near the floor. Fix: speech-run edges trimmed where full-band
+  energy < media p97 - 35 dB (edgeDrop, both ends; quiet speakers kept whole), mask cache .v2. Owner clips: kept after
+  speech 0.10-0.16 s → 0.05 s, before 0.05-0.08 → 0.05 s. The mini waveform still looks flat over the last syllable
+  (-20..-35 dB) so a visible "gap" can remain; options asked to the owner (edgeDrop 30, or a dB-scaled waveform).
+  PB-RESUME: pause → play dropped ~200 ms of audio: AVPlayer resumes a paused item with the clock running at once while
+  its audio chain re-renders from ~150-200 ms past the pause point (seek → play holds the clock until primed). Fix:
+  play()/setRate() after an in-place pause first does an exact seek to the paused time (preroll never completes with a
+  custom compositor). Cost: resume starts ~0.1-0.2 s later, like seek → play. Test PlaybackResumeTests.
+  TL-RULER: "30f" labels = float tick accumulation (16.99 s → frame 30 of second 16) + minors not dividing majors. New
+  pure TimelineRuler generator on whole frames, CapCut ladder (fps-dividing frame rungs, then 1 s … 1 h, majors ≥ 80 pt,
+  minors ≥ 12 pt, ≤ 10 per major), labels mm:ss / hh:mm:ss / Nf; non-integer fps counted like Timecode (non-drop).
+  Open: a synthetic cmd-scroll zoom moved scrollTime far away (zoom(by:around:) location from SyntheticEvents.scroll?);
+  check whether real cmd-scroll zoom jumps too.
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
