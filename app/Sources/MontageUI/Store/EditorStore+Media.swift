@@ -42,6 +42,7 @@ extension EditorStore {
             await ProxyManager.shared.request(all)
             proxyPending.formUnion(all.filter { ProxyManager.shared.isPending($0) }.map(\.contentHash))
             offerTranscode(fresh)   // MI-009
+            prefetchQuickCut(fresh)   // TL-048: blank analysis in the background (audio only, utility QoS)
             if let time {
                 var t = time
                 for a in all {

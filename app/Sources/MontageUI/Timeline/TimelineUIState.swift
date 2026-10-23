@@ -43,6 +43,10 @@ public final class TimelineUIState {
     public var markerColorIndex = 0
     /// Open cover editor (main-track "Cover" button), nil = closed.
     var coverEditor: CoverEditorModel?
+    /// Open Quick cut popover (TL-048), nil = closed.
+    public internal(set) var quickCut: QuickCutSession?
+    /// Window frame (SwiftUI global space) of the toolbar's Quick cut button: the popover hangs from it.
+    @PerceptionIgnored var quickCutButtonFrame: CGRect = .zero
 
 
     public init() {}

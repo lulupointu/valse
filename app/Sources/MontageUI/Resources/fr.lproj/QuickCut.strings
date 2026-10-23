@@ -1,0 +1,16 @@
+/* TL-048 Coupe rapide (popover de la barre d'outils de la timeline, docs/QUICK_CUT.md §1) */
+"quickcut.tooltip" = "Coupe rapide : supprimez les blancs de vos clips audio et vidéo";
+"quickcut.title" = "Supprimer les blancs de plus de";
+"quickcut.scope.all" = "S'applique à tous les clips média";
+"quickcut.scope.one" = "S'applique au clip média sélectionné";
+"quickcut.scope.many" = "S'applique aux %d clips média sélectionnés";
+"quickcut.scope.noneSelected" = "Aucun clip audio ou vidéo sélectionné";
+"quickcut.summary.one" = "1 blanc · −%@ s";
+"quickcut.summary.many" = "%d blancs · −%@ s";
+"quickcut.summary.none" = "Aucun blanc de plus de %@ s";
+"quickcut.summary.waiting" = "Recherche des blancs…";
+"quickcut.summary.noClips" = "Aucun clip audio ou vidéo à couper";
+"quickcut.analysing" = "Analyse de l'audio… %d / %d";
+"quickcut.apply" = "Appliquer";
+"quickcut.toast.one" = "1 blanc supprimé (−%@ s)";
+"quickcut.toast.many" = "%d blancs supprimés (−%@ s)";

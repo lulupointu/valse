@@ -18,6 +18,7 @@ public enum AppShutdown {
     public static func stopBackgroundWork(timeout: Double = 8) async {
         store?.exports.queue.cancelAll()
         store?.cancelPilotWork()
+        QuickCutPrefetch.cancelAll()   // TL-048 background blank analyses
         let ok = await JobQueue.shared.shutdown(timeout: timeout)
         // readers of cancelled exports stuck inside AVFoundation: a bounded wait, never a hang at quit
         let readersOK = await ParkedReaders.shared.waitAll(timeout: 2)

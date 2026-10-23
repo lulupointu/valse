@@ -1,0 +1,16 @@
+/* TL-048 Quick cut (timeline toolbar popover, docs/QUICK_CUT.md §1) */
+"quickcut.tooltip" = "Quick cut: remove the blanks from your audio and video clips";
+"quickcut.title" = "Remove blanks longer than";
+"quickcut.scope.all" = "Applies to all media clips";
+"quickcut.scope.one" = "Applies to the selected media clip";
+"quickcut.scope.many" = "Applies to the %d selected media clips";
+"quickcut.scope.noneSelected" = "No audio or video clip selected";
+"quickcut.summary.one" = "1 blank · −%@ s";
+"quickcut.summary.many" = "%d blanks · −%@ s";
+"quickcut.summary.none" = "No blanks longer than %@ s";
+"quickcut.summary.waiting" = "Looking for blanks…";
+"quickcut.summary.noClips" = "No audio or video clips to cut";
+"quickcut.analysing" = "Analysing audio… %d / %d";
+"quickcut.apply" = "Apply";
+"quickcut.toast.one" = "Removed 1 blank (−%@ s)";
+"quickcut.toast.many" = "Removed %d blanks (−%@ s)";

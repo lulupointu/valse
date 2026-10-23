@@ -44,6 +44,7 @@ struct TimelineToolbar: View {
         var audioSel = false, isVideo = false, reversed = false, hasMedia = false, visualSel = false, single = false
         var mediaSel = false
         var magnet = false, snapping = false, linkage = false, previewAxis = false
+        var quickCut = false
         var pixelsPerSecond: Double = 0
     }
 
@@ -74,6 +75,7 @@ struct TimelineToolbar: View {
             }
             m.magnet = tl.mainTrackMagnet; m.snapping = tl.snapping; m.linkage = tl.linkage
             m.previewAxis = ui.previewAxis
+            m.quickCut = ui.quickCut != nil
             m.pixelsPerSecond = store.pixelsPerSecond
             return TimelineToolbarBar(store: store, m: m).equatable()
         }
@@ -109,6 +111,7 @@ struct TimelineToolbarBar: View, Equatable {
                 IconButton("arrow.right.to.line", help: tr("toolbar.deleteRight"), enabled: m.hasTarget) { store.deleteLeftRight(.tail) }.testID("toolbar.deleteRight")
                 IconButton("trash", help: tr("toolbar.delete"), enabled: m.canDelete) { store.deleteSmart() }.testID("toolbar.delete")
                 IconButton("bookmark", help: tr("toolbar.marker")) { store.addMarker() }
+                QuickCutButton(store: store, isOpen: m.quickCut)   // TL-048
                 if m.audioSel {
                     BeatsMenu(store: store)
                 } else if m.mediaSel {

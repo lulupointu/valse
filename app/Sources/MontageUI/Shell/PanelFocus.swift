@@ -18,6 +18,8 @@ public final class PanelFocus {
     final class WeakView { weak var view: NSView?; init(_ v: NSView) { view = v } }
 
     func register(_ host: NSView, for panel: DetachablePanel) { hosts[panel] = WeakView(host) }
+    /// The hosting view of a panel (TL-048: clicks in the player don't close the Quick cut popover).
+    func host(_ panel: DetachablePanel) -> NSView? { hosts[panel]?.view }
 
     /// `step` +1 = next panel, −1 = previous one.
     public func move(_ step: Int, detached: Set<DetachablePanel> = EditorLayout.shared.detached) {

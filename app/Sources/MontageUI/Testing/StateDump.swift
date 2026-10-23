@@ -168,6 +168,7 @@ public enum StateDump {
                                 "progress": AudioRenderCache.shared.progress(for: a, spec: spec) ?? -1] as [String: Any]
         }
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
+        ui["quickCut"] = store.timelineUI.quickCut?.dump ?? ["open": false]   // TL-048 {open, value, count, removed, scope, summary, analysed, total, slices…}
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)
         ui["transcript"] = store.transcriptStateDump()   // C4: {open, status, words, language, captionsNav, applyToAllCaptions}

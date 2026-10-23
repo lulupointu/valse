@@ -1,0 +1,64 @@
+// TL-048 Quick cut: the toolbar button opens the popover over the timeline (scope, value, summary, analysis of the real
+// speech fixtures), the value field / slider re-plan live and the slices are drawn on the clips (non-targets dimmed),
+// Space plays the preview with the slices skipped while the timeline and history stay untouched, Esc cancels, the
+// value is remembered, Apply is one undo step with a toast. LOOK at quick-cut-popover / quick-cut-timeline.
+{
+  "project": "empty",
+  "steps": [
+    {"drop": {"files": ["fixtures/real/iphone_hlg_portrait.mov"]}, "on": "time:0@main"},
+    {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 30}},
+    {"drop": {"files": ["fixtures/real/speech_en.m4a"]}, "on": "time:0@main", "offset": [0, 70]},
+    {"waitFor": {"path": "media.count", "equals": 2, "timeout": 30}},
+    {"waitFor": {"path": "tracks.count", "gte": 2, "timeout": 10}},
+    {"key": "cmd+a"},
+    {"key": "alt+x"},
+    {"waitFor": {"path": "selection.count", "equals": 0}},
+    {"click": "id:toolbar.quickCut"},
+    {"waitFor": {"path": "ui.quickCut.open", "equals": true}},
+    {"expect": [{"path": "ui.quickCut.scope", "equals": "Applies to all media clips"}, {"path": "ui.quickCut.targets", "equals": 2}]},
+    {"waitFor": {"path": "ui.quickCut.analysing", "equals": false, "timeout": 60, "progress": ["ui.quickCut.analysed"]}},
+    {"click": "id:quickcut.field"},
+    {"type": "0.2", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "ui.quickCut.value", "equals": 0.2}},
+    {"waitFor": {"path": "ui.quickCut.count", "equals": 3}},
+    {"expect": {"path": "ui.quickCut.summary", "equals": "3 blanks · −1.3 s"}},
+    {"expect": [{"path": "ui.quickCut.canApply", "equals": true}, {"path": "ui.quickCut.skipRanges", "gt": 0},
+                {"path": "undo.depth", "equals": 4}]},
+    {"dump": "open"},
+    // zoom to fit (the popover stays open: toolbar clicks outside it close it, so use the shortcut)
+    {"key": "shift+z"},
+    {"expect": {"path": "ui.quickCut.open", "equals": true}},
+    {"snapshot": "quick-cut-popover", "element": "id:quickcut.popover", "baseline": true},
+    {"snapshot": "quick-cut-timeline", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02},
+    {"snapshot": "quick-cut-window"},
+    // zoomed far out: tiny slices are still drawn at least 3 pt wide
+    {"key": "cmd+-", "repeat": 8},
+    {"snapshot": "quick-cut-timeline-zoomed-out", "element": "id:timeline", "baseline": true, "threshold": 40, "tolerance": 0.02},
+    // the field took the value and gave the keyboard back: Space plays (slices skipped), Space pauses
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": true}},
+    {"waitFor": {"path": "playhead", "gt": 1, "timeout": 30}},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": false}},
+    {"expect": [{"path": "ui.quickCut.open", "equals": true}, {"path": "main.clips.count", "equals": 1}, {"path": "undo.depth", "equals": 4}]},
+    // Esc cancels: nothing changed
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.quickCut.open", "equals": false}},
+    {"expect": [{"path": "main.clips.count", "equals": 1}, {"path": "undo.depth", "equals": 4}]},
+    // reopening keeps the last value; Apply = one undo step "Quick cut"
+    {"click": "id:toolbar.quickCut"},
+    {"waitFor": {"path": "ui.quickCut.open", "equals": true}},
+    {"expect": {"path": "ui.quickCut.value", "equals": 0.2}},
+    {"waitFor": {"path": "ui.quickCut.canApply", "equals": true}},
+    {"click": "id:quickcut.apply"},
+    {"waitFor": {"path": "ui.quickCut.open", "equals": false}},
+    {"expect": [{"path": "ui.toast", "equals": "Removed 3 blanks (−1.3 s)"}, {"path": "undo.name", "equals": "cmd.quickCut"},
+                {"path": "undo.depth", "equals": 5}]},
+    // the main clip lost its silent tail (3.6–4 s), the speech clip its two pauses (closed up inside its footprint)
+    {"expect": [{"path": "main.clips.0.duration", "approx": 3.6, "tolerance": 0.02}, {"path": "tracks.1.clips.count", "gt": 1}]},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "main.clips.0.duration", "approx": 4, "tolerance": 0.02}},
+    {"expect": {"path": "undo.depth", "equals": 4}}
+  ]
+}
