@@ -484,11 +484,14 @@ public final class UITestDriver {
             // never repeated; an element rebuilt between press and release is reported (`click_release_anomalies`).
             // An `offset` click deliberately lands beside the element: it is dispatched where the script says, never
             // moved / re-sent (so it can miss when the layout moves under it: target the element's own id instead).
-            // `clip:` targets too (FLAKY-UI2: ai_auto_adjust's first `clip:main/0` click selected nothing once under
-            // load): located again from the timeline layout at dispatch, and the press must land on the timeline view
+            // Timeline targets (`clip:` / `time:` / `header:`) too (FLAKY-UI2: ai_auto_adjust / ai_relight_model's first
+            // `clip:main/0` click selected nothing under load; with this probe the timeline geometry at dispatch was
+            // caught non-finite once): located again from the timeline layout at dispatch, and the press must land on
+            // the timeline view
+            let timelineTarget = (t as? String).map { $0.hasPrefix("clip:") || $0.hasPrefix("time:") || $0.hasPrefix("header:") } ?? false
             let targetID = step["offset"] != nil ? nil
-                : (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : ($0.hasPrefix("clip:") ? $0 : nil) }
-            let onView: NSView? = (t as? String)?.hasPrefix("clip:") == true ? timelineView : nil
+                : (t as? String).flatMap { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : (timelineTarget ? $0 : nil) }
+            let onView: NSView? = timelineTarget ? timelineView : nil
             var point = p
             for attempt in 1...3 {
                 // fault injection (driver self-test): a stale resolved point / an element missing at dispatch
@@ -945,7 +948,7 @@ public final class UITestDriver {
             }
             if UITestWindow.debug { log("      [clip] \(rest) rect \(r) row \(row.trackIndex) x \(x) bounds \(tl.bounds)") }
             if x < TimelineLayout.headerWidth || x > tl.bounds.width { throw Failure("clip \(rest) is scrolled out of view (x=\(Int(x)))") }
-            return tl.convert(CGPoint(x: x, y: r.midY), to: nil)
+            return try settled(tl.convert(CGPoint(x: x, y: r.midY), to: nil), tl)
         case "time":
             guard let tl = timelineView else { throw Failure("no timeline view") }
             let parts = rest.split(separator: "@").map(String.init)
@@ -957,7 +960,7 @@ public final class UITestDriver {
                 guard let ti, let row = l.rows.first(where: { $0.trackIndex == ti }) else { throw Failure("no row for track \(parts[1])") }
                 y = row.y + row.height / 2
             }
-            return tl.convert(CGPoint(x: l.x(Time(secs)), y: y), to: nil)
+            return try settled(tl.convert(CGPoint(x: l.x(Time(secs)), y: y), to: nil), tl)
         case "header":
             // header:<track>/<item>: a track-header control (type, lock, eye, mute, more; cover on the main track)
             guard let tl = timelineView else { throw Failure("no timeline view") }
@@ -976,7 +979,7 @@ public final class UITestDriver {
                 }
                 r = item.rect
             }
-            return tl.convert(CGPoint(x: r.minX + r.width * at.x, y: r.minY + r.height * at.y), to: nil)
+            return try settled(tl.convert(CGPoint(x: r.minX + r.width * at.x, y: r.minY + r.height * at.y), to: nil), tl)
         case "player":
             guard let pv = SnapshotRegistry.shared.player else { throw Failure("no player view") }
 
@@ -990,6 +993,15 @@ public final class UITestDriver {
             if TestAnchors.shared.frame(s) != nil || findView(s) != nil { return try resolveBase("id:" + s, step) }
             throw Failure("unknown target \(s)")
         }
+    }
+
+    /// A timeline target's window point, or a failure while the timeline geometry is not usable (non-finite: seen once
+    /// right after a project load under load, FLAKY-UI2), so `waitForTarget` / the click probe wait it out.
+    private func settled(_ p: CGPoint, _ tl: TimelineView) throws -> CGPoint {
+        guard p.x.isFinite, p.y.isFinite else {
+            throw Failure("timeline geometry not settled (point \(p), bounds \(tl.bounds), frame \(tl.frame), in window \(tl.window != nil))")
+        }
+        return p
     }
 
     /// `clip:<track>/<index>` or `clip:selected`.
@@ -1561,6 +1573,10 @@ final class ClickProbe {
             window.displayIfNeeded()   // render the layout: SwiftUI hit-tests against the last rendered frame
             guard let p = locate() else {
                 dropped = "the element was not on screen when the press was dispatched (nothing was delivered)"
+                return nil
+            }
+            guard p.x.isFinite, p.y.isFinite else {
+                dropped = "the element's geometry was not settled when the press was dispatched (\(p); nothing was delivered)"
                 return nil
             }
             if let onView, let host = window.contentView {
