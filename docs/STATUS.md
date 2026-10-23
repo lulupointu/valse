@@ -239,6 +239,10 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   Flaky in these gates: ai_relight_model, c3b_volume_keyframes, effects_library, model_download_proceed,
   ai_camera_custom_box, HDRTests.hlgSourcePassesThroughHLGProject. Apply with 300 cuts: 170-195 ms release (RippleCut
   per-range O(n) copying, budget 300 ms).
+- 2026-10-23 PERF-R1: the "main perf regression" above was no code regression (fed8612, before OB/FB/QC, measures the
+  same): on a quiet machine the CPU clocks down between bursty perf events, inflating main-thread CPU 1.5-4x; old gates
+  passed only because load (24-60) kept clocks up. Fix (owner 2026-10-23): PerfClockWarmer spins a sibling thread during
+  perf steps (MONTAGE_PERF_WARM=0 = off); assets_scroll p95 0.67-0.90, inspector_drag p50 ~5, timeline_scroll p95 ~0.6.
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
