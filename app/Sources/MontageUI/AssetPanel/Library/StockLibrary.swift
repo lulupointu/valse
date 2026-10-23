@@ -295,14 +295,16 @@ nonisolated enum StockLibrary {
         let last = max(.zero, built.duration - project.settings.frameRate.frameDuration)
         for t in times {
             let (img, _) = try await gen.image(at: min(Time(t), last).cmTime)
-            out.append(img)
+            // owned 8-bit bitmap (FLAKY-THUMB): the same pixels as the PNG read back from the disk cache
+            out.append(ThumbnailCache.flatten(img) ?? img)
         }
         return out
     }
 
     static func loadImage(_ url: URL) -> CGImage? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(src, 0, nil)
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let img = CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { return nil }
+        return ThumbnailCache.flatten(img) ?? img   // decoded now, like a freshly rendered thumbnail (FLAKY-THUMB)
     }
 
     // MARK: Search
