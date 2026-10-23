@@ -35,4 +35,27 @@ import MontageCore
             #expect(abs(AudioProps.decibels(got ?? 0) - AudioProps.decibels(want)) < 0.4, "t \(local) \(easing): \(got ?? -1) vs \(want)")
         }
     }
+
+    /// Clips overlapping on one lane (bad layout) must not give overlapping ramps: AVFoundation throws on them
+    /// (quick cut crash, 1023 project). The later clip's ramps start where the earlier one ends.
+    @Test func overlappingClipsOnALaneGiveDisjointRamps() {
+        var a = Clip(content: .solid(RGBA(1, 1, 1)), start: Time(0), duration: Time(4))
+        a.audio.fadeOut = Time(2)
+        var b = Clip(content: .solid(RGBA(1, 1, 1)), start: Time(3), duration: Time(4))
+        b.audio.fadeIn = Time(2)
+        let p = AVMutableAudioMixInputParameters()
+        let floor = CompositionBuilder.applyVolume(a, to: p)
+        #expect(floor == Time(4))
+        #expect(CompositionBuilder.applyVolume(b, to: p, after: floor) == Time(7))
+        var cursor = CMTime.zero, end = CMTime.zero
+        var x: Float = 0, y: Float = 0
+        var r = CMTimeRange()
+        while p.getVolumeRamp(for: cursor, startVolume: &x, endVolume: &y, timeRange: &r), r.duration > .zero, r.duration.isNumeric {   // last = hold at 0
+            #expect(CMTimeCompare(r.start, end) >= 0, "ramp \(r.start.seconds) starts before \(end.seconds)")
+            end = r.end; cursor = r.end
+        }
+        #expect(end == Time(7).cmTime)
+        // after a's end, b's fade-in continues on its own curve (1.5 s into 2 s)
+        #expect(abs((Self.mixGain(p, at: Time(4.5)) ?? -1) - 0.75) < 0.01)
+    }
 }
