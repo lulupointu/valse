@@ -130,7 +130,7 @@ struct EditPilotTests {
         let r = try PilotOps.apply(.removeSilences(minPause: 0.8), to: &p, context: ctx)
         #expect(r != nil)
         let cut = before - p.timeline.duration.seconds
-        #expect(abs(cut - (1.5 - 0.2)) < 0.02)   // 1.5 s silence minus Quick cut's handles (140 ms after, 60 ms before)
+        #expect(abs(cut - (1.5 - 0.1)) < 0.02)   // 1.5 s silence minus Quick cut's handles (50 ms after, 50 ms before)
         #expect(p.timeline.mainTrack!.clips.count == 4)
         #expect(TimelineOps.validate(p.timeline).isEmpty)
         // a silence shorter than the minimum pause stays

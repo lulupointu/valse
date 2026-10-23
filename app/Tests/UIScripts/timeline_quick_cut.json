@@ -22,7 +22,7 @@
     {"key": "return"},
     {"waitFor": {"path": "ui.quickCut.value", "equals": 0.2}},
     {"waitFor": {"path": "ui.quickCut.count", "equals": 3}},
-    {"expect": {"path": "ui.quickCut.summary", "equals": "3 blanks · −1.3 s"}},
+    {"expect": {"path": "ui.quickCut.summary", "equals": "3 blanks · −1.6 s"}},
     {"expect": [{"path": "ui.quickCut.canApply", "equals": true}, {"path": "ui.quickCut.skipRanges", "gt": 0},
                 {"path": "undo.depth", "equals": 4}]},
     {"dump": "open"},
@@ -42,6 +42,15 @@
     {"key": "space"},
     {"waitFor": {"path": "isPlaying", "equals": false}},
     {"expect": [{"path": "ui.quickCut.open", "equals": true}, {"path": "main.clips.count", "equals": 1}, {"path": "undo.depth", "equals": 4}]},
+    // clicks on the timeline only move the playhead: the popover stays open and nothing gets selected
+    {"key": "shift+z"},
+    {"click": "time:0.5@ruler"},
+    {"waitFor": {"path": "playhead", "approx": 0.5, "tolerance": 0.15}},
+    {"expect": [{"path": "ui.quickCut.open", "equals": true}, {"path": "selection.count", "equals": 0}]},
+    {"click": "clip:main/0:0.75"},
+    {"waitFor": {"path": "playhead", "approx": 3, "tolerance": 0.15}},
+    {"expect": [{"path": "ui.quickCut.open", "equals": true}, {"path": "selection.count", "equals": 0},
+                {"path": "ui.quickCut.count", "gt": 0}, {"path": "undo.depth", "equals": 4}]},
     // Esc cancels: nothing changed
     {"key": "escape"},
     {"waitFor": {"path": "ui.quickCut.open", "equals": false}},
@@ -53,10 +62,10 @@
     {"waitFor": {"path": "ui.quickCut.canApply", "equals": true}},
     {"click": "id:quickcut.apply"},
     {"waitFor": {"path": "ui.quickCut.open", "equals": false}},
-    {"expect": [{"path": "ui.toast", "equals": "Removed 3 blanks (−1.3 s)"}, {"path": "undo.name", "equals": "cmd.quickCut"},
+    {"expect": [{"path": "ui.toast", "equals": "Removed 3 blanks (−1.6 s)"}, {"path": "undo.name", "equals": "cmd.quickCut"},
                 {"path": "undo.depth", "equals": 5}]},
-    // the main clip lost its silent tail (3.6–4 s), the speech clip its two pauses (closed up inside its footprint)
-    {"expect": [{"path": "main.clips.0.duration", "approx": 3.6, "tolerance": 0.02}, {"path": "tracks.1.clips.count", "gt": 1}]},
+    // the main clip lost its silent tail (3.51–4 s: 50 ms kept after the speech), the speech clip its two pauses (closed up inside its footprint)
+    {"expect": [{"path": "main.clips.0.duration", "approx": 3.51, "tolerance": 0.03}, {"path": "tracks.1.clips.count", "gt": 1}]},
     {"key": "cmd+z"},
     {"waitFor": {"path": "main.clips.0.duration", "approx": 4, "tolerance": 0.02}},
     {"expect": {"path": "undo.depth", "equals": 4}}

@@ -35,6 +35,8 @@ extension TimelineView {
             else { scrollTime += (pt.x < thumb.minX ? -1 : 1) * l.visibleRange.duration.seconds * 0.9 }
             return
         }
+        // TL-048: while Quick cut is open a click only moves the playhead (no selection change, popover stays open)
+        if ui.quickCut != nil { quickCutMouseDown(pt, layout: l); return }
         // audio fade handles of selected clips
         for id in store.selection {
             guard let loc = tl.locate(id), tl.tracks[loc.track].kind == .audio, !tl.tracks[loc.track].isLocked,

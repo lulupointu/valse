@@ -17,7 +17,10 @@ quick first clean-up. It must be fast, and the preview must follow the duration 
   - Summary line: "12 blanks · −18.4 s" (FR "12 blancs · −18,4 s"), or "No blanks longer than 0.5 s".
   - While analysis is still running: progress line "Analysing audio… 3 / 12" (determinate), the overlay fills in clip by
     clip as results arrive.
-  - "Apply" button (primary). Esc / clicking outside = cancel, nothing changes.
+  - "Apply" button (primary). Esc / clicking outside the timeline and the player = cancel, nothing changes.
+  - While it is open, a click (or drag) on the timeline (ruler, empty track area, clip body, track header = time 0)
+    only moves the playhead to the clicked time (owner bug report 2026-10-23): it neither closes the popover nor
+    changes the selection, so the user can listen to the preview from any point.
 - **Live preview while the popover is open:**
   - On target clips, every slice that will be removed is drawn over the clip (thumbnails + waveform), updated on every
     slider / text-field change. The owner's red is a sketch: use a colour that reads as "will be removed" without
@@ -92,8 +95,15 @@ Per **clip**, at every slider change (pure, MontageCore):
 2. Frames the clip makes inaudible (effective clip gain ≤ −40 dB: volume, volume keyframes, fades, clip mute) are
    blank too. Uniform volume changes don't matter: detection is relative per media.
 3. A blank run qualifies when its **raw** timeline length > X (what the user means by "a blank of more than X").
-4. Removed slice = the run minus handles: 60 ms before the next speech, 140 ms after the previous speech. A run that
-   touches the clip's start or end keeps only the speech-side handle. Drop slices < 40 ms.
+4. Removed slice = the run minus handles: **50 ms after the previous speech and 50 ms before the next speech**, so a
+   cut pause plays as 0.1 s in total, symmetric (owner decision 2026-10-23; `QuickCut.handleAfter` / `handleBefore`).
+   Word tails stay audible because they are part of the detected speech run (step 5's hysteresis follows the decay,
+   step 6 attaches unvoiced consonants), not because of a longer end handle. A run that touches the clip's start or
+   end keeps only the speech-side handle. Drop slices < 40 ms.
+   Why the end used to leave a blank: the former handles (140 ms after, 60 ms before) measured on the bench corpus at
+   X = 0.5 as a median of 140–160 ms kept after the end of speech vs 60–70 ms before its start. With 50 / 50 ms the
+   medians are 50–70 ms after and 50–60 ms before in every condition except 400 ms reverb (the reverb tail is detected as
+   sound). The 200 ms attach rule of step 6 made no measurable difference to the trailing pause.
 5. Clips with no speech at all, no audio track, or no dynamics: no slices (owner decision).
 
 ## 5. Performance budget (acceptance)

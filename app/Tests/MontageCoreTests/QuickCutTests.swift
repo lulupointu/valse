@@ -56,22 +56,29 @@ import Foundation
         let (p, c) = Self.oneClip()
         let masks = [c.mediaID!: Self.mask(10, [(0.5, 2), (4, 6), (8, 9.5)])]
         let plan = plan(p, 0.3, masks)
-        // leading / trailing runs keep only the speech-side handle; inner runs keep 140 ms after, 60 ms before speech
-        #expect(Self.near(plan.slices(for: c.id), [(0, 0.44), (2.14, 3.94), (6.14, 7.94), (9.64, 10)]), "\(plan.slices(for: c.id))")
+        // leading / trailing runs keep only the speech-side handle; inner runs keep 50 ms after and 50 ms before speech
+        // (owner decision 2026-10-23: a cut pause plays as 0.1 s, symmetric)
+        #expect(Self.near(plan.slices(for: c.id), [(0, 0.45), (2.05, 3.95), (6.05, 7.95), (9.55, 10)]), "\(plan.slices(for: c.id))")
         #expect(plan.count == 4)
-        #expect(abs(plan.removed.seconds - (0.44 + 1.8 + 1.8 + 0.36)) < 0.03)
+        #expect(QuickCut.handleBefore == 0.05 && QuickCut.handleAfter == 0.05)
+        // what is left of each inner pause after the cut: 0.1 s, split evenly around the cut point
+        let inner = plan.slices(for: c.id).dropFirst().dropLast()
+        for (sl, gap) in zip(inner, [(2.0, 4.0), (6.0, 8.0)]) {
+            #expect(abs((sl.start.seconds - gap.0) - 0.05) < 0.011 && abs((gap.1 - sl.end.seconds) - 0.05) < 0.011)
+        }
+        #expect(abs(plan.removed.seconds - (0.45 + 1.9 + 1.9 + 0.45)) < 0.03)
         // raw length must be MORE than X: the 0.5 s leading blank no longer qualifies at X = 0.5
-        #expect(Self.near(self.plan(p, 0.5, masks).slices(for: c.id), [(2.14, 3.94), (6.14, 7.94)]))
+        #expect(Self.near(self.plan(p, 0.5, masks).slices(for: c.id), [(2.05, 3.95), (6.05, 7.95)]))
         #expect(self.plan(p, 2.5, masks).isEmpty)
     }
 
     @Test func shortSlicesAreDropped() {
         let (p, c) = Self.oneClip()
-        // 0.23 s inner blank: 0.23 − 0.14 − 0.06 = 0.03 s < 40 ms → nothing removed
-        let masks = [c.mediaID!: Self.mask(10, [(0, 5), (5.23, 10)])]
+        // 0.13 s inner blank: 0.13 − 0.05 − 0.05 = 0.03 s < 40 ms → nothing removed
+        let masks = [c.mediaID!: Self.mask(10, [(0, 5), (5.13, 10)])]
         #expect(plan(p, 0.1, masks).isEmpty)
-        let masks2 = [c.mediaID!: Self.mask(10, [(0, 5), (5.25, 10)])]
-        #expect(Self.near(plan(p, 0.1, masks2).slices(for: c.id), [(5.14, 5.19)]))
+        let masks2 = [c.mediaID!: Self.mask(10, [(0, 5), (5.15, 10)])]
+        #expect(Self.near(plan(p, 0.1, masks2).slices(for: c.id), [(5.05, 5.10)]))
     }
 
     @Test func speedTwiceMapsSourceToTimeline() throws {
@@ -81,7 +88,7 @@ import Foundation
         #expect(abs(c2.duration.seconds - 5) < 0.001)
         let masks = [c.mediaID!: Self.mask(10, [(0, 2), (4, 6), (8, 10)])]
         // source gaps [2,4] and [6,8] → timeline [1,2] and [3,4]
-        #expect(Self.near(plan(p, 0.5, masks).slices(for: c.id), [(1.14, 1.94), (3.14, 3.94)]))
+        #expect(Self.near(plan(p, 0.5, masks).slices(for: c.id), [(1.05, 1.95), (3.05, 3.95)]))
     }
 
     @Test func reversedClipMirrorsTheMask() {
@@ -89,14 +96,14 @@ import Foundation
         p.timeline[clip: c.id]?.reversed = true
         let masks = [c.mediaID!: Self.mask(10, [(0, 7), (8, 10)])]
         // source gap [7,8] plays at timeline [2,3]
-        #expect(Self.near(plan(p, 0.5, masks).slices(for: c.id), [(2.14, 2.94)]))
+        #expect(Self.near(plan(p, 0.5, masks).slices(for: c.id), [(2.05, 2.95)]))
     }
 
     @Test func trimmedClipUsesItsSourceRange() {
         var (p, c) = Self.oneClip(seconds: 4)
         p.timeline[clip: c.id]?.sourceStart = Time(3)   // plays source 3 … 7
         let masks = [c.mediaID!: Self.mask(10, [(0, 4), (5.5, 10)])]
-        #expect(Self.near(plan(p, 0.5, masks).slices(for: c.id), [(1.14, 2.44)]))
+        #expect(Self.near(plan(p, 0.5, masks).slices(for: c.id), [(1.05, 2.45)]))
     }
 
     @Test func mutedRangeByVolumeKeyframeIsBlank() {
@@ -107,7 +114,7 @@ import Foundation
         p.timeline[clip: c.id]?.keyframes[ParamKey.volume.raw] = kf
         let masks = [c.mediaID!: Self.mask(10, [(0, 10)])]   // talking all along
         let s = plan(p, 0.5, masks).slices(for: c.id)
-        #expect(Self.near(s, [(4.15, 5.94)], tol: 0.02), "\(s)")
+        #expect(Self.near(s, [(4.06, 5.95)], tol: 0.02), "\(s)")
         // whole clip at 0 volume or muted: nothing heard = no speech = untouched
         p.timeline[clip: c.id]?.keyframes = [:]
         p.timeline[clip: c.id]?.audio.volume = 0.005
@@ -124,7 +131,7 @@ import Foundation
         p.timeline[clip: c.id]?.audio.fadeIn = Time(1)       // under −40 dB for the first 0.5 s
         let masks = [c.mediaID!: Self.mask(10, [(0, 10)])]
         let s = plan(p, 0.3, masks).slices(for: c.id)
-        #expect(Self.near(s, [(0, 0.44), (8.14, 10)], tol: 0.02), "\(s)")
+        #expect(Self.near(s, [(0, 0.45), (8.05, 10)], tol: 0.02), "\(s)")
         // uniform volume changes don't matter (detection is relative per media)
         p.timeline[clip: c.id]?.audio.fadeOut = .zero
         p.timeline[clip: c.id]?.audio.fadeIn = .zero
@@ -177,7 +184,7 @@ import Foundation
         #expect(QuickCut.targets(p, selection: [c.id]) == targets)
         let masks = [c.mediaID!: Self.mask(10, [(0, 2), (4, 6), (8, 10)])]
         let plan = QuickCut.plan(p, targets: targets, maxBlank: 0.5, masks: masks)
-        #expect(Self.near(plan.slices(for: c.id), [(2.14, 3.94), (6.14, 7.94)]))
+        #expect(Self.near(plan.slices(for: c.id), [(2.05, 3.95), (6.05, 7.95)]))
         #expect(plan.slices(for: audioID) == plan.slices(for: c.id))
         // muting the extracted audio instead: nothing heard any more → untouched
         var q = p
@@ -189,7 +196,7 @@ import Foundation
         let video = p.timeline.mainTrack!.clips
         let audio = p.timeline.tracks.first { $0.kind == .audio }!.clips
         #expect(video.count == 3 && audio.count == 3)
-        #expect(abs(p.timeline.mainTrack!.end.seconds - (10 - 3.6)) < 0.01)
+        #expect(abs(p.timeline.mainTrack!.end.seconds - (10 - 3.8)) < 0.01)
         for (v, a) in zip(video, audio) {
             #expect(v.start == a.start && v.duration == a.duration && v.sourceStart == a.sourceStart)
             #expect(a.linkedTo == v.id)
@@ -208,13 +215,13 @@ import Foundation
         // speech = the words; pause 1.1 … 2.0 s and the tail after 6.5 s
         let masks = [mid: Self.mask(10, words.map { (Double($0.start), Double($0.end)) })]
         let plan = plan(p, 0.5, masks)
-        #expect(Self.near(plan.slices(for: ids[0]), [(1.24, 1.94), (6.64, 8)]), "\(plan.slices(for: ids[0]))")
+        #expect(Self.near(plan.slices(for: ids[0]), [(1.15, 1.95), (6.55, 8)]), "\(plan.slices(for: ids[0]))")
         let startOf = { (p: Project) in SpeechCaptions.captions(in: p.timeline).first { CaptionOps.text($0)?.string.hasPrefix("Aujourd") == true }!.start.seconds }
         let before = startOf(p)
         try QuickCut.apply(plan, to: &p)
         ok(p)
         #expect(abs(p.timeline.mainTrack!.end.seconds - (8 - plan.removed.seconds)) < 0.01)
-        #expect(abs(startOf(p) - (before - 0.7)) < 0.02)   // captions moved with the cut
+        #expect(abs(startOf(p) - (before - 0.8)) < 0.02)   // captions moved with the cut
         #expect(SpeechCaptions.captions(in: p.timeline).allSatisfy { $0.end.seconds <= p.timeline.mainTrack!.end.seconds + 0.01 })
     }
 
@@ -230,8 +237,8 @@ import Foundation
         try TimelineOps.insert(b, into: &p, target: .track(track))
         let masks = [vo.id: Self.mask(30, [(0, 3), (5, 10)]), later.id: Self.mask(30, [(0, 0.2), (2, 30)])]
         let plan = plan(p, 0.5, masks, selection: [a.id, b.id])
-        #expect(Self.near(plan.slices(for: a.id), [(4.14, 5.94)]))
-        #expect(Self.near(plan.slices(for: b.id), [(12.34, 13.94)]))
+        #expect(Self.near(plan.slices(for: a.id), [(4.05, 5.95)]))
+        #expect(Self.near(plan.slices(for: b.id), [(12.25, 13.95)]))
         let mainBefore = p.timeline.mainTrack!.clips
         try QuickCut.apply(plan, to: &p)
         ok(p)
@@ -239,8 +246,8 @@ import Foundation
         #expect(clips.count == 4)
         // pieces of `a` packed from its start, `b` too; nothing moves outside the footprints, main track untouched
         #expect(abs(clips[0].start.seconds - 1) < 0.001 && abs(clips[1].start.seconds - clips[0].end.seconds) < 0.001)
-        #expect(abs(clips[1].end.seconds - (11 - 1.8)) < 0.011)
-        #expect(abs(clips[1].sourceStart.seconds - 4.94) < 0.011)   // the second piece plays from after the blank
+        #expect(abs(clips[1].end.seconds - (11 - 1.9)) < 0.011)
+        #expect(abs(clips[1].sourceStart.seconds - 4.95) < 0.011)   // the second piece plays from after the blank
         #expect(abs(clips[2].start.seconds - 12) < 0.001 && abs(clips[3].start.seconds - clips[2].end.seconds) < 0.001)
         #expect(p.timeline.mainTrack!.clips == mainBefore)
     }
@@ -255,13 +262,13 @@ import Foundation
         try TimelineOps.insert(after, into: &p, target: .track(tt))
         let masks = [c.mediaID!: Self.mask(10, [(0, 2), (5, 10)])]
         let plan = plan(p, 0.5, masks)
-        #expect(Self.near(plan.slices(for: c.id), [(2.14, 4.94)]))
+        #expect(Self.near(plan.slices(for: c.id), [(2.05, 4.95)]))
         try QuickCut.apply(plan, to: &p)
         ok(p)
         let t = try #require(p.timeline.clip(title.id))
-        #expect(abs(t.start.seconds - 2.14) < 0.01)   // at the cut point
+        #expect(abs(t.start.seconds - 2.05) < 0.01)   // at the cut point
         #expect(t.linkedTo != nil)
-        #expect(abs(p.timeline.clip(after.id)!.start.seconds - (7 - 2.8)) < 0.01)   // followed its main piece
+        #expect(abs(p.timeline.clip(after.id)!.start.seconds - (7 - 2.9)) < 0.01)   // followed its main piece
     }
 
     @Test func applyIsOneUndoStep() throws {

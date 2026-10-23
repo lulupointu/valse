@@ -43,9 +43,12 @@ public struct QuickCutPlan: Sendable, Equatable {
 /// Quick cut (TL-048, docs/QUICK_CUT.md): removes the blanks of audio / video clips from a per-media speech mask.
 /// Pure (no I/O): `targets` → `plan` (fast, every slider change) → `apply` (one edit, `ApplyQuickCut`).
 public enum QuickCut {
-    /// Handles kept around speech (s): before the next speech / after the previous one (§4 "Per clip").
-    public static let handleBefore = 0.06
-    public static let handleAfter = 0.14
+    /// Handles kept around speech (s): before the next speech / after the previous one (§4 "Per clip"). Owner decision
+    /// 2026-10-23: symmetric, a cut pause plays as 0.1 s (0.05 s after the end of the speech + 0.05 s before the next).
+    /// The detector's speech runs already include word tails (hysteresis on the decay, attached unvoiced runs), so the
+    /// end handle needs no extra length (the former 0.14 s left an audible blank after each cut).
+    public static let handleBefore = 0.05
+    public static let handleAfter = 0.05
     /// Slices shorter than this are not removed.
     public static let minimumSlice = 0.04
     /// Effective gain at or below this (−40 dB) is inaudible: blank.
