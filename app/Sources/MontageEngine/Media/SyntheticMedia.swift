@@ -92,19 +92,28 @@ public enum SyntheticMedia {
         let frames = max(1, Int((seconds * Double(fps)).rounded()))
         let w = Int(size.width), h = Int(size.height)
 
-        let box = UncheckedSendable((vIn, adaptor, aIn, writer))
+        // Our own pool, not `adaptor.pixelBufferPool`: the writer owns that one and tears it down on its own queue when
+        // its encoder fails (a loaded machine), so a frame being allocated from it at that moment dereferenced a
+        // destroyed pool (FLAKY-UI2: SIGSEGV in CVPixelBufferPool::createPixelBuffer building the demo media). The
+        // adaptor takes any IOSurface-backed BGRA buffer.
+        var ownPool: CVPixelBufferPool?
+        CVPixelBufferPoolCreate(nil, nil, [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey as String: Int(size.width), kCVPixelBufferHeightKey as String: Int(size.height),
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary, &ownPool)
+        guard let ownPool else { throw NSError(domain: "Montage", code: 61) }
+        let box = UncheckedSendable((vIn, adaptor, aIn, writer, ownPool))
         try await withThrowingTaskGroup(of: Void.self) { g in
             g.addTask {
-                let (vIn, adaptor, _, writer) = box.value
+                let (vIn, adaptor, _, writer, pool) = box.value
                 for f in 0..<frames {
                     try await waitUntilReady(vIn, writer)
-                    guard let pool = adaptor.pixelBufferPool else { throw NSError(domain: "Montage", code: 61) }
                     var pbOut: CVPixelBuffer?
                     let rc = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut)
                     if pbOut == nil {
-                        // The pool stops vending buffers when the writer's encoder failed (a loaded machine: UI tests
-                        // flaked with a bare "Code=62" building the demo media): report the writer's error. Otherwise
-                        // (transient IOSurface pressure) a standalone buffer is just as good for the adaptor.
+                        // The writer's encoder failed (a loaded machine: UI tests flaked with a bare "Code=62" building
+                        // the demo media): report the writer's error. Otherwise (transient IOSurface pressure) a
+                        // standalone buffer is just as good for the adaptor.
                         if writer.status == .failed || writer.status == .cancelled { throw writer.error ?? NSError(domain: "Montage", code: 68) }
                         CVPixelBufferCreate(nil, w, h, kCVPixelFormatType_32BGRA,
                                             [kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary, &pbOut)
@@ -122,7 +131,7 @@ public enum SyntheticMedia {
             }
             if let hz = audioHz {
                 g.addTask {
-                    let (_, _, aIn, writer) = box.value
+                    let (_, _, aIn, writer, _) = box.value
                     guard let aIn else { return }
                     let total = Int(seconds * 48000)
                     var pos = 0

@@ -16,8 +16,11 @@
     {"click": "id:relight.preset.object"},
     {"expect": {"path": "undo.name", "equals": "cmd.relight"}},
     {"snapshot": "relight-model-player", "element": "id:panel.player"},
-    {"scroll": "id:inspector.section.video.relight", "dx": 0, "dy": 3000},
-    {"click": "id:relight.top", "at": [0.02, 0.5], "offset": [0, -22]},
+    // untick through the checkbox's own id (scrolled into view, located again when the press is dispatched): the old
+    // wheel scroll + offset click 22 pt above `relight.top` was aimed from frames read before the scroll had settled and
+    // missed the checkbox under load (FLAKY-UI2)
+    {"click": "id:inspector.check.video.relight"},
+    {"waitFor": {"path": "undo.depth", "equals": 3, "timeout": 30}},
     {"expect": {"path": "ui.anchors", "notContains": "relight.preset.facial"}}
   ]
 }

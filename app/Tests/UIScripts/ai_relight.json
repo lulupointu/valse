@@ -26,8 +26,9 @@
     {"expect": {"path": "ui.anchors", "contains": "relight.light.2"}},
     {"key": "cmd+z"},
     {"expect": {"path": "ui.anchors", "notContains": "relight.light.2"}},
-    {"scroll": "id:inspector.section.video.relight", "dx": 0, "dy": 3000},
-    {"click": "id:relight.top", "at": [0.02, 0.5], "offset": [0, -22]},
+    // untick through the checkbox's own id (exact delivery; the old wheel scroll + offset click above `relight.top`
+    // could miss under load, FLAKY-UI2)
+    {"click": "id:inspector.check.video.relight"},
     {"expect": {"path": "ui.anchors", "notContains": "relight.preset.facial"}}
   ]
 }
