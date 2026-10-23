@@ -259,10 +259,14 @@ does not hold and none of the progress signals changed for that long — `ui.job
 can return before the layout its state change causes: the target's frame would be stale) and the target (`id:`,
 `clip:`) is awaited until it resolves, ≤ 10 s; the quiescence check also renders the window (SwiftUI hit-tests
 against what it last drew); an `id:` click is delivered exactly (UITestDriver `ClickProbe`) — when NSWindow
-dispatches the press, the window is laid out and drawn and the element located again, and the press / release go to
-where it is then (`click_retargets` in report.json when it moved after resolution: checking the frame only after
-dispatch gave false "landed outside" misses for AppKit targets such as `id:timeline` and under load); an element not
-on screen at that moment gets nothing and is clicked again when it is (`click_redeliveries`, ≤ 3; a dispatched press is
+dispatches the press, the window is laid out and drawn and the element located again, and every event of the click
+is delivered at that point (a posted NSEvent sometimes reaches the window with another location than it was created
+with: `click_event_relocated`, FLAKY-UI3); when the element's position differs from the point the driver aimed at,
+the layout is in flux and either reading may be the transient one, so nothing is dispatched and the click is
+redelivered once the UI settled; only the last attempt goes to where it is then (`click_retargets` in report.json; checking the
+frame only after dispatch gave false "landed outside" misses for AppKit targets such as `id:timeline` and under load);
+an element not on screen (or with a degenerate frame) at that moment gets nothing and is clicked again when it is
+(`click_redeliveries`, ≤ 3; a dispatched press is
 never repeated, an element rebuilt between press and release is a warning, `click_release_anomalies`); a `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
 it matches it, ≤ 30 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`, a hang bound; a real difference fails with the last diff, and so does a match
 that never renders the same twice). A script FAILS when an export pass stalled (`Exporter.stallRestarts` moved).

@@ -75,12 +75,15 @@ holds, but `{"click": "id:x"}` works. Wait for something the element's appearanc
   ≤ 30 s (a hang bound, `MONTAGE_UITEST_SNAPSHOT_LIMIT`); a real difference fails with the last diff, and so does a
   view that never renders the same twice (something keeps animating / reloading).
 - `id:` clicks are delivered exactly (SwiftUI `.testID` and AppKit `setAccessibilityIdentifier` targets alike): when
-  the press is dispatched the window is laid out and drawn and the element located again, and the click goes where it
-  is THEN (`click_retargets` when it had moved since resolution); an element not on screen at that moment gets nothing
+  the press is dispatched the window is laid out and drawn and the element located again, and press + release go
+  exactly there (a posted event that arrives elsewhere is put back: `click_event_relocated`); if it moved since
+  resolution (layout in flux) nothing is dispatched and it is clicked again once the UI settled, only the last attempt
+  goes where it is THEN (`click_retargets`); an element not on screen at that moment gets nothing
   and is clicked again once it is (`click_redeliveries`, ≤ 3 attempts); a dispatched press is never repeated; an
   element rebuilt between press and release counts in `click_release_anomalies`. uitest.sh prints `⚠ click warning`
   for all three: not gating, but the target moved / was rebuilt under the click. `offset` clicks are sent as written.
-  Driver self-test: `MONTAGE_UITEST_INJECT_CLICK_SKEW=0,40` / `MONTAGE_UITEST_INJECT_CLICK_VANISH=1` (scripts must pass).
+  Driver self-test: `MONTAGE_UITEST_INJECT_CLICK_SKEW=0,40` / `MONTAGE_UITEST_INJECT_CLICK_VANISH=1` /
+  `MONTAGE_UITEST_INJECT_AX_NO_WINDOWS=1` (a11yAudit with an empty AXWindows) (scripts must pass).
 - `waitFor` reads the same state as `expect` (`project.*` paths included).
 - Transition / effect thumbnails render asynchronously: before a snapshot of the transitions tab
   `{"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0}}` (on-screen tiles whose still is not rendered yet).

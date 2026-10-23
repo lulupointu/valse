@@ -59,8 +59,9 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
 ## UI test driver
 - Keys while a text field edits go straight to the window, bypassing the app key monitor: fields needing ↑ ↓ Return Esc
   handle them in the field (`control(_:textView:doCommandBy:)`, `SwitcherSearchField` in MontageUI/Home/ProjectSwitcher.swift).
-- `a11yAudit`: the offscreen window's real AX tree is often empty under load → in-process fallback misses SwiftUI names;
-  the step re-reads for ~6 s (UITestDriver.swift, Testing/AccessibilityAuditAX.swift). Audit with the step, never by
+- `a11yAudit`: AppKit leaves windows off the active Space out of AXWindows ("AXWindows empty" → in-process fallback,
+  which misses SwiftUI Menu names: FLAKY-UI3). The test window joins all Spaces and `UITestApplication` lists the
+  visible windows when AppKit's list is empty; the step re-reads ≤ 12 s (UITestDriver.swift, Testing/AccessibilityAuditAX.swift). Audit with the step, never by
   walking NSView accessibility children (SwiftUI builds its AX tree only for real AX clients).
 - Text clip editor (MontageUI/Text/RichTextEditor.swift): typing is ONE gesture `cmd.text` (each keystroke updates it);
   it is committed to undo only after 900 ms without typing, or when editing ends. A script that types then checks

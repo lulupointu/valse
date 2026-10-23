@@ -5,6 +5,27 @@ import MontageEffects
 import MontageEngine
 import MontageAI
 
+/// UI test process only (FLAKY-UI3): the app's accessibility window list never comes back empty while the test window
+/// is up. AppKit leaves windows that are off the active Space out of AXWindows; the `a11yAudit` step then saw no
+/// window and fell back to the in-process walk, which misses SwiftUI's Menu names ("unlabeled AXMenuButton" ×4).
+/// `MONTAGE_UITEST_INJECT_AX_NO_WINDOWS=1` (driver self-test) drops AppKit's own list so this fallback is exercised.
+final class UITestApplication: NSApplication {
+    @MainActor static func install() {
+        guard let app = NSApp, type(of: app) == NSApplication.self else { return }
+        object_setClass(app, UITestApplication.self)
+    }
+    /// Times AppKit's own list was empty and the visible windows were listed instead (a11y.json `windowListFallbacks`).
+    @MainActor static var fallbacks = 0
+    override func accessibilityWindows() -> [Any]? {
+        var list = UITestDriver.injectAXNoWindows ? [] : (super.accessibilityWindows() ?? [])
+        if list.isEmpty {
+            list = windows.filter { $0.isVisible && !($0 is NSPanel) }
+            MainActor.assumeIsolated { Self.fallbacks += 1 }
+        }
+        return list
+    }
+}
+
 /// The UI test window: never activated, placed far off every screen, so tests can't cover or steal input from the
 /// user's apps. It reports itself as key so first clicks are not swallowed and controls render in their active state.
 public final class UITestWindow: NSWindow {
@@ -199,6 +220,10 @@ public final class UITestDriver {
                              styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                              backing: .buffered, defer: false)
         w.setFrameOrigin(UITestWindow.offscreenOrigin)
+        // FLAKY-UI3: on every Space, so a Space switch on the shared machine during a run never takes the window off the
+        // active Space (AppKit then leaves it out of the app's AXWindows: the a11yAudit fell back to the in-process walk)
+        w.collectionBehavior.insert(.canJoinAllSpaces)
+        UITestApplication.install()
         SyntheticEvents.testWindow = w
         return w
     }
@@ -478,8 +503,10 @@ public final class UITestDriver {
             if itemPath != nil { TimelineView.uitestMenuSink = { captured = $0 }; DropdownMenu.uitestMenuSink = { captured = $0 } }
             defer { if itemPath != nil { TimelineView.uitestMenuSink = nil; DropdownMenu.uitestMenuSink = nil } }
             // Exact delivery (`id:` targets, ClickProbe): when the press is dispatched, the window is laid out and drawn
-            // and the element located again; the click goes to where it is THEN (`click_retargets` in report.json when
-            // it moved since it was resolved). If it is not on screen at that moment, nothing is dispatched (provably
+            // and the element located again. If it moved since it was resolved (layout in flux: either reading may be
+            // the transient one, FLAKY-UI3), nothing is dispatched and it is clicked again once the UI settled; only the
+            // last attempt goes to where it is THEN (`click_retargets` in report.json). If it is not on screen at that
+            // moment, nothing is dispatched (provably
             // not delivered): wait for it and click again (`click_redeliveries`, ≤ 3 attempts). A dispatched press is
             // never repeated; an element rebuilt between press and release is reported (`click_release_anomalies`).
             // An `offset` click deliberately lands beside the element: it is dispatched where the script says, never
@@ -497,15 +524,25 @@ public final class UITestDriver {
                 // fault injection (driver self-test): a stale resolved point / an element missing at dispatch
                 let skew = targetID != nil ? Self.injectClickSkew : nil
                 let vanish = attempt == 1 && Self.injectClickVanish
+                let aim = skew.map { CGPoint(x: point.x + $0.dx, y: point.y - $0.dy) } ?? point
                 let probe = targetID.map { id in
-                    ClickProbe(id: id, expected: count, onView: onView) { [self] in vanish ? nil : try? resolve(t, step) }
+                    ClickProbe(id: id, expected: count, lastAttempt: attempt == 3, onView: onView, aim: aim, window: window) { [self] in
+                        vanish ? nil : try? resolve(t, step)
+                    }
                 }
                 UITestWindow.clickProbe = probe
-                let aim = skew.map { CGPoint(x: point.x + $0.dx, y: point.y - $0.dy) } ?? point
                 SyntheticEvents.click(at: aim, in: window, modifiers: mods, count: count, right: right)
                 try await idle(settle: settle)
                 UITestWindow.clickProbe = nil
                 guard let probe else { break }
+                for r in probe.relocated {
+                    metrics["click_event_relocated", default: 0] += 1
+                    warnings.append("click \(t): \(r); delivered at the element")
+                }
+                for r in probe.foreign {
+                    metrics["click_foreign_events", default: 0] += 1
+                    warnings.append("click \(t): a mouse event it did not post reached the window: \(r); dropped")
+                }
                 if let r = probe.retarget {
                     // not a failure: the press went where the element is at dispatch (report.json `click_retargets`)
                     metrics["click_retargets", default: 0] += 1
@@ -673,6 +710,8 @@ public final class UITestDriver {
             // the real AX API (what VoiceOver uses) from a background thread while the main thread serves it
             // `"element": "id:x"` audits only that element's subtree (P1: the project switcher popover)
             let scope = (step["element"] as? String).map { $0.hasPrefix("id:") ? String($0.dropFirst(3)) : $0 }
+            // FLAKY-UI3: "AXWindows empty" (the window was off the active Space) → the in-process fallback, which misses
+            // SwiftUI's Menu names: the test window is on all Spaces and `UITestApplication` never lists no window
             var ax = AccessibilityAuditAX.run(scope: scope)   // in-process AX requests are served on the calling (main) thread
             // Under load the AX read can come back empty (→ the in-process fallback, which misses SwiftUI's names) or
             // before SwiftUI filled lazy names (Menu buttons). Re-read until clean, ≤ 2 × `expectLimit` (a hang bound,
@@ -688,7 +727,13 @@ public final class UITestDriver {
                 d = ["checked": ax.checked, "unlabeled": ax.unlabeled, "roles": ax.roles, "source": "AXUIElement"]
             } else {
                 d = AccessibilityAudit.dump(window, scope: scope); d["source"] = "in-process"; d["axError"] = ax.error ?? "empty"
+                // why the real AX read failed (FLAKY-UI3): the test window's Space / visibility as AppKit sees them
+                d["windows"] = NSApp.windows.map { w in
+                    ["visible": w.isVisible, "activeSpace": w.isOnActiveSpace, "occlusion": w.occlusionState.rawValue,
+                     "class": String(describing: type(of: w))] as [String: Any]
+                }
             }
+            if UITestApplication.fallbacks > 0 { d["windowListFallbacks"] = UITestApplication.fallbacks }
             StateDump.write(d, to: out.appendingPathComponent("\(name).a11y.json"))
             let bad = (d["unlabeled"] as? [String]) ?? []
             log("      a11y \(name): \(d["checked"] ?? 0) elements checked, \(bad.count) unlabeled")
@@ -733,6 +778,9 @@ public final class UITestDriver {
         return p.count == 2 ? CGVector(dx: p[0], dy: p[1]) : nil
     }()
     static let injectClickVanish = ProcessInfo.processInfo.environment["MONTAGE_UITEST_INJECT_CLICK_VANISH"] == "1"
+    /// Driver self-test for `a11yAudit` (FLAKY-UI3): `MONTAGE_UITEST_INJECT_AX_NO_WINDOWS=1` drops AppKit's own
+    /// accessibility window list (as for a test window off the active Space); audits must still read the real AX tree.
+    static let injectAXNoWindows = ProcessInfo.processInfo.environment["MONTAGE_UITEST_INJECT_AX_NO_WINDOWS"] == "1"
 
     /// Absolute bound of one `waitFor` whose progress signals keep changing (a sanity net, not a speed budget).
     static let waitCeiling = envSeconds("MONTAGE_UITEST_WAIT_CEILING", 1800)
@@ -1542,13 +1590,29 @@ public enum StressProject {
 /// hit-tests), the target is located again (`locate` = the driver's `resolve`) and the press, its release and a double
 /// click's second pair are dispatched THERE. An element that is not on screen at that moment gets nothing (the events
 /// are dropped): provably not delivered, so the driver may click again. A dispatched press is never repeated.
+///
+/// FLAKY-UI3: (1) "moved" used to compare the element with the EVENT's location, and a posted NSEvent sometimes
+/// reaches `sendEvent` with another `locationInWindow` than it was created with (inspector_masks_speed: aimed 300,193,
+/// press at -5556,-5640, same window / frame; ai_tts_style's −46 pt "move" of `inspector.tab.tts` and
+/// f4_se_a11y_editor's 1343 pt one were the same thing). The old fix-up added the press's error to the release, which
+/// arrived uncorrupted, so the release landed 46 pt beside the tab: no click, the tab stayed Text. Now the element is
+/// compared with the point the driver AIMED at, and every event of the click is delivered at the element's located
+/// point (relocations are reported: `click_event_relocated`). (2) A real move between resolution and dispatch means
+/// the layout is in flux and either reading may be transient: the press is dropped (nothing delivered), the driver
+/// waits for the UI to settle, resolves again and re-clicks; only the last attempt goes to the position at dispatch.
 @MainActor
 final class ClickProbe {
     let id: String
     let expected: Int
+    /// The driver's last attempt: a moved element is pressed where it is at dispatch instead of being dropped.
+    let lastAttempt: Bool
+    /// The element's TestAnchors frame when the click was resolved (nil for timeline targets / AppKit views).
+    private let resolvedFrame: CGRect?
     private let locate: () -> CGPoint?
-    /// Offset applied to every event of the click (fresh position − resolved point), fixed at the first press.
-    private var delta: CGVector?
+    /// Where every event of the click is delivered (the element's position at the first press).
+    private var target: CGPoint?
+    /// Events that reached the window somewhere else than where they were posted (report.json warnings).
+    private(set) var relocated: [String] = []
     private var dropped: String?
     private var owners: [UUID?] = []
     private var presses = 0, releases = 0
@@ -1559,15 +1623,41 @@ final class ClickProbe {
     /// (an overlay, a view not laid out yet) = provably not delivered: dropped, clicked again once it is clear.
     private weak var onView: NSView?
 
-    init(id: String, expected: Int, onView: NSView? = nil, locate: @escaping () -> CGPoint?) {
-        self.id = id; self.expected = expected; self.onView = onView; self.locate = locate
+    /// The aimed point and the window frame when the click was resolved (diagnostics of a moved target).
+    private let aim: CGPoint?
+    private let windowFrame: CGRect?
+
+    init(id: String, expected: Int, lastAttempt: Bool = true, onView: NSView? = nil, aim: CGPoint? = nil, window: NSWindow? = nil,
+         locate: @escaping () -> CGPoint?) {
+        self.id = id; self.expected = expected; self.lastAttempt = lastAttempt; self.onView = onView; self.locate = locate
+        self.aim = aim; windowFrame = window?.frame
+        resolvedFrame = TestAnchors.shared.frame(id)
+        firstEventNumber = SyntheticEvents.eventNumber + 1
+    }
+
+    /// The click's own presses carry event numbers firstEventNumber ..< firstEventNumber + expected (SyntheticEvents
+    /// numbers each press; its release shares the number).
+    private let firstEventNumber: Int
+    /// Mouse button events that reached the window during this click but were not posted by it (dropped, reported).
+    private(set) var foreign: [String] = []
+
+    private static func describe(_ r: CGRect?) -> String {
+        r.map { String(format: "(%.1f, %.1f, %.1f×%.1f)", $0.minX, $0.minY, $0.width, $0.height) } ?? "-"
     }
 
     /// The event to dispatch instead of `e` (nil = drop it).
     func filter(_ e: NSEvent, in window: NSWindow) -> NSEvent? {
         if dropped != nil { return nil }
         let down = e.type == .leftMouseDown || e.type == .rightMouseDown
-        if delta == nil {
+        guard (firstEventNumber..<(firstEventNumber + expected)).contains(e.eventNumber) else {
+            // posted by the driver while handling this click (the slider emulation re-posts its release): as is
+            if e.eventNumber >= firstEventNumber, e.eventNumber <= SyntheticEvents.eventNumber { return e }
+            // not one of this click's events (a real or stale event): never delivered to the test window
+            foreign.append(String(format: "%@ #%d at %.0f,%.0f (click #%d)", down ? "press" : "release", e.eventNumber,
+                                  e.locationInWindow.x, e.locationInWindow.y, firstEventNumber))
+            return nil
+        }
+        if target == nil {
             guard down else { return e }
             window.contentView?.layoutSubtreeIfNeeded()
             window.displayIfNeeded()   // render the layout: SwiftUI hit-tests against the last rendered frame
@@ -1586,16 +1676,38 @@ final class ClickProbe {
                     return nil
                 }
             }
-            let d = CGVector(dx: p.x - e.locationInWindow.x, dy: p.y - e.locationInWindow.y)
-            delta = d
-            if abs(d.dx) > 0.5 || abs(d.dy) > 0.5 {
-                retarget = String(format: "moved %.1f, %.1f pt between resolution and dispatch", d.dx, -d.dy)
+            let frame = TestAnchors.shared.frame(id)
+            if let f = frame, f.width < 1 || f.height < 1 {
+                dropped = "the element's frame was degenerate at dispatch (\(Self.describe(f)); nothing was delivered)"
+                return nil
             }
+            // the element moved: compare with the point the driver aimed at (not the event's location, see above)
+            let from = aim ?? e.locationInWindow
+            let d = CGVector(dx: p.x - from.x, dy: p.y - from.y)
+            if abs(d.dx) > 0.5 || abs(d.dy) > 0.5 {
+                let moved = String(format: "moved %.1f, %.1f pt between resolution and dispatch", d.dx, -d.dy)
+                    + " (frame \(Self.describe(resolvedFrame)) → \(Self.describe(frame)))"
+                guard lastAttempt else {
+                    dropped = "the element \(moved): layout in flux, nothing was delivered"
+                    return nil
+                }
+                retarget = moved
+            }
+            target = p
         }
         if down { presses += 1 } else { releases += 1 }
         owners.append(TestAnchors.shared.owner(id))
-        guard retarget != nil, let d = delta else { return e }
-        let p = CGPoint(x: e.locationInWindow.x + d.dx, y: e.locationInWindow.y + d.dy)
+        guard let p = target else { return e }
+        let at = e.locationInWindow
+        if abs(at.x - p.x) <= 0.5, abs(at.y - p.y) <= 0.5 { return e }
+        // (written so that a non-finite location — seen too, it crashed an Int() conversion — counts as relocated)
+        if let aim, !(abs(at.x - aim.x) <= 0.5 && abs(at.y - aim.y) <= 0.5) {
+            // the event did not arrive where it was posted (FLAKY-UI3: inspector_masks_speed aimed 300,193, the press
+            // arrived at -5556,-5640 in the same window): every event of the click goes to the located point
+            relocated.append(String(format: "%@ #%d at %.0f,%.0f instead of %.0f,%.0f (last synthetic #%d; window %@ → %@)",
+                                    down ? "press" : "release", e.eventNumber, at.x, at.y, aim.x, aim.y, SyntheticEvents.eventNumber,
+                                    Self.describe(windowFrame), Self.describe(window.frame)))
+        }
         guard let moved = NSEvent.mouseEvent(with: e.type, location: p, modifierFlags: e.modifierFlags, timestamp: e.timestamp,
                                              windowNumber: e.windowNumber, context: nil, eventNumber: e.eventNumber,
                                              clickCount: e.clickCount, pressure: e.pressure) else { return e }

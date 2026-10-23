@@ -8,7 +8,8 @@ import MontageEngine
 /// and other apps are never touched.
 @MainActor
 enum SyntheticEvents {
-    nonisolated(unsafe) private static var eventNumber = 1000
+    /// Event number of the last synthetic press / move (ClickProbe diagnostics).
+    nonisolated(unsafe) private(set) static var eventNumber = 1000
     private static var clock = ProcessInfo.processInfo.systemUptime
 
     private static func timestamp() -> TimeInterval {
