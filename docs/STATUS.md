@@ -306,6 +306,16 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   assets_media_tab star: hovered + cursor cards shared one ID → media.card.<i>.favorite/.add; keyboardTab nil at star
   press (AssetPanelFocus mouse-down monitor?, app unfixed) → script hovers first. Also flaky seen: f4_se_a11y_editor
   (a11yAudit unlabeled), ai_tts_style (retargeted click): fix task FLAKY-UI3.
+- 2026-10-23 batch-qcfix7 FLAKY-UI3. f4_se_a11y_editor (confirmed): every failure had axError "AXWindows empty"
+  (NSApplication.accessibilityWindows() returned nothing, likely window off the active Space) → in-process fallback
+  walk misses SwiftUI Menu names (4 AXMenuButtons "unlabeled"). Fix: test window .canJoinAllSpaces + UITestApplication
+  lists visible non-panel windows when AppKit's list is empty; a11y.json records window state / windowListFallbacks.
+  Open, not reproduced: one older real-AX failure with 20 asset.tile.montage.effect.* AXButtons lacking help/children
+  for 12 s (LibraryTile LazyVGrid cell). ai_tts_style (confirmed): posted NSEvents sometimes reach sendEvent at another
+  (even non-finite) location; the old re-aim added the press error to the release → release 46 pt off. ClickProbe now
+  delivers press + release at the located element, redelivers on real moves, drops stale / non-synthetic mouse events
+  (metrics click_event_relocated, click_foreign_events). Also flaky: player_click_select_keys (batch-qcfix6 gate),
+  ExportFormatTests.hdrToneMappedToSDR, ai_camera_custom_box (batch-qcfix5 gate).
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
