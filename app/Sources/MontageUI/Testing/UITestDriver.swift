@@ -535,6 +535,14 @@ public final class UITestDriver {
                 try await idle(settle: settle)
                 UITestWindow.clickProbe = nil
                 guard let probe else { break }
+                for r in probe.relocated {
+                    metrics["click_event_relocated", default: 0] += 1
+                    warnings.append("click \(t): \(r); delivered at the element")
+                }
+                for r in probe.foreign {
+                    metrics["click_foreign_events", default: 0] += 1
+                    warnings.append("click \(t): a mouse event it did not post reached the window: \(r); dropped")
+                }
                 if let r = probe.retarget {
                     // not a failure: the press went where the element is at dispatch (report.json `click_retargets`)
                     metrics["click_retargets", default: 0] += 1
@@ -1583,12 +1591,15 @@ public enum StressProject {
 /// click's second pair are dispatched THERE. An element that is not on screen at that moment gets nothing (the events
 /// are dropped): provably not delivered, so the driver may click again. A dispatched press is never repeated.
 ///
-/// FLAKY-UI3: an element whose position at dispatch differs from the resolved one means the layout is in flux, and
-/// either reading can be the transient one (ai_tts_style: `inspector.tab.tts` read 46 pt left of where it settled at
-/// dispatch → the press hit the gap before the label and the tab never switched; f4_se_a11y_editor: the resolved
-/// `inspector.tab.animation` frame was 1343 pt off). So a press is dispatched only where resolution and dispatch
-/// agree: a mismatch drops the click (nothing delivered), the driver waits for the UI to settle, resolves again and
-/// re-clicks. Only the last attempt still goes to the position at dispatch (an element that never stops moving).
+/// FLAKY-UI3: (1) "moved" used to compare the element with the EVENT's location, and a posted NSEvent sometimes
+/// reaches `sendEvent` with another `locationInWindow` than it was created with (inspector_masks_speed: aimed 300,193,
+/// press at -5556,-5640, same window / frame; ai_tts_style's −46 pt "move" of `inspector.tab.tts` and
+/// f4_se_a11y_editor's 1343 pt one were the same thing). The old fix-up added the press's error to the release, which
+/// arrived uncorrupted, so the release landed 46 pt beside the tab: no click, the tab stayed Text. Now the element is
+/// compared with the point the driver AIMED at, and every event of the click is delivered at the element's located
+/// point (relocations are reported: `click_event_relocated`). (2) A real move between resolution and dispatch means
+/// the layout is in flux and either reading may be transient: the press is dropped (nothing delivered), the driver
+/// waits for the UI to settle, resolves again and re-clicks; only the last attempt goes to the position at dispatch.
 @MainActor
 final class ClickProbe {
     let id: String
@@ -1598,8 +1609,10 @@ final class ClickProbe {
     /// The element's TestAnchors frame when the click was resolved (nil for timeline targets / AppKit views).
     private let resolvedFrame: CGRect?
     private let locate: () -> CGPoint?
-    /// Offset applied to every event of the click (fresh position − resolved point), fixed at the first press.
-    private var delta: CGVector?
+    /// Where every event of the click is delivered (the element's position at the first press).
+    private var target: CGPoint?
+    /// Events that reached the window somewhere else than where they were posted (report.json warnings).
+    private(set) var relocated: [String] = []
     private var dropped: String?
     private var owners: [UUID?] = []
     private var presses = 0, releases = 0
@@ -1619,7 +1632,14 @@ final class ClickProbe {
         self.id = id; self.expected = expected; self.lastAttempt = lastAttempt; self.onView = onView; self.locate = locate
         self.aim = aim; windowFrame = window?.frame
         resolvedFrame = TestAnchors.shared.frame(id)
+        firstEventNumber = SyntheticEvents.eventNumber + 1
     }
+
+    /// The click's own presses carry event numbers firstEventNumber ..< firstEventNumber + expected (SyntheticEvents
+    /// numbers each press; its release shares the number).
+    private let firstEventNumber: Int
+    /// Mouse button events that reached the window during this click but were not posted by it (dropped, reported).
+    private(set) var foreign: [String] = []
 
     private static func describe(_ r: CGRect?) -> String {
         r.map { String(format: "(%.1f, %.1f, %.1f×%.1f)", $0.minX, $0.minY, $0.width, $0.height) } ?? "-"
@@ -1629,7 +1649,13 @@ final class ClickProbe {
     func filter(_ e: NSEvent, in window: NSWindow) -> NSEvent? {
         if dropped != nil { return nil }
         let down = e.type == .leftMouseDown || e.type == .rightMouseDown
-        if delta == nil {
+        guard (firstEventNumber..<(firstEventNumber + expected)).contains(e.eventNumber) else {
+            // not one of this click's events (a real or stale event): never delivered to the test window
+            foreign.append(String(format: "%@ #%d at %.0f,%.0f (click #%d)", down ? "press" : "release", e.eventNumber,
+                                  e.locationInWindow.x, e.locationInWindow.y, firstEventNumber))
+            return nil
+        }
+        if target == nil {
             guard down else { return e }
             window.contentView?.layoutSubtreeIfNeeded()
             window.displayIfNeeded()   // render the layout: SwiftUI hit-tests against the last rendered frame
@@ -1653,24 +1679,33 @@ final class ClickProbe {
                 dropped = "the element's frame was degenerate at dispatch (\(Self.describe(f)); nothing was delivered)"
                 return nil
             }
-            let d = CGVector(dx: p.x - e.locationInWindow.x, dy: p.y - e.locationInWindow.y)
+            // the element moved: compare with the point the driver aimed at (not the event's location, see above)
+            let from = aim ?? e.locationInWindow
+            let d = CGVector(dx: p.x - from.x, dy: p.y - from.y)
             if abs(d.dx) > 0.5 || abs(d.dy) > 0.5 {
                 let moved = String(format: "moved %.1f, %.1f pt between resolution and dispatch", d.dx, -d.dy)
-                    + " (frame \(Self.describe(resolvedFrame)) → \(Self.describe(frame)); aimed \(aim.map { "\(Int($0.x)),\(Int($0.y))" } ?? "-"),"
-                    + " event at \(Int(e.locationInWindow.x)),\(Int(e.locationInWindow.y)), element at \(Int(p.x)),\(Int(p.y)); window"
-                    + " \(Self.describe(windowFrame)) → \(Self.describe(window.frame)), event window \(e.windowNumber) / \(window.windowNumber))"
+                    + " (frame \(Self.describe(resolvedFrame)) → \(Self.describe(frame)))"
                 guard lastAttempt else {
                     dropped = "the element \(moved): layout in flux, nothing was delivered"
                     return nil
                 }
                 retarget = moved
             }
-            delta = d
+            target = p
         }
         if down { presses += 1 } else { releases += 1 }
         owners.append(TestAnchors.shared.owner(id))
-        guard retarget != nil, let d = delta else { return e }
-        let p = CGPoint(x: e.locationInWindow.x + d.dx, y: e.locationInWindow.y + d.dy)
+        guard let p = target else { return e }
+        let at = e.locationInWindow
+        if abs(at.x - p.x) <= 0.5, abs(at.y - p.y) <= 0.5 { return e }
+        // (written so that a non-finite location — seen too, it crashed an Int() conversion — counts as relocated)
+        if let aim, !(abs(at.x - aim.x) <= 0.5 && abs(at.y - aim.y) <= 0.5) {
+            // the event did not arrive where it was posted (FLAKY-UI3: inspector_masks_speed aimed 300,193, the press
+            // arrived at -5556,-5640 in the same window): every event of the click goes to the located point
+            relocated.append(String(format: "%@ #%d at %.0f,%.0f instead of %.0f,%.0f (last synthetic #%d; window %@ → %@)",
+                                    down ? "press" : "release", e.eventNumber, at.x, at.y, aim.x, aim.y, SyntheticEvents.eventNumber,
+                                    Self.describe(windowFrame), Self.describe(window.frame)))
+        }
         guard let moved = NSEvent.mouseEvent(with: e.type, location: p, modifierFlags: e.modifierFlags, timestamp: e.timestamp,
                                              windowNumber: e.windowNumber, context: nil, eventNumber: e.eventNumber,
                                              clickCount: e.clickCount, pressure: e.pressure) else { return e }

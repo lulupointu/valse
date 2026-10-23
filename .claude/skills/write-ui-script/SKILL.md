@@ -75,7 +75,8 @@ holds, but `{"click": "id:x"}` works. Wait for something the element's appearanc
   ≤ 30 s (a hang bound, `MONTAGE_UITEST_SNAPSHOT_LIMIT`); a real difference fails with the last diff, and so does a
   view that never renders the same twice (something keeps animating / reloading).
 - `id:` clicks are delivered exactly (SwiftUI `.testID` and AppKit `setAccessibilityIdentifier` targets alike): when
-  the press is dispatched the window is laid out and drawn and the element located again; if it moved since
+  the press is dispatched the window is laid out and drawn and the element located again, and press + release go
+  exactly there (a posted event that arrives elsewhere is put back: `click_event_relocated`); if it moved since
   resolution (layout in flux) nothing is dispatched and it is clicked again once the UI settled, only the last attempt
   goes where it is THEN (`click_retargets`); an element not on screen at that moment gets nothing
   and is clicked again once it is (`click_redeliveries`, ≤ 3 attempts); a dispatched press is never repeated; an
