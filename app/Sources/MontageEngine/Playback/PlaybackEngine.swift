@@ -190,6 +190,7 @@ public final class PlaybackEngine {
         for s in RenderCache.shared.validSegments(project, size: size) { h.combine(s.key) }
         let key = h.finalize()
         if force || key != structureKey {
+            if key != structureKey { audioTapsDisabled = false }   // new structure: live audio taps again (see watchClock)
             structureKey = key
             renderSize = size
             rebuild(project, debounce: !force)
@@ -249,12 +250,14 @@ public final class PlaybackEngine {
     private func rebuild(_ project: Project, debounce: Bool) {
         buildTask?.cancel()
         let size = renderSize, chooser = sourceChooser, state = self.state, audioState = self.audioState
+        let mixes = mixesAudioFormatsForTesting, taps = !audioTapsDisabled
         isBuilding = true
         buildTask = Task { [weak self] in
             do {
                 if debounce { try await Task.sleep(for: .milliseconds(40)) }
                 let built = try await CompositionBuilder.build(project: project, purpose: .preview, renderSize: size,
-                                                               state: state, audioState: audioState, sources: chooser)
+                                                               state: state, audioState: audioState, mixesAudioFormats: mixes,
+                                                               audioTaps: taps, sources: chooser)
                 guard !Task.isCancelled else { return }
                 self?.isBuilding = false
                 self?.lastBuildError = nil
@@ -286,7 +289,7 @@ public final class PlaybackEngine {
         player.replaceCurrentItem(with: item)
         state.clearRecent()
         onItemReplaced?()
-        lastShownTime = .invalid; stallWatch = nil
+        lastShownTime = .invalid; stallWatch = nil; clockWatch = nil
         seekInFlight = false
         pendingSeek = nil
         let rate = resumeRate ?? (player.rate != 0 ? player.rate : 1)
@@ -503,6 +506,7 @@ public final class PlaybackEngine {
     public func pixelBuffer(forHostTime host: CFTimeInterval) -> (CVPixelBuffer, Time)? {
         guard let out = videoOutput else { return nil }
         let itemTime = out.itemTime(forHostTime: host)
+        watchClock(itemTime, host: host)
         guard out.hasNewPixelBuffer(forItemTime: itemTime) else { watchForStall(itemTime); return nil }
         var shown = CMTime.invalid
         guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { watchForStall(itemTime); return nil }
@@ -561,6 +565,39 @@ public final class PlaybackEngine {
         futilePrimes += 1
         stallRecoveries += 1
         performSeek(t, exact: true)
+    }
+
+    // MARK: Frozen clock (PB-QC)
+
+    /// Item time and display host time when the item clock last moved while playing (nil = not watching).
+    private var clockWatch: (item: CMTime, host: CFTimeInterval)?
+    /// Times the engine replaced a player item whose clock had stopped while playing (diagnostics / tests).
+    public private(set) var clockRebuilds = 0
+    /// Wall-clock seconds the item clock may stand still at rate > 0, "playing", before the item is replaced.
+    static let frozenClockSeconds = 1.5
+    /// Tests only: build with the pre-PB-QC audio lane layout (formats mixed on a lane) to exercise the recovery.
+    var mixesAudioFormatsForTesting = false
+
+    /// Preview builds without the lanes' processing taps (live EQ / voice colour / channel edits not heard) after the
+    /// clock froze; cleared by the next structural change.
+    public private(set) var audioTapsDisabled = false
+
+    /// The item clock follows the audio device: it only stands still while playing when the audio render chain is
+    /// wedged (PB-QC: a lane's processing tap left unprepared after a seek — sound gone, then play did nothing, and no
+    /// seek brought it back). Nothing inside the item recovers from that, and the same composition wedges again, so
+    /// the item is rebuilt at the same time WITHOUT the audio taps (the wedge needs a tap; install keeps playing).
+    /// Wall time is fine here: a loaded machine slows decoding, never the audio clock.
+    private func watchClock(_ itemTime: CMTime, host: CFTimeInterval) {
+        guard player.rate > 0, player.timeControlStatus == .playing, !seekInFlight, resumeRate == nil, reverseShuttleRate == 0,
+              !isBuilding, itemTime.isValid, project.duration.seconds - itemTime.seconds > 0.25 else { clockWatch = nil; return }
+        guard let w = clockWatch, w.item == itemTime else { clockWatch = (itemTime, host); return }
+        guard host - w.host >= Self.frozenClockSeconds else { return }
+        clockWatch = nil
+        clockRebuilds += 1
+        audioTapsDisabled = true
+        EngineLog.error("playback clock frozen at \(String(format: "%.2f", itemTime.seconds)) s while playing: rebuilding the player item without audio taps")
+        requestedTime = Time(cmTime: itemTime).clamped(.zero, max(project.duration, .zero))
+        forceRebuild()
     }
 
     /// Re-renders the frame at the playhead from the last decoded sources with the LATEST project (paused edits).
