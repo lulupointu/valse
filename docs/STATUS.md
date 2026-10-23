@@ -297,7 +297,7 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   was an offset click after a wheel scroll (offset clicks never re-aimed) → id:inspector.check.video.relight.
   assets_media_tab star: hovered + cursor cards shared one ID → media.card.<i>.favorite/.add; keyboardTab nil at star
   press (AssetPanelFocus mouse-down monitor?, app unfixed) → script hovers first. Also flaky seen: f4_se_a11y_editor
-  (a11yAudit unlabeled), ai_tts_style (retargeted click), timeline_quick_cut step 36 (time:0.5@ruler click no seek).
+  (a11yAudit unlabeled), ai_tts_style (retargeted click): fix task FLAKY-UI3.
 
 ## Decisions log
 - 2026-10-22 Owner removed features (batch-fb1): transcript-based editing (AI-019 / TL-042, FB-01), Auto captions "Identify
