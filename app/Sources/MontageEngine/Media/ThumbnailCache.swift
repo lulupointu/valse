@@ -7,6 +7,10 @@ import MontageCore
 /// Thumbnails for the media bin and timeline filmstrips. Two levels: memory (NSCache, cost-bounded) and disk (JPEG in
 /// ~/Library/Caches/Montage/thumbs/<hash>/). Times are quantized so filmstrips at any zoom reuse tiles.
 /// `cached(...)` is synchronous for drawing; `thumbnail(...)` generates asynchronously (off-main, uses proxies when ready).
+/// Same media + same request → same pixels: images are owned 8-bit bitmaps decoded from the cached JPEG bytes (see
+/// `canonical`). The ±quantum/2 time tolerance is kept: for a given file and request AVAssetImageGenerator picks the
+/// same frame regardless of request order, generator reuse or concurrent decoders (measured, FLAKY-THUMB), and it is
+/// ~20 % cheaper than exact-frame decoding.
 public final class ThumbnailCache: @unchecked Sendable {
     public static let shared = ThumbnailCache()
 
@@ -51,14 +55,18 @@ public final class ThumbnailCache: @unchecked Sendable {
         if let img = Self.loadJPEG(file) { store(img, k); return img }
         await semaphore.wait()
         defer { Task { await semaphore.signal() } }
-        let img: CGImage?
+        let raw: CGImage?
         if a.kind == .image || (PlayableMediaCache.shared.needsConversion(a) && a.conversion != .ffmpeg) {
-            img = Self.imageThumb(a.url, height: height)
+            raw = Self.imageThumb(a.url, height: height)
         } else {
             let url = ProxyManager.shared.readyProxyURL(for: a) ?? PlayableMediaCache.shared.resolvedURL(for: a)
-            img = await videoThumb(url, at: Double(q) * Self.quantum, height: height)
+            raw = await videoThumb(url, at: Double(q) * Self.quantum, height: height)
         }
-        if let img { store(img, k); Self.saveJPEG(img, file) }
+        // FLAKY-THUMB: memory gets exactly what a later disk load returns (the decoded JPEG, as a plain bitmap), so a
+        // thumbnail has the same pixels whether this process generated it or found it on disk.
+        guard let raw, let (img, jpeg) = Self.canonical(raw) else { return nil }
+        store(img, k)
+        Self.save(jpeg, file)
         return img
     }
 
@@ -75,7 +83,46 @@ public final class ThumbnailCache: @unchecked Sendable {
             return g
         }
         gen.maximumSize = CGSize(width: height * 4, height: height)
-        return try? await gen.image(at: CMTime(seconds: seconds + Self.quantum / 2, preferredTimescale: 600)).image
+        if let img = try? await gen.image(at: CMTime(seconds: seconds + Self.quantum / 2, preferredTimescale: 600)).image { return img }
+        // No frame in this quantum (the last one of the media: a filmstrip tile at the clip end): the last frame before
+        // it. Without this the request failed, nothing was cached and every timeline redraw generated it again.
+        let tail = AVAssetImageGenerator(asset: gen.asset)
+        tail.appliesPreferredTrackTransform = true
+        tail.requestedTimeToleranceBefore = .positiveInfinity
+        tail.requestedTimeToleranceAfter = .zero
+        tail.maximumSize = gen.maximumSize
+        return try? await tail.image(at: CMTime(seconds: seconds + Self.quantum, preferredTimescale: 600)).image
+    }
+
+    /// Deterministic thumbnail pixels (FLAKY-THUMB). A generated frame (IOSurface-backed, decoder colour) and the same
+    /// thumbnail read back from the JPEG disk cache differed slightly (JPEG quantisation, ringing at sharp edges), and
+    /// which one a card showed depended on cache state. Returns the JPEG bytes to store and the image decoded from them —
+    /// what `loadJPEG` returns for that file. Cost: one extra 8-bit decode + copy of a thumbnail-sized image (< 1 ms
+    /// at 512 × 288).
+    static func canonical(_ img: CGImage) -> (CGImage, Data)? {
+        let data = NSMutableData()
+        guard let d = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(d, img, [kCGImageDestinationLossyCompressionQuality: 0.75] as CFDictionary)
+        guard CGImageDestinationFinalize(d), let src = CGImageSourceCreateWithData(data, nil),
+              let decoded = decode(src) else { return nil }
+        return (decoded, data as Data)
+    }
+
+    /// The JPEG at `src` decoded now into a plain CPU bitmap (8-bit RGB, the file's colour space): never a lazily decoded
+    /// ImageIO image, which a renderer may decode at a reduced size depending on how it is drawn.
+    static func decode(_ src: CGImageSource) -> CGImage? {
+        guard let img = CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { return nil }
+        return flatten(img)
+    }
+
+    /// `img` copied into an owned 8-bit RGBX bitmap in its own RGB colour space (sRGB otherwise).
+    public static func flatten(_ img: CGImage) -> CGImage? {
+        let cs = img.colorSpace.flatMap { $0.model == .rgb ? $0 : nil } ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let ctx = CGContext(data: nil, width: img.width, height: img.height, bitsPerComponent: 8, bytesPerRow: 0, space: cs,
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .none
+        ctx.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
+        return ctx.makeImage()
     }
 
     static func imageThumb(_ url: URL, height: Int) -> CGImage? {
@@ -86,15 +133,14 @@ public final class ThumbnailCache: @unchecked Sendable {
     }
 
     static func loadJPEG(_ url: URL) -> CGImage? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(src, 0, nil)
+        guard let data = try? Data(contentsOf: url), let src = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        return decode(src)
     }
 
-    static func saveJPEG(_ img: CGImage, _ url: URL) {
+    /// Atomic: a reader never sees a half-written file (it would decode a truncated, partly grey thumbnail).
+    static func save(_ jpeg: Data, _ url: URL) {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        guard let d = CGImageDestinationCreateWithURL(url as CFURL, "public.jpeg" as CFString, 1, nil) else { return }
-        CGImageDestinationAddImage(d, img, [kCGImageDestinationLossyCompressionQuality: 0.75] as CFDictionary)
-        CGImageDestinationFinalize(d)
+        try? jpeg.write(to: url, options: .atomic)
     }
 
     public func clearMemory() { memory.removeAllObjects() }
