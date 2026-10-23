@@ -52,6 +52,30 @@ import MontageTestSupport
         return (0..<n).map { k in b[k] / r * rms * (0.5 - 0.5 * cosf(2 * .pi * Float(k) / Float(n))) }
     }
 
+    /// Noise through `sections` (biquads), scaled to `rms`, Hann envelope when `hann`.
+    static func filteredNoise(_ seconds: Double, rms: Float, _ sections: [Biquad2], hann: Bool, rng: inout RNG) -> [Float] {
+        let n = Int(seconds * Double(sr))
+        var b = (0..<n).map { _ in rng.gauss() }
+        for var s in sections { b.withUnsafeMutableBufferPointer { p in s.run(p.baseAddress!, p.baseAddress!, n) } }
+        let r = sqrtf(b.reduce(0) { $0 + $1 * $1 } / Float(n))
+        return (0..<n).map { k in b[k] / r * rms * (hann ? 0.5 - 0.5 * cosf(2 * .pi * Float(k) / Float(n)) : 1) }
+    }
+
+    /// An /s/: noise above 4 kHz.
+    static func sibilant(_ seconds: Double, rms: Float, rng: inout RNG) -> [Float] {
+        let d = Double(sr)
+        return filteredNoise(seconds, rms: rms, [.highPass(4000, sampleRate: d), .highPass(4000, sampleRate: d)], hann: false, rng: &rng)
+    }
+
+    /// An exhale after a phrase as measured on the owner's iPhone rushes: broadband hiss (1 … 6 kHz, as much energy
+    /// above 4 kHz as below), Hann envelope.
+    static func exhale(_ seconds: Double, rms: Float, rng: inout RNG) -> [Float] {
+        let d = Double(sr)
+        return filteredNoise(seconds, rms: rms, [.highPass(1000, sampleRate: d), .lowPass(6000, sampleRate: d)], hann: true, rng: &rng)
+    }
+
+    static func rms(_ x: ArraySlice<Float>) -> Float { sqrtf(x.reduce(0) { $0 + $1 * $1 } / Float(max(1, x.count))) }
+
     /// Adds `x` at `seconds` into `into`.
     static func mix(_ x: [Float], at seconds: Double, into s: inout [Float]) {
         let o = Int(seconds * Double(sr))
@@ -142,7 +166,7 @@ import MontageTestSupport
         var rng = RNG(s: 3)
         var s = Self.noise(6, rms: 0.0005, rng: &rng)
         Self.mix(Self.voiced(1, amp: 0.2, rng: &rng), at: 1, into: &s)
-        Self.mix(Self.noise(0.06, rms: 0.05, rng: &rng), at: 2.08, into: &s)   // "s" right after the word
+        Self.mix(Self.sibilant(0.06, rms: 0.05, rng: &rng), at: 2.08, into: &s)   // "s" right after the word
         Self.mix(Self.noise(0.03, rms: 0.05, rng: &rng), at: 3.0, into: &s)    // isolated hiss (< 80 ms)
         Self.mix(Self.noise(0.3, rms: 0.08, rng: &rng), at: 4.5, into: &s)     // loud unvoiced noise, 300 ms
         let m = QuickCutDetector.mask(samples: s)
@@ -151,37 +175,73 @@ import MontageTestSupport
         #expect(Self.speechFraction(m, 4.55, 4.75) > 0.9)
     }
 
-    /// TL-048-fix2 (owner's "1018 (1)" iPhone rushes): words end with a 200–300 ms decay that sinks from speech level to
-    /// the room floor (−78 dB), onsets are abrupt. The end of speech is decided by the same level as the onset
-    /// (`edgeDrop` under the full-band peak), so the time kept after that crossing matches the time kept before the
-    /// next onset (the former detector kept ≈ 0.1 s more at the end: hysteresis followed the decay to the floor).
-    @Test func decayingTailEndsLikeTheOnset() {
+    /// TL-048-fix3, the owner's "1018 (1)" iPhone rushes (heard: the voice stops at 25:25, the slice started at 26:03):
+    /// a word ends with a reverberant decay (−150 dB/s down to the room floor) and, 50 ms after the decay crossed
+    /// 25 dB under the voice, an exhale (120 ms of broadband hiss 20 dB under the voice). The end of speech is where
+    /// the decay crosses the edge level, the same level that places the next onset; the exhale is not speech. Before
+    /// the fix the run went on to the end of the hiss (≈ 0.2 s more kept after speech than before it).
+    @Test func reverberantTailAndExhaleEndLikeTheOnset() {
         var rng = RNG(s: 21)
         var s = Self.noise(6, rms: 0.00012, rng: &rng)
         var word = Self.voiced(1.2, amp: 0.2, rng: &rng)
+        let voiceRMS = Self.rms(word[0..<Int(0.8 * Double(Self.sr))])
         // exponential decay over the last 300 ms: −150 dB/s, like the measured word endings
         let dn = Int(0.3 * Double(Self.sr))
         for k in 0..<dn { word[word.count - dn + k] *= powf(10, -150 * Float(k) / Float(Self.sr) / 20) }
         Self.mix(word, at: 1, into: &s)
         Self.mix(Self.voiced(1.2, amp: 0.2, rng: &rng), at: 3.5, into: &s)   // abrupt onset at 3.5 s
+        var d0 = QuickCutDetector()
+        d0.feed(s)
+        let f0 = d0.finishFeatures()
+        let lvl = QuickCutDetector.percentile(f0.full, 0.97) - QuickCutDetector.edgeDrop
+        let crossing = (100..<300).last { f0.full[$0] >= lvl }! + 1   // first frame of the decay under the edge level
+        // peak ≈ 19 dB under the voice's p97 (the voice's mean is ≈ 5 dB under its p97)
+        Self.mix(Self.exhale(0.12, rms: voiceRMS * 0.2, rng: &rng), at: Double(crossing) / 100 + 0.05, into: &s)
         var d = QuickCutDetector()
         d.feed(s)
         let f = d.finishFeatures()
-        let m = QuickCutDetector.mask(f)
-        let runs = m.speechRuns
+        let mask = QuickCutDetector.mask(f)
+        let runs = mask.speechRuns
         #expect(runs.count == 2, "\(runs)")
         guard runs.count == 2 else { return }
-        let lvl = QuickCutDetector.percentile(f.full, 0.97) - QuickCutDetector.edgeDrop
-        // last frame above the edge level before the pause, first one after it
-        let lastAbove = (0..<runs[0].upperBound + 50).last { f.full[$0] >= lvl && $0 < 300 }!
-        let firstAbove = (300..<f.full.count).first { f.full[$0] >= lvl }!
-        let keptAfter = runs[0].upperBound - (lastAbove + 1), keptBefore = firstAbove - runs[1].lowerBound
-        #expect(keptAfter >= 0 && keptAfter <= 1, "end of speech \(runs[0].upperBound) vs crossing \(lastAbove + 1)")
-        #expect(keptBefore >= 0 && keptBefore <= 1, "onset \(runs[1].lowerBound) vs crossing \(firstAbove)")
+        let onset = (300..<f.full.count).first { f.full[$0] >= lvl }!
+        #expect(abs(runs[0].upperBound - crossing) <= 1, "end of speech \(runs[0].upperBound) vs decay crossing \(crossing)")
+        #expect(abs(runs[1].lowerBound - onset) <= 1, "onset \(runs[1].lowerBound) vs crossing \(onset)")
         #expect(abs(runs[1].lowerBound - 350) <= 2)
-        // the old criterion (no edge) ends ≥ 80 ms later, in the decay
-        let old = QuickCutDetector.mask(f, edgeDrop: 1000).speechRuns
-        #expect(old.count == 2 && old[0].upperBound - runs[0].upperBound >= 8, "\(old)")
+        // the exhale is audible (well above the floor) but is not speech
+        let hiss = (crossing + 5)..<(crossing + 17)
+        #expect(((crossing + 8)..<(crossing + 14)).allSatisfy { f.full[$0] > lvl },
+                "the exhale's middle is above the edge level: \(((crossing + 8)..<(crossing + 14)).map { f.full[$0] - lvl })")
+        #expect(Self.speechFraction(mask, Double(hiss.lowerBound) / 100, Double(hiss.upperBound) / 100) == 0)
+        // at fix2's level (35 dB under the peak) the decay's end and the exhale read as speech: ≥ 150 ms more kept
+        let old = QuickCutDetector.mask(f, edgeDrop: 35).speechRuns
+        #expect(old.count == 2 && old[0].upperBound - runs[0].upperBound >= 15, "\(old)")
+    }
+
+    /// The same edge rule never drops a consonant: a burst + aspiration before the vowel (dip between them), a final /s/
+    /// after a closure (dip, then noise above 4 kHz), an /s/ the detection band misses; a breath after the last word
+    /// (500 … 2500 Hz noise, 20 dB under the voice) is dropped.
+    @Test func consonantsAroundTheVoiceStayBreathsGo() {
+        var rng = RNG(s: 4)
+        var s = Self.noise(9, rms: 0.0002, rng: &rng)
+        let w1 = Self.voiced(0.8, amp: 0.2, rng: &rng)
+        let v = Self.rms(w1[...])
+        // 1: stop burst (20 ms, −14 dB) at 0.98, 50 ms quiet aspiration, vowel at 1.05 … 1.85, closure 60 ms, final /s/
+        Self.mix(Self.noise(0.02, rms: v * 0.2, rng: &rng), at: 0.98, into: &s)
+        Self.mix(Self.noise(0.05, rms: v * 0.01, rng: &rng), at: 1.0, into: &s)
+        Self.mix(w1, at: 1.05, into: &s)
+        Self.mix(Self.sibilant(0.12, rms: v * 0.08, rng: &rng), at: 1.91, into: &s)
+        // 2: a word followed (60 ms later) by a breath
+        Self.mix(Self.voiced(0.8, amp: 0.2, rng: &rng), at: 4, into: &s)
+        Self.mix(Self.breath(0.3, rms: v * 0.1 * 1.6, rng: &rng), at: 4.86, into: &s)
+        // 3: a word ending in a quiet, long /s/ (−26 dB) right after the voice
+        Self.mix(Self.voiced(0.8, amp: 0.2, rng: &rng), at: 6.5, into: &s)
+        Self.mix(Self.sibilant(0.15, rms: v * 0.05, rng: &rng), at: 7.3, into: &s)
+        let m = QuickCutDetector.mask(samples: s)
+        #expect(Self.speechFraction(m, 0.98, 1.0) == 1, "burst before the vowel")
+        #expect(Self.speechFraction(m, 1.93, 2.02) == 1, "final /s/ after a closure")
+        #expect(Self.speechFraction(m, 4.92, 5.1) == 0, "breath after the word")
+        #expect(Self.speechFraction(m, 7.31, 7.43) == 1, "quiet final /s/")
     }
 
     /// Feeding in arbitrary chunks gives exactly the whole-signal result.

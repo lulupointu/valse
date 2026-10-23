@@ -21,17 +21,22 @@ public struct QuickCutDetector: Sendable {
     static let vmin = 4
 
     /// Per-frame features (exposed for tests): band energy (dB), voicing (0 … 1, 0 where not computed) and full-band
-    /// energy (dB, same 25 ms window: decides the speech edges, fricatives above 4 kHz included).
+    /// energy (dB, same 25 ms window: decides the speech edges, fricatives above 4 kHz included) and energy above
+    /// 4 kHz (dB, same window: tells a fricative /s/ from a breath or an exhale). `high` empty = not computed.
     public struct Features: Sendable {
         public var energy: [Float]
         public var voicing: [Float]
         public var full: [Float]
+        public var high: [Float] = []
     }
 
     private let filter = BandFilter()      // 150 Hz HP + 4 kHz LP (vDSP biquad cascade, keeps its state)
+    private let highFilter = BandFilter.high()
     private var total = 0                  // samples fed
     private var band: [Float] = []         // band signal, band[0] = sample `bandBase`
     private var raw: [Float] = []          // input signal, same indexing as `band`
+    private var hp: [Float] = []           // input above 4 kHz, same indexing as `band`
+    private var high: [Float] = []
     private var bandBase = 0
     private var dec: [Float] = []          // 8 kHz decimated band, dec[0] = sample `decBase`
     private var decBase = 0
@@ -52,6 +57,8 @@ public struct QuickCutDetector: Sendable {
         band.append(contentsOf: repeatElement(0, count: x.count))
         band.withUnsafeMutableBufferPointer { b in filter.run(src, b.baseAddress! + start, x.count) }
         raw.append(contentsOf: x)
+        hp.append(contentsOf: repeatElement(0, count: x.count))
+        hp.withUnsafeMutableBufferPointer { h in highFilter.run(src, h.baseAddress! + start, x.count) }
         total += x.count
         decimate()
         process(final: false)
@@ -62,7 +69,7 @@ public struct QuickCutDetector: Sendable {
     /// Features of everything fed (call once, at the end).
     public mutating func finishFeatures() -> Features {
         process(final: true)
-        return Features(energy: energy, voicing: voicing, full: full)
+        return Features(energy: energy, voicing: voicing, full: full, high: high)
     }
 
     /// The speech mask of everything fed.
@@ -101,16 +108,20 @@ public struct QuickCutDetector: Sendable {
         // energy: frame i uses band[a ..< a + 400], a = max(0, i·160 − 120)
         band.withUnsafeBufferPointer { b in
             raw.withUnsafeBufferPointer { r in
-                while energy.count < n {
-                    let i = energy.count
-                    let a = max(0, i * Self.hop + Self.hop / 2 - Self.window / 2)
-                    let e = min(total, a + Self.window)
-                    if !final && a + Self.window > total { break }
-                    var ms: Float = 0, mf: Float = 0
-                    vDSP_measqv(b.baseAddress! + (a - bandBase), 1, &ms, vDSP_Length(e - a))
-                    vDSP_measqv(r.baseAddress! + (a - bandBase), 1, &mf, vDSP_Length(e - a))
-                    energy.append(20 * log10f(max(sqrtf(ms), 1e-6)))
-                    full.append(20 * log10f(max(sqrtf(mf), 1e-6)))
+                hp.withUnsafeBufferPointer { h in
+                    while energy.count < n {
+                        let i = energy.count
+                        let a = max(0, i * Self.hop + Self.hop / 2 - Self.window / 2)
+                        let e = min(total, a + Self.window)
+                        if !final && a + Self.window > total { break }
+                        var ms: Float = 0, mf: Float = 0, mh: Float = 0
+                        vDSP_measqv(b.baseAddress! + (a - bandBase), 1, &ms, vDSP_Length(e - a))
+                        vDSP_measqv(r.baseAddress! + (a - bandBase), 1, &mf, vDSP_Length(e - a))
+                        vDSP_measqv(h.baseAddress! + (a - bandBase), 1, &mh, vDSP_Length(e - a))
+                        energy.append(20 * log10f(max(sqrtf(ms), 1e-6)))
+                        full.append(20 * log10f(max(sqrtf(mf), 1e-6)))
+                        high.append(20 * log10f(max(sqrtf(mh), 1e-6)))
+                    }
                 }
             }
         }
@@ -136,7 +147,8 @@ public struct QuickCutDetector: Sendable {
         let keepBand = max(0, nextE * Self.hop + Self.hop / 2 - Self.window / 2)
         let keepBandFrom = min(keepBand, 2 * decCount)   // samples not yet decimated stay too
         if keepBandFrom - bandBase > 1 << 15 {
-            band.removeFirst(keepBandFrom - bandBase); raw.removeFirst(keepBandFrom - bandBase); bandBase = keepBandFrom
+            band.removeFirst(keepBandFrom - bandBase); raw.removeFirst(keepBandFrom - bandBase); hp.removeFirst(keepBandFrom - bandBase)
+            bandBase = keepBandFrom
         }
         let nextV = voicing.count
         let keepDec = max(0, nextV * Self.hop / 2 + Self.hop / 4 - Self.vWindow / 2)
@@ -178,12 +190,21 @@ public struct QuickCutDetector: Sendable {
         return s[min(s.count - 1, Int(Float(s.count - 1) * p))]
     }
 
-    /// Speech edges (dB): a run's leading / trailing frames whose full-band energy is more than this far below the
-    /// media's full-band speech peak (p97) are not speech (TL-048-fix2, docs/QUICK_CUT.md §4 step 7). One level for the
-    /// onset and the end of speech: onsets rise through it within a frame, but a word's decay (and the room's reverb)
-    /// takes 200–300 ms to sink from there to the detection threshold, which used to be kept as a blank before every
-    /// cut. 35 dB: no audible speech cut on the bench corpus (30 dB started clipping word endings).
-    static let edgeDrop: Float = 35
+    /// Speech edges (dB under the speaker's level, full band): where speech starts and ends, the same level on both
+    /// sides (TL-048-fix3, docs/QUICK_CUT.md §4 step 7). On the owner's iPhone rushes the voice is heard to stop where
+    /// the word's decay crosses ≈ 20–25 dB under the speaker's level; the former 35 dB (fix2) also kept the decay's
+    /// last 30–60 ms and, worse, the exhale that follows most phrases (≈ 100–160 ms of hiss ≈ 20 dB under the voice,
+    /// after a dip), so ≈ 0.2 s more was kept after speech than before it.
+    static let edgeDrop: Float = 25
+    /// Mean energy above 4 kHz minus detection-band energy (dB, unvoiced frames) above which a segment is sibilant
+    /// (/s/, /z/ devoiced) and stays speech even when a dip separates it from the voice ("…ste", "st…") or the
+    /// detection band misses it. Measured on the owner's rushes: /s/ +6 … +9 dB, exhales after a phrase −5 … +3.5 dB.
+    static let sibilance: Float = 5
+    /// A fricative is quieter than vowels: its frames count from `sibilantMargin` dB under the edge level.
+    static let sibilantMargin: Float = 6
+    /// Dips under the edge level this short (frames) don't end the voice's decay (flutter); the exhale after a phrase
+    /// is cut off from the voice by a dip of ≥ 50 ms.
+    static let bridge = 3
 
     public static func mask(_ f: Features) -> QuickCutMask { mask(f, edgeDrop: edgeDrop) }
 
@@ -233,21 +254,89 @@ public struct QuickCutDetector: Sendable {
         }
         var m = [Bool](repeating: false, count: n)
         var any = false
-        // edges: the same level decides where speech starts and ends (`edgeDrop` below the media's full-band speech
-        // peak, so fricatives above the detection band count). A speech run entirely below it (a quiet speaker in a
-        // loud media) is kept whole; an attached unvoiced run below it is inaudible and dropped.
+        // Speech edges (TL-048-fix3, docs/QUICK_CUT.md §4 step 7): ONE audibility level for the start and the end,
+        // `edgeDrop` under the speaker's level (the media's full-band p97, or the run's own peak when quieter).
+        // Speech starts at the run's first frame above it and ends where the last voiced frame's decay sinks under it.
+        // Unvoiced sound cut off from the voice by a dip below the level after the last word (an exhale) is not
+        // speech unless it is sibilant (a final /s/).
         let fe = f.full.count == n ? f.full : e
-        let edge = percentile(fe, 0.97) - edgeDrop
-        for (r, keep, attached) in runs where keep {
-            var a = r.lowerBound, b = r.upperBound
-            while a < b && fe[a] < edge { a += 1 }
-            while b > a && fe[b - 1] < edge { b -= 1 }
-            if a == b {
-                if attached { continue }
-                a = r.lowerBound; b = r.upperBound
+        let mediaLevel = percentile(fe, 0.97)
+        let hf = f.high.count == n ? f.high : [Float](repeating: -200, count: n)   // no high band: nothing is sibilant
+        func sibilant(_ s: Range<Int>, _ lvl: Float) -> Range<Int>? {
+            var lo = Int.max, hi = Int.min, c = 0
+            var sum: Float = 0
+            for k in s where fe[k] >= lvl - sibilantMargin && f.voicing[k] <= 0.5 {
+                lo = min(lo, k); hi = max(hi, k); sum += hf[k] - e[k]; c += 1
+            }
+            return c >= 3 && sum / Float(c) >= sibilance ? lo..<(hi + 1) : nil
+        }
+        // the unvoiced sound segment starting within 100 ms of `edge` (frames ≥ the fricative level, dips ≤ `bridge`
+        // bridged, ≤ 400 ms, not past `limit`), when sibilant
+        func sibilantNear(_ edge: Int, forward: Bool, limit: Int, _ lvl: Float) -> Range<Int>? {
+            let low = lvl - sibilantMargin, step = forward ? 1 : -1
+            func inside(_ j: Int) -> Bool { forward ? j < limit : j >= limit }
+            var j = forward ? edge : edge - 1
+            var skipped = 0
+            // skip the voice's own decay / attack and the dip (≤ 100 ms) to the first unvoiced frame above the level
+            while inside(j) && skipped < 10 && (fe[j] < low || f.voicing[j] > 0.5) { j += step; skipped += 1 }
+            guard inside(j) && fe[j] >= low && f.voicing[j] <= 0.5 else { return nil }
+            let j0 = j
+            var last = j, gap = 0
+            while inside(j) && abs(j - j0) < 40 {
+                if fe[j] >= low { last = j; gap = 0 } else { gap += 1; if gap > bridge { break } }
+                j += step
+            }
+            return sibilant(forward ? j0..<(last + 1) : last..<(j0 + 1), lvl)
+        }
+        // the level per run: its own peak when quieter than the media's (a quiet speaker); an attached run takes the
+        // level of the speech it is attached to
+        var level = runs.map { run -> Float in
+            var p: Float = -200
+            for i in run.r { p = max(p, fe[i]) }
+            return min(mediaLevel, p) - edgeDrop
+        }
+        for k in runs.indices where runs[k].attached {
+            var l: Float = -200
+            if k > 0 && runs[k - 1].keep && !runs[k - 1].attached { l = max(l, level[k - 1]) }
+            if k + 1 < runs.count && runs[k + 1].keep && !runs[k + 1].attached { l = max(l, level[k + 1]) }
+            level[k] = l > -200 ? l : mediaLevel - edgeDrop
+        }
+        for k in runs.indices where runs[k].keep {
+            let r = runs[k].r
+            let lvl = level[k]
+            var a: Int, b: Int
+            if let c0 = r.first(where: { e[$0] > gate && f.voicing[$0] > 0.5 && fe[$0] >= lvl }),
+               let c1 = r.last(where: { e[$0] > gate && f.voicing[$0] > 0.5 && fe[$0] >= lvl }) {
+                // start: the first audible frame (a consonant's burst, aspiration or fricative is the word's first sound,
+                // even when a closure dips between it and the vowel)
+                a = r[r.lowerBound...c0].first(where: { fe[$0] >= lvl }) ?? c0
+                // end: the voice's decay down to the same level (dips of ≤ `bridge` frames bridged); sound cut off from
+                // it by a longer dip is an exhale unless sibilant (a final /s/)
+                b = c1 + 1
+                grow: while b < r.upperBound {
+                    for j in b..<min(r.upperBound, b + 1 + bridge) where fe[j] >= lvl { b = j + 1; continue grow }
+                    break
+                }
+                // a fricative next to the voice, on either side: its energy is mostly above the detection band, so it
+                // can lie outside the loud run
+                let before = k > 0 ? runs[k - 1].r.upperBound : 0, after = k + 1 < runs.count ? runs[k + 1].r.lowerBound : n
+                if let s = sibilantNear(b, forward: true, limit: after, lvl) { b = s.upperBound }
+                if let s = sibilantNear(a, forward: false, limit: before, lvl) { a = s.lowerBound }
+            } else if runs[k].attached {
+                // an unvoiced run near speech: a consonant before the next voiced run (or between two), or a sibilant
+                // after the last one
+                let next = k + 1 < runs.count && runs[k + 1].keep && runs[k + 1].r.lowerBound - r.upperBound <= 20
+                if next, let lo = r.first(where: { fe[$0] >= lvl }), let hi = r.last(where: { fe[$0] >= lvl }) {
+                    a = lo; b = hi + 1
+                } else if let s = sibilant(r, lvl) { a = s.lowerBound; b = s.upperBound }
+                else { continue }
+            } else {
+                // loud unvoiced run (conservative: kept), trimmed to the level
+                a = r.first(where: { fe[$0] >= lvl }) ?? r.lowerBound
+                b = (r.last(where: { fe[$0] >= lvl }) ?? (r.upperBound - 1)) + 1
             }
             any = true
-            for k in a..<b { m[k] = true }
+            for i in a..<b { m[i] = true }
         }
         return QuickCutMask(speech: m, hasDynamics: any && peak - floor >= 10)
     }
@@ -288,13 +377,23 @@ public struct QuickCutDetector: Sendable {
 /// vDSP biquad cascade whose delay line carries over between chunks.
 final class BandFilter: @unchecked Sendable {
     private let setup: vDSP_biquad_Setup
-    private var delay = [Float](repeating: 0, count: 2 * 2 + 2)
+    private var delay: [Float]
 
-    init() {
+    convenience init() {
         let sr = Double(QuickCutDetector.sampleRate)
-        let c = [Biquad2.highPass(150, sampleRate: sr), Biquad2.lowPass(4000, sampleRate: sr)]
-            .flatMap { [$0.b0, $0.b1, $0.b2, $0.a1, $0.a2].map(Double.init) }
-        setup = vDSP_biquad_CreateSetup(c, 2)!
+        self.init([Biquad2.highPass(150, sampleRate: sr), Biquad2.lowPass(4000, sampleRate: sr)])
+    }
+
+    /// The fricative filter: 4 kHz high-pass, 4th order (TL-048-fix3, `Features.high`).
+    static func high() -> BandFilter {
+        let sr = Double(QuickCutDetector.sampleRate)
+        return BandFilter([Biquad2.highPass(4000, sampleRate: sr), Biquad2.highPass(4000, sampleRate: sr)])
+    }
+
+    init(_ sections: [Biquad2]) {
+        let c = sections.flatMap { [$0.b0, $0.b1, $0.b2, $0.a1, $0.a2].map(Double.init) }
+        setup = vDSP_biquad_CreateSetup(c, vDSP_Length(sections.count))!
+        delay = [Float](repeating: 0, count: 2 * sections.count + 2)
     }
     deinit { vDSP_biquad_DestroySetup(setup) }
 
