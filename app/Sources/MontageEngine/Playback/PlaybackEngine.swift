@@ -372,7 +372,7 @@ public final class PlaybackEngine {
         }
         stopReverseShuttle()
         if player.rate == 0 { primeIfPausedInPlace() }
-        if seekInFlight { resume(atRate: rate) } else { player.rate = rate }
+        if seekInFlight { resume(atRate: rate) } else { seekTarget = player.currentTime(); player.rate = rate }
     }
 
     /// Current shuttle rate (negative = backwards), including the emulated reverse.
@@ -474,10 +474,15 @@ public final class PlaybackEngine {
         seekGeneration &+= 1
         let gen = seekGeneration
         let tol = exact ? CMTime.zero : CMTime(value: 1, timescale: 10)
-        player.seek(to: itemSkip.item(t).cmTime, toleranceBefore: tol, toleranceAfter: tol) { [weak self] _ in
+        let target = itemSkip.item(t).cmTime
+        seekTarget = CMTimeSubtract(target, tol)
+        player.seek(to: target, toleranceBefore: tol, toleranceAfter: tol) { [weak self] _ in
             Task { @MainActor in
                 guard let self, gen == self.seekGeneration else { return }   // superseded (item replaced)
                 self.seekInFlight = false
+                // a tolerant seek can land after its target: frames start where it landed
+                let landed = self.player.currentTime()
+                if landed.isValid, CMTimeCompare(landed, self.seekTarget) > 0 { self.seekTarget = landed }
                 if let (pt, pe) = self.pendingSeek {
                     self.pendingSeek = nil
                     self.performSeek(pt, exact: pe)
@@ -500,6 +505,7 @@ public final class PlaybackEngine {
             resumeRate = rate
             if !was { onPlayStateChange?(true) }
         } else {
+            seekTarget = player.currentTime()
             player.playImmediately(atRate: rate)
         }
     }
@@ -541,6 +547,9 @@ public final class PlaybackEngine {
     static let maxFutilePrimes = 2
     /// Display time of the last frame handed to the view (a repeat is not a new frame).
     private var lastShownTime = CMTime.invalid
+    /// Item time the clock was last (re)started from: the last seek's target less its tolerance (then where it landed),
+    /// or the current time when playback starts without a seek. No frame exists before it: see `watchForStall`.
+    private var seekTarget = CMTime.invalid
     /// Item-time span without a new frame, while playing, that counts as a frozen preview.
     static let stallSpan = 0.3
 
@@ -553,8 +562,16 @@ public final class PlaybackEngine {
     /// `stallSpan` with no new frame and no seek in flight, it re-primes the pipeline with an exact seek to the current
     /// time (rate held, then resumed) — the preview recovers within ~0.3–0.5 s instead of freezing. If re-seeks don't
     /// bring a frame back (`maxFutilePrimes`), the player item is rebuilt: a fresh video pipeline at the same time.
+    ///
+    /// PB-LATENCY: after a seek, AVPlayer starts the item clock BEFORE the target, by the output latency (+ ~80 ms), so
+    /// that the delayed audio is heard in sync: 0.35 s early on a 0.27 s-latency output (Bluetooth / AirPlay / external
+    /// speakers). No frame exists before the target, so that lead is not a stall: counted as one, it re-primed after
+    /// 0.3 s, at a time just BEFORE the previous target — the next lead was as long, and playback never started
+    /// (pause / seek / play every ~0.45 s, the playhead creeping backwards). The watch starts at the seek target (any
+    /// clock start: seek, resume, rate change).
     private func watchForStall(_ itemTime: CMTime) {
-        guard player.rate > 0, !seekInFlight, resumeRate == nil, reverseShuttleRate == 0, itemTime.isValid else {
+        guard player.rate > 0, !seekInFlight, resumeRate == nil, reverseShuttleRate == 0, itemTime.isValid,
+              !(seekTarget.isValid && CMTimeCompare(itemTime, seekTarget) < 0) else {
             stallWatch = nil; return
         }
         guard let since = stallWatch else { stallWatch = itemTime; return }

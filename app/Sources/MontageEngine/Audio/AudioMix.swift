@@ -41,13 +41,33 @@ public final class AudioMixState: @unchecked Sendable {
     }
 }
 
+/// Linear gain from `from` to `to` over `[start, end)` (composition / item time): one audio-mix volume ramp.
+struct GainRamp: Equatable, Sendable {
+    let start: Time, end: Time
+    let from: Float, to: Float
+}
+
 /// The tap processor of one composition audio lane: routes each buffer to the live chain of the clip playing at that
-/// composition time. The tap runs AFTER the time-pitch stage ("post-effects"), so frames are composition-rate; a clip
-/// boundary inside a buffer splits it.
+/// composition time, then applies the lane's clip volumes. The tap runs AFTER the time-pitch stage ("post-effects"):
+/// at a playback rate ≠ 1 a frame covers `rate / sampleRate` of composition time; a clip boundary inside a buffer
+/// splits it.
 final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     struct Entry { let id: ClipID; let start: Double; let end: Double; let clip: Clip }
     let entries: [Entry]
     let state: AudioMixState
+    /// Clip volumes (fades, keyframes, ducking, loudness): the lane's ramps, applied here sample by sample; silence
+    /// outside them (what an audio mix does with its ramps + `setVolume(0)` at each clip end). nil = the audio mix
+    /// applies them (no tap). PB-DROP: AVPlayer's mixer delivers each audio-mix ramp as a parameter event in its render
+    /// slice, and when the output device runs at another rate than the composition (48 kHz media on built-in speakers at
+    /// 44.1 kHz: 557-frame slices) many events land outside their slice and are dropped ("MCM ignoring event at invalid
+    /// buffer offset 3556/557"): at a cut, the next clip's ramp was lost and its lane stayed at the 0 of the previous
+    /// clip end — lanes silent or at the wrong level until the next seek. With no volume events nothing is dropped.
+    let gains: [(start: Double, end: Double, from: Float, to: Float)]?
+    private var gainIndex = 0
+    /// Gain at the end of the last buffer: held over a buffer that has no timestamp.
+    private var lastGain: Float = 1
+    /// Composition time expected at the next buffer (routing of a buffer without timestamp).
+    private var nextTime: Double?
     private var chains: [ClipID: LiveChain] = [:]
     private var seenVersion = -1
     private var sampleRate: Double = 48000
@@ -56,13 +76,14 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     private var last: ClipID?
 
     /// `skip`: timeline ranges the composition leaves out (quick cut preview) — entries are in composition time.
-    init(clips: [Clip], state: AudioMixState, skip: SkipTimeMap = .identity) {
+    init(clips: [Clip], state: AudioMixState, skip: SkipTimeMap = .identity, gains: [GainRamp]? = nil) {
         entries = clips.sorted { $0.start < $1.start }.flatMap { c in
             skip.kept(c.range).map { k in
                 let s = skip.item(k.start)
                 return Entry(id: c.id, start: s.seconds, end: (s + k.duration).seconds, clip: c)
             }
         }
+        self.gains = gains?.sorted { $0.start < $1.start }.map { (start: $0.start.seconds, end: $0.end.seconds, from: $0.from, to: $0.to) }
         self.state = state
         for e in entries { chains[e.id] = LiveChain(state.liveChain(e.id), sampleRate: 48000) }
         seenVersion = state.currentVersion
@@ -75,9 +96,9 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         state.tapObserver?(.prepare)
     }
 
-    func reset() { for c in chains.values { c.reset() }; last = nil; state.tapObserver?(.reset) }
+    func reset() { for c in chains.values { c.reset() }; last = nil; nextTime = nil; gainIndex = 0; state.tapObserver?(.reset) }
 
-    func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime) {
+    func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime, duration: CMTime = .invalid) {
         guard frames > 0, buffers.count > 0 else { return }
         if let o = state.tapObserver { o(.buffer(time: time.isNumeric ? time.seconds : .nan, frames: frames)) }
         let v = state.currentVersion
@@ -88,25 +109,81 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         let channels = min(buffers.count, 8)
         for c in 0..<channels { table[c] = buffers[c].mData!.assumingMemoryBound(to: Float.self) }
         let block = AudioBlock(channels: channels, frames: frames, pointers: table)
-        var t = time.isNumeric ? time.seconds : 0
+        // composition time per frame: 1 / sampleRate at rate 1, `rate` times that after the time-pitch stage
+        let d = duration.isNumeric ? duration.seconds : 0
+        let step = d > 0 ? d / Double(frames) : 1 / sampleRate
+        let stamped = time.isNumeric
+        let t0 = stamped ? time.seconds : nextTime ?? 0
+        nextTime = t0 + Double(frames) * step
+        routeLive(block, frames: frames, from: t0, step: step)
+        guard gains != nil else { return }
+        if stamped { applyGains(channels: channels, frames: frames, from: t0, step: step) } else { hold(lastGain, channels: channels, frames: frames) }
+    }
+
+    /// Multiplies the buffer by the lane's gain curve (linear inside each ramp, 0 outside every ramp).
+    private func applyGains(channels: Int, frames: Int, from t0: Double, step dt: Double) {
+        guard let gains else { return }
+        // ramps are sorted and disjoint; time mostly moves forward, so resume the search where the last buffer ended
+        if gainIndex >= gains.count || (gainIndex > 0 && gains[gainIndex - 1].end > t0) { gainIndex = 0 }
+        var offset = 0
+        /// Frames from `offset` that `span` seconds cover (≥ 1, at most the rest of the buffer; `span` may be infinite).
+        func cover(_ span: Double) -> Int {
+            let rest = frames - offset, n = (span / dt).rounded(.up)
+            return n >= Double(rest) ? rest : max(1, Int(n))
+        }
+        while offset < frames {
+            let t = t0 + Double(offset) * dt
+            while gainIndex < gains.count, gains[gainIndex].end <= t + 1e-9 { gainIndex += 1 }
+            let n: Int, g0: Float, step: Float
+            if gainIndex < gains.count, gains[gainIndex].start <= t + 1e-9 {
+                let r = gains[gainIndex]
+                let len = max(r.end - r.start, 1e-9)
+                n = cover(r.end - t)
+                g0 = r.from + (r.to - r.from) * Float((t - r.start) / len)
+                step = (r.to - r.from) * Float(dt / len)
+            } else {
+                // silence until the next ramp (or the end of the buffer)
+                let next = gainIndex < gains.count ? gains[gainIndex].start : .infinity
+                n = cover(next - t)
+                g0 = 0; step = 0
+            }
+            lastGain = g0 + step * Float(n - 1)
+            if !(step == 0 && g0 == 1) {
+                for c in 0..<channels {
+                    let p = table[c] + offset
+                    var g = g0
+                    for i in 0..<n { p[i] *= g; g += step }
+                }
+            }
+            offset += n
+        }
+    }
+
+    /// A buffer without timestamp (rare: around a seek or an item start) keeps the last gain rather than guessing a time.
+    private func hold(_ g: Float, channels: Int, frames: Int) {
+        guard g != 1 else { return }
+        for c in 0..<channels { let p = table[c]; for i in 0..<frames { p[i] *= g } }
+    }
+
+    private func routeLive(_ block: AudioBlock, frames: Int, from t0: Double, step dt: Double) {
+        var t = t0
         var offset = 0
         while offset < frames {
             guard let i = entries.firstIndex(where: { $0.end > t + 1e-6 }) else { break }
             let e = entries[i]
             if e.start > t + 1e-6 {
                 // gap before the next clip: skip those frames
-                let gap = Int(((e.start - t) * sampleRate).rounded(.up))
-                offset += gap; t = e.start
+                let gap = Int(((e.start - t) / dt).rounded(.up))
+                offset += gap; t += Double(gap) * dt
                 continue
             }
-            let rate = 1.0   // post-effects tap: frames are composition-rate (after time-pitch)
-            let n = min(frames - offset, max(1, Int(((e.end - t) * sampleRate * rate).rounded(.up))))
+            let n = min(frames - offset, max(1, Int(((e.end - t) / dt).rounded(.up))))
             if last != e.id { chains[e.id]?.reset(); last = e.id }
             if let chain = chains[e.id], !chain.isEmpty {
                 chain.process(block.slice(offset, n, scratch: scratch))
             }
             offset += n
-            t += Double(n) / sampleRate / rate
+            t += Double(n) * dt
         }
     }
 }
