@@ -1,21 +1,23 @@
-// C3-2: the volume line on a clip's audio area (CapCut [10]): drag it vertically to change the clip volume (dB
-// tooltip, ↕ cursor), one undo step, the inspector shows the new value.
+// C3-2: the volume line on a clip's audio area (CapCut [10]): drag it vertically to change the clip volume (% tooltip,
+// AU-VOL-PCT; ↕ cursor), one undo step, the inspector shows the new value.
 {
   "project": "demo",
   "steps": [
-    // music clip (track 5) at −6 dB: its line sits ~1 pt below the clip's centre
+    // music clip (track 5) at 50 %: its line sits ~2.5 pt above the clip's centre (100 % = 3/4 of the 79 pt waveform area)
     {"expect": {"path": "tracks.5.clips.0.volume", "approx": 0.5}},
-    {"drag": "clip:5/0:0.3", "offset": [0, 1], "by": [0, 4]},
-    {"expect": [{"path": "tracks.5.clips.0.volume", "approx": 0.1995, "tolerance": 0.01}, {"path": "undo.name", "equals": "cmd.volume"},
+    {"drag": "clip:5/0:0.3", "offset": [0, -2], "by": [0, 4]},
+    {"expect": [{"path": "tracks.5.clips.0.volume", "approx": 0.41, "tolerance": 0.005}, {"path": "undo.name", "equals": "cmd.volume"},
                 {"path": "tracks.5.clips.0.start", "approx": 0.0}, {"path": "selectedClips.0.track", "equals": 5}]},
     {"snapshot": "volume-audio", "element": "id:panel.timeline"},
     {"click": "id:inspector.tab.audioBasic"},
+    {"expect": {"path": "ui.inspectorTab", "equals": "audioBasic"}},
     {"snapshot": "volume-inspector", "element": "id:panel.inspector"},
     {"key": "cmd+z"},
     {"expect": {"path": "tracks.5.clips.0.volume", "approx": 0.5}},
-    // main-track video: the line is in the audio strip under the filmstrip (0 dB = 12 pt above the clip bottom)
-    {"drag": "clip:main/1:0.5", "offset": [0, 26], "by": [0, 10]},
-    {"expect": [{"path": "main.clips.1.volume", "approx": 0.1, "tolerance": 0.01}, {"path": "undo.name", "equals": "cmd.volume"}]},
+    // main-track video: the line is in the 28 pt audio strip under the filmstrip (100 % = 21 pt above the clip bottom,
+    // 34 pt below the centre of the 110 pt lane); 10 pt down on the 40 pt drag scale = 44 %
+    {"drag": "clip:main/1:0.5", "offset": [0, 34], "by": [0, 10]},
+    {"expect": [{"path": "main.clips.1.volume", "approx": 0.44, "tolerance": 0.005}, {"path": "undo.name", "equals": "cmd.volume"}]},
     {"snapshot": "volume-main", "element": "id:panel.timeline"}
   ]
 }

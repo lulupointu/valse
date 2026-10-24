@@ -199,7 +199,6 @@
 "track.height.short" = "Basse";
 "track.height.standard" = "Par défaut";
 "track.height.tall" = "Haute";
-"track.waveform" = "Taille de la forme d'onde audio";
 
 "shortcut.splitAll" = "Tout diviser";
 "shortcut.selectMode" = "Mode sélection";

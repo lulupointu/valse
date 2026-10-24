@@ -1,4 +1,5 @@
-// Audio (W8): select the music clip, Basic tab ▸ Volume: type -12 dB (≈ ×0.25 gain); undo restores.
+// Audio (W8): select the music clip, Basic tab ▸ Volume: type 25 (%, AU-VOL-PCT: × 0.25 gain); the field shows "25%";
+// undo restores.
 {
   "project": "demo",
   "steps": [
@@ -6,9 +7,9 @@
     {"expect": [{"path": "ui.inspectorTabs", "contains": "audioBasic"}, {"path": "selectedClips.0.volume", "approx": 0.5}]},
     {"click": "id:inspector.tab.audioBasic"},
     {"click": "id:slider.audio.volume.field"},
-    {"type": "-12", "replace": true},
+    {"type": "25", "replace": true},
     {"key": "return"},
-    {"expect": [{"path": "selectedClips.0.volume", "approx": 0.251, "tolerance": 0.02}, {"path": "undo.depth", "equals": 1}]},
+    {"expect": [{"path": "selectedClips.0.volume", "approx": 0.25, "tolerance": 0.0001}, {"path": "undo.depth", "equals": 1}]},
     {"snapshot": "volume", "element": "id:panel.inspector"},
     {"key": "cmd+z"},
     {"expect": {"path": "selectedClips.0.volume", "approx": 0.5}}

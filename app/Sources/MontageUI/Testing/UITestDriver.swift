@@ -1034,6 +1034,7 @@ public final class UITestDriver {
             let parts = rest.split(separator: ":").map(String.init)
             let c = try clip(from: "clip:" + (parts.first ?? ""))
             guard let tl = timelineView else { throw Failure("no timeline view") }
+            if let loc = store.project.timeline.locate(c.id) { tl.revealRow(trackIndex: loc.track) }   // like id: targets
             let l = tl.layoutNow
             guard let loc = store.project.timeline.locate(c.id), let row = l.rows.first(where: { $0.trackIndex == loc.track }) else {
                 throw Failure("clip row not visible")
@@ -1056,6 +1057,8 @@ public final class UITestDriver {
             guard let tl = timelineView else { throw Failure("no timeline view") }
             let parts = rest.split(separator: "@").map(String.init)
             guard let secs = Double(parts[0]) else { throw Failure("bad time \(rest)") }
+            if parts.count > 1, parts[1] != "ruler",
+               let ti = parts[1] == "main" ? store.project.timeline.mainTrackIndex : Int(parts[1]) { tl.revealRow(trackIndex: ti) }
             let l = tl.layoutNow
             var y = TimelineLayout.rulerHeight / 2
             if parts.count > 1, parts[1] != "ruler" {
@@ -1070,6 +1073,7 @@ public final class UITestDriver {
             let parts = rest.split(separator: "/").map(String.init)
             guard parts.count == 2 else { throw Failure("expected header:<track>/<item>, got \(rest)") }
             let ti = parts[0] == "main" ? store.project.timeline.mainTrackIndex : Int(parts[0])
+            if let ti { tl.revealRow(trackIndex: ti) }
             let l = tl.layoutNow
             guard let ti, let row = l.rows.first(where: { $0.trackIndex == ti }) else { throw Failure("no row for track \(parts[0])") }
             let r: CGRect

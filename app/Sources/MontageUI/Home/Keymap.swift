@@ -213,7 +213,7 @@ public final class Keymap {
         .union((1...9).map { "multicamAngle\($0)" })
 
     /// Pairs that share a default key on purpose: the shortcut is only enabled in a context where the menu command
-    /// isn't meant (⌘, = Volume −0.1 dB while a clip with sound is selected, Settings… otherwise; CapCut AU-004).
+    /// isn't meant (⌘, = Volume −1 % while a clip with sound is selected, Settings… otherwise; CapCut AU-004).
     static let sharedBindings: [Set<String>] = [["volumeDown", "menu.settings"]]
 
     static let playerIDs: Set<String> = ["playPause", "playerFullscreen", "exitPlayerFullscreen", "playerZoomIn", "playerZoomOut",

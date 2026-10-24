@@ -118,7 +118,7 @@
 /* TL-018 track volume */
 "track.volume" = "Volume de la piste";
 "track.volume.title" = "Volume de la piste (%@)";
-"track.volume.mute" = "Silence (−∞ dB)";
+"track.volume.mute" = "Silence (0 %)";
 "cmd.trackVolume" = "Volume de la piste";
 /* TL-025 clip markers */
 "cmd.clipMarker" = "Ajouter un repère au clip";

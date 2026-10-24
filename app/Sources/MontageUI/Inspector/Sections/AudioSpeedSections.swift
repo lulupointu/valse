@@ -5,7 +5,7 @@ import Perception
 
 // MARK: - Audio
 
-/// Audio ▸ Basic: Volume (dB, keyframeable), Fade in / Fade out (0 … half the clip, greyed diamonds) (UX.md §5.1 Audio).
+/// Audio ▸ Basic: Volume (%, keyframeable), Fade in / Fade out (0 … half the clip, greyed diamonds) (UX.md §5.1 Audio).
 struct AudioBasicSection: View {
     let ctx: InspectorContext
 
@@ -18,15 +18,17 @@ struct AudioBasicSection: View {
         }, keyframeKeys: [.volume])
     }
 
-    static func dbFormat(_ v: Double) -> String { Fmt.decibels(v <= -59.95 ? -.infinity : v) }
+    /// AU-VOL-PCT: the volume row is in percent of unity gain (0 … 400 %, iMovie), same scale as the timeline line.
+    static var volumeSpec: RowSpec {
+        RowSpec(range: 0...(ClipVolumeLine.maxGain * 100), scale: VolumePercent.sliderScale, step: 1, format: VolumePercent.labelPercent)
+    }
 
     var body: some View {
         WithPerceptionTracking {
             let half = max((ctx.clip?.duration.seconds ?? 2) / 2, 0.1)
             VStack(alignment: .leading, spacing: 4) {
-                Bind.row(ctx, tr("prop.volume"), key: .volume,
-                         spec: RowSpec(range: -60...20, step: 0.1, format: Self.dbFormat),
-                         toUI: { max(-60, AudioProps.decibels($0)) }, fromUI: { $0 <= -59.95 ? 0 : pow(10, $0 / 20) },
+                Bind.row(ctx, tr("prop.volume"), key: .volume, spec: Self.volumeSpec,
+                         toUI: { max(0, $0) * 100 }, fromUI: { VolumePercent.gain(percent: $0.rounded()) },
                          gestureName: "cmd.volume")
                 ClipParamRow(ctx: ctx, label: tr("inspector.fadeIn"), spec: RowSpec(range: 0...half, step: 0.1, format: Fmt.seconds),
                              get: { c, _ in c.audio.fadeIn.seconds }, set: { c, v, _ in c.audio.fadeIn = Time(v) },

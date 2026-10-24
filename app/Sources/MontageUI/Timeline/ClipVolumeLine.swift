@@ -1,19 +1,35 @@
 import CoreGraphics
+import Foundation
 import MontageCore
 
-/// The horizontal volume line drawn over a clip's audio area (CapCut [10], C3-2): its height is the clip volume on a
-/// dB scale (−60 dB at the bottom of the area … +20 dB at the top, the inspector's range, 0 dB at 3/4). Dragging it
-/// vertically changes the volume; with volume keyframes the whole curve moves by the same dB offset. Pure (tests).
+/// The horizontal volume line drawn over a clip's audio area (CapCut [10], C3-2): its height is the clip volume. Dragging
+/// it vertically changes the volume; with volume keyframes the whole curve moves by the same amount. Pure (tests).
+///
+/// AU-VOL-PCT (owner 2026-10-24, iMovie): volumes are shown in percent (100 % = unity gain, 0 % = silence, max 400 %).
+/// The vertical scale is `fraction(gain:)`: 0 … 100 % follows √gain up to 3/4 of the area (fine control on the quiet
+/// half), 100 … 400 % fills the top quarter (two octaves of gain). Drag results are whole percents; 100 % is sticky.
 public enum ClipVolumeLine {
-    public static let minDB = -60.0
-    public static let maxDB = 20.0
+    /// Highest gain the line / inspector can set (400 %, ≈ +12 dB, iMovie's cap).
+    public static let maxGain = 4.0
+    /// Area fraction of 100 %.
+    public static let unityFraction = 0.75
     /// Pointer distance (points) from the line that grabs it.
     public static let grabTolerance: CGFloat = 3.5
+    /// Drag results within this many percent of 100 % snap to 100 %.
+    public static let snapPercent = 2.0
 
-    /// Gain (linear, 1 = 0 dB) → fraction of the area height from the bottom.
+    /// Gain (linear, 1 = 100 %) → fraction of the area height from the bottom.
     public static func fraction(gain: Double) -> CGFloat {
-        let db = gain <= 0 ? minDB : AudioProps.decibels(gain)
-        return CGFloat((min(max(db, minDB), maxDB) - minDB) / (maxDB - minDB))
+        guard gain > 0 else { return 0 }   // also NaN
+        if gain <= 1 { return CGFloat(unityFraction * gain.squareRoot()) }
+        return CGFloat(min(1, unityFraction + (1 - unityFraction) * log2(min(gain, maxGain)) / log2(maxGain)))
+    }
+
+    /// Inverse of `fraction(gain:)`.
+    public static func gain(fraction f: Double) -> Double {
+        let f = min(max(f, 0), 1)
+        if f <= unityFraction { let r = f / unityFraction; return r * r }
+        return pow(2, (f - unityFraction) / (1 - unityFraction) * log2(maxGain))
     }
 
     /// View y of the line for `gain` inside `area` (flipped coordinates: y grows downward).
@@ -21,31 +37,29 @@ public enum ClipVolumeLine {
         area.maxY - fraction(gain: gain) * area.height
     }
 
-    /// dB at the bottom of the scale means silence (the inspector's "−∞").
-    public static func gain(db: Double) -> Double { db <= minDB + 0.05 ? 0 : pow(10, db / 20) }
-
-    /// dB after dragging the line by `dy` points (negative = up = louder) from `startDB`, rounded to 0.1 dB and
-    /// clamped to the inspector range; sticks to 0 dB within ±0.5 dB.
-    public static func draggedDB(from startDB: Double, dy: CGFloat, areaHeight: CGFloat) -> Double {
-        let span = maxDB - minDB
-        let start = startDB.isFinite ? max(startDB, minDB) : minDB
-        var db = start - Double(dy / max(areaHeight, 1)) * span
-        db = (min(max(db, minDB), maxDB) * 10).rounded() / 10
-        if abs(db) < 0.5 { db = 0 }
-        return db
+    /// Whole-percent gain (0, 0.01 … 4), 100 % within `snapPercent`.
+    public static func quantized(_ gain: Double) -> Double {
+        var p = (min(max(gain, 0), maxGain) * 100).rounded()
+        if abs(p - 100) <= snapPercent { p = 100 }
+        return p / 100
     }
 
-    /// Applies a drag to a clip: the static volume moves to `db`; existing volume keyframes are offset by the same
-    /// dB delta as the static value (the curve keeps its shape). `origin` = the clip when the drag began.
-    public static func apply(db: Double, origin: Clip, to clip: inout Clip) {
-        let startDB = AudioProps.decibels(origin.audio.volume)
-        let delta = db - (startDB.isFinite ? max(startDB, minDB) : minDB)
-        clip.audio.volume = gain(db: db)
+    /// Gain after dragging the line by `dy` points (negative = up = louder) from `startGain`.
+    public static func draggedGain(from startGain: Double, dy: CGFloat, areaHeight: CGFloat) -> Double {
+        let f = Double(fraction(gain: startGain)) - Double(dy / max(areaHeight, 1))
+        return quantized(gain(fraction: f))
+    }
+
+    /// Applies a drag to a clip: the static volume moves to `newGain`; existing volume keyframes move by the same
+    /// distance on the line's scale (the curve keeps its shape). `origin` = the clip when the drag began.
+    public static func apply(gain newGain: Double, origin: Clip, to clip: inout Clip) {
+        let delta = Double(fraction(gain: newGain) - fraction(gain: origin.audio.volume))
+        clip.audio.volume = newGain
         let key = ParamKey.volume.raw
         guard let track = origin.keyframes[key], !track.isEmpty else { return }
         clip.keyframes[key] = KeyframeTrack(track.keyframes.map { k in
             var k = k
-            k.value = .scalar(gain(db: min(max(dB(k) + delta, minDB), maxDB)))
+            k.value = .scalar(quantized(gain(fraction: Double(fraction(gain: k.value.component(0) ?? 1)) + delta)))
             return k
         })
     }
@@ -83,23 +97,18 @@ public enum ClipVolumeLine {
         }
     }
 
-    static func dB(_ k: Keyframe) -> Double {
-        let g = k.value.component(0) ?? 1
-        return g <= 0 ? minDB : max(AudioProps.decibels(g), minDB)
-    }
-
     /// Applies a vertical drag of `dy` points (area height `h`) to what `grab` holds, from the clip at drag start.
     public static func apply(grab g: Grab, dy: CGFloat, areaHeight h: CGFloat, origin: Clip, to clip: inout Clip) {
         let key = ParamKey.volume.raw
         guard g != .whole, let track = origin.keyframes[key], !track.isEmpty else {
-            apply(db: draggedDB(from: AudioProps.decibels(origin.audio.volume), dy: dy, areaHeight: h), origin: origin, to: &clip)
+            apply(gain: draggedGain(from: origin.audio.volume, dy: dy, areaHeight: h), origin: origin, to: &clip)
             return
         }
         let moved = Set(indices(g, count: track.keyframes.count))
         clip.keyframes[key] = KeyframeTrack(track.keyframes.enumerated().map { i, k in
             guard moved.contains(i) else { return k }
             var k = k
-            k.value = .scalar(gain(db: draggedDB(from: dB(k), dy: dy, areaHeight: h)))
+            k.value = .scalar(draggedGain(from: k.value.component(0) ?? 1, dy: dy, areaHeight: h))
             return k
         })
     }

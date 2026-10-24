@@ -118,7 +118,7 @@
 /* TL-018 track volume */
 "track.volume" = "Track volume";
 "track.volume.title" = "Track volume (%@)";
-"track.volume.mute" = "Silent (−∞ dB)";
+"track.volume.mute" = "Silent (0%)";
 "cmd.trackVolume" = "Track volume";
 /* TL-025 clip markers */
 "cmd.clipMarker" = "Add clip marker";

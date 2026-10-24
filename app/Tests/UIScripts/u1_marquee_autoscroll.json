@@ -1,5 +1,5 @@
 // U1-7 (owner: marquee selection "stops until I move again my mouse, is too slow … moves with the timeline when the
-// timeline is scrolling, instead of extending"). Zoomed in, a marquee from the empty area under the tracks is held still
+// timeline is scrolling, instead of extending"). Zoomed in, a marquee from an empty lane area is held still
 // at the right edge: the timeline keeps scrolling on its own (display link, EdgeAutoscroll), the rectangle stays anchored
 // at its start time (the first main clip under the start stays selected) and the selection grows live with it.
 // Offscreen test windows tick at 4 Hz (occluded), so the scroll is slower here than on screen.
@@ -9,7 +9,9 @@
     {"idle": 1},
     {"drag": "id:toolbar.zoomSlider", "at": [0.6, 0.5], "to": "id:toolbar.zoomSlider", "toAt": [0.8, 0.5]},
     {"expect": [{"path": "ui.pixelsPerSecond", "gt": 100}, {"path": "ui.scrollTime", "equals": 0}]},
-    {"drag": "id:timeline", "at": [0.12, 0.97], "to": "id:timeline", "toAt": [0.999, 0.62], "steps": 12, "hold": true},
+    // TL-IMOVIE-HEIGHT: the lanes fill the panel, so the marquee starts in the empty part of the overlay lane (before its
+    // clip at 2 s) and is dragged down into the 110 pt main lane
+    {"drag": "time:0.4@1", "to": "id:timeline", "toAt": [0.999, 0.75], "steps": 12, "hold": true},
     {"dump": "held-start"},
     {"expect": [{"path": "main.clips.0.selected", "equals": true}, {"path": "main.clips.1.selected", "equals": false}]},
     {"wait": 1.0},

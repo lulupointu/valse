@@ -41,7 +41,8 @@ public struct Track: Codable, Sendable, Equatable, Identifiable {
     public var clips: [Clip]
     /// Lane height preset ("Track height" in the ⋯ menu). nil = default.
     public var heightPreset: TrackHeight?
-    /// Audio waveform size (0.3 / 0.6 / 1.0). nil = 0.3 (CapCut default 30 %).
+    /// Deprecated (TL-IMOVIE-HEIGHT, 2026-10-24): the old "Audio waveform size" (0.3 / 0.6 / 1.0). No longer drawn or
+    /// edited (the waveform always fills its area); kept only so older project files still decode and round-trip.
     public var waveformScale: Double?
     /// Caption track (imported subtitles / auto captions): exported as SRT/TXT and optionally not burnt in (W11).
     /// nil = false (older files).

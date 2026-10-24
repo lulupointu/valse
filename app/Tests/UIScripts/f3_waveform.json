@@ -1,13 +1,15 @@
-// AU-019: timeline waveforms are one-sided peak bars from the bottom up (CapCut, C3b), clipping peaks orange — on audio
-// clips and on video clips' audio strip; Track ⋯ ▸ Audio waveform 100 % makes it taller.
+// AU-019 + TL-IMOVIE-HEIGHT: timeline waveforms are one-sided peak bars from the bottom up (CapCut, C3b), clipping peaks
+// orange, drawn at full scale: they fill the audio clip and the 25 % audio strip of video clips. Lanes are iMovie-sized
+// (video main + overlay 110 pt, audio 83 pt); "Track height ▸ Tall" scales a lane (×1.5) and the waveform with it.
+// The old "Audio waveform size" submenu is gone.
 {
   "project": "demo",
   "steps": [
-    {"wait": 1.0},
-    {"wait": 0.5},
-    {"rightClick": "header:5/more", "menuItem": "track.waveform/100 %"},
-    {"expect": {"path": "undo.depth", "equals": 1}},
-    {"wait": 0.5},
-    {"snapshot": "waveforms", "element": "id:panel.timeline"}
+    {"expect": [{"path": "main.laneHeight", "equals": 110}, {"path": "tracks.5.laneHeight", "equals": 83}]},
+    {"snapshot": "waveforms", "element": "id:panel.timeline"},
+    {"rightClick": "header:5/more", "menuItem": "track.height/track.height.tall"},
+    {"expect": [{"path": "tracks.5.laneHeight", "equals": 125}, {"path": "undo.name", "equals": "cmd.trackHeight"},
+                {"path": "undo.depth", "equals": 1}]},
+    {"snapshot": "waveforms-tall", "element": "id:panel.timeline"}
   ]
 }

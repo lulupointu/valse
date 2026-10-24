@@ -140,21 +140,44 @@ import MontageCore
 
     // MARK: Volume line
 
-    @Test func volumeLineMapsDecibels() {
+    /// AU-VOL-PCT: the line's scale (100 % at 3/4, √gain below, two octaves above up to 400 %), whole-percent drags,
+    /// 100 % sticky, labels "63%" / "63 %".
+    @Test func volumeLineMapsPercent() {
         #expect(ClipVolumeLine.fraction(gain: 1) == 0.75)
         #expect(ClipVolumeLine.fraction(gain: 0) == 0)
-        #expect(ClipVolumeLine.fraction(gain: 100) == 1)
+        #expect(ClipVolumeLine.fraction(gain: 4) == 1)
+        #expect(ClipVolumeLine.fraction(gain: 100) == 1)          // older projects up to +20 dB: pinned at the top
+        #expect(abs(ClipVolumeLine.fraction(gain: 2) - 0.875) < 1e-9)
+        #expect(abs(ClipVolumeLine.fraction(gain: 0.25) - 0.375) < 1e-9)
+        for g in [0.0, 0.01, 0.3, 0.63, 1, 1.7, 2.51, 4] {
+            #expect(abs(ClipVolumeLine.gain(fraction: Double(ClipVolumeLine.fraction(gain: g))) - g) < 1e-9)
+        }
         let area = CGRect(x: 0, y: 100, width: 50, height: 40)
         #expect(ClipVolumeLine.y(gain: 1, in: area) == 110)
-        // 8 pt up on a 40 pt area = +16 dB, clamped at +20; down = quieter; sticks to 0 dB
-        #expect(ClipVolumeLine.draggedDB(from: 0, dy: -8, areaHeight: 40) == 16)
-        #expect(ClipVolumeLine.draggedDB(from: 0, dy: -40, areaHeight: 40) == 20)
-        #expect(ClipVolumeLine.draggedDB(from: 0, dy: 3.75, areaHeight: 40) == -7.5)
-        #expect(ClipVolumeLine.draggedDB(from: -0.3, dy: 0.05, areaHeight: 40) == 0)
-        #expect(ClipVolumeLine.draggedDB(from: -.infinity, dy: 1000, areaHeight: 40) == -60)
-        #expect(ClipVolumeLine.gain(db: -60) == 0)
-        #expect(abs(ClipVolumeLine.gain(db: -6) - 0.501) < 0.001)
-        #expect(AudioBasicSection.dbFormat(-7.5).contains("7.5") || AudioBasicSection.dbFormat(-7.5).contains("7,5"))
+        // 5 pt up on a 40 pt area = 0.875 = 200 %; the top = 400 %; down = quieter; sticks to 100 %; bottom = silence
+        #expect(ClipVolumeLine.draggedGain(from: 1, dy: -5, areaHeight: 40) == 2)
+        #expect(ClipVolumeLine.draggedGain(from: 1, dy: -40, areaHeight: 40) == 4)
+        #expect(ClipVolumeLine.draggedGain(from: 1, dy: 3.75, areaHeight: 40) == 0.77)
+        #expect(ClipVolumeLine.draggedGain(from: 0.99, dy: 0.05, areaHeight: 40) == 1)
+        #expect(ClipVolumeLine.draggedGain(from: 1, dy: 1000, areaHeight: 40) == 0)
+        #expect(ClipVolumeLine.quantized(0.634) == 0.63)
+        #expect(ClipVolumeLine.quantized(1.019) == 1)
+        #expect(VolumePercent.label(0.63, french: false) == "63%")
+        #expect(VolumePercent.label(2.51, french: false) == "251%")
+        #expect(VolumePercent.label(0, french: false) == "0%")
+        #expect(VolumePercent.label(0.5012, french: false) == "50%")
+        #expect(VolumePercent.label(0.63, french: true) == "63\u{202F}%")
+    }
+
+    @Test func volumeNudgeStepsWholePercents() {
+        #expect(VolumePercent.nudged(0.5, by: 1) == 0.51)
+        #expect(VolumePercent.nudged(0.5012, by: -1) == 0.49)
+        #expect(VolumePercent.nudged(0, by: -1) == 0)
+        #expect(VolumePercent.nudged(4, by: 1) == 4)
+        #expect(VolumePercent.nudged(10, by: 1) == 10)            // an older +20 dB clip never jumps down on "louder"
+        #expect(VolumePercent.nudged(10, by: -1) == 9.99)
+        #expect(TrackVolumeMath.gain(percent: 250) == 2)
+        #expect(TrackVolumeMath.gain(percent: 49.6) == 0.5)
     }
 
     @Test func volumeDragOffsetsKeyframes() {
@@ -162,11 +185,13 @@ import MontageCore
         c.audio.volume = 1
         c.keyframes[ParamKey.volume.raw] = KeyframeTrack([Keyframe(time: 0, value: .scalar(1)), Keyframe(time: 2, value: .scalar(0.5))])
         let origin = c
-        ClipVolumeLine.apply(db: -6, origin: origin, to: &c)
-        #expect(abs(c.audio.volume - 0.501) < 0.001)
+        // 100 % → 25 % moves the line from 0.75 to 0.375 of the area: every keyframe moves by the same distance
+        ClipVolumeLine.apply(gain: 0.25, origin: origin, to: &c)
+        #expect(c.audio.volume == 0.25)
         let k = c.keyframes[ParamKey.volume.raw]!.keyframes
-        #expect(abs((k[0].value.component(0) ?? 0) - 0.501) < 0.001)
-        #expect(abs(AudioProps.decibels(k[1].value.component(0) ?? 0) - (AudioProps.decibels(0.5) - 6)) < 0.01)
+        #expect(k[0].value.component(0) == 0.25)
+        let f50 = Double(ClipVolumeLine.fraction(gain: 0.5))
+        #expect(k[1].value.component(0) == ClipVolumeLine.quantized(ClipVolumeLine.gain(fraction: f50 - 0.375)))
         #expect(abs(ClipVolumeLine.gain(of: c, at: Time(2)) - (k[1].value.component(0) ?? 0)) < 1e-9)
     }
 
@@ -179,15 +204,15 @@ import MontageCore
         let origin = s.project.timeline.clip(id)!
         let depth = s.session.undoStack.count
         s.beginGesture("cmd.volume")
-        for db in [-2.0, -5.0, -7.5] {
+        for g in [0.8, 0.6, 0.42] {
             s.updateGesture { p in
                 guard var c = p.timeline.clip(id) else { return }
-                ClipVolumeLine.apply(db: db, origin: origin, to: &c)
+                ClipVolumeLine.apply(gain: g, origin: origin, to: &c)
                 p.timeline[clip: id] = c
             }
         }
         s.endGesture()
-        #expect(abs(AudioProps.decibels(s.project.timeline.clip(id)!.audio.volume) + 7.5) < 0.01)
+        #expect(s.project.timeline.clip(id)!.audio.volume == 0.42)
         #expect(s.session.undoStack.count == depth + 1)
         s.undo()
         #expect(s.project.timeline.clip(id)!.audio.volume == 1)
