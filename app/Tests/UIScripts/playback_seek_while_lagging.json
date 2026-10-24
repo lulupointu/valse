@@ -1,0 +1,24 @@
+// PB-SEEK-LAG: while playing with the dropped-frames warning shown (lagging preview forced: the view gets 1 frame in 4),
+// clicks on the ruler must move the playhead at once and playback must go on from there (owner: the playhead kept
+// advancing from where it was until pause + play).
+{
+  "project": "demo",
+  "playerState": "lag=4",
+  "steps": [
+    {"key": "space"},
+    {"expect": {"path": "isPlaying", "equals": true}},
+    {"click": "time:9@ruler"},
+    {"waitFor": {"path": "playhead", "gte": 8.9}},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "playhead", "lt": 12}]},
+    {"click": "time:2@ruler"},
+    {"waitFor": {"path": "playhead", "lt": 5}},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "playhead", "gte": 1.9}]},
+    {"click": "time:12@ruler"},
+    {"waitFor": {"path": "playhead", "gte": 11.9}},
+    {"click": "time:4@ruler"},
+    {"waitFor": {"path": "playhead", "lt": 7}},
+    {"expect": [{"path": "isPlaying", "equals": true}, {"path": "playhead", "gte": 3.9}]},
+    {"key": "space"},
+    {"expect": {"path": "isPlaying", "equals": false}}
+  ]
+}
