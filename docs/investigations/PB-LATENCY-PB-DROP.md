@@ -5,6 +5,38 @@ Hand-off note for the session that finishes this on a machine that can build Mon
 were seen (Intel i7-7920HQ, macOS 13.7.8) only has Command Line Tools / Swift 5.8.1 and the package needs Swift 6.2.
 Everything below comes from that Mac's unified log (`log show --predicate 'process == "Montage"'`) and the code.
 
+## Verification on the build Mac (2026-10-24, Apple Silicon, macOS 26.4) — read this first
+
+Commit `2cc98ba` supersedes the `917a088` fix. Harness: `PlaybackDeviceReproTests` (opt-in, `MONTAGE_PB_REPRO=1`, env
+vars documented in the file): a real `PlaybackEngine` / AVPlayer routed to virtual outputs (nothing on the speakers),
+the 1023 layout with one sine pitch per track; output recorded from the device's loopback with a CoreAudio recorder
+(ffmpeg's avfoundation capture dropped ~20 % of the samples: useless) and analysed per clip (100 ms windows) and per
+cut (20 ms windows). Outputs: "Steam Streaming Speakers" (44.1 kHz) with a 4096-frame IO buffer = clock lead 0.36–0.44 s
+(the owner's 0.35–0.37 s); "Background Music" at 44.1 kHz / 512 frames = the owner's built-in speakers config.
+
+- **PB-LATENCY reproduced and fixed.** main: every play from a seek (and resume in place) went BACKWARDS (2.0 → 1.65 s
+  in 2.5 s, 4 re-primes). `2cc98ba`: +1.9–2.0 s, 0 re-primes, 0 rebuilds. `917a088`'s guard was right; `2cc98ba` also
+  moves the floor to where a tolerant seek landed and to every clock start without a seek (resume, `setRate`).
+  Regression test (no device needed): `PlaybackLatencyTests` — fails on main (13 re-primes), passes now.
+- **PB-DROP: trigger reproduced, audible symptom NOT reproduced on this Mac.** main with 48 kHz media on the 44.1 kHz
+  output logs the owner's exact lines (`MCM ignoring event at invalid buffer offset 3804/557`, ~80 per play, at the
+  cuts), yet in 46 plays (incl. an output switch while playing, as when the AirPods were unplugged) no lane ever went
+  silent, not even for 20 ms. This macOS evidently heals a dropped ramp value within a render chunk; macOS 13 likely
+  does not (the owner's symptom). Not testable here.
+- **`917a088`'s PB-DROP fix made it WORSE here**: with no volume curve at all in the mix, a lane's mixer input stayed
+  muted for whole plays (8 plays in 12; the tap's output for that lane was verified non-silent: the mixer muted it).
+  A constant step `setVolume(1)` or one 1→1 ramp over the item: 1 play in ~20 muted. One 1→1 ramp per clip (the
+  shape of the old per-clip ramps, values all 1): 0 in 36 plays. That is what `2cc98ba` ships: gains in the taps,
+  mixer values all 1, so whatever AVPlayer drops at a cut cannot change a lane's level, on any macOS.
+- Tapless fallback (frozen-clock recovery) keeps main's mix unchanged (removing the clip-end 0s made a lane start one
+  85 ms chunk at the wrong level here: reverted). It still carries PB-DROP's risk on macOS 13, as before.
+- Also fixed in `917a088`'s code: `Int(∞)` crash on the audio thread past a lane's last clip; gains at rates ≠ 1 (tap
+  buffer duration used); untimed tap buffers hold the last gain; export uses the same tap gains (gain > 1 applied in
+  full, `LaneGainTests.exportAppliesGainsAboveOne`).
+- **To confirm on the owner's Intel Mac (macOS 13)**: play project 1023 on the built-in speakers at 44.1 kHz across the
+  cuts several times; `log stream --predicate 'process == "Montage" AND eventMessage CONTAINS "MCM ignoring"'` will
+  still show a few lines at cuts (values 1, harmless); no lane should drop.
+
 ## Symptoms (owner, project "1023")
 
 1. **PB-DROP** (2026-10-23, after unplugging AirPods → built-in speakers): playback runs, but at every cut one or
