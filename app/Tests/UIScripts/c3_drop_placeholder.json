@@ -11,7 +11,7 @@
                 {"path": "ui.dropPreview.duration", "approx": 6.0}, {"path": "main.clips.count", "equals": 3}]},
     {"snapshot": "placeholder-main", "element": "id:panel.timeline"},
     // just above the main track (lane boundary): a new overlay lane right above main
-    {"drop": {"media": 0}, "on": "time:3@main", "offset": [0, -40], "hold": true},
+    {"drop": {"media": 0}, "on": "time:3@main", "offset": [0, -57], "hold": true},
     {"expect": [{"path": "ui.dropPreview.placement", "equals": "newLane"}]},
     {"snapshot": "placeholder-new-lane", "element": "id:panel.timeline"},
     // leaving the timeline cancels: nothing changed
@@ -24,7 +24,7 @@
     {"key": "cmd+z"},
     {"expect": {"path": "main.clips.count", "equals": 3}},
     // drop at the lane boundary above main: one new track
-    {"drop": {"media": 1}, "on": "time:3@main", "offset": [0, -40]},
+    {"drop": {"media": 1}, "on": "time:3@main", "offset": [0, -57]},
     {"expect": [{"path": "tracks.count", "equals": 7}, {"path": "main.clips.count", "equals": 3},
                 {"path": "selectedClips.0.start", "approx": 3.0, "tolerance": 0.2}]},
     {"key": "cmd+z"},
