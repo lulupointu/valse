@@ -178,6 +178,15 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Owner bug reports (fixed)
+- 2026-10-24 batch-pblat PB-LATENCY / PB-DROP (owner's Intel Mac, macOS 13; confirmed fixed there by the owner).
+  PB-LATENCY: play did nothing on high-latency outputs — AVPlayer starts the item clock before the seek target by the
+  output latency, the stall watchdog took that lead for a frozen pipeline and re-primed forever (playhead crept back);
+  the watch now starts at every clock start (seek landing, resume, rate change). PB-DROP: lanes silent at cuts on a
+  44.1 kHz output — AVPlayer's mixer drops volume events at cuts when it resamples ("MCM ignoring event at invalid
+  buffer offset 3804/557"); clip gains now live in the lane taps (preview and export) and the mix keeps one 1→1 ramp
+  per clip, so a dropped value is harmless (NO mix volume at all muted whole lanes on macOS 26). Tests:
+  `PlaybackLatencyTests`, `LaneGainTests`; manual device repro `PlaybackDeviceReproTests` (MONTAGE_PB_REPRO=1).
+  Write-up: docs/investigations/PB-LATENCY-PB-DROP.md.
 - 2026-10-24 batch-qcfix FIX-QC-OVERLAP: Quick cut 0.1 s crashed on project 1023 (AVFoundation "ramp must not overlap
   an existing ramp"). A closed-up overlay piece reaching past a later main-track cut stayed with the main piece under
   its start while the next piece rippled left onto it → two clips overlapping on one track. `QuickCut.separateOverlaps`
