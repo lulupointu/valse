@@ -4,17 +4,19 @@ import Foundation
 
 /// Block-processing callback installed on one audio-mix lane. Called on the audio render thread (real-time in
 /// preview): no locks that can block for long, no allocation in steady state.
-/// `buffers` are non-interleaved Float32 channels, `time` is the composition time of the first frame.
+/// `buffers` are non-interleaved Float32 channels, `time` is the composition time of the first frame and `duration` the
+/// composition time the buffer covers (`frames / sampleRate` × the playback rate: the tap runs after the time-pitch
+/// stage); either may be invalid.
 public protocol AudioTapProcessor: AnyObject, Sendable {
     func prepare(sampleRate: Double, channels: Int, maxFrames: Int)
-    func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime)
+    func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime, duration: CMTime)
     func reset()
 }
 
 /// Wraps an `AudioTapProcessor` in an MTAudioProcessingTap (works for AVPlayer playback AND
 /// AVAssetReaderAudioMixOutput, so preview and export run the exact same DSP).
 enum AudioTap {
-    final class Box { let processor: AudioTapProcessor; var nonFloat = false; init(_ p: AudioTapProcessor) { processor = p } }
+    final class Box { let processor: AudioTapProcessor; var nonFloat = false, warned = false; init(_ p: AudioTapProcessor) { processor = p } }
 
     static func make(_ processor: AudioTapProcessor) -> MTAudioProcessingTap? {
         let box = Unmanaged.passRetained(Box(processor)).toOpaque()
@@ -39,8 +41,12 @@ enum AudioTap {
                 let st = MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferList, flagsOut, &range, numberFramesOut)
                 guard st == noErr else { return }
                 let box = Unmanaged<Box>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
-                guard !box.nonFloat else { return }
-                box.processor.process(UnsafeMutableAudioBufferListPointer(bufferList), frames: Int(numberFramesOut.pointee), time: range.start)
+                guard !box.nonFloat else {
+                    if !box.warned { box.warned = true; EngineLog.error("audio tap got non-Float32 audio: lane processing and clip volumes skipped") }
+                    return
+                }
+                box.processor.process(UnsafeMutableAudioBufferListPointer(bufferList), frames: Int(numberFramesOut.pointee),
+                                      time: range.start, duration: range.duration)
             })
         var tap: MTAudioProcessingTap?
         let err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap)

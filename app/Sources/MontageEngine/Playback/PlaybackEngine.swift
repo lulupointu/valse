@@ -372,7 +372,7 @@ public final class PlaybackEngine {
         }
         stopReverseShuttle()
         if player.rate == 0 { primeIfPausedInPlace() }
-        if seekInFlight { resume(atRate: rate) } else { player.rate = rate }
+        if seekInFlight { resume(atRate: rate) } else { seekTarget = player.currentTime(); player.rate = rate }
     }
 
     /// Current shuttle rate (negative = backwards), including the emulated reverse.
@@ -480,6 +480,9 @@ public final class PlaybackEngine {
             Task { @MainActor in
                 guard let self, gen == self.seekGeneration else { return }   // superseded (item replaced)
                 self.seekInFlight = false
+                // a tolerant seek can land after its target: frames start where it landed
+                let landed = self.player.currentTime()
+                if landed.isValid, CMTimeCompare(landed, self.seekTarget) > 0 { self.seekTarget = landed }
                 if let (pt, pe) = self.pendingSeek {
                     self.pendingSeek = nil
                     self.performSeek(pt, exact: pe)
@@ -502,6 +505,7 @@ public final class PlaybackEngine {
             resumeRate = rate
             if !was { onPlayStateChange?(true) }
         } else {
+            seekTarget = player.currentTime()
             player.playImmediately(atRate: rate)
         }
     }
@@ -543,7 +547,8 @@ public final class PlaybackEngine {
     static let maxFutilePrimes = 2
     /// Display time of the last frame handed to the view (a repeat is not a new frame).
     private var lastShownTime = CMTime.invalid
-    /// Earliest item time the last seek can show a frame for (its target less the tolerance): see `watchForStall`.
+    /// Item time the clock was last (re)started from: the last seek's target less its tolerance (then where it landed),
+    /// or the current time when playback starts without a seek. No frame exists before it: see `watchForStall`.
     private var seekTarget = CMTime.invalid
     /// Item-time span without a new frame, while playing, that counts as a frozen preview.
     static let stallSpan = 0.3
@@ -562,7 +567,8 @@ public final class PlaybackEngine {
     /// that the delayed audio is heard in sync: 0.35 s early on a 0.27 s-latency output (Bluetooth / AirPlay / external
     /// speakers). No frame exists before the target, so that lead is not a stall: counted as one, it re-primed after
     /// 0.3 s, at a time just BEFORE the previous target — the next lead was as long, and playback never started
-    /// (pause / seek / play every ~0.45 s, the playhead creeping backwards). The watch starts at the seek target.
+    /// (pause / seek / play every ~0.45 s, the playhead creeping backwards). The watch starts at the seek target (any
+    /// clock start: seek, resume, rate change).
     private func watchForStall(_ itemTime: CMTime) {
         guard player.rate > 0, !seekInFlight, resumeRate == nil, reverseShuttleRate == 0, itemTime.isValid,
               !(seekTarget.isValid && CMTimeCompare(itemTime, seekTarget) < 0) else {

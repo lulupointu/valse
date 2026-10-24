@@ -207,15 +207,26 @@ public enum CompositionBuilder {
             for key in aOrder {
                 guard let a = aLanes[key] else { continue }
                 let volumes = laneVolumes[key] ?? []
-                // Preview: the clip volumes are applied by the lane tap, not by audio-mix ramps (see `LaneProcessor.gains`).
-                let tapGains: [GainRamp]? = purpose == .preview ? volumes.flatMap { $0.ramps } : nil
+                // The clip volumes are applied by the lane tap, not by audio-mix ramps (PB-DROP, see `LaneProcessor.gains`);
+                // preview and export run the same gains. The mix keeps one ramp per clip, at a constant 1: AVPlayer sends
+                // ramp values to its mixer at every edit and drops some of them on a resampling output — harmless when
+                // every value is 1. Measured on a 44.1 kHz output (PlaybackDeviceReproTests), other mixes left a lane's
+                // mixer input muted for whole plays: no volume at all (8 plays in 12), one step or one ramp over the item
+                // (1 in ~20); one 1→1 ramp per clip, the shape the old per-clip ramps had, never did. Without a tap
+                // (frozen-clock recovery, tap creation failed) the mix carries the real ramps, as before.
                 if audioTaps {
                     a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[key] ?? [], state: audioState, skip: skip,
-                                                                        gains: tapGains))
+                                                                        gains: volumes.flatMap { $0.ramps }))
                 }
-                if a.1.audioTapProcessor == nil || tapGains == nil {
+                if a.1.audioTapProcessor == nil {
                     a.1.setVolume(0, at: .zero)
                     for v in volumes { apply(v.ramps, end: v.end, to: a.1) }
+                } else {
+                    for v in volumes {
+                        guard let first = v.ramps.first, let last = v.ramps.last else { continue }
+                        a.1.setVolumeRamp(fromStartVolume: 1, toEndVolume: 1,
+                                          timeRange: CMTimeRange(start: first.start.cmTime, duration: (last.end - first.start).cmTime))
+                    }
                 }
                 audioParams.append(a.1)
             }
