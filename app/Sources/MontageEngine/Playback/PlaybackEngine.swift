@@ -476,17 +476,30 @@ public final class PlaybackEngine {
         let tol = exact ? CMTime.zero : CMTime(value: 1, timescale: 10)
         let target = itemSkip.item(t).cmTime
         seekTarget = CMTimeSubtract(target, tol)
-        player.seek(to: target, toleranceBefore: tol, toleranceAfter: tol) { [weak self] _ in
+        player.seek(to: target, toleranceBefore: tol, toleranceAfter: tol) { [weak self] finished in
             Task { @MainActor in
                 guard let self, gen == self.seekGeneration else { return }   // superseded (item replaced)
                 self.seekInFlight = false
+                if let (pt, pe) = self.pendingSeek {
+                    self.pendingSeek = nil
+                    self.unfinishedSeekRetries = 0
+                    self.performSeek(pt, exact: pe)
+                    return
+                }
+                // PB-SEEK-LAG: AVFoundation can end a seek unfinished (interrupted inside the player, e.g. while its
+                // pipeline is struggling) without moving: resuming then plays on from where the click found it, while
+                // the playhead shows the target. Re-issue the request (bounded) before resuming.
+                if !finished, self.unfinishedSeekRetries < Self.maxUnfinishedSeekRetries {
+                    self.unfinishedSeekRetries += 1
+                    self.seekRetries += 1
+                    self.performSeek(t, exact: exact)
+                    return
+                }
+                self.unfinishedSeekRetries = 0
                 // a tolerant seek can land after its target: frames start where it landed
                 let landed = self.player.currentTime()
                 if landed.isValid, CMTimeCompare(landed, self.seekTarget) > 0 { self.seekTarget = landed }
-                if let (pt, pe) = self.pendingSeek {
-                    self.pendingSeek = nil
-                    self.performSeek(pt, exact: pe)
-                } else if let r = self.resumeRate {
+                if let r = self.resumeRate {
                     self.resumeRate = nil
                     self.player.playImmediately(atRate: r)
                     self.stallWatch = nil
@@ -497,6 +510,11 @@ public final class PlaybackEngine {
     /// Rate to resume once the in-flight seek(s) complete (seek requested while playing); nil = stay paused.
     private var resumeRate: Float?
     private var seekGeneration = 0
+    /// Consecutive re-issues of the current seek after AVFoundation ended it unfinished.
+    private var unfinishedSeekRetries = 0
+    static let maxUnfinishedSeekRetries = 2
+    /// Seeks re-issued because AVFoundation ended them unfinished (diagnostics / tests).
+    public private(set) var seekRetries = 0
 
     /// Starts playback at `rate`, after the in-flight seek when there is one (see `performSeek`).
     private func resume(atRate rate: Float) {
@@ -522,7 +540,7 @@ public final class PlaybackEngine {
         guard let out = videoOutput else { return nil }
         let itemTime = out.itemTime(forHostTime: host)
         watchClock(itemTime, host: host)
-        guard out.hasNewPixelBuffer(forItemTime: itemTime) else { watchForStall(itemTime); return nil }
+        guard !withholdsFramesForTesting, out.hasNewPixelBuffer(forItemTime: itemTime) else { watchForStall(itemTime); return nil }
         var shown = CMTime.invalid
         guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { watchForStall(itemTime); return nil }
         framesSinceSeek += 1
@@ -603,6 +621,8 @@ public final class PlaybackEngine {
     static let frozenClockSeconds = 1.5
     /// Tests only: build with the pre-PB-QC audio lane layout (formats mixed on a lane) to exercise the recovery.
     var mixesAudioFormatsForTesting = false
+    /// Tests only: the view gets no new frame (a lagging / stalled video pipeline, as the watchdogs see it).
+    var withholdsFramesForTesting = false
 
     /// Preview builds without the lanes' processing taps (live EQ / voice colour / channel edits not heard) after the
     /// clock froze; cleared by the next structural change.
