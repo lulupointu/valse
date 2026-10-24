@@ -116,7 +116,8 @@ public final class PlaybackEngine {
         player.volume = AudioOutput.volume(player.volume)
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] t in
             MainActor.assumeIsolated {
-                guard let self, self.player.rate != 0 else { return }
+                // a requested seek owns the playhead until it lands (the clock must not overwrite the target)
+                guard let self, self.player.rate != 0, !self.seekInFlight else { return }
                 self.requestedTime = self.timeline(t)
                 self.onTimeUpdate?(self.requestedTime)
             }
@@ -450,8 +451,42 @@ public final class PlaybackEngine {
         let target = t.clamped(.zero, max(project.duration, .zero))
         requestedTime = target
         onTimeUpdate?(target)
-        if seekInFlight { pendingSeek = (target, exact); return }
+        if seekInFlight {
+            pendingSeek = (target, exact)
+            if seekLooksStuck { restartStuckSeek() }
+            return
+        }
         performSeek(target, exact: exact)
+    }
+
+    // MARK: Stuck seek (PB-SEEK-LAG)
+
+    /// Seconds a seek may stay in flight before a new request (seek, play) stops waiting for it.
+    static let stuckSeekSeconds = 2.0
+    /// Seeks restarted because the previous one never completed (diagnostics / tests).
+    public private(set) var stuckSeekRestarts = 0
+    private var seekStartedAt: CFTimeInterval = 0
+    /// Tests only: the player is never asked to seek (a seek AVFoundation never completes).
+    var ignoresSeeksForTesting = false
+
+    /// The in-flight seek will not complete: the clock runs although every seek holds it (the player went on playing
+    /// from where it was, so the request was not honoured), or it has been pending for `stuckSeekSeconds`.
+    /// Owner (PB-SEEK-LAG, lagging preview): clicks on the timeline while playing were all queued behind such a seek —
+    /// the playhead kept advancing from where it was, as if nothing was clicked, until pause + play.
+    private var seekLooksStuck: Bool {
+        seekInFlight && (player.rate != 0 || CACurrentMediaTime() - seekStartedAt > Self.stuckSeekSeconds)
+    }
+
+    /// Drops the stuck seek (its completion is ignored: new generation) and performs the latest request now.
+    private func restartStuckSeek() {
+        stuckSeekRestarts += 1
+        EngineLog.error("seek stuck for \(String(format: "%.1f", CACurrentMediaTime() - seekStartedAt)) s (rate \(player.rate)): restarting it")
+        player.currentItem?.cancelPendingSeeks()
+        seekInFlight = false
+        let (t, exact) = pendingSeek ?? (requestedTime, true)
+        pendingSeek = nil
+        unfinishedSeekRetries = 0
+        performSeek(t, exact: exact)
     }
 
     public func step(frames: Int) {
@@ -476,6 +511,8 @@ public final class PlaybackEngine {
         let tol = exact ? CMTime.zero : CMTime(value: 1, timescale: 10)
         let target = itemSkip.item(t).cmTime
         seekTarget = CMTimeSubtract(target, tol)
+        seekStartedAt = CACurrentMediaTime()
+        if ignoresSeeksForTesting { return }
         player.seek(to: target, toleranceBefore: tol, toleranceAfter: tol) { [weak self] finished in
             Task { @MainActor in
                 guard let self, gen == self.seekGeneration else { return }   // superseded (item replaced)
@@ -518,6 +555,7 @@ public final class PlaybackEngine {
 
     /// Starts playback at `rate`, after the in-flight seek when there is one (see `performSeek`).
     private func resume(atRate rate: Float) {
+        if seekLooksStuck { restartStuckSeek() }
         if seekInFlight {
             let was = isPlaying
             resumeRate = rate
@@ -540,6 +578,10 @@ public final class PlaybackEngine {
         guard let out = videoOutput else { return nil }
         let itemTime = out.itemTime(forHostTime: host)
         watchClock(itemTime, host: host)
+        if presentsOneFrameInForTesting > 1 {   // lagging preview: the view gets 1 frame in N (dropped-frames warning)
+            framePollsForTesting += 1
+            if framePollsForTesting % presentsOneFrameInForTesting != 0 { return nil }
+        }
         guard !withholdsFramesForTesting, out.hasNewPixelBuffer(forItemTime: itemTime) else { watchForStall(itemTime); return nil }
         var shown = CMTime.invalid
         guard let pb = out.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &shown) else { watchForStall(itemTime); return nil }
@@ -623,6 +665,10 @@ public final class PlaybackEngine {
     var mixesAudioFormatsForTesting = false
     /// Tests only: the view gets no new frame (a lagging / stalled video pipeline, as the watchdogs see it).
     var withholdsFramesForTesting = false
+    /// Tests / UI scripts (`playerState: "lag=N"`): the view gets one display poll in N (a lagging preview: frames
+    /// arrive late, PlaybackHealth shows its dropped-frames warning). 0 = off.
+    public var presentsOneFrameInForTesting = 0
+    private var framePollsForTesting = 0
 
     /// Preview builds without the lanes' processing taps (live EQ / voice colour / channel edits not heard) after the
     /// clock froze; cleared by the next structural change.

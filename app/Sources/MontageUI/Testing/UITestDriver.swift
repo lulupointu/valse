@@ -435,6 +435,7 @@ public final class UITestDriver {
             window.setContentSize(NSSize(width: size[0].doubleValue, height: size[1].doubleValue))
         }
         let project = (script["project"] as? String) ?? "empty"
+        defer { if let s = script["playerState"] as? String { PlayerDebugState.apply(s, to: store) } }   // `--player-state` spec
         if let hook = Self.projectHook, try await hook(project) {
             try await idle(settle: (script["settle"] as? NSNumber)?.doubleValue ?? 1.5)
             await loadBarrier()

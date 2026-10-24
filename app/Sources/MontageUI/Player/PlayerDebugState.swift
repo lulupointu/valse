@@ -40,6 +40,7 @@ public enum PlayerDebugState {
             case "scope": ui.scope = ScopeMode(rawValue: value) ?? .waveform
             case "loop": store.toggleLoop()
             case "ratio": store.setRatio(value)
+            case "lag": store.engine.presentsOneFrameInForTesting = Int(value) ?? 4   // PB-SEEK-LAG: lagging preview
             case "quality": store.previewQuality = PreviewQuality(rawValue: value) ?? store.previewQuality
             case "fullscreen": ui.isFullscreen = true
             case "edit": if let id = store.selection.first { ui.editingTextClip = id }

@@ -76,6 +76,63 @@ import MontageTestSupport
         }
     }
 
+    /// The owner's case: a seek that never completes while the player plays on from where it was. Before, every later
+    /// click was queued behind it (`pendingSeek`) and the clock kept publishing the old position: the playhead advanced
+    /// as if nothing was clicked, until pause + play. Now the click restarts the stuck seek and owns the playhead.
+    @Test func clickWhilePlayingBehindAStuckSeek() async throws {
+        let project = try await Self.project()
+        try await HeavyWorkGate.run {
+            let engine = PlaybackEngine(project: project)
+            engine.usesProxies = false
+            try await PlaybackProbe.waitReady(engine)
+            engine.seek(to: Time(2))
+            engine.play()
+            #expect(try await Self.reaches(engine, 2))
+            engine.ignoresSeeksForTesting = true
+            engine.seek(to: Time(6))                    // never completes
+            engine.player.playImmediately(atRate: 1)    // … and the player plays on from where it was
+            engine.ignoresSeeksForTesting = false
+            try await Self.play(engine, seconds: 0.3)
+            var published: [Double] = []
+            engine.onTimeUpdate = { published.append($0.seconds) }
+            engine.seek(to: Time(20))                   // the click
+            #expect(try await Self.reaches(engine, 20))
+            #expect(engine.stuckSeekRestarts == 1)
+            #expect(published.allSatisfy { $0 >= 19.4 }, "the playhead went back to the old position: \(published.prefix(20))")
+            #expect(engine.isPlaying)
+            engine.pause()
+        }
+    }
+
+    /// A seek stuck for `stuckSeekSeconds` (clock held) does not swallow the next click, nor play.
+    @Test func stuckSeekTimesOut() async throws {
+        let project = try await Self.project()
+        try await HeavyWorkGate.run {
+            let engine = PlaybackEngine(project: project)
+            engine.usesProxies = false
+            try await PlaybackProbe.waitReady(engine)
+            engine.seek(to: Time(2))
+            engine.play()
+            #expect(try await Self.reaches(engine, 2))
+            engine.ignoresSeeksForTesting = true
+            engine.seek(to: Time(6))                    // never completes; the clock stays held
+            engine.ignoresSeeksForTesting = false
+            try await Self.play(engine, seconds: PlaybackEngine.stuckSeekSeconds + 0.2)
+            engine.seek(to: Time(15))
+            #expect(try await Self.reaches(engine, 15))
+            #expect(engine.stuckSeekRestarts == 1)
+            // pause + play after another stuck seek resumes too
+            engine.ignoresSeeksForTesting = true
+            engine.seek(to: Time(25))
+            engine.ignoresSeeksForTesting = false
+            engine.pause()
+            try await Self.play(engine, seconds: PlaybackEngine.stuckSeekSeconds + 0.2)
+            engine.play()
+            #expect(try await Self.reaches(engine, 25))
+            engine.pause()
+        }
+    }
+
     /// A seek AVFoundation ends unfinished is re-issued (it used to resume where the player was).
     @Test func unfinishedSeekIsReissued() async throws {
         let project = try await Self.project()
