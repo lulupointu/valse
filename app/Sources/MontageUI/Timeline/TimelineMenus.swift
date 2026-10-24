@@ -339,21 +339,21 @@ extension TimelineView {
 
     // MARK: Track volume (TL-018)
 
-    /// "Track volume ▸" submenu: a dB slider (−30…+6 dB, release = one undo step) plus quick presets.
+    /// "Track volume ▸" submenu: a % slider (0 … 200 %, release = one undo step) plus quick presets (AU-VOL-PCT).
     func trackVolumeMenu(_ t: Track) -> NSMenuItem {
         let s = store, id = t.id
-        let current = TrackVolumeMath.db(t.gain)
-        let slider = TrackVolumeSliderView(db: current) { db in s.setTrackVolume(id, TrackVolumeMath.gain(db)) }
+        let current = VolumePercent.percent(t.gain)
+        let slider = TrackVolumeSliderView(percent: Double(current)) { p in s.setTrackVolume(id, TrackVolumeMath.gain(percent: p)) }
         let sliderItem = NSMenuItem(); sliderItem.view = slider
         var items: [NSMenuItem] = [sliderItem, .separator()]
-        for db in [-12.0, -6.0, 0.0, 3.0, 6.0] {
-            items.append(MenuAction.item(TrackVolumeMath.label(db), key: "", [], checked: abs(current - db) < 0.05) {
-                s.setTrackVolume(id, TrackVolumeMath.gain(db))
+        for p in TrackVolumeMath.presets {
+            items.append(MenuAction.item(VolumePercent.labelPercent(Double(p)), key: "", [], checked: current == p && t.gain > 0) {
+                s.setTrackVolume(id, TrackVolumeMath.gain(percent: Double(p)))
             })
         }
         items.append(MenuAction.item(tr("track.volume.mute"), key: "", [], checked: t.gain == 0) { s.setTrackVolume(id, 0) })
         let i = sub("track.volume", items)
-        i.title = tr("track.volume.title", TrackVolumeMath.label(current))
+        i.title = tr("track.volume.title", VolumePercent.label(t.gain))
         return i
     }
 
@@ -375,10 +375,8 @@ extension TimelineView {
             item(h.nameKey, checked: (t.heightPreset ?? .standard) == h) { s.setTrackHeight(id, h) }
         }))
         if t.kind == .audio || t.kind == .video {
+            // TL-IMOVIE-HEIGHT: no "Audio waveform size" submenu any more (the waveform always fills its area).
             items.append(trackVolumeMenu(t))
-            items.append(sub("track.waveform", [0.3, 0.6, 1.0].map { v in
-                MenuAction.item("\(Int(v * 100)) %", key: "", [], checked: abs((t.waveformScale ?? 0.3) - v) < 0.01) { s.setWaveformScale(id, v) }
-            }))
         }
         if !t.isMain, t.kind.isVisual {
             items.append(.separator())
@@ -406,17 +404,11 @@ extension EditorStore {
     }
 }
 
-/// dB ↔ linear gain for the track volume (−∞ dB = 0).
+/// Track volume in percent (AU-VOL-PCT): 0 … 200 % of unity gain (`Track.volume` stays a linear gain, max 2).
 enum TrackVolumeMath {
-    static let minDB = -30.0, maxDB = 6.0
-    static func db(_ g: Double) -> Double { g <= 0 ? -.infinity : 20 * log10(g) }
-    static func gain(_ db: Double) -> Double { db <= minDB - 0.01 || db == -.infinity ? 0 : pow(10, min(db, maxDB) / 20) }
-    static func label(_ db: Double) -> String {
-        guard db.isFinite else { return "−∞ dB" }
-        let r = (db * 10).rounded() / 10
-        let v = r == 0 ? "0" : String(format: r > 0 ? "+%.1f" : "%.1f", r).replacingOccurrences(of: "-", with: "−")
-        return L10n.shared.language.hasPrefix("fr") ? v.replacingOccurrences(of: ".", with: ",") + "\u{202F}dB" : v + " dB"
-    }
+    static let maxPercent = 200.0
+    static let presets = [25, 50, 100, 150, 200]
+    static func gain(percent p: Double) -> Double { min(max(p.rounded(), 0), maxPercent) / 100 }
 }
 
 /// The slider row inside the "Track volume" submenu.
@@ -425,10 +417,10 @@ final class TrackVolumeSliderView: NSView {
     private let value = NSTextField(labelWithString: "")
     private let onChange: (Double) -> Void
 
-    init(db: Double, onChange: @escaping (Double) -> Void) {
+    init(percent: Double, onChange: @escaping (Double) -> Void) {
         self.onChange = onChange
-        slider = NSSlider(value: db.isFinite ? max(db, TrackVolumeMath.minDB) : TrackVolumeMath.minDB,
-                          minValue: TrackVolumeMath.minDB, maxValue: TrackVolumeMath.maxDB, target: nil, action: nil)
+        slider = NSSlider(value: min(max(percent, 0), TrackVolumeMath.maxPercent), minValue: 0, maxValue: TrackVolumeMath.maxPercent,
+                          target: nil, action: nil)
         super.init(frame: NSRect(x: 0, y: 0, width: 240, height: 30))
         slider.frame = NSRect(x: 16, y: 5, width: 150, height: 20)
         slider.isContinuous = true
@@ -437,15 +429,16 @@ final class TrackVolumeSliderView: NSView {
         value.frame = NSRect(x: 172, y: 7, width: 64, height: 16)
         value.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         value.textColor = .secondaryLabelColor
-        value.stringValue = TrackVolumeMath.label(db)
+        value.stringValue = VolumePercent.labelPercent(percent)
         addSubview(slider); addSubview(value)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     @objc private func changed() {
-        let db = slider.doubleValue <= TrackVolumeMath.minDB + 0.05 ? -Double.infinity : slider.doubleValue
-        value.stringValue = TrackVolumeMath.label(db)
+        var p = slider.doubleValue.rounded()
+        if abs(p - 100) <= 2 { p = 100 }   // 100 % is sticky
+        value.stringValue = VolumePercent.labelPercent(p)
         // one undo step per release: commit when the mouse goes up
-        if NSApp.currentEvent?.type == .leftMouseUp || NSApp.currentEvent == nil { onChange(db) }
+        if NSApp.currentEvent?.type == .leftMouseUp || NSApp.currentEvent == nil { onChange(p) }
     }
 }

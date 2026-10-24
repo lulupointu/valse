@@ -195,13 +195,13 @@ extension TimelineView {
             if audioStrip > 0 {
                 let sr = CGRect(x: r.minX, y: r.maxY - audioStrip, width: r.width, height: audioStrip)
                 c.rect(sr, RGBA(hex: 0x163A3F, alpha: dim), radius: 0)
-                if store.project.timeline.isAudible(track) { drawRunWaveform(&c, run, range, in: sr, layout: l, color: Theme.waveformOnVideo, scale: 0.9) }
+                if store.project.timeline.isAudible(track) {
+                    drawRunWaveform(&c, run, range, in: sr.insetBy(dx: 0, dy: 1), layout: l, color: Theme.waveformOnVideo, scale: 1)
+                }
             }
         }
         if track.kind == .audio {
-            let wr = CGRect(x: r.minX, y: r.minY + 16, width: r.width, height: r.height - 18)
-            let scale = track.waveformScale ?? 0.3
-            drawRunWaveform(&c, run, range, in: wr, layout: l, color: Theme.waveform, scale: 0.7 * max(0.3, scale) / 0.3)
+            drawRunWaveform(&c, run, range, in: TimelineLayout.audioWaveRect(r), layout: l, color: Theme.waveform, scale: 1)
         }
         // Cut lines between clips, only where they stay ≥ 3 pt apart (otherwise the block reads as one dense strip).
         var lastCut = r.minX
@@ -241,7 +241,7 @@ extension TimelineView {
             guard let w = a.wave else { continue }
             let s0 = s.source(at: t0), s1 = s.source(at: t0 + dt)
             let amp = w.peak(from: min(s0, s1), to: max(s0, s1)) * s.volume * scale
-            let h = max(1, min(wr.height, CGFloat(amp) * wr.height))
+            let h = max(1, min(wr.height, CGFloat(TimelineLayout.waveformLevel(amp)) * wr.height))
             c.rect(CGRect(x: x, y: wr.maxY - h, width: step - 0.5, height: h), amp > 0.95 ? hot : color)   // one-sided (C3b)
         }
     }

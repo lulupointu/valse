@@ -61,6 +61,7 @@ public enum StateDump {
                     let g = k.value.component(0) ?? 1
                     return g <= 0 ? -60 : (AudioProps.decibels(g) * 10).rounded() / 10
                 }
+                d["volumeKeyframesPct"] = v.keyframes.map { VolumePercent.percent($0.value.component(0) ?? 1) }   // AU-VOL-PCT
             }
             d["keyframeCounts"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.count) })   // "transform_position"
             d["keyframeEasings"] = Dictionary(uniqueKeysWithValues: c.keyframes.map { ($0.key.replacingOccurrences(of: ".", with: "_"), $0.value.keyframes.map { Self.easingName($0.easing) }) })
@@ -88,6 +89,7 @@ public enum StateDump {
         func trackSummary(_ t: Track, _ i: Int) -> [String: Any] {
             ["index": i, "id": t.id.description, "kind": t.kind.rawValue, "isMain": t.isMain, "locked": t.isLocked,
              "hidden": t.isHidden, "muted": t.isMuted, "solo": t.isSolo == true, "audible": tl.isAudible(t), "volume": t.gain,
+             "laneHeight": Double(TimelineLayout.height(for: t.kind, isMain: t.isMain, preset: t.heightPreset)),   // TL-IMOVIE-HEIGHT
              "clips": t.clips.enumerated().map { clipSummary($1, track: i, index: $0) }]
         }
         let tracks = tl.tracks.enumerated().map { trackSummary($1, $0) }

@@ -108,8 +108,9 @@ import MontageCore
         c.keyframes[ParamKey.volume.raw] = KeyframeTrack(gains.map { Keyframe(time: Time($0.0), value: .scalar($0.1)) })
         return c
     }
-    func dBs(_ c: Clip) -> [Double] {
-        c.keyframes[ParamKey.volume.raw]!.keyframes.map { (AudioProps.decibels($0.value.component(0)!) * 10).rounded() / 10 }
+    /// AU-VOL-PCT: keyframe values in whole percents.
+    func pcts(_ c: Clip) -> [Int] {
+        c.keyframes[ParamKey.volume.raw]!.keyframes.map { VolumePercent.percent($0.value.component(0)!) }
     }
 
     @Test func grabPicksKeyframeOrSegment() {
@@ -125,9 +126,9 @@ import MontageCore
     @Test func draggingAKeyframeChangesOnlyIt() {
         let o = keyed([(2, 1), (5, 1), (8, 1)])
         var c = o
-        // 4 pt down on a 40 pt area = −8 dB
+        // 4 pt down on a 40 pt area: 100 % (3/4 of the area) → 0.65 → 75 %
         ClipVolumeLine.apply(grab: .keyframe(1), dy: 4, areaHeight: 40, origin: o, to: &c)
-        #expect(dBs(c) == [0, -8, 0])
+        #expect(pcts(c) == [100, 75, 100])
         #expect(c.audio.volume == o.audio.volume)
     }
 
@@ -135,25 +136,26 @@ import MontageCore
         let o = keyed([(2, 1), (5, 1), (8, 1)])
         var c = o
         ClipVolumeLine.apply(grab: .segment(lo: 1, hi: 2), dy: 4, areaHeight: 40, origin: o, to: &c)
-        #expect(dBs(c) == [0, -8, -8])
+        #expect(pcts(c) == [100, 75, 75])
     }
 
     @Test func draggingBeforeTheFirstKeyframeChangesTheStart() {
         let o = keyed([(2, 1), (5, 1)])
         var c = o
         ClipVolumeLine.apply(grab: .segment(lo: nil, hi: 0), dy: 4, areaHeight: 40, origin: o, to: &c)
-        #expect(dBs(c) == [-8, 0])
-        // everything from the clip start up to that keyframe is at −8 dB (held before the first keyframe)
-        #expect(abs(AudioProps.decibels(ClipVolumeLine.gain(of: c, at: Time(0.5))) + 8) < 0.01)
-        #expect(abs(AudioProps.decibels(ClipVolumeLine.gain(of: c, at: Time(2))) + 8) < 0.01)
+        #expect(pcts(c) == [75, 100])
+        // everything from the clip start up to that keyframe is at 75 % (held before the first keyframe)
+        #expect(abs(ClipVolumeLine.gain(of: c, at: Time(0.5)) - 0.75) < 1e-9)
+        #expect(abs(ClipVolumeLine.gain(of: c, at: Time(2)) - 0.75) < 1e-9)
     }
 
     @Test func draggingAfterTheLastKeyframeChangesTheEnd() {
         let o = keyed([(2, 1), (5, 1)])
         var c = o
         ClipVolumeLine.apply(grab: .segment(lo: 1, hi: nil), dy: -2, areaHeight: 40, origin: o, to: &c)
-        #expect(dBs(c) == [0, 4])
-        #expect(abs(AudioProps.decibels(ClipVolumeLine.gain(of: c, at: Time(9))) - 4) < 0.01)
+        // 2 pt up from 100 %: 0.80 of the area = 2^0.4 ≈ 132 %
+        #expect(pcts(c) == [100, 132])
+        #expect(abs(ClipVolumeLine.gain(of: c, at: Time(9)) - 1.32) < 1e-9)
     }
 
     @Test func noKeyframesDragsTheWholeClip() {
@@ -161,7 +163,7 @@ import MontageCore
         o.audio.volume = 1
         var c = o
         ClipVolumeLine.apply(grab: .whole, dy: 3.75, areaHeight: 40, origin: o, to: &c)
-        #expect(abs(AudioProps.decibels(c.audio.volume) + 7.5) < 0.01)
+        #expect(abs(c.audio.volume - 0.77) < 1e-9)   // 0.65625 of the area
     }
 
     @Test func keyframeDragIsOneUndoStep() throws {
@@ -182,9 +184,9 @@ import MontageCore
         }
         s.endGesture()
         #expect(s.session.undoStack.count == depth + 1)
-        #expect(dBs(s.project.timeline.clip(id)!) == [-8, 0])
+        #expect(pcts(s.project.timeline.clip(id)!) == [75, 100])
         s.undo()
-        #expect(dBs(s.project.timeline.clip(id)!) == [0, 0])
+        #expect(pcts(s.project.timeline.clip(id)!) == [100, 100])
     }
 
     // MARK: Flicker-free resize

@@ -1,4 +1,4 @@
-// W3-3 / W3-8: French inspector — locale number formats ("0,00°", "1,00×", "6,0 s", "−6,0 dB") and glossary wording
+// W3-3 / W3-8: French inspector — locale number formats ("0,00°", "1,00×", "6,0 s", volume "100 %") and glossary wording
 // ("Modulateur vocal").
 {
   "project": "demo",

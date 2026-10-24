@@ -186,6 +186,21 @@ final class TimelineView: NSView {
                        scrollY: scrollY, viewSize: bounds.size)
     }
 
+    /// Scrolls vertically so the lane of `trackIndex` is fully on screen (when it fits). Used by the UI test driver to
+    /// bring `clip:` / `header:` / `time:…@track` targets into view, like `id:` targets (TL-IMOVIE-HEIGHT: taller lanes).
+    @discardableResult func revealRow(trackIndex: Int) -> Bool {
+        let l = layoutNow
+        guard let row = l.rows.first(where: { $0.trackIndex == trackIndex }) else { return false }
+        let top = TimelineLayout.rulerHeight + 2, bottom = bounds.height - TimelineLayout.scrollbarHeight - 4
+        var dy: CGFloat = 0
+        if row.maxY > bottom { dy = row.maxY - bottom } else if row.y < top { dy = row.y - top }
+        guard dy != 0, bottom > top else { return false }
+        let target = min(max(0, scrollY + dy), max(0, l.contentHeight - bounds.height))
+        guard abs(target - scrollY) > 0.5 else { return false }
+        scrollY = target
+        return true
+    }
+
     @objc func tick() {
         autoscrollTick()   // U1-7: edge autoscroll keeps going while the mouse stands still
         guard dirty, bounds.width > 0 else { return }
@@ -411,9 +426,9 @@ final class TimelineView: NSView {
                     c.image(img, in: item.rect, alpha: item.on ? 1 : 0.55, fill: false)
                 }
             }
-            // TL-018: a non-default track volume shows under the controls ("−6.0 dB")
+            // TL-018: a non-default track volume shows under the controls ("50%", AU-VOL-PCT)
             if track.volume != nil, !row.isMain || row.height > 50, let last = headerItems(track, row: row).last {
-                c.text(TrackVolumeMath.label(TrackVolumeMath.db(track.gain)), at: CGPoint(x: 8, y: last.rect.maxY + 1), size: 9,
+                c.text(VolumePercent.label(track.gain), at: CGPoint(x: 8, y: last.rect.maxY + 1), size: 9,
                        color: RGBA(1, 1, 1, 0.55), mono: true)
             }
             if row.isMain {
@@ -641,15 +656,16 @@ final class TimelineView: NSView {
             if audioStrip > 0 {
                 let sr = CGRect(x: r.minX, y: r.maxY - audioStrip, width: r.width, height: audioStrip)
                 c.rect(sr, RGBA(hex: 0x163A3F, alpha: alpha), radius: 0)
-                if !clip.audio.isMuted && store.project.timeline.isAudible(track) { drawWaveform(&c, clip, asset: asset, in: sr, layout: l, color: Theme.waveformOnVideo, scale: 0.9) }
+                if !clip.audio.isMuted && store.project.timeline.isAudible(track) {
+                    drawWaveform(&c, clip, asset: asset, in: sr.insetBy(dx: 0, dy: 1), layout: l, color: Theme.waveformOnVideo, scale: 1)
+                }
                 if let va = volumeArea(clip, row: row, track: track, layout: l) { drawVolumeLine(&c, clip, area: va, layout: l, dim: dim) }   // C3-2
             }
         }
         // Waveform (audio clips)
         if let asset, track.kind == .audio, asset.hasAudio {
-            let wr = CGRect(x: r.minX, y: r.minY + 16, width: r.width, height: r.height - 18)
-            let scale = track.waveformScale ?? 0.3
-            drawWaveform(&c, clip, asset: asset, in: wr, layout: l, color: Theme.waveform, scale: 0.7 * max(0.3, scale) / 0.3)
+            // TL-IMOVIE-HEIGHT: the waveform fills the clip at full scale (iMovie); the name chip sits over it.
+            drawWaveform(&c, clip, asset: asset, in: TimelineLayout.audioWaveRect(r), layout: l, color: Theme.waveform, scale: 1)
             // volume line (draggable, C3-2)
             if let va = volumeArea(clip, row: row, track: track, layout: l) { drawVolumeLine(&c, clip, area: va, layout: l, dim: dim) }
             // fades
@@ -676,7 +692,9 @@ final class TimelineView: NSView {
             let w = min(c.measure(label, size: chip.font) + 8, r.maxX - labelX - 4)
             if w > 8 {
                 // Over the filmstrip (no name band) the chip needs a dark backing to stay legible.
-                let chipBG = filmstrip && bands.nameBand == 0 ? RGBA(0, 0, 0, 0.45 * dim) : RGBA(1, 1, 1, 0.15 * dim)
+                // Audio clips: the waveform fills the clip, so their chip is backed too (TL-IMOVIE-HEIGHT).
+                let overContent = (filmstrip && bands.nameBand == 0) || (track.kind == .audio && asset?.hasAudio == true)
+                let chipBG = overContent ? RGBA(0, 0, 0, 0.45 * dim) : RGBA(1, 1, 1, 0.15 * dim)
                 c.rect(CGRect(x: labelX, y: r.minY + chip.top, width: w, height: chip.height), chipBG, radius: 3)
                 c.text(label, at: CGPoint(x: labelX + 4, y: r.minY + chip.top + 0.5), size: chip.font,
                        color: RGBA(1, 1, 1, dim), maxWidth: w - 8)
@@ -809,7 +827,7 @@ final class TimelineView: NSView {
             // bar height follows the (keyframed) clip volume
             let g = keyed ? ClipVolumeLine.gain(of: clip, at: (tl0 - clip.start).clamped(.zero, clip.duration)) : clip.audio.volume
             let a = CGFloat(w.peak(from: min(t0, t1), to: max(t0, t1)) * g * scale)
-            let h = max(1, min(wr.height, a * wr.height))
+            let h = max(1, min(wr.height, CGFloat(TimelineLayout.waveformLevel(Double(a))) * wr.height))
             // one-sided, from the bottom up (CapCut [23], C3b)
             c.rect(CGRect(x: x, y: wr.maxY - h, width: step - 0.5, height: h), a > 0.95 ? RGBA(hex: 0xE5934A) : color)
             x += step

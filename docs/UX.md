@@ -378,7 +378,8 @@ Tabs: **Video · Audio · Speed · Animation · Adjust · AI stylize** (images h
 **Video ▸ Enhance** ([25](ux/25_insp_video_enhance.png)) = retouch: pill tabs **Face · Body · Hair · Face presets · Body presets**. ☐ Auto styles (preset grid, loads with a spinner "Loading…"). ☐ Face: mode dropdown "Single mode", sliders Plump, Even, Clear blemishes, Sparkly skin, … (all 0–100, default 0). Footer `[Save as preset]`.
 
 **Audio** ([29](ux/29_insp_audio.png), [43](ux/43_insp_audio_voicechanger.png)): sub-tabs **Basic · Voice changer**.
-- Basic ↺ ‹◇›: **Volume** slider, field `0.0dB` (range −∞…+20 dB, centre knob ≈ 0 dB at about 72 % of the track) ‹◇›; **Fade in** `0.0s` and **Fade out** `0.0s` (0 to half the clip length). These have no keyframes (the diamond is shown greyed out).
+- Basic ↺ ‹◇›: **Volume** slider, field `100%` (Montage, owner 2026-10-24: percent like iMovie, range 0 … 400 %, 100 % at 3/4 of
+  the track; CapCut shows `0.0dB`, −∞…+20 dB) ‹◇›; **Fade in** `0.0s` and **Fade out** `0.0s` (0 to half the clip length). These have no keyframes (the diamond is shown greyed out).
 - ☐ Loudness normalization ("Normalize the loudness of the selected clip or clips to a target level", target from settings −23/−16/−14 LUFS) · ☐ Enhance voice ⓘ ↺ · ☐ Video translator · ☐ Reduce noise · (further down: ☐ Vocal isolation / remove vocals, ☐ Beats).
 - Voice changer: ☐ Apply to all; search field ("People are searching Podcast"); pill tabs **Voice filters · Voice characters · Speech to song**; "All" grid of **78×78 pt square tiles** `#3A3A3A` with a centred 13 pt name and a ⬇ download badge bottom-right (until downloaded). The selected tile ("Original") gets an accent border. Filters: Original, Fuller Voice, Helium, Mic Echo, Clear Vocals, Cosmic Bot, Voice Crisper, Broken Mic, Teenager, Magic Chords, Studio Mic, Bass Boost, Voice Focus, Full Voice, Bass Mic, Ghost Voice, Super Reverb, Underwater, Super Bass, PA Announcer, Mad Gremlin, Crystal Clear, High Resolution, Sonic Destructor, … Selecting a tile shows its parameters (e.g. Pitch, Timbre 0–100) under the grid.
 
@@ -488,17 +489,23 @@ after about 1.5 s (see §8.3).
 
 ### 6.3 Track headers (left column, 120 pt wide, `#1F1F20`)
 - Each header: type icon (TT text, ✦ effect, ☁ filter, ⚙ adjust, ◷ sticker, ▶ video, ♪ audio) · **🔒 lock** · **👁 hide** (visual
-  tracks) · **🔊 mute** (tracks with audio) · **⋯ more** (video/audio tracks: Track height ▸ Short / ✓ Default / Tall; Audio
-  waveform size ▸ ✓ 30 % / 60 % / 100 %, [90](ux/90_track_more_menu.png)). Icons 14 pt grey, 22 pt apart. A toggled-on state (locked,
+  tracks) · **🔊 mute** (tracks with audio) · **⋯ more** (video/audio tracks: Track height ▸ Short / ✓ Default / Tall; Track
+  volume ▸ (%), [90](ux/90_track_more_menu.png); CapCut's "Audio waveform size" submenu was removed on the owner's request
+  2026-10-24: the waveform always fills its area). Icons 14 pt grey, 22 pt apart. A toggled-on state (locked,
   hidden, muted) shows the icon in white with a slash, and the lane dims (hidden tracks: clips at 40 % opacity; locked: hatch pattern,
   not editable).
 - **Main track**: the header also has a **"Cover"** button (40×36 pt, `#2A2A2A`, ✎ icon + "Cover" 10 pt) right next to the clips.
   Clicking it opens the cover editor (pick a frame or import an image, add text).
 
 ### 6.4 Lanes and track order
-- Lane heights: **overlay/effect/text/sticker/filter/adjust lanes 24 pt** (clip 20 pt), **main video lane about 76 pt** (clip 72:
-  18 pt name strip + 36 pt filmstrip + 16 pt audio waveform strip), **audio lanes about 50 pt** (clip 46), with a 4 pt gap between lanes.
-  The lane bg is `#1E1E1F` on the timeline bg `#1B1B1C`. "Tall/Short" track height scales these.
+- Lane heights (owner 2026-10-24, iMovie-sized instead of CapCut's): **effect/text/sticker/filter/adjust lanes 24 pt** (clip 20 pt),
+  **every video lane, main AND overlay, 110 pt** (≈ 82 pt filmstrip with the name chip over its top-left corner + 28 pt audio
+  waveform strip = 25 % of the lane), **audio lanes 83 pt** (the waveform fills the clip, name chip over it), with a 4 pt gap between
+  lanes. Waveforms are drawn at full scale (peak 1.0 = the strip / clip height). The lane bg is `#1E1E1F` on the timeline bg `#1B1B1C`.
+  "Track height ▸ Short / Default / Tall" (×0.65 / 1 / 1.5) scales these.
+- Volumes are shown in **percent** everywhere (iMovie, owner 2026-10-24): 100 % = unity gain (0 dB), 0 % = silence, max 400 % for a
+  clip (track volume: 0 … 200 %). The clip volume line puts 100 % at 3/4 of the audio area (√gain below, two octaves above); its drag
+  tooltip shows "63%" ("63 %" in French), whole percents, 100 % sticky; ⌘. / ⌘, step ±1 %.
 - Order (top → bottom): newest overlay tracks at the top … text, effects, filters, adjustments, stickers, **video overlays**, **main
   track**, then **audio tracks under the main track**. Each new drop **above** the topmost lane (or between lanes, shown by an accent
   insertion line) creates a new track. A drop on an existing lane places the clip there if free. If occupied, a new lane is created.
@@ -509,7 +516,7 @@ after about 1.5 s (see §8.3).
 ### 6.5 Clip appearance
 - Radius 4. Clip name chip top-left: `h264_1080.mp4` and duration chip `00:00:26:29` (10–11 pt white on a 15 % white chip, 4 pt
   padding). Small clips truncate the name ("Defa…").
-- Video clips: teal name strip, **filmstrip** of thumbnails (repeated to fill, aspect-correct), and at the bottom the clip's own audio as a
+- Video clips: name chip (dark backing) over the top-left of the **filmstrip** of thumbnails (repeated to fill, aspect-correct), and at the bottom the clip's own audio as a
   teal waveform strip (if it has audio).
 - Audio clips: dark-blue body with a light-blue **waveform** (bars, peaks tinted orange). The volume line is draggable vertically.
 - Text/effects/filters/adjust/stickers: flat coloured bar with an icon + name (sticker shows its thumbnail).
@@ -646,7 +653,7 @@ shortcut already belongs to %2. Override it?". Footer: `[Reset to defaults]` · 
 | Select by clip | ⇧X | Deselect | ⌥X |
 | Group / Ungroup | ⌘G / ⇧⌘G | Show speed panel | ⌘R |
 | Curve speed | ⇧B | Create compound clip | ⌥G |
-| Undo compound clip | ⌥⇧G | Volume +0.1 dB / −0.1 dB | ⌘. / ⌘, |
+| Undo compound clip | ⌥⇧G | Volume +1 % / −1 % | ⌘. / ⌘, |
 | In (enter compound clip?) | ⇧⏎ | Shuttle left / stop / right (J-K-L, press repeatedly to go faster) | J / K / L |
 | Delete left (trim clip start to playhead) | Q | Delete right (trim clip end to playhead) | W |
 | Show/Hide keyframe panel | ⌥K | Add keyframe on keyframe panel | ⇧ + click |

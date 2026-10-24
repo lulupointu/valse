@@ -373,10 +373,6 @@ extension EditorStore {
         edit("cmd.trackHeight") { p in if let i = p.timeline.trackIndex(id) { p.timeline.tracks[i].heightPreset = h == .standard ? nil : h } }
     }
 
-    public func setWaveformScale(_ id: TrackID, _ v: Double) {
-        edit("cmd.trackHeight") { p in if let i = p.timeline.trackIndex(id) { p.timeline.tracks[i].waveformScale = v } }
-    }
-
     public func setLinkage(_ cat: LinkageCategory, enabled: Bool) {
         edit("cmd.timelineOption") { p in
             var ex = Set(p.timeline.linkageExcluded ?? [])

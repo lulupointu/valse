@@ -3,7 +3,7 @@ import MontageCore
 import MontageEngine
 
 /// Clip volume line (C3-2, CapCut [10]): a horizontal line over the audio area of a clip (the waveform of an audio-lane
-/// clip, the audio strip under a main-track video's filmstrip). Hover = ↕ cursor; drag = volume with a dB tooltip, one
+/// clip, the audio strip under a main-track video's filmstrip). Hover = ↕ cursor; drag = volume with a % tooltip, one
 /// undo step ("cmd.volume"). Volume keyframes (C3b, CapCut [24]/[26]) are diamonds ON the line, always visible; the
 /// line follows the keyframed curve; dragging a diamond moves that keyframe, dragging the line between diamonds moves
 /// the keyframes bounding it (`ClipVolumeLine.Grab`).
@@ -12,7 +12,7 @@ extension TimelineView {
     func volumeArea(_ clip: Clip, row: TimelineLayout.Row, track: Track, layout l: TimelineLayout) -> CGRect? {
         guard let asset = drawCache.asset(clip.mediaID)?.asset, asset.hasAudio, !clip.isFreezeFrame else { return nil }
         let r = l.clipRect(clip, row: row).insetBy(dx: 0.5, dy: 0)
-        if track.kind == .audio { return CGRect(x: r.minX, y: r.minY + 16, width: r.width, height: r.height - 18) }
+        if track.kind == .audio { return TimelineLayout.audioWaveRect(r) }
         // OB-09: any video lane whose audio strip is tall enough (main track; overlay lanes at the tall height).
         let bands = TimelineLayout.videoBands(height: r.height, hasAudio: true)
         if asset.kind != .audio, track.kind == .video, r.height >= 30, bands.hasVolumeLine {
@@ -21,7 +21,7 @@ extension TimelineView {
         return nil
     }
 
-    /// Height used for the drag sensitivity (the 16 pt strip would be 5 dB per point).
+    /// Height used for the drag sensitivity (a thin strip would be too sensitive).
     static func volumeDragHeight(_ area: CGRect) -> CGFloat { max(area.height, 40) }
 
     /// Pointer distance (points) that grabs a volume keyframe diamond instead of the line.
@@ -116,12 +116,12 @@ extension TimelineView {
         if let c = store.project.timeline.clip(id) { volumeLabel(c, grab: grab, at: pt, l) }
     }
 
-    /// dB tooltip ("−7.5dB") next to the pointer: the grabbed keyframe's value, else the volume under the pointer.
+    /// Percent tooltip ("63%") next to the pointer: the grabbed keyframe's value, else the volume under the pointer.
     private func volumeLabel(_ clip: Clip, grab: ClipVolumeLine.Grab, at pt: CGPoint, _ l: TimelineLayout) {
         var g = ClipVolumeLine.gain(of: clip, at: (l.time(atX: pt.x) - clip.start).clamped(.zero, clip.duration))
         if case .keyframe(let i) = grab, let k = clip.keyframes[ParamKey.volume.raw]?.keyframes, i < k.count {
             g = k[i].value.component(0) ?? g
         }
-        trimLabel = (pt.x + 34, pt.y, AudioBasicSection.dbFormat(max(ClipVolumeLine.minDB, AudioProps.decibels(g))))
+        trimLabel = (pt.x + 34, pt.y, VolumePercent.label(g))   // AU-VOL-PCT: "63%" like iMovie
     }
 }

@@ -1,40 +1,41 @@
 // C3b: volume keyframes are diamonds ON the audio's volume line (CapCut [24]), visible when the clip isn't selected;
 // the line follows the curve between them ([26]); dragging a diamond changes only it, dragging the line between two
 // diamonds moves both, before the first / after the last moves that keyframe. One undo step each. Waveforms are
-// one-sided ([23]).
+// one-sided ([23]). AU-VOL-PCT: values in whole percents.
 {
   "project": "demo",
   "steps": [
-    // music clip (track 5, 0–12 s, −6 dB): volume keyframes at 3 s and 8 s from the inspector
-    {"click": "clip:5/0", "offset": [0, 14]},
+    // music clip (track 5, 0–12 s, 50 %): volume keyframes at 3 s and 8 s from the inspector
+    {"click": "clip:5/0", "offset": [0, 24]},
     {"click": "id:inspector.tab.audioBasic"},
     {"seek": 3},
     {"click": "id:keyframe.toggle.audio.volume"},
     {"seek": 8},
     {"click": "id:keyframe.toggle.audio.volume"},
-    {"expect": [{"path": "tracks.5.clips.0.keyframeCounts.audio_volume", "equals": 2}, {"path": "tracks.5.clips.0.volumeKeyframesDB", "equals": [-6, -6]}]},
+    {"expect": [{"path": "tracks.5.clips.0.keyframeCounts.audio_volume", "equals": 2}, {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [50, 50]}]},
     // deselect: the diamonds stay on the line
     {"click": "time:30@main"},
     {"expect": {"path": "selection.count", "equals": 0}},
     {"snapshot": "keyframes-unselected", "element": "id:panel.timeline"},
-    // drag the first diamond (3 s = 25 % of the clip) down 4 pt: only it changes (−8 dB on the 40 pt drag scale)
-    {"drag": "clip:5/0:0.25", "offset": [0, 1], "by": [0, 4]},
-    {"expect": [{"path": "tracks.5.clips.0.volumeKeyframesDB", "equals": [-14, -6]}, {"path": "undo.name", "equals": "cmd.volume"},
+    // drag the first diamond (3 s = 25 % of the clip) down 4 pt: only it changes (50 % → 41 % on the 79 pt waveform area;
+    // the 50 % line sits 2.5 pt above the clip's centre)
+    {"drag": "clip:5/0:0.25", "offset": [0, -2], "by": [0, 4]},
+    {"expect": [{"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [41, 50]}, {"path": "undo.name", "equals": "cmd.volume"},
                 {"path": "tracks.5.clips.0.start", "approx": 0}]},
     {"snapshot": "keyframe-dragged", "element": "id:panel.timeline"},
     {"key": "cmd+z"},
-    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesDB", "equals": [-6, -6]}},
+    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [50, 50]}},
     // the line between them (5.5 s): both move
-    {"drag": "clip:5/0:0.4583", "offset": [0, 1], "by": [0, 4]},
-    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesDB", "equals": [-14, -14]}},
+    {"drag": "clip:5/0:0.4583", "offset": [0, -2], "by": [0, 4]},
+    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [41, 41]}},
     {"key": "cmd+z"},
     // before the first keyframe (1 s): the first keyframe (and everything before it)
-    {"drag": "clip:5/0:0.0833", "offset": [0, 1], "by": [0, 4]},
-    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesDB", "equals": [-14, -6]}},
+    {"drag": "clip:5/0:0.0833", "offset": [0, -2], "by": [0, 4]},
+    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [41, 50]}},
     {"key": "cmd+z"},
     // after the last keyframe (10.5 s): the last one
-    {"drag": "clip:5/0:0.875", "offset": [0, 1], "by": [0, 4]},
-    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesDB", "equals": [-6, -14]}},
+    {"drag": "clip:5/0:0.875", "offset": [0, -2], "by": [0, 4]},
+    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [50, 41]}},
     {"snapshot": "curve", "element": "id:panel.timeline"}
   ]
 }

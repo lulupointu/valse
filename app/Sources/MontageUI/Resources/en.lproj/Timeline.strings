@@ -199,7 +199,6 @@
 "track.height.short" = "Short";
 "track.height.standard" = "Default";
 "track.height.tall" = "Tall";
-"track.waveform" = "Audio waveform size";
 
 "shortcut.splitAll" = "Split all";
 "shortcut.selectMode" = "Select mode";

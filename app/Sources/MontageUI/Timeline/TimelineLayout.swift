@@ -46,21 +46,28 @@ public struct TimelineLayout {
     /// Keyframe diamonds are centred vertically on a selected clip; this is the height of their hit band.
     public static let keyframeBand: CGFloat = 12
 
+    /// Default (standard preset) lane heights, iMovie-sized (TL-IMOVIE-HEIGHT, owner 2026-10-24): every video lane (main
+    /// AND overlay) 110 pt = ~83 pt filmstrip + ~27 pt audio strip; audio lanes 83 pt (the waveform fills the clip);
+    /// text / sticker / effect / filter / adjustment lanes 24 pt. "Track height ▸ Short / Default / Tall" scales them.
+    public static let videoLaneHeight: CGFloat = 110
+    public static let audioLaneHeight: CGFloat = 83
+    public static let thinLaneHeight: CGFloat = 24
+
     public static func height(for kind: TrackKind, isMain: Bool, preset: TrackHeight? = nil) -> CGFloat {
-        // UX.md §6.4: main ≈ 76 pt, audio ≈ 50 pt, every other lane 24 pt (overlay video lanes a bit taller for filmstrips).
         let base: CGFloat
-        if isMain { base = 76 } else {
+        if isMain { base = videoLaneHeight } else {
             switch kind {
-            case .video: base = 40
-            case .audio: base = 50
-            default: base = 24
+            case .video: base = videoLaneHeight
+            case .audio: base = audioLaneHeight
+            default: base = thinLaneHeight
             }
         }
         return (base * CGFloat((preset ?? .standard).scale)).rounded()
     }
 
     /// OB-09: vertical bands of a video / image clip. Same rule on every visual track (main or overlay), scaled by the
-    /// lane height: name band (chip) on top, filmstrip, audio strip (waveform) at the bottom when the media has audio.
+    /// lane height: the filmstrip fills the clip with the name chip over its top-left corner (iMovie), and the clip's
+    /// audio strip (waveform, 25 % of the lane) sits at the bottom when the media has audio.
     public struct VideoClipBands: Equatable, Sendable {
         /// Height of the name band above the filmstrip (0 = the chip sits over the filmstrip).
         public var nameBand: CGFloat
@@ -74,16 +81,31 @@ public struct TimelineLayout {
 
     /// Default chip geometry (text / sticker / audio clips and lanes too short for a name band).
     public static let defaultChip = (top: CGFloat(2.5), height: CGFloat(15), font: CGFloat(10.5))
+    /// Share of a video lane taken by the clip's audio strip (iMovie: ~27 of 110 pt).
+    public static let audioStripFraction: CGFloat = 0.25
 
     public static func videoBands(height h: CGFloat, hasAudio: Bool) -> VideoClipBands {
+        let strip = hasAudio ? (h * audioStripFraction).rounded() : 0
         if h >= 60 {
-            return VideoClipBands(nameBand: 18, audioStrip: hasAudio ? 16 : 0, chipTop: 2.5, chipHeight: 15, chipFont: 10.5)
+            return VideoClipBands(nameBand: 0, audioStrip: strip, chipTop: 3, chipHeight: 15, chipFont: 10.5)
         }
-        if h >= 34 {   // overlay lanes (40 pt), short main track (49 pt): compact chip, thinner waveform strip
-            return VideoClipBands(nameBand: 14, audioStrip: hasAudio ? max(8, (h * 0.2).rounded()) : 0,
-                                  chipTop: 1.5, chipHeight: 12, chipFont: 9)
+        if h >= 34 {   // very short lanes: compact chip, thin waveform strip
+            return VideoClipBands(nameBand: 0, audioStrip: hasAudio ? max(8, strip) : 0, chipTop: 2, chipHeight: 12, chipFont: 9)
         }
         return VideoClipBands(nameBand: 0, audioStrip: 0, chipTop: defaultChip.top, chipHeight: defaultChip.height, chipFont: defaultChip.font)
+    }
+
+    /// Bar height (fraction of the waveform area) of a linear peak amplitude: a dB scale from −42 dB (empty) to 0 dBFS
+    /// (full), like iMovie / Final Cut, so ordinary material uses most of the strip instead of a sliver (TL-IMOVIE-HEIGHT).
+    public static let waveformFloorDB = 42.0
+    public static func waveformLevel(_ amp: Double) -> Double {
+        guard amp > 0 else { return 0 }
+        return min(1, max(0, (20 * log10(amp) + waveformFloorDB) / waveformFloorDB))
+    }
+
+    /// Waveform / volume-line area of a clip on an audio lane: the whole clip (iMovie), inset 2 pt top and bottom.
+    public static func audioWaveRect(_ clip: CGRect) -> CGRect {
+        CGRect(x: clip.minX, y: clip.minY + 2, width: clip.width, height: max(1, clip.height - 4))
     }
 
     public let rows: [Row]
