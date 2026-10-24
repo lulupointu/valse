@@ -129,6 +129,7 @@ public enum CompositionBuilder {
             var auxLanes: [String: AVMutableCompositionTrack] = [:]
             var auxOrder: [CMPersistentTrackID] = []
             var laneClips: [AudioLaneKey: [Clip]] = [:]
+            var rampFloor: [AudioLaneKey: Time] = [:]
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = lanes == 2 ? i % 2 : 0
@@ -192,8 +193,9 @@ public enum CompositionBuilder {
                     }
                     if let (at, p) = aLanes[key] {
                         try insert(clip: mapped, segments: segments, from: src, sourceRange: srcAudioRange, into: at)
-                        applyVolume(clip, to: p, gain: ClipAudioPlan.make(clip).staticGain,
-                                    duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms), skip: skip)
+                        rampFloor[key] = applyVolume(clip, to: p, gain: ClipAudioPlan.make(clip).staticGain,
+                                                     duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms), skip: skip,
+                                                     after: rampFloor[key] ?? .zero)
                         laneClips[key, default: []].append(clip)
                     }
                 }
@@ -396,9 +398,12 @@ public enum CompositionBuilder {
     /// Linear ramp pieces per eased volume-keyframe span.
     static let volumeCurveSteps = 16
 
-    /// Clip gain, fades and volume keyframes as linear ramps on the lane.
+    /// Clip gain, fades and volume keyframes as linear ramps on the lane. `floor` = where the lane's previous clip ended:
+    /// ramps never start before it (AVFoundation throws on overlapping ramps, e.g. clips overlapping on a track).
+    /// Returns the new floor.
+    @discardableResult
     static func applyVolume(_ clip: Clip, to p: AVMutableAudioMixInputParameters, gain: Double = 1, duck: Ducking.Envelope? = nil,
-                            skip: SkipTimeMap = .identity) {
+                            skip: SkipTimeMap = .identity, after floor: Time = .zero) -> Time {
         let start = clip.start, end = clip.end
         func v(_ local: Time) -> Float {
             var g = (clip.value(.volume, at: local)?.scalar ?? clip.audio.volume) * gain
@@ -442,12 +447,19 @@ public enum CompositionBuilder {
         for i in 0..<(sorted.count - 1) {
             let a = sorted[i], b = sorted[i + 1]
             if !skip.isIdentity, skip.skip(containing: start + a + (b - a) * 0.5) != nil { continue }
-            let ia = skip.item(start + a), ib = skip.item(start + b)
-            guard ib > ia else { continue }
-            p.setVolumeRamp(fromStartVolume: v(a), toEndVolume: v(b),
+            var ia = skip.item(start + a), va = v(a)
+            let ib = skip.item(start + b)
+            guard ib > ia, ib > floor else { continue }
+            if ia < floor {
+                va = va + (v(b) - va) * Float((floor - ia) / (ib - ia))
+                ia = floor
+            }
+            p.setVolumeRamp(fromStartVolume: va, toEndVolume: v(b),
                             timeRange: CMTimeRange(start: ia.cmTime, duration: (ib - ia).cmTime))
         }
-        p.setVolume(0, at: skip.item(end).cmTime)
+        let last = max(floor, skip.item(end))
+        p.setVolume(0, at: last.cmTime)
+        return last
     }
 
     /// Hash of everything that requires rebuilding the AVComposition (vs. live property edits).

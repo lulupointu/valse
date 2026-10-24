@@ -271,6 +271,28 @@ import Foundation
         #expect(abs(p.timeline.clip(after.id)!.start.seconds - (7 - 2.9)) < 0.01)   // followed its main piece
     }
 
+    /// A closed-up overlay piece that reaches past a main-track cut stays with the main piece under its start, while the
+    /// next piece moves left with the ripple: it must not end up overlapping (AVFoundation volume ramps throw on that).
+    @Test func linkedPiecesNeverOverlapAfterTheRipple() throws {
+        var (p, c) = Self.oneClip()
+        let pip = Fx.video("pip")
+        p.media.append(pip)
+        var o = TimelineOps.makeClip(for: pip, at: Time(2)); o.duration = Time(7)
+        let overlayTrack = try TimelineOps.insert(o, into: &p, target: .newTrack)
+        let masks = [c.mediaID!: Self.mask(10, [(0, 4), (4.6, 10)]), pip.id: Self.mask(10, [(0, 3), (3.6, 10)])]
+        let plan = plan(p, 0.3, masks)
+        #expect(Self.near(plan.slices(for: c.id), [(4.05, 4.55)]))
+        #expect(Self.near(plan.slices(for: o.id), [(5.05, 5.55)]))
+        try QuickCut.apply(plan, to: &p)
+        ok(p)
+        let pieces = p.timeline.tracks.filter { !$0.isMain && $0.kind == .video }.flatMap(\.clips).sorted { $0.start < $1.start }
+        #expect(pieces.count == 2)
+        // nothing lost or shifted in time: the first piece keeps its place, the second one follows the ripple
+        #expect(abs(pieces[0].start.seconds - 2) < 0.001 && abs(pieces[0].end.seconds - 5.05) < 0.011)
+        #expect(abs(pieces[1].start.seconds - (5.05 - 0.5)) < 0.011 && abs(pieces[1].duration.seconds - 3.45) < 0.011)
+        #expect(p.timeline.trackIndex(overlayTrack) != nil)
+    }
+
     @Test func applyIsOneUndoStep() throws {
         let (p, c) = Self.oneClip()
         let plan = plan(p, 0.3, [c.mediaID!: Self.mask(10, [(0.5, 2), (4, 6), (8, 9.5)])])

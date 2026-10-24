@@ -57,6 +57,7 @@ extension QuickCut {
                 let removedBefore = merged[..<k].reduce(Time.zero) { $0 + $1.duration }
                 place(id, at: max(.zero, merged[k].start - removedBefore), in: &tl)
             }
+            separateOverlaps(in: &tl)
         }
         TimelineOps.removeEmptyTracks(&tl)
         project.timeline = tl
@@ -105,6 +106,20 @@ extension QuickCut {
             if relink { tl.tracks[ti].clips[ci].linkedTo = TimelineOps.mainClip(at: tl.tracks[ti].clips[ci].start, in: tl)?.id }
         }
         tl.tracks[ti].sortClips()
+    }
+
+    /// Linked clips ripple with the main piece under their start: a clip reaching past a later cut stays put while the
+    /// next one on its track moves left onto it. Such a later clip keeps its time and goes to a free track (`place`).
+    static func separateOverlaps(in tl: inout Timeline) {
+        for id in tl.tracks.filter({ !$0.isMain && !$0.isLocked && !CaptionOps.isCaptionTrack($0) }).map(\.id) {
+            while let ti = tl.trackIndex(id) {
+                let clips = tl.tracks[ti].clips
+                guard let i = clips.indices.dropFirst().first(where: {
+                    clips[$0].start < clips[$0 - 1].end - (clips[$0 - 1].transitionOut?.duration ?? .zero)
+                }) else { break }
+                place(clips[i].id, at: clips[i].start, in: &tl)
+            }
+        }
     }
 
     /// Moves a (non-main) clip to `start`: on its own track when it fits there, else on another unlocked track of the
