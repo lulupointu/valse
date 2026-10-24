@@ -178,6 +178,19 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Owner bug reports (fixed)
+- 2026-10-25 batch-ui3 PB-SEEK-LAG: after the playback-performance warning, clicks on the timeline while playing were
+  ignored (playhead kept advancing) until pause+play. Engine runs one seek at a time; a click during an in-flight seek
+  was parked in `pendingSeek` and only run on completion, so a seek AVFoundation never completed swallowed every later
+  click while the clock kept publishing. Now a new seek / play restarts an in-flight seek that looks stuck (clock
+  running, or pending > 2 s; logged "seek stuck … restarting it"), the periodic observer doesn't publish during a
+  seek, and an unfinished completion is re-issued (≤ 2). Not reproduced natively (forced via test hooks):
+  `PlaybackSeekLagTests`, UI `playback_seek_while_lagging.json`. Confirm with the owner if it recurs.
+- 2026-10-25 batch-ui3 TL-IMOVIE-HEIGHT / AU-VOL-PCT (owner requests): iMovie-sized lanes (main + overlay video 110 pt
+  with a 28 pt audio strip, audio 83 pt, name chip over the filmstrip, dB-scaled full-height waveforms; Short/Default/
+  Tall kept, waveform-size menu removed, `Track.waveformScale` decoded but unused). Volume shown in % everywhere
+  (100 % = 0 dB; clip 0–400 % UI cap, older louder values kept; track 0–200 %; ⌘. / ⌘, ±1 %); ducking stays in dB.
+- Tooling bug (open): `scripts/screenshot.sh --offscreen` hung indefinitely on the build Mac (2026-10-24/25) and its
+  `Montage --background --snapshot` window was visible on screen. Agents: use UI-script element snapshots meanwhile.
 - 2026-10-24 batch-pblat PB-LATENCY / PB-DROP (owner's Intel Mac, macOS 13; confirmed fixed there by the owner).
   PB-LATENCY: play did nothing on high-latency outputs — AVPlayer starts the item clock before the seek target by the
   output latency, the stall watchdog took that lead for a frozen pipeline and re-primed forever (playhead crept back);
