@@ -178,6 +178,12 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Owner bug reports (fixed)
+- 2026-10-24 batch-qcfix FIX-QC-OVERLAP: Quick cut 0.1 s crashed on project 1023 (AVFoundation "ramp must not overlap
+  an existing ramp"). A closed-up overlay piece reaching past a later main-track cut stayed with the main piece under
+  its start while the next piece rippled left onto it → two clips overlapping on one track. `QuickCut.separateOverlaps`
+  moves such a later clip (same time) to a free track; `CompositionBuilder.applyVolume` starts each clip's ramps at the
+  lane's previous clip end (no crash on any overlapping layout). Tests: `QuickCutTests.linkedPiecesNeverOverlapAfterTheRipple`,
+  `VolumeCurveRenderTests.overlappingClipsOnALaneGiveDisjointRamps`. Saved projects need no repair.
 - 2026-10-22 batch-fb1 owner feedback: FB-04 Spoken word off keeps its style (`TextContent.inactiveKaraoke`), on restores
   it; FB-05 magnet toolbar icon redrawn as monoline like its neighbours; FB-06 `Dropdown` was a clear borderless `Menu`
   over a drawn field (real clicks missed it) → full-field Button opening a native NSMenu (all ~70 uses); FB-07 modal
