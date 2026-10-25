@@ -163,8 +163,8 @@ public enum AIEngineHooks {
     public static func prepareOpticalFlow(width: Int, height: Int, wait: Bool = false) {
         guard #available(macOS 15.4, *), let p = FrameInterpolation.provider as? VTFrameInterpolator,
               let device = MTLCreateSystemDefaultDevice() else { return }
-        // layer textures are quantized to 16 px by the renderer
-        let width = (width + 15) / 16 * 16, height = (height + 15) / 16 * 16
+        // a layer shown at (or above) its source resolution keeps the source size exactly (FrameRenderer; only
+        // display-limited layers are quantized to 16 px): prepare the source size
         if wait { p.prepare(width, height, device: device) } else { p.lock.withLock { p.prewarm(width, height, device: device) } }
     }
 
