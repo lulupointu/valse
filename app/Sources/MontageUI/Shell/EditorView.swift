@@ -48,6 +48,7 @@ public struct EditorView: View {
             if let sw = ProjectSwitcher.active { ProjectSwitcherOverlay(switcher: sw) }
         }
         .overlay { QuickCutOverlay(store: store) }   // TL-048 Quick cut popover (hangs from the timeline toolbar button)
+        .overlay { TimelineSizesOverlay(store: store) }   // TL-SIZE-TUNER lane sizes popover (timeline toolbar)
         .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
         .overlay(alignment: .topTrailing) {
             // W5: during UI tests the keyframe panel (normally a floating NSPanel) lives in the offscreen test window

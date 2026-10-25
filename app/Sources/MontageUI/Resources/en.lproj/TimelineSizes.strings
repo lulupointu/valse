@@ -1,0 +1,12 @@
+/* TL-SIZE-TUNER: timeline toolbar "Sizes" popover (live lane-size sliders, app-wide preference) */
+"sizes.tooltip" = "Lane sizes: adjust the height of video and audio lanes";
+"sizes.title" = "Lane sizes";
+"sizes.close" = "Close";
+"sizes.video" = "Video lane height";
+"sizes.audioShare" = "Audio part of a video clip";
+"sizes.audioLane" = "Audio lane height";
+"sizes.pt" = "%d pt";
+"sizes.percent" = "%d %%";
+"sizes.summary" = "video %d pt · audio %d %% · audio lane %d pt";
+"sizes.hint" = "Applies to every project. Short / Tall track heights scale these sizes.";
+"sizes.reset" = "Reset to defaults";

@@ -1,0 +1,12 @@
+/* TL-SIZE-TUNER : fenêtre « Tailles » de la barre d'outils de la timeline (curseurs en direct, préférence de l'app) */
+"sizes.tooltip" = "Tailles des pistes : réglez la hauteur des pistes vidéo et audio";
+"sizes.title" = "Tailles des pistes";
+"sizes.close" = "Fermer";
+"sizes.video" = "Hauteur des pistes vidéo";
+"sizes.audioShare" = "Partie audio d'un clip vidéo";
+"sizes.audioLane" = "Hauteur des pistes audio";
+"sizes.pt" = "%d pt";
+"sizes.percent" = "%d %%";
+"sizes.summary" = "vidéo %d pt · audio %d %% · piste audio %d pt";
+"sizes.hint" = "S'applique à tous les projets. Les hauteurs Basse / Haute s'appliquent par-dessus.";
+"sizes.reset" = "Rétablir les valeurs par défaut";

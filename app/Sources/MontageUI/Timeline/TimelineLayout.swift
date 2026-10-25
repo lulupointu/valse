@@ -49,16 +49,16 @@ public struct TimelineLayout {
     /// Default (standard preset) lane heights, iMovie-sized (TL-IMOVIE-HEIGHT, owner 2026-10-24): every video lane (main
     /// AND overlay) 110 pt = ~83 pt filmstrip + ~27 pt audio strip; audio lanes 83 pt (the waveform fills the clip);
     /// text / sticker / effect / filter / adjustment lanes 24 pt. "Track height ▸ Short / Default / Tall" scales them.
-    public static let videoLaneHeight: CGFloat = 110
-    public static let audioLaneHeight: CGFloat = 83
+    /// Video / audio lane sizes come from `TimelineSizing` (TL-SIZE-TUNER: tunable live in the toolbar's Sizes popover).
     public static let thinLaneHeight: CGFloat = 24
 
-    public static func height(for kind: TrackKind, isMain: Bool, preset: TrackHeight? = nil) -> CGFloat {
+    public static func height(for kind: TrackKind, isMain: Bool, preset: TrackHeight? = nil,
+                              sizing: TimelineSizing = .current) -> CGFloat {
         let base: CGFloat
-        if isMain { base = videoLaneHeight } else {
+        if isMain { base = sizing.videoLaneHeight } else {
             switch kind {
-            case .video: base = videoLaneHeight
-            case .audio: base = audioLaneHeight
+            case .video: base = sizing.videoLaneHeight
+            case .audio: base = sizing.audioLaneHeight
             default: base = thinLaneHeight
             }
         }
@@ -81,16 +81,15 @@ public struct TimelineLayout {
 
     /// Default chip geometry (text / sticker / audio clips and lanes too short for a name band).
     public static let defaultChip = (top: CGFloat(2.5), height: CGFloat(15), font: CGFloat(10.5))
-    /// Share of a video lane taken by the clip's audio strip (iMovie: ~27 of 110 pt).
-    public static let audioStripFraction: CGFloat = 0.25
-
-    public static func videoBands(height h: CGFloat, hasAudio: Bool) -> VideoClipBands {
-        let strip = hasAudio ? (h * audioStripFraction).rounded() : 0
+    /// The clip's audio strip takes `sizing.audioStripFraction` of a video lane (iMovie: ~27 of 110 pt); 0 = no strip.
+    public static func videoBands(height h: CGFloat, hasAudio: Bool, sizing: TimelineSizing = .current) -> VideoClipBands {
+        let share = sizing.audioStripFraction
+        let strip = hasAudio && share > 0 ? (h * share).rounded() : 0
         if h >= 60 {
             return VideoClipBands(nameBand: 0, audioStrip: strip, chipTop: 3, chipHeight: 15, chipFont: 10.5)
         }
         if h >= 34 {   // very short lanes: compact chip, thin waveform strip
-            return VideoClipBands(nameBand: 0, audioStrip: hasAudio ? max(8, strip) : 0, chipTop: 2, chipHeight: 12, chipFont: 9)
+            return VideoClipBands(nameBand: 0, audioStrip: strip > 0 ? max(8, strip) : 0, chipTop: 2, chipHeight: 12, chipFont: 9)
         }
         return VideoClipBands(nameBand: 0, audioStrip: 0, chipTop: defaultChip.top, chipHeight: defaultChip.height, chipFont: defaultChip.font)
     }
@@ -115,9 +114,13 @@ public struct TimelineLayout {
     /// Vertical scroll offset (points).
     public let scrollY: CGFloat
     public let viewSize: CGSize
+    /// Lane sizes this layout was built with (`videoBands(of:hasAudio:)` uses the same).
+    public let sizing: TimelineSizing
 
-    public init(timeline: Timeline, pixelsPerSecond: Double, scrollTime: Double, scrollY: CGFloat, viewSize: CGSize) {
+    public init(timeline: Timeline, pixelsPerSecond: Double, scrollTime: Double, scrollY: CGFloat, viewSize: CGSize,
+                sizing: TimelineSizing = .current) {
         self.pixelsPerSecond = pixelsPerSecond; self.scrollTime = scrollTime; self.scrollY = scrollY; self.viewSize = viewSize
+        self.sizing = sizing
         var order: [Int] = []
         let visual = timeline.tracks.indices.filter { timeline.tracks[$0].kind.isVisual && !timeline.tracks[$0].isMain }
         order += visual.reversed()
@@ -127,11 +130,16 @@ public struct TimelineLayout {
         var rows: [Row] = []
         for i in order {
             let t = timeline.tracks[i]
-            let h = Self.height(for: t.kind, isMain: t.isMain, preset: t.heightPreset)
+            let h = Self.height(for: t.kind, isMain: t.isMain, preset: t.heightPreset, sizing: sizing)
             rows.append(Row(trackIndex: i, trackID: t.id, kind: t.kind, isMain: t.isMain, y: y, height: h))
             y += h + Self.rowGap
         }
         self.rows = rows
+    }
+
+    /// Bands of a video / image clip in `row`, with this layout's sizing.
+    public func videoBands(of row: Row, hasAudio: Bool) -> VideoClipBands {
+        Self.videoBands(height: row.height, hasAudio: hasAudio, sizing: sizing)
     }
 
     public var contentHeight: CGFloat { (rows.last.map { $0.y + $0.height + scrollY } ?? Self.rulerHeight) + 40 }

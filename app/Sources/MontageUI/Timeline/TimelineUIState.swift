@@ -47,6 +47,9 @@ public final class TimelineUIState {
     public internal(set) var quickCut: QuickCutSession?
     /// Window frame (SwiftUI global space) of the toolbar's Quick cut button: the popover hangs from it.
     @PerceptionIgnored var quickCutButtonFrame: CGRect = .zero
+    /// Lane-size tuner popover (TL-SIZE-TUNER) open, and its toolbar button's frame (the popover hangs from it).
+    public var sizesOpen = false
+    @PerceptionIgnored var sizesButtonFrame: CGRect = .zero
 
 
     public init() {}

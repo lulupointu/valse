@@ -169,7 +169,7 @@ extension TimelineView {
         let visL = max(r.minX, TimelineLayout.headerWidth), visR = min(r.maxX, bounds.width)
         // Filmstrip: tiles at the lane-height aspect, each showing the clip under its centre.
         if track.kind != .audio, r.height >= 30, let fa = run[f].asset, fa.asset.kind != .audio {
-            let bands = TimelineLayout.videoBands(height: r.height, hasAudio: fa.asset.hasAudio)   // OB-09: every track
+            let bands = TimelineLayout.videoBands(height: r.height, hasAudio: fa.asset.hasAudio, sizing: l.sizing)   // OB-09: every track
             let audioStrip = bands.audioStrip
             let stripTop = r.minY + bands.nameBand
             let stripH = r.maxY - audioStrip - stripTop

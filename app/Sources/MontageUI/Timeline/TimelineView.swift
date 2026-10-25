@@ -127,6 +127,7 @@ final class TimelineView: NSView {
             _ = self.ui.selectedTransition; _ = self.ui.selectedMarker; _ = self.ui.selectedKeyframe
             _ = self.ui.quickCut?.planRevision   // TL-048 Quick cut preview
             _ = self.store.jobs   // C2: job progress on clips redraws with the inspector's (one source: store.jobs)
+            _ = TimelineSizingPrefs.shared.sizing   // TL-SIZE-TUNER: lane sizes tuned live in the Sizes popover
             self.dirty = true
             self.followPlayhead()
         }
@@ -631,7 +632,7 @@ final class TimelineView: NSView {
 
         // Filmstrip (OB-09: same bands on every visual track, scaled by the lane height)
         let filmstrip = asset.map { $0.kind != .audio && track.kind != .audio && r.height >= 30 } ?? false
-        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: asset?.hasAudio == true)
+        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: asset?.hasAudio == true, sizing: l.sizing)
         if let asset, filmstrip {
             let audioStrip = bands.audioStrip
             let stripTop = r.minY + bands.nameBand
