@@ -17,25 +17,25 @@
     {"click": "time:30@main"},
     {"expect": {"path": "selection.count", "equals": 0}},
     {"snapshot": "keyframes-unselected", "element": "id:panel.timeline"},
-    // drag the first diamond (3 s = 25 % of the clip) down 4 pt: only it changes (50 % → 41 % on the 79 pt waveform area;
-    // the 50 % line sits 2.5 pt above the clip's centre)
+    // drag the first diamond (3 s = 25 % of the clip) down 4 pt: only it changes (50 % → 37 % on the 56 pt waveform area;
+    // the 50 % line sits 1.7 pt above the clip's centre)
     {"drag": "clip:5/0:0.25", "offset": [0, -2], "by": [0, 4]},
-    {"expect": [{"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [41, 50]}, {"path": "undo.name", "equals": "cmd.volume"},
+    {"expect": [{"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [37, 50]}, {"path": "undo.name", "equals": "cmd.volume"},
                 {"path": "tracks.5.clips.0.start", "approx": 0}]},
     {"snapshot": "keyframe-dragged", "element": "id:panel.timeline"},
     {"key": "cmd+z"},
     {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [50, 50]}},
     // the line between them (5.5 s): both move
     {"drag": "clip:5/0:0.4583", "offset": [0, -2], "by": [0, 4]},
-    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [41, 41]}},
+    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [37, 37]}},
     {"key": "cmd+z"},
     // before the first keyframe (1 s): the first keyframe (and everything before it)
     {"drag": "clip:5/0:0.0833", "offset": [0, -2], "by": [0, 4]},
-    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [41, 50]}},
+    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [37, 50]}},
     {"key": "cmd+z"},
     // after the last keyframe (10.5 s): the last one
     {"drag": "clip:5/0:0.875", "offset": [0, -2], "by": [0, 4]},
-    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [50, 41]}},
+    {"expect": {"path": "tracks.5.clips.0.volumeKeyframesPct", "equals": [50, 37]}},
     {"snapshot": "curve", "element": "id:panel.timeline"}
   ]
 }

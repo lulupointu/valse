@@ -14,7 +14,8 @@ public enum TrackKind: String, Codable, Sendable, CaseIterable {
     public var acceptsMedia: Bool { self == .video || self == .audio }
 }
 
-/// Track height preset (CapCut "Track height ▸ Short / Default / Tall").
+/// Track height preset (CapCut "Track height ▸ Short / Default / Tall"). Video and audio lanes take exact per-preset
+/// sizes (MontageUI `TimelineSizing`, TL-SIZE-PRESETS); `scale` only applies to the thin text / sticker / effect lanes.
 public enum TrackHeight: String, Codable, Sendable, CaseIterable {
     case short, standard, tall
     public var scale: Double { switch self { case .short: return 0.65; case .standard: return 1; case .tall: return 1.5 } }

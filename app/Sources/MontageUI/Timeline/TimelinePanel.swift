@@ -142,7 +142,6 @@ struct TimelineToolbarBar: View, Equatable {
                     ui.previewAxis.toggle()
                 }
                 divider
-                TimelineSizesButton(store: store)   // TL-SIZE-TUNER
                 IconButton("arrow.left.and.right.square", help: tr("toolbar.zoomFit")) { store.zoomTimelineToFit() }.testID("toolbar.zoomFit")
                 IconButton("minus.magnifyingglass", help: tr("toolbar.zoomOut")) { store.zoomTimeline(by: 1 / 1.25) }.testID("toolbar.zoomOut")
                 Slider(value: Binding.perceived(get: { log(m.pixelsPerSecond) }, set: { v in store.zoomTimeline(by: exp(v) / store.pixelsPerSecond) }),
