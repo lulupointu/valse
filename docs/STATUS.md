@@ -178,6 +178,19 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Owner bug reports (fixed)
+- 2026-10-25 batch-color1 BUG-SDR-IN-HDR: an SDR clip (WhatsApp H.264 BT.709) in an HLG project (1018 (1)) looked dark,
+  grey and soft in preview and export. Causes: (1) AVFoundation converted the SDR source frames to HLG BT.2020 before the
+  compositor (mixed HDR+SDR composition, no `canConformColorOfSourceFrames`) and the renderer converted them again from
+  the asset tags: now declared; (2) SDR→HDR decoded with gamma 2.4 but Apple shows Rec.709 video as v^1.961
+  (`ColorMath.linearInput` / `sdrDecodeGamma`, shader `sdr_gamma`, shared by stills / text / stickers / solids /
+  background); (3) magnified layers sampled bilinear → Catmull-Rom (+3.1 dB); layer textures rounded up to ×16 resampled
+  1:1 footage (1080→1088→1080) → exact size. Owner clip, Apple EDR rendering vs original: ΔE00 11.8 → 0.68 export / 0.62
+  preview (PQ 0.80 / 0.52). Non-EDR preview and Home covers compose HDR projects in SDR per layer. Known trade-off
+  (owner to confirm): Apple's SDR-screen rendering of an HLG file shows HLG 75 % as grey, so SDR clips in an HLG export
+  stay grey on SDR screens / thumbnails (PQ projects don't); EDR prioritised. Follow-ups: effect / transition colour
+  params are packed raw into HDR code values (not converted); QuickTime's ambient-viewing (314 lux) dimming of HLG
+  exports not verified offscreen. Tests `SDRInHDRTests`, `LayerUpscaleQualityTests` (owner clip opt-in
+  `MONTAGE_SDR_FOOTAGE`).
 - 2026-10-25 batch-focus1 BUG-SPACE-FOCUS: opening a project left the media search field focused, so Space typed into
   it instead of playing. AppKit picks the window's initial first responder itself (first key-view that accepts it =
   `AssetSearchField`) when the editor is already up at first show (`--open`, new window, relaunch, test window), and can

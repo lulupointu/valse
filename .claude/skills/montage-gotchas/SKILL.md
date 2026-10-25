@@ -46,6 +46,10 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
 - Never use `AVAudioTimePitchAlgorithm.varispeed`: hangs the audio reader during export of sped-up clips.
 - MP3 export needs the FFmpeg sidecar (libmp3lame), absent on a fresh Mac: option disabled with a hint; audio format only
   matters when audio is exported.
+- `AVVideoCompositing` must keep `canConformColorOfSourceFrames = true`: without it AVFoundation converts + retags source
+  frames to a common space (mixed HDR+SDR → SDR frames arrive as HLG) and the renderer converts them twice. "Correct"
+  colour = Apple's rendering (Core Image EDR / AVAssetImageGenerator) matches the original: `ColorScience.appleDisplay`;
+  Apple shows Rec.709 video as v^1.961, not 2.4 (BUG-SDR-IN-HDR).
 - Generated media keeps the source colour: copy primaries / transfer / matrix (`AVVideoColorPropertiesKey`); HDR = HEVC
   Main10 with 10-bit buffers carrying the same attachments. SDR stats → `ColorLooks.inProjectSpace` before HDR use.
   Vision on portrait iPhone footage: pass `SubjectAnalyzer.orientation(asset.sourceRotation)`, map back to raw.
