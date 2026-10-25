@@ -96,10 +96,10 @@ struct TimelineSizesPopover: View {
                 Text(verbatim: s.summary).font(Theme.Fonts.hint.monospacedDigit()).foregroundStyle(Theme.textSecondary)
                     .textSelection(.enabled)
                     .testID("sizes.summary")
+                Text(loc: "sizes.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack {
-                    Text(loc: "sizes.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
+                    Spacer()
                     Button(tr("sizes.reset")) { prefs.reset() }
                         .buttonStyle(.plain).font(Theme.Fonts.row).foregroundStyle(Theme.accent)
                         .opacity(s == .defaults ? 0.4 : 1).disabled(s == .defaults)
