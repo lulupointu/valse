@@ -160,6 +160,12 @@ public class MontageCompositor: NSObject, AVVideoCompositing, @unchecked Sendabl
 
     public var supportsHDRSourceFrames: Bool { true }
     public var supportsWideColorSourceFrames: Bool { true }
+    /// BUG-SDR-IN-HDR: without this, AVFoundation converts every source to the composition's colour space before the
+    /// compositor sees it. The composition is untagged (C1), so in a project mixing HDR and SDR footage it picks HLG
+    /// and converts the SDR frames to HLG (export: VideoToolbox BT.2408 mapping; preview: a different one) and tags
+    /// them HLG; the renderer then converted them a second time from the asset's SDR tags (SDR clips dark and grey).
+    /// The renderer converts every source itself from the asset's tags, so the engine must deliver them untouched.
+    public var canConformColorOfSourceFrames: Bool { true }
 
     /// Output pixel format of composed frames.
     class var outputPixelFormat: OSType { kCVPixelFormatType_32BGRA }

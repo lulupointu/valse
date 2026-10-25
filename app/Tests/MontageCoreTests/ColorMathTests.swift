@@ -22,9 +22,10 @@ import Foundation
         for space in [ProjectColorSpace.hdrHLG, .hdrPQ] {
             let c = [0.9, 0.5, 0.2]
             let hdr = ColorMath.convert(c, from: .sdr, wide: false, to: space.transfer, wide: true)
-            // HDR → linear → 709 recovers the SDR colour (the HLG luminance OOTF is inverted exactly)
+            // HDR → linear → 709 recovers the SDR colour (the HLG luminance OOTF is inverted exactly); SDR → HDR decodes
+            // SDR with Apple's Rec.709 display curve (BUG-SDR-IN-HDR)
             let l = ColorMath.mul(ColorMath.m2020to709, ColorMath.toLinear(hdr, space.transfer, wide: true))
-            for (a, b) in zip(c, l.map { ColorMath.fromLinear([$0, $0, $0], .sdr, wide: false)[0] }) { #expect(abs(a - b) < 0.01) }
+            for (a, b) in zip(c, l.map { pow($0, 1 / ColorMath.appleSDRVideoGamma) }) { #expect(abs(a - b) < 0.01) }
         }
         #expect(ColorMath.convert([0.3, 0.4, 0.5], from: .sdr, wide: false, to: .sdr, wide: false) == [0.3, 0.4, 0.5])
     }
