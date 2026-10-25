@@ -10,7 +10,7 @@ extension TimelineView {
     func drawRipplePreview(_ c: inout Canvas2D, row: TimelineLayout.Row, track: Track, layout l: TimelineLayout, dim: Double,
                            ctx: TimelineFrameContext, index: Int, shift: Time) {
         let shifted = TimelineLayout(timeline: ctx.project.timeline, pixelsPerSecond: l.pixelsPerSecond,
-                                     scrollTime: l.scrollTime - shift.seconds, scrollY: l.scrollY, viewSize: l.viewSize, sizing: l.sizing)
+                                     scrollTime: l.scrollTime - shift.seconds, scrollY: l.scrollY, viewSize: l.viewSize)
         for k in track.clips(in: l.visibleRange).indices where k < index {
             drawClip(&c, track.clips[k], row: row, track: track, layout: l, dim: dim, ctx: ctx)
         }
@@ -52,7 +52,7 @@ extension TimelineView {
         guard let loc = tl.locate(clip.id), let home = l.rows.first(where: { $0.trackIndex == loc.track }) else { return }
         let track = tl.tracks[loc.track]
         let row = TimelineLayout.Row(trackIndex: home.trackIndex, trackID: home.trackID, kind: home.kind, isMain: home.isMain,
-                                     y: y - home.height / 2, height: home.height)
+                                     y: y - home.height / 2, height: home.height, preset: home.preset)
         let clipRect = c.clip
         c.clip = CGRect(x: TimelineLayout.headerWidth, y: TimelineLayout.rulerHeight, width: bounds.width, height: bounds.height)
         drawClip(&c, clip, row: row, track: track, layout: l, dim: 0.75, ctx: ctx)

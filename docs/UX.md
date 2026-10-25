@@ -498,11 +498,17 @@ after about 1.5 s (see §8.3).
   Clicking it opens the cover editor (pick a frame or import an image, add text).
 
 ### 6.4 Lanes and track order
-- Lane heights (owner 2026-10-24, iMovie-sized instead of CapCut's): **effect/text/sticker/filter/adjust lanes 24 pt** (clip 20 pt),
-  **every video lane, main AND overlay, 110 pt** (≈ 82 pt filmstrip with the name chip over its top-left corner + 28 pt audio
-  waveform strip = 25 % of the lane), **audio lanes 83 pt** (the waveform fills the clip, name chip over it), with a 4 pt gap between
-  lanes. Waveforms are drawn at full scale (peak 1.0 = the strip / clip height). The lane bg is `#1E1E1F` on the timeline bg `#1B1B1C`.
-  "Track height ▸ Short / Default / Tall" (×0.65 / 1 / 1.5) scales these.
+- Lane heights (owner 2026-10-25, tuned by the owner; iMovie-like rather than CapCut's): **effect/text/sticker/filter/adjust lanes
+  24 pt** (clip 20 pt), **every video lane, main AND overlay, 120 pt** (84 pt filmstrip with the name chip over its top-left corner +
+  36 pt audio waveform strip = 30 % of the clip), **audio lanes 60 pt** (the waveform fills the clip, name chip over it), with a 4 pt
+  gap between lanes. Waveforms are drawn at full scale (peak 1.0 = the strip / clip height). The lane bg is `#1E1E1F` on the timeline
+  bg `#1B1B1C`. "Track height ▸ Short / Default / Tall" picks exact sizes per lane (no lane-size setting elsewhere):
+
+  | Preset | Video lane (main + overlay) | Audio strip of a video clip | Audio lane | Text / sticker / effect lane |
+  |---|---|---|---|---|
+  | Short | 70 pt | 40 % (28 pt) | 35 pt | 16 pt (24 × 0.65) |
+  | Default | 120 pt | 30 % (36 pt) | 60 pt | 24 pt |
+  | Tall | 170 pt | 30 % (51 pt) | 85 pt | 36 pt (24 × 1.5) |
 - Volumes are shown in **percent** everywhere (iMovie, owner 2026-10-24): 100 % = unity gain (0 dB), 0 % = silence, max 400 % for a
   clip (track volume: 0 … 200 %). The clip volume line puts 100 % at 3/4 of the audio area (√gain below, two octaves above); its drag
   tooltip shows "63%" ("63 %" in French), whole percents, 100 % sticky; ⌘. / ⌘, step ±1 %.

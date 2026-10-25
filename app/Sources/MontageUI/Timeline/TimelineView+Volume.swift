@@ -14,7 +14,7 @@ extension TimelineView {
         let r = l.clipRect(clip, row: row).insetBy(dx: 0.5, dy: 0)
         if track.kind == .audio { return TimelineLayout.audioWaveRect(r) }
         // OB-09: any video lane whose audio strip is tall enough (main track; overlay lanes at the tall height).
-        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: true, sizing: l.sizing)
+        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: true, sizing: .preset(track.heightPreset))
         if asset.kind != .audio, track.kind == .video, r.height >= 30, bands.hasVolumeLine {
             return CGRect(x: r.minX, y: r.maxY - bands.audioStrip, width: r.width, height: bands.audioStrip)
         }

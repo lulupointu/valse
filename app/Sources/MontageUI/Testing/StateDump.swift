@@ -172,9 +172,6 @@ public enum StateDump {
         }
         ui["recorder"] = RecordingUI.shared.dump   // MI-015/017: {open, mode, phase, missing, canStart, permissions…}
         ui["quickCut"] = store.timelineUI.quickCut?.dump ?? ["open": false]   // TL-048 {open, value, count, removed, scope, summary, analysed, total, slices…}
-        let sz = TimelineSizingPrefs.shared.sizing   // TL-SIZE-TUNER lane-size tuner
-        ui["sizes"] = ["open": store.timelineUI.sizesOpen, "video": Double(sz.videoLaneHeight),
-                       "audioShare": Double(sz.audioStripFraction), "audioLane": Double(sz.audioLaneHeight), "summary": sz.summary]
         ui["pilot"] = store.pilotStateDump()   // AI2 EditPilot: {open, messages, busy, previewing, engine, state, steps, results, diff}
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)
         ui["relight"] = ["pending": RelightUIState.shared.pendingCount]   // AI2 Relight: depth passes starting / running

@@ -4,69 +4,66 @@ import CoreGraphics
 import MontageCore
 @testable import MontageUI
 
-/// TL-SIZE-TUNER: TimelineLayout reads its lane sizes from `TimelineSizing` (tunable live in the toolbar's Sizes
-/// popover); the Track height preset scales them; clip bands follow the audio share. Never touches the shared prefs.
+/// TL-SIZE-PRESETS (owner 2026-10-25): "Track height ▸ Short / Default / Tall" selects exact video lane / audio share /
+/// audio lane sizes from `TimelineSizing`; thin lanes keep 24 pt × the preset scale; clip bands follow the row's preset.
 @MainActor @Suite struct TimelineSizingTests {
-    let custom = TimelineSizing(videoLaneHeight: 150, audioStripFraction: 0.4, audioLaneHeight: 60)
-
-    @Test func defaultsAreTheIMovieSizes() {
-        #expect(TimelineSizing.defaults == TimelineSizing(videoLaneHeight: 110, audioStripFraction: 0.25, audioLaneHeight: 83))
-        #expect(TimelineLayout.height(for: .video, isMain: true, sizing: .defaults) == 110)
-        #expect(TimelineLayout.height(for: .audio, isMain: false, sizing: .defaults) == 83)
+    @Test func ownerPresetTable() {
+        #expect(TimelineSizing.preset(.short) == TimelineSizing(videoLaneHeight: 70, audioStripFraction: 0.4, audioLaneHeight: 35))
+        #expect(TimelineSizing.preset(.standard) == TimelineSizing(videoLaneHeight: 120, audioStripFraction: 0.3, audioLaneHeight: 60))
+        #expect(TimelineSizing.preset(.tall) == TimelineSizing(videoLaneHeight: 170, audioStripFraction: 0.3, audioLaneHeight: 85))
+        #expect(TimelineSizing.preset(nil) == .standard)
     }
 
-    @Test func laneHeightsFollowTheSizing() {
-        #expect(TimelineLayout.height(for: .video, isMain: true, sizing: custom) == 150)
-        #expect(TimelineLayout.height(for: .video, isMain: false, sizing: custom) == 150)
-        #expect(TimelineLayout.height(for: .audio, isMain: false, sizing: custom) == 60)
-        #expect(TimelineLayout.height(for: .text, isMain: false, sizing: custom) == 24)
-        // presets scale the tuned sizes
-        #expect(TimelineLayout.height(for: .video, isMain: true, preset: .short, sizing: custom) == (150 * CGFloat(TrackHeight.short.scale)).rounded())
-        #expect(TimelineLayout.height(for: .audio, isMain: false, preset: .tall, sizing: custom) == (60 * CGFloat(TrackHeight.tall.scale)).rounded())
+    @Test func laneHeightsPerPreset() {
+        let expected: [(TrackHeight?, CGFloat, CGFloat, CGFloat)] = [
+            (nil, 120, 60, 24), (.standard, 120, 60, 24), (.short, 70, 35, 16), (.tall, 170, 85, 36)]
+        for (p, video, audio, thin) in expected {
+            #expect(TimelineLayout.height(for: .video, isMain: true, preset: p) == video)
+            #expect(TimelineLayout.height(for: .video, isMain: false, preset: p) == video)
+            #expect(TimelineLayout.height(for: .audio, isMain: false, preset: p) == audio)
+            for k in [TrackKind.text, .sticker, .effect, .filter, .adjustment] {
+                #expect(TimelineLayout.height(for: k, isMain: false, preset: p) == thin)
+            }
+        }
     }
 
-    @Test func layoutRowsAndBandsUseTheSizing() {
+    @Test func layoutRowsAndBandsFollowEachTracksPreset() {
         var tl = Timeline()
-        tl.tracks = [Track(kind: .video, isMain: true), Track(kind: .video), Track(kind: .audio)]
-        let l = TimelineLayout(timeline: tl, pixelsPerSecond: 50, scrollTime: 0, scrollY: 0,
-                               viewSize: CGSize(width: 1000, height: 600), sizing: custom)
-        #expect(l.sizing == custom)
-        #expect(l.rows.map(\.height) == [150, 150, 60])
-        // rows stack with the tuned heights
-        #expect(l.rows[1].y == l.rows[0].maxY + TimelineLayout.rowGap)
-        #expect(l.rows[2].y == l.rows[1].maxY + TimelineLayout.rowGap)
-        let b = l.videoBands(of: l.rows[0], hasAudio: true)
-        #expect(b.audioStrip == 60 && b.hasVolumeLine)
-        #expect(l.videoBands(of: l.rows[0], hasAudio: false).audioStrip == 0)
-        // hit-testing follows the rows: a point in the lower part of the tall main lane is on that row
-        #expect(l.rowIndex(atY: l.rows[0].y + 140) == 0)
+        var short = Track(kind: .video); short.heightPreset = .short
+        var tallAudio = Track(kind: .audio); tallAudio.heightPreset = .tall
+        tl.tracks = [Track(kind: .video, isMain: true), short, tallAudio, Track(kind: .audio)]
+        let l = TimelineLayout(timeline: tl, pixelsPerSecond: 50, scrollTime: 0, scrollY: 0, viewSize: CGSize(width: 1000, height: 600))
+        // row order: overlay, main, audio tracks
+        #expect(l.rows.map(\.height) == [70, 120, 85, 60])
+        #expect(l.rows.map(\.preset) == [.short, .standard, .tall, .standard])
+        for i in 1..<l.rows.count { #expect(l.rows[i].y == l.rows[i - 1].maxY + TimelineLayout.rowGap) }
+        // audio strip: 40 % of a short lane, 30 % of a default one
+        let s = l.videoBands(of: l.rows[0], hasAudio: true)
+        #expect(s.audioStrip == 28 && s.hasVolumeLine)
+        let m = l.videoBands(of: l.rows[1], hasAudio: true)
+        #expect(m.audioStrip == 36 && m.hasVolumeLine)
+        #expect(l.videoBands(of: l.rows[1], hasAudio: false).audioStrip == 0)
+        #expect(TimelineLayout.videoBands(height: 170, hasAudio: true, sizing: .tall).audioStrip == 51)
+        // hit-testing follows the rows
+        #expect(l.rowIndex(atY: l.rows[1].y + 110) == 1)
     }
 
     @Test func zeroAudioShareMeansNoStrip() {
-        let none = TimelineSizing(videoLaneHeight: 110, audioStripFraction: 0, audioLaneHeight: 83)
-        #expect(TimelineLayout.videoBands(height: 110, hasAudio: true, sizing: none).audioStrip == 0)
+        let none = TimelineSizing(videoLaneHeight: 120, audioStripFraction: 0, audioLaneHeight: 60)
+        #expect(TimelineLayout.videoBands(height: 120, hasAudio: true, sizing: none).audioStrip == 0)
         #expect(TimelineLayout.videoBands(height: 40, hasAudio: true, sizing: none).audioStrip == 0)
-        #expect(!TimelineLayout.videoBands(height: 110, hasAudio: true, sizing: none).hasVolumeLine)
+        #expect(!TimelineLayout.videoBands(height: 120, hasAudio: true, sizing: none).hasVolumeLine)
     }
 
-    @Test func clampingAndPersistence() throws {
-        let wild = TimelineSizing(videoLaneHeight: 999.4, audioStripFraction: -1, audioLaneHeight: 47.6)
-        #expect(wild.clamped == TimelineSizing(videoLaneHeight: 220, audioStripFraction: 0, audioLaneHeight: 48))
-        let name = "montage.test.sizing.\(UUID().uuidString)"
-        let d = try #require(UserDefaults(suiteName: name))
-        defer { UserDefaults.standard.removePersistentDomain(forName: name) }
-        #expect(TimelineSizing.load(from: d) == .defaults)
-        TimelineSizing.store(custom, in: d)
-        #expect(TimelineSizing.load(from: d) == custom)
-        TimelineSizing.store(.defaults, in: d)
-        #expect(d.object(forKey: TimelineSizing.keys.video) == nil)
-        #expect(TimelineSizing.load(from: d) == .defaults)
-    }
-
-    @Test func summaryLine() {
-        // language-neutral (other suites switch the language): whole points, the share as a whole percent
-        #expect(custom.summary == tr("sizes.summary", 150, 40, 60))
-        let odd = TimelineSizing(videoLaneHeight: 110, audioStripFraction: 0.333, audioLaneHeight: 83)
-        #expect(odd.summary == tr("sizes.summary", 110, 33, 83))
+    /// The former TL-SIZE-TUNER preference keys are never read: values stored on a machine do not change the lanes.
+    @Test func tunerPreferencesAreIgnored() {
+        let d = AppDefaults.store
+        let keys = ["montage.timeline.sizing.video", "montage.timeline.sizing.audioShare", "montage.timeline.sizing.audioLane"]
+        let saved = keys.map { d.object(forKey: $0) }
+        defer { for (k, v) in zip(keys, saved) { if let v { d.set(v, forKey: k) } else { d.removeObject(forKey: k) } } }
+        d.set(200.0, forKey: keys[0]); d.set(0.5, forKey: keys[1]); d.set(150.0, forKey: keys[2])
+        #expect(TimelineLayout.height(for: .video, isMain: true) == 120)
+        #expect(TimelineLayout.height(for: .audio, isMain: false) == 60)
+        #expect(TimelineLayout.videoBands(height: 120, hasAudio: true).audioStrip == 36)
     }
 }
