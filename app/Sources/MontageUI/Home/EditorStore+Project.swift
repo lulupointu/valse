@@ -33,7 +33,7 @@ extension EditorStore {
         let c = p.settings.canvasSize
         let h = 320.0, w = (h * c.width / max(c.height, 1) / 2).rounded() * 2
         let t = min(Time(1), Time(ticks: p.duration.ticks / 10))
-        guard let img = try? await OfflineRenderer.renderFrame(p, at: t, size: CGSize(width: w, height: h)),
+        guard let img = try? await OfflineRenderer.renderFrame(p, at: t, size: CGSize(width: w, height: h), sdr: true),
               let d = CGImageDestinationCreateWithURL(dst as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else { return }
         CGImageDestinationAddImage(d, img, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
         CGImageDestinationFinalize(d)

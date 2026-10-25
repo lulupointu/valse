@@ -68,7 +68,7 @@ extension ColorMath {
         guard let h = conversion, h.method == .bt2390, inTF != outTF, inTF == .sdr || outTF == .sdr else {
             return convert(rgb, from: inTF, wide: inWide, to: outTF, wide: outWide)
         }
-        var l = toLinear(rgb, inTF, wide: inWide)
+        var l = linearInput(rgb, inTF, wide: inWide, to: outTF)
         if inWide && !outWide { l = mul(m2020to709, l) }
         if !inWide && outWide { l = mul(m709to2020, l) }
         l = gamutCompress(l, wide: outWide)

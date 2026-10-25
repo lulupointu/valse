@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import CoreImage
 import CoreVideo
 import Foundation
 import MontageCore
@@ -170,6 +171,128 @@ public enum ColorScience {
             }
         }
         return Frame(width: ow, height: oh, rgb: out)
+    }
+
+    // MARK: Apple's DISPLAY of a frame (BUG-SDR-IN-HDR: "looks like the original file in QuickTime")
+
+    /// What Apple shows. `.sdr`: AVAssetImageGenerator / Core Image into sRGB 8-bit (QuickTime, Finder, Photos on an SDR
+    /// screen; HDR is tone-mapped). `.edr`: Core Image into extended-linear Display P3 (1 = SDR / UI white, > 1 = EDR
+    /// headroom), the values an EDR screen shows (HLG 75 % and PQ 203 nits → 1.0; Rec.709 video → code^1.961).
+    public enum AppleTarget: String, Sendable, CaseIterable { case sdr, edr }
+
+    /// Frame values of an Apple rendering: sRGB code values (`.sdr`) or linear Display P3 (`.edr`).
+    public static func appleDisplay(_ url: URL, at seconds: Double, target: AppleTarget, size: (Int, Int)) async throws -> Frame {
+        try await OffPool.run { _ in
+            let asset = AVURLAsset(url: url)
+            guard let track = asset.tracks(withMediaType: .video).first else { throw NSError(domain: "ColorScience", code: 1) }
+            if target == .sdr {
+                // exactly what QuickTime-family thumbnails do (the HLG / PQ tone map of AVFoundation)
+                let gen = AVAssetImageGenerator(asset: asset)
+                gen.appliesPreferredTrackTransform = true
+                gen.requestedTimeToleranceBefore = .zero; gen.requestedTimeToleranceAfter = .zero
+                let img = try gen.copyCGImage(at: CMTime(seconds: seconds, preferredTimescale: 6000), actualTime: nil)
+                return resample(srgb8(img), to: size)
+            }
+            let fd = track.formatDescriptions.first.map { $0 as! CMFormatDescription }
+            let ext = fd.flatMap { CMFormatDescriptionGetExtensions($0) as? [String: Any] } ?? [:]
+            let tf = ext[kCVImageBufferTransferFunctionKey as String] as? String ?? ""
+            let ten = tf.contains("HLG") || tf.contains("2084") || ((ext["BitsPerComponent"] as? Int) ?? 8) > 8
+            let reader = try AVAssetReader(asset: asset)
+            reader.timeRange = CMTimeRange(start: CMTime(seconds: seconds, preferredTimescale: 6000), duration: CMTime(seconds: 1, preferredTimescale: 600))
+            let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: ten ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()])
+            reader.add(out)
+            reader.startReading()
+            guard let sb = out.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(sb) else { throw reader.error ?? NSError(domain: "ColorScience", code: 2) }
+            let xf = track.preferredTransform
+            let rot = abs(xf.b) > 0.5 ? (xf.b > 0 ? 90 : 270) : (xf.a < 0 ? 180 : 0)
+            let f = appleDisplay(pb, target: .edr, rotation: rot, size: size)
+            reader.cancelReading()
+            return f
+        }
+    }
+
+    /// Apple's rendering of a tagged pixel buffer (e.g. the preview's composed HLG / PQ frame, or a Rec.709 frame):
+    /// Core Image honours the buffer's colour attachments, like Core Animation does for the preview layer.
+    public static func appleDisplay(_ pb: CVPixelBuffer, target: AppleTarget, rotation: Int = 0, size: (Int, Int)) -> Frame {
+        var im = CIImage(cvPixelBuffer: pb)
+        let o: CGImagePropertyOrientation = rotation == 90 ? .right : rotation == 270 ? .left : rotation == 180 ? .down : .up
+        im = im.oriented(o)
+        im = im.transformed(by: CGAffineTransform(translationX: -im.extent.minX, y: -im.extent.minY))
+        let w = Int(im.extent.width), h = Int(im.extent.height)
+        let ctx = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!, .workingFormat: CIFormat.RGBAh,
+                                      .cacheIntermediates: false])
+        var px = [Float](repeating: 0, count: w * h * 3)
+        if target == .edr {
+            var buf = [Float](repeating: 0, count: w * h * 4)
+            buf.withUnsafeMutableBytes { p in
+                ctx.render(im, toBitmap: p.baseAddress!, rowBytes: w * 16, bounds: CGRect(x: 0, y: 0, width: w, height: h),
+                           format: .RGBAf, colorSpace: CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)!)
+            }
+            for i in 0..<(w * h) { for c in 0..<3 { px[i * 3 + c] = buf[i * 4 + c] } }
+        } else {
+            var buf = [UInt8](repeating: 0, count: w * h * 4)
+            buf.withUnsafeMutableBytes { p in
+                ctx.render(im, toBitmap: p.baseAddress!, rowBytes: w * 4, bounds: CGRect(x: 0, y: 0, width: w, height: h),
+                           format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+            }
+            for i in 0..<(w * h) { for c in 0..<3 { px[i * 3 + c] = Float(buf[i * 4 + c]) / 255 } }
+        }
+        return resample(Frame(width: w, height: h, rgb: px), to: size)
+    }
+
+    /// sRGB 8-bit code values of a CGImage (drawn into sRGB like an SDR screen shows it).
+    static func srgb8(_ img: CGImage) -> Frame {
+        let w = img.width, h = img.height
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        let c = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                          space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        c.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var px = [Float](repeating: 0, count: w * h * 3)
+        for i in 0..<(w * h) { for k in 0..<3 { px[i * 3 + k] = Float(buf[i * 4 + k]) / 255 } }
+        return Frame(width: w, height: h, rgb: px)
+    }
+
+    /// Box resample (area average) to `size`.
+    public static func resample(_ f: Frame, to size: (Int, Int)) -> Frame {
+        let (ow, oh) = size
+        guard ow != f.width || oh != f.height else { return f }
+        var out = [Float](repeating: 0, count: ow * oh * 3)
+        for y in 0..<oh {
+            let sy0 = y * f.height / oh, sy1 = max(sy0 + 1, (y + 1) * f.height / oh)
+            for x in 0..<ow {
+                let sx0 = x * f.width / ow, sx1 = max(sx0 + 1, (x + 1) * f.width / ow)
+                var s: [Float] = [0, 0, 0], n: Float = 0
+                for yy in sy0..<min(sy1, f.height) { for xx in sx0..<min(sx1, f.width) { for c in 0..<3 { s[c] += f.rgb[(yy * f.width + xx) * 3 + c] }; n += 1 } }
+                for c in 0..<3 { out[(y * ow + x) * 3 + c] = s[c] / max(n, 1) }
+            }
+        }
+        return Frame(width: ow, height: oh, rgb: out)
+    }
+
+    /// CIE Lab of an Apple rendering value (sRGB code values or linear Display P3; L* 100 = SDR white).
+    public static func lab(apple c: [Double], _ target: AppleTarget) -> [Double] {
+        func lin(_ v: Double) -> Double { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        let (x, y, z): (Double, Double, Double)
+        if target == .sdr {
+            let l = c.map(lin)
+            (x, y, z) = (0.4124 * l[0] + 0.3576 * l[1] + 0.1805 * l[2], 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2],
+                         0.0193 * l[0] + 0.1192 * l[1] + 0.9505 * l[2])
+        } else {
+            let l = c
+            (x, y, z) = (0.4866 * l[0] + 0.2657 * l[1] + 0.1982 * l[2], 0.2290 * l[0] + 0.6917 * l[1] + 0.0793 * l[2],
+                         0.0451 * l[1] + 1.0439 * l[2])
+        }
+        func f(_ t: Double) -> Double { t > 216.0 / 24389 ? cbrt(t) : (24389.0 / 27 * t + 16) / 116 }
+        let fx = f(x / 0.95047), fy = f(y), fz = f(z / 1.08883)
+        return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)]
+    }
+
+    /// Per-patch ΔE2000 between two Apple renderings (same target).
+    public static func compareApple(_ a: Frame, _ b: Frame, target: AppleTarget, gx: Int, gy: Int) -> Stats {
+        let d = zip(a.patches(gx, gy), b.patches(gx, gy)).map { deltaE2000(lab(apple: $0, target), lab(apple: $1, target)) }.sorted()
+        return Stats(mean: d.reduce(0, +) / Double(d.count), p95: d[min(d.count - 1, Int(Double(d.count) * 0.95))], max: d.last ?? 0)
     }
 
     /// One decoded frame of `url` at `seconds` as Apple renders it into `space` (AVAssetReader colour conversion by

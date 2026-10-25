@@ -454,7 +454,17 @@ public final class FrameRenderer: @unchecked Sendable {
         } else {
             srcW = dispW; srcH = dispH                      // generated content (canvas styles): full resolution
         }
-        let tw = Self.quantize(srcW), th = Self.quantize(srcH)
+        // Pool-friendly sizes (multiples of 16) for display-limited layers, whose size changes with zoom animations.
+        // A layer shown at or above its source resolution keeps the source size exactly (stable over frames): rounding
+        // 1080 up to 1088 resampled every 1080-wide clip twice (1080 → 1088 → 1080, visibly softer; BUG-SDR-IN-HDR
+        // quality), and a 464-wide phone clip would be stretched before its bicubic magnification.
+        var exactW: Int?, exactH: Int?
+        if let (w, h) = yuv.map({ y in rotation % 180 == 0 ? (Double(y.0.width), Double(y.0.height)) : (Double(y.0.height), Double(y.0.width)) })
+            ?? rgbaSource.map({ t in rotation % 180 == 0 ? (Double(t.width), Double(t.height)) : (Double(t.height), Double(t.width)) }) {
+            if w * cropW <= dispW + 0.5 { exactW = max(1, Int((w * cropW - 1e-6).rounded(.up))) }
+            if h * cropH <= dispH + 0.5 { exactH = max(1, Int((h * cropH - 1e-6).rounded(.up))) }
+        }
+        let tw = exactW ?? Self.quantize(srcW), th = exactH ?? Self.quantize(srcH)
 
         var layerTex = acquire(tw, th)
         var cu = ConvertUniforms(uvXform: Self.uvTransform(crop: l.crop, flipH: l.transform.flipH, flipV: l.transform.flipV,

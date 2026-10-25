@@ -93,6 +93,20 @@ public final class PlaybackEngine {
     public var skipRanges: [TimeRange] = [] {
         didSet { if oldValue != skipRanges { rebuild(project, debounce: true) } }   // slider drags coalesce
     }
+    /// Non-EDR screens (set by the player view): an HDR project is previewed in Rec.709 SDR, every layer converted
+    /// straight to SDR like an SDR / still export (SDR sources keep their code values, HDR footage gets the
+    /// Apple-matched tone map), instead of tone-mapping the composed HLG / PQ frame — which showed SDR clips, text and
+    /// stills at HLG reference white ≈ 60 % grey (BUG-SDR-IN-HDR). EDR screens keep the HDR frames (false).
+    public var rendersHDRAsSDR = false { didSet { if oldValue != rendersHDRAsSDR { forceRebuild() } } }
+    /// Colour space of the preview frames (`videoOutput`).
+    public var previewColorSpace: ProjectColorSpace { rendersHDRAsSDR ? .sdr709 : project.settings.colorSpace }
+    /// The project as the preview composes it (`rendersHDRAsSDR` overrides the colour space only).
+    private func rendered(_ p: Project) -> Project {
+        guard rendersHDRAsSDR, p.settings.colorSpace.isHDR else { return p }
+        var q = p
+        q.settings.colorSpace = .sdr709
+        return q
+    }
     /// Skipped ranges of the INSTALLED item (the requested ones once their build is in place).
     public private(set) var itemSkip: SkipTimeMap = .identity
     /// Timeline time of a player-item time.
@@ -188,14 +202,15 @@ public final class PlaybackEngine {
         let structure = structureCache.key(project, sources: sourceChooser)
         requestDerivedMedia(project, structure: structure)
         EffectPipelines.shared.prewarm(project)
-        state.update(project: project)
+        state.update(project: rendered(project))
         audioState.update(project: project)
         let size = Self.previewSize(canvas: project.settings.canvasSize, quality: previewQuality)
         var h = Hasher()
         h.combine(structure)
         h.combine(size.width); h.combine(size.height)
+        h.combine(previewColorSpace)
         // a newly finished (or invalidated → re-rendered) cache segment changes the lanes
-        for s in RenderCache.shared.validSegments(project, size: size) { h.combine(s.key) }
+        for s in RenderCache.shared.validSegments(rendered(project), size: size) { h.combine(s.key) }
         let key = h.finalize()
         if force || key != structureKey {
             if key != structureKey { audioTapsDisabled = false }   // new structure: live audio taps again (see watchClock)
@@ -255,7 +270,8 @@ public final class PlaybackEngine {
     }
 
     /// Rebuilds are debounced (40 ms) so continuous drags (trim/move) coalesce into few builds.
-    private func rebuild(_ project: Project, debounce: Bool) {
+    private func rebuild(_ project0: Project, debounce: Bool) {
+        let project = rendered(project0)
         buildTask?.cancel()
         let size = renderSize, chooser = sourceChooser, state = self.state, audioState = self.audioState
         let mixes = mixesAudioFormatsForTesting, taps = !audioTapsDisabled, skips = skipRanges
@@ -289,7 +305,7 @@ public final class PlaybackEngine {
         item.audioTimePitchAlgorithm = .spectral
         // HDR projects: keep the compositor's half-float HLG / PQ code values (8-bit would band, EDR preview needs them).
         let out = AVPlayerItemVideoOutput(pixelBufferAttributes: [
-            kCVPixelBufferPixelFormatTypeKey as String: project.settings.colorSpace.isHDR ? kCVPixelFormatType_64RGBAHalf : kCVPixelFormatType_32BGRA,
+            kCVPixelBufferPixelFormatTypeKey as String: previewColorSpace.isHDR ? kCVPixelFormatType_64RGBAHalf : kCVPixelFormatType_32BGRA,
             kCVPixelBufferMetalCompatibilityKey as String: true])
         item.add(out)
         videoOutput = out

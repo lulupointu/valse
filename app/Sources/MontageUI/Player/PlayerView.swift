@@ -195,7 +195,17 @@ final class PlayerView: NSView {
             metalLayer.edrMetadata = nil
             presentMode = space.isHDR ? .toneMapToSDR(space.transfer) : .passthrough
         }
+        // non-EDR screen: the engine composes the HDR project in SDR layer by layer (BUG-SDR-IN-HDR: SDR media keep
+        // their look); frames still in flight from the HDR item are tone-mapped (`mode(for:)`)
+        engine.rendersHDRAsSDR = space.isHDR && !edr
         needsRerender = true
+    }
+
+    /// Present mode for a composed frame: SDR frames (8-bit: SDR projects, or HDR projects composed in SDR for a
+    /// non-EDR screen) pass through; half-float HDR code values pass through to an EDR layer, else are tone-mapped.
+    private func mode(for frame: MTLTexture) -> Presenter.Mode {
+        guard frame.pixelFormat == .rgba16Float else { return .passthrough }
+        return presentMode
     }
 
     /// sRGB UI colour → code values of the Rec.709-tagged SDR drawable (the letterbox matches the panel around it).
@@ -212,7 +222,7 @@ final class PlayerView: NSView {
         guard let drawable = metalLayer.nextDrawable(), let cmd = ctx.queue.makeCommandBuffer() else { return }
         let lb = configuredEDR ? ColorMath.color(letterbox, in: engine.project.settings.colorSpace) : Self.rec709(letterbox)
         Presenter.encode(tex, to: drawable.texture, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: lb,
-                         contentRect: pixelRect(scale: metalLayer.contentsScale), mode: presentMode,
+                         contentRect: pixelRect(scale: metalLayer.contentsScale), mode: mode(for: tex),
                          commandBuffer: cmd)
         let hold = UncheckedSendable(retain)
         cmd.addCompletedHandler { _ in _ = hold }
@@ -233,7 +243,8 @@ final class PlayerView: NSView {
             // always SDR (HDR projects tone-mapped like on an SDR screen)
             let space = engine.project.settings.colorSpace
             Presenter.encode(frame, to: out, contentAspect: engine.project.settings.canvasSize.aspect, letterbox: letterbox,
-                             contentRect: pixelRect(scale: s), mode: space.isHDR ? .toneMapToSDR(space.transfer) : .passthrough,
+                             contentRect: pixelRect(scale: s),
+                             mode: space.isHDR && frame.pixelFormat == .rgba16Float ? .toneMapToSDR(space.transfer) : .passthrough,
                              commandBuffer: cmd)
         }
         ctx.synchronizeForReadback(out, cmd)

@@ -25,7 +25,10 @@ enum CoreShaders {
 
     inline float3 luma_k(float wide) { return wide > 0.5 ? float3(0.2627, 0.6780, 0.0593) : float3(0.2126, 0.7152, 0.0722); }
 
-    inline float3 tf_to_linear(float3 v, int tf, float3 ky) {
+    // SDR decoding exponent (ColorMath.sdrDecodeGamma): Apple's Rec.709 display curve (1.961) when SDR goes to HLG / PQ
+    // (BUG-SDR-IN-HDR: SDR content in an HDR project looks like the original file in QuickTime), 2.4 otherwise.
+    inline float sdr_gamma(int outTF) { return outTF != 0 ? 1.961 : 2.4; }
+    inline float3 tf_to_linear(float3 v, int tf, float3 ky, float sdrGamma) {
         v = max(v, 0.0);
         if (tf == 1) {
             const float a = 0.17883277, b = 0.28466892, c = 0.55991073;
@@ -38,7 +41,7 @@ enum CoreShaders {
             float3 p = pow(v, 1.0 / m2);
             return pow(max(p - c1, 0.0) / (c2 - c3 * p), 1.0 / m1) * (10000.0 / 203.0);
         }
-        return pow(v, 2.4);
+        return pow(v, sdrGamma);
     }
     inline float3 tf_from_linear(float3 l, int tf, float3 ky) {
         l = max(l, 0.0);
@@ -59,7 +62,7 @@ enum CoreShaders {
     }
     inline float3 color_convert_v(float3 rgb, int inTF, int outTF, int gamut, float inWide, float outWide) {
         if (inTF == outTF && gamut == 0) { return rgb; }
-        float3 l = tf_to_linear(rgb, inTF, luma_k(inWide));
+        float3 l = tf_to_linear(rgb, inTF, luma_k(inWide), sdr_gamma(outTF));
         if (gamut == 1) { l = float3x3(float3(0.6274, 0.0691, 0.0164), float3(0.3293, 0.9195, 0.0880), float3(0.0433, 0.0114, 0.8956)) * l; }
         if (gamut == 2) { l = float3x3(float3(1.6605, -0.1246, -0.0182), float3(-0.5876, 1.1329, -0.1006), float3(-0.0728, -0.0083, 1.1187)) * l; }
         float3 ko = luma_k(outWide);
@@ -99,7 +102,7 @@ enum CoreShaders {
     }
     inline float3 color_convert_tm(float3 rgb, int inTF, int outTF, int gamut, float inWide, float outWide, float peak) {
         if (inTF == outTF || (inTF != 0 && outTF != 0)) { return color_convert_v(rgb, inTF, outTF, gamut, inWide, outWide); }
-        float3 l = tf_to_linear(rgb, inTF, luma_k(inWide));
+        float3 l = tf_to_linear(rgb, inTF, luma_k(inWide), sdr_gamma(outTF));
         if (gamut == 1) { l = float3x3(float3(0.6274, 0.0691, 0.0164), float3(0.3293, 0.9195, 0.0880), float3(0.0433, 0.0114, 0.8956)) * l; }
         if (gamut == 2) { l = float3x3(float3(1.6605, -0.1246, -0.0182), float3(-0.5876, 1.1329, -0.1006), float3(-0.0728, -0.0083, 1.1187)) * l; }
         float3 ko = luma_k(outWide);
@@ -149,6 +152,28 @@ enum CoreShaders {
     }
 
     fragment float4 solid_fs(QuadOut in [[stage_in]], constant float4& color [[buffer(0)]]) { return color; }
+
+    // Layer sampling for placement: bilinear when the layer is shown at ≤ 1:1, Catmull-Rom bicubic (9 bilinear taps)
+    // when it is magnified, e.g. a 464 × 832 phone clip on a 1080 × 1920 canvas (BUG-SDR-IN-HDR "looks lower quality":
+    // bilinear 30.3 dB / SSIM 0.916 vs bicubic 31.5 dB / 0.938 on a ×2.3 natural frame).
+    inline float4 sample_layer(texture2d<float> t, sampler s, float2 uv) {
+        float2 size = float2(t.get_width(), t.get_height());
+        float2 d = max(abs(dfdx(uv)), abs(dfdy(uv))) * size;   // texels per output pixel
+        if (max(d.x, d.y) > 0.9) { return t.sample(s, uv); }
+        float2 sp = uv * size;
+        float2 t1 = floor(sp - 0.5) + 0.5;
+        float2 f = sp - t1;
+        float2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+        float2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+        float2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+        float2 w3 = f * f * (-0.5 + 0.5 * f);
+        float2 w12 = w1 + w2;
+        float2 a = (t1 - 1.0) / size, b = (t1 + w2 / w12) / size, c = (t1 + 2.0) / size;
+        float4 r = (t.sample(s, float2(a.x, a.y)) * w0.x + t.sample(s, float2(b.x, a.y)) * w12.x + t.sample(s, float2(c.x, a.y)) * w3.x) * w0.y
+                 + (t.sample(s, float2(a.x, b.y)) * w0.x + t.sample(s, float2(b.x, b.y)) * w12.x + t.sample(s, float2(c.x, b.y)) * w3.x) * w12.y
+                 + (t.sample(s, float2(a.x, c.y)) * w0.x + t.sample(s, float2(b.x, c.y)) * w12.x + t.sample(s, float2(c.x, c.y)) * w3.x) * w3.y;
+        return float4(max(r.rgb, 0.0), clamp(r.a, 0.0, 1.0));
+    }
 
     // ---- Layer placement onto the premultiplied accumulation target, with blend modes (framebuffer fetch) + mask.
     struct PlaceU {
@@ -289,7 +314,7 @@ enum CoreShaders {
     fragment float4 place_fs(QuadOut in [[stage_in]], float4 dst [[color(0)]], texture2d<float> t [[texture(0)]],
                              constant PlaceU& u [[buffer(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
-        float4 src = t.sample(s, in.uv);                    // straight alpha
+        float4 src = sample_layer(t, s, in.uv);             // straight alpha
         float as = src.a * u.opacity * maskAlpha(u, in.uv);
         if (as <= 0.0) { return dst; }
         float ab = dst.a;
@@ -375,7 +400,7 @@ enum CoreShaders {
     static let mac2Place = """
     fragment float4 place_over_fs(QuadOut in [[stage_in]], texture2d<float> t [[texture(0)]], constant PlaceU& u [[buffer(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
-        float4 src = t.sample(s, in.uv);                    // straight alpha
+        float4 src = sample_layer(t, s, in.uv);             // straight alpha
         float as = src.a * u.opacity * maskAlpha(u, in.uv);
         if (as <= 0.0) { return float4(0.0); }             // one·0 + (1 − 0)·dst = dst
         return float4(as * src.rgb, as);
@@ -385,7 +410,7 @@ enum CoreShaders {
                                  texture2d<float> dstTex [[texture(1)]], constant PlaceU& u [[buffer(0)]]) {
         constexpr sampler s(filter::linear, address::clamp_to_edge);
         float4 dst = dstTex.read(uint2(in.pos.xy));
-        float4 src = t.sample(s, in.uv);                    // straight alpha
+        float4 src = sample_layer(t, s, in.uv);             // straight alpha
         float as = src.a * u.opacity * maskAlpha(u, in.uv);
         if (as <= 0.0) { return dst; }
         float ab = dst.a;

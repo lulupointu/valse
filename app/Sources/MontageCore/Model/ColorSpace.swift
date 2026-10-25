@@ -31,10 +31,24 @@ public enum TransferFunction: String, Codable, Sendable { case sdr, hlg, pq
 /// iPhone HLG / Dolby Vision 8.4 footage (AVAssetImageGenerator, mean error 3.6/255 over 6 real clips) and matches its
 /// metadata-less HLG curve (HLG 50 % → 0.38, 75 % → 0.63, 100 % → 0.94): what users see in Photos / QuickTime, the
 /// "natural" CapCut look. Apple renders PQ display light ≈ 1:1 below reference white, hence k = 1.
+///
+/// SDR → HDR (SDR footage, stills, text, stickers, solids, background in an HLG / PQ project; BUG-SDR-IN-HDR): the
+/// SDR code values are linearised the way Apple DISPLAYS Rec.709 video — `v^1.961` (ColorSync's BT.709 curve, the
+/// QuickTime "1.96 gamma"; measured: AVAssetImageGenerator → sRGB and Core Image → extended-linear P3 both give
+/// 0.5 → 0.259, 0.2 → 0.043), not the BT.1886 2.4 — and SDR white lands on linear 1 = reference white (HLG 75 %, PQ
+/// 203 nits), which Apple's EDR rendering shows at 1.0 = SDR white. Net: Apple shows the SDR clip in an HDR export
+/// like the original file (Core Image EDR ΔE00 ≈ 0.6 HLG / 0.2 PQ on a chart); with 2.4 the mid-tones were up to
+/// 30 % darker. Apple's own HLG → SDR rendering (thumbnails, SDR screens) shows HLG reference white at ≈ 60 % grey
+/// whatever we do (it is fitted to iPhone grading): that target is out of reach for HLG without breaking EDR.
 public enum ColorMath {
     public static let referenceWhiteNits = 203.0
     public static let hlgPeakNits = 1000.0
     public static let hlgSystemGamma = 1.2
+    /// How Apple displays Rec.709 SDR video (ColorSync's BT.709 transfer): linear = code^1.961, 1 = SDR white.
+    public static let appleSDRVideoGamma = 1.961
+    /// Decoding exponent of SDR code values: Apple's display curve when they go to an HDR space, else the 2.4 that
+    /// SDR ↔ SDR and the fitted HDR → SDR curve use (unchanged: SDR projects stay bit for bit).
+    public static func sdrDecodeGamma(to outTF: TransferFunction) -> Double { outTF == .sdr ? 2.4 : appleSDRVideoGamma }
     /// Exposure of the HDR → SDR tone curve (`toneMap`) for a source transfer.
     public static func sdrToneExposure(_ tf: TransferFunction) -> Double { tf == .hlg ? 0.4 : 1 }
 
@@ -100,6 +114,15 @@ public enum ColorMath {
         }
     }
 
+    /// Encoded source → linear light for a conversion to `outTF`: SDR sources going to HDR use Apple's display curve
+    /// (`sdrDecodeGamma`), everything else `toLinear`. Shared by `convert` and `convert(conversion:)`; the MSL mirror is
+    /// `tf_to_linear(…, sdr_gamma(outTF))` in CoreShaders.
+    public static func linearInput(_ rgb: [Double], _ inTF: TransferFunction, wide: Bool, to outTF: TransferFunction) -> [Double] {
+        guard inTF == .sdr else { return toLinear(rgb, inTF, wide: wide) }
+        let g = sdrDecodeGamma(to: outTF)
+        return rgb.map { pow(max($0, 0), g) }
+    }
+
     /// HDR → SDR tone curve on max(R,G,B) (linear in, linear SDR out, monotone, < 1).
     public static func toneMap(_ m: Double, from tf: TransferFunction = .hlg) -> Double { 1 - exp(-sdrToneExposure(tf) * max(m, 0)) }
 
@@ -125,7 +148,7 @@ public enum ColorMath {
     public static func convert(_ rgb: [Double], from inTF: TransferFunction, wide inWide: Bool,
                                to outTF: TransferFunction, wide outWide: Bool) -> [Double] {
         if inTF == outTF && inWide == outWide { return rgb }
-        var l = toLinear(rgb, inTF, wide: inWide)
+        var l = linearInput(rgb, inTF, wide: inWide, to: outTF)
         if inWide && !outWide { l = mul(m2020to709, l) }
         if !inWide && outWide { l = mul(m709to2020, l) }
         l = gamutCompress(l, wide: outWide)
