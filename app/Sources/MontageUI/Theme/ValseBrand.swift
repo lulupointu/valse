@@ -55,27 +55,53 @@ struct ValseRibbon: View {
     var entry: CGFloat = 330
     var turnRadius: CGFloat = 70
     var background: Color = Theme.Valse.surface
+    /// Playful: a waltz loop (a full turn) on the run, this far from the trailing edge; nil = no loop.
+    var loopFromTrailing: CGFloat? = nil
+    var loopRadius: CGFloat = 34
+    /// Perforation offset along the film (animate it to make the film advance).
+    var phase: CGFloat = 0
 
     var body: some View {
         Canvas { ctx, size in
-            let pts = centreline(in: size)
+            let (pts, split) = centreline(in: size)
+            // Two passes so the second half of the loop passes over the first (over / under, not a merged blob).
+            let segments = split.map { [Array(pts[...$0]), Array(pts[$0...])] } ?? [pts]
             let s = width / 36
             let widths: [CGFloat] = [36, 20, 12, 4].map { $0 * s }
-            for (c, w) in zip(Theme.Valse.bands, widths) {
-                ctx.stroke(polyline(pts), with: .color(c), style: StrokeStyle(lineWidth: w, lineCap: .butt, lineJoin: .round))
-            }
             let edge = 8 * s
-            for side in [-1.0, 1.0] {
-                let off = offset(pts, by: CGFloat(side) * (width / 2 - edge / 2))
-                ctx.stroke(polyline(off), with: .color(background),
-                           style: StrokeStyle(lineWidth: 3.4 * s, lineCap: .butt, dash: [4.6 * s, 3.9 * s]))
+            for seg in segments {
+                for (c, w) in zip(Theme.Valse.bands, widths) {
+                    ctx.stroke(polyline(seg), with: .color(c), style: StrokeStyle(lineWidth: w, lineCap: .butt, lineJoin: .round))
+                }
+                for side in [-1.0, 1.0] {
+                    let off = offset(seg, by: CGFloat(side) * (width / 2 - edge / 2))
+                    ctx.stroke(polyline(off), with: .color(background),
+                               style: StrokeStyle(lineWidth: 3.4 * s, lineCap: .butt, dash: [4.6 * s, 3.9 * s], dashPhase: -phase))
+                }
             }
         }
         .accessibilityHidden(true)
         .allowsHitTesting(false)
     }
 
-    private func centreline(in size: CGSize) -> [CGPoint] {
+    private func centreline(in size: CGSize) -> ([CGPoint], Int?) {
+        var pts = baseCentreline(in: size)
+        guard let lf = loopFromTrailing else { return (pts, nil) }
+        // Insert a full counter-clockwise turn (rising above the run) where the run passes x = width - lf.
+        let lx = size.width - lf, yb = size.height - baseline
+        guard let i = pts.firstIndex(where: { $0.x >= lx && abs($0.y - yb) < 0.5 }) else { return (pts, nil) }
+        var loop: [CGPoint] = []
+        let steps = 72
+        for k in 1..<steps {
+            let th = Double.pi / 2 - 2 * Double.pi * Double(k) / Double(steps)   // θ decreasing = moving +x at the bottom
+            loop.append(CGPoint(x: lx + loopRadius * CGFloat(cos(th)), y: yb - loopRadius + loopRadius * CGFloat(sin(th))))
+        }
+        pts.insert(CGPoint(x: lx, y: yb), at: i)
+        pts.insert(contentsOf: loop + [CGPoint(x: lx, y: yb)], at: i + 1)
+        return (pts, i + 1 + steps / 2)
+    }
+
+    private func baseCentreline(in size: CGSize) -> [CGPoint] {
         let a = 22.1 * Double.pi / 180
         let yb = size.height - baseline
         let start = CGPoint(x: size.width - entry, y: -width)   // just above the top edge
