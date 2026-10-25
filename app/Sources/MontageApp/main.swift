@@ -10,8 +10,10 @@ import MontageUI
 ///   --lang en|fr              UI language for this session (does not change the saved preference)
 ///   --background              never activate / steal focus (window opens behind other apps)
 ///   --window-id-file <path>   write the main window's CGWindowID (for `screencapture -l`)
-///   --snapshot <png>          render the window offscreen to a PNG (no Screen Recording permission needed)
-///   --quit-after <seconds>    quit automatically
+///   --offscreen               window placed far off every screen (never visible; implied by --snapshot)
+///   --snapshot <png>          render the offscreen window to a PNG (no Screen Recording permission needed), then exit
+///                             (0 = written, 1 = failed)
+///   --quit-after <seconds>    quit automatically; hard deadline (process exits) 6 s later, see QuitDeadline
 ///   --size <w>x<h>            initial window size in points (default 1687x983, CapCut's default)
 ///   --uitest <script.json>    run a UI test script in an offscreen, never-activated window, then exit (docs/TESTING.md)
 ///     --uitest-out <dir>      where snapshots / dumps / report.json go (default build/uitest/<name>)
@@ -24,6 +26,7 @@ struct Options {
     var demo = false
     var lang: String?
     var background = false
+    var offscreen = false
     var windowIDFile: URL?
     var snapshot: URL?
     var quitAfter: Double?
@@ -48,6 +51,7 @@ struct Options {
             case "--demo": demo = true
             case "--lang": lang = next()
             case "--background": background = true
+            case "--offscreen": offscreen = true
             case "--window-id-file": windowIDFile = next().map { URL(fileURLWithPath: $0) }
             case "--snapshot": snapshot = next().map { URL(fileURLWithPath: $0) }
             case "--quit-after": quitAfter = next().flatMap(Double.init)
@@ -114,9 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if options.uitest == nil { CacheCleaner.runAutomaticCleanup(AppPreferences.shared.settings) }
         Task { await loadInitialProject() }
-        if let q = options.quitAfter {
-            DispatchQueue.main.asyncAfter(deadline: .now() + q) { NSApp.terminate(nil) }
-        }
+        if let q = options.quitAfter { QuitDeadline.arm(seconds: q, snapshot: options.snapshot != nil) }
     }
 
     func loadInitialProject() async {
@@ -148,13 +150,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // give the compositor, thumbnails and SwiftUI layout time to settle
             try? await Task.sleep(for: .seconds(3))
             let ok = SnapshotRegistry.shared.writePNG(window: window, to: snap)
+            QuitDeadline.snapshotWritten = ok
             FileHandle.standardError.write(Data("snapshot \(ok ? "written" : "FAILED"): \(snap.path)\n".utf8))
-            if options.quitAfter == nil { NSApp.terminate(nil) }
+            // Exit here, not through NSApp.terminate: a screenshot never saves the project (no version / cover written
+            // into a --open project), and this code runs inside a main-queue job, where terminate's .terminateLater
+            // reply could never arrive (see QuitDeadline).
+            await AppShutdown.stopBackgroundWork(timeout: 2)
+            if let u = store.packageURL { SessionLock.release(u) }
+            AppShutdown.exit(ok ? 0 : 1)
         }
     }
 
     func makeWindow() {
         let w = options.uitest != nil ? UITestDriver.makeWindow(size: options.size)
+            : options.offscreen || options.snapshot != nil ? OffscreenWindow.make(size: options.size)
             : NSWindow(contentRect: NSRect(origin: .zero, size: options.size),
                        styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                        backing: .buffered, defer: false)
@@ -171,8 +180,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if #available(macOS 13.3, *) { host.safeAreaRegions = [] }
         w.contentView = host
         w.center()
-        if options.uitest != nil {
-            w.orderBack(nil)  // offscreen (UITestWindow), never activated
+        if options.uitest != nil || options.offscreen || options.snapshot != nil {
+            w.orderBack(nil)  // offscreen (UITestWindow / OffscreenWindow, far off every screen), never activated
         } else if options.background {
             // Never cover or activate over other apps (another agent may be driving the screen): behind everything.
             w.orderBack(nil)
@@ -231,6 +240,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         p.allowedContentTypes = [.movie, .audio, .image, .folder]
         if p.runModal() == .OK { store.importFiles(p.urls) }
     }
+}
+
+/// `--quit-after <s>`: quit at `s` seconds, and a hard deadline `hardGrace` seconds later.
+///
+/// TOOL-SCREENSHOT-HANG: this used to be `DispatchQueue.main.asyncAfter { NSApp.terminate(nil) }`. `terminate` asks
+/// `applicationShouldTerminate`, which answers `.terminateLater` and replies from a main-actor `Task`; AppKit then spins
+/// a nested event loop waiting for that reply. But a main-actor Task is a main-dispatch-queue job, and the main queue
+/// is serial and busy running the asyncAfter block that called `terminate`: the reply never ran, the app never quit
+/// (stack: asyncAfter closure → -[NSApplication terminate:] → _shouldTerminate → nextEventMatchingMask, forever).
+/// A run-loop Timer is not a dispatch job, so the nested loop can drain the main queue. The watchdog runs on its own
+/// Thread (GCD may have no worker to give, and the main thread may be the one stuck) and `_exit`s the process.
+enum QuitDeadline {
+    static let hardGrace: Double = 6
+    /// Set by `--snapshot` once the PNG is on disk: the hard deadline then exits 0, else 124 (timeout).
+    nonisolated(unsafe) static var snapshotWritten = false
+
+    @MainActor static func arm(seconds q: Double, snapshot: Bool) {
+        let t = Timer(timeInterval: q, repeats: false) { _ in MainActor.assumeIsolated { NSApp.terminate(nil) } }
+        RunLoop.main.add(t, forMode: .common)
+        let watchdog = Thread {
+            Thread.sleep(forTimeInterval: q + hardGrace)
+            let code: Int32 = snapshot && !snapshotWritten ? 124 : 0
+            FileHandle.standardError.write(Data("--quit-after: hard deadline (\(q + hardGrace) s) reached, exiting \(code)\n".utf8))
+            _exit(code)
+        }
+        watchdog.name = "montage.quit-deadline"
+        watchdog.start()
+    }
+}
+
+/// `--snapshot` window: like the UI test window (UITestWindow), placed far off every screen so it is never visible and
+/// never covers the user's apps; it reports itself key/main so controls render in their active state (same pixels as
+/// the UI test snapshots). It has none of the UI test driver's event hooks.
+final class OffscreenWindow: NSWindow {
+    static func make(size: CGSize) -> NSWindow {
+        let w = OffscreenWindow(contentRect: NSRect(origin: UITestWindow.offscreenOrigin, size: size),
+                                styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                                backing: .buffered, defer: false)
+        w.setFrameOrigin(UITestWindow.offscreenOrigin)
+        w.collectionBehavior.insert(.canJoinAllSpaces)
+        return w
+    }
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    override var isKeyWindow: Bool { true }
+    override var isMainWindow: Bool { true }
+    /// AppKit would pull a frame partly off-screen back onto a display: keep it where we put it.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
+    override func center() { setFrameOrigin(UITestWindow.offscreenOrigin) }
+    override func makeKeyAndOrderFront(_ sender: Any?) { orderBack(sender) }
+    override func noResponder(for eventSelector: Selector) {}
 }
 
 /// Closure target for menu items.
