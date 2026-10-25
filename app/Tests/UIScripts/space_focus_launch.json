@@ -1,0 +1,13 @@
+// BUG-SPACE-FOCUS: an editor that is on screen when its window first appears (--open, a new project window) starts
+// with the keyboard on the editor, not in the media search field (AppKit's first key view): Space plays at once.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": [{"path": "ui.editingText", "equals": null}, {"path": "ui.firstResponder", "equals": "EditorKeyAnchorView"}]},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": true, "timeout": 10}},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": false, "timeout": 10}},
+    {"expect": {"path": "ui.anchors", "contains": "asset.search"}}
+  ]
+}

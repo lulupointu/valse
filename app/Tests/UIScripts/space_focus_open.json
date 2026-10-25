@@ -1,0 +1,34 @@
+// BUG-SPACE-FOCUS: opening a project from Home leaves no text field focused (the media search field used to take the
+// keyboard), so Space plays straight away; clicking the search field still focuses it, clicking the timeline gives
+// the keyboard back to Space.
+{
+  "project": "home:3",
+  "steps": [
+    {"click": "id:home.card.0"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 10}},
+    {"expect": [{"path": "ui.editingText", "equals": null}, {"path": "ui.firstResponder", "equals": "EditorKeyAnchorView"}]},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": true, "timeout": 10}},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": false, "timeout": 10}},
+    // clicking the search field still focuses it: Space types into it and does not play
+    {"click": "id:asset.search"},
+    {"expect": {"path": "ui.firstResponder", "contains": "Text"}},
+    {"type": "a b"},
+    {"expect": [{"path": "ui.editingText", "equals": "a b"}, {"path": "isPlaying", "equals": false}]},
+    // Esc gives the keyboard back to the editor: Space plays again
+    {"key": "escape"},
+    {"expect": {"path": "ui.editingText", "equals": null}},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": true, "timeout": 10}},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": false, "timeout": 10}},
+    // so does a click on the timeline after clicking back into the field
+    {"click": "id:asset.search"},
+    {"expect": {"path": "ui.firstResponder", "contains": "Text"}},
+    {"click": "id:timeline"},
+    {"expect": {"path": "ui.editingText", "equals": null}},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": true, "timeout": 10}}
+  ]
+}

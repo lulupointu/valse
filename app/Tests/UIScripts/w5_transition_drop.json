@@ -8,7 +8,7 @@
                 {"path": "main.clips.1.transitionDuration", "approx": 0.5}]},
     {"idle": 1},
     {"click": "id:transition.duration.field"},
-    {"expect": {"path": "ui.firstResponder", "notEquals": "UITestWindow"}},
+    {"expect": {"path": "ui.firstResponder", "contains": "Text"}},
     {"type": "1", "replace": true},
     {"key": "return"},
     {"expect": {"path": "main.clips.1.transitionDuration", "approx": 1.0}},
