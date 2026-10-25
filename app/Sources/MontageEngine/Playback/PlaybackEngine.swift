@@ -578,6 +578,7 @@ public final class PlaybackEngine {
         guard let out = videoOutput else { return nil }
         let itemTime = out.itemTime(forHostTime: host)
         watchClock(itemTime, host: host)
+        reportLaneAudio(host)
         if presentsOneFrameInForTesting > 1 {   // lagging preview: the view gets 1 frame in N (dropped-frames warning)
             framePollsForTesting += 1
             if framePollsForTesting % presentsOneFrameInForTesting != 0 { return nil }
@@ -592,6 +593,22 @@ public final class PlaybackEngine {
         if shown.isValid, shown == lastShownTime { watchForStall(itemTime) } else { stallWatch = nil; futilePrimes = 0 }
         lastShownTime = shown
         return (pb, lastFrameTime)
+    }
+
+    /// BUG-METALLIC-AUDIO probe: lane audio that jumped in time while sounding (the same audio twice = echo / comb
+    /// "metallic" voice, or a hole), counted by the lane taps, logged at most every 2 s (`fr.montage` error, public).
+    private var laneAudioReportedAt: CFTimeInterval = 0
+    /// Lane-audio jumps logged so far (diagnostics / tests).
+    public private(set) var laneAudioJumps = 0
+
+    private func reportLaneAudio(_ host: CFTimeInterval) {
+        guard host - laneAudioReportedAt >= 2 else { return }
+        laneAudioReportedAt = host
+        let j = audioState.takeLaneJumps()
+        guard j.count > 0 else { return }
+        laneAudioJumps += j.count
+        EngineLog.error(String(format: "lane audio jumped %d× while sounding (largest %+.1f ms at item %.3f s, rate %.2f): BUG-METALLIC-AUDIO probe",
+                               j.count, j.worst * 1000, j.at, player.rate))
     }
 
     // MARK: Stalled video pipeline (C3 round 2)

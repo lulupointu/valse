@@ -216,7 +216,8 @@ public enum CompositionBuilder {
                 // (frozen-clock recovery, tap creation failed) the mix carries the real ramps, as before.
                 if audioTaps {
                     a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[key] ?? [], state: audioState, skip: skip,
-                                                                        gains: volumes.flatMap { $0.ramps }))
+                                                                        gains: volumes.flatMap { $0.ramps },
+                                                                        labelsLeadOneBuffer: purpose == .preview))   // AVPlayer only
                 }
                 if a.1.audioTapProcessor == nil {
                     a.1.setVolume(0, at: .zero)

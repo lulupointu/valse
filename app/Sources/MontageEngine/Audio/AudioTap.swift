@@ -6,7 +6,11 @@ import Foundation
 /// preview): no locks that can block for long, no allocation in steady state.
 /// `buffers` are non-interleaved Float32 channels, `time` is the composition time of the first frame and `duration` the
 /// composition time the buffer covers (`frames / sampleRate` × the playback rate: the tap runs after the time-pitch
-/// stage); either may be invalid.
+/// stage); either may be invalid. In AVPlayer playback `time` is one buffer EARLY (the start of the previous pull:
+/// the samples are those of `time + duration`); in AVAssetReaderAudioMixOutput (export) it is exact. See
+/// `LaneProcessor.labelsLeadOneBuffer` and docs/investigations/BUG-METALLIC-AUDIO.md. (A pre-effects tap is labelled
+/// exactly in both, but its `duration` is wrong on speed-scaled segments: 1.5× the frames' span at speed 1.5, the
+/// labels advancing 1/1.5×.)
 public protocol AudioTapProcessor: AnyObject, Sendable {
     func prepare(sampleRate: Double, channels: Int, maxFrames: Int)
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime, duration: CMTime)

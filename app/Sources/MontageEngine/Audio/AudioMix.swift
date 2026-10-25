@@ -39,6 +39,29 @@ public final class AudioMixState: @unchecked Sendable {
         get { lock.withLock { _tapObserver } }
         set { lock.withLock { _tapObserver = newValue } }
     }
+
+    /// What a lane hands to the mixer (tests / diagnostics, BUG-METALLIC-AUDIO): composition time of the first frame
+    /// (NaN = no timestamp), first channel's samples AFTER the lane processing, sample rate, composition time one frame
+    /// covers (what the gains used). Audio render thread: copy and return.
+    public typealias TapCapture = @Sendable (_ time: Double, _ samples: UnsafeBufferPointer<Float>, _ sampleRate: Double,
+                                             _ step: Double) -> Void
+    /// Lane taps' time jumps while sounding (BUG-METALLIC-AUDIO probe, `PlaybackEngine.reportLaneAudio`).
+    private var jumps = 0, worstJump = 0.0, worstJumpAt = 0.0
+    func noteLaneJump(_ d: Double, at t: Double) {
+        lock.withLock { jumps += 1; if abs(d) > abs(worstJump) { worstJump = d; worstJumpAt = t } }
+    }
+    /// Jumps since the last call: count, largest (seconds, negative = audio repeated), composition time of it.
+    public func takeLaneJumps() -> (count: Int, worst: Double, at: Double) {
+        lock.withLock {
+            defer { jumps = 0; worstJump = 0; worstJumpAt = 0 }
+            return (jumps, worstJump, worstJumpAt)
+        }
+    }
+    private var _tapCapture: TapCapture?
+    public var tapCapture: TapCapture? {
+        get { lock.withLock { _tapCapture } }
+        set { lock.withLock { _tapCapture = newValue } }
+    }
 }
 
 /// Linear gain from `from` to `to` over `[start, end)` (composition / item time): one audio-mix volume ramp.
@@ -74,9 +97,25 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     private let scratch = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 8)
     private let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 8)
     private var last: ClipID?
+    /// The previous buffer was stamped and not silent (jump probe).
+    private var lastSounded = false
+
+    @inline(__always) static func hasSound(_ p: UnsafeMutablePointer<Float>, _ n: Int) -> Bool {
+        for i in 0..<n where p[i] != 0 { return true }
+        return false
+    }
+
+    /// BUG-METALLIC-AUDIO: in AVPlayer playback a post-effects tap's timestamp is the start of the PREVIOUS pull — the
+    /// samples it carries begin one buffer later (4096 frames = 85 ms, measured on the content: lane output vs source,
+    /// `MetallicAudioTests`). Read as is, the clip gains muted the first 85 ms of every clip after a gap or a cut on its
+    /// lane and ran every fade / volume keyframe / live effect switch 85 ms late. Export (AVAssetReaderAudioMixOutput)
+    /// stamps exactly. true = preview builds: the buffer's time is its stamp + its own span.
+    let labelsLeadOneBuffer: Bool
 
     /// `skip`: timeline ranges the composition leaves out (quick cut preview) — entries are in composition time.
-    init(clips: [Clip], state: AudioMixState, skip: SkipTimeMap = .identity, gains: [GainRamp]? = nil) {
+    init(clips: [Clip], state: AudioMixState, skip: SkipTimeMap = .identity, gains: [GainRamp]? = nil,
+         labelsLeadOneBuffer: Bool = false) {
+        self.labelsLeadOneBuffer = labelsLeadOneBuffer
         entries = clips.sorted { $0.start < $1.start }.flatMap { c in
             skip.kept(c.range).map { k in
                 let s = skip.item(k.start)
@@ -96,7 +135,11 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         state.tapObserver?(.prepare)
     }
 
-    func reset() { for c in chains.values { c.reset() }; last = nil; nextTime = nil; gainIndex = 0; state.tapObserver?(.reset) }
+    func reset() {
+        for c in chains.values { c.reset() }
+        last = nil; nextTime = nil; gainIndex = 0; lastSounded = false
+        state.tapObserver?(.reset)
+    }
 
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime, duration: CMTime = .invalid) {
         guard frames > 0, buffers.count > 0 else { return }
@@ -113,11 +156,20 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         let d = duration.isNumeric ? duration.seconds : 0
         let step = d > 0 ? d / Double(frames) : 1 / sampleRate
         let stamped = time.isNumeric
-        let t0 = stamped ? time.seconds : nextTime ?? 0
+        let t0 = stamped ? time.seconds + (labelsLeadOneBuffer ? Double(frames) * step : 0) : nextTime ?? 0
+        // probe: a stamped buffer with sound that does not follow the previous one (which had sound too) by < 0.5 s.
+        // Seeks reset the taps; the buffers a paused item repeats are silent.
+        let sounding = Self.hasSound(table[0], frames)
+        if stamped, sounding, lastSounded, let e = nextTime, abs(t0 - e) > 0.001, abs(t0 - e) < 0.5 { state.noteLaneJump(t0 - e, at: t0) }
+        lastSounded = sounding && stamped
         nextTime = t0 + Double(frames) * step
         routeLive(block, frames: frames, from: t0, step: step)
-        guard gains != nil else { return }
-        if stamped { applyGains(channels: channels, frames: frames, from: t0, step: step) } else { hold(lastGain, channels: channels, frames: frames) }
+        if gains != nil {
+            if stamped { applyGains(channels: channels, frames: frames, from: t0, step: step) } else { hold(lastGain, channels: channels, frames: frames) }
+        }
+        if let capture = state.tapCapture {
+            capture(stamped ? t0 : .nan, UnsafeBufferPointer(start: table[0], count: frames), sampleRate, step)
+        }
     }
 
     /// Multiplies the buffer by the lane's gain curve (linear inside each ramp, 0 outside every ramp).
