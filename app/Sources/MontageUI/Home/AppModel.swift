@@ -259,6 +259,7 @@ public final class AppModel {
         isTransitioning = true
         screen = .editor
         selectedIDs = []
+        EditorKeyFocus.projectOpened()   // BUG-SPACE-FOCUS: Space plays, no text field keeps the keyboard
         Task { try? await Task.sleep(for: .milliseconds(250)); isTransitioning = false }
     }
 

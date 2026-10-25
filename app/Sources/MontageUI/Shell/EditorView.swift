@@ -25,6 +25,8 @@ public struct EditorView: View {
                 editor
             }
         }
+        // BUG-SPACE-FOCUS: the editor's keyboard home (never the media search field), so Space plays at once
+        .background(EditorKeyAnchor())
     }
 
     private var editor: some View {

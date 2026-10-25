@@ -724,6 +724,7 @@ struct AssetSearchField: View {
     static let debounce: Duration = .milliseconds(250)
     @State private var text = ""
     @State private var task: Task<Void, Never>?
+    @FocusState private var focused: Bool
 
     var body: some View {
         WithPerceptionTracking {
@@ -735,6 +736,9 @@ struct AssetSearchField: View {
                 TextField(placeholder, text: Binding(get: { text }, set: { text = $0; commit($0, now: false) }))
                     .textFieldStyle(.plain).font(.system(size: 12))
                     .onSubmit { commit(text, now: true) }
+                    // BUG-SPACE-FOCUS: Esc gives the keyboard back to the editor (Space plays again); the query stays
+                    .focused($focused)
+                    .onExitCommand { focused = false }
                     .testID("asset.search")
                 if !text.isEmpty {
                     Button { text = ""; commit("", now: true) } label: {
