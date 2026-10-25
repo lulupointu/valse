@@ -1,0 +1,29 @@
+// TL-SIZE-TUNER: the timeline toolbar's Sizes button opens a popover whose sliders resize the lanes LIVE (video lanes,
+// audio share of a video clip, audio lanes); the values line reports them; Reset restores the defaults; none of it is
+// an undoable edit (app-wide preference). LOOK at sizes-popover / sizes-tuned.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": [{"path": "main.laneHeight", "equals": 110}, {"path": "tracks.5.laneHeight", "equals": 83},
+                {"path": "ui.sizes.open", "equals": false}]},
+    {"click": "id:toolbar.sizes"},
+    {"waitFor": {"path": "ui.sizes.open", "equals": true}},
+    {"waitFor": {"path": "ui.anchors", "contains": "sizes.popover"}},
+    {"snapshot": "sizes-popover", "element": "id:sizes.popover", "baseline": true},
+    {"click": "id:sizes.video", "at": [0.995, 0.5]},
+    {"waitFor": {"path": "main.laneHeight", "gte": 210}},
+    {"expect": {"path": "ui.sizes.video", "gte": 210}},
+    {"click": "id:sizes.audioLane", "at": [0.0, 0.5]},
+    {"waitFor": {"path": "tracks.5.laneHeight", "equals": 30}},
+    {"click": "id:sizes.audioShare", "at": [0.0, 0.5]},
+    {"waitFor": {"path": "ui.sizes.audioShare", "equals": 0}},
+    {"expect": [{"path": "ui.sizes.summary", "contains": "audio 0 %"}, {"path": "ui.sizes.summary", "contains": "audio lane 30 pt"},
+                {"path": "undo.depth", "equals": 0}]},
+    {"snapshot": "sizes-tuned", "element": "id:panel.timeline"},
+    {"click": "id:sizes.reset"},
+    {"waitFor": {"path": "main.laneHeight", "equals": 110}},
+    {"expect": [{"path": "tracks.5.laneHeight", "equals": 83}, {"path": "ui.sizes.audioShare", "equals": 0.25}]},
+    {"click": "id:sizes.close"},
+    {"waitFor": {"path": "ui.sizes.open", "equals": false}}
+  ]
+}
