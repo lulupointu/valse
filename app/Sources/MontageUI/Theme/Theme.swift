@@ -68,6 +68,53 @@ public enum Theme {
         public static let clipLabel = NSFont.systemFont(ofSize: 10.5, weight: .medium)
         public static let rulerFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
     }
+
+    /// Valse brand tokens (rename preview, VALSE-HOME). Used on the Home screen only for now; the editor keeps the tokens
+    /// above until the owner validates the direction (mapping in the VALSE-HOME report). Neutrals are warm charcoal (never
+    /// navy, never tinted enough to bias footage); the 80s palette comes from the logo and is used as accent + stripe motif.
+    public enum Valse {
+        // Brand palette (logo)
+        public static let teal = Color(hex: 0x2BAF90)       // functional accent: selection, focus, active (6.9:1 on canvas)
+        public static let mint = Color(hex: 0xA1D4B1)       // accent text on dark / hover highlight of teal
+        public static let mustard = Color(hex: 0xF1A512)    // brand highlight: primary call to action
+        public static let orange = Color(hex: 0xDD4111)     // stripe motif only (4.3:1, not for small text)
+        public static let burgundy = Color(hex: 0x8C0027)   // film edges of the stripe motif only
+        public static let cream = Color(hex: 0xF3E9C8)      // wordmark
+        public static let ink = Color(hex: 0x14110C)        // text on teal / mustard fills (6.2:1 / 8.9:1)
+        // Warm neutrals (dark → light)
+        public static let canvas = Color(hex: 0x121110)     // window / Home background
+        public static let sidebar = Color(hex: 0x161513)
+        public static let surface = Color(hex: 0x1C1A17)    // cards, hero
+        public static let raised = Color(hex: 0x24211D)     // hover / selected surface
+        public static let control = Color(hex: 0x2A2723)    // fields, segmented controls, secondary buttons
+        public static let controlHover = Color(hex: 0x34302B)
+        public static let stroke = Color(hex: 0x2E2A25)     // hairlines, card borders
+        // Text (contrast on canvas / control)
+        public static let text = Color(hex: 0xF1EBDD)       // 15.9 / 12.5
+        public static let text2 = Color(hex: 0xBDB5A6)      // 9.3 / 7.3
+        public static let text3 = Color(hex: 0x958D80)      // 5.8 / 4.5
+        // Selection
+        public static let selectedFill = Color(hex: 0x2BAF90, alpha: 0.14)
+        /// Stripe order of the ribbon, outside → centre (mirrored on the other side).
+        public static let bands: [Color] = [burgundy, mustard, orange, teal]
+
+        public enum Radius {
+            public static let control: CGFloat = 7
+            public static let card: CGFloat = 10
+            public static let hero: CGFloat = 14
+        }
+
+        /// Display = SF Rounded (echoes the ribbon's round turns), body = SF Pro.
+        public enum Fonts {
+            public static let wordmark = Font.system(size: 19, weight: .bold, design: .rounded)
+            public static let pageTitle = Font.system(size: 20, weight: .bold, design: .rounded)
+            public static let heroTitle = Font.system(size: 22, weight: .bold, design: .rounded)
+            public static let cardTitle = Font.system(size: 14, weight: .semibold)
+            public static let body = Font.system(size: 13)
+            public static let caption = Font.system(size: 11.5)
+            public static let overline = Font.system(size: 10.5, weight: .semibold)
+        }
+    }
 }
 
 extension Color {

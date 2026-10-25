@@ -16,6 +16,8 @@
 "home.newProject" = "Nouveau projet";
 "home.newProject.custom" = "Personnaliser";
 "home.newProject.customHelp" = "Nouveau projet avec format, résolution et fréquence d'images";
+"home.newProject.subtitle" = "Partez d'une timeline vide. Ajoutez clips, musique et texte.";
+"home.empty.title" = "Aucun projet pour l'instant";
 "home.templates.subtitle" = "Partir d'un montage prêt à l'emploi";
 "home.templates.title" = "Modèles";
 "home.templates.soon" = "Les modèles arrivent bientôt. En attendant, créez un projet et utilisez les bibliothèques Texte et Effets.";

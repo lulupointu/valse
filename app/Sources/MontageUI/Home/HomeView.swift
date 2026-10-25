@@ -21,7 +21,7 @@ struct HomeView: View {
                     HomeTopBar(app: app)
                 }
             }
-            .background(Theme.home)
+            .background(Theme.Valse.canvas)
             .overlay { ShortsWizardHost(app: app) }   // AI2 (AI-031)
             .overlay(alignment: .top) { ToastView(toast: app.store.toast).padding(.top, 54) }
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in
@@ -62,14 +62,14 @@ struct HomeSidebar: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 7).fill(LinearGradient(colors: [Color(hex: 0x6CC9DD), Color(hex: 0x4FB4C9)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 28, height: 28)
-                        .overlay(Image(systemName: "film.stack").font(.system(size: 13, weight: .semibold)).foregroundStyle(.black.opacity(0.8)))
-                    Text(verbatim: "Montage").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                HStack(spacing: 6) {
+                    ValseMark(small: true).frame(width: 42, height: 42).padding(.vertical, -4)
+                    Text(verbatim: "Valse").font(Theme.Valse.Fonts.wordmark).foregroundStyle(Theme.Valse.cream)
                 }
-                .padding(.top, 44).padding(.bottom, 20).padding(.leading, 6)
-                Text(loc: "home.videoEditing").font(.system(size: 11)).foregroundStyle(Theme.textTertiary).padding(.leading, 6).padding(.bottom, 4)
+                .padding(.top, 40).padding(.bottom, 22).padding(.leading, 2)
+                .accessibilityElement(children: .combine)
+                Text(loc: "home.videoEditing").font(Theme.Valse.Fonts.overline).foregroundStyle(Theme.Valse.text3)
+                    .textCase(.uppercase).tracking(0.6).padding(.leading, 8).padding(.bottom, 6)
                 NavItem(symbol: "house", title: tr("home.nav.home"), selected: app.section == .projects && app.scope == .all, id: "home") {
                     app.section = .projects; app.scope = .all
                 }
@@ -77,14 +77,16 @@ struct HomeSidebar: View {
                     app.section = .projects; app.scope = .recents
                 }
                 NavItem(symbol: "rectangle.stack", title: tr("home.nav.templates"), selected: app.section == .templates, id: "templates") { app.section = .templates }
-                Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 10)
+                Rectangle().fill(Theme.Valse.stroke).frame(height: 1).padding(.vertical, 12).padding(.horizontal, 8)
                 HStack {
-                    Text(loc: "home.folders").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                    Text(loc: "home.folders").font(Theme.Valse.Fonts.overline).foregroundStyle(Theme.Valse.text3).textCase(.uppercase).tracking(0.6)
                     Spacer()
-                    Button { app.modal = .newFolder } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
-                        .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("home.folder.create")).testID("home.folder.add")
+                    Button { app.modal = .newFolder } label: {
+                        Image(systemName: "plus").font(.system(size: 11, weight: .semibold)).frame(width: 20, height: 20).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).foregroundStyle(Theme.Valse.text2).help(tr("home.folder.create")).testID("home.folder.add")
                 }
-                .padding(.horizontal, 6).padding(.bottom, 2)
+                .padding(.leading, 8).padding(.trailing, 4).padding(.bottom, 2)
                 ScrollView {
                     VStack(spacing: 2) {
                         ForEach(Array(app.folders.enumerated()), id: \.element.id) { i, f in
@@ -103,8 +105,8 @@ struct HomeSidebar: View {
                             }
                         }
                         if app.folders.isEmpty {
-                            Text(loc: "home.folders.empty").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 6).padding(.vertical, 4)
+                            Text(loc: "home.folders.empty").font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text3)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.vertical, 4)
                         }
                     }
                 }
@@ -115,8 +117,9 @@ struct HomeSidebar: View {
                 NavItem(symbol: "gearshape", title: tr("settings.title"), selected: false, id: "settings") { app.modal = .settings(.general) }
                     .padding(.bottom, 14)
             }
-            .padding(.horizontal, 16)
-            .background(Theme.home)
+            .padding(.horizontal, 14)
+            .background(Theme.Valse.sidebar)
+            .overlay(alignment: .trailing) { Rectangle().fill(Theme.Valse.stroke).frame(width: 1) }
         }
     }
 }
@@ -133,14 +136,19 @@ struct NavItem: View {
         WithPerceptionTracking {
             Button(action: action) {
                 HStack(spacing: 10) {
-                    Image(systemName: symbol).font(.system(size: 13)).frame(width: 18)
-                    Text(verbatim: title).font(.system(size: 13, weight: selected ? .medium : .regular)).lineLimit(1)
+                    Image(systemName: symbol).font(.system(size: 13, weight: selected ? .semibold : .regular)).frame(width: 18)
+                        .foregroundStyle(selected ? Theme.Valse.mint : Theme.Valse.text2)
+                    Text(verbatim: title).font(.system(size: 13, weight: selected ? .semibold : .regular)).lineLimit(1)
                     Spacer(minLength: 0)
-                    if badge > 0 { Text(verbatim: "\(badge)").font(.system(size: 11)).foregroundStyle(Theme.textTertiary) }
+                    if badge > 0 { Text(verbatim: "\(badge)").font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.Valse.text3) }
                 }
-                .foregroundStyle(selected ? .white : Theme.textSecondary)
-                .padding(.horizontal, 10).frame(height: 36)
-                .background(selected ? Color(hex: 0x1E2829) : (hover ? Color.white.opacity(0.04) : .clear), in: RoundedRectangle(cornerRadius: 6))
+                .foregroundStyle(selected ? Theme.Valse.text : Theme.Valse.text2)
+                .padding(.leading, 12).padding(.trailing, 10).frame(height: 34)
+                .background(selected ? Theme.Valse.raised : (hover ? Theme.Valse.surface : .clear), in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.control))
+                // Selected = raised fill + semibold + the three-band stripe tab (shape cue, not hue only).
+                .overlay(alignment: .leading) {
+                    if selected { ValseStripe(axis: .vertical, band: 1.5).frame(height: 16).padding(.leading, 3) }
+                }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -203,7 +211,7 @@ struct ProjectsColumn: View {
                 .padding(.horizontal, 32).padding(.top, 44).padding(.bottom, 40)
             }
             .scrollIndicators(.automatic)
-            .background(Theme.home)
+            .background(Theme.Valse.canvas)
             .contentShape(Rectangle())
             .onTapGesture { app.selectedIDs = []; app.renamingID = nil }
             .overlay(alignment: .bottom) { if app.selectedIDs.count > 1 { SelectionBar(app: app) } }
@@ -247,36 +255,39 @@ struct NewProjectHero: View {
     var body: some View {
         WithPerceptionTracking {
             Button { app.newProject() } label: {
-                ZStack {
-                    LinearGradient(colors: [Color(hex: 0x6CC9DD), Color(hex: 0x57BECB), Color(hex: 0x4FB4C9)], startPoint: .leading, endPoint: .trailing)
-                    RadialGradient(colors: [.white.opacity(hover ? 0.35 : 0.22), .clear], center: .init(x: 0.62, y: 0.2), startRadius: 0, endRadius: 420)
-                    HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.85)).frame(width: 22, height: 22)
-                            .overlay(Image(systemName: "plus").font(.system(size: 13, weight: .bold)).foregroundStyle(Color(hex: 0x6CC9DD)))
-                        Text(loc: "home.newProject").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.black.opacity(0.85))
+                ZStack(alignment: .leading) {
+                    let bg = hover ? Theme.Valse.raised : Theme.Valse.surface
+                    bg
+                    ValseRibbon(width: 50, baseline: 48, entry: 440, turnRadius: 86, background: bg)
+                    HStack(spacing: 16) {
+                        RoundedRectangle(cornerRadius: 10).fill(Theme.Valse.mustard).frame(width: 44, height: 44)
+                            .overlay(Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(Theme.Valse.ink))
+                            .shadow(color: Theme.Valse.mustard.opacity(hover ? 0.45 : 0), radius: 10)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(loc: "home.newProject").font(Theme.Valse.Fonts.heroTitle).foregroundStyle(Theme.Valse.text)
+                            Text(loc: "home.newProject.subtitle").font(.system(size: 12.5)).foregroundStyle(Theme.Valse.text2)
+                        }
                     }
+                    .padding(.leading, 28)
                 }
-                .frame(height: 140)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .scaleEffect(hover ? 1.003 : 1)
+                .frame(height: 148)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Valse.Radius.hero))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Valse.Radius.hero).stroke(hover ? Theme.Valse.controlHover : Theme.Valse.stroke))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .onHover { hover = $0 }
-            .overlay(alignment: .bottomTrailing) {
+            .overlay(alignment: .topTrailing) {
                 Button { app.modal = .newProject } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
                         Image(systemName: "slider.horizontal.3").font(.system(size: 11, weight: .semibold))
-                        Text(loc: "home.newProject.custom").font(.system(size: 12, weight: .medium))
+                        Text(loc: "home.newProject.custom")
                     }
-                    .foregroundStyle(Color.black.opacity(0.8))
-                    .padding(.horizontal, 10).frame(height: 26)
-                    .background(Color.white.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ValseSecondaryButtonStyle(compact: true))
                 .help(tr("home.newProject.customHelp"))
                 .testID("home.newProject.custom")
-                .padding(12)
+                .padding(14)
             }
             .accessibilityLabel(Text(loc: "home.newProject"))
             .testID("home.newProject")
@@ -290,12 +301,12 @@ struct HomeFeatureRow: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 14) {
-                FeatureCard(symbol: "rectangle.stack.badge.play", title: tr("home.nav.templates"), subtitle: tr("home.templates.subtitle")) { app.section = .templates }
+                FeatureCard(symbol: "rectangle.stack.badge.play", tint: Theme.Valse.teal, title: tr("home.nav.templates"), subtitle: tr("home.templates.subtitle")) { app.section = .templates }
                     .testID("home.feature.templates")
-                FeatureCard(symbol: "square.and.arrow.down.on.square", title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
+                FeatureCard(symbol: "square.and.arrow.down.on.square", tint: Theme.Valse.mustard, title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
                     .testID("home.feature.import")
                 // AI2 (AI-031): Long video to shorts wizard (ShortsWizard.swift)
-                FeatureCard(symbol: "scissors.badge.ellipsis", title: tr("shorts.title"), subtitle: tr("shorts.subtitle")) { ShortsWizardState.shared.present() }
+                FeatureCard(symbol: "scissors.badge.ellipsis", tint: Theme.Valse.orange, title: tr("shorts.title"), subtitle: tr("shorts.subtitle")) { ShortsWizardState.shared.present() }
                     .testID("home.feature.shorts")
                 Spacer(minLength: 0)
             }
@@ -305,6 +316,7 @@ struct HomeFeatureRow: View {
 
 struct FeatureCard: View {
     let symbol: String
+    var tint: Color = Theme.Valse.teal
     let title: String
     let subtitle: String
     let action: () -> Void
@@ -312,18 +324,20 @@ struct FeatureCard: View {
     var body: some View {
         WithPerceptionTracking {
             Button(action: action) {
-                HStack(spacing: 12) {
-                    Image(systemName: symbol).font(.system(size: 18)).foregroundStyle(Theme.accent).frame(width: 30)
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 8).fill(tint.opacity(hover ? 0.24 : 0.16)).frame(width: 34, height: 34)
+                        .overlay(Image(systemName: symbol).font(.system(size: 15, weight: .medium)).foregroundStyle(tint))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(verbatim: title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
-                        Text(verbatim: subtitle).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                        Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
+                            .lineLimit(1).minimumScaleFactor(0.85)
+                        Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 16)
+                .padding(.leading, 12).padding(.trailing, 10)
                 .frame(width: 300, height: 72)
-                .background(LinearGradient(colors: [Color(hex: 0x274759).opacity(hover ? 1 : 0.85), Color(hex: 0x1E3440)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            in: RoundedRectangle(cornerRadius: 8))
+                .background(hover ? Theme.Valse.raised : Theme.Valse.surface, in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.card))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Valse.Radius.card).stroke(hover ? Theme.Valse.controlHover : Theme.Valse.stroke))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -350,26 +364,31 @@ struct ProjectsHeader: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 8) {
-                Text(verbatim: title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                if app.hasScanned { Text(verbatim: "\(count)").font(.system(size: 12)).foregroundStyle(Theme.textTertiary) }
+                Text(verbatim: title).font(Theme.Valse.Fonts.pageTitle).foregroundStyle(Theme.Valse.text)
+                if app.hasScanned {
+                    Text(verbatim: "\(count)").font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.Valse.text2)
+                        .padding(.horizontal, 7).frame(height: 18)
+                        .background(Theme.Valse.control, in: Capsule())
+                }
                 if app.scope == .trash {
-                    Text(loc: "home.trash.hint", ProjectLibrary.trashRetentionDays).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                    Text(loc: "home.trash.hint", ProjectLibrary.trashRetentionDays).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text3)
                 }
                 Spacer()
                 if app.scope == .trash, count > 0 {
-                    Button(tr("home.trash.empty")) { app.emptyTrash() }.buttonStyle(SecondaryButtonStyle()).testID("home.trash.empty")
+                    Button(tr("home.trash.empty")) { app.emptyTrash() }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.trash.empty")
                 }
                 if app.isSearching {
                     HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                        Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.Valse.text3)
                         TextField(tr("home.search.placeholder"), text: $app.search)
                             .textFieldStyle(.plain).font(.system(size: 12)).focused($searchFocused).testID("home.search.field")
                             .onExitCommand { app.search = ""; app.isSearching = false }
                         Button { app.search = ""; app.isSearching = false } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).testID("home.search.clear")
+                            .buttonStyle(.plain).foregroundStyle(Theme.Valse.text3).testID("home.search.clear")
                     }
                     .padding(.horizontal, 8).frame(width: 220, height: 28)
-                    .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                    .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.control))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Valse.Radius.control).stroke(Theme.Valse.teal.opacity(searchFocused ? 0.9 : 0), lineWidth: 1.5))
                     .onAppear { searchFocused = true }
                 } else {
                     HeaderButton(symbol: "magnifyingglass", help: tr("home.search")) { app.isSearching = true }.testID("home.search")
@@ -388,18 +407,20 @@ struct ProjectsHeader: View {
                         Image(systemName: "arrow.up.arrow.down").font(.system(size: 11))
                         Text(verbatim: tr(app.sort.nameKey)).font(.system(size: 12))
                     }
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(Theme.Valse.text)
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .padding(.horizontal, 10).frame(height: 28)
-                .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.control))
                 .help(tr("home.sort"))
                 .testID("home.sort")
+                // Segmented: the active mode gets a raised pill (shape cue) + teal glyph.
                 HStack(spacing: 0) {
-                    HeaderButton(symbol: "square.grid.2x2", help: tr("home.view.grid"), active: app.viewMode == .grid) { app.setViewMode(.grid) }.testID("home.view.grid")
-                    HeaderButton(symbol: "list.bullet", help: tr("home.view.list"), active: app.viewMode == .list) { app.setViewMode(.list) }.testID("home.view.list")
+                    HeaderButton(symbol: "square.grid.2x2", help: tr("home.view.grid"), active: app.viewMode == .grid, segment: true) { app.setViewMode(.grid) }.testID("home.view.grid")
+                    HeaderButton(symbol: "list.bullet", help: tr("home.view.list"), active: app.viewMode == .list, segment: true) { app.setViewMode(.list) }.testID("home.view.list")
                 }
-                .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                .padding(2)
+                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.control))
             }
         }
     }
@@ -409,18 +430,23 @@ struct HeaderButton: View {
     let symbol: String
     let help: String
     var active = false
+    var segment = false
     let action: () -> Void
+    @State private var hover = false
     var body: some View {
         WithPerceptionTracking {
             Button(action: action) {
-                Image(systemName: symbol).font(.system(size: 12))
-                    .foregroundStyle(active ? Theme.accent : Theme.textPrimary)
-                    .frame(width: 36, height: 28)
-                    .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                Image(systemName: symbol).font(.system(size: 12, weight: active ? .semibold : .regular))
+                    .foregroundStyle(active ? Theme.Valse.mint : (hover ? Theme.Valse.text : Theme.Valse.text2))
+                    .frame(width: segment ? 32 : 36, height: segment ? 24 : 28)
+                    .background(segment ? (active ? Theme.Valse.controlHover : .clear) : (hover ? Theme.Valse.controlHover : Theme.Valse.control),
+                                in: RoundedRectangle(cornerRadius: segment ? 5 : Theme.Valse.Radius.control))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .onHover { hover = $0 }
             .help(help)
+            .accessibilityAddTraits(active ? .isSelected : [])
         }
     }
 }
@@ -429,15 +455,30 @@ struct EmptyProjects: View {
     @Perception.Bindable var app: AppModel
     var body: some View {
         WithPerceptionTracking {
-            VStack(spacing: 10) {
-                Image(systemName: app.scope == .trash ? "trash" : (app.isSearching && !app.search.isEmpty ? "magnifyingglass" : "film"))
-                    .font(.system(size: 30, weight: .light)).foregroundStyle(Theme.textTertiary)
-                Text(verbatim: message).font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
-                if app.scope == .all && !(app.isSearching && !app.search.isEmpty) {
-                    Button(tr("home.importProject")) { app.importProjectPanel() }.buttonStyle(SecondaryButtonStyle())
+            let searching = app.isSearching && !app.search.isEmpty
+            Group {
+                if app.scope == .all && !searching {
+                    // First-run empty library (the hero above is the main way in): the mark, one line, import.
+                    VStack(spacing: 12) {
+                        ValseMark().frame(width: 96, height: 96)
+                        Text(loc: "home.empty.title").font(Theme.Valse.Fonts.pageTitle).foregroundStyle(Theme.Valse.text)
+                        Text(verbatim: message).font(Theme.Valse.Fonts.body).foregroundStyle(Theme.Valse.text2)
+                        Button(tr("home.importProject")) { app.importProjectPanel() }.buttonStyle(ValseSecondaryButtonStyle()).padding(.top, 6)
+                    }
+                    .padding(.vertical, 28).padding(.horizontal, 40)
+                    .frame(maxWidth: .infinity)
+                    .background(RoundedRectangle(cornerRadius: Theme.Valse.Radius.hero).strokeBorder(Theme.Valse.stroke, style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+                    .padding(.top, 8)
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: app.scope == .trash ? "trash" : (searching ? "magnifyingglass" : "film"))
+                            .font(.system(size: 28, weight: .light)).foregroundStyle(Theme.Valse.text3)
+                        Text(verbatim: message).font(Theme.Valse.Fonts.body).foregroundStyle(Theme.Valse.text2)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity).padding(.top, 40)
                 }
             }
-            .frame(maxWidth: .infinity).padding(.top, 40)
             .testID("home.empty")
         }
     }
@@ -458,21 +499,24 @@ struct SelectionBar: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 10) {
-                Text(verbatim: trCount("home.selected", app.selectedIDs.count)).font(.system(size: 12)).foregroundStyle(.white)
+                ValseStripe(axis: .vertical, band: 1.5).frame(height: 18)
+                Text(verbatim: trCount("home.selected", app.selectedIDs.count)).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.Valse.text)
+                    .padding(.trailing, 4)
                 if app.scope == .trash {
-                    Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.restore")
-                    Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.deleteForever")
+                    Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.restore")
+                    Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.deleteForever")
                 } else {
                     MoveToFolderMenu(app: app, items: app.selectedEntries)
-                    Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.duplicate")
-                    Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.delete")
+                    Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.duplicate")
+                    Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.delete")
                 }
-                Button { app.selectedIDs = [] } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
-                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("common.cancel"))
+                Button { app.selectedIDs = [] } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).frame(width: 22, height: 22).contentShape(Rectangle()) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.Valse.text2).help(tr("common.cancel"))
             }
-            .padding(.horizontal, 14).frame(height: 44)
-            .background(Theme.menu, in: RoundedRectangle(cornerRadius: 10))
-            .shadow(color: .black.opacity(0.4), radius: 16)
+            .padding(.horizontal, 14).frame(height: 46)
+            .background(Theme.Valse.raised, in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.card))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Valse.Radius.card).stroke(Theme.Valse.controlHover))
+            .shadow(color: .black.opacity(0.45), radius: 18, y: 4)
             .padding(.bottom, 20)
         }
     }
@@ -486,7 +530,8 @@ struct MoveToFolderMenu: View {
             Menu(tr("home.moveTo")) { MoveToFolderItems(app: app, items: items) }
                 .menuStyle(.borderlessButton).fixedSize()
                 .padding(.horizontal, 10).frame(height: 26)
-                .background(Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: 4))
+                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.control))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Valse.Radius.control).stroke(Theme.Valse.stroke))
         }
     }
 }
@@ -543,18 +588,21 @@ struct ProjectCard: View {
     var body: some View {
         WithPerceptionTracking {
             let selected = app.selectedIDs.contains(entry.id)
-            VStack(alignment: .leading, spacing: 6) {
+            let r = Theme.Valse.Radius.card
+            VStack(alignment: .leading, spacing: 5) {
                 CoverView(entry: entry)
                     .frame(maxWidth: .infinity)
                     .aspectRatio(1, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : Color.white.opacity(hover ? 0.18 : 0), lineWidth: selected ? 2 : 1))
+                    .clipShape(RoundedRectangle(cornerRadius: r))
+                    .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.stroke))
+                    // Selected = 2 pt teal ring + check badge; hover = cream hairline + "…" menu.
+                    .overlay(RoundedRectangle(cornerRadius: r + 3).strokeBorder(selected ? Theme.Valse.teal : Theme.Valse.cream.opacity(hover ? 0.35 : 0), lineWidth: selected ? 2 : 1).padding(-3))
                     .overlay(alignment: .bottomTrailing) {
                         if hover || selected {
                             Menu { ProjectMenuItems(app: app, entry: entry) } label: {
-                                Image(systemName: "ellipsis").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
-                                    .frame(width: 24, height: 20)
-                                    .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 4))
+                                Image(systemName: "ellipsis").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.Valse.text)
+                                    .frame(width: 26, height: 20)
+                                    .background(Theme.Valse.canvas.opacity(0.78), in: RoundedRectangle(cornerRadius: 6))
                             }
                             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                             .padding(6)
@@ -563,17 +611,19 @@ struct ProjectCard: View {
                     }
                     .overlay(alignment: .topLeading) {
                         if selected {
-                            Image(systemName: "checkmark.circle.fill").font(.system(size: 16)).foregroundStyle(Theme.accent, .white).padding(6)
+                            Image(systemName: "checkmark.circle.fill").font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Theme.Valse.ink, Theme.Valse.teal).padding(6)
                         }
                     }
+                    .padding(.bottom, 3)
                 if app.renamingID == entry.id {
                     InlineRenameField(initial: entry.name) { app.rename(entry, to: $0) } onCancel: { app.renamingID = nil }
                 } else {
-                    Text(verbatim: entry.name).font(.system(size: 13)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: entry.name).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.Valse.text).lineLimit(1).truncationMode(.middle)
                         .onTapGesture(count: 2) { if entry.trashedAt == nil { app.renamingID = entry.id } }
                 }
-                Text(verbatim: "\(HomeFormat.bytes(entry.sizeBytes)) | \(HomeFormat.duration(entry.summary.duration))")
-                    .font(.system(size: 12)).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                Text(verbatim: "\(HomeFormat.bytes(entry.sizeBytes)) · \(HomeFormat.duration(entry.summary.duration))")
+                    .font(.system(size: 11.5).monospacedDigit()).foregroundStyle(Theme.Valse.text3).lineLimit(1)
             }
             .contentShape(Rectangle())
             .onHover { hover = $0 }
@@ -598,8 +648,8 @@ struct InlineRenameField: View {
             TextField("", text: $text)
                 .textFieldStyle(.plain).font(.system(size: 13))
                 .padding(.horizontal, 4).frame(height: 20)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 3))
-                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accent))
+                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: 4))
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.Valse.teal))
                 .focused($focused)
                 .onSubmit { onCommit(text) }
                 .onExitCommand(perform: onCancel)
@@ -617,13 +667,13 @@ struct CoverView: View {
     var body: some View {
         WithPerceptionTracking {
             // The fill rectangle sizes the view; the cover is an overlay so its aspect-fill never grows the card.
-            Rectangle().fill(Color(hex: 0x1B1B1C))
+            Rectangle().fill(Theme.Valse.surface)
                 .overlay {
                     if let image {
                         Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
                     } else {
                         Image(systemName: entry.summary.clipCount == 0 ? "plus.rectangle.on.rectangle" : "film")
-                            .font(.system(size: 20, weight: .light)).foregroundStyle(Theme.textTertiary.opacity(0.6))
+                            .font(.system(size: 20, weight: .light)).foregroundStyle(Theme.Valse.text3.opacity(0.7))
                     }
                 }
                 .clipped()
@@ -671,8 +721,9 @@ struct ProjectListHeader: View {
                 col(tr("home.col.size"), .size).frame(width: 90, alignment: .leading)
                 Text(loc: "home.col.format").frame(width: 140, alignment: .leading)
             }
-            .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
-            .padding(.horizontal, 8)
+            .font(Theme.Valse.Fonts.overline).foregroundStyle(Theme.Valse.text3).textCase(.uppercase)
+            .padding(.horizontal, 10).padding(.bottom, 6)
+            .overlay(alignment: .bottom) { Rectangle().fill(Theme.Valse.stroke).frame(height: 1) }
         }
     }
     func col(_ t: String, _ s: LibrarySort) -> some View {
@@ -696,23 +747,26 @@ struct ProjectRow: View {
         WithPerceptionTracking {
             let selected = app.selectedIDs.contains(entry.id)
             HStack(spacing: 0) {
-                CoverView(entry: entry).frame(width: 54, height: 32).clipShape(RoundedRectangle(cornerRadius: 4)).padding(.trailing, 16)
+                CoverView(entry: entry).frame(width: 54, height: 32).clipShape(RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.Valse.stroke)).padding(.trailing, 16)
                 Group {
                     if app.renamingID == entry.id {
                         InlineRenameField(initial: entry.name) { app.rename(entry, to: $0) } onCancel: { app.renamingID = nil }
                     } else {
-                        Text(verbatim: entry.name).font(.system(size: 13)).foregroundStyle(.white).lineLimit(1)
+                        Text(verbatim: entry.name).font(.system(size: 13, weight: selected ? .semibold : .medium)).foregroundStyle(Theme.Valse.text).lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(verbatim: HomeFormat.date(entry.modifiedAt)).frame(width: 160, alignment: .leading)
-                Text(verbatim: HomeFormat.duration(entry.summary.duration)).frame(width: 90, alignment: .leading)
+                Text(verbatim: HomeFormat.duration(entry.summary.duration)).monospacedDigit().frame(width: 90, alignment: .leading)
                 Text(verbatim: HomeFormat.bytes(entry.sizeBytes)).frame(width: 90, alignment: .leading)
                 Text(verbatim: HomeFormat.format(entry.summary)).lineLimit(1).frame(width: 140, alignment: .leading)
             }
-            .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 8).frame(height: 44)
-            .background(selected ? Theme.accentDim.opacity(0.5) : (hover ? Color.white.opacity(0.04) : .clear), in: RoundedRectangle(cornerRadius: 6))
+            .font(.system(size: 12)).foregroundStyle(Theme.Valse.text2)
+            .padding(.horizontal, 10).frame(height: 46)
+            .background(selected ? Theme.Valse.selectedFill : (hover ? Theme.Valse.surface : .clear), in: RoundedRectangle(cornerRadius: Theme.Valse.Radius.control))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Valse.Radius.control).strokeBorder(selected ? Theme.Valse.teal.opacity(0.8) : .clear))
+            .overlay(alignment: .leading) { if selected { ValseStripe(axis: .vertical, band: 1.5).frame(height: 18).padding(.leading, 3) } }
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .onTapGesture { app.click(entry, in: all) }
@@ -762,14 +816,14 @@ struct TemplatesPlaceholder: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 12) {
-                Image(systemName: "rectangle.stack.badge.play").font(.system(size: 40, weight: .light)).foregroundStyle(Theme.accent)
-                Text(loc: "home.templates.title").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
-                Text(loc: "home.templates.soon").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
+                Image(systemName: "rectangle.stack.badge.play").font(.system(size: 40, weight: .light)).foregroundStyle(Theme.Valse.teal)
+                Text(loc: "home.templates.title").font(Theme.Valse.Fonts.pageTitle).foregroundStyle(Theme.Valse.text)
+                Text(loc: "home.templates.soon").font(Theme.Valse.Fonts.body).foregroundStyle(Theme.Valse.text2)
                     .multilineTextAlignment(.center).frame(maxWidth: 420)
-                Button(tr("home.newProject")) { app.newProject() }.buttonStyle(AccentButtonStyle()).padding(.top, 6)
+                Button(tr("home.newProject")) { app.newProject() }.buttonStyle(ValsePrimaryButtonStyle()).padding(.top, 6)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.home)
+            .background(Theme.Valse.canvas)
         }
     }
 }

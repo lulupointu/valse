@@ -16,6 +16,8 @@
 "home.newProject" = "New project";
 "home.newProject.custom" = "Custom";
 "home.newProject.customHelp" = "New project with ratio, resolution and frame rate";
+"home.newProject.subtitle" = "Start on an empty timeline. Drop in clips, music and text.";
+"home.empty.title" = "No projects yet";
 "home.templates.subtitle" = "Start from a ready-made edit";
 "home.templates.title" = "Templates";
 "home.templates.soon" = "Templates are coming soon. Meanwhile, start a new project and use the Text and Effects libraries.";
