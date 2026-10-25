@@ -189,8 +189,13 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
   with a 28 pt audio strip, audio 83 pt, name chip over the filmstrip, dB-scaled full-height waveforms; Short/Default/
   Tall kept, waveform-size menu removed, `Track.waveformScale` decoded but unused). Volume shown in % everywhere
   (100 % = 0 dB; clip 0–400 % UI cap, older louder values kept; track 0–200 %; ⌘. / ⌘, ±1 %); ducking stays in dB.
-- Tooling bug (open): `scripts/screenshot.sh --offscreen` hung indefinitely on the build Mac (2026-10-24/25) and its
-  `Montage --background --snapshot` window was visible on screen. Agents: use UI-script element snapshots meanwhile.
+- Tooling bug (fixed, TOOL-SCREENSHOT-HANG): `scripts/screenshot.sh --offscreen` hung (2026-10-24/25) with its window
+  visible. Cause: the PNG was written, but `--quit-after` called `NSApp.terminate` from a `DispatchQueue.main.asyncAfter`
+  block; `applicationShouldTerminate` answers `.terminateLater` and replies from a main-actor Task, which never runs
+  while the serial main queue is busy with that block → AppKit waited forever; the window was a normal one ordered
+  back. Now: `--snapshot` uses an offscreen window (like UITestWindow), exits right after writing (0 / 1, no project
+  save), `--quit-after` is a run-loop Timer plus a hard `_exit` watchdog thread (+6 s); screenshot.sh kills its child at
+  a deadline (stacks → build/screenshots/hang-sample.txt, exit 1). Check: `scripts/screenshot_selftest.sh`.
 - 2026-10-24 batch-pblat PB-LATENCY / PB-DROP (owner's Intel Mac, macOS 13; confirmed fixed there by the owner).
   PB-LATENCY: play did nothing on high-latency outputs — AVPlayer starts the item clock before the seek target by the
   output latency, the stall watchdog took that lead for a frozen pipeline and re-primed forever (playhead crept back);
