@@ -178,6 +178,13 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Owner bug reports (fixed)
+- 2026-10-25 batch-focus1 BUG-SPACE-FOCUS: opening a project left the media search field focused, so Space typed into
+  it instead of playing. AppKit picks the window's initial first responder itself (first key-view that accepts it =
+  `AssetSearchField`) when the editor is already up at first show (`--open`, new window, relaunch, test window), and can
+  redo it on becoming key. Now an invisible `EditorKeyAnchor` (Shell/EditorKeyFocus.swift, handles no keys) is the
+  window's initialFirstResponder and takes the keyboard on editor appear, on `AppModel.enterEditor`, and on become-key
+  when nothing holds focus (never steals from a field the user clicked). Esc in the media search field now gives the
+  keyboard back. Tests `EditorFocusTests`, UI `space_focus_open`, `space_focus_launch`.
 - 2026-10-25 batch-ui3 PB-SEEK-LAG: after the playback-performance warning, clicks on the timeline while playing were
   ignored (playhead kept advancing) until pause+play. Engine runs one seek at a time; a click during an in-flight seek
   was parked in `pendingSeek` and only run on completion, so a seek AVFoundation never completed swallowed every later
