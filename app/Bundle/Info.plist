@@ -19,7 +19,7 @@
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
   <!-- SE-015 automatic updates (Sparkle 2, docs/RELEASING.md). The updater stays off while SUPublicEDKey is empty. -->
   <key>SUFeedURL</key><string>https://github.com/lulupointu/valse/releases/latest/download/appcast.xml</string>
-  <key>SUPublicEDKey</key><string></string>
+  <key>SUPublicEDKey</key><string>vvP40kRMoISD7F5k5afwMIbky8iHHv1+56TtPv//lWY=</string>
   <key>SUEnableAutomaticChecks</key><true/>
   <key>SUAutomaticallyUpdate</key><true/>
   <key>SUScheduledCheckInterval</key><integer>86400</integer>

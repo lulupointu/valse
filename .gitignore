@@ -27,3 +27,5 @@ bench/media
 !app/Tests/UIScripts/fixtures/**/*.m4a
 .claude/settings.local.json
 __pycache__/
+# local bug reports (system logs, user media): never committed (the repo is public)
+/bugreports/
