@@ -142,20 +142,21 @@ struct NavItem: View {
             Button(action: action) {
                 ValseTween(on: hover && !selected, response: 0.34, damping: 0.5) { p in
                     HStack(spacing: 10) {
-                        Image(systemName: symbol).font(.system(size: 13, weight: selected ? .semibold : .regular))
-                            .foregroundStyle(selected ? Theme.Valse.mint : (tint ?? Theme.Valse.text2))
+                        Image(systemName: symbol).font(.system(size: 13, weight: selected ? .bold : .regular))
+                            .foregroundStyle(selected ? Theme.Valse.ink : (tint ?? Theme.Valse.text2))
                             .scaleEffect(1 + 0.12 * p)
                             .frame(width: 18)
-                        Text(verbatim: title).font(.system(size: 13, weight: selected ? .semibold : .regular)).lineLimit(1)
+                        Text(verbatim: title).font(.system(size: 13, weight: selected ? .bold : .regular)).lineLimit(1)
                         Spacer(minLength: 0)
-                        if badge > 0 { Text(verbatim: "\(badge)").font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.Valse.text3) }
+                        if badge > 0 { Text(verbatim: "\(badge)").font(.system(size: 11, weight: selected ? .bold : .regular).monospacedDigit())
+                            .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text3) }
                     }
                 }
-                .foregroundStyle(selected ? Theme.Valse.text : Theme.Valse.text2)
+                .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text2)
                 .padding(.leading, 12).padding(.trailing, 10).frame(height: 34)
-                .background(selected ? Theme.Valse.raised : (hover ? Theme.Valse.surface : .clear), in: RoundedRectangle(cornerRadius: r))
-                // Selected = raised fill + teal ring with a soft halo + semibold label + mint icon (ring + weight: not hue only).
-                .valseSelected(selected, radius: r, ring: 1)
+                .background(!selected && hover ? Theme.Valse.surface : .clear, in: RoundedRectangle(cornerRadius: r))
+                // Selected = flat mint sticker on a solid teal offset block, ink + bold (block + offset + weight: not hue only).
+                .valseSticker(selected, radius: r)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -210,7 +211,7 @@ struct ProjectsColumn: View {
                         }
                     } else {
                         ProjectListHeader(app: app)
-                        LazyVStack(spacing: 2) {
+                        LazyVStack(spacing: 5) {
                             ForEach(Array(list.enumerated()), id: \.element.id) { i, e in WithPerceptionTracking { ProjectRow(app: app, entry: e, all: list).testID("home.row.\(i)") } }
                         }
                     }
@@ -270,13 +271,13 @@ struct NewProjectHero: View {
                     bg
                     ValseHeroRibbon(hover: hover, background: bg)
                     HStack(spacing: 16) {
-                        // "+" tile: pops and spins a quarter turn on hover (spring), squashes on press.
+                        // "+" tile: pops up off a solid orange offset block and spins a quarter turn on hover (spring).
                         ValseTween(on: hover, response: 0.45, damping: 0.55) { p in
                             RoundedRectangle(cornerRadius: 14).fill(Theme.Valse.mustard).frame(width: 44, height: 44)
                                 .overlay(Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(Theme.Valse.ink)
                                     .rotationEffect(.degrees(90 * p)))
-                                .scaleEffect(1 + 0.08 * p)
-                                .shadow(color: Theme.Valse.mustard.opacity(0.45 * min(1, max(0, p))), radius: 10)
+                                .offset(x: -2 * p, y: -2 * p)
+                                .valseHardShadow(Theme.Valse.orange, radius: 14, depth: 2 * max(0, p))   // 4 pt apart at rest-hover
                         }
                         VStack(alignment: .leading, spacing: 4) {
                             Text(loc: "home.newProject").font(Theme.Valse.Fonts.heroTitle).foregroundStyle(Theme.Valse.text)
@@ -358,14 +359,12 @@ struct FeatureCard: View {
                     }
                     .padding(.leading, 12).padding(.trailing, 10)
                     .frame(width: 300, height: 72)
-                    .background {
-                        RoundedRectangle(cornerRadius: r).fill(LinearGradient(colors: [tint.opacity(0.12 + 0.08 * min(1, max(0, p))), Theme.Valse.surface],
-                                                                               startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .background(RoundedRectangle(cornerRadius: r).fill(Theme.Valse.surface))
-                    }
-                    .overlay(RoundedRectangle(cornerRadius: r).stroke(hover ? tint.opacity(0.55) : Theme.Valse.stroke))
-                    .offset(y: motion == .snip ? -2 * min(1, max(0, p)) : -2 * p)
-                    .shadow(color: .black.opacity(0.35 * min(1, max(0, p))), radius: 10, y: 4)
+                    // flat fill (a 10 % wash of the card colour, no gradient); hover lifts the card off a solid block of
+                    // its colour (hard offset, zero blur)
+                    .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.10)).background(RoundedRectangle(cornerRadius: r).fill(Theme.Valse.surface)))
+                    .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(hover ? tint : Theme.Valse.stroke, lineWidth: hover ? 1.5 : 1))
+                    .offset(x: -2 * min(1, max(0, p)), y: -2 * min(1, max(0, p)))
+                    .valseHardShadow(tint, radius: r, depth: 2 * min(1, max(0, p)))
                 }
                 .contentShape(Rectangle())
             }
@@ -408,9 +407,9 @@ private struct ValseSquash<Label: View>: View {
     }
 }
 
-/// The hero's ribbon, animated: draws itself in once per launch (2 s), then idles (film advancing slowly, the waltz
-/// loop swelling on each 3/4 bar); hover speeds the film up. Paused while the window is inactive; static final frame
-/// under Reduce Motion, in UI tests and in plain screenshots.
+/// The hero's ribbon, animated: draws itself in once per launch (2 s), then idles (film advancing slowly); hover speeds
+/// the film up. The loop's shape never moves. Paused while the window is inactive; static final frame under Reduce
+/// Motion, in UI tests and in plain screenshots.
 struct ValseHeroRibbon: View {
     let hover: Bool
     let background: Color
@@ -429,29 +428,26 @@ struct ValseHeroRibbon: View {
         if let t = clock.t {
             // review clock: intro from t = 0, hover from VALSE_DEBUG_HOVER_AT
             let hv = max(0, t - clock.hoverAt)
-            let ramp = hover ? min(1, hv / 0.5) : 0
             let extra = hover ? max(0, hv - 0.25) * (Self.hoverSpeed - Self.idleSpeed) : 0
-            ribbon(trim: ValseMotion.easeInOut(t / Self.introDuration), phase: CGFloat(t * Self.idleSpeed + extra),
-                   breath: ValseMotion.waltz(t) * (0.6 + 0.4 * ramp))
+            ribbon(trim: ValseMotion.easeInOut(t / Self.introDuration), phase: CGFloat(t * Self.idleSpeed + extra))
         } else if !ValseMotion.live(reduceMotion) {
-            ribbon(trim: 1, phase: 0, breath: 0)
+            ribbon(trim: 1, phase: 0)
         } else {
             SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30, paused: activeState == .inactive)) { tl in
                 let now = tl.date
                 let trim = introStart.map { ValseMotion.easeInOut(now.timeIntervalSince($0) / Self.introDuration) } ?? 1
                 let since = now.timeIntervalSince(hoverChanged)
                 let ramp = hover ? ValseMotion.easeInOut(since / 0.5) : 1 - ValseMotion.easeInOut(since / 0.7)
-                ribbon(trim: trim, phase: film.advance(to: now, speed: Self.idleSpeed + (Self.hoverSpeed - Self.idleSpeed) * ramp),
-                       breath: ValseMotion.waltz(now.timeIntervalSinceReferenceDate) * (0.6 + 0.4 * ramp))
+                ribbon(trim: trim, phase: film.advance(to: now, speed: Self.idleSpeed + (Self.hoverSpeed - Self.idleSpeed) * ramp))
             }
             .onValueChange(of: hover) { _, _ in hoverChanged = Date() }
             .onAppear { Self.introPlayed = true }
         }
     }
 
-    private func ribbon(trim: Double, phase: CGFloat, breath: Double) -> some View {
+    private func ribbon(trim: Double, phase: CGFloat) -> some View {
         ValseRibbon(width: 38, baseline: 46, entry: 520, turnRadius: 78, background: background,
-                    loop: .init(fromTrailing: 196, height: 96, pitch: 13), trim: trim, phase: phase, breath: breath)
+                    loop: .init(fromTrailing: 196, height: 96, pitch: 13), trim: trim, phase: phase)
     }
 }
 
@@ -639,26 +635,25 @@ struct SelectionBar: View {
         WithPerceptionTracking {
             let r = ValseShape.card
             HStack(spacing: 10) {
-                ValseCheckBadge(size: 18)
-                Text(verbatim: trCount("home.selected", app.selectedIDs.count)).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.Valse.text)
+                ValseCheckBadge(size: 20, fill: Theme.Valse.ink, mark: Theme.Valse.mint)
+                Text(verbatim: trCount("home.selected", app.selectedIDs.count)).font(.system(size: 12.5, weight: .bold)).foregroundStyle(Theme.Valse.ink)
                     .padding(.trailing, 4)
                 if app.scope == .trash {
-                    Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.restore")
-                    Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.deleteForever")
+                    Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.restore")
+                    Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.deleteForever")
                 } else {
-                    MoveToFolderMenu(app: app, items: app.selectedEntries)
-                    Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.duplicate")
-                    Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.selection.delete")
+                    MoveToFolderMenu(app: app, items: app.selectedEntries, onLight: true)
+                    Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.duplicate")
+                    Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.delete")
                 }
-                Button { app.selectedIDs = [] } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).frame(width: 22, height: 22).contentShape(Rectangle()) }
-                    .buttonStyle(.plain).foregroundStyle(Theme.Valse.text2).help(tr("common.cancel"))
+                Button { app.selectedIDs = [] } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .heavy)).frame(width: 22, height: 22).contentShape(Rectangle()) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.Valse.ink).help(tr("common.cancel"))
             }
-            .padding(.leading, 14).padding(.trailing, 12).frame(height: 46)
-            .background(Theme.Valse.raised, in: RoundedRectangle(cornerRadius: r))
-            // same selection language as cards and rows: teal ring + soft teal halo, the check badge leading
-            .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.teal.opacity(0.7), lineWidth: 1))
-            .shadow(color: Theme.Valse.teal.opacity(0.22), radius: 12)
-            .shadow(color: .black.opacity(0.45), radius: 18, y: 4)
+            .padding(.leading, 12).padding(.trailing, 12).frame(height: 46)
+            // same sticker as every selection: flat mint block, ink content, solid teal offset block (zero blur)
+            .background(Theme.Valse.mint, in: RoundedRectangle(cornerRadius: r))
+            .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.ink, lineWidth: 1.5))
+            .valseHardShadow(Theme.Valse.teal, radius: r, depth: 4)
             .modifier(ValseRiseIn())
             .padding(.bottom, 20)
         }
@@ -668,13 +663,15 @@ struct SelectionBar: View {
 struct MoveToFolderMenu: View {
     @Perception.Bindable var app: AppModel
     let items: [LibraryEntry]
+    /// On the mint selection bar: an ink chip.
+    var onLight = false
     var body: some View {
         WithPerceptionTracking {
             Menu(tr("home.moveTo")) { MoveToFolderItems(app: app, items: items) }
                 .menuStyle(.borderlessButton).fixedSize()
                 .padding(.horizontal, 10).frame(height: 26)
-                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: ValseShape.control))
-                .overlay(RoundedRectangle(cornerRadius: ValseShape.control).stroke(Theme.Valse.stroke))
+                .background(onLight ? Theme.Valse.ink : Theme.Valse.control, in: RoundedRectangle(cornerRadius: ValseShape.control))
+                .overlay(RoundedRectangle(cornerRadius: ValseShape.control).stroke(onLight ? .clear : Theme.Valse.stroke))
         }
     }
 }
@@ -734,19 +731,21 @@ struct ProjectCard: View {
             let selected = app.selectedIDs.contains(entry.id)
             let r = ValseShape.card
             VStack(alignment: .leading, spacing: 5) {
-                // Hover: the cover lifts toward the pointer (spring) with a soft shadow and a cream hairline.
-                ValseTween(on: hover, response: 0.4, damping: 0.6) { p in
+                // Hover: the cover lifts up-left off a solid block (hard offset, zero blur) with a cream hairline.
+                // Selected: a 3 pt mint frame around the cover (the cover itself is never tinted) on a solid teal
+                // offset block, a check badge, and the name on a mint label block.
+                ValseTween(on: hover || selected, response: 0.4, damping: 0.6) { p in
+                    let q = min(1, max(0, p))
                     CoverView(entry: entry)
                         .frame(maxWidth: .infinity)
                         .aspectRatio(1, contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: r))
-                        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(selected ? .clear : Theme.Valse.cream.opacity(0.08 + 0.27 * min(1, max(0, p)))))
-                        .shadow(color: .black.opacity(0.45 * min(1, max(0, p))), radius: 12, y: 6)
-                        .scaleEffect(1 + 0.035 * p)
-                        .offset(y: -4 * p)
+                        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(selected ? .clear : Theme.Valse.cream.opacity(0.08 + 0.27 * q)))
+                        .overlay(RoundedRectangle(cornerRadius: r + 3).strokeBorder(selected ? Theme.Valse.mint : .clear, lineWidth: 3).padding(-3))
+                        .offset(x: -2 * p, y: -2 * p)
+                        .modifier(ValseHardShadow(color: selected ? Theme.Valse.teal : Theme.Valse.controlHover, radius: r + (selected ? 3 : 0),
+                                                  depth: 2 * max(0, p), inset: selected ? 3 : 0))
                 }
-                    // Selected = 2 pt teal ring (offset 3 pt) with a soft teal halo + check badge + bold name.
-                    .valseSelected(selected, radius: r, ring: 2, inset: 3)
                     .overlay(alignment: .bottomTrailing) {
                         if hover || selected {
                             Menu { ProjectMenuItems(app: app, entry: entry) } label: {
@@ -760,13 +759,17 @@ struct ProjectCard: View {
                         }
                     }
                     .overlay(alignment: .topLeading) {
-                        if selected { ValseCheckBadge(size: 18).padding(7) }
+                        if selected { ValseCheckBadge(size: 22).padding(7) }
                     }
                     .padding(.bottom, 3)
                 if app.renamingID == entry.id {
                     InlineRenameField(initial: entry.name) { app.rename(entry, to: $0) } onCancel: { app.renamingID = nil }
                 } else {
-                    Text(verbatim: entry.name).font(.system(size: 13, weight: selected ? .bold : .medium)).foregroundStyle(Theme.Valse.text).lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: entry.name).font(.system(size: 13, weight: selected ? .bold : .medium))
+                        .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text).lineLimit(1).truncationMode(.middle)
+                        .padding(.horizontal, selected ? 5 : 0)
+                        .background(selected ? Theme.Valse.mint : .clear, in: RoundedRectangle(cornerRadius: 4))
+                        .padding(.horizontal, selected ? -5 : 0)   // the label block bleeds left so the text stays aligned
                         .onTapGesture(count: 2) { if entry.trashedAt == nil { app.renamingID = entry.id } }
                 }
                 Text(verbatim: "\(HomeFormat.bytes(entry.sizeBytes)) · \(HomeFormat.duration(entry.summary.duration))")
@@ -898,14 +901,15 @@ struct ProjectRow: View {
                 CoverView(entry: entry).frame(width: 54, height: 32).clipShape(RoundedRectangle(cornerRadius: 5))
                     .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.Valse.stroke))
                     .overlay(alignment: .topLeading) {
-                        if selected { ValseCheckBadge(size: 13).offset(x: -4, y: -4) }
+                        if selected { ValseCheckBadge(size: 15).offset(x: -5, y: -5) }
                     }
                     .padding(.trailing, 16)
                 Group {
                     if app.renamingID == entry.id {
                         InlineRenameField(initial: entry.name) { app.rename(entry, to: $0) } onCancel: { app.renamingID = nil }
                     } else {
-                        Text(verbatim: entry.name).font(.system(size: 13, weight: selected ? .semibold : .medium)).foregroundStyle(Theme.Valse.text).lineLimit(1)
+                        Text(verbatim: entry.name).font(.system(size: 13, weight: selected ? .bold : .medium))
+                            .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text).lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -914,11 +918,12 @@ struct ProjectRow: View {
                 Text(verbatim: HomeFormat.bytes(entry.sizeBytes)).frame(width: 90, alignment: .leading)
                 Text(verbatim: HomeFormat.format(entry.summary)).lineLimit(1).frame(width: 140, alignment: .leading)
             }
-            .font(.system(size: 12)).foregroundStyle(Theme.Valse.text2)
+            .font(.system(size: 12, weight: selected ? .medium : .regular))
+            .foregroundStyle(selected ? Theme.Valse.ink.opacity(0.82) : Theme.Valse.text2)   // ≥ 7:1 on mint
             .padding(.leading, 12).padding(.trailing, 10).frame(height: 46)
-            .background(selected ? Theme.Valse.selectedFill : (ValseDebugHover.merge(hover, "row0") ? Theme.Valse.surface : .clear), in: RoundedRectangle(cornerRadius: r))
-            // Selected = teal tint + 1.5 pt teal ring with a soft halo + check badge on the thumbnail + bold name.
-            .valseSelected(selected, radius: r, ring: 1.5)
+            .background(!selected && ValseDebugHover.merge(hover, "row0") ? Theme.Valse.surface : .clear, in: RoundedRectangle(cornerRadius: r))
+            // Selected = the flat mint sticker on a solid teal offset block + check badge on the thumbnail + bold ink name.
+            .valseSticker(selected, radius: r)
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .onTapGesture { app.click(entry, in: all) }

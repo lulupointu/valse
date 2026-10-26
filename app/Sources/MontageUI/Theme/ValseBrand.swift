@@ -28,7 +28,7 @@ struct ValseMark: View {
 /// The ribbon as art: the V's arm drops in from the top edge at the logo's 22° slant, turns, optionally takes a waltz
 /// loop (a real self-crossing loop, drawn over / under), and leaves to the right like a clip on a timeline. Drawn as
 /// concentric strokes of one centreline (as the logo is), perforations punched in `background` along both burgundy
-/// edges. `trim` draws it in along its length, `phase` advances the film, `breath` (0…1) swells the loop.
+/// edges. `trim` draws it in along its length, `phase` advances the film.
 struct ValseRibbon: View {
     struct Loop { var fromTrailing: CGFloat; var height: CGFloat; var pitch: CGFloat }
     /// Ribbon width; the logo proportions are edge 8/36, inner bands 4/36 each.
@@ -42,7 +42,6 @@ struct ValseRibbon: View {
     var loop: Loop? = nil
     var trim: Double = 1
     var phase: CGFloat = 0
-    var breath: Double = 0
 
     var body: some View {
         Canvas { ctx, size in draw(in: &ctx, size: size) }
@@ -124,7 +123,7 @@ struct ValseRibbon: View {
         guard let lp = loop else { run(to: endX); return (pts, nil) }
         // Waltz loop: a prolate trochoid x = xc + p·s − h·sin s, y = yb − h·(1 + cos s), s ∈ [−π, π]. It leaves and
         // rejoins the run tangentially and crosses itself at ±s*, where p·s* = h·sin s*.
-        let h = lp.height / 2 * CGFloat(1 + 0.045 * breath), p = lp.pitch
+        let h = lp.height / 2, p = lp.pitch
         let xc = size.width - lp.fromTrailing
         run(to: xc - p * .pi)
         let n = 140
@@ -183,13 +182,18 @@ struct ValsePrimaryButtonStyle: ButtonStyle {
 /// Neutral secondary action on the warm control surface, springy press.
 struct ValseSecondaryButtonStyle: ButtonStyle {
     var compact = false
-    func makeBody(configuration: Configuration) -> some View { ValsePressLabel(configuration: configuration, primary: false, compact: compact) }
+    /// On a light (mint) surface: an ink chip with cream text (15:1).
+    var onLight = false
+    func makeBody(configuration: Configuration) -> some View {
+        ValsePressLabel(configuration: configuration, primary: false, compact: compact, onLight: onLight)
+    }
 }
 
 private struct ValsePressLabel: View {
     let configuration: ButtonStyleConfiguration
     let primary: Bool
     let compact: Bool
+    var onLight = false
     @State private var hover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
@@ -198,12 +202,13 @@ private struct ValsePressLabel: View {
         configuration.label
             .font(.system(size: 12.5, weight: primary ? .semibold : .medium))
             .lineLimit(1).fixedSize()
-            .foregroundStyle(primary ? Theme.Valse.ink : Theme.Valse.text)
+            .foregroundStyle(primary ? Theme.Valse.ink : (onLight ? Theme.Valse.cream : Theme.Valse.text))
             .padding(.horizontal, compact ? 10 : 14).frame(height: compact ? 26 : 30)
             .background(primary ? Theme.Valse.teal.opacity(pressed ? 0.85 : 1)
+                                : onLight ? Theme.Valse.ink.opacity(pressed ? 0.8 : 1)
                                 : (hover ? Theme.Valse.controlHover : Theme.Valse.control).opacity(pressed ? 0.75 : 1),
                         in: RoundedRectangle(cornerRadius: r))
-            .overlay(RoundedRectangle(cornerRadius: r).stroke(primary ? .clear : Theme.Valse.stroke))
+            .overlay(RoundedRectangle(cornerRadius: r).stroke(primary || onLight ? .clear : Theme.Valse.stroke))
             .scaleEffect(pressed && !reduceMotion ? 0.95 : 1)
             .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: pressed)
             .onHover { hover = $0 }

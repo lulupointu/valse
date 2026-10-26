@@ -16,8 +16,6 @@
 "home.newProject" = "Nouveau projet";
 "home.newProject.custom" = "Personnaliser";
 "home.newProject.customHelp" = "Nouveau projet avec format, résolution et fréquence d'images";
-"home.newProject.subtitle" = "Partez d'une timeline vide. Ajoutez clips, musique et texte.";
-"home.empty.title" = "Aucun projet pour l'instant";
 "home.playful.hero.subtitle" = "Entrez dans la danse : une timeline vide, prête pour vos clips, votre musique et vos mots.";
 "home.playful.empty.title" = "La piste est à vous";
 "home.playful.empty.body" = "Lancez votre premier projet ci-dessus, ou importez-en un existant.";

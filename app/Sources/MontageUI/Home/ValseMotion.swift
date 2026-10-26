@@ -133,36 +133,52 @@ enum ValsePlayfulTint {
     static func folder(_ i: Int) -> Color { cycle[i % cycle.count] }
 }
 
-/// Selection (round 3): no stripes. A teal ring + soft teal halo around a raised shape, a bold label and, on content
-/// (cards, rows, the selection bar), a teal check badge that springs in. Ring + check + weight carry the state
-/// without relying on hue.
-struct ValseSelectedHalo: ViewModifier {
-    let selected: Bool
+/// Hard offset shadow, 80s print / sticker style: a solid block of `color` behind the shape, shifted down-right by
+/// `depth`, zero blur. Used for every lift and selection on Home (no glows, no blurred shadows anywhere).
+struct ValseHardShadow: ViewModifier {
+    var color: Color
     var radius: CGFloat
-    var ring: CGFloat = 1.5
+    var depth: CGFloat
+    /// Grows the block beyond the content's frame (e.g. to sit under an outside frame).
     var inset: CGFloat = 0
     func body(content: Content) -> some View {
-        ValseTween(on: selected, response: 0.38, damping: 0.62) { p in
+        content.background(RoundedRectangle(cornerRadius: radius).fill(color).padding(-inset)
+            .offset(x: depth, y: depth).opacity(depth > 0.05 ? 1 : 0))
+    }
+}
+
+/// Selection (round 4): flat 80s "sticker". A solid mint block with ink content (10.3:1), lifted on a solid teal
+/// offset block (zero blur); weight goes bold. On select the sticker springs up and its offset block slides out.
+/// Block + offset shape + weight (+ a check on content) carry the state without relying on hue.
+struct ValseSticker: ViewModifier {
+    let selected: Bool
+    var radius: CGFloat
+    var depth: CGFloat = 3
+    func body(content: Content) -> some View {
+        ValseTween(on: selected, response: 0.34, damping: 0.55) { p in
             content
-                .overlay(RoundedRectangle(cornerRadius: radius + inset).strokeBorder(Theme.Valse.teal.opacity(min(1, p)), lineWidth: ring).padding(-inset))
-                .shadow(color: Theme.Valse.teal.opacity(0.28 * min(1, max(0, p))), radius: 9)
-                .scaleEffect(selected ? 0.97 + 0.03 * p : 1)   // a small springy settle on select
+                .background(RoundedRectangle(cornerRadius: radius).fill(selected ? Theme.Valse.mint : .clear))
+                .modifier(ValseHardShadow(color: Theme.Valse.teal, radius: radius, depth: selected ? depth * max(0, p) : 0))
+                .offset(x: selected ? -1 * min(1, max(0, p)) : 0, y: selected ? -1 * min(1, max(0, p)) : 0)
         }
     }
 }
 
-/// Teal check badge (cards, rows, selection bar), popping in with a spring.
+/// Plain flat check badge (cards, rows, selection bar): a solid disc with a bold check and a 1.5 pt ink rim, popping in.
 struct ValseCheckBadge: View {
     var size: CGFloat = 18
-    var visible = true
+    var fill: Color = Theme.Valse.mint
+    var mark: Color = Theme.Valse.ink
+    @State private var shown = false
     var body: some View {
-        ValseTween(on: visible, response: 0.36, damping: 0.5) { p in
-            Image(systemName: "checkmark.circle.fill").font(.system(size: size, weight: .semibold))
-                .foregroundStyle(Theme.Valse.ink, Theme.Valse.teal)
-                .background(Circle().fill(Theme.Valse.ink).padding(-1.5))   // dark rim: reads on any cover
+        ValseTween(on: shown || ValseMotion.isStaticRun, response: 0.36, damping: 0.5) { p in
+            Circle().fill(fill)
+                .overlay(Circle().strokeBorder(Theme.Valse.ink, lineWidth: 1.5))
+                .overlay(Image(systemName: "checkmark").font(.system(size: size * 0.5, weight: .heavy)).foregroundStyle(mark))
+                .frame(width: size, height: size)
                 .scaleEffect(max(0.001, p))
-                .opacity(min(1, max(0, p * 2)))
         }
+        .onAppear { shown = true }
         .accessibilityHidden(true)
     }
 }
@@ -200,7 +216,10 @@ struct ValseSwayingMark: View {
 }
 
 extension View {
-    func valseSelected(_ selected: Bool, radius: CGFloat, ring: CGFloat = 1.5, inset: CGFloat = 0) -> some View {
-        modifier(ValseSelectedHalo(selected: selected, radius: radius, ring: ring, inset: inset))
+    func valseSticker(_ selected: Bool, radius: CGFloat, depth: CGFloat = 3) -> some View {
+        modifier(ValseSticker(selected: selected, radius: radius, depth: depth))
+    }
+    func valseHardShadow(_ color: Color, radius: CGFloat, depth: CGFloat) -> some View {
+        modifier(ValseHardShadow(color: color, radius: radius, depth: depth))
     }
 }
