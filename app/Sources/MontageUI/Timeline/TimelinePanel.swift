@@ -101,6 +101,7 @@ struct TimelineToolbarBar: View, Equatable {
                         .font(.system(size: 14)).foregroundStyle(Theme.textPrimary.opacity(0.85))
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
+                .tint(Theme.textPrimary.opacity(0.82))   // a menu, not an active toggle: never the accent (round 10)
                 .help(tr("toolbar.mode"))
                 divider
                 IconButton("arrow.uturn.backward", help: tr("toolbar.undo"), enabled: m.canUndo) { store.undo() }.testID("toolbar.undo")
@@ -134,9 +135,9 @@ struct TimelineToolbarBar: View, Equatable {
                     store.setOption(.linkage(!store.project.timeline.linkage))
                 }.testID("toolbar.linkage")
                 Button { showLinkage.toggle() } label: {
-                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.textSecondary).frame(width: 12, height: 26)
+                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 14, height: 26)
                 }
-                .buttonStyle(.plain).help(tr("linkage.title"))
+                .buttonStyle(ValseIconButtonStyle()).help(tr("linkage.title"))
                 .popover(isPresented: $showLinkage, arrowEdge: .bottom) { WithPerceptionTracking { LinkageSettingsView(store: store) } }
                 IconButton("rectangle.and.hand.point.up.left", help: tr(m.previewAxis ? "toolbar.previewAxis.off" : "toolbar.previewAxis.on"), active: m.previewAxis) {
                     ui.previewAxis.toggle()

@@ -27,9 +27,10 @@ public struct AssetPanel: View {
                             let active = store.activeAssetTab == tab.id
                             Button { store.activeAssetTab = tab.id } label: {
                                 ValseTabLabel(active: active) {
-                                    VStack(spacing: 3) {
-                                        Image(systemName: tab.symbol).font(.system(size: 16, weight: active ? .semibold : .regular))
-                                        Text(loc: tab.titleKey).font(.system(size: 11, weight: active ? .semibold : .regular)).lineLimit(1)
+                                    // fixed weights and sizes: the selected sticker never changes the layout
+                                    VStack(spacing: 2) {
+                                        Image(systemName: tab.symbol).font(.system(size: 14, weight: .medium))
+                                        Text(loc: tab.titleKey).font(.system(size: 10, weight: .medium)).lineLimit(1)
                                     }
                                     .frame(minWidth: 40)
                                 }
@@ -40,7 +41,8 @@ public struct AssetPanel: View {
                         }
                     }
                 }
-                .padding(.horizontal, 6)
+                // room for the sticker (1 pt up-left) and its hard block (3 pt down-right) inside the scroll view's clip
+                .padding(.leading, 6).padding(.trailing, 8).padding(.top, 1).padding(.bottom, 3)
             }
         } content: {
             (AssetTabRegistry.tabs.first { $0.id == store.activeAssetTab } ?? AssetTabRegistry.sorted[0]).content(store)

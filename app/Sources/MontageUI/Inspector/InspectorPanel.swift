@@ -83,7 +83,7 @@ public struct InspectorPanel: View {
                             Button { store.inspectorTab = tab.id } label: {
                                 ValseTabLabel(active: tab.id == active?.id) {
                                     Text(loc: tab.titleKey)
-                                        .font(.system(size: 13, weight: tab.id == active?.id ? .semibold : .medium))
+                                        .font(.system(size: 13, weight: .semibold))
                                         .lineLimit(1)
                                         .fixedSize()
                                 }

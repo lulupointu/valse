@@ -27,6 +27,7 @@ public struct EditorView: View {
         }
         // BUG-SPACE-FOCUS: the editor's keyboard home (never the media search field), so Space plays at once
         .background(EditorKeyAnchor())
+        .task { await ValseDebugClock.shared.recordIfRequested() }   // review videos only (VALSE_DEBUG_FRAMES)
     }
 
     private var editor: some View {
@@ -250,31 +251,36 @@ struct TitleBar: View {
     /// Opens the shortcut window (set by the app shell, W12 `AppModel`).
     @MainActor public static var showShortcuts: (() -> Void)?
     @Perception.Bindable var store: EditorStore
+    @ObservedObject private var options = ValseOptions.shared   // TEMPORARY (round 10): logo placement
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         WithPerceptionTracking {
             ZStack {
                 HStack(spacing: 10) {
                     Spacer().frame(width: 76)  // traffic lights
+                    if options.logo != .c { ValseEditorMark().padding(.trailing, 2) }
                     if let saved = store.lastAutosave {
                         Text(loc: "titlebar.autosaved", saved.formatted(date: .omitted, time: .standard))
                             .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                     }
                     Spacer()
+                    if options.logo == .c { ValseEditorMark().padding(.trailing, 4) }
                     // AI2: EditPilot editing agent (AI-048), ⌘J
                     Button { store.togglePilot() } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "sparkles").font(.system(size: 12))
                             Text(loc: "pilot.title").font(.system(size: 11, weight: .medium))
                         }
+                        .padding(.horizontal, 6).frame(height: 24)
                     }
-                    .buttonStyle(.plain).foregroundStyle(store.ai.pilot.isOpen ? Theme.accent : Theme.textSecondary)
+                    .buttonStyle(ValseIconButtonStyle(active: store.ai.pilot.isOpen))
                     .help(tr("pilot.help"))
                     .testID("titlebar.pilot")
                     LayoutMenuButton()   // SE-005
                     // CapCut: ⌨ opens the shortcut window (language lives in Settings ▸ General)
                     if let show = TitleBar.showShortcuts {
-                        Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)) }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textSecondary)
+                        Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)).frame(width: 26, height: 24) }
+                            .buttonStyle(ValseIconButtonStyle())
                             .help(tr("keymap.title"))
                             .testID("titlebar.shortcuts")
                     }
@@ -294,8 +300,17 @@ struct TitleBar: View {
             }
             .padding(.horizontal, 10)
             .frame(height: Theme.Metrics.titleBarHeight)
+            .background { if options.logo == .b { ValseTitleSwipe() } }   // TEMPORARY (round 10) logo variant B
             .background(Theme.window)
+            // the Valse mark's opening intro, once per project open (read untracked: no re-render with the project)
+            .onAppear { introIfNewProject() }
+            .onValueChange(of: store.packageURL) { _, _ in introIfNewProject() }
         }
+    }
+
+    private func introIfNewProject() {
+        let id = EditorStore.untracked { store.project.id }
+        ValseEditorIntro.shared.projectOpened(id, reduceMotion: reduceMotion)
     }
 }
 

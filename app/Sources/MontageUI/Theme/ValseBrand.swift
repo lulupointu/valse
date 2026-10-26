@@ -58,6 +58,8 @@ struct ValseRibbon: View {
     var loop: Loop? = nil
     var trim: Double = 1
     var phase: CGFloat = 0
+    /// Monochrome cut (the editor's resting mark): one band of this colour, perforations still punched.
+    var mono: Color? = nil
 
     var body: some View {
         Canvas { ctx, size in draw(in: &ctx, size: size) }
@@ -104,8 +106,15 @@ struct ValseRibbon: View {
         let s = width / 36
         let widths: [CGFloat] = [36, 20, 12, 4].map { $0 * s }
         let path = polyline(c)
-        for (col, w) in zip(Theme.Valse.bands, widths) {
-            ctx.stroke(path, with: .color(col), style: StrokeStyle(lineWidth: w, lineCap: .butt, lineJoin: .round))
+        if let mono {
+            // one-colour print: a thin knockout in the background colour around the band, so the over pass of the loop
+            // still reads as crossing over the climb
+            ctx.stroke(path, with: .color(background), style: StrokeStyle(lineWidth: widths[0] + 5 * s, lineCap: .butt, lineJoin: .round))
+            ctx.stroke(path, with: .color(mono), style: StrokeStyle(lineWidth: widths[0], lineCap: .butt, lineJoin: .round))
+        } else {
+            for (col, w) in zip(Theme.Valse.bands, widths) {
+                ctx.stroke(path, with: .color(col), style: StrokeStyle(lineWidth: w, lineCap: .butt, lineJoin: .round))
+            }
         }
         for (side, start) in zip(sides, dashStart) where side.count > 1 {
             ctx.stroke(polyline(side), with: .color(background),
@@ -222,13 +231,17 @@ struct ValseRibbon: View {
 }
 
 extension View {
-    /// A floating card (dialog, popover, overlay chip) in the Valse style: a cream hairline and a hard, zero-blur offset
-    /// block of a lighter warm tone behind it, instead of a soft drop shadow (STYLE_GUIDE §3: no blurs, no glows). The
-    /// block is lighter than the dimmed backdrop, so it reads as a printed card on its slab. Apply after the card's own
-    /// background / clip shape.
-    func valseFloatingCard(radius: CGFloat, depth: CGFloat = 6) -> some View {
-        overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.Valse.cream.opacity(0.10)))
-            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.Valse.controlHover).offset(x: depth, y: depth))
+    /// Every slider in the editor (inspector rows, zoom, cover, EQ): cream (owner pick, round 10), calm next to footage.
+    func valseSliderTint() -> some View { tint(Theme.Valse.cream) }
+
+    /// A floating card in the Valse style, never a soft drop shadow (STYLE_GUIDE §3: no blurs, no glows): a cream
+    /// hairline; with a `depth`, also a hard zero-blur offset block of a lighter warm tone (small popovers and chips,
+    /// 3–4 pt). Large modals (Settings, dialogs, export, crop, cover) use the hairline alone: the owner found the slab
+    /// under the Settings window heavy (round 10). Apply after the card's own background / clip shape.
+    func valseFloatingCard(radius: CGFloat, depth: CGFloat = 0) -> some View {
+        overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.Valse.cream.opacity(0.12)))
+            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.Valse.controlHover).offset(x: depth, y: depth)
+                .opacity(depth > 0 ? 1 : 0))
     }
 }
 

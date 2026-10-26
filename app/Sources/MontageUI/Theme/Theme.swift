@@ -26,6 +26,10 @@ public enum Theme {
     public static let onAccent = Color(hex: 0x14110C)
     /// Accent as text / glyph on dark surfaces (mint, 11:1): active tab labels, selected glyphs.
     public static let accentText = Color(hex: 0xA1D4B1)
+    /// THE colour of every active / on tool or toggle icon in the app (magnet, linkage, preview axis, active tool,
+    /// keyframe on…): mint. One token so toggles never disagree (owner, round 10).
+    public static let toolActive = Color(hex: 0xA1D4B1)
+    public static let toolActiveRGBA = RGBA(hex: 0xA1D4B1)
     // Semantic (Valse palette): hover ring on tiles (quiet, never coloured), favourites, warnings, errors, success
     public static let hoverRing = Color(hex: 0xF3E9C8, alpha: 0.45)
     public static let favorite = Color(hex: 0xF1A512)     // mustard
@@ -39,39 +43,25 @@ public enum Theme {
     public static let textTertiary = Color(hex: 0x958D80)
     public static let ruler = Color(hex: 0x8F877A)
 
-    /// TEMPORARY (VALSE-APP round 9) mirror of `ValseOptions.clipColors == .b`, read by the Metal timeline drawing.
-    nonisolated(unsafe) public static var valseClipPalette = false
-
-    // Timeline clip colours (as rendered)
+    // Timeline clip colours (as rendered). Owner pick (round 10): the Valse palette, toned down so clips sit calm
+    // under the footage: deep teal, burgundy, terracotta, ochre, plum, sea green, olive (lightness × 0.84,
+    // saturation × 0.74 of the round 9 option B). White clip labels stay ≥ 5:1 on every colour.
     public static func clipColor(_ kind: TrackKind) -> RGBA {
-        if valseClipPalette {
-            // Option B: the same roles in the Valse palette, desaturated and darkened for long viewing (thumbnails sit
-            // on video; labels stay white): teal, burgundy, orange, mustard, plum, sea green, olive.
-            switch kind {
-            case .video: return RGBA(hex: 0x1D5247)
-            case .audio: return RGBA(hex: 0x4E2231)
-            case .text: return RGBA(hex: 0xA2502C)
-            case .sticker: return RGBA(hex: 0xB0852F)
-            case .effect: return RGBA(hex: 0x7A3451)
-            case .filter: return RGBA(hex: 0x3D6A5D)
-            case .adjustment: return RGBA(hex: 0x86723A)
-            }
-        }
         switch kind {
-        case .video: return RGBA(hex: 0x1D4950)
-        case .audio: return RGBA(hex: 0x182F55)
-        case .text: return RGBA(hex: 0x9C604F)
-        case .sticker: return RGBA(hex: 0xCC9641)
-        case .effect: return RGBA(hex: 0x7C5E8C)
-        case .filter: return RGBA(hex: 0x595493)
-        case .adjustment: return RGBA(hex: 0xA58744)
+        case .video: return RGBA(hex: 0x1E3F38)
+        case .audio: return RGBA(hex: 0x3D212B)
+        case .text: return RGBA(hex: 0x7B4832)
+        case .sticker: return RGBA(hex: 0x866B36)
+        case .effect: return RGBA(hex: 0x5F3345)
+        case .filter: return RGBA(hex: 0x38544C)
+        case .adjustment: return RGBA(hex: 0x685C39)
         }
     }
-    public static var waveform: RGBA { valseClipPalette ? RGBA(hex: 0xD9846A) : RGBA(hex: 0x3A7FAF) }
-    public static var waveformOnVideo: RGBA { valseClipPalette ? RGBA(hex: 0x2E7464) : RGBA(hex: 0x2F5E63) }
+    public static let waveform = RGBA(hex: 0xBE745E)
+    public static let waveformOnVideo = RGBA(hex: 0x2E5A50)
 
     /// Timeline chrome drawn by the Metal canvas (RGBA, same values as the SwiftUI tokens above). Clip colours and
-    /// waveforms are functional coding (above / `ValseOptions.clipColors`); white overlays on clips stay neutral.
+    /// waveforms are functional coding (above); white overlays on clips stay neutral.
     public enum TL {
         public static let background = RGBA(hex: 0x1C1A17)     // panel
         public static let laneMain = RGBA(hex: 0x22201D)       // trackMain
@@ -124,6 +114,8 @@ public enum Theme {
         // Brand palette (logo)
         public static let teal = Color(hex: 0x2BAF90)       // functional accent: selection, focus, active (6.9:1 on canvas)
         public static let mint = Color(hex: 0xA1D4B1)       // accent text on dark / hover highlight of teal
+        /// Deeper mint for the editor's selection stickers (tabs): calmer than Home's mint, ink on it 7.9:1.
+        public static let mintDeep = Color(hex: 0x7FB394)
         public static let mustard = Color(hex: 0xF1A512)    // brand highlight: primary call to action
         public static let orange = Color(hex: 0xDD4111)     // stripe motif only (4.3:1, not for small text)
         public static let burgundy = Color(hex: 0x8C0027)   // film edges of the stripe motif only

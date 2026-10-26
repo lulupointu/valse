@@ -51,10 +51,9 @@ struct MagnetToggleButton: View {
                     .frame(width: 14, height: 14)
                     .rotationEffect(.degrees(45))   // tilted horseshoe (poles up-right): reads as a magnet, not a "U"
                     .frame(width: 26, height: 26)
-                    .foregroundStyle(isOn ? Theme.accent : Theme.textPrimary.opacity(0.85))
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ValseIconButtonStyle(active: isOn))   // the shared toolbar key: hover fill, mint when on
             .help(help)
             .accessibilityLabel(Text(verbatim: help))
             .accessibilityAddTraits(isOn ? .isSelected : [])

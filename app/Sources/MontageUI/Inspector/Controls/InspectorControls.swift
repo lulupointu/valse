@@ -298,7 +298,7 @@ struct KeyframeTripletButtons: View, Equatable {
                 } label: {
                     Image(systemName: m.on ? "diamond.fill" : "diamond")
                         .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(m.on ? Theme.accent : (m.active ? (m.has ? Color.white : IStyle.icon) : IStyle.iconDim.opacity(0.6)))
+                        .foregroundStyle(m.on ? Theme.toolActive : (m.active ? (m.has ? Theme.textPrimary : IStyle.icon) : IStyle.iconDim.opacity(0.6)))
                         .frame(width: 16, height: 20).contentShape(Rectangle())
                 }
                 .disabled(!m.active)
@@ -693,10 +693,9 @@ struct SmallIconButton: View {
         WithPerceptionTracking {
             Button(action: action) {
                 Image(systemName: symbol).font(.system(size: size))
-                    .foregroundStyle(active ? Theme.accent : (enabled ? IStyle.icon : IStyle.iconDim.opacity(0.6)))
                     .frame(width: 22, height: 22).contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ValseIconButtonStyle(active: active))   // quiet key: hover fill, mint when on
             .disabled(!enabled)
             .help(help)
             .accessibilityLabel(Text(verbatim: help))   // SE-017

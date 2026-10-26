@@ -128,7 +128,7 @@ public struct KeyframeButton: View {
                 Button(action: state.toggle) {
                     Image(systemName: state.isOnKeyframe ? "diamond.fill" : "diamond")
                         .font(.system(size: 10))
-                        .foregroundStyle(state.isOnKeyframe ? Theme.accent : Theme.textSecondary)
+                        .foregroundStyle(state.isOnKeyframe ? Theme.toolActive : Theme.textSecondary)
                 }
                 .buttonStyle(.plain)
                 .help(tr("inspector.keyframe"))
@@ -183,17 +183,11 @@ public struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
-/// The editor's Export button (title bar): the one brand call to action of the editor. Its loudness is an open owner
-/// choice (TEMPORARY `ValseOptions.export`: A mustard CTA, B teal primary, C quiet).
+/// The editor's Export button (title bar): the one brand call to action of the editor, mustard with ink (owner pick,
+/// round 10), like Home's New project.
 struct ValseExportButtonStyle: ButtonStyle {
-    @ObservedObject private var options = ValseOptions.shared
     func makeBody(configuration: Configuration) -> some View {
-        let kind: ValseButtonKind = switch options.export {
-        case .a: .brand
-        case .b: .primary
-        case .c: .quiet
-        }
-        return ValseEditorButton(label: configuration.label, pressed: configuration.isPressed, kind: kind)
+        ValseEditorButton(label: configuration.label, pressed: configuration.isPressed, kind: .brand)
     }
 }
 
@@ -296,43 +290,28 @@ public struct IconButton: View {
     }
 }
 
-/// A panel tab's label (asset panel icon tabs, inspector tabs). Selected = mint label, semibold (never hue alone: the
-/// weight and a shape change too); the shape is the open owner choice (TEMPORARY `ValseOptions.tabs`): A a 2 pt teal
-/// underline, B the mint sticker (mint fill, ink label, on a hard teal block), C a raised neutral pill. Hover
-/// brightens an idle label (quiet, no motion: these are dense tools).
+/// A tab's label (asset panel icon tabs, inspector tabs, Settings tabs). Selected = the Home sidebar's sticker
+/// (owner pick, round 10): the same `.valseSticker` (spring 0.34 / 0.55, the sticker lifts 1 pt off a hard 3 pt teal
+/// block), in the deeper editor mint with an ink label. Layout never changes with the state: same padding, same
+/// weight, the sticker and its block are drawn as backgrounds (callers leave ≥ 3 pt around the label so nothing is
+/// clipped), so selecting a tab never moves its neighbours. Hover brightens an idle label (no motion).
 struct ValseTabLabel<Content: View>: View {
     let active: Bool
     @ViewBuilder let content: () -> Content
     @State private var hover = false
-    @ObservedObject private var options = ValseOptions.shared
     var body: some View {
-        let style = options.tabs
-        let sticker = active && style == .b
         content()
-            .foregroundStyle(sticker ? Theme.onAccent : active ? Theme.accentText
-                             : (hover ? Theme.textPrimary : Theme.textPrimary.opacity(0.78)))
-            .padding(.horizontal, 5).padding(.vertical, 3)
-            .background {
-                if active && style == .b {
-                    RoundedRectangle(cornerRadius: 6).fill(Theme.Valse.mint)
-                        .offset(x: -1, y: -1)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.accent).offset(x: 1.5, y: 1.5))
-                } else if active && style == .c {
-                    RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if active && style == .a {
-                    Capsule().fill(Theme.accent).frame(height: 2).padding(.horizontal, 4).offset(y: 4)
-                }
-            }
+            .foregroundStyle(active ? Theme.onAccent : (hover ? Theme.textPrimary : Theme.textPrimary.opacity(0.78)))
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .valseSticker(active, radius: 6, fill: Theme.Valse.mintDeep)
             .valseHover($hover)
     }
 }
 
-/// Dense tool icons (timeline toolbar, player bar, title bar): the quiet treatment (STYLE_GUIDE §4), never a spring on
-/// these editing tools. Active = mint glyph. Hover (TEMPORARY `ValseOptions.toolIcons`): A the glyph brightens,
-/// B a soft fill fades in behind it as on the selection bar keys. Press: the fill / glyph dims at once (no squash).
+/// Dense tool icons (timeline toolbar, player bar, title bar): the quiet key (owner pick, round 10; STYLE_GUIDE §4),
+/// never a spring on these editing tools. Hover: a soft warm key fill fades in behind the glyph (120 ms) and the glyph
+/// brightens; press: the fill deepens at once (no squash). Active / on = the one active token, mint (`Theme.toolActive`).
+/// `VALSE_DEBUG_HOVER=tools` shows every tool icon hovered (review stills).
 struct ValseIconButtonStyle: ButtonStyle {
     var active = false
     func makeBody(configuration: Configuration) -> some View {
@@ -347,17 +326,14 @@ private struct ValseIconKey<Label: View>: View {
     @State private var hover = false
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObservedObject private var options = ValseOptions.shared
     var body: some View {
-        // review stills: VALSE_DEBUG_HOVER=tools shows every tool icon hovered (the option sheet)
         let hot = ValseDebugHover.merge(hover, "tools") && enabled
-        let keys = options.toolIcons == .b
         let glyph: Color = !enabled ? Theme.textPrimary.opacity(0.3)
-            : active ? Theme.accentText
+            : active ? Theme.toolActive
             : (hot ? Theme.textPrimary : Theme.textPrimary.opacity(0.82))
         label
-            .foregroundStyle(glyph.opacity(pressed ? 0.7 : 1))
-            .background(keys && (hot || pressed) ? Theme.control.opacity(pressed ? 1 : 0.85) : .clear,
+            .foregroundStyle(glyph.opacity(pressed ? 0.75 : 1))
+            .background(pressed && enabled ? Theme.control : (hot ? Theme.buttonSecondary : .clear),
                         in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
             .animation(ValseMotion.live(reduceMotion) ? .easeOut(duration: 0.12) : nil, value: hot)
             .valseHover($hover)

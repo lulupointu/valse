@@ -1,19 +1,6 @@
-/* TEMPORARY (VALSE-APP round 9): the "Valse options" menu, open design choices. Delete with ValseOptions.swift. */
+/* TEMPORARY (VALSE-APP round 10): the "Valse options" menu, the editor logo choice. Delete with ValseOptions.swift. */
 "valseopt.menu" = "Valse options";
-"valseopt.clip" = "Timeline clip colours";
-"valseopt.clip.a" = "A · Functional (current)";
-"valseopt.clip.b" = "B · Valse palette";
-"valseopt.export" = "Export button";
-"valseopt.export.a" = "A · Mustard call to action";
-"valseopt.export.b" = "B · Teal primary";
-"valseopt.export.c" = "C · Quiet";
-"valseopt.tabs" = "Selected tab";
-"valseopt.tabs.a" = "A · Mint label + teal underline";
-"valseopt.tabs.b" = "B · Mint sticker";
-"valseopt.tabs.c" = "C · Raised pill";
-"valseopt.tools" = "Toolbar icons";
-"valseopt.tools.a" = "A · Plain glyphs";
-"valseopt.tools.b" = "B · Quiet keys";
-"valseopt.sliders" = "Sliders";
-"valseopt.sliders.a" = "A · Cream";
-"valseopt.sliders.b" = "B · Teal";
+"valseopt.logo" = "Editor logo";
+"valseopt.logo.a" = "A · Title bar, draws itself in";
+"valseopt.logo.b" = "B · Title bar, with a film strip swipe";
+"valseopt.logo.c" = "C · Next to Export, draws itself in";

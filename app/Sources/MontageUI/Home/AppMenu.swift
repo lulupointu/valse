@@ -306,7 +306,7 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             item("whatsnew.menu", enabled: { [unowned self] in self.inEditor }) { Onboarding.shared.showsWhatsNew = true },
             item("menu.licenses") { [unowned self] in self.app.modal = .settings(.about) },
         ]))
-        if ValseOptions.menuVisible { main.addItem(ValseOptions.menuItem()) }   // TEMPORARY (VALSE-APP round 9)
+        if ValseOptions.menuVisible { main.addItem(ValseOptions.menuItem()) }   // TEMPORARY (VALSE-APP round 10: editor logo)
         return main
     }
 

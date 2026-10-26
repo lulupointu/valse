@@ -74,7 +74,8 @@ final class ValseDebugClock: ObservableObject {
 
     /// Renders the requested frame range of the clock, one PNG per frame (review videos).
     func recordIfRequested() async {
-        guard let spec = ProcessInfo.processInfo.environment["VALSE_DEBUG_FRAMES"] else { return }
+        guard let spec = ProcessInfo.processInfo.environment["VALSE_DEBUG_FRAMES"], !recordingStarted else { return }
+        recordingStarted = true   // started by Home or by the editor, whichever appears first
         defer { recordingFinished = true }
         let p = spec.split(separator: ",").map(String.init)
         guard p.count == 4, let t0 = Double(p[1]), let t1 = Double(p[2]), let fps = Double(p[3]) else { return }
@@ -92,6 +93,7 @@ final class ValseDebugClock: ObservableObject {
         FileManager.default.createFile(atPath: dir.appendingPathComponent("done").path, contents: Data())
     }
     private var recordingFinished = false
+    private var recordingStarted = false
 
     /// `--snapshot` runs exit right after their PNG: with VALSE_DEBUG_FRAMES set, wait for the frame recording first.
     static func waitForRecording() async {
@@ -424,10 +426,12 @@ struct ValseSticker: ViewModifier {
     let selected: Bool
     var radius: CGFloat
     var depth: CGFloat = 3
+    /// Sticker fill: Home's mint; the editor's tabs use the deeper `Theme.Valse.mintDeep` (calmer next to footage).
+    var fill: Color = Theme.Valse.mint
     func body(content: Content) -> some View {
         ValseTween(on: selected, response: 0.34, damping: 0.55) { p in
             content
-                .background(RoundedRectangle(cornerRadius: radius).fill(selected ? Theme.Valse.mint : .clear))
+                .background(RoundedRectangle(cornerRadius: radius).fill(selected ? fill : .clear))
                 .modifier(ValseHardShadow(color: Theme.Valse.teal, radius: radius, depth: selected ? depth * max(0, p) : 0))
                 .offset(x: selected ? -1 * min(1, max(0, p)) : 0, y: selected ? -1 * min(1, max(0, p)) : 0)
         }
@@ -486,8 +490,8 @@ struct ValseSwayingMark: View {
 }
 
 extension View {
-    func valseSticker(_ selected: Bool, radius: CGFloat, depth: CGFloat = 3) -> some View {
-        modifier(ValseSticker(selected: selected, radius: radius, depth: depth))
+    func valseSticker(_ selected: Bool, radius: CGFloat, depth: CGFloat = 3, fill: Color = Theme.Valse.mint) -> some View {
+        modifier(ValseSticker(selected: selected, radius: radius, depth: depth, fill: fill))
     }
     /// Hover flag that always converges to the pointer's real position (ValseHoverTracking).
     func valseHover(_ hovering: Binding<Bool>) -> some View { modifier(ValseHoverTracking(hovering: hovering)) }

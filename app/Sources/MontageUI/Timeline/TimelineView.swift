@@ -130,10 +130,6 @@ final class TimelineView: NSView {
             self.dirty = true
             self.followPlayhead()
         }
-        // TEMPORARY (VALSE-APP round 9): an open colour choice changed (clip palette)
-        NotificationCenter.default.addObserver(forName: ValseOptions.didChange, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.dirty = true }
-        }
     }
     required init?(coder: NSCoder) { fatalError() }
     override func makeBackingLayer() -> CALayer { CAMetalLayer() }
