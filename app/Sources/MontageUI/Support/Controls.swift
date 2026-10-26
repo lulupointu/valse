@@ -329,7 +329,8 @@ private struct ValseIconKey<Label: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var options = ValseOptions.shared
     var body: some View {
-        let hot = hover && enabled
+        // review stills: VALSE_DEBUG_HOVER=tools shows every tool icon hovered (the option sheet)
+        let hot = ValseDebugHover.merge(hover, "tools") && enabled
         let keys = options.toolIcons == .b
         let glyph: Color = !enabled ? Theme.textPrimary.opacity(0.3)
             : active ? Theme.accentText
