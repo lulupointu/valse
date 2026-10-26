@@ -299,7 +299,7 @@ struct CustomAdjustmentCard: View {
                                 Text(loc: "adjust.custom").font(.system(size: 11)).foregroundStyle(Theme.textPrimary)
                                     .multilineTextAlignment(.center).padding(6)
                             }
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.hoverRing : .clear),
                                                                                lineWidth: selected ? 2 : 1.5))
                             .contentShape(Rectangle())
                     }
@@ -357,7 +357,7 @@ struct EffectCard: View {
                         RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
                             .overlay { preview }
                             .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.hoverRing : .clear),
                                                                                lineWidth: selected ? 2 : 1.5))
                             .contentShape(Rectangle())
                             .overlay(alignment: .topLeading) {
@@ -369,7 +369,7 @@ struct EffectCard: View {
                     if hover || selected {
                         CardBadges(id: descriptor.id, fav: fav, add: add)
                     } else if fav {
-                        Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                        Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Theme.favorite).padding(5)
                             .allowsHitTesting(false)
                     }
                 }
@@ -419,7 +419,7 @@ struct CardBadges: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 4) {
-                RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
+                RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Theme.favorite : .white, fill: Color.black.opacity(0.55),
                            help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(id) }
                     .testID("asset.tile.\(id).favorite")
                 RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)

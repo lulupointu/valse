@@ -184,7 +184,7 @@ struct CheckLine: View {
                 HStack(alignment: .top, spacing: 8) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
-                        if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+                        if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.textPrimary) }
                     }
                     .frame(width: 16, height: 16)
                     Text(verbatim: label).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)

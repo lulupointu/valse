@@ -5,11 +5,11 @@ import Perception
 
 /// Export dialog palette (UX.md §7.1, screenshots 110–113).
 enum ExportStyle {
-    static let background = Color(hex: 0x1C1C1C)
-    static let field = Color(hex: 0x333336)
-    static let label = Color(hex: 0xD9D9D9)
-    static let disabledLabel = Color(hex: 0x5F5F5F)
-    static let separator = Color(hex: 0x2E2E2E)
+    static let background = Theme.panel
+    static let field = Color(hex: 0x34302B)
+    static let label = Color(hex: 0xE2DBCC)
+    static let disabledLabel = Color(hex: 0x6E675D)
+    static let separator = Theme.separator
     /// Wide enough for the longest French labels on one line ("Échantillonnage audio", UX_GAPS W11-2).
     static let labelWidth: CGFloat = 142
     static let rowHeight: CGFloat = 30
@@ -54,9 +54,9 @@ struct ExportDropdown<ID: Hashable>: View {
             } label: {
                 HStack {
                     Text(verbatim: items.first { $0.id == selection }?.title ?? "")
-                        .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                        .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                     Spacer(minLength: 4)
-                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textPrimary)
                 }
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, minHeight: 22, maxHeight: 22)
@@ -154,7 +154,7 @@ struct ExportCheckboxBox: View {
         WithPerceptionTracking {
             ZStack {
                 RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
-                if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+                if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.textPrimary) }
             }
             .frame(width: 16, height: 16)
         }

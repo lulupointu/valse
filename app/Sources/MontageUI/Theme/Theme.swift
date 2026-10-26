@@ -26,6 +26,13 @@ public enum Theme {
     public static let onAccent = Color(hex: 0x14110C)
     /// Accent as text / glyph on dark surfaces (mint, 11:1): active tab labels, selected glyphs.
     public static let accentText = Color(hex: 0xA1D4B1)
+    // Semantic (Valse palette): hover ring on tiles (quiet, never coloured), favourites, warnings, errors, success
+    public static let hoverRing = Color(hex: 0xF3E9C8, alpha: 0.45)
+    public static let favorite = Color(hex: 0xF1A512)     // mustard
+    public static let warning = Color(hex: 0xF1A512)      // mustard (text-safe: 8.9:1 as a fill under ink, 9:1 as text)
+    public static let danger = Color(hex: 0xDD4111)       // orange: glyphs / borders; text uses `dangerText`
+    public static let dangerText = Color(hex: 0xF0805A)   // light orange, 6.4:1 on panel
+    public static let success = Color(hex: 0xA1D4B1)      // mint
     // Text
     public static let textPrimary = Color(hex: 0xF1EBDD)
     public static let textSecondary = Color(hex: 0xBDB5A6)

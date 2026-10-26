@@ -415,7 +415,7 @@ struct OnlineAudioView: View {
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     if !state.warnings.isEmpty {
-                        Text(verbatim: state.warnings.joined(separator: " · ")).font(Theme.Fonts.hint).foregroundStyle(Color(hex: 0xF0B44C))
+                        Text(verbatim: state.warnings.joined(separator: " · ")).font(Theme.Fonts.hint).foregroundStyle(Theme.warning)
                             .lineLimit(2).padding(.horizontal, 12).padding(.bottom, 4)
                     }
                     LibraryItemsView(tab: "audio", namespace: "audio", title: title,

@@ -202,7 +202,7 @@ struct StickerCard: View {
                             .rotationEffect(.degrees(hover ? -6 : 0))
                             .animation(hover ? .easeInOut(duration: 0.45).repeatForever(autoreverses: true) : .easeOut(duration: 0.15), value: hover)
                         }
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.hoverRing : .clear),
                                                                            lineWidth: selected ? 2 : 1.5))
                         .contentShape(Rectangle())
                 }
@@ -210,7 +210,7 @@ struct StickerCard: View {
                 if hover || selected {
                     CardBadges(id: sticker.id, fav: fav, add: add)
                 } else if fav {
-                    Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                    Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Theme.favorite).padding(5)
                         .allowsHitTesting(false)
                 }
             }

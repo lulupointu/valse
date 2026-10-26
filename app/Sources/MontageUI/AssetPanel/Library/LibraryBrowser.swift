@@ -342,7 +342,7 @@ struct LibraryTile: View {
                         }
                     }
                     .overlay(RoundedRectangle(cornerRadius: 6)
-                        .stroke(selected ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear), lineWidth: selected ? 2 : 1.5))
+                        .stroke(selected ? Theme.accent : (hover ? Theme.hoverRing : .clear), lineWidth: selected ? 2 : 1.5))
                 Text(verbatim: item.title).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
                     .lineLimit(1).truncationMode(.middle).frame(maxWidth: .infinity)
             }
@@ -380,7 +380,7 @@ struct TileButtons: View {
             HStack(spacing: 4) {
                 Button { lib.toggleFavorite(namespace, item.id) } label: {
                     Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
+                        .foregroundStyle(fav ? Theme.favorite : .white)
                         .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
                 }
                 .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
@@ -459,7 +459,7 @@ struct LibraryRow: View {
                     }
                     Button { lib.toggleFavorite(namespace, item.id) } label: {
                         Image(systemName: fav ? "star.fill" : "star").font(.system(size: 12))
-                            .foregroundStyle(fav ? Color(hex: 0xF5C451) : Theme.textTertiary).frame(width: 22, height: 22)
+                            .foregroundStyle(fav ? Theme.favorite : Theme.textTertiary).frame(width: 22, height: 22)
                     }
                     .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
                     .testID("asset.tile.\(item.id).favorite")
@@ -695,7 +695,7 @@ struct CategoryRail: View {
         }
         .foregroundStyle(sel ? Theme.accent : Theme.textPrimary)
         .padding(.leading, 8).padding(.trailing, 3).padding(.vertical, 4).frame(minHeight: 28)
-        .background(sel ? Theme.accentDim.opacity(0.45) : Color(hex: 0x2A2A2A), in: RoundedRectangle(cornerRadius: 4))
+        .background(sel ? Theme.accentDim.opacity(0.45) : Theme.menu, in: RoundedRectangle(cornerRadius: 4))
         .contentShape(Rectangle())
         .onTapGesture { selection = e.id; AssetPanelState.shared.query[tab] = nil }
         .testID("asset.nav.\(e.id)")
@@ -748,7 +748,7 @@ struct AssetSearchField: View {
                 }
             }
             .padding(.horizontal, 10).frame(height: 28)
-            .background(Color(hex: 0x141414), in: RoundedRectangle(cornerRadius: 4))
+            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
             .onAppear { text = AssetPanelState.shared.query[tab] ?? "" }
             .onValueChange(of: AssetPanelState.shared.query[tab] ?? "") { _, q in if q.isEmpty && !text.isEmpty && task == nil { text = "" } }
         }

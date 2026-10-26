@@ -183,7 +183,7 @@ struct RecoveryDialog: View {
                             ForEach(urls, id: \.self) { u in
                                 WithPerceptionTracking {
                                     Text(verbatim: "• " + (ProjectPackage.summary(of: u)?.name ?? u.deletingPathExtension().lastPathComponent))
-                                        .font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                                        .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
                                 }
                             }
                             Text(loc: "recovery.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)

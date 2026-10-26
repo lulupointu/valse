@@ -180,7 +180,7 @@ struct ApplyToAllCaptionsRow: View {
                 HStack(spacing: 8) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 3).fill(ui.applyToAllCaptions ? Theme.accent : Theme.stepper)
-                        if ui.applyToAllCaptions { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+                        if ui.applyToAllCaptions { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.textPrimary) }
                     }
                     .frame(width: 16, height: 16)
                     Text(loc: "captions.applyAllMain").font(Theme.Fonts.row).foregroundStyle(IStyle.label)

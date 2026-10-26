@@ -191,7 +191,7 @@ struct AssetTile<Item>: View {
                             else if let e = tile.emoji { Text(verbatim: e).font(.system(size: 34)) }
                             else if let s = tile.symbol { Image(systemName: s).font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85)) }
                         }
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.hoverRing : .clear, lineWidth: 1.5))
                     if hover {
                         Button(action: tile.add) {
                             Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)

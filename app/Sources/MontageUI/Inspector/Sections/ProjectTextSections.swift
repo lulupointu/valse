@@ -97,7 +97,7 @@ struct ProjectSettingsSheet: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 0) {
-                Text(loc: "settings.project.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Text(loc: "settings.project.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     .padding(16)
                 Rectangle().fill(Theme.separator).frame(height: 1)
                 VStack(alignment: .leading, spacing: 14) {
@@ -165,7 +165,7 @@ struct ProjectSettingsSheet: View {
                             }
                         } else {
                             row(tr("details.proxy")) {
-                                Text(verbatim: tr("details.proxy.\(ProxyManager.shared.policy.rawValue)")).font(.system(size: 12)).foregroundStyle(.white)
+                                Text(verbatim: tr("details.proxy.\(ProxyManager.shared.policy.rawValue)")).font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
                             }
                             HintText(text: tr("settings.project.proxyHint"))
                         }

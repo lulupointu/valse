@@ -174,7 +174,7 @@ struct CropDialogView: View {
         WithPerceptionTracking {
             VStack(spacing: 0) {
                 HStack {
-                    Text(loc: "crop.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(loc: "crop.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     Button { store.closeCropDialog() } label: {
                         Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)

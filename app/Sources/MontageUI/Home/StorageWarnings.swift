@@ -4,7 +4,7 @@ import Perception
 
 /// PM-009 external-drive warnings: the Save-to folder on an external / network drive, or on a drive that isn't connected.
 enum StorageWarningText {
-    static let warningColor = Color(hex: 0xE8A93C)
+    static let warningColor = Theme.warning
 
     /// Settings ▸ Project ▸ Save to line (nil = internal disk, no warning).
     static func settingsLine(_ l: StorageLocation) -> String? {

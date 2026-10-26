@@ -127,12 +127,12 @@ struct DashedArrow: View {
                         p.move(to: CGPoint(x: 0, y: y - 4)); p.addLine(to: CGPoint(x: 0, y: y + 4))
                         p.move(to: CGPoint(x: 0, y: y)); p.addLine(to: CGPoint(x: g.size.width - 6, y: y))
                     }
-                    .stroke(Color(hex: 0x6A6A6A), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                    .stroke(IStyle.iconDim, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
                     Path { p in
                         p.move(to: CGPoint(x: g.size.width - 8, y: y - 4)); p.addLine(to: CGPoint(x: g.size.width, y: y))
                         p.addLine(to: CGPoint(x: g.size.width - 8, y: y + 4)); p.closeSubpath()
                     }
-                    .fill(Color(hex: 0x6A6A6A))
+                    .fill(IStyle.iconDim)
                 }
             }
         }
@@ -450,7 +450,7 @@ struct BeatHandle: View {
     var body: some View {
         WithPerceptionTracking {
             ZStack {
-                Circle().fill(selected ? Theme.accent : Color(hex: 0x5A5A5A)).frame(width: 16, height: 16)
+                Circle().fill(selected ? Theme.accent : IStyle.track).frame(width: 16, height: 16)
                 Rectangle().fill(IStyle.graph).frame(width: 2, height: 16)
             }
             .frame(width: 26, height: 26)

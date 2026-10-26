@@ -56,7 +56,7 @@ struct ProviderKeyRow: View {
                 HStack(spacing: 10) {
                     Label(tr(saved ? "settings.music.key.saved" : "settings.music.key.none"),
                           systemImage: saved ? "checkmark.circle.fill" : "circle.dashed")
-                        .font(.system(size: 11)).foregroundStyle(saved ? Color(hex: 0x5BD08A) : Theme.textTertiary)
+                        .font(.system(size: 11)).foregroundStyle(saved ? Theme.success : Theme.textTertiary)
                         .testID("settings.music.status.\(provider.id)")
                     Button { NSWorkspace.shared.open(provider.signupURL) } label: {
                         Text(verbatim: tr("settings.music.key.get") + " ↗").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accent)

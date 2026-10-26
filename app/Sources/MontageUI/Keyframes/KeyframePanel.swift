@@ -270,7 +270,7 @@ struct CurveGraph: View {
                     let s = g.size
                     let pt = { (x: Double, y: Double) -> CGPoint in Self.point(x, y, in: s) }
                     Canvas { ctx, size in
-                        ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4), with: .color(Color(hex: 0x0F0F0F)))
+                        ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4), with: .color(IStyle.graph))
                         for y in [0.0, 1.0] {
                             var l = Path(); l.move(to: pt(0, y)); l.addLine(to: pt(1, y))
                             ctx.stroke(l, with: .color(.white.opacity(0.18)), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))

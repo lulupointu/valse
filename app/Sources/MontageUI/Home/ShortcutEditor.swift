@@ -143,7 +143,7 @@ struct ShortcutList: View {
                 if let p = pending {
                     // inline conflict prompt ("⌘B shortcut already belongs to Split. Override it?")
                     HStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 13)).foregroundStyle(Color(hex: 0xE8B33A))
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 13)).foregroundStyle(Theme.warning)
                         Text(loc: "keymap.conflict.message", p.binding.display, p.conflicts.map { Self.title($0) }.joined(separator: ", "))
                             .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(2)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -155,8 +155,8 @@ struct ShortcutList: View {
                         .buttonStyle(AccentButtonStyle()).testID("keymap.conflict.override")
                     }
                     .padding(.horizontal, 12).frame(height: 40)
-                    .background(Color(hex: 0xE8B33A).opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: 0xE8B33A).opacity(0.4)))
+                    .background(Theme.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.warning.opacity(0.4)))
                     .testID("keymap.conflict")
                 } else {
                     Text(loc: recording == nil ? "keymap.hint" : "keymap.recordingHint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)

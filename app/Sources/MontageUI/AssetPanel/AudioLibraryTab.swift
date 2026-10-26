@@ -269,7 +269,7 @@ struct AudioPreviewStrip: View {
                                 // pre-computed beat markers (library music): small ticks under the waveform
                                 for b in beats {
                                     ctx.fill(Path(CGRect(x: CGFloat(b) * size.width, y: size.height - 3, width: 1, height: 3)),
-                                             with: .color(Color(hex: 0xF5C451).opacity(0.8)))
+                                             with: .color(Theme.favorite.opacity(0.8)))
                                 }
                             }
                             .contentShape(Rectangle())

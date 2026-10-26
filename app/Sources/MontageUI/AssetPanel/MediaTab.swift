@@ -221,7 +221,7 @@ struct MediaBinView: View {
                 Button { LinkMediaPanel.runFolder(store) } label: {
                     Label(tr("media.missing", missing), systemImage: "exclamationmark.triangle").font(.system(size: 11))
                 }
-                .buttonStyle(.plain).foregroundStyle(.orange).help(tr("media.linkFolder.message"))
+                .buttonStyle(.plain).foregroundStyle(Theme.danger).help(tr("media.linkFolder.message"))
             }
             if showsFolders {
                 IconButton(prefs.layout == .grid ? "list.bullet" : "square.grid.2x2",
@@ -477,7 +477,7 @@ struct MediaCard: View {
                                 let fav = lib.isFavorite("media", fid)
                                 Button { lib.toggleFavorite("media", fid) } label: {
                                     Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
-                                        .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
+                                        .foregroundStyle(fav ? Theme.favorite : .white)
                                         .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
                                 }
                                 .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
@@ -499,7 +499,7 @@ struct MediaCard: View {
                         if missing {
                             ZStack {
                                 Color.black.opacity(0.6)
-                                Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
+                                Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.danger)
                             }
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                             .onTapGesture { LinkMediaPanel.run(store, asset) }
@@ -511,7 +511,7 @@ struct MediaCard: View {
                             RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2)
                                 .overlay(alignment: .leading) { handle }.overlay(alignment: .trailing) { handle }
                         } else if hover {
-                            RoundedRectangle(cornerRadius: 6).stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
+                            RoundedRectangle(cornerRadius: 6).stroke(Theme.hoverRing, lineWidth: 1.5)
                         }
                     }
                     .onContinuousHover { phase in
@@ -684,7 +684,7 @@ struct MediaRow: View {
                         if missing {
                             ZStack {
                                 Color.black.opacity(0.6)
-                                Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange)
+                                Label(tr("media.lost"), systemImage: "exclamationmark.triangle.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.danger)
                             }
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                             .onTapGesture { LinkMediaPanel.run(store, asset) }
@@ -696,7 +696,7 @@ struct MediaRow: View {
                             RoundedRectangle(cornerRadius: 6).stroke(Theme.accent, lineWidth: 2)
                                 .overlay(alignment: .leading) { handle }.overlay(alignment: .trailing) { handle }
                         } else if hover {
-                            RoundedRectangle(cornerRadius: 6).stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
+                            RoundedRectangle(cornerRadius: 6).stroke(Theme.hoverRing, lineWidth: 1.5)
                         }
                     }
                     .onContinuousHover { phase in
@@ -705,7 +705,7 @@ struct MediaRow: View {
                         case .ended: hoverFraction = nil
                         }
                     }
-                Text(verbatim: asset.name).font(.system(size: 12)).foregroundStyle(missing ? .orange : (selected ? Theme.textPrimary : Theme.textSecondary))
+                Text(verbatim: asset.name).font(.system(size: 12)).foregroundStyle(missing ? Theme.dangerText : (selected ? Theme.textPrimary : Theme.textSecondary))
                     .lineLimit(1).truncationMode(.middle)
             }
             .contentShape(Rectangle())
@@ -752,7 +752,7 @@ struct MediaRow: View {
             let fav = lib.isFavorite("media", fid)
             Button { lib.toggleFavorite("media", fid) } label: {
                 Image(systemName: fav ? "star.fill" : "star").font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(fav ? Color(hex: 0xF5C451) : .white)
+                    .foregroundStyle(fav ? Theme.favorite : .white)
                     .frame(width: 20, height: 20).background(.black.opacity(0.55), in: Circle())
             }
             .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))

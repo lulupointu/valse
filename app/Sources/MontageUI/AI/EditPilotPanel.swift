@@ -147,7 +147,7 @@ private struct MessageView: View {
             case .user:
                 HStack {
                     Spacer(minLength: 40)
-                    Text(verbatim: message.text).font(Theme.Fonts.row).foregroundStyle(.white)
+                    Text(verbatim: message.text).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
                         .padding(.horizontal, 10).padding(.vertical, 7)
                         .background(Theme.accentDim, in: RoundedRectangle(cornerRadius: 10))
                         .textSelection(.enabled)

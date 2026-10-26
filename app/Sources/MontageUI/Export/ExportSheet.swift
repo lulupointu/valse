@@ -49,7 +49,7 @@ struct ExportSheet: View {
         WithPerceptionTracking {
             VStack(spacing: 0) {
                 HStack {
-                    Text(verbatim: tr("export.window", model.title)).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(verbatim: tr("export.window", model.title)).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                 }
                 .padding(.horizontal, 16).frame(height: 36)
@@ -116,7 +116,7 @@ struct ExportSheet: View {
                     Image(systemName: "pencil.line").font(.system(size: 11))
                     Text(loc: "export.editCover").font(.system(size: 12, weight: .medium))
                 }
-                .foregroundStyle(.white).padding(.horizontal, 7).frame(height: 22)
+                .foregroundStyle(Theme.textPrimary).padding(.horizontal, 7).frame(height: 22)
                 .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain).padding(8).testID("export.editCover")
@@ -130,17 +130,17 @@ struct ExportSheet: View {
     var general: some View {
         VStack(alignment: .leading, spacing: 6) {
             ExportRow(label: tr("export.titleField")) {
-                TextField("", text: $model.title).textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(.white)
+                TextField("", text: $model.title).textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 8).frame(height: 24).background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
                     .testID("export.title")
             }
             ExportRow(label: tr("export.location")) {
                 HStack(spacing: 6) {
-                    Text(verbatim: model.folder.path).font(.system(size: 12.5)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: model.folder.path).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.middle)
                         .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
                         .background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
                     Button { chooseFolder() } label: {
-                        Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(.white).frame(width: 26, height: 24)
+                        Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(Theme.textPrimary).frame(width: 26, height: 24)
                             .background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
                     }.buttonStyle(.plain).help(tr("export.choose")).testID("export.folder")
                 }
@@ -210,7 +210,7 @@ struct ExportSheet: View {
                             TextField("", value: Binding.perceived(get: { Int(model.remembered.video.customBitrateMbps * 1000) },
                                                          set: { k in model.editVideo { $0.customBitrateMbps = min(800, max(0.5, Double(k) / 1000)) } }),
                                       format: .number)
-                                .textFieldStyle(.plain).font(Theme.Fonts.numeric).foregroundStyle(.white)
+                                .textFieldStyle(.plain).font(Theme.Fonts.numeric).foregroundStyle(Theme.textPrimary)
                                 .padding(.horizontal, 8).frame(width: 90, height: 22).background(ExportStyle.field, in: RoundedRectangle(cornerRadius: 4))
                             Text(verbatim: "kbps").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
                             Spacer()
@@ -323,7 +323,7 @@ struct ExportSheet: View {
                     }
                 }
                 if on && !model.audioFormatUsable {
-                    Text(loc: "export.mp3.unavailable").font(Theme.Fonts.hint).foregroundStyle(.orange)
+                    Text(loc: "export.mp3.unavailable").font(Theme.Fonts.hint).foregroundStyle(Theme.warning)
                 }
             }
         }
@@ -368,11 +368,11 @@ struct ExportSheet: View {
         return HStack(spacing: 10) {
             Image(systemName: "film").font(.system(size: 14)).foregroundStyle(ExportStyle.label)
             VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: model.footerText).font(.system(size: 12.5)).foregroundStyle(.white).testID("export.estimate")
+                Text(verbatim: model.footerText).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).testID("export.estimate")
                 if !pre.missingMedia.isEmpty {
-                    Text(verbatim: tr("export.error.missingMedia", pre.missingMedia.joined(separator: ", "))).font(Theme.Fonts.hint).foregroundStyle(.red).lineLimit(1)
+                    Text(verbatim: tr("export.error.missingMedia", pre.missingMedia.joined(separator: ", "))).font(Theme.Fonts.hint).foregroundStyle(Theme.dangerText).lineLimit(1)
                 } else if !pre.hasEnoughSpace {
-                    Text(loc: "export.error.space").font(Theme.Fonts.hint).foregroundStyle(.red)
+                    Text(loc: "export.error.space").font(Theme.Fonts.hint).foregroundStyle(Theme.dangerText)
                 }
             }
             Spacer()
@@ -411,7 +411,7 @@ struct CoverEditor: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 10) {
-                Text(loc: "export.cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Text(loc: "export.cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 Group {
                     if let img = model.coverPreview { Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).accessibilityLabel(Text(verbatim: tr("ax.cover", model.title))) } else { Color.black }
                 }

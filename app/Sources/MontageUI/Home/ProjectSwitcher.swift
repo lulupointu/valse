@@ -179,12 +179,12 @@ struct ProjectSwitcherButton: View {
                 Button { sw.toggle() } label: {
                     HStack(spacing: 5) {
                         Text(verbatim: store.projectName)
-                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).truncationMode(.middle)
-                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color(hex: 0x8A8A8E))
+                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.textTertiary)
                     }
                     .padding(.horizontal, 8).frame(height: 24)
-                    .background(hover || sw.isOpen ? Color(hex: 0x2A2A2E) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                    .background(hover || sw.isOpen ? Theme.Valse.controlHover : .clear, in: RoundedRectangle(cornerRadius: 4))
                     .contentShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(.plain)
@@ -196,7 +196,7 @@ struct ProjectSwitcherButton: View {
                 // the name truncates before it reaches EditPilot / Export in narrow windows (160–420 pt)
                 .containerRelativeWidth { w in min(420, max(160, w - 700)) }
             } else {
-                Text(verbatim: store.projectName).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                Text(verbatim: store.projectName).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
             }
         }
     }
@@ -240,10 +240,10 @@ struct ProjectSwitcherPopover: View {
             let now = ProjectSwitcher.now
             VStack(spacing: 0) {
                 searchField
-                Rectangle().fill(Color(hex: 0x333333)).frame(height: 1)
+                Rectangle().fill(Theme.separator).frame(height: 1)
                 if rows.isEmpty {
                     Text(verbatim: tr("home.empty.search", switcher.effectiveQuery))
-                        .font(.system(size: 12)).foregroundStyle(Color(hex: 0x8A8A8E))
+                        .font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
                         .frame(maxWidth: .infinity).frame(height: 64)
                         .testID("switcher.empty")
                 } else {
@@ -259,7 +259,7 @@ struct ProjectSwitcherPopover: View {
                                         }
                                     }
                                     if rows.count == 1, rows[0].isCurrent, switcher.effectiveQuery.isEmpty {
-                                        Text(loc: "switcher.empty.only").font(.system(size: 11)).foregroundStyle(Color(hex: 0x8A8A8E))
+                                        Text(loc: "switcher.empty.only").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                                             .frame(maxWidth: .infinity).frame(height: 40)
                                             .testID("switcher.empty")
                                     }
@@ -271,7 +271,7 @@ struct ProjectSwitcherPopover: View {
                         }
                     }
                 }
-                Rectangle().fill(Color(hex: 0x333333)).frame(height: 1)
+                Rectangle().fill(Theme.separator).frame(height: 1)
                 footer
             }
             .frame(width: 380)
@@ -287,14 +287,14 @@ struct ProjectSwitcherPopover: View {
 
     private var searchField: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(Color(hex: 0x8A8A8E))
+            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
                 .accessibilityHidden(true)
             SwitcherSearchField(switcher: switcher, placeholder: tr("home.search.placeholder"))
                 .frame(height: 22)
                 .accessibilityLabel(Text(loc: "home.search.placeholder"))
                 .testID("switcher.search")
             Text(verbatim: Keymap.shared.binding(for: "menu.switchProject")?.display ?? "")
-                .font(.system(size: 11)).foregroundStyle(Color(hex: 0x6A6A6E))
+                .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, 12).frame(height: 40)
@@ -303,7 +303,7 @@ struct ProjectSwitcherPopover: View {
     private var footer: some View {
         HStack(spacing: 0) {
             footerButton("plus", "switcher.newProject", Keymap.shared.binding(for: "menu.new")?.display, id: "switcher.newProject") { switcher.newProject() }
-            Rectangle().fill(Color(hex: 0x333333)).frame(width: 1, height: 20)
+            Rectangle().fill(Theme.separator).frame(width: 1, height: 20)
             footerButton("house", "switcher.home", Keymap.shared.binding(for: "menu.home")?.display, id: "switcher.home") { switcher.showHome() }
         }
         .frame(height: 36)
@@ -327,11 +327,11 @@ private struct FooterButton: View {
                     Image(systemName: icon).font(.system(size: 11, weight: .medium)).accessibilityHidden(true)
                     Text(verbatim: title)
                     Spacer(minLength: 4)
-                    if let shortcut { Text(verbatim: shortcut).foregroundStyle(Color(hex: 0x6A6A6E)).accessibilityHidden(true) }
+                    if let shortcut { Text(verbatim: shortcut).foregroundStyle(Theme.textTertiary).accessibilityHidden(true) }
                 }
-                .font(.system(size: 12)).foregroundStyle(.white)
+                .font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 12).frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(hover ? Color(hex: 0x2A2A2E) : .clear)
+                .background(hover ? Theme.Valse.controlHover : .clear)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -355,16 +355,16 @@ struct ProjectSwitcherRow: View {
             HStack(spacing: 10) {
                 CoverView(entry: e).frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 4))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(verbatim: e.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(verbatim: e.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                         .lineLimit(1).truncationMode(.middle)
-                    Text(verbatim: meta).font(.system(size: 11)).foregroundStyle(Color(hex: 0x8A8A8E)).lineLimit(1)
+                    Text(verbatim: meta).font(.system(size: 11)).foregroundStyle(Theme.textTertiary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 trailing
             }
             .padding(.horizontal, 12)
             .frame(height: ProjectSwitcherPopover.rowHeight)
-            .background(isSelected ? Theme.accent.opacity(0.18) : (hover ? Color(hex: 0x2A2A2E) : .clear))
+            .background(isSelected ? Theme.Valse.selectedFill : (hover ? Theme.Valse.controlHover : .clear))
             .opacity(row.status == .offline ? 0.5 : 1)
             .contentShape(Rectangle())
             .onHover { hover = $0 }
@@ -402,7 +402,7 @@ struct ProjectSwitcherRow: View {
         case .normal:
             if hover {
                 Button { switcher.activate(index, newWindow: true) } label: {
-                    Image(systemName: "macwindow.badge.plus").font(.system(size: 13)).foregroundStyle(Color(hex: 0xC8C8CC))
+                    Image(systemName: "macwindow.badge.plus").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
                         .frame(width: 26, height: 24).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -418,7 +418,7 @@ struct ProjectSwitcherRow: View {
             Image(systemName: icon).font(.system(size: 10))
             Text(verbatim: text).font(.system(size: 10))
         }
-        .foregroundStyle(Color(hex: 0x8A8A8E))
+        .foregroundStyle(Theme.textTertiary)
         .accessibilityHidden(true)
     }
 }
