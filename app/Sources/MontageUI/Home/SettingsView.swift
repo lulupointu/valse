@@ -128,8 +128,8 @@ struct SettingsTabBar: View {
                     WithPerceptionTracking {
                         Button { selection = t } label: {
                             Text(verbatim: tr(t.nameKey))
-                                .font(.system(size: 12.5, weight: .medium))
-                                .foregroundStyle(selection == t ? Theme.textPrimary : Theme.textSecondary)
+                                .font(.system(size: 12.5, weight: selection == t ? .semibold : .medium))
+                                .foregroundStyle(selection == t ? Theme.accentText : Theme.textSecondary)
                                 .lineLimit(1).minimumScaleFactor(0.8)
                                 // 9 tabs: a long label ("Performances") keeps its width, the rest share what is left
                                 .frame(minWidth: CGFloat(tr(t.nameKey).count) * 6.4 + 6, maxWidth: .infinity, minHeight: 28)
@@ -184,7 +184,7 @@ struct CheckLine: View {
                 HStack(alignment: .top, spacing: 8) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
-                        if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.textPrimary) }
+                        if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.onAccent) }
                     }
                     .frame(width: 16, height: 16)
                     Text(verbatim: label).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
