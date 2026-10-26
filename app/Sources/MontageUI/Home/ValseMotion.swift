@@ -41,27 +41,35 @@ final class ValseDebugClock: ObservableObject {
     let unhoverAt: Double? = ProcessInfo.processInfo.environment["VALSE_DEBUG_UNHOVER_AT"].flatMap(Double.init)
     var active: Bool { t != nil }
 
-    /// Review clock: the forced element's state at the current time (nil = not under review, use the real state).
-    func liftState(_ id: String) -> ValseLift.State? {
+    /// Review clock: the forced element's hover at the current time (nil = not under review, use the real pointer).
+    func debugHover(_ id: String) -> Bool? {
         guard let t, ValseDebugHover.forced(id) else { return nil }
-        var s: ValseLift.State = t >= hoverAt ? .hover : .rest
-        if let p = pressAt, t >= p { s = .pressed }
-        if let r = releaseAt, t >= r { s = .hover }
-        if let u = unhoverAt, t >= u { s = .rest }
-        return s
+        if let u = unhoverAt, t >= u { return false }
+        return t >= hoverAt
     }
 
-    /// Review clock: the forced element's hover / press timeline as spring retargets (`ValseLift.target` per state).
-    func liftEvents(_ id: String) -> [ValseSpringEvent] {
+    /// Review clock: the forced element is held down (VALSE_DEBUG_PRESS_AT … RELEASE_AT).
+    func debugPressed(_ id: String) -> Bool {
+        guard let t, ValseDebugHover.forced(id), let p = pressAt, t >= p else { return false }
+        if let r = releaseAt, t >= r { return false }
+        return true
+    }
+
+    /// Review clock: the forced element's hover in / out as spring retargets (`ValseLift.spring`).
+    func hoverEvents(_ id: String) -> [ValseSpringEvent] {
         guard ValseDebugHover.forced(id) else { return [] }
-        var states: [(Double, ValseLift.State)] = [(hoverAt, .hover)]
-        if let p = pressAt { states.append((p, .pressed)) }
-        if let r = releaseAt { states.append((r, .hover)) }
-        if let u = unhoverAt { states.append((u, .rest)) }
-        return states.sorted { $0.0 < $1.0 }.map { at, s in
-            let k = ValseLift.spring(to: s)
-            return ValseSpringEvent(at: at, target: ValseLift.target(s), response: k.response, damping: k.damping)
-        }
+        let up = ValseLift.spring(hover: true), down = ValseLift.spring(hover: false)
+        var e = [ValseSpringEvent(at: hoverAt, target: 1, response: up.response, damping: up.damping)]
+        if let u = unhoverAt { e.append(ValseSpringEvent(at: u, target: 0, response: down.response, damping: down.damping)) }
+        return e
+    }
+
+    /// Review clock: the forced element's press / release as spring retargets (`ValsePress`).
+    func pressEvents(_ id: String) -> [ValseSpringEvent] {
+        guard ValseDebugHover.forced(id), let p = pressAt else { return [] }
+        var e = [ValseSpringEvent(at: p, target: 1, response: ValsePress.response, damping: ValsePress.damping)]
+        if let r = releaseAt { e.append(ValseSpringEvent(at: r, target: 0, response: ValsePress.response, damping: ValsePress.damping)) }
+        return e
     }
 
     /// Renders the requested frame range of the clock, one PNG per frame (review videos).
@@ -197,39 +205,44 @@ enum ValseTweenTarget {
     }
 }
 
-/// Round 5: the hard-offset "key" shared by the feature cards and the selection bar buttons. One signed value drives it:
-/// rest 0, hover 1 (lifted up-left off a solid block, zero blur), pressed -1 (pushed down-right past rest, onto where
-/// the block was, which disappears under it). One value means hover → press → release is a single continuous spring
-/// (no second animation fighting the first) and nothing is clamped, so an overshoot never sticks to a ceiling.
+/// Hover lift of the feature cards' icon tile (and of the whole card in hover option A): one value 0 → 1 that follows
+/// the hover. Up = the sidebar sticker's spring (0.34 / 0.55, one small overshoot); down = critically damped. An
+/// underdamped exit undershoots below rest, and with a clamped block it re-lifted the round 4 Shorts card after the
+/// pointer had left.
 enum ValseLift {
-    enum State: Equatable { case rest, hover, pressed, disabled }
-    static func state(hover: Bool, pressed: Bool, enabled: Bool = true) -> State {
-        guard enabled else { return .disabled }
-        return pressed ? .pressed : (hover ? .hover : .rest)
-    }
-    static func target(_ s: State) -> Double {
-        switch s {
-        case .rest, .disabled: return 0
-        case .hover: return 1
-        case .pressed: return -1
-        }
-    }
-    /// Spring per destination: up = the sidebar sticker's spring (0.34 / 0.55, one small overshoot), down = a quick
-    /// near-critical push, back to rest = critically damped. An underdamped exit undershoots below rest, i.e. a phantom
-    /// press, and with a clamped block it re-lifted the card after the pointer had left (round 4 Shorts card bug).
-    static func spring(to s: State) -> (response: Double, damping: Double) {
-        switch s {
-        case .hover: return (0.34, 0.55)
-        case .pressed: return (0.1, 0.9)
-        case .rest, .disabled: return (0.26, 1.0)
-        }
-    }
+    static func spring(hover: Bool) -> (response: Double, damping: Double) { hover ? (0.34, 0.55) : (0.26, 1.0) }
     /// Offset of the lifted content (negative = up-left).
     static func offset(_ v: Double, depth: CGFloat) -> CGFloat { -depth * CGFloat(v) }
-    /// Offset of the solid block behind it (down-right), none at rest or while pressed.
+    /// Offset of the solid block behind it (down-right).
     static func block(_ v: Double, depth: CGFloat) -> CGFloat { depth * CGFloat(max(0, v)) }
-    /// The block is drawn only while lifted: pressed, the content moves past rest and would uncover it.
+    /// The block is drawn only while lifted.
     static func showsBlock(_ v: Double) -> Bool { v > 0.02 }
+}
+
+/// Press feedback, the hero's "Custom" button recipe (`ValsePressLabel`): a springy squash (response 0.25, damping
+/// 0.55, so the release bounces back just past full size) and the fill dimmed to 75 % while held. Used as is by the
+/// selection bar keys and the feature cards, so every click on Home outside the sidebar and the hero feels the same.
+enum ValsePress {
+    static let response = 0.25, damping = 0.55
+    static let fillOpacity = 0.75
+    /// Custom squashes to 95 %: about 3 pt on each side of a 110 pt wide button. The 300 pt cards travel the same few
+    /// points (97 %); at 95 % a card would jump 7 pt per side.
+    static let keyScale: CGFloat = 0.95, cardScale: CGFloat = 0.97
+    static func scale(_ k: Double, to s: CGFloat) -> CGFloat { 1 - (1 - s) * CGFloat(k) }
+}
+
+/// The press value 0 → 1 with `ValsePress`'s spring, through `ValseSpringValue` (interruptible, always converges,
+/// replayable under the review clock). `pressed` comes straight from the button's `isPressed`: nothing else holds
+/// state. The release bounces slightly below 0 (a squash just past full size), as Custom's does.
+struct ValsePressValue<Content: View>: View {
+    let pressed: Bool
+    var debugID = ""
+    @ViewBuilder let content: (Double) -> Content
+    @ObservedObject private var clock = ValseDebugClock.shared
+    var body: some View {
+        ValseSpringValue(target: pressed || clock.debugPressed(debugID) ? 1 : 0, response: ValsePress.response,
+                         damping: ValsePress.damping, debugEvents: clock.pressEvents(debugID), content: content)
+    }
 }
 
 /// A spring retarget at review-clock time `at` (debug replays of hover / press / release / exit).
@@ -240,7 +253,7 @@ struct ValseSpringEvent: Equatable {
     var damping: Double
 }
 
-/// `ValseTween` for any target value (ValseLift's three states). Same engine: the model value is always exactly the
+/// `ValseTween` for any target value and spring. Same engine: the model value is always exactly the
 /// target and SwiftUI's interruptible spring animates the presentation (retargets keep the current velocity), so it
 /// always converges. Under the review clock the timeline in `debugEvents` is replayed (`ValseMotion.replay`).
 struct ValseSpringValue<Content: View>: View {

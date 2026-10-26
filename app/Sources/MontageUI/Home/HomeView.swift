@@ -174,6 +174,7 @@ struct HomeTopBar: View {
         WithPerceptionTracking {
             HStack(spacing: 14) {
                 Spacer()
+                if ValseTempHoverPicker.visible { ValseTempHoverPickerView() }   // TEMPORARY (round 6), see its file
                 IconButton("square.and.arrow.down", help: tr("home.importProject")) { app.importProjectPanel() }.testID("home.top.import")
                 IconButton("keyboard", help: tr("keymap.title")) { app.modal = .shortcuts }.testID("home.top.shortcuts")
                 IconButton("gearshape", help: tr("settings.title")) { app.modal = .settings(.general) }.testID("home.top.settings")
@@ -286,7 +287,7 @@ struct NewProjectHero: View {
                     }
                     .padding(.leading, 28)
                 }
-                .frame(height: 164)
+                .frame(height: ValseHeroRibbon.heroHeight)
                 .clipShape(RoundedRectangle(cornerRadius: r))
                 .overlay(RoundedRectangle(cornerRadius: r).stroke(hover ? Theme.Valse.controlHover : Theme.Valse.stroke))
                 .contentShape(Rectangle())
@@ -330,19 +331,17 @@ struct HomeFeatureRow: View {
     }
 }
 
-/// Round 5: a feature card is a flat key. Hover lifts it 2 pt up-left off a solid, muted block of its colour (zero
-/// blur) and pops its icon tile a further 1.5 pt off the tile's own block, like the "+" tile on the hero; press pushes
-/// the whole card down-right onto where its block was (the block disappears under it), release springs it back up.
-/// Hover → press → release is one continuous spring (`ValseLift`), nothing clamped. No coloured outline: the border
-/// only brightens to a cream hairline.
+/// Feature card (round 6). At rest: a flat wash of the card colour on the surface, a hairline. Hover: one of the
+/// treatments the owner is comparing live (`ValseCardHover`, temporary picker in the top bar). Press: the same for
+/// every option and card, the hero's "Custom" button recipe (`ValsePress`): a springy squash and the fill dimmed.
 struct FeatureCard: View {
     let symbol: String
     var tint: Color = Theme.Valse.teal
-    /// The icon tile's solid block: its darker warm partner (mustard on orange, as the "+" tile; orange on burgundy),
-    /// teal on its own shade (teal half printed over ink: a red or orange fringe under teal read as misregistration).
+    /// The icon tile's solid block when it pops: its darker warm partner (mustard on orange, as the "+" tile; orange on
+    /// burgundy), teal on its own shade (a red or orange fringe under teal read as misregistration).
     var tileBlock: Color = Theme.Valse.burgundy
     static let tealShade = Color(hex: 0x20604E)
-    /// The icon's small themed motion while lifted.
+    /// The icon's small themed motion while hovered.
     enum Motion { case fan, drop, snip }
     var motion: Motion = .fan
     var debugID = ""
@@ -362,6 +361,32 @@ struct FeatureCard: View {
     }
 }
 
+/// What each hover option does (pure, ValseHoverTests). `h` = the hover spring value (0 rest, 1 hovered).
+struct ValseCardHoverStyle: Equatable {
+    /// Whole card lift off a muted block of its colour (pt).
+    var cardDepth: CGFloat = 0
+    /// Icon tile pop off its own block (pt).
+    var tileDepth: CGFloat = 0
+    /// Colour wash when hovered (rest is always 0.10).
+    var wash: Double = 0.10
+    /// Cream hairline over the border when hovered.
+    var hairline: Double = 0
+    /// A flat bar of the card colour along the bottom edge.
+    var underline = false
+    /// Icon motion amplitude and tile scale-up.
+    var motion: Double = 1
+    var tileScale: CGFloat = 0
+
+    static func of(_ o: ValseCardHover) -> ValseCardHoverStyle {
+        switch o {
+        case .a: return .init(cardDepth: 2, tileDepth: 1.5, wash: 0.14, hairline: 0.22)                // lift off block
+        case .b: return .init(tileDepth: 2, wash: 0.17, hairline: 0.16)                                 // tile pops
+        case .c: return .init(wash: 0.12, underline: true)                                              // edge bar
+        case .d: return .init(motion: 1.45, tileScale: 0.07)                                            // icon only
+        }
+    }
+}
+
 private struct FeatureCardFace: View {
     let symbol: String
     let tint: Color
@@ -373,60 +398,82 @@ private struct FeatureCardFace: View {
     let hover: Bool
     @Environment(\.valsePressed) private var pressed
     @ObservedObject private var clock = ValseDebugClock.shared
-
-    static let depth: CGFloat = 2, tileDepth: CGFloat = 1.5
+    @ObservedObject private var choice = ValseCardHoverChoice.shared
 
     var body: some View {
         let r = ValseShape.card
-        let state = clock.liftState(debugID) ?? ValseLift.state(hover: hover, pressed: pressed)
-        let k = ValseLift.spring(to: state)
-        let lit = state == .hover || state == .pressed
-        ValseSpringValue(target: ValseLift.target(state), response: k.response, damping: k.damping,
-                         debugEvents: clock.liftEvents(debugID)) { v in
-            let up = max(0, v)
-            HStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 11).fill(tint).frame(width: 34, height: 34)
-                    .overlay(icon(up))
-                    .offset(x: ValseLift.offset(up, depth: Self.tileDepth), y: ValseLift.offset(up, depth: Self.tileDepth))
-                    .background(RoundedRectangle(cornerRadius: 11).fill(tileBlock)
-                        .offset(x: ValseLift.block(v, depth: Self.tileDepth), y: ValseLift.block(v, depth: Self.tileDepth))
-                        .opacity(ValseLift.showsBlock(v) ? 1 : 0))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
-                        .lineLimit(1).minimumScaleFactor(0.85)
-                    Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
+        let hovered = clock.debugHover(debugID) ?? hover
+        let style = ValseCardHoverStyle.of(choice.option)
+        let k = ValseLift.spring(hover: hovered)
+        ValsePressValue(pressed: pressed, debugID: debugID) { press in
+            ValseSpringValue(target: hovered ? 1 : 0, response: k.response, damping: k.damping,
+                             debugEvents: clock.hoverEvents(debugID)) { h in
+                let up = max(0, h), on = min(1, up)
+                HStack(spacing: 10) {
+                    tile(up, style)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
+                            .lineLimit(1).minimumScaleFactor(0.85)
+                        Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                .padding(.leading, 12).padding(.trailing, 10)
+                .frame(width: 300, height: 72)
+                .background {
+                    // flat fill: a wash of the card colour on the surface (no gradient); dimmed while pressed (Custom)
+                    ZStack(alignment: .bottom) {
+                        Theme.Valse.surface
+                        tint.opacity(0.10 + (style.wash - 0.10) * on)
+                        if style.underline {
+                            Rectangle().fill(tint).frame(height: 3).scaleEffect(x: on, anchor: .leading)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: r))
+                    .opacity(min(1, 1 - (1 - ValsePress.fillOpacity) * press))
+                }
+                .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.stroke))
+                .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.cream.opacity(style.hairline * on)))
+                .offset(x: ValseLift.offset(h, depth: style.cardDepth), y: ValseLift.offset(h, depth: style.cardDepth))
+                .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.42))
+                    .offset(x: ValseLift.block(h, depth: style.cardDepth), y: ValseLift.block(h, depth: style.cardDepth))
+                    .opacity(style.cardDepth > 0 && ValseLift.showsBlock(h) ? 1 : 0))
+                .scaleEffect(ValsePress.scale(press, to: ValsePress.cardScale))
             }
-            .padding(.leading, 12).padding(.trailing, 10)
-            .frame(width: 300, height: 72)
-            // flat fill: a wash of the card colour on the surface (no gradient), a touch stronger while lit
-            .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(lit ? 0.14 : 0.10))
-                .background(RoundedRectangle(cornerRadius: r).fill(Theme.Valse.surface)))
-            .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(lit ? Theme.Valse.cream.opacity(0.22) : Theme.Valse.stroke))
-            .offset(x: ValseLift.offset(v, depth: Self.depth), y: ValseLift.offset(v, depth: Self.depth))
-            .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.42))
-                .offset(x: ValseLift.block(v, depth: Self.depth), y: ValseLift.block(v, depth: Self.depth))
-                .opacity(ValseLift.showsBlock(v) ? 1 : 0))
         }
-        // the lifted / pressed card and its block stay inside the hit area
-        .contentShape(Rectangle().inset(by: -Self.depth))
+        // the lifted card and its block stay inside the hit area
+        .contentShape(Rectangle().inset(by: -2))
     }
 
-    /// One monotone motion per card, driven by the lift (0 at rest and while pressed, follows the spring's single
-    /// small overshoot): the template stack fans out, the import arrow sinks into its tray, the scissors tilt into a cut.
-    @ViewBuilder private func icon(_ up: Double) -> some View {
+    /// The icon tile: tile and glyph are one unit (a ZStack), so every offset, scale and pop moves both together and
+    /// the glyph's own motion only rotates / scales about the tile's centre (never translates inside it).
+    private func tile(_ up: Double, _ style: ValseCardHoverStyle) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 11).fill(tint)
+            icon(up * style.motion)
+        }
+        .frame(width: 34, height: 34)
+        .scaleEffect(1 + style.tileScale * CGFloat(up))
+        .offset(x: ValseLift.offset(up, depth: style.tileDepth), y: ValseLift.offset(up, depth: style.tileDepth))
+        .background(RoundedRectangle(cornerRadius: 11).fill(tileBlock)
+            .offset(x: ValseLift.block(up, depth: style.tileDepth), y: ValseLift.block(up, depth: style.tileDepth))
+            .opacity(style.tileDepth > 0 && ValseLift.showsBlock(up) ? 1 : 0))
+    }
+
+    /// One motion per card, following the hover spring, about the glyph's centre: the template stack fans out, the
+    /// import glyph swells, the scissors tilt into a cut.
+    @ViewBuilder private func icon(_ m: Double) -> some View {
         let glyph = Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.Valse.ink)
         switch motion {
         case .fan:
             ZStack {
-                glyph.opacity(0.4 * min(1, up)).rotationEffect(.degrees(14 * up)).offset(x: 2.5 * up)
-                glyph.rotationEffect(.degrees(-12 * up)).offset(x: -1.5 * up)
+                glyph.opacity(0.4 * min(1, m)).rotationEffect(.degrees(14 * m))
+                glyph.rotationEffect(.degrees(-10 * m))
             }
         case .drop:
-            glyph.offset(y: 2.5 * up)
+            glyph.scaleEffect(1 + 0.12 * m)
         case .snip:
-            glyph.rotationEffect(.degrees(-14 * up)).offset(x: 1.5 * up)
+            glyph.rotationEffect(.degrees(-14 * m))
         }
     }
 }
@@ -463,6 +510,9 @@ struct ValseHeroRibbon: View {
     @MainActor static var introPlayed = false
 
     static let introDuration = 2.0
+    /// Ribbon placement (bottom of the V's turn, centreline): the mark at 38 pt is 149 pt tall, hence the 180 pt hero.
+    static let turnFromTrailing: CGFloat = 300, turnBottom: CGFloat = 30
+    static let heroHeight: CGFloat = 180
     static let idleSpeed = 7.0, hoverSpeed = 34.0   // film, pt / s
 
     var body: some View {
@@ -494,8 +544,9 @@ struct ValseHeroRibbon: View {
     }
 
     private func ribbon(trim: Double, phase: CGFloat) -> some View {
-        ValseRibbon(width: 38, baseline: 46, entry: 520, turnRadius: 78, background: background,
-                    loop: .init(fromTrailing: 196, height: 96, pitch: 13), trim: trim, phase: phase)
+        // the logo's own path at the hero's band width; the loop's right side stays clear of the Custom chip
+        ValseRibbon(width: 38, background: background, loop: .init(turnFromTrailing: Self.turnFromTrailing, bottom: Self.turnBottom),
+                    trim: trim, phase: phase)
     }
 }
 
@@ -679,8 +730,8 @@ struct EmptyProjects: View {
 /// Bottom bar when several projects are selected (round 5): a dark, precise front panel, not a sticker. Raised
 /// surface, 1 pt hairline, a hard 3 pt ink shadow; the only colour is the count, a small mint counter on its teal
 /// block (the selection sticker in miniature). Actions are flat keys in groups split by hairlines: file actions,
-/// then the destructive one (orange glyph, orange block, orange when pressed), then close. Every key lifts off its
-/// block on hover, is pushed in and lights mint (orange for Delete) while pressed, and springs back (`ValseLift`).
+/// then the destructive one (orange glyph, orange when pressed), then close. Keys are quiet (`ValseBarButtonStyle`):
+/// a soft fill on hover, Custom's squash and a mint (Delete: orange) light while pressed.
 struct SelectionBar: View {
     @Perception.Bindable var app: AppModel
     var body: some View {
@@ -757,17 +808,19 @@ struct ValseBarDivider: View {
 }
 
 /// A selection bar key's content: glyph + label (or glyph only). Colours follow the key's state (`valsePressed`,
-/// `isEnabled`): pressed keys light up, so their content turns ink.
+/// `valseKeyHover`, `isEnabled`): hover brightens the glyph, a pressed key lights up so its content turns ink.
 struct ValseBarLabel: View {
     let symbol: String
     let title: String?
     var destructive = false
     var menu = false
     @Environment(\.valsePressed) private var pressed
+    @Environment(\.valseKeyHover) private var hover
     @Environment(\.isEnabled) private var enabled
     var body: some View {
         let text = !enabled ? Theme.Valse.text3.opacity(0.6) : (pressed ? Theme.Valse.ink : Theme.Valse.text)
-        let glyph = !enabled ? text : (pressed ? Theme.Valse.ink : (destructive ? Theme.Valse.orange : Theme.Valse.text2))
+        let glyph = !enabled ? text
+            : (pressed ? Theme.Valse.ink : (destructive ? Theme.Valse.orange : (hover ? Theme.Valse.text : Theme.Valse.text2)))
         HStack(spacing: 6) {
             Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(glyph)
             if let title { Text(verbatim: title).font(.system(size: 12, weight: .semibold)).foregroundStyle(text).lineLimit(1).fixedSize() }
@@ -778,14 +831,34 @@ struct ValseBarLabel: View {
     }
 }
 
-/// Flat key of the selection bar (see `SelectionBar`): rest = text on the panel; hover = control fill lifted 1 pt
-/// up-left off a solid teal (destructive: orange) block; pressed = pushed down-right onto it and lit mint (orange);
-/// disabled = dimmed, no lift. Same springs as every Home lift (`ValseLift`).
+private struct ValseKeyHoverKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    /// The enclosing selection bar key is hovered.
+    var valseKeyHover: Bool {
+        get { self[ValseKeyHoverKey.self] }
+        set { self[ValseKeyHoverKey.self] = newValue }
+    }
+}
+
+/// Flat key of the selection bar (round 6: quiet). Rest: the label on the panel. Hover: a soft control fill fades in
+/// (120 ms) and the glyph brightens; nothing moves. Press: the hero "Custom" button's recipe (`ValsePress`, a springy
+/// squash to 95 %) and the key lights mint (Delete: orange) with ink content while held. Disabled: dimmed, inert.
+/// State is recomputed on every render from two inputs only, the pointer (`.valseHover`, convergent) and the button's
+/// own `isPressed`; the fade and the squash are keyed on those inputs, so a key can never stay lit, lifted or squashed.
 struct ValseBarButtonStyle: ButtonStyle {
     var destructive = false
     var debugID = ""
     func makeBody(configuration: Configuration) -> some View {
         ValseBarKey(label: configuration.label, pressed: configuration.isPressed, destructive: destructive, debugID: debugID)
+    }
+}
+
+/// The key's look per state (pure, ValseHoverTests).
+enum ValseBarKeyLook {
+    enum Fill: Equatable { case none, hover, lit }
+    static func fill(hover: Bool, pressed: Bool, enabled: Bool) -> Fill {
+        guard enabled else { return .none }
+        return pressed ? .lit : (hover ? .hover : .none)
     }
 }
 
@@ -796,26 +869,26 @@ private struct ValseBarKey<Label: View>: View {
     let debugID: String
     @State private var hoverState = false
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var clock = ValseDebugClock.shared
 
     var body: some View {
-        let state = clock.liftState(debugID)
-            ?? ValseLift.state(hover: ValseDebugHover.merge(hoverState, debugID), pressed: pressed, enabled: enabled)
-        let k = ValseLift.spring(to: state)
-        let accent = destructive ? Theme.Valse.orange : Theme.Valse.teal
-        let fill: Color = state == .pressed ? (destructive ? Theme.Valse.orange : Theme.Valse.mint)
-            : (state == .hover ? Theme.Valse.controlHover : .clear)
-        let r: CGFloat = 7
-        ValseSpringValue(target: ValseLift.target(state), response: k.response, damping: k.damping,
-                         debugEvents: clock.liftEvents(debugID)) { v in
-            label
-                .environment(\.valsePressed, state == .pressed)
-                .background(fill, in: RoundedRectangle(cornerRadius: r))
-                .offset(x: ValseLift.offset(v, depth: 1), y: ValseLift.offset(v, depth: 1))
-                .background(RoundedRectangle(cornerRadius: r).fill(accent)
-                    .offset(x: ValseLift.block(v, depth: 1.5), y: ValseLift.block(v, depth: 1.5))
-                    .opacity(ValseLift.showsBlock(v) ? 1 : 0))
+        let hover = (clock.debugHover(debugID) ?? ValseDebugHover.merge(hoverState, debugID)) && enabled
+        let held = (pressed || clock.debugPressed(debugID)) && enabled
+        let look = ValseBarKeyLook.fill(hover: hover, pressed: held, enabled: enabled)
+        let fill: Color = switch look {
+        case .lit: destructive ? Theme.Valse.orange : Theme.Valse.mint
+        case .hover: Theme.Valse.controlHover
+        case .none: .clear
         }
+        ValsePressValue(pressed: held, debugID: debugID) { k in
+            label
+                .environment(\.valsePressed, look == .lit)
+                .environment(\.valseKeyHover, hover)
+                .background(fill, in: RoundedRectangle(cornerRadius: 7))
+                .scaleEffect(ValsePress.scale(k, to: ValsePress.keyScale))
+        }
+        .animation(ValseMotion.live(reduceMotion) ? .easeOut(duration: 0.12) : nil, value: hover)
         .contentShape(Rectangle())
         .valseHover($hoverState)
     }
@@ -857,6 +930,12 @@ enum HomeMoveMenu {
         let m = menu(app: app, items: items)
         if let sink = DropdownMenu.uitestMenuSink { sink(m); return }
         if TestAnchors.isEnabled { return }   // UI tests never run a real (modal) menu tracking loop
+        // Open on the next turn of the run loop: a pop-up runs a modal tracking loop, and started inside the button's
+        // action it swallowed the mouse-up, so the key could stay "pressed" (lit) behind and after the menu.
+        Task { @MainActor in popUp(m, above: view) }
+    }
+
+    private static func popUp(_ m: NSMenu, above view: NSView?) {
         guard let view, view.window != nil else { m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil); return }
         // the bar sits at the bottom of the window: open upwards, the menu's bottom edge 4 pt above the key
         let h = m.size.height

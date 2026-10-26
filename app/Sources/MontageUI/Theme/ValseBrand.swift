@@ -25,12 +25,28 @@ struct ValseMark: View {
     }
 }
 
-/// The ribbon as art: the V's arm drops in from the top edge at the logo's 22° slant, turns, optionally takes a waltz
-/// loop (a real self-crossing loop, drawn over / under), and leaves to the right like a clip on a timeline. Drawn as
-/// concentric strokes of one centreline (as the logo is), perforations punched in `background` along both burgundy
-/// edges. `trim` draws it in along its length, `phase` advances the film.
+/// The ribbon as art: the V's arm drops in from the top edge at the logo's 22° slant, turns, optionally takes the
+/// logo's loop (`Loop`: the whole "Open turn" mark, scaled to the band width), and leaves to the right like a clip on a
+/// timeline. Drawn as concentric strokes of one centreline (as the logo is), perforations punched in `background`
+/// along both burgundy edges. `trim` draws it in along its length, `phase` advances the film.
 struct ValseRibbon: View {
-    struct Loop { var fromTrailing: CGFloat; var height: CGFloat; var pitch: CGFloat }
+    /// The logo's path (round 6, owner: "the same loop as in the logo"): arm, turn, climb, loop and the horizontal exit
+    /// crossing over the climb. Placed by the bottom of the V's turn (centreline), from the trailing and bottom edges;
+    /// `baseline`, `entry` and `turnRadius` do not apply.
+    struct Loop { var turnFromTrailing: CGFloat; var bottom: CGFloat }
+
+    /// "Open turn" master geometry (logo/final-open-turn/film-turn-open.svg, in its units: band width 90), measured from
+    /// the SVG centreline: a straight arm 22.5° off vertical, a turn of radius 66, the climb tangent to the turn and the
+    /// loop, a loop of radius 71.7 turning 290° the same way, and the exit leaving the loop's bottom horizontally. The
+    /// logo draws the second half (from the top of the loop on) over the first, so the exit crosses over the climb.
+    enum Logo {
+        static let band: CGFloat = 90
+        static let armHeading = 67.5 * Double.pi / 180
+        static let turn = CGPoint(x: 222.4, y: 273.5), turnR: CGFloat = 66
+        static let loop = CGPoint(x: 261.3, y: 148.2), loopR: CGFloat = 71.7
+        /// Where the over pass starts on the loop (its top, slightly left), as in the SVG.
+        static let overFrom = -100 * Double.pi / 180
+    }
     /// Ribbon width; the logo proportions are edge 8/36, inner bands 4/36 each.
     var width: CGFloat = 36
     /// Distance of the horizontal run's centreline from the bottom edge.
@@ -66,16 +82,18 @@ struct ValseRibbon: View {
             return out
         }
         stroke(&ctx, cut(pts, 0, pts.count - 1), sides.map { cut($0, 0, $0.count - 1) }, dashStart: [0, 0])
-        // Over pass: redraw the second passage through the crossing on top, composited as one layer and clipped to a
-        // disc around the crossing. Where the disc's edge cuts the strand, the layer is pixel-identical to what is
-        // under it (same bands, dash pattern continued), so there is no seam or notch; only the crossing changes.
+        // Over pass (the logo's second half, drawn over the first): redraw it on top as one layer, clipped to everything
+        // but a disc around where it starts. There the layer is pixel-identical to the strand under it (same bands, dash
+        // pattern continued), so the start leaves no seam or notch; only where it crosses another strand changes.
         if let r = over, k > r.lowerBound {
             let starts = sides.map { lengths(Array($0[0...r.lowerBound])).last ?? 0 }
-            let c = pts[(r.lowerBound + r.upperBound) / 2]
-            let rad = width * 1.15
+            let c = pts[r.lowerBound]
+            let rad = width * 1.2
             let piece = cut(pts, r.lowerBound, r.upperBound), pieceSides = sides.map { cut($0, r.lowerBound, r.upperBound) }
             ctx.drawLayer { layer in
-                layer.clip(to: Path(ellipseIn: CGRect(x: c.x - rad, y: c.y - rad, width: 2 * rad, height: 2 * rad)))
+                var clip = Path(CGRect(x: -4 * width, y: -4 * width, width: size.width + 8 * width, height: size.height + 8 * width))
+                clip.addEllipse(in: CGRect(x: c.x - rad, y: c.y - rad, width: 2 * rad, height: 2 * rad))
+                layer.clip(to: clip, style: FillStyle(eoFill: true))
                 stroke(&layer, piece, pieceSides, dashStart: starts)
             }
         }
@@ -95,8 +113,12 @@ struct ValseRibbon: View {
         }
     }
 
-    /// Centreline + the index range of the "over" passage through the loop's crossing.
+    /// Centreline + the index range drawn over the rest (the logo loop's second half; none without a loop).
     private func centreline(in size: CGSize) -> ([CGPoint], Range<Int>?) {
+        if let lp = loop {
+            let (pts, over) = Self.logoCentreline(in: size, width: width, lp)
+            return (pts, over)
+        }
         let a = 22.1 * Double.pi / 180
         let yb = size.height - baseline
         let start = CGPoint(x: size.width - entry, y: -width)   // just above the top edge
@@ -120,34 +142,59 @@ struct ValseRibbon: View {
             let n = max(2, Int((x - x0) / 8))
             for i in 1...n { pts.append(CGPoint(x: x0 + (x - x0) * CGFloat(i) / CGFloat(n), y: yb)) }
         }
-        guard let lp = loop else { run(to: endX); return (pts, nil) }
-        // Waltz loop: a prolate trochoid x = xc + p·s − h·sin s, y = yb − h·(1 + cos s), s ∈ [−π, π]. It leaves and
-        // rejoins the run tangentially and crosses itself at ±s*, where p·s* = h·sin s*.
-        let h = lp.height / 2, p = lp.pitch
-        let xc = size.width - lp.fromTrailing
-        run(to: xc - p * .pi)
-        let n = 140
-        var sStar = 0.0
-        do {   // bisection for s* on (0, π)
-            var lo = 0.001, hi = Double.pi
-            for _ in 0..<40 { let m = (lo + hi) / 2; if Double(p) * m - Double(h) * sin(m) < 0 { lo = m } else { hi = m } }
-            sStar = lo
-        }
-        let loopStart = pts.count
-        var crossIndex = loopStart
-        for i in 1..<n {
-            let sv = -Double.pi + 2 * Double.pi * Double(i) / Double(n)
-            if abs(sv - sStar) < Double.pi / Double(n) { crossIndex = pts.count }
-            pts.append(CGPoint(x: xc + p * CGFloat(sv) - h * CGFloat(sin(sv)), y: yb - h * CGFloat(1 + cos(sv))))
-        }
         run(to: endX)
-        // over range: ± 2 ribbon widths of arc length around the second crossing (longer than the clip disc)
-        let cum = lengths(pts)
-        let span = width * 2
-        var lo = crossIndex, hi = crossIndex
-        while lo > loopStart, cum[crossIndex] - cum[lo] < span { lo -= 1 }
-        while hi < pts.count - 1, cum[hi] - cum[crossIndex] < span { hi += 1 }
-        return (pts, lo..<hi)
+        return (pts, nil)
+    }
+
+    /// The logo's centreline (`Logo`), scaled so its band is `width` wide, the bottom of the turn at `loop`'s place, the
+    /// arm extended up past the top edge and the exit to past the trailing edge. Samples ≈ 4 pt apart. Returns the
+    /// index range drawn over (from the top of the loop to the end).
+    static func logoCentreline(in size: CGSize, width: CGFloat, _ lp: Loop) -> ([CGPoint], Range<Int>) {
+        let s = width / Logo.band
+        let lowest = CGPoint(x: Logo.turn.x, y: Logo.turn.y + Logo.turnR)
+        let o = CGPoint(x: size.width - lp.turnFromTrailing - lowest.x * s, y: size.height - lp.bottom - lowest.y * s)
+        let step = 4 / s   // logo units between samples
+        var pts: [CGPoint] = []
+        func view(_ p: CGPoint) -> CGPoint { CGPoint(x: o.x + p.x * s, y: o.y + p.y * s) }
+        func line(_ a: CGPoint, _ b: CGPoint) {
+            let n = max(2, Int((hypot(b.x - a.x, b.y - a.y) / step).rounded(.up)))
+            for i in 0..<n {
+                let f = CGFloat(i) / CGFloat(n)
+                pts.append(view(CGPoint(x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f)))
+            }
+        }
+        func arc(_ c: CGPoint, _ r: CGFloat, _ a0: Double, _ a1: Double) {
+            let n = max(4, Int((abs(a1 - a0) * Double(r) / Double(step)).rounded(.up)))
+            for i in 0..<n {
+                let a = a0 + (a1 - a0) * Double(i) / Double(n)
+                pts.append(view(CGPoint(x: c.x + r * CGFloat(cos(a)), y: c.y + r * CGFloat(sin(a)))))
+            }
+        }
+        // left normal of a direction (y down): the side the ribbon turns towards
+        func left(_ d: CGPoint) -> CGPoint { CGPoint(x: d.y, y: -d.x) }
+        // arm: tangent to the turn
+        let d1 = CGPoint(x: cos(Logo.armHeading), y: sin(Logo.armHeading))
+        let n1 = left(d1)
+        let p1 = CGPoint(x: Logo.turn.x - Logo.turnR * n1.x, y: Logo.turn.y - Logo.turnR * n1.y)
+        let topY = (-width - o.y) / s   // one band width above the top edge
+        let back = (p1.y - topY) / d1.y
+        line(CGPoint(x: p1.x - d1.x * back, y: p1.y - d1.y * back), p1)
+        // climb: the outer tangent of the turn and the loop, both on its left
+        let dx = Logo.loop.x - Logo.turn.x, dy = Logo.loop.y - Logo.turn.y
+        let psi = atan2(Double(dy), Double(dx)) + asin(Double((Logo.loopR - Logo.turnR) / hypot(dx, dy)))
+        let n2 = left(CGPoint(x: cos(psi), y: sin(psi)))
+        let t1 = CGPoint(x: Logo.turn.x - Logo.turnR * n2.x, y: Logo.turn.y - Logo.turnR * n2.y)
+        let t2 = CGPoint(x: Logo.loop.x - Logo.loopR * n2.x, y: Logo.loop.y - Logo.loopR * n2.y)
+        let a0 = atan2(Double(-n1.y), Double(-n1.x)), aT = atan2(Double(-n2.y), Double(-n2.x))
+        arc(Logo.turn, Logo.turnR, a0, aT)            // the turn, counter-clockwise on screen (angles decrease)
+        line(t1, t2)
+        arc(Logo.loop, Logo.loopR, aT, Logo.overFrom)  // up and over the top of the loop
+        let overStart = pts.count
+        arc(Logo.loop, Logo.loopR, Logo.overFrom, Double.pi / 2 - 2 * Double.pi)   // down the left, out at the bottom
+        let exitY = Logo.loop.y + Logo.loopR
+        line(CGPoint(x: Logo.loop.x, y: exitY), CGPoint(x: (size.width + width - o.x) / s, y: exitY))
+        pts.append(view(CGPoint(x: (size.width + width - o.x) / s, y: exitY)))
+        return (pts, overStart..<(pts.count - 1))
     }
 
     private func lengths(_ pts: [CGPoint]) -> [CGFloat] {
