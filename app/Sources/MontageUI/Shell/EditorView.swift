@@ -251,20 +251,28 @@ struct TitleBar: View {
     /// Opens the shortcut window (set by the app shell, W12 `AppModel`).
     @MainActor public static var showShortcuts: (() -> Void)?
     @Perception.Bindable var store: EditorStore
-    @ObservedObject private var options = ValseOptions.shared   // TEMPORARY (round 10): logo placement
+    @ObservedObject private var options = ValseOptions.shared   // TEMPORARY (round 11): logo placement
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var anchor = DropdownMenu.Anchor()   // the window (logo C flight)
     var body: some View {
         WithPerceptionTracking {
+            let logo = options.logo
+            let centred = logo == .b || logo == .c
             ZStack {
                 HStack(spacing: 10) {
                     Spacer().frame(width: 76)  // traffic lights
-                    if options.logo != .c { ValseEditorMark().padding(.trailing, 2) }
+                    switch logo {
+                    case .a: ValseEditorMark(height: 28).padding(.trailing, 2)
+                    case .d: ValseEditorMark(height: 24, wordmark: true).padding(.trailing, 4)
+                    case .b, .c:
+                        // the mark takes the centre: the project chip moves to the left, where the eye starts
+                        ProjectSwitcherButton(store: store, chip: true)
+                    }
                     if let saved = store.lastAutosave {
                         Text(loc: "titlebar.autosaved", saved.formatted(date: .omitted, time: .standard))
                             .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
                     }
                     Spacer()
-                    if options.logo == .c { ValseEditorMark().padding(.trailing, 4) }
                     // AI2: EditPilot editing agent (AI-048), ⌘J
                     Button { store.togglePilot() } label: {
                         HStack(spacing: 4) {
@@ -296,21 +304,32 @@ struct TitleBar: View {
                     .keyboardShortcut("e", modifiers: .command)
                     .testID("titlebar.export")
                 }
-                ProjectSwitcherButton(store: store)   // P1: click = project switcher (⌘⇧O)
+                if centred {
+                    ValseEditorMark(height: 24, wordmark: true, landsFromFlight: logo == .c)
+                } else {
+                    ProjectSwitcherButton(store: store)   // P1: click = project switcher (⌘⇧O)
+                }
             }
             .padding(.horizontal, 10)
             .frame(height: Theme.Metrics.titleBarHeight)
-            .background { if options.logo == .b { ValseTitleSwipe() } }   // TEMPORARY (round 10) logo variant B
             .background(Theme.window)
-            // the Valse mark's opening intro, once per project open (read untracked: no re-render with the project)
-            .onAppear { introIfNewProject() }
+            .background(DropdownMenu.AnchorView(anchor: anchor))
+            // the Valse mark's opening intro, once per project open (read untracked: no re-render with the project);
+            // a beat after appearing so the window exists for the C flight
+            .task { try? await Task.sleep(for: .milliseconds(60)); introIfNewProject() }
             .onValueChange(of: store.packageURL) { _, _ in introIfNewProject() }
         }
     }
 
     private func introIfNewProject() {
         let id = EditorStore.untracked { store.project.id }
-        ValseEditorIntro.shared.projectOpened(id, reduceMotion: reduceMotion)
+        let flight = options.logo == .c
+        ValseEditorIntro.shared.projectOpened(id, reduceMotion: reduceMotion, window: anchor.view?.window, flight: flight)
+        // review recordings (debug clock): the flight is driven by the clock, play it once
+        if flight, ValseDebugClock.shared.active, !ValseIntroFlight.playedForReview, let w = anchor.view?.window {
+            ValseIntroFlight.playedForReview = true
+            ValseIntroFlight.play(over: w)
+        }
     }
 }
 

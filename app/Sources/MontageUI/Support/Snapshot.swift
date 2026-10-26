@@ -68,6 +68,12 @@ public final class SnapshotRegistry {
             ctx.draw(base, in: CGRect(x: 0, y: 0, width: base.width, height: base.height))
             ctx.restoreGState()
         }
+        // the logo's opening flight (VALSE-APP round 11, variant C): a transparent child window over the editor
+        for child in window.childWindows ?? [] where child.identifier?.rawValue == "valse.introFlight" {
+            guard let v = child.contentView, let r = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { continue }
+            v.cacheDisplay(in: v.bounds, to: r)
+            if let img = r.cgImage { ctx.draw(img, in: CGRect(x: 0, y: 0, width: base.width, height: base.height)) }
+        }
         if let m = modal {
             for view in [player as NSView?, timeline as NSView?].compactMap({ $0 }) where view.window === window {
                 let r = view.convert(view.bounds, to: content)

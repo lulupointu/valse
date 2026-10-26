@@ -58,8 +58,6 @@ struct ValseRibbon: View {
     var loop: Loop? = nil
     var trim: Double = 1
     var phase: CGFloat = 0
-    /// Monochrome cut (the editor's resting mark): one band of this colour, perforations still punched.
-    var mono: Color? = nil
 
     var body: some View {
         Canvas { ctx, size in draw(in: &ctx, size: size) }
@@ -106,15 +104,8 @@ struct ValseRibbon: View {
         let s = width / 36
         let widths: [CGFloat] = [36, 20, 12, 4].map { $0 * s }
         let path = polyline(c)
-        if let mono {
-            // one-colour print: a thin knockout in the background colour around the band, so the over pass of the loop
-            // still reads as crossing over the climb
-            ctx.stroke(path, with: .color(background), style: StrokeStyle(lineWidth: widths[0] + 5 * s, lineCap: .butt, lineJoin: .round))
-            ctx.stroke(path, with: .color(mono), style: StrokeStyle(lineWidth: widths[0], lineCap: .butt, lineJoin: .round))
-        } else {
-            for (col, w) in zip(Theme.Valse.bands, widths) {
-                ctx.stroke(path, with: .color(col), style: StrokeStyle(lineWidth: w, lineCap: .butt, lineJoin: .round))
-            }
+        for (col, w) in zip(Theme.Valse.bands, widths) {
+            ctx.stroke(path, with: .color(col), style: StrokeStyle(lineWidth: w, lineCap: .butt, lineJoin: .round))
         }
         for (side, start) in zip(sides, dashStart) where side.count > 1 {
             ctx.stroke(polyline(side), with: .color(background),

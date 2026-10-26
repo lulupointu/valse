@@ -1,6 +1,7 @@
-/* TEMPORARY (VALSE-APP round 10): the "Valse options" menu, the editor logo choice. Delete with ValseOptions.swift. */
+/* TEMPORARY (VALSE-APP round 11): the "Valse options" menu, the editor logo choice. Delete with ValseOptions.swift. */
 "valseopt.menu" = "Valse options";
 "valseopt.logo" = "Editor logo";
-"valseopt.logo.a" = "A · Title bar, draws itself in";
-"valseopt.logo.b" = "B · Title bar, with a film strip swipe";
-"valseopt.logo.c" = "C · Next to Export, draws itself in";
+"valseopt.logo.a" = "A · Big mark, left";
+"valseopt.logo.b" = "B · Logo centred, project on the left";
+"valseopt.logo.c" = "C · Big entrance into the centre";
+"valseopt.logo.d" = "D · Logo and name, left";

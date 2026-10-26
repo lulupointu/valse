@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import MontageCore
 
-// TEMPORARY (VALSE-APP round 10): the one open choice left, the editor logo's placement × opening animation,
+// TEMPORARY (VALSE-APP rounds 10–11): the one open choice left, the editor logo's placement × opening animation,
 // switchable live from the "Valse options" menu. Once picked: keep that branch in `TitleBar` / `EditorView`
 // (`ValseOptions.shared.logo`), delete this file, its strings tables (ValseOptions.strings) and the
 // `ValseOptions.menuItem()` line in AppMenu.swift. (Round 9's clip colours, Export, tabs, toolbar icons and sliders
@@ -20,9 +20,11 @@ public final class ValseOptions: ObservableObject {
     }()
     static var menuVisible: Bool { enabled && !isTooling }
 
-    /// The editor's Valse mark (`ValseEditorMark`). A: title bar left, draws itself in place. B: the same, plus a film
-    /// strip swiping across the title bar. C: next to EditPilot / Export, draws in place.
-    public enum Logo: String, CaseIterable { case a = "A", b = "B", c = "C" }
+    /// The editor's Valse mark (`ValseEditorMark`), full colour at rest, drawing itself in when a project opens.
+    /// A: big mark at the left of the title bar. B: mark + "Valse" centred, the project chip moves left. C: as B, the
+    /// logo first draws itself large over the editor and flies into place. D: mark + "Valse" at the left (the Home
+    /// sidebar lockup), the project name stays centred.
+    public enum Logo: String, CaseIterable { case a = "A", b = "B", c = "C", d = "D" }
 
     @Published public var logo: Logo { didSet { if !Self.isTooling { AppDefaults.store.set(logo.rawValue, forKey: "ValseOpt.logo") } } }
 

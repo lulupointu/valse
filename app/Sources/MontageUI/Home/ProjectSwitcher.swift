@@ -172,33 +172,47 @@ public final class ProjectSwitcher {
 /// The centred project name in the title bar: "1019 ⌄" (12 pt semibold + 9 pt chevron), click = the switcher.
 struct ProjectSwitcherButton: View {
     @Perception.Bindable var store: EditorStore
+    /// VALSE-APP round 11 (logo centred in the title bar): the switcher sits at the left as a project chip, a filled
+    /// key with a film glyph, the project name and ⌄, so it still reads at once as "current project, click to switch".
+    var chip = false
     @State private var hover = false
     var body: some View {
         WithPerceptionTracking {
             if let sw = ProjectSwitcher.active {
                 Button { sw.toggle() } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
+                        if chip { Image(systemName: "film.stack").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary) }
                         Text(verbatim: store.projectName)
                             .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).truncationMode(.middle)
                         Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.textTertiary)
                     }
-                    .padding(.horizontal, 8).frame(height: 24)
-                    .background(hover || sw.isOpen ? Theme.Valse.controlHover : .clear, in: RoundedRectangle(cornerRadius: 4))
-                    .contentShape(RoundedRectangle(cornerRadius: 4))
+                    .padding(.horizontal, chip ? 10 : 8).frame(height: 24)
+                    .background(hover || sw.isOpen ? Theme.Valse.controlHover : (chip ? Theme.menu : .clear), in: RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(chip ? Theme.separator : .clear))
+                    .contentShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
-                .onHover { hover = $0 }
+                .valseHover($hover)
                 .help(tr("switcher.help"))
                 .accessibilityLabel(Text(verbatim: store.projectName))
                 .accessibilityHint(Text(verbatim: tr("switcher.help")))
                 .testID("titlebar.projectSwitcher")
-                // the name truncates before it reaches EditPilot / Export in narrow windows (160–420 pt)
-                .containerRelativeWidth { w in min(420, max(160, w - 700)) }
+                .modifier(SwitcherWidth(chip: chip))
             } else {
                 Text(verbatim: store.projectName).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
             }
         }
+    }
+}
+
+/// Centred: the name truncates before it reaches EditPilot / Export in narrow windows (160–420 pt). Chip (left): hugs
+/// its content, at most 300 pt.
+private struct SwitcherWidth: ViewModifier {
+    let chip: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if chip { content.frame(maxWidth: 300).fixedSize(horizontal: true, vertical: false) }
+        else { content.containerRelativeWidth { w in min(420, max(160, w - 700)) } }
     }
 }
 
@@ -218,9 +232,11 @@ struct ProjectSwitcherOverlay: View {
                     GeometryReader { g in
                         WithPerceptionTracking {
                             // whole-point x (crisp text, stable snapshots in odd-width windows)
+                            // under its trigger: centred, or at the left when the logo takes the centre (round 11, B / C)
+                            let left = [.b, .c].contains(ValseOptions.shared.logo)
                             ProjectSwitcherPopover(switcher: switcher, app: app)
                                 .padding(.top, Theme.Metrics.titleBarHeight + 6)
-                                .padding(.leading, ((g.size.width - 380) / 2).rounded(.down))
+                                .padding(.leading, left ? 86 : ((g.size.width - 380) / 2).rounded(.down))
                         }
                     }
                 }

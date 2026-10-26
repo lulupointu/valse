@@ -1,6 +1,7 @@
-/* TEMPORAIRE (VALSE-APP, tour 10) : le menu « Options Valse », le choix du logo de l’éditeur. À supprimer avec ValseOptions.swift. */
+/* TEMPORAIRE (VALSE-APP, tour 11) : le menu « Options Valse », le choix du logo de l’éditeur. À supprimer avec ValseOptions.swift. */
 "valseopt.menu" = "Options Valse";
 "valseopt.logo" = "Logo de l’éditeur";
-"valseopt.logo.a" = "A · Barre de titre, se dessine";
-"valseopt.logo.b" = "B · Barre de titre, avec un passage de pellicule";
-"valseopt.logo.c" = "C · À côté d’Exporter, se dessine";
+"valseopt.logo.a" = "A · Grand logo, à gauche";
+"valseopt.logo.b" = "B · Logo au centre, projet à gauche";
+"valseopt.logo.c" = "C · Grande entrée vers le centre";
+"valseopt.logo.d" = "D · Logo et nom, à gauche";
