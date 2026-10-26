@@ -5,18 +5,18 @@ import Perception
 /// `UpdateController.Backend`; MontageUI, its tests and UI scripts never link Sparkle. Without a backend (swift run,
 /// UI tests, a build without a feed URL) the controller reports `isAvailable == false` and the About panel says so.
 ///
-/// Behaviour (owner decision 2026-10-26): background checks are silent (no network = nothing shown), an update found in
-/// the background downloads quietly and installs when Montage quits; the `UpdateBanner` offers "Restart to update"
-/// meanwhile. Only a check started by the user ("Check now") reports its result, inline in Settings ▸ About.
+/// Behaviour (owner decisions 2026-10-26): no polling; the backend checks at launch, after wake and when a release push
+/// arrives. Background checks are silent (no network = nothing shown), an update found downloads quietly and installs
+/// when Montage quits; the `UpdateBanner` offers "Restart to update" meanwhile. Only a check started by the user
+/// ("Check for updates") reports its result, inline in Settings ▸ About.
 @MainActor @Perceptible
 public final class UpdateController {
     public static let shared = UpdateController()
 
     /// What Sparkle (or a test double) does for the controller.
     @MainActor public protocol Backend: AnyObject {
+        /// Launch / wake / push checks (Settings ▸ About switch).
         var automaticallyChecks: Bool { get set }
-        /// Seconds between background checks (Sparkle's minimum is one hour).
-        var checkInterval: TimeInterval { get set }
         var lastCheck: Date? { get }
         /// User-initiated check: results come back through `UpdateController.state`.
         func checkNow()
@@ -32,18 +32,6 @@ public final class UpdateController {
         case ready(version: String)
         /// Only after a user-initiated check (background failures stay silent).
         case failed(message: String)
-    }
-
-    /// Check intervals offered in Settings ▸ About.
-    public enum Interval: Int, CaseIterable, Identifiable {
-        case hourly = 3600, daily = 86_400, weekly = 604_800
-        public var id: Int { rawValue }
-        var labelKey: String {
-            switch self { case .hourly: "about.updates.hourly"; case .daily: "about.updates.daily"; case .weekly: "about.updates.weekly" }
-        }
-        static func nearest(_ seconds: TimeInterval) -> Interval {
-            allCases.min { abs(Double($0.rawValue) - seconds) < abs(Double($1.rawValue) - seconds) } ?? .daily
-        }
     }
 
     public var state: State = .idle
@@ -66,11 +54,6 @@ public final class UpdateController {
     public var automaticallyChecks: Bool {
         get { _ = revision; return backend?.automaticallyChecks ?? false }
         set { backend?.automaticallyChecks = newValue; revision += 1 }
-    }
-
-    public var interval: Interval {
-        get { _ = revision; return Interval.nearest(backend?.checkInterval ?? 86_400) }
-        set { backend?.checkInterval = TimeInterval(newValue.rawValue); revision += 1 }
     }
 
     public var lastCheck: Date? { _ = revision; return backend?.lastCheck }
@@ -109,7 +92,6 @@ public final class UpdateController {
 /// Backend for screenshots and tests: no network, checks answer "up to date".
 @MainActor final class PreviewBackend: UpdateController.Backend {
     var automaticallyChecks = true
-    var checkInterval: TimeInterval = 86_400
     var lastCheck: Date?
     var checks = 0
     weak var controller: UpdateController?

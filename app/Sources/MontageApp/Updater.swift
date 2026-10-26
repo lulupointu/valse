@@ -6,56 +6,109 @@ import MontageUI
 ///
 /// - Feed: Info.plist `SUFeedURL` (the `appcast.xml` asset of the latest GitHub release, scripts/release.sh); every
 ///   archive is verified against `SUPublicEDKey` (EdDSA) and the app's code signature before it installs.
+/// - When: no polling (Sparkle's scheduler is off). Montage checks at launch and after the Mac wakes, and while it runs
+///   it listens for a release push (`UpdatePushListener`, Info.plist `MontageUpdatePushURL`, sent by scripts/release.sh);
+///   a reconnected push stream checks too, so a release published while offline is not missed.
 /// - Silent: the user driver below never shows a window. Updates download in the background and install when Montage
 ///   quits; `UpdateController.installNow` ("Restart to update") quits through the normal path (project saved, jobs
-///   stopped) and relaunches. Background checks that fail (offline, server down) report nothing.
-/// - "Check now" runs the same background flow; only its outcome is shown, inline in Settings ▸ About.
+///   stopped) and relaunches. Checks that fail (offline, server down) report nothing.
+/// - "Check for updates" runs the same flow; only its outcome is shown, inline in Settings ▸ About.
 /// - Started only for a real .app bundle with a feed and a key, never for UI tests, screenshots or `swift run`.
 @MainActor
 final class SparkleUpdater: NSObject, UpdateController.Backend {
+    /// Montage's own switch (Settings ▸ About): launch / wake / push checks. Sparkle's own scheduled checks stay off.
+    static let enabledKey = "MontageAutomaticUpdates"
     private var updater: SPUUpdater!
     private let controller: UpdateController
     private let driver: SilentUserDriver
+    private var push: UpdatePushListener?
+    private var wakeObserver: NSObjectProtocol?
+    /// A push reaches every running copy at once: each waits a random 5–60 s (spreads the load on GitHub, lets the
+    /// release propagate). 0 for scripts/updater_e2e.sh.
+    private let pushJitter: ClosedRange<Double>
 
-    static func startIfConfigured(controller: UpdateController = .shared) -> SparkleUpdater? {
+    static func startIfConfigured(controller: UpdateController = .shared, test: Bool = false) -> SparkleUpdater? {
         let info = Bundle.main.infoDictionary ?? [:]
         guard Bundle.main.bundleURL.pathExtension == "app",
               let feed = info["SUFeedURL"] as? String, !feed.isEmpty,
               let key = info["SUPublicEDKey"] as? String, !key.isEmpty else { return nil }
-        let u = SparkleUpdater(controller: controller)
+        let pushURL = (info["MontageUpdatePushURL"] as? String).flatMap { $0.isEmpty ? nil : URL(string: $0) }
+        let u = SparkleUpdater(controller: controller, pushURL: pushURL, jitter: test ? 0...0 : 5...60)
         do {
             try u.updater.start()
         } catch {
             NSLog("Montage updater disabled: \(error.localizedDescription)")
             return nil
         }
-        // A manual "Check now" downloads too, also when background checks are off: the update then installs on quit.
+        u.updater.automaticallyChecksForUpdates = false
+        // A manual "Check for updates" downloads too, also when automatic updates are off: it then installs on quit.
         u.updater.automaticallyDownloadsUpdates = true
         controller.attach(u)
+        u.applyEnabled(launch: true)
         return u
     }
 
-    private init(controller: UpdateController) {
+    private init(controller: UpdateController, pushURL: URL?, jitter: ClosedRange<Double>) {
         self.controller = controller
         driver = SilentUserDriver(controller: controller)
+        pushJitter = jitter
         super.init()
         updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: driver, delegate: self)
+        if let pushURL {
+            push = UpdatePushListener(url: pushURL,
+                                      onRelease: { [weak self] in self?.pushedRelease() },
+                                      onReconnect: { [weak self] in self?.checkInBackground() })
+        }
     }
 
     // MARK: UpdateController.Backend
 
     var automaticallyChecks: Bool {
-        get { updater.automaticallyChecksForUpdates }
-        set { updater.automaticallyChecksForUpdates = newValue }
-    }
-    var checkInterval: TimeInterval {
-        get { updater.updateCheckInterval }
-        set { updater.updateCheckInterval = newValue }
+        get { UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.enabledKey)
+            applyEnabled(launch: false)
+        }
     }
     var lastCheck: Date? { updater.lastUpdateCheckDate }
 
-    func checkNow() {
-        guard updater.canCheckForUpdates else { return }
+    func checkNow() { checkInBackground() }
+
+    // MARK: Triggers
+
+    /// Launch (or switching automatic updates on): check once, listen for pushes, re-check after sleep.
+    private func applyEnabled(launch: Bool) {
+        if automaticallyChecks {
+            if launch || push?.isRunning == false { checkInBackground() }
+            push?.start()
+            if wakeObserver == nil {
+                wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                    forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.push?.restart()   // the old connection died during sleep
+                        self?.checkInBackground()
+                    }
+                }
+            }
+        } else {
+            push?.stop()
+            if let o = wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(o) }
+            wakeObserver = nil
+        }
+    }
+
+    private func pushedRelease() {
+        let delay = Double.random(in: pushJitter)
+        Task { @MainActor [weak self] in
+            if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
+            self?.checkInBackground()
+        }
+    }
+
+    /// Silent unless the user started it (`UpdateController.checkNow` sets `.checking`); one session at a time.
+    private func checkInBackground() {
+        if case .ready = controller.state { return }   // already downloaded, installs on quit
+        guard !updater.sessionInProgress else { return }
         updater.checkForUpdatesInBackground()
     }
 }

@@ -1,9 +1,6 @@
 /* SE-015 mises à jour automatiques (Paramètres ▸ À propos, bandeau de mise à jour, menu de l'app) */
 "about.updates.auto" = "Mettre à jour Montage automatiquement";
-"about.updates.hourly" = "Toutes les heures";
-"about.updates.daily" = "Tous les jours";
-"about.updates.weekly" = "Toutes les semaines";
-"about.updates.autoHint" = "Les mises à jour se téléchargent en arrière-plan et s'installent quand vous quittez Montage.";
+"about.updates.autoHint" = "Montage vérifie à l'ouverture et est prévenu des nouvelles versions pendant qu'il tourne. Les mises à jour se téléchargent en arrière-plan et s'installent quand vous quittez Montage.";
 "about.updates.offHint" = "Les mises à jour automatiques sont désactivées. Utilisez Rechercher des mises à jour pour trouver une nouvelle version.";
 "about.updates.checking" = "Recherche de mises à jour…";
 "about.updates.upToDate" = "Montage est à jour.";

@@ -5,10 +5,11 @@
 #   2. Montage.zip + EdDSA-signed binary deltas from the last 3 releases (small downloads for existing users)
 #   3. appcast.xml (the feed every installed Montage reads: releases/latest/download/appcast.xml)
 #   4. GitHub release v<version> on lulupointu/valse with those assets (the newest release is the one served)
+#   5. push to the ntfy topic (Info.plist MontageUpdatePushURL): running copies check at once, the others at launch
 # One-time setup first: scripts/release_setup.sh. HEAD must be pushed to origin/main.
 # Usage: scripts/release.sh <version, e.g. 0.2.0> [--notes <file.md>] [--dry-run (build + appcast, publish nothing)]
 set -euo pipefail
-if [[ $# -lt 1 || "$1" == -h || "$1" == --help ]]; then sed -n '2,10p' "$0"; exit 0; fi
+if [[ $# -lt 1 || "$1" == -h || "$1" == --help ]]; then sed -n '2,11p' "$0"; exit 0; fi
 cd "$(dirname "$0")/.."
 VERSION="$1"; shift
 NOTES=""; DRY=0
@@ -99,4 +100,11 @@ for d in "$STORE"/apps/*; do
   t="$(basename "$d")"
   [[ "$t" == "$TAG" ]] || grep -qx "$t" <<< "$PREV_TAGS" || rm -rf "$d"
 done
-echo "✔ released $TAG: installed copies update within their check interval"
+# --- tell running copies (ntfy topic of Info.plist MontageUpdatePushURL); the others check at their next launch -----
+PUSH="$(/usr/libexec/PlistBuddy -c 'Print :MontageUpdatePushURL' app/Bundle/Info.plist 2>/dev/null || true)"
+if [[ -n "$PUSH" ]]; then
+  curl -fsS -m 20 -H "Title: Montage $VERSION" -d "Montage $VERSION is available" "${PUSH%/json}" >/dev/null \
+    && echo "✔ push sent: running copies check within a minute" \
+    || echo "⚠ push failed: running copies get $VERSION at their next launch (re-send: curl -d x ${PUSH%/json})"
+fi
+echo "✔ released $TAG"

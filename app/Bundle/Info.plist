@@ -20,9 +20,10 @@
   <!-- SE-015 automatic updates (Sparkle 2, docs/RELEASING.md). The updater stays off while SUPublicEDKey is empty. -->
   <key>SUFeedURL</key><string>https://github.com/lulupointu/valse/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key><string>vvP40kRMoISD7F5k5afwMIbky8iHHv1+56TtPv//lWY=</string>
-  <key>SUEnableAutomaticChecks</key><true/>
+  <!-- no Sparkle polling: Montage checks at launch / wake and on a release push (MontageUpdatePushURL, ntfy) -->
+  <key>SUEnableAutomaticChecks</key><false/>
   <key>SUAutomaticallyUpdate</key><true/>
-  <key>SUScheduledCheckInterval</key><integer>86400</integer>
+  <key>MontageUpdatePushURL</key><string>https://ntfy.sh/montage-valse-91d5915283fb1a9e5a9b/json</string>
   <key>SUEnableSystemProfiling</key><false/>
   <key>SUVerifyUpdateBeforeExtraction</key><true/>
   <key>NSSpeechRecognitionUsageDescription</key><string>Montage recognizes speech on your Mac to create captions. Nothing leaves your Mac.</string>

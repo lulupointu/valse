@@ -52,13 +52,10 @@ import Foundation
         #expect(c.state == .ready(version: "0.4.0"))
     }
 
-    @Test func settingsReachTheBackend() {
+    @Test func switchReachesTheBackend() {
         let (c, b) = make()
         c.automaticallyChecks = false
         #expect(!b.automaticallyChecks)
-        c.interval = .hourly
-        #expect(b.checkInterval == 3600)
-        b.checkInterval = 90_000
-        #expect(c.interval == .daily)
+        #expect(!c.automaticallyChecks)
     }
 }

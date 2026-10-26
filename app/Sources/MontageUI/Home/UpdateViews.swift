@@ -2,7 +2,7 @@ import SwiftUI
 import MontageCore
 import Perception
 
-/// Settings ▸ About: "Keep Montage up to date" switch + check interval (SE-015).
+/// Settings ▸ About: "Keep Montage up to date" switch (SE-015).
 struct AutoUpdateSettings: View {
     let updates: UpdateController
     var body: some View {
@@ -11,9 +11,6 @@ struct AutoUpdateSettings: View {
                 SwitchButton(isOn: Binding.perceived(get: { updates.automaticallyChecks }, set: { updates.automaticallyChecks = $0 }),
                              id: "autoUpdate", label: tr("about.updates.auto"))
                 Text(loc: "about.updates.auto").font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary)
-                Dropdown(items: UpdateController.Interval.allCases.map { ($0.rawValue, tr($0.labelKey)) }, selection: updates.interval.rawValue,
-                         enabled: updates.automaticallyChecks) { updates.interval = UpdateController.Interval(rawValue: $0) ?? .daily }
-                    .frame(width: 150).testID("about.updates.interval")
             }
         }
     }

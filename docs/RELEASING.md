@@ -1,21 +1,29 @@
 # Releasing Montage and automatic updates (SE-015)
 
 Owner decisions (2026-10-26): Sparkle 2, self-signed code signing (no Apple Developer ID / notarization), releases on
-the public `lulupointu/valse` GitHub repo, one stable channel, silent updates.
+the public `lulupointu/valse` GitHub repo, one stable channel, silent updates, no polling: check at launch + release push.
 
 ## How installed copies update
 - Feed: `https://github.com/lulupointu/valse/releases/latest/download/appcast.xml` (Info.plist `SUFeedURL`), an asset of
   the newest (non-draft, non-prerelease) release: ~2 KB per check.
-- Checks run in the background every day by default (Settings ▸ About: every hour / day / week, or off). A failed
-  background check (offline, GitHub down) shows nothing and retries at the next interval.
+- No polling. Montage checks at each launch and after the Mac wakes. While it runs it keeps one idle stream open to
+  the ntfy.sh topic in Info.plist `MontageUpdatePushURL`; `scripts/release.sh` publishes to it, and every running copy
+  checks 5–60 s later (random, spreads the load). A message only triggers a normal check of the signed feed, so a
+  forged one costs one check. A dropped stream reconnects silently (5 s → 10 min backoff) and checks once on
+  reconnect, so a release pushed while offline is not missed. If ntfy.sh is down, copies update at their next launch.
+- Failed checks (offline, GitHub down) show nothing. Settings ▸ About has one switch (automatic updates on/off).
 - An update downloads quietly (a binary delta of a few MB when the previous release is one of the last 3, else the
   full zip), is verified (EdDSA signature against `SUPublicEDKey` + same code-signing certificate), and installs when
   Montage quits. Meanwhile a small card at the window's top-right offers "Restart to update" (quits through the normal
   path: project saved, jobs stopped; waits while an export runs) or "Later" (installs at the next quit anyway).
 - "Check for updates" (Settings ▸ About, app menu) runs the same flow and shows its result inline.
-- Code: `MontageApp/Updater.swift` (Sparkle, silent user driver), `MontageUI/Home/UpdateController.swift` (state the UI
+- Code: `MontageApp/Updater.swift` (Sparkle, silent user driver, triggers), `MontageApp/UpdatePush.swift` (push
+  stream), `MontageUI/Home/UpdateController.swift` (state the UI
   reads; `PreviewBackend` for tests / `--ui-state update=0.3.0` screenshots), `UpdateViews.swift`. Dev builds, `swift run`,
   UI tests and screenshots never start the updater (no .app bundle / tooling flags / empty `SUPublicEDKey`).
+
+The topic name is public (anyone can read the "new version" messages, and the repo is public anyway). Changing it
+strands running copies until their next launch: keep it.
 
 ## One-time setup (per release machine)
 `scripts/release_setup.sh [<backup dir>]` creates:
@@ -34,8 +42,8 @@ EdDSA private key, installed copies can never be updated again. New Mac: `script
 3. `scripts/release.sh 0.2.0 [--notes notes.md]` (`--dry-run` = build + appcast only). It builds the universal app
    (CFBundleVersion = commit count, so it always grows), signs it, zips it, makes deltas from the last 3 releases
    (their apps are cached in `~/Library/Application Support/MontageRelease/apps/<tag>`), writes `appcast.xml` and
-   creates the GitHub release `v0.2.0` with `Montage.zip`, `appcast.xml` and the deltas.
-4. Installed copies pick it up within their check interval.
+   creates the GitHub release `v0.2.0` with `Montage.zip`, `appcast.xml` and the deltas, then sends the push.
+4. Running copies download it within a minute; the others at their next launch.
 
 Never delete or edit a published release's `Montage.zip`: the deltas of later releases are built against it.
 

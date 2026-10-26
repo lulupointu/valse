@@ -120,10 +120,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if options.uitest == nil { CacheCleaner.runAutomaticCleanup(AppPreferences.shared.settings) }
         let tooling = options.uitest != nil || options.snapshot != nil || options.offscreen || options.background || options.homeDemo != nil
-        // scripts/updater_e2e.sh: offscreen test copy that checks at once (and installs when --quit-after quits it)
+        // scripts/updater_e2e.sh: an offscreen test copy runs the updater too (installs when --quit-after quits it)
         let updaterTest = ProcessInfo.processInfo.environment["MONTAGE_UPDATER_TEST"] == "1"
-        if !tooling || updaterTest { updater = SparkleUpdater.startIfConfigured() }
-        if updaterTest { UpdateController.shared.checkNow() }
+        if !tooling || updaterTest { updater = SparkleUpdater.startIfConfigured(test: updaterTest) }
         Task { await loadInitialProject() }
         if let q = options.quitAfter { QuitDeadline.arm(seconds: q, snapshot: options.snapshot != nil) }
     }
