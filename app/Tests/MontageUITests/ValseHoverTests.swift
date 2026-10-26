@@ -58,6 +58,56 @@ import AppKit
         #expect(ValseTweenTarget.animation(live: true, response: 0.4, damping: 0.6) != nil)
     }
 
+    // MARK: round 5: feature cards and selection bar keys (ValseLift)
+
+    @Test func liftStates() {
+        #expect(ValseLift.state(hover: false, pressed: false) == .rest)
+        #expect(ValseLift.state(hover: true, pressed: false) == .hover)
+        #expect(ValseLift.state(hover: true, pressed: true) == .pressed)
+        #expect(ValseLift.state(hover: false, pressed: true) == .pressed)   // pointer dragged off while held
+        #expect(ValseLift.state(hover: true, pressed: true, enabled: false) == .disabled)
+        #expect([ValseLift.State.rest, .hover, .pressed, .disabled].map(ValseLift.target) == [0, 1, -1, 0])
+        // lifted: content up-left, block down-right; at rest and pressed there is no block
+        #expect(ValseLift.offset(1, depth: 2) == -2 && ValseLift.block(1, depth: 2) == 2)
+        #expect(ValseLift.offset(-1, depth: 2) == 2 && ValseLift.block(-1, depth: 2) == 0)
+        #expect(ValseLift.block(0, depth: 2) == 0)
+        #expect(ValseLift.showsBlock(1) && !ValseLift.showsBlock(0) && !ValseLift.showsBlock(-1))
+    }
+
+    func event(_ at: Double, _ s: ValseLift.State) -> ValseSpringEvent {
+        let k = ValseLift.spring(to: s)
+        return ValseSpringEvent(at: at, target: ValseLift.target(s), response: k.response, damping: k.damping)
+    }
+
+    /// Round 4 Shorts card bug: one very bouncy spring (damping 0.22) drove the lift through a clamp, so after the
+    /// pointer left the value undershot below rest and came back up, re-lifting the card (its block blinking on / off).
+    @Test func leavingNeverDipsBelowRestOrComesBack() {
+        let seq = [event(0, .hover), event(1.5, .rest)]
+        var last = 1.0
+        for i in 0...150 {
+            let v = ValseMotion.replay(seq, at: 1.5 + Double(i) / 100)
+            #expect(v > -0.01, "undershoot below rest at \(i)")
+            #expect(v <= last + 1e-4, "value rises again after the exit at \(i)")   // monotone back to rest
+            last = v
+        }
+        #expect(abs(ValseMotion.replay(seq, at: 3)) < 0.001)
+    }
+
+    @Test func hoverOvershootIsSmallAndSettles() {
+        let seq = [event(0, .hover)]
+        let peak = stride(from: 0.0, through: 1.5, by: 0.005).map { ValseMotion.replay(seq, at: $0) }.max() ?? 0
+        #expect(peak > 1.05 && peak < 1.2)   // one small sticker-like overshoot, not a 49 % bounce
+        #expect(abs(ValseMotion.replay(seq, at: 1.5) - 1) < 0.002)
+    }
+
+    @Test func pressReleaseExitConverges() {
+        let seq = [event(0, .hover), event(1, .pressed), event(1.2, .hover), event(2.5, .rest)]
+        let pressed = ValseMotion.replay(seq, at: 1.15)
+        #expect(pressed < -0.9 && pressed > -1.1)   // pushed in, no bounce out of the press
+        #expect(ValseMotion.replay(seq, at: 2.4) > 0.99)
+        #expect(abs(ValseMotion.replay(seq, at: 4)) < 0.001)
+    }
+
     @Test func deactivationKeyLossAndMenuCloseResetEveryHover() {
         HoverReset.install()
         HoverReset.install()   // idempotent

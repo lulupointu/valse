@@ -317,12 +317,12 @@ struct HomeFeatureRow: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 14) {
-                FeatureCard(symbol: "rectangle.stack.badge.play", tint: Theme.Valse.teal, motion: .fan, debugID: "feature0", title: tr("home.nav.templates"), subtitle: tr("home.templates.subtitle")) { app.section = .templates }
+                FeatureCard(symbol: "rectangle.stack.badge.play", tint: Theme.Valse.teal, tileBlock: FeatureCard.tealShade, motion: .fan, debugID: "feature0", title: tr("home.nav.templates"), subtitle: tr("home.templates.subtitle")) { app.section = .templates }
                     .testID("home.feature.templates")
-                FeatureCard(symbol: "square.and.arrow.down.on.square", tint: Theme.Valse.mustard, motion: .drop, debugID: "feature1", title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
+                FeatureCard(symbol: "square.and.arrow.down.on.square", tint: Theme.Valse.mustard, tileBlock: Theme.Valse.orange, motion: .drop, debugID: "feature1", title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
                     .testID("home.feature.import")
                 // AI2 (AI-031): Long video to shorts wizard (ShortsWizard.swift)
-                FeatureCard(symbol: "scissors.badge.ellipsis", tint: Theme.Valse.orange, motion: .snip, debugID: "feature2", title: tr("shorts.title"), subtitle: tr("shorts.subtitle")) { ShortsWizardState.shared.present() }
+                FeatureCard(symbol: "scissors.badge.ellipsis", tint: Theme.Valse.orange, tileBlock: Theme.Valse.burgundy, motion: .snip, debugID: "feature2", title: tr("shorts.title"), subtitle: tr("shorts.subtitle")) { ShortsWizardState.shared.present() }
                     .testID("home.feature.shorts")
                 Spacer(minLength: 0)
             }
@@ -330,10 +330,19 @@ struct HomeFeatureRow: View {
     }
 }
 
+/// Round 5: a feature card is a flat key. Hover lifts it 2 pt up-left off a solid, muted block of its colour (zero
+/// blur) and pops its icon tile a further 1.5 pt off the tile's own block, like the "+" tile on the hero; press pushes
+/// the whole card down-right onto where its block was (the block disappears under it), release springs it back up.
+/// Hover → press → release is one continuous spring (`ValseLift`), nothing clamped. No coloured outline: the border
+/// only brightens to a cream hairline.
 struct FeatureCard: View {
     let symbol: String
     var tint: Color = Theme.Valse.teal
-    /// The icon's little themed hover motion.
+    /// The icon tile's solid block: its darker warm partner (mustard on orange, as the "+" tile; orange on burgundy),
+    /// teal on its own shade (teal half printed over ink: a red or orange fringe under teal read as misregistration).
+    var tileBlock: Color = Theme.Valse.burgundy
+    static let tealShade = Color(hex: 0x20604E)
+    /// The icon's small themed motion while lifted.
     enum Motion { case fan, drop, snip }
     var motion: Motion = .fan
     var debugID = ""
@@ -343,55 +352,86 @@ struct FeatureCard: View {
     @State private var hoverState = false
     var body: some View {
         WithPerceptionTracking {
-            let hover = ValseDebugHover.merge(hoverState, debugID)
-            let r = ValseShape.card
             Button(action: action) {
-                ValseTween(on: hover, response: motion == .snip ? 0.32 : 0.42, damping: motion == .snip ? 0.22 : 0.5) { p in
-                    HStack(spacing: 10) {
-                        RoundedRectangle(cornerRadius: 11).fill(tint).frame(width: 34, height: 34)
-                            .overlay(icon(p, hover: hover))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
-                                .lineLimit(1).minimumScaleFactor(0.85)
-                            Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.leading, 12).padding(.trailing, 10)
-                    .frame(width: 300, height: 72)
-                    // flat fill (a 10 % wash of the card colour, no gradient); hover lifts the card off a solid block of
-                    // its colour (hard offset, zero blur)
-                    .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.10)).background(RoundedRectangle(cornerRadius: r).fill(Theme.Valse.surface)))
-                    .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(hover ? tint : Theme.Valse.stroke, lineWidth: hover ? 1.5 : 1))
-                    .offset(x: -2 * min(1, max(0, p)), y: -2 * min(1, max(0, p)))
-                    .valseHardShadow(tint, radius: r, depth: 2 * min(1, max(0, p)))
-                }
-                .contentShape(Rectangle())
+                FeatureCardFace(symbol: symbol, tint: tint, tileBlock: tileBlock, motion: motion, debugID: debugID,
+                                title: title, subtitle: subtitle, hover: ValseDebugHover.merge(hoverState, debugID))
             }
-            .buttonStyle(ValseSquashStyle())
+            .buttonStyle(ValsePressReportingStyle())
             .valseHover($hoverState)
-        }
-    }
-
-    /// Templates fan out, the import arrow drops in with a bounce, the scissors snip.
-    @ViewBuilder private func icon(_ p: Double, hover: Bool) -> some View {
-        let glyph = Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.Valse.ink)
-        let q = min(1, max(0, p))
-        switch motion {
-        case .fan:
-            ZStack {
-                glyph.opacity(0.4 * q).rotationEffect(.degrees(14 * p)).offset(x: 2.5 * p)
-                glyph.rotationEffect(.degrees(-12 * p)).offset(x: -1.5 * p)
-            }
-        case .drop:
-            glyph.offset(y: hover ? -7 * (1 - p) : 0).scaleEffect(1 + 0.06 * q)
-        case .snip:
-            glyph.rotationEffect(.degrees(26 * (1 - p) * q))
         }
     }
 }
 
-/// Press feedback for big tappable surfaces (hero, feature cards): a small springy squash.
+private struct FeatureCardFace: View {
+    let symbol: String
+    let tint: Color
+    let tileBlock: Color
+    let motion: FeatureCard.Motion
+    let debugID: String
+    let title: String
+    let subtitle: String
+    let hover: Bool
+    @Environment(\.valsePressed) private var pressed
+    @ObservedObject private var clock = ValseDebugClock.shared
+
+    static let depth: CGFloat = 2, tileDepth: CGFloat = 1.5
+
+    var body: some View {
+        let r = ValseShape.card
+        let state = clock.liftState(debugID) ?? ValseLift.state(hover: hover, pressed: pressed)
+        let k = ValseLift.spring(to: state)
+        let lit = state == .hover || state == .pressed
+        ValseSpringValue(target: ValseLift.target(state), response: k.response, damping: k.damping,
+                         debugEvents: clock.liftEvents(debugID)) { v in
+            let up = max(0, v)
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 11).fill(tint).frame(width: 34, height: 34)
+                    .overlay(icon(up))
+                    .offset(x: ValseLift.offset(up, depth: Self.tileDepth), y: ValseLift.offset(up, depth: Self.tileDepth))
+                    .background(RoundedRectangle(cornerRadius: 11).fill(tileBlock)
+                        .offset(x: ValseLift.block(v, depth: Self.tileDepth), y: ValseLift.block(v, depth: Self.tileDepth))
+                        .opacity(ValseLift.showsBlock(v) ? 1 : 0))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
+                        .lineLimit(1).minimumScaleFactor(0.85)
+                    Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 12).padding(.trailing, 10)
+            .frame(width: 300, height: 72)
+            // flat fill: a wash of the card colour on the surface (no gradient), a touch stronger while lit
+            .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(lit ? 0.14 : 0.10))
+                .background(RoundedRectangle(cornerRadius: r).fill(Theme.Valse.surface)))
+            .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(lit ? Theme.Valse.cream.opacity(0.22) : Theme.Valse.stroke))
+            .offset(x: ValseLift.offset(v, depth: Self.depth), y: ValseLift.offset(v, depth: Self.depth))
+            .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.42))
+                .offset(x: ValseLift.block(v, depth: Self.depth), y: ValseLift.block(v, depth: Self.depth))
+                .opacity(ValseLift.showsBlock(v) ? 1 : 0))
+        }
+        // the lifted / pressed card and its block stay inside the hit area
+        .contentShape(Rectangle().inset(by: -Self.depth))
+    }
+
+    /// One monotone motion per card, driven by the lift (0 at rest and while pressed, follows the spring's single
+    /// small overshoot): the template stack fans out, the import arrow sinks into its tray, the scissors tilt into a cut.
+    @ViewBuilder private func icon(_ up: Double) -> some View {
+        let glyph = Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.Valse.ink)
+        switch motion {
+        case .fan:
+            ZStack {
+                glyph.opacity(0.4 * min(1, up)).rotationEffect(.degrees(14 * up)).offset(x: 2.5 * up)
+                glyph.rotationEffect(.degrees(-12 * up)).offset(x: -1.5 * up)
+            }
+        case .drop:
+            glyph.offset(y: 2.5 * up)
+        case .snip:
+            glyph.rotationEffect(.degrees(-14 * up)).offset(x: 1.5 * up)
+        }
+    }
+}
+
+/// Press feedback for the hero: a small springy squash.
 struct ValseSquashStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { ValseSquash(pressed: configuration.isPressed) { configuration.label } }
 }
@@ -636,51 +676,192 @@ struct EmptyProjects: View {
     }
 }
 
-/// Bottom pill when several projects are selected.
+/// Bottom bar when several projects are selected (round 5): a dark, precise front panel, not a sticker. Raised
+/// surface, 1 pt hairline, a hard 3 pt ink shadow; the only colour is the count, a small mint counter on its teal
+/// block (the selection sticker in miniature). Actions are flat keys in groups split by hairlines: file actions,
+/// then the destructive one (orange glyph, orange block, orange when pressed), then close. Every key lifts off its
+/// block on hover, is pushed in and lights mint (orange for Delete) while pressed, and springs back (`ValseLift`).
 struct SelectionBar: View {
     @Perception.Bindable var app: AppModel
     var body: some View {
         WithPerceptionTracking {
-            let r = ValseShape.card
-            HStack(spacing: 10) {
-                ValseCheckBadge(size: 20, fill: Theme.Valse.ink, mark: Theme.Valse.mint)
-                Text(verbatim: trCount("home.selected", app.selectedIDs.count)).font(.system(size: 12.5, weight: .bold)).foregroundStyle(Theme.Valse.ink)
-                    .padding(.trailing, 4)
-                if app.scope == .trash {
-                    Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.restore")
-                    Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.deleteForever")
-                } else {
-                    MoveToFolderMenu(app: app, items: app.selectedEntries, onLight: true)
-                    Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.duplicate")
-                    Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(ValseSecondaryButtonStyle(compact: true, onLight: true)).testID("home.selection.delete")
+            let r: CGFloat = 12
+            HStack(spacing: 0) {
+                SelectionCount(n: app.selectedIDs.count).padding(.leading, 6).padding(.trailing, 14)
+                ValseBarDivider()
+                HStack(spacing: 2) {
+                    if app.scope == .trash {
+                        Button { app.restore(app.selectedEntries) } label: { ValseBarLabel(symbol: "arrow.uturn.backward", title: tr("home.restore")) }
+                            .buttonStyle(ValseBarButtonStyle(debugID: "bar.restore")).testID("home.selection.restore")
+                    } else {
+                        MoveToFolderButton(app: app)
+                        Button { app.duplicate(app.selectedEntries) } label: { ValseBarLabel(symbol: "plus.square.on.square", title: tr("home.duplicate")) }
+                            .buttonStyle(ValseBarButtonStyle(debugID: "bar.duplicate")).testID("home.selection.duplicate")
+                    }
                 }
-                Button { app.selectedIDs = [] } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .heavy)).frame(width: 22, height: 22).contentShape(Rectangle()) }
-                    .buttonStyle(.plain).foregroundStyle(Theme.Valse.ink).help(tr("common.cancel"))
+                .padding(.horizontal, 6)
+                ValseBarDivider()
+                Group {
+                    if app.scope == .trash {
+                        Button { app.deletePermanently(app.selectedEntries) } label: { ValseBarLabel(symbol: "trash", title: tr("home.deleteForever"), destructive: true) }
+                            .buttonStyle(ValseBarButtonStyle(destructive: true, debugID: "bar.delete")).testID("home.selection.deleteForever")
+                    } else {
+                        Button { app.trash(app.selectedEntries) } label: { ValseBarLabel(symbol: "trash", title: tr("home.delete"), destructive: true) }
+                            .buttonStyle(ValseBarButtonStyle(destructive: true, debugID: "bar.delete")).testID("home.selection.delete")
+                    }
+                }
+                .padding(.horizontal, 6)
+                ValseBarDivider()
+                Button { app.selectedIDs = [] } label: { ValseBarLabel(symbol: "xmark", title: nil) }
+                    .buttonStyle(ValseBarButtonStyle(debugID: "bar.close"))
+                    .help(tr("common.cancel"))
+                    .accessibilityLabel(Text(loc: "common.cancel"))
+                    .testID("home.selection.close")
+                    .padding(.leading, 4)
             }
-            .padding(.leading, 12).padding(.trailing, 12).frame(height: 46)
-            // same sticker as every selection: flat mint block, ink content, solid teal offset block (zero blur)
-            .background(Theme.Valse.mint, in: RoundedRectangle(cornerRadius: r))
-            .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.ink, lineWidth: 1.5))
-            .valseHardShadow(Theme.Valse.teal, radius: r, depth: 4)
+            .padding(.horizontal, 6).frame(height: 44)
+            .background(Theme.Valse.raised, in: RoundedRectangle(cornerRadius: r))
+            .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.cream.opacity(0.14)))
+            .valseHardShadow(Theme.Valse.ink, radius: r, depth: 3)
             .modifier(ValseRiseIn())
             .padding(.bottom, 20)
         }
     }
 }
 
-struct MoveToFolderMenu: View {
+/// "2 selected": the number on a mint counter block (ink, bold, tabular digits) sitting on a solid teal block, the
+/// rest of the localized phrase in secondary text. Read as one phrase by VoiceOver.
+private struct SelectionCount: View {
+    let n: Int
+    var body: some View {
+        let full = trCount("home.selected", n)
+        let digits = "\(n)"
+        let rest = full.contains(digits) ? full.replacingOccurrences(of: digits, with: "").trimmingCharacters(in: .whitespaces) : full
+        HStack(spacing: 8) {
+            if full.contains(digits) {
+                Text(verbatim: digits).font(.system(size: 13, weight: .bold).monospacedDigit()).foregroundStyle(Theme.Valse.ink)
+                    .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 22)
+                    .background(Theme.Valse.mint, in: RoundedRectangle(cornerRadius: 6))
+                    .offset(x: -1, y: -1)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Theme.Valse.teal).offset(x: 1, y: 1))
+            }
+            Text(verbatim: rest).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.Valse.text2).lineLimit(1).fixedSize()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: full))
+    }
+}
+
+struct ValseBarDivider: View {
+    var body: some View { Rectangle().fill(Theme.Valse.controlHover).frame(width: 1, height: 20) }
+}
+
+/// A selection bar key's content: glyph + label (or glyph only). Colours follow the key's state (`valsePressed`,
+/// `isEnabled`): pressed keys light up, so their content turns ink.
+struct ValseBarLabel: View {
+    let symbol: String
+    let title: String?
+    var destructive = false
+    var menu = false
+    @Environment(\.valsePressed) private var pressed
+    @Environment(\.isEnabled) private var enabled
+    var body: some View {
+        let text = !enabled ? Theme.Valse.text3.opacity(0.6) : (pressed ? Theme.Valse.ink : Theme.Valse.text)
+        let glyph = !enabled ? text : (pressed ? Theme.Valse.ink : (destructive ? Theme.Valse.orange : Theme.Valse.text2))
+        HStack(spacing: 6) {
+            Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(glyph)
+            if let title { Text(verbatim: title).font(.system(size: 12, weight: .semibold)).foregroundStyle(text).lineLimit(1).fixedSize() }
+            if menu { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(glyph) }
+        }
+        .padding(.horizontal, title == nil ? 0 : 10)
+        .frame(minWidth: 28, minHeight: 28)
+    }
+}
+
+/// Flat key of the selection bar (see `SelectionBar`): rest = text on the panel; hover = control fill lifted 1 pt
+/// up-left off a solid teal (destructive: orange) block; pressed = pushed down-right onto it and lit mint (orange);
+/// disabled = dimmed, no lift. Same springs as every Home lift (`ValseLift`).
+struct ValseBarButtonStyle: ButtonStyle {
+    var destructive = false
+    var debugID = ""
+    func makeBody(configuration: Configuration) -> some View {
+        ValseBarKey(label: configuration.label, pressed: configuration.isPressed, destructive: destructive, debugID: debugID)
+    }
+}
+
+private struct ValseBarKey<Label: View>: View {
+    let label: Label
+    let pressed: Bool
+    let destructive: Bool
+    let debugID: String
+    @State private var hoverState = false
+    @Environment(\.isEnabled) private var enabled
+    @ObservedObject private var clock = ValseDebugClock.shared
+
+    var body: some View {
+        let state = clock.liftState(debugID)
+            ?? ValseLift.state(hover: ValseDebugHover.merge(hoverState, debugID), pressed: pressed, enabled: enabled)
+        let k = ValseLift.spring(to: state)
+        let accent = destructive ? Theme.Valse.orange : Theme.Valse.teal
+        let fill: Color = state == .pressed ? (destructive ? Theme.Valse.orange : Theme.Valse.mint)
+            : (state == .hover ? Theme.Valse.controlHover : .clear)
+        let r: CGFloat = 7
+        ValseSpringValue(target: ValseLift.target(state), response: k.response, damping: k.damping,
+                         debugEvents: clock.liftEvents(debugID)) { v in
+            label
+                .environment(\.valsePressed, state == .pressed)
+                .background(fill, in: RoundedRectangle(cornerRadius: r))
+                .offset(x: ValseLift.offset(v, depth: 1), y: ValseLift.offset(v, depth: 1))
+                .background(RoundedRectangle(cornerRadius: r).fill(accent)
+                    .offset(x: ValseLift.block(v, depth: 1.5), y: ValseLift.block(v, depth: 1.5))
+                    .opacity(ValseLift.showsBlock(v) ? 1 : 0))
+        }
+        .contentShape(Rectangle())
+        .valseHover($hoverState)
+    }
+}
+
+/// "Move to ⌄" on the selection bar: a bar key that opens a native menu of folders above itself. A SwiftUI `Menu`
+/// with the borderless style drew its own label (system colour, ignoring the bar's), so the key draws its label and
+/// pops the NSMenu itself (UI tests: `{"click": "id:home.selection.moveTo", "menuItem": "<folder>"}`).
+struct MoveToFolderButton: View {
     @Perception.Bindable var app: AppModel
-    let items: [LibraryEntry]
-    /// On the mint selection bar: an ink chip.
-    var onLight = false
+    @State private var anchor = DropdownMenu.Anchor()
     var body: some View {
         WithPerceptionTracking {
-            Menu(tr("home.moveTo")) { MoveToFolderItems(app: app, items: items) }
-                .menuStyle(.borderlessButton).fixedSize()
-                .padding(.horizontal, 10).frame(height: 26)
-                .background(onLight ? Theme.Valse.ink : Theme.Valse.control, in: RoundedRectangle(cornerRadius: ValseShape.control))
-                .overlay(RoundedRectangle(cornerRadius: ValseShape.control).stroke(onLight ? .clear : Theme.Valse.stroke))
+            Button { HomeMoveMenu.show(app: app, items: app.selectedEntries, above: anchor.view) } label: {
+                ValseBarLabel(symbol: "folder", title: tr("home.moveTo"), menu: true)
+            }
+            .buttonStyle(ValseBarButtonStyle(debugID: "bar.move"))
+            .background(DropdownMenu.AnchorView(anchor: anchor))
+            .accessibilityLabel(Text(verbatim: tr("home.moveTo")))
+            .testID("home.selection.moveTo")
         }
+    }
+}
+
+@MainActor
+enum HomeMoveMenu {
+    static func menu(app: AppModel, items: [LibraryEntry]) -> NSMenu {
+        let m = NSMenu()
+        m.autoenablesItems = false
+        m.addItem(PlayerMenuAction.item(tr("home.folder.none")) { app.move(items, to: nil) })
+        if !app.folders.isEmpty { m.addItem(.separator()) }
+        for f in app.folders { m.addItem(PlayerMenuAction.item(f.name) { app.move(items, to: f.id) }) }
+        m.addItem(.separator())
+        m.addItem(PlayerMenuAction.item(tr("home.folder.create") + "…") { app.modal = .newFolder })
+        return m
+    }
+
+    static func show(app: AppModel, items: [LibraryEntry], above view: NSView?) {
+        let m = menu(app: app, items: items)
+        if let sink = DropdownMenu.uitestMenuSink { sink(m); return }
+        if TestAnchors.isEnabled { return }   // UI tests never run a real (modal) menu tracking loop
+        guard let view, view.window != nil else { m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil); return }
+        // the bar sits at the bottom of the window: open upwards, the menu's bottom edge 4 pt above the key
+        let h = m.size.height
+        let y = view.isFlipped ? -4 - h : view.bounds.maxY + 4 + h
+        m.popUp(positioning: nil, at: NSPoint(x: 0, y: y), in: view)
     }
 }
 

@@ -10,6 +10,9 @@ import AppKit
 ///                                also ignores the real pointer.
 ///   VALSE_DEBUG_ANIM_T=<s>       freeze the clock at t seconds (intro starts at 0, hovers / selections at HOVER_AT).
 ///   VALSE_DEBUG_HOVER_AT=<s>     when the forced hover / selection / view-mode change happens (default 0).
+///   VALSE_DEBUG_PRESS_AT=<s>, VALSE_DEBUG_RELEASE_AT=<s>, VALSE_DEBUG_UNHOVER_AT=<s>
+///                                press / release / pointer exit of the forced-hover element (feature cards, selection
+///                                bar buttons: `ValseSpringValue`).
 ///   VALSE_DEBUG_FRAMES=<dir>,<t0>,<t1>,<fps>   render frames t0…t1 of the clock into dir/f0000.png… then write dir/done.
 
 /// Radii (rounder than the editor's).
@@ -33,11 +36,38 @@ final class ValseDebugClock: ObservableObject {
     static let shared = ValseDebugClock()
     @Published var t: Double? = ProcessInfo.processInfo.environment["VALSE_DEBUG_ANIM_T"].flatMap(Double.init)
     let hoverAt: Double = ProcessInfo.processInfo.environment["VALSE_DEBUG_HOVER_AT"].flatMap(Double.init) ?? 0
+    let pressAt: Double? = ProcessInfo.processInfo.environment["VALSE_DEBUG_PRESS_AT"].flatMap(Double.init)
+    let releaseAt: Double? = ProcessInfo.processInfo.environment["VALSE_DEBUG_RELEASE_AT"].flatMap(Double.init)
+    let unhoverAt: Double? = ProcessInfo.processInfo.environment["VALSE_DEBUG_UNHOVER_AT"].flatMap(Double.init)
     var active: Bool { t != nil }
+
+    /// Review clock: the forced element's state at the current time (nil = not under review, use the real state).
+    func liftState(_ id: String) -> ValseLift.State? {
+        guard let t, ValseDebugHover.forced(id) else { return nil }
+        var s: ValseLift.State = t >= hoverAt ? .hover : .rest
+        if let p = pressAt, t >= p { s = .pressed }
+        if let r = releaseAt, t >= r { s = .hover }
+        if let u = unhoverAt, t >= u { s = .rest }
+        return s
+    }
+
+    /// Review clock: the forced element's hover / press timeline as spring retargets (`ValseLift.target` per state).
+    func liftEvents(_ id: String) -> [ValseSpringEvent] {
+        guard ValseDebugHover.forced(id) else { return [] }
+        var states: [(Double, ValseLift.State)] = [(hoverAt, .hover)]
+        if let p = pressAt { states.append((p, .pressed)) }
+        if let r = releaseAt { states.append((r, .hover)) }
+        if let u = unhoverAt { states.append((u, .rest)) }
+        return states.sorted { $0.0 < $1.0 }.map { at, s in
+            let k = ValseLift.spring(to: s)
+            return ValseSpringEvent(at: at, target: ValseLift.target(s), response: k.response, damping: k.damping)
+        }
+    }
 
     /// Renders the requested frame range of the clock, one PNG per frame (review videos).
     func recordIfRequested() async {
         guard let spec = ProcessInfo.processInfo.environment["VALSE_DEBUG_FRAMES"] else { return }
+        defer { recordingFinished = true }
         let p = spec.split(separator: ",").map(String.init)
         guard p.count == 4, let t0 = Double(p[1]), let t1 = Double(p[2]), let fps = Double(p[3]) else { return }
         let dir = URL(fileURLWithPath: p[0])
@@ -53,6 +83,18 @@ final class ValseDebugClock: ObservableObject {
         }
         FileManager.default.createFile(atPath: dir.appendingPathComponent("done").path, contents: Data())
     }
+    private var recordingFinished = false
+
+    /// `--snapshot` runs exit right after their PNG: with VALSE_DEBUG_FRAMES set, wait for the frame recording first.
+    static func waitForRecording() async {
+        guard ProcessInfo.processInfo.environment["VALSE_DEBUG_FRAMES"] != nil else { return }
+        while !shared.recordingFinished { try? await Task.sleep(for: .milliseconds(200)) }
+    }
+}
+
+/// Review videos (VALSE_DEBUG_FRAMES) from `--snapshot` runs: main.swift waits for the recording before its snapshot.
+@MainActor public enum ValseReview {
+    public static func waitForRecording() async { await ValseDebugClock.waitForRecording() }
 }
 
 enum ValseMotion {
@@ -75,6 +117,16 @@ enum ValseMotion {
     static func settle(response: Double = 0.42, damping: Double = 0.58) -> Double {
         let w0 = 2 * Double.pi / response
         return 6.9 / (min(damping, 0.999) * w0)
+    }
+    /// A sequence of spring retargets as a sum of step responses (review clock, tests). Exact when one retarget lands
+    /// after the previous one settled; mid-flight it approximates SwiftUI's velocity-preserving retarget.
+    static func replay(_ events: [ValseSpringEvent], at t: Double, from start: Double = 0) -> Double {
+        var v = start, prev = start
+        for e in events {
+            v += (e.target - prev) * spring(t - e.at, response: e.response, damping: e.damping)
+            prev = e.target
+        }
+        return v
     }
     static func easeInOut(_ x: Double) -> Double { let c = min(max(x, 0), 1); return c * c * (3 - 2 * c) }
     /// One 3/4 bar (100 bpm): a swell on beat one that relaxes over beats two and three, 0…1.
@@ -142,6 +194,109 @@ enum ValseTweenTarget {
     /// nil = change instantly (Reduce Motion, UI tests, plain screenshots).
     static func animation(live: Bool, response: Double, damping: Double) -> Animation? {
         live ? .spring(response: response, dampingFraction: damping) : nil
+    }
+}
+
+/// Round 5: the hard-offset "key" shared by the feature cards and the selection bar buttons. One signed value drives it:
+/// rest 0, hover 1 (lifted up-left off a solid block, zero blur), pressed -1 (pushed down-right past rest, onto where
+/// the block was, which disappears under it). One value means hover → press → release is a single continuous spring
+/// (no second animation fighting the first) and nothing is clamped, so an overshoot never sticks to a ceiling.
+enum ValseLift {
+    enum State: Equatable { case rest, hover, pressed, disabled }
+    static func state(hover: Bool, pressed: Bool, enabled: Bool = true) -> State {
+        guard enabled else { return .disabled }
+        return pressed ? .pressed : (hover ? .hover : .rest)
+    }
+    static func target(_ s: State) -> Double {
+        switch s {
+        case .rest, .disabled: return 0
+        case .hover: return 1
+        case .pressed: return -1
+        }
+    }
+    /// Spring per destination: up = the sidebar sticker's spring (0.34 / 0.55, one small overshoot), down = a quick
+    /// near-critical push, back to rest = critically damped. An underdamped exit undershoots below rest, i.e. a phantom
+    /// press, and with a clamped block it re-lifted the card after the pointer had left (round 4 Shorts card bug).
+    static func spring(to s: State) -> (response: Double, damping: Double) {
+        switch s {
+        case .hover: return (0.34, 0.55)
+        case .pressed: return (0.1, 0.9)
+        case .rest, .disabled: return (0.26, 1.0)
+        }
+    }
+    /// Offset of the lifted content (negative = up-left).
+    static func offset(_ v: Double, depth: CGFloat) -> CGFloat { -depth * CGFloat(v) }
+    /// Offset of the solid block behind it (down-right), none at rest or while pressed.
+    static func block(_ v: Double, depth: CGFloat) -> CGFloat { depth * CGFloat(max(0, v)) }
+    /// The block is drawn only while lifted: pressed, the content moves past rest and would uncover it.
+    static func showsBlock(_ v: Double) -> Bool { v > 0.02 }
+}
+
+/// A spring retarget at review-clock time `at` (debug replays of hover / press / release / exit).
+struct ValseSpringEvent: Equatable {
+    var at: Double
+    var target: Double
+    var response: Double
+    var damping: Double
+}
+
+/// `ValseTween` for any target value (ValseLift's three states). Same engine: the model value is always exactly the
+/// target and SwiftUI's interruptible spring animates the presentation (retargets keep the current velocity), so it
+/// always converges. Under the review clock the timeline in `debugEvents` is replayed (`ValseMotion.replay`).
+struct ValseSpringValue<Content: View>: View {
+    let target: Double
+    var response: Double
+    var damping: Double
+    var debugEvents: [ValseSpringEvent] = []
+    let content: (Double) -> Content
+    @ObservedObject private var clock = ValseDebugClock.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var p: Double
+
+    init(target: Double, response: Double, damping: Double, debugEvents: [ValseSpringEvent] = [],
+         @ViewBuilder content: @escaping (Double) -> Content) {
+        self.target = target
+        self.response = response
+        self.damping = damping
+        self.debugEvents = debugEvents
+        self.content = content
+        _p = State(initialValue: target)
+    }
+
+    var body: some View {
+        if let t = clock.t {
+            content(debugEvents.isEmpty ? target : ValseMotion.replay(debugEvents, at: t))
+        } else {
+            ValseAnimatedProgress(p: p, content: content)
+                .task(id: target) { settle(target) }
+        }
+    }
+
+    private func settle(_ target: Double) {
+        guard p != target else { return }
+        if let a = ValseTweenTarget.animation(live: ValseMotion.live(reduceMotion), response: response, damping: damping) {
+            withAnimation(a) { p = target }
+        } else {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { p = target }
+        }
+    }
+}
+
+private struct ValsePressedKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    /// The enclosing `ValsePressReportingStyle` button is pressed.
+    var valsePressed: Bool {
+        get { self[ValsePressedKey.self] }
+        set { self[ValsePressedKey.self] = newValue }
+    }
+}
+
+/// Hands the button's pressed state to its label (`@Environment(\.valsePressed)`), which draws its own press.
+struct ValsePressReportingStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.environment(\.valsePressed, configuration.isPressed)
     }
 }
 

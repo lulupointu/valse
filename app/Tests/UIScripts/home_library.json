@@ -30,6 +30,12 @@
     {"click": "id:home.card.2", "modifiers": ["cmd"]},
     {"click": "id:home.card.3", "modifiers": ["cmd"]},
     {"expect": {"path": "app.selected.count", "equals": 2}},
+    // selection bar "Move to" (a bar key popping its own NSMenu): Wedding teaser joins Tutorial in Clients
+    {"click": "id:home.selection.moveTo", "menuItem": "Clients"},
+    {"click": "id:home.nav.folder.1"},
+    {"waitFor": {"path": "app.projects", "equals": ["Product launch", "Wedding teaser", "Tutorial — part 1"], "timeout": 5}},
+    {"click": "id:home.nav.home"},
+    {"expect": {"path": "app.selected.count", "equals": 2}},
     {"click": "id:home.selection.duplicate"},
     {"waitFor": {"path": "app.projects.count", "equals": 13, "timeout": 5}},
     // Edit ▸ Rename on a single selection

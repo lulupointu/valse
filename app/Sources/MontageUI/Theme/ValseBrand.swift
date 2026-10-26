@@ -182,10 +182,8 @@ struct ValsePrimaryButtonStyle: ButtonStyle {
 /// Neutral secondary action on the warm control surface, springy press.
 struct ValseSecondaryButtonStyle: ButtonStyle {
     var compact = false
-    /// On a light (mint) surface: an ink chip with cream text (15:1).
-    var onLight = false
     func makeBody(configuration: Configuration) -> some View {
-        ValsePressLabel(configuration: configuration, primary: false, compact: compact, onLight: onLight)
+        ValsePressLabel(configuration: configuration, primary: false, compact: compact)
     }
 }
 
@@ -193,7 +191,6 @@ private struct ValsePressLabel: View {
     let configuration: ButtonStyleConfiguration
     let primary: Bool
     let compact: Bool
-    var onLight = false
     @State private var hover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
@@ -202,13 +199,12 @@ private struct ValsePressLabel: View {
         configuration.label
             .font(.system(size: 12.5, weight: primary ? .semibold : .medium))
             .lineLimit(1).fixedSize()
-            .foregroundStyle(primary ? Theme.Valse.ink : (onLight ? Theme.Valse.cream : Theme.Valse.text))
+            .foregroundStyle(primary ? Theme.Valse.ink : Theme.Valse.text)
             .padding(.horizontal, compact ? 10 : 14).frame(height: compact ? 26 : 30)
             .background(primary ? Theme.Valse.teal.opacity(pressed ? 0.85 : 1)
-                                : onLight ? Theme.Valse.ink.opacity(pressed ? 0.8 : 1)
                                 : (hover ? Theme.Valse.controlHover : Theme.Valse.control).opacity(pressed ? 0.75 : 1),
                         in: RoundedRectangle(cornerRadius: r))
-            .overlay(RoundedRectangle(cornerRadius: r).stroke(primary || onLight ? .clear : Theme.Valse.stroke))
+            .overlay(RoundedRectangle(cornerRadius: r).stroke(primary ? .clear : Theme.Valse.stroke))
             .scaleEffect(pressed && !reduceMotion ? 0.95 : 1)
             .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: pressed)
             .valseHover($hover)

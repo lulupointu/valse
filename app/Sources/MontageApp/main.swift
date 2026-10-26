@@ -157,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let snap = options.snapshot {
             // give the compositor, thumbnails and SwiftUI layout time to settle
             try? await Task.sleep(for: .seconds(3))
+            await ValseReview.waitForRecording()   // review frame sequences (VALSE_DEBUG_FRAMES) only
             let ok = SnapshotRegistry.shared.writePNG(window: window, to: snap)
             QuitDeadline.snapshotWritten = ok
             FileHandle.standardError.write(Data("snapshot \(ok ? "written" : "FAILED"): \(snap.path)\n".utf8))
