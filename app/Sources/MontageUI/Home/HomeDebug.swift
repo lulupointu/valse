@@ -167,6 +167,8 @@ extension AppModel {
             case "folder": if let i = Int(v), i < folders.count { scope = .folder(folders[i].id) }
             case "select": selectedIDs = Set(v.split(separator: "|").compactMap { Int($0) }.filter { $0 < list.count }.map { list[$0].id })
             case "editor": screen = .editor
+            // SE-015: "update=0.3.0" shows the updater as if Montage 0.3.0 were downloaded (banner + About panel)
+            case "update": UpdateController.shared.preview(readyVersion: v.isEmpty ? "0.3.0" : v)
             default: break
             }
         }

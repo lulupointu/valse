@@ -17,6 +17,14 @@
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+  <!-- SE-015 automatic updates (Sparkle 2, docs/RELEASING.md). The updater stays off while SUPublicEDKey is empty. -->
+  <key>SUFeedURL</key><string>https://github.com/lulupointu/valse/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key><string></string>
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUAutomaticallyUpdate</key><true/>
+  <key>SUScheduledCheckInterval</key><integer>86400</integer>
+  <key>SUEnableSystemProfiling</key><false/>
+  <key>SUVerifyUpdateBeforeExtraction</key><true/>
   <key>NSSpeechRecognitionUsageDescription</key><string>Montage recognizes speech on your Mac to create captions. Nothing leaves your Mac.</string>
   <key>NSCameraUsageDescription</key><string>Montage records your camera for screen and webcam recordings. Nothing leaves your Mac.</string>
   <key>NSMicrophoneUsageDescription</key><string>Montage records voice-overs and dictation. Nothing leaves your Mac.</string>

@@ -1,0 +1,21 @@
+/* SE-015 automatic updates (Settings ▸ About, update banner, app menu) */
+"about.updates.auto" = "Keep Montage up to date automatically";
+"about.updates.hourly" = "Every hour";
+"about.updates.daily" = "Every day";
+"about.updates.weekly" = "Every week";
+"about.updates.autoHint" = "Updates download in the background and install when you quit Montage.";
+"about.updates.offHint" = "Automatic updates are off. Use Check for updates to look for a new version.";
+"about.updates.checking" = "Checking for updates…";
+"about.updates.upToDate" = "Montage is up to date.";
+"about.updates.lastChecked" = "last checked %@";
+"about.updates.downloading" = "Downloading Montage %@…";
+"about.updates.downloadingPct" = "Downloading Montage %@… %d %%";
+"about.updates.ready" = "Montage %@ is ready and will install when you quit.";
+"about.updates.failed" = "Couldn't check for updates: %@";
+"update.banner.title" = "Montage %@ is ready";
+"update.banner.hint" = "Installs when you quit, or restart now.";
+"update.banner.exporting" = "Restart once your export finishes.";
+"update.later" = "Later";
+"update.restart" = "Restart to update";
+"menu.checkUpdates" = "Check for Updates…";
+"about.use.sparkle" = "Automatic updates (download, signature check, install)";

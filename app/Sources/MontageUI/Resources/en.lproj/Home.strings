@@ -223,7 +223,7 @@
 
 /* About */
 "about.version" = "Version %@";
-"about.local" = "Runs on this Mac: no account, no cloud. The network is used only when you ask: AI model downloads and the online music search (Audio ▸ Online).";
+"about.local" = "Runs on this Mac: no account, no cloud. The network is used for update checks (below) and when you ask: AI model downloads and the online music search (Audio ▸ Online).";
 "about.licenses" = "Third-party software";
 "about.use.ffmpeg" = "Converts formats macOS can't read (separate program)";
 "about.use.whispercpp" = "On-device speech recognition for captions";

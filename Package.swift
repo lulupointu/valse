@@ -19,6 +19,8 @@ let package = Package(
     dependencies: [
         // Observation back-port for macOS 13 (native Observation is used on 14+). MIT, Point-Free.
         .package(url: "https://github.com/pointfreeco/swift-perception", from: "2.0.12"),
+        // Automatic updates (SE-015), linked by the app target only. MIT, Sparkle Project.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.4"),
     ],
     targets: [
         // Pure Swift model: project/timeline/keyframes/speed/commands/persistence/localization. Foundation only.
@@ -38,7 +40,7 @@ let package = Package(
         .target(name: "MontageUI", dependencies: ["MontageCore", "MontageEffects", "MontageEngine", "MontageAI",
                                                .product(name: "Perception", package: "swift-perception")],
                 path: "app/Sources/MontageUI", resources: [.process("Resources")], swiftSettings: mainActorByDefault),
-        .executableTarget(name: "MontageApp", dependencies: ["MontageUI"], path: "app/Sources/MontageApp",
+        .executableTarget(name: "MontageApp", dependencies: ["MontageUI", .product(name: "Sparkle", package: "Sparkle")], path: "app/Sources/MontageApp",
                           swiftSettings: mainActorByDefault),
         // Shared test helpers: synthetic media, renderFrame/export harness, pixel asserts, ffprobe.
         .target(name: "MontageTestSupport", dependencies: ["MontageCore", "MontageEffects", "MontageEngine"],

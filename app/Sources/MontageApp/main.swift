@@ -82,6 +82,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var app: AppModel!
     var menuBuilder: AppMenuBuilder?
     var keyMonitor: Any?
+    /// SE-015 automatic updates (nil for dev builds, UI tests, screenshots).
+    var updater: SparkleUpdater?
 
     func applicationDidFinishLaunching(_ n: Notification) {
         MontageBootstrap.registerResources()
@@ -117,6 +119,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             MainActor.assumeIsolated { self?.buildMenu() }
         }
         if options.uitest == nil { CacheCleaner.runAutomaticCleanup(AppPreferences.shared.settings) }
+        let tooling = options.uitest != nil || options.snapshot != nil || options.offscreen || options.background || options.homeDemo != nil
+        // scripts/updater_e2e.sh: offscreen test copy that checks at once (and installs when --quit-after quits it)
+        let updaterTest = ProcessInfo.processInfo.environment["MONTAGE_UPDATER_TEST"] == "1"
+        if !tooling || updaterTest { updater = SparkleUpdater.startIfConfigured() }
+        if updaterTest { UpdateController.shared.checkNow() }
         Task { await loadInitialProject() }
         if let q = options.quitAfter { QuitDeadline.arm(seconds: q, snapshot: options.snapshot != nil) }
     }

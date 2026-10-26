@@ -223,7 +223,7 @@
 
 /* À propos */
 "about.version" = "Version %@";
-"about.local" = "Fonctionne sur ce Mac : pas de compte, pas de cloud. Le réseau n'est utilisé qu'à votre demande : téléchargement des modèles d'IA et recherche de musique en ligne (Audio ▸ En ligne).";
+"about.local" = "Fonctionne sur ce Mac : pas de compte, pas de cloud. Le réseau sert à la recherche de mises à jour (ci-dessous) et à votre demande : téléchargement des modèles d'IA et recherche de musique en ligne (Audio ▸ En ligne).";
 "about.licenses" = "Logiciels tiers";
 "about.use.ffmpeg" = "Convertit les formats que macOS ne lit pas (programme séparé)";
 "about.use.whispercpp" = "Reconnaissance vocale locale pour les sous-titres";

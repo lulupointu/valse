@@ -130,6 +130,11 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         let home: @MainActor () -> Bool = { [unowned self] in self.app.screen == .editor }
         main.addItem(menu("menu.app", [
             item("menu.about") { [unowned self] in self.app.modal = .settings(.about) },
+            // SE-015: checks, then shows the result in Settings ▸ About
+            item("menu.checkUpdates", enabled: { UpdateController.shared.isAvailable }) { [unowned self] in
+                UpdateController.shared.checkNow()
+                self.app.modal = .settings(.about)
+            },
             .separator(),
             item("menu.settings", id: "menu.settings") { [unowned self] in self.app.modal = .settings(.general) },
             .separator(),

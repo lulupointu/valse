@@ -34,6 +34,8 @@ public struct RootView: View {
                         .transition(.opacity.combined(with: .scale(scale: 0.97)))
                         .id("\(modal.id)-\(locale.revision)")
                 }
+                UpdateBanner(updates: UpdateController.shared)   // SE-015: "Restart to update" once downloaded
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
             .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.2), value: app.screen)
             .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.15), value: app.modal?.id)
