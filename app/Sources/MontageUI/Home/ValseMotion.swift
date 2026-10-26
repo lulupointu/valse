@@ -230,16 +230,19 @@ enum ValsePress {
 }
 
 /// Feature card motion (round 7, hover "A"). Hover lifts the card `depth` up-left off a solid block of its colour and
-/// pops its icon tile `tileDepth` off the tile's own block. Press drives the card down onto its block (Custom's spring,
-/// `k`): it travels the lift plus `sink` of the block depth, so only a sliver of the block is left showing while held;
+/// pops its icon tile `tileDepth` off the tile's own block. Press drives the card down onto its block (`k`, its own
+/// quicker spring with Custom's single release pop): it travels the lift plus `sink` of the block depth, so only a sliver of the block is left showing while held;
 /// the icon tile settles onto its block a beat later (`k2`, a slightly slower spring) and pops back a beat after the
 /// card on release. Pure (ValseHoverTests).
 enum ValseCardPress {
     static let depth: CGFloat = 2, tileDepth: CGFloat = 1.5
     /// How far into the block the card goes while held (0.8 = 80 %: a 0.4 pt sliver of the 2 pt block is left).
     static let sink: CGFloat = 0.8
-    /// The tile's settle: a beat behind the card, no bounce of its own worth noticing.
-    static let tileResponse = 0.32, tileDamping = 0.7
+    /// The card's own press spring (round 8, owner: "a bit slow"): Custom's character (one short pop on release) but
+    /// faster than Custom's 0.25 / 0.55, so the 4 pt travel lands as quickly as Custom's tiny squash.
+    static let response = 0.17, damping = 0.6
+    /// The tile's settle: a hair behind the card (one gesture with a follow-through, not two events), no bounce.
+    static let tileResponse = 0.2, tileDamping = 0.75
     /// Card offset (both axes; negative = up-left) for hover `h` and press `k`.
     static func card(h: Double, k: Double) -> CGFloat {
         let lift = depth * CGFloat(max(0, h))

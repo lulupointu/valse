@@ -72,6 +72,30 @@ import AppKit
         return ValseSpringEvent(at: at, target: on ? 1 : 0, response: k.response, damping: k.damping)
     }
 
+    func cardPressEvent(_ at: Double, _ on: Bool) -> ValseSpringEvent {
+        ValseSpringEvent(at: at, target: on ? 1 : 0, response: ValseCardPress.response, damping: ValseCardPress.damping)
+    }
+
+    /// Round 8 ("a bit slow"): the card press is quicker than Custom's and lands in about a tenth of a second, keeps one
+    /// short release pop, and the tile follows within a few hundredths of a second (one gesture).
+    @Test func cardPressIsSnappy() {
+        #expect(ValseCardPress.response < ValsePress.response && ValseCardPress.tileResponse < 0.25)
+        let down = [cardPressEvent(0, true)]
+        let t90 = stride(from: 0.0, through: 0.5, by: 0.002).first { ValseMotion.replay(down, at: $0) >= 0.9 } ?? 1
+        #expect(t90 < 0.08)
+        let release = [cardPressEvent(0, true), cardPressEvent(0.5, false)]
+        let after = stride(from: 0.5, through: 1.5, by: 0.002).map { ValseMotion.replay(release, at: $0) }
+        let pop = -(after.min() ?? 0)
+        #expect(pop > 0.04 && pop < 0.15)                                            // a pop survives, short
+        let settled = stride(from: 0.5, through: 1.5, by: 0.002).first { t in
+            stride(from: t, through: 1.5, by: 0.01).allSatisfy { abs(ValseMotion.replay(release, at: $0)) < 0.01 }
+        } ?? 2
+        #expect(settled - 0.5 < 0.35)                                                // quiet within 0.35 s
+        let tile = [ValseSpringEvent(at: 0, target: 1, response: ValseCardPress.tileResponse, damping: ValseCardPress.tileDamping)]
+        let tile90 = stride(from: 0.0, through: 0.5, by: 0.002).first { ValseMotion.replay(tile, at: $0) >= 0.9 } ?? 1
+        #expect(tile90 > t90 && tile90 - t90 < 0.05)                                 // a hair behind the card
+    }
+
     func pressEvent(_ at: Double, _ on: Bool) -> ValseSpringEvent {
         ValseSpringEvent(at: at, target: on ? 1 : 0, response: ValsePress.response, damping: ValsePress.damping)
     }
@@ -127,7 +151,7 @@ import AppKit
         #expect(C.tile(h: 1, k2: 0) == C.tileDepth && C.tile(h: 1, k2: 1) == 0)      // tile settles flat onto its block
         #expect(C.tile(h: 1, k2: -0.2) == C.tileDepth && C.tile(h: 1, k2: 1.2) == 0)  // its spring never lifts it past either end
         // the tile settles a beat after the card (slower spring), with no visible bounce of its own
-        let card = [pressEvent(0, true)]
+        let card = [cardPressEvent(0, true)]
         let tile = [ValseSpringEvent(at: 0, target: 1, response: C.tileResponse, damping: C.tileDamping)]
         #expect(ValseMotion.replay(tile, at: 0.06) < ValseMotion.replay(card, at: 0.06))
         let tilePeak = stride(from: 0.0, through: 1, by: 0.005).map { ValseMotion.replay(tile, at: $0) }.max() ?? 0
@@ -138,7 +162,7 @@ import AppKit
     /// pointer leaves: back to rest, no re-lift.
     @Test func cardPressReleaseConverges() {
         let hover = [hoverEvent(0, true), hoverEvent(2, false)]
-        let press = [pressEvent(1, true), pressEvent(1.15, false)]
+        let press = [cardPressEvent(1, true), cardPressEvent(1.15, false)]
         func card(_ t: Double) -> CGFloat {
             ValseCardPress.card(h: ValseMotion.replay(hover, at: t), k: ValseMotion.replay(press, at: t))
         }

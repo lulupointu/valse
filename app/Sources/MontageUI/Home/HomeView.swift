@@ -332,7 +332,7 @@ struct HomeFeatureRow: View {
 
 /// Feature card (round 7). Rest: a flat wash of the card colour on the surface, a hairline. Hover: the card lifts 2 pt
 /// up-left off a solid, muted block of its colour, a cream hairline comes up, and the icon tile pops 1.5 pt off its own
-/// block. Press (`ValseCardPress`): Custom's spring and dimmed fill, but the motion is the 80s print one: the card is
+/// block. Press (`ValseCardPress`): Custom's feel (quick spring, one release pop, dimmed fill), but the motion is the 80s print one: the card is
 /// driven down onto its block (only a sliver left showing) and the tile settles onto its block a beat later; release
 /// springs both back up. Identical for the three cards.
 struct FeatureCard: View {
@@ -381,7 +381,7 @@ private struct FeatureCardFace: View {
         let hovered = clock.debugHover(debugID) ?? ValseDebugHover.merge(hoverState, debugID)
         let held = pressed || clock.debugPressed(debugID)
         let k = ValseLift.spring(hover: hovered)
-        ValsePressValue(pressed: held, debugID: debugID) { press in
+        ValsePressValue(pressed: held, debugID: debugID, response: ValseCardPress.response, damping: ValseCardPress.damping) { press in
             ValsePressValue(pressed: held, debugID: debugID, response: ValseCardPress.tileResponse, damping: ValseCardPress.tileDamping) { settle in
                 ValseSpringValue(target: hovered ? 1 : 0, response: k.response, damping: k.damping,
                                  debugEvents: clock.hoverEvents(debugID)) { h in
