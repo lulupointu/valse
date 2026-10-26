@@ -82,7 +82,7 @@ struct ModalHost: View {
     }
 }
 
-/// Card chrome shared by the dialogs: title bar, body, radius 10, `bg.panel`, soft shadow (UX.md §1.4).
+/// Card chrome shared by the dialogs: title bar, body, radius 10, `bg.panel`, a hard offset block (Valse, no soft shadow).
 struct DialogCard<Content: View>: View {
     let title: String
     var width: CGFloat = 512
@@ -92,7 +92,7 @@ struct DialogCard<Content: View>: View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(verbatim: title).font(.system(size: 14, weight: .bold, design: .rounded)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     if let onClose {
                         Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
@@ -107,9 +107,7 @@ struct DialogCard<Content: View>: View {
             }
             .frame(width: width)
             .background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.06)))
-            // CPU-rendered blur makes offscreen test snapshots take seconds: no shadow under UI tests
-            .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.5), radius: TestAnchors.isEnabled ? 0 : 30, y: 10)
+            .valseFloatingCard(radius: 10)
         }
     }
 }
@@ -124,20 +122,13 @@ struct DialogFooter: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 12) {
-                Button(action: onCancel) {
-                    Text(verbatim: cancelTitle).font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                        .background(Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: 6)).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).keyboardShortcut(.cancelAction)
-                .testID("dialog.cancel")
-                Button(action: onOK) {
-                    Text(verbatim: okTitle).font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                        .background(Theme.accent.opacity(okEnabled ? 1 : 0.4), in: RoundedRectangle(cornerRadius: 6)).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).keyboardShortcut(.defaultAction).disabled(!okEnabled)
-                .testID("dialog.ok")
+                Button(action: onCancel) { Text(verbatim: cancelTitle).contentShape(Rectangle()) }
+                    .buttonStyle(ValseWideButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
+                    .testID("dialog.cancel")
+                Button(action: onOK) { Text(verbatim: okTitle).contentShape(Rectangle()) }
+                    .buttonStyle(ValseWideButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction).disabled(!okEnabled)
+                    .testID("dialog.ok")
             }
-            .foregroundStyle(.white)
         }
     }
 }

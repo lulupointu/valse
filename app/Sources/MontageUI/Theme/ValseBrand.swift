@@ -221,6 +221,17 @@ struct ValseRibbon: View {
     }
 }
 
+extension View {
+    /// A floating card (dialog, popover, overlay chip) in the Valse style: a cream hairline and a hard, zero-blur offset
+    /// block of a lighter warm tone behind it, instead of a soft drop shadow (STYLE_GUIDE §3: no blurs, no glows). The
+    /// block is lighter than the dimmed backdrop, so it reads as a printed card on its slab. Apply after the card's own
+    /// background / clip shape.
+    func valseFloatingCard(radius: CGFloat, depth: CGFloat = 6) -> some View {
+        overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.Valse.cream.opacity(0.10)))
+            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.Valse.controlHover).offset(x: depth, y: depth))
+    }
+}
+
 /// Filled primary action (teal, ink text, 6.2:1), springy press.
 struct ValsePrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { ValsePressLabel(configuration: configuration, primary: true, compact: false) }

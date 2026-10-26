@@ -100,7 +100,7 @@ public struct EditorView: View {
                     Color.black.opacity(0.45).ignoresSafeArea()
                     AIClipperSheet(store: store, st: st) { store.ai.clipper = nil }
                         .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .shadow(radius: 20)
+                        .valseFloatingCard(radius: 10)
                 }
             }
         }
@@ -136,13 +136,13 @@ public struct EditorView: View {
         .overlay {
             // SE-017: keyboard focus ring (View ▸ Next panel)
             if panelFocus.current == p {
-                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).stroke(Theme.accent, lineWidth: 2).allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).strokeBorder(Theme.accent, lineWidth: 1.5).allowsHitTesting(false)
                     .testID("focusRing.\(p.rawValue)")
             }
         }
         .overlay {
             if let s = onboarding.step, s.panel == p {
-                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).stroke(Theme.accent, lineWidth: 2).allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).strokeBorder(Theme.accent, lineWidth: 1.5).allowsHitTesting(false)
             }
         }
     }

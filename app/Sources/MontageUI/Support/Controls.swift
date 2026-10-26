@@ -151,8 +151,8 @@ public struct SegmentedTabs: View {
                 ForEach(items, id: \.id) { item in
                     WithPerceptionTracking {
                         Text(verbatim: item.title)
-                            .font(.system(size: 12, weight: selection == item.id ? .medium : .regular))
-                            .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textTertiary)
+                            .font(.system(size: 12, weight: selection == item.id ? .semibold : .regular))
+                            .foregroundStyle(selection == item.id ? Theme.accentText : Theme.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 24)
                             .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
                             .contentShape(Rectangle())
@@ -188,7 +188,7 @@ public struct SecondaryButtonStyle: ButtonStyle {
 struct ValseExportButtonStyle: ButtonStyle {
     @ObservedObject private var options = ValseOptions.shared
     func makeBody(configuration: Configuration) -> some View {
-        let kind: ValseEditorButton<Configuration.Label>.Kind = switch options.export {
+        let kind: ValseButtonKind = switch options.export {
         case .a: .brand
         case .b: .primary
         case .c: .quiet
@@ -197,16 +197,28 @@ struct ValseExportButtonStyle: ButtonStyle {
     }
 }
 
+/// Full-width 32 pt dialog button (DialogFooter: Cancel / Save sharing the width).
+struct ValseWideButtonStyle: ButtonStyle {
+    let kind: ValseButtonKind
+    func makeBody(configuration: Configuration) -> some View {
+        ValseEditorButton(label: configuration.label, pressed: configuration.isPressed, kind: kind, height: 32, fontSize: 13,
+                          expand: true)
+    }
+}
+
 /// Editor-sized button body shared by the styles above. Press = `ValsePress` (Custom's spring 0.25 / 0.55, 95 %
 /// squash, fill to 75 % / 85 %); hover = `.valseHover` (never sticks). Reduce Motion: no squash.
+enum ValseButtonKind { case primary, secondary, brand, quiet }
+
 struct ValseEditorButton<Label: View>: View {
-    enum Kind { case primary, secondary, brand, quiet }
+    typealias Kind = ValseButtonKind
     let label: Label
     let pressed: Bool
     let kind: Kind
     var height: CGFloat = 26
     var fontSize: CGFloat = 12
     var minWidth: CGFloat? = nil
+    var expand = false
     @State private var hover = false
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -226,7 +238,7 @@ struct ValseEditorButton<Label: View>: View {
         label
             .font(.system(size: fontSize, weight: kind == .secondary ? .regular : .semibold))
             .foregroundStyle(text)
-            .padding(.horizontal, 12).frame(minWidth: minWidth).frame(height: height)
+            .padding(.horizontal, 12).frame(minWidth: minWidth, maxWidth: expand ? .infinity : nil).frame(height: height)
             .background(fill, in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius)
                 .strokeBorder(kind == .quiet ? Theme.separator : .clear))
@@ -261,6 +273,40 @@ public struct IconButton: View {
             .accessibilityLabel(Text(verbatim: help))   // SE-017: icon-only buttons speak their tooltip
             .accessibilityAddTraits(active ? .isSelected : [])
         }
+    }
+}
+
+/// A panel tab's label (asset panel icon tabs, inspector tabs). Selected = mint label, semibold (never hue alone: the
+/// weight and a shape change too); the shape is the open owner choice (TEMPORARY `ValseOptions.tabs`): A a 2 pt teal
+/// underline, B the mint sticker (mint fill, ink label, on a hard teal block), C a raised neutral pill. Hover
+/// brightens an idle label (quiet, no motion: these are dense tools).
+struct ValseTabLabel<Content: View>: View {
+    let active: Bool
+    @ViewBuilder let content: () -> Content
+    @State private var hover = false
+    @ObservedObject private var options = ValseOptions.shared
+    var body: some View {
+        let style = options.tabs
+        let sticker = active && style == .b
+        content()
+            .foregroundStyle(sticker ? Theme.onAccent : active ? Theme.accentText
+                             : (hover ? Theme.textPrimary : Theme.textPrimary.opacity(0.78)))
+            .padding(.horizontal, 5).padding(.vertical, 3)
+            .background {
+                if active && style == .b {
+                    RoundedRectangle(cornerRadius: 6).fill(Theme.Valse.mint)
+                        .offset(x: -1, y: -1)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.accent).offset(x: 1.5, y: 1.5))
+                } else if active && style == .c {
+                    RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if active && style == .a {
+                    Capsule().fill(Theme.accent).frame(height: 2).padding(.horizontal, 4).offset(y: 4)
+                }
+            }
+            .valseHover($hover)
     }
 }
 

@@ -49,8 +49,8 @@ struct GuidePositionPopover: View {
                 }
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Theme.menu, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(invalid ? Color.red.opacity(0.7) : Color.white.opacity(0.08)))
-                .shadow(color: .black.opacity(0.35), radius: 6)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(invalid ? Theme.Valse.orange : .clear))
+                .valseFloatingCard(radius: 6, depth: 3)
                 .onAppear { text = format(g.position, length) }
                 .onValueChange(of: id) { _, _ in text = format(g.position, length) }
                 .testID("guide.dialog")

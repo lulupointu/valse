@@ -275,10 +275,9 @@ struct ProjectSwitcherPopover: View {
                 footer
             }
             .frame(width: 380)
-            .background(Color(hex: 0x1F1F22), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: 0x333333)))
+            .background(Theme.menu, in: RoundedRectangle(cornerRadius: 8))
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.45), radius: TestAnchors.isEnabled ? 0 : 18, y: 8)
+            .valseFloatingCard(radius: 8)
             .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { SnapshotRegistry.shared.modal = ($0, 0) }
             .onValueChange(of: app.entries) { _, _ in switcher.refreshStatuses() }
             .accessibilityElement(children: .contain)

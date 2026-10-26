@@ -173,18 +173,11 @@ struct ProjectSettingsSheet: View {
                     .padding(16)
                     .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
                     HStack(spacing: 12) {
-                        Button { isPresented = false } label: {
-                            Text(loc: "common.cancel").font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                                .background(Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain).keyboardShortcut(.cancelAction)
-                        Button { save() } label: {
-                            Text(loc: "common.save").font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain).keyboardShortcut(.defaultAction).testID("projectSettings.save")
+                        Button { isPresented = false } label: { Text(loc: "common.cancel") }
+                            .buttonStyle(ValseWideButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
+                        Button { save() } label: { Text(loc: "common.save") }
+                            .buttonStyle(ValseWideButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction).testID("projectSettings.save")
                     }
-                    .foregroundStyle(.white)
                 }
                 .padding(16)
             }

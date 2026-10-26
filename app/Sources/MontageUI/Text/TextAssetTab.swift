@@ -156,7 +156,7 @@ struct TextAssetTile<Preview: View>: View {
                     }
                     if hover {
                         Button(action: add) {
-                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                                 .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                         }
                         .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))

@@ -79,7 +79,7 @@ struct ZoomBar: View {
             }
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background(Theme.menu, in: RoundedRectangle(cornerRadius: 8))
-            .shadow(color: .black.opacity(0.4), radius: 8)
+            .valseFloatingCard(radius: 8, depth: 3)
         }
     }
 }

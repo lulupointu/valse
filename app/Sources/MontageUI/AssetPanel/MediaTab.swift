@@ -483,7 +483,7 @@ struct MediaCard: View {
                                 .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
                                 .testID("media.card.\(cardIndex).favorite")
                                 Button { store.addToTimeline(asset.id) } label: {
-                                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                                         .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                                 }
                                 .buttonStyle(.plain).help(tr("asset.addToTrack"))
@@ -758,7 +758,7 @@ struct MediaRow: View {
             .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
             .testID("media.card.\(cardIndex).favorite")
             Button { store.addToTimeline(asset.id) } label: {
-                Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                     .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
             }
             .buttonStyle(.plain).help(tr("asset.addToTrack"))

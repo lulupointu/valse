@@ -215,7 +215,7 @@ struct CoverEditorModal: View {
                                 .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
                         }
                     })
-                    .shadow(color: .black.opacity(0.5), radius: 20)
+                    .valseFloatingCard(radius: 10)
             }
             .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
             .onExitCommand { store.closeCoverEditor() }

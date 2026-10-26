@@ -156,7 +156,7 @@ struct CropDialogModal: View {
                                 .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
                         }
                     })
-                    .shadow(color: .black.opacity(0.5), radius: 20)
+                    .valseFloatingCard(radius: 10)
                     .testID("crop.dialog")
             }
             .onDisappear { SnapshotRegistry.shared.modalFrame = nil }

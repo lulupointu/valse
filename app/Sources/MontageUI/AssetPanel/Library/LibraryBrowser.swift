@@ -386,7 +386,7 @@ struct TileButtons: View {
                 .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
                 .testID("asset.tile.\(item.id).favorite")
                 Button { item.add(); lib.noteUsed(namespace, item.id) } label: {
-                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                         .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                 }
                 .buttonStyle(.plain).help(tr("asset.addToTrack")).disabled(item.busy)
@@ -464,7 +464,7 @@ struct LibraryRow: View {
                     .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
                     .testID("asset.tile.\(item.id).favorite")
                     Button { item.add(); lib.noteUsed(namespace, item.id) } label: {
-                        Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                             .frame(width: 22, height: 22).background(Theme.accent, in: Circle())
                     }
                     .buttonStyle(.plain).help(tr("asset.addToTrack")).disabled(item.busy)

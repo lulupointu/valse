@@ -26,12 +26,13 @@ public struct AssetPanel: View {
                         WithPerceptionTracking {
                             let active = store.activeAssetTab == tab.id
                             Button { store.activeAssetTab = tab.id } label: {
-                                VStack(spacing: 3) {
-                                    Image(systemName: tab.symbol).font(.system(size: 16))
-                                    Text(loc: tab.titleKey).font(Theme.Fonts.tabLabel).lineLimit(1)
+                                ValseTabLabel(active: active) {
+                                    VStack(spacing: 3) {
+                                        Image(systemName: tab.symbol).font(.system(size: 16, weight: active ? .semibold : .regular))
+                                        Text(loc: tab.titleKey).font(.system(size: 11, weight: active ? .semibold : .regular)).lineLimit(1)
+                                    }
+                                    .frame(minWidth: 40)
                                 }
-                                .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(0.85))
-                                .frame(minWidth: 50).padding(.horizontal, 4)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
@@ -193,7 +194,7 @@ struct AssetTile<Item>: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
                     if hover {
                         Button(action: tile.add) {
-                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                                 .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                         }
                         .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))
@@ -223,8 +224,8 @@ struct SubNav: View {
                         WithPerceptionTracking {
                             Button { selection = item.id } label: {
                                 Text(verbatim: item.title)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(selection == item.id ? Theme.accent : Theme.textPrimary)
+                                    .font(.system(size: 13, weight: selection == item.id ? .semibold : .regular))
+                                    .foregroundStyle(selection == item.id ? Theme.accentText : Theme.textPrimary)
                                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)   // FR labels wrap (UX_GAPS W13-5)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 8).padding(.vertical, 5).frame(minHeight: 28)

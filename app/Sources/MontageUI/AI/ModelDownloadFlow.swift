@@ -193,8 +193,7 @@ struct ModelDownloadPrompt: View {
         .padding(20)
         .frame(width: 400)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.separator))
-        .shadow(radius: 20)
+        .valseFloatingCard(radius: 10)
         .testID("modelPrompt")
     }
 }
@@ -224,8 +223,7 @@ struct ModelDownloadIndicator: View {
             .padding(12)
             .frame(width: 280)
             .background(Theme.panel, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.separator))
-            .shadow(radius: 10)
+            .valseFloatingCard(radius: 8, depth: 4)
             .testID("modelDownloads.indicator")
         }
     }

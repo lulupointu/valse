@@ -15,8 +15,7 @@ struct ExportModal: View {
                 if let model = store.exports.dialog {
                     ExportSheet(store: store, model: model)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
-                        .shadow(color: .black.opacity(0.5), radius: 24)
+                        .valseFloatingCard(radius: 10)
                         .modalHoverShield()   // FB-07
                         .background(GeometryReader { g in
                             WithPerceptionTracking {
