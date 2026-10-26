@@ -160,7 +160,7 @@ struct NavItem: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .onHover { hoverState = $0 }
+            .valseHover($hoverState)
             .testID("home.nav.\(id)")
         }
     }
@@ -292,7 +292,7 @@ struct NewProjectHero: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(ValseSquashStyle())
-            .onHover { hoverState = $0 }
+            .valseHover($hoverState)
             .overlay(alignment: .topTrailing) {
                 Button { app.modal = .newProject } label: {
                     HStack(spacing: 6) {
@@ -369,7 +369,7 @@ struct FeatureCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(ValseSquashStyle())
-            .onHover { hoverState = $0 }
+            .valseHover($hoverState)
         }
     }
 
@@ -417,6 +417,7 @@ struct ValseHeroRibbon: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
     @State private var introStart: Date? = ValseHeroRibbon.introPlayed ? nil : Date()
+    @State private var introDone = ValseHeroRibbon.introPlayed
     @State private var hoverChanged = Date.distantPast
     @State private var film = FilmPhase()
     @MainActor static var introPlayed = false
@@ -433,7 +434,9 @@ struct ValseHeroRibbon: View {
         } else if !ValseMotion.live(reduceMotion) {
             ribbon(trim: 1, phase: 0)
         } else {
-            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30, paused: activeState == .inactive)) { tl in
+            // Idle film paused while the window is inactive (no work in the background), but never the intro: it used to
+            // freeze half drawn (or not drawn at all after an inactive launch) until the window was activated.
+            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30, paused: activeState == .inactive && introDone)) { tl in
                 let now = tl.date
                 let trim = introStart.map { ValseMotion.easeInOut(now.timeIntervalSince($0) / Self.introDuration) } ?? 1
                 let since = now.timeIntervalSince(hoverChanged)
@@ -442,6 +445,11 @@ struct ValseHeroRibbon: View {
             }
             .onValueChange(of: hover) { _, _ in hoverChanged = Date() }
             .onAppear { Self.introPlayed = true }
+            .task {
+                guard let s = introStart, !introDone else { return }
+                try? await Task.sleep(for: .seconds(max(0, Self.introDuration - Date().timeIntervalSince(s)) + 0.1))
+                introDone = true
+            }
         }
     }
 
@@ -566,7 +574,7 @@ struct HeaderButton: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .onHover { hover = $0 }
+            .valseHover($hover)
             .help(help)
             .accessibilityAddTraits(active ? .isSelected : [])
         }
@@ -776,7 +784,7 @@ struct ProjectCard: View {
                     .font(.system(size: 11.5).monospacedDigit()).foregroundStyle(Theme.Valse.text3).lineLimit(1)
             }
             .contentShape(Rectangle())
-            .onHover { hoverState = $0 }
+            .valseHover($hoverState)
             .onTapGesture { app.click(entry, in: all) }
             .contextMenu { ProjectMenuItems(app: app, entry: entry) }
             .draggable(entry.id)
@@ -925,7 +933,7 @@ struct ProjectRow: View {
             // Selected = the flat mint sticker on a solid teal offset block + check badge on the thumbnail + bold ink name.
             .valseSticker(selected, radius: r)
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .valseHover($hover)
             .onTapGesture { app.click(entry, in: all) }
             .contextMenu { ProjectMenuItems(app: app, entry: entry) }
             .draggable(entry.id)

@@ -211,6 +211,6 @@ private struct ValsePressLabel: View {
             .overlay(RoundedRectangle(cornerRadius: r).stroke(primary || onLight ? .clear : Theme.Valse.stroke))
             .scaleEffect(pressed && !reduceMotion ? 0.95 : 1)
             .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: pressed)
-            .onHover { hover = $0 }
+            .valseHover($hover)
     }
 }

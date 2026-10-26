@@ -42,6 +42,7 @@ enum ModalHoverGate {
         installMonitor()
         NSCursor.arrow.set()   // drop a resize / hand cursor set by the view now covered
         TooltipCenter.shared.modalDidAppear()
+        HoverReset.post("modal")   // views now covered never get their exit (HoverReset)
     }
 
     static func unregister(_ s: ModalShieldView) {

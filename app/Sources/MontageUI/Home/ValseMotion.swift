@@ -85,45 +85,119 @@ enum ValseMotion {
     }
 }
 
-/// A 0 → 1 → 0 value that follows `on` with a spring, evaluated from time (scrubbable), ticking only while it moves.
-/// `content(p)`: p == 0 off, p == 1 on (may overshoot slightly).
+/// A 0 → 1 → 0 progress that follows `on` with a SwiftUI spring. `content(p)`: p == 0 off, p == 1 on (may overshoot).
+///
+/// Bug 2 (owner: "sometimes it stops in the middle, sometimes it stops elevated"): this used to be a time-driven tween
+/// whose value was computed from `TimelineView` ticks, and the TimelineView was paused by a `Task.sleep(settle)` that
+/// flipped `moving = false`. The rendered value was therefore whatever the LAST tick had computed: when ticks stopped
+/// before the settle time (TimelineView throttled / not redrawn while the window was inactive or occluded, the sleep
+/// task cancelled or outliving a re-render with a stale date), the element froze mid-spring and stayed there until the
+/// next hover change. Now the model value `p` is always exactly the target (0 or 1); only the presentation animates,
+/// through SwiftUI's own animation engine (`Animatable`), which is interruptible and retargets from the current value
+/// and velocity, and always lands on the model value. `.task(id: on)` (keyed on the value, not on an event) cannot miss
+/// a change. Reduce Motion, UI tests and plain screenshots: no animation, the state changes instantly.
 struct ValseTween<Content: View>: View {
     let on: Bool
-    var response = 0.42
-    var damping = 0.58
-    @ViewBuilder let content: (Double) -> Content
+    var response: Double
+    var damping: Double
+    let content: (Double) -> Content
     @ObservedObject private var clock = ValseDebugClock.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var changedAt = Date.distantPast
-    @State private var from = 0.0
-    @State private var moving = false
+    @State private var p: Double
+
+    init(on: Bool, response: Double = 0.42, damping: Double = 0.58, @ViewBuilder content: @escaping (Double) -> Content) {
+        self.on = on
+        self.response = response
+        self.damping = damping
+        self.content = content
+        _p = State(initialValue: ValseTweenTarget.value(on))
+    }
 
     var body: some View {
         if let t = clock.t {
+            // review clock (VALSE_DEBUG_ANIM_T / VALSE_DEBUG_FRAMES): the same spring, scrubbable frame by frame
             content(on ? ValseMotion.spring(t - clock.hoverAt, response: response, damping: damping) : 0)
-        } else if !ValseMotion.live(reduceMotion) {
-            content(on ? 1 : 0)
         } else {
-            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !moving)) { tl in
-                content(value(at: tl.date))
-            }
-            .onValueChange(of: on) { _, _ in
-                let now = Date()
-                from = value(at: now, target: on ? 0 : 1)   // where the previous motion had got to
-                changedAt = now
-                moving = true
-            }
-            .task(id: changedAt) {
-                try? await Task.sleep(for: .seconds(ValseMotion.settle(response: response, damping: damping)))
-                moving = false
-            }
+            ValseAnimatedProgress(p: p, content: content)
+                .task(id: on) { settle(on) }
         }
     }
 
-    private func value(at d: Date, target: Double? = nil) -> Double {
-        let to = target ?? (on ? 1 : 0)
-        let s = ValseMotion.spring(d.timeIntervalSince(changedAt), response: response, damping: damping)
-        return from + (to - from) * s
+    private func settle(_ on: Bool) {
+        let target = ValseTweenTarget.value(on)
+        guard p != target else { return }
+        if let a = ValseTweenTarget.animation(live: ValseMotion.live(reduceMotion), response: response, damping: damping) {
+            withAnimation(a) { p = target }
+        } else {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { p = target }
+        }
+    }
+}
+
+/// The tween's model value and transition (pure, ValseHoverTests).
+enum ValseTweenTarget {
+    static func value(_ on: Bool) -> Double { on ? 1 : 0 }
+    /// nil = change instantly (Reduce Motion, UI tests, plain screenshots).
+    static func animation(live: Bool, response: Double, damping: Double) -> Animation? {
+        live ? .spring(response: response, dampingFraction: damping) : nil
+    }
+}
+
+/// Hands SwiftUI's interpolated `p` to the content on every animation frame.
+private struct ValseAnimatedProgress<Content: View>: View, Animatable {
+    var p: Double
+    let content: (Double) -> Content
+    var animatableData: Double {
+        get { p }
+        set { p = newValue }
+    }
+    var body: some View { content(p) }
+}
+
+/// Hover state machine (pure, ValseHoverTests). `.onHover` only flips on enter / exit events, and macOS drops the exit
+/// in several situations (HoverReset), which left elements lifted / spun after the pointer had gone. Here every pointer
+/// move inside re-asserts the state, any reset or disappearance clears it, and a move only counts while the app is
+/// active and no in-window modal covers the point.
+enum ValseHoverModel {
+    enum Event: Equatable {
+        /// `onContinuousHover(.active)`: the pointer moved inside the view.
+        case moved(appActive: Bool, blockedByModal: Bool)
+        /// `onContinuousHover(.ended)`: the pointer left.
+        case ended
+        /// `HoverReset` (deactivation, key loss, menu closed, scroll, modal) or the view left the hierarchy.
+        case reset
+    }
+    static func next(_ hovering: Bool, _ e: Event) -> Bool {
+        switch e {
+        case .moved(let active, let blocked): return active && !blocked
+        case .ended, .reset: return false
+        }
+    }
+}
+
+/// Convergent hover tracking for Home's micro-interactions (replaces `.onHover { hover = $0 }`).
+struct ValseHoverTracking: ViewModifier {
+    @Binding var hovering: Bool
+    func body(content: Content) -> some View {
+        content
+            .onContinuousHover(coordinateSpace: .local) { phase in
+                switch phase {
+                case .active:
+                    let e = NSApp.currentEvent
+                    apply(.moved(appActive: NSApp.isActive,
+                                 blockedByModal: ModalHoverGate.isBlocked(e?.locationInWindow, in: e?.window)))
+                case .ended: apply(.ended)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: HoverReset.notification)) { _ in apply(.reset) }
+            .onAppear { HoverReset.install() }
+            .onDisappear { apply(.reset) }
+    }
+    private func apply(_ e: ValseHoverModel.Event) {
+        let v = ValseHoverModel.next(hovering, e)
+        if v != hovering { hovering = v }
     }
 }
 
@@ -219,6 +293,8 @@ extension View {
     func valseSticker(_ selected: Bool, radius: CGFloat, depth: CGFloat = 3) -> some View {
         modifier(ValseSticker(selected: selected, radius: radius, depth: depth))
     }
+    /// Hover flag that always converges to the pointer's real position (ValseHoverTracking).
+    func valseHover(_ hovering: Binding<Bool>) -> some View { modifier(ValseHoverTracking(hovering: hovering)) }
     func valseHardShadow(_ color: Color, radius: CGFloat, depth: CGFloat) -> some View {
         modifier(ValseHardShadow(color: color, radius: radius, depth: depth))
     }
