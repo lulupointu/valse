@@ -1,7 +1,0 @@
-/* TEMPORARY (VALSE-APP round 11): the "Valse options" menu, the editor logo choice. Delete with ValseOptions.swift. */
-"valseopt.menu" = "Valse options";
-"valseopt.logo" = "Editor logo";
-"valseopt.logo.a" = "A · Big mark, left";
-"valseopt.logo.b" = "B · Logo centred, project on the left";
-"valseopt.logo.c" = "C · Big entrance into the centre";
-"valseopt.logo.d" = "D · Logo and name, left";

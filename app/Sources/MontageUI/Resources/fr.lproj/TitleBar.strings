@@ -1,0 +1,13 @@
+/* VALSE-APP tour 12 : le groupe de gauche de la barre de titre de l’éditeur (retour à l’accueil, nom du projet, état de l’enregistrement). */
+"titlebar.name.help" = "%@ · Double-cliquez pour renommer";
+"titlebar.name.renameHint" = "Double-cliquez pour renommer le projet";
+"titlebar.name.rename" = "Renommer le projet";
+"cmd.renameProject" = "Renommer le projet";
+"save.saving" = "Enregistrement…";
+"save.saved" = "Enregistré";
+"save.savedAt" = "Enregistré à %@";
+"save.notSaved" = "Non enregistré";
+"save.failed.diskFull" = "Impossible d’enregistrer le projet : le disque est plein.";
+"save.failed.generic" = "Impossible d’enregistrer le projet.";
+"save.retry" = "Réessayer";
+"save.retryHelp" = "Cliquez pour réessayer.";

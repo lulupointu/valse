@@ -110,8 +110,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.app.trashOrDeleteSelection()
                 return nil
             }
-            // P1 project switcher open: its keys first; other keys go to its search field, never to editor shortcuts
-            if self.app.switcher.isOpen { return self.app.switcher.handle(e) ? nil : e }
             return ShortcutRegistry.handle(e, store: self.store) ? nil : e
         }
         NotificationCenter.default.addObserver(forName: L10n.didChange, object: nil, queue: .main) { [weak self] _ in
@@ -208,8 +206,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// P1 (CapCut): the red close button in the editor goes back to Home ("Saved to project"); on Home it quits.
-    func windowShouldClose(_ sender: NSWindow) -> Bool { app?.windowShouldClose() ?? true }
+    /// VALSE-APP round 12 (owner): the red close button (and ⌘W, which performs it) quits this app instance, from the
+    /// editor and from Home; the title bar's back arrow is the way back to Home. Each project window is its own
+    /// process (PM-014), so closing the window ends that instance. It goes through `terminate`, exactly like ⌘Q:
+    /// `applicationShouldTerminate` stops background work, saves and closes the project (version + cover), and
+    /// Sparkle's install-on-quit runs. The window stays up while that happens. Only the main window has this delegate:
+    /// detached panels and other windows just close.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        NSApp.terminate(nil)
+        return false
+    }
 
     /// Finder "Open With" / drop on the Dock icon (MI-028): projects open, media files are imported.
     func application(_ application: NSApplication, open urls: [URL]) {

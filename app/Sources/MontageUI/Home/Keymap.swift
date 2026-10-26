@@ -194,10 +194,11 @@ public final class Keymap {
         return [
             m("menu.new", "n"), m("menu.open", "o"), m("menu.import", "i"), m("menu.export", "e"),
             m("menu.save", "s"), m("menu.undo", "z"), m("menu.redo", "z", [.command, .shift]),
-            m("menu.settings", ","), m("menu.home", "h", [.command, .shift]), m("menu.switchProject", "o", [.command, .shift]), m("menu.importProject", nil), m("menu.packProject", nil),
+            m("menu.settings", ","), m("menu.home", "h", [.command, .shift]),m("menu.importProject", nil), m("menu.packProject", nil),
             m("menu.projectSettings", nil), m("menu.versions", nil), m("menu.relink", nil),
             m("menu.shortcuts", "k", [.command, .option]), m("menu.quit", "q"), m("menu.hide", "h"),
             m("menu.minimize", "m", .command, .other), m("menu.fullscreen", "f", [.command, .control], .other),
+            m("menu.close", "w", .command, .other),
             m("menu.exportFrame", nil, .command, .other),
             m("menu.freeze", nil, .command, .timeline), m("menu.reverse", nil, .command, .timeline),
             m("menu.mirror", nil, .command, .timeline), m("menu.rotate", nil, .command, .timeline),
