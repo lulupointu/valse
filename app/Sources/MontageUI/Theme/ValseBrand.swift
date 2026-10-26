@@ -229,8 +229,10 @@ struct ValsePrimaryButtonStyle: ButtonStyle {
 /// Neutral secondary action on the warm control surface, springy press.
 struct ValseSecondaryButtonStyle: ButtonStyle {
     var compact = false
+    /// Review clock only (VALSE_DEBUG_HOVER=<id> + PRESS_AT / RELEASE_AT): replays the press for comparison clips.
+    var debugID = ""
     func makeBody(configuration: Configuration) -> some View {
-        ValsePressLabel(configuration: configuration, primary: false, compact: compact)
+        ValsePressLabel(configuration: configuration, primary: false, compact: compact, debugID: debugID)
     }
 }
 
@@ -238,22 +240,30 @@ private struct ValsePressLabel: View {
     let configuration: ButtonStyleConfiguration
     let primary: Bool
     let compact: Bool
+    var debugID = ""
     @State private var hover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var clock = ValseDebugClock.shared
     var body: some View {
         let r = ValseShape.control
+        // review clock: the same 0.25 / 0.55 spring, replayed frame by frame (normal use: `.animation` below)
+        let review: Double? = clock.t.flatMap { t in
+            ValseDebugHover.forced(debugID) ? ValseMotion.replay(clock.pressEvents(debugID), at: t) : nil
+        }
         let pressed = configuration.isPressed
+        let k = review ?? (pressed ? 1 : 0)
+        let hovered = clock.debugHover(debugID) ?? hover
         configuration.label
             .font(.system(size: 12.5, weight: primary ? .semibold : .medium))
             .lineLimit(1).fixedSize()
             .foregroundStyle(primary ? Theme.Valse.ink : Theme.Valse.text)
             .padding(.horizontal, compact ? 10 : 14).frame(height: compact ? 26 : 30)
-            .background(primary ? Theme.Valse.teal.opacity(pressed ? 0.85 : 1)
-                                : (hover ? Theme.Valse.controlHover : Theme.Valse.control).opacity(pressed ? 0.75 : 1),
+            .background(primary ? Theme.Valse.teal.opacity(1 - 0.15 * k)
+                                : (hovered ? Theme.Valse.controlHover : Theme.Valse.control).opacity(1 - 0.25 * k),
                         in: RoundedRectangle(cornerRadius: r))
             .overlay(RoundedRectangle(cornerRadius: r).stroke(primary ? .clear : Theme.Valse.stroke))
-            .scaleEffect(pressed && !reduceMotion ? 0.95 : 1)
-            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: pressed)
+            .scaleEffect(review != nil || !reduceMotion ? 1 - 0.05 * CGFloat(k) : 1)
+            .animation(reduceMotion || review != nil ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: pressed)
             .valseHover($hover)
     }
 }

@@ -174,7 +174,6 @@ struct HomeTopBar: View {
         WithPerceptionTracking {
             HStack(spacing: 14) {
                 Spacer()
-                if ValseTempHoverPicker.visible { ValseTempHoverPickerView() }   // TEMPORARY (round 6), see its file
                 IconButton("square.and.arrow.down", help: tr("home.importProject")) { app.importProjectPanel() }.testID("home.top.import")
                 IconButton("keyboard", help: tr("keymap.title")) { app.modal = .shortcuts }.testID("home.top.shortcuts")
                 IconButton("gearshape", help: tr("settings.title")) { app.modal = .settings(.general) }.testID("home.top.settings")
@@ -301,7 +300,7 @@ struct NewProjectHero: View {
                         Text(loc: "home.newProject.custom")
                     }
                 }
-                .buttonStyle(ValseSecondaryButtonStyle(compact: true))
+                .buttonStyle(ValseSecondaryButtonStyle(compact: true, debugID: "custom"))
                 .help(tr("home.newProject.customHelp"))
                 .testID("home.newProject.custom")
                 .padding(14)
@@ -331,14 +330,16 @@ struct HomeFeatureRow: View {
     }
 }
 
-/// Feature card (round 6). At rest: a flat wash of the card colour on the surface, a hairline. Hover: one of the
-/// treatments the owner is comparing live (`ValseCardHover`, temporary picker in the top bar). Press: the same for
-/// every option and card, the hero's "Custom" button recipe (`ValsePress`): a springy squash and the fill dimmed.
+/// Feature card (round 7). Rest: a flat wash of the card colour on the surface, a hairline. Hover: the card lifts 2 pt
+/// up-left off a solid, muted block of its colour, a cream hairline comes up, and the icon tile pops 1.5 pt off its own
+/// block. Press (`ValseCardPress`): Custom's spring and dimmed fill, but the motion is the 80s print one: the card is
+/// driven down onto its block (only a sliver left showing) and the tile settles onto its block a beat later; release
+/// springs both back up. Identical for the three cards.
 struct FeatureCard: View {
     let symbol: String
     var tint: Color = Theme.Valse.teal
-    /// The icon tile's solid block when it pops: its darker warm partner (mustard on orange, as the "+" tile; orange on
-    /// burgundy), teal on its own shade (a red or orange fringe under teal read as misregistration).
+    /// The icon tile's solid block: its darker warm partner (mustard on orange, as the "+" tile; orange on burgundy),
+    /// teal on its own shade (a red or orange fringe under teal read as misregistration).
     var tileBlock: Color = Theme.Valse.burgundy
     static let tealShade = Color(hex: 0x20604E)
     /// The icon's small themed motion while hovered.
@@ -353,36 +354,10 @@ struct FeatureCard: View {
         WithPerceptionTracking {
             Button(action: action) {
                 FeatureCardFace(symbol: symbol, tint: tint, tileBlock: tileBlock, motion: motion, debugID: debugID,
-                                title: title, subtitle: subtitle, hover: ValseDebugHover.merge(hoverState, debugID))
+                                title: title, subtitle: subtitle, hoverState: $hoverState)
             }
             .buttonStyle(ValsePressReportingStyle())
             .valseHover($hoverState)
-        }
-    }
-}
-
-/// What each hover option does (pure, ValseHoverTests). `h` = the hover spring value (0 rest, 1 hovered).
-struct ValseCardHoverStyle: Equatable {
-    /// Whole card lift off a muted block of its colour (pt).
-    var cardDepth: CGFloat = 0
-    /// Icon tile pop off its own block (pt).
-    var tileDepth: CGFloat = 0
-    /// Colour wash when hovered (rest is always 0.10).
-    var wash: Double = 0.10
-    /// Cream hairline over the border when hovered.
-    var hairline: Double = 0
-    /// A flat bar of the card colour along the bottom edge.
-    var underline = false
-    /// Icon motion amplitude and tile scale-up.
-    var motion: Double = 1
-    var tileScale: CGFloat = 0
-
-    static func of(_ o: ValseCardHover) -> ValseCardHoverStyle {
-        switch o {
-        case .a: return .init(cardDepth: 2, tileDepth: 1.5, wash: 0.14, hairline: 0.22)                // lift off block
-        case .b: return .init(tileDepth: 2, wash: 0.17, hairline: 0.16)                                 // tile pops
-        case .c: return .init(wash: 0.12, underline: true)                                              // edge bar
-        case .d: return .init(motion: 1.45, tileScale: 0.07)                                            // icon only
         }
     }
 }
@@ -395,69 +370,79 @@ private struct FeatureCardFace: View {
     let debugID: String
     let title: String
     let subtitle: String
-    let hover: Bool
+    @Binding var hoverState: Bool
     @Environment(\.valsePressed) private var pressed
     @ObservedObject private var clock = ValseDebugClock.shared
-    @ObservedObject private var choice = ValseCardHoverChoice.shared
+    @State private var anchor = DropdownMenu.Anchor()
 
     var body: some View {
         let r = ValseShape.card
-        let hovered = clock.debugHover(debugID) ?? hover
-        let style = ValseCardHoverStyle.of(choice.option)
+        // Everything is derived from the pointer and the button's own `isPressed`, nothing else is held.
+        let hovered = clock.debugHover(debugID) ?? ValseDebugHover.merge(hoverState, debugID)
+        let held = pressed || clock.debugPressed(debugID)
         let k = ValseLift.spring(hover: hovered)
-        ValsePressValue(pressed: pressed, debugID: debugID) { press in
-            ValseSpringValue(target: hovered ? 1 : 0, response: k.response, damping: k.damping,
-                             debugEvents: clock.hoverEvents(debugID)) { h in
-                let up = max(0, h), on = min(1, up)
-                HStack(spacing: 10) {
-                    tile(up, style)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
-                            .lineLimit(1).minimumScaleFactor(0.85)
-                        Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
-                    }
-                    Spacer(minLength: 0)
+        ValsePressValue(pressed: held, debugID: debugID) { press in
+            ValsePressValue(pressed: held, debugID: debugID, response: ValseCardPress.tileResponse, damping: ValseCardPress.tileDamping) { settle in
+                ValseSpringValue(target: hovered ? 1 : 0, response: k.response, damping: k.damping,
+                                 debugEvents: clock.hoverEvents(debugID)) { h in
+                    face(h: h, press: press, settle: settle, radius: r)
                 }
-                .padding(.leading, 12).padding(.trailing, 10)
-                .frame(width: 300, height: 72)
-                .background {
-                    // flat fill: a wash of the card colour on the surface (no gradient); dimmed while pressed (Custom)
-                    ZStack(alignment: .bottom) {
-                        Theme.Valse.surface
-                        tint.opacity(0.10 + (style.wash - 0.10) * on)
-                        if style.underline {
-                            Rectangle().fill(tint).frame(height: 3).scaleEffect(x: on, anchor: .leading)
-                        }
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: r))
-                    .opacity(min(1, 1 - (1 - ValsePress.fillOpacity) * press))
-                }
-                .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.stroke))
-                .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.cream.opacity(style.hairline * on)))
-                .offset(x: ValseLift.offset(h, depth: style.cardDepth), y: ValseLift.offset(h, depth: style.cardDepth))
-                .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.42))
-                    .offset(x: ValseLift.block(h, depth: style.cardDepth), y: ValseLift.block(h, depth: style.cardDepth))
-                    .opacity(style.cardDepth > 0 && ValseLift.showsBlock(h) ? 1 : 0))
-                .scaleEffect(ValsePress.scale(press, to: ValsePress.cardScale))
             }
         }
-        // the lifted card and its block stay inside the hit area
-        .contentShape(Rectangle().inset(by: -2))
+        // the lifted / pushed card and its block stay inside the hit area
+        .contentShape(Rectangle().inset(by: -ValseCardPress.depth))
+        .background(DropdownMenu.AnchorView(anchor: anchor))
+        // A press that ends after the pointer was dragged out (released outside: no action) gets no hover exit from
+        // AppKit while the button is down; re-read where the pointer really is whenever the press starts or ends.
+        .onValueChange(of: pressed) { _, _ in recheckPointer() }
     }
 
-    /// The icon tile: tile and glyph are one unit (a ZStack), so every offset, scale and pop moves both together and
-    /// the glyph's own motion only rotates / scales about the tile's centre (never translates inside it).
-    private func tile(_ up: Double, _ style: ValseCardHoverStyle) -> some View {
-        ZStack {
+    private func face(h: Double, press: Double, settle: Double, radius r: CGFloat) -> some View {
+        let up = max(0, h), on = min(1, up)
+        let d = ValseCardPress.card(h: h, k: press)
+        return HStack(spacing: 10) {
+            tile(up: up, settle: settle)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
+                    .lineLimit(1).minimumScaleFactor(0.85)
+                Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 12).padding(.trailing, 10)
+        .frame(width: 300, height: 72)
+        .background {
+            // flat fill: a wash of the card colour on the surface (no gradient), a touch stronger while lifted;
+            // dimmed while pressed (Custom's 75 %)
+            ZStack {
+                Theme.Valse.surface
+                tint.opacity(0.10 + 0.04 * on)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: r))
+            .opacity(min(1, 1 - (1 - ValsePress.fillOpacity) * press))
+        }
+        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.stroke))
+        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.cream.opacity(0.22 * on)))
+        .offset(x: d, y: d)
+        .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.42))
+            .offset(x: ValseCardPress.block(h: h), y: ValseCardPress.block(h: h))
+            .opacity(ValseLift.showsBlock(h) ? 1 : 0))
+    }
+
+    /// The icon tile: tile and glyph are one unit (a ZStack), so every offset moves both together and the glyph's own
+    /// motion only rotates / scales about the tile's centre.
+    private func tile(up: Double, settle: Double) -> some View {
+        let t = ValseCardPress.tile(h: up, k2: settle)
+        let b = ValseCardPress.tileDepth * CGFloat(up)
+        return ZStack {
             RoundedRectangle(cornerRadius: 11).fill(tint)
-            icon(up * style.motion)
+            icon(up)
         }
         .frame(width: 34, height: 34)
-        .scaleEffect(1 + style.tileScale * CGFloat(up))
-        .offset(x: ValseLift.offset(up, depth: style.tileDepth), y: ValseLift.offset(up, depth: style.tileDepth))
+        .offset(x: -t, y: -t)
         .background(RoundedRectangle(cornerRadius: 11).fill(tileBlock)
-            .offset(x: ValseLift.block(up, depth: style.tileDepth), y: ValseLift.block(up, depth: style.tileDepth))
-            .opacity(style.tileDepth > 0 && ValseLift.showsBlock(up) ? 1 : 0))
+            .offset(x: b, y: b)
+            .opacity(ValseLift.showsBlock(up) ? 1 : 0))
     }
 
     /// One motion per card, following the hover spring, about the glyph's centre: the template stack fans out, the
@@ -475,6 +460,14 @@ private struct FeatureCardFace: View {
         case .snip:
             glyph.rotationEffect(.degrees(-14 * m))
         }
+    }
+
+    private func recheckPointer() {
+        guard !ValseDebugHover.ignoreReal else { return }
+        guard let v = anchor.view, let w = v.window else { if hoverState { hoverState = false }; return }
+        let p = w.mouseLocationOutsideOfEventStream
+        let inside = v.bounds.contains(v.convert(p, from: nil)) && NSApp.isActive && !ModalHoverGate.isBlocked(p, in: w)
+        if hoverState != inside { hoverState = inside }
     }
 }
 

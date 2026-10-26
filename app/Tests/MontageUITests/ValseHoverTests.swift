@@ -105,7 +105,7 @@ import AppKit
         let after = stride(from: 0.12, through: 1.2, by: 0.005).map { ValseMotion.replay(seq, at: $0) }
         #expect((after.min() ?? 0) < 0 && (after.min() ?? 0) > -0.3)         // release bounces just past full size
         #expect(abs(ValseMotion.replay(seq, at: 1.5)) < 0.001)
-        #expect(ValsePress.scale(1, to: ValsePress.cardScale) == ValsePress.cardScale && ValsePress.scale(0, to: 0.9) == 1)
+        #expect(ValsePress.scale(1, to: ValsePress.keyScale) == ValsePress.keyScale && ValsePress.scale(0, to: 0.9) == 1)
     }
 
     @Test func barKeyLookFollowsOnlyPointerAndPress() {
@@ -117,13 +117,34 @@ import AppKit
         #expect(L.fill(hover: true, pressed: true, enabled: false) == .none)
     }
 
-    @Test func cardHoverOptionsAreDistinctAndRestIsShared() {
-        let styles = ValseCardHover.allCases.map(ValseCardHoverStyle.of)
-        #expect(Set(ValseCardHover.allCases.map(\.rawValue)) == ["A", "B", "C", "D"])
-        for i in styles.indices { for j in styles.indices where i < j { #expect(styles[i] != styles[j]) } }
-        #expect(styles[0].cardDepth > 0 && styles[1].cardDepth == 0 && styles[1].tileDepth > 0)
-        #expect(styles[2].underline && styles[3].tileDepth == 0 && styles[3].motion > 1)
-        #expect(styles.allSatisfy { $0.wash >= 0.10 })   // rest (h = 0) is the same 10 % wash for every option
+    /// Round 7 card press: lifted off its block on hover, driven down onto it while held (a sliver left), back on release.
+    @Test func cardPressDrivesTheCardOntoItsBlock() {
+        typealias C = ValseCardPress
+        #expect(C.card(h: 0, k: 0) == 0 && C.block(h: 0) == 0)                       // rest: flat, no block
+        #expect(C.card(h: 1, k: 0) == -C.depth && C.block(h: 1) == C.depth)          // hover: 2 pt up-left, block 2 pt down-right
+        let held = C.card(h: 1, k: 1)
+        #expect(held > 0 && C.block(h: 1) - held > 0.2 && C.block(h: 1) - held < 0.6) // held: on the block, a 0.4 pt sliver left
+        #expect(C.tile(h: 1, k2: 0) == C.tileDepth && C.tile(h: 1, k2: 1) == 0)      // tile settles flat onto its block
+        #expect(C.tile(h: 1, k2: -0.2) == C.tileDepth && C.tile(h: 1, k2: 1.2) == 0)  // its spring never lifts it past either end
+        // the tile settles a beat after the card (slower spring), with no visible bounce of its own
+        let card = [pressEvent(0, true)]
+        let tile = [ValseSpringEvent(at: 0, target: 1, response: C.tileResponse, damping: C.tileDamping)]
+        #expect(ValseMotion.replay(tile, at: 0.06) < ValseMotion.replay(card, at: 0.06))
+        let tilePeak = stride(from: 0.0, through: 1, by: 0.005).map { ValseMotion.replay(tile, at: $0) }.max() ?? 0
+        #expect(tilePeak < 1.06)
+    }
+
+    /// Hover → press → release (the action fires) → still hovered: everything lands exactly on the lifted state; then the
+    /// pointer leaves: back to rest, no re-lift.
+    @Test func cardPressReleaseConverges() {
+        let hover = [hoverEvent(0, true), hoverEvent(2, false)]
+        let press = [pressEvent(1, true), pressEvent(1.15, false)]
+        func card(_ t: Double) -> CGFloat {
+            ValseCardPress.card(h: ValseMotion.replay(hover, at: t), k: ValseMotion.replay(press, at: t))
+        }
+        #expect(card(1.12) > 0.8)                                  // pushed down onto the block while held
+        #expect(abs(card(1.9) + ValseCardPress.depth) < 0.02)       // back to the lifted state after the release
+        #expect(abs(card(3)) < 0.01)                                // rest after the exit
     }
 
     @Test func heroRibbonFollowsTheLogo() {

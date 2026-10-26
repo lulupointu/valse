@@ -65,10 +65,10 @@ final class ValseDebugClock: ObservableObject {
     }
 
     /// Review clock: the forced element's press / release as spring retargets (`ValsePress`).
-    func pressEvents(_ id: String) -> [ValseSpringEvent] {
+    func pressEvents(_ id: String, response: Double = ValsePress.response, damping: Double = ValsePress.damping) -> [ValseSpringEvent] {
         guard ValseDebugHover.forced(id), let p = pressAt else { return [] }
-        var e = [ValseSpringEvent(at: p, target: 1, response: ValsePress.response, damping: ValsePress.damping)]
-        if let r = releaseAt { e.append(ValseSpringEvent(at: r, target: 0, response: ValsePress.response, damping: ValsePress.damping)) }
+        var e = [ValseSpringEvent(at: p, target: 1, response: response, damping: damping)]
+        if let r = releaseAt { e.append(ValseSpringEvent(at: r, target: 0, response: response, damping: damping)) }
         return e
     }
 
@@ -219,16 +219,36 @@ enum ValseLift {
     static func showsBlock(_ v: Double) -> Bool { v > 0.02 }
 }
 
-/// Press feedback, the hero's "Custom" button recipe (`ValsePressLabel`): a springy squash (response 0.25, damping
-/// 0.55, so the release bounces back just past full size) and the fill dimmed to 75 % while held. Used as is by the
-/// selection bar keys and the feature cards, so every click on Home outside the sidebar and the hero feels the same.
+/// Press feel, the hero's "Custom" button recipe (`ValsePressLabel`): spring response 0.25, damping 0.55 (reacts on
+/// mouse down, the release springs back just past rest) and the fill dimmed to 75 % while held. The selection bar keys
+/// use it with Custom's squash; the feature cards use the same spring and dim with a different motion (`ValseCardPress`).
 enum ValsePress {
     static let response = 0.25, damping = 0.55
     static let fillOpacity = 0.75
-    /// Custom squashes to 95 %: about 3 pt on each side of a 110 pt wide button. The 300 pt cards travel the same few
-    /// points (97 %); at 95 % a card would jump 7 pt per side.
-    static let keyScale: CGFloat = 0.95, cardScale: CGFloat = 0.97
+    static let keyScale: CGFloat = 0.95
     static func scale(_ k: Double, to s: CGFloat) -> CGFloat { 1 - (1 - s) * CGFloat(k) }
+}
+
+/// Feature card motion (round 7, hover "A"). Hover lifts the card `depth` up-left off a solid block of its colour and
+/// pops its icon tile `tileDepth` off the tile's own block. Press drives the card down onto its block (Custom's spring,
+/// `k`): it travels the lift plus `sink` of the block depth, so only a sliver of the block is left showing while held;
+/// the icon tile settles onto its block a beat later (`k2`, a slightly slower spring) and pops back a beat after the
+/// card on release. Pure (ValseHoverTests).
+enum ValseCardPress {
+    static let depth: CGFloat = 2, tileDepth: CGFloat = 1.5
+    /// How far into the block the card goes while held (0.8 = 80 %: a 0.4 pt sliver of the 2 pt block is left).
+    static let sink: CGFloat = 0.8
+    /// The tile's settle: a beat behind the card, no bounce of its own worth noticing.
+    static let tileResponse = 0.32, tileDamping = 0.7
+    /// Card offset (both axes; negative = up-left) for hover `h` and press `k`.
+    static func card(h: Double, k: Double) -> CGFloat {
+        let lift = depth * CGFloat(max(0, h))
+        return -lift + CGFloat(k) * (lift + sink * depth)
+    }
+    /// The card's block offset (it stays put while the card is pushed onto it).
+    static func block(h: Double) -> CGFloat { depth * CGFloat(max(0, h)) }
+    /// Icon tile lift above the card for hover `h` and the tile's press value `k2`.
+    static func tile(h: Double, k2: Double) -> CGFloat { tileDepth * CGFloat(max(0, h)) * (1 - CGFloat(min(1, max(0, k2)))) }
 }
 
 /// The press value 0 → 1 with `ValsePress`'s spring, through `ValseSpringValue` (interruptible, always converges,
@@ -237,11 +257,13 @@ enum ValsePress {
 struct ValsePressValue<Content: View>: View {
     let pressed: Bool
     var debugID = ""
+    var response = ValsePress.response
+    var damping = ValsePress.damping
     @ViewBuilder let content: (Double) -> Content
     @ObservedObject private var clock = ValseDebugClock.shared
     var body: some View {
-        ValseSpringValue(target: pressed || clock.debugPressed(debugID) ? 1 : 0, response: ValsePress.response,
-                         damping: ValsePress.damping, debugEvents: clock.pressEvents(debugID), content: content)
+        ValseSpringValue(target: pressed || clock.debugPressed(debugID) ? 1 : 0, response: response, damping: damping,
+                         debugEvents: clock.pressEvents(debugID, response: response, damping: damping), content: content)
     }
 }
 
@@ -281,6 +303,9 @@ struct ValseSpringValue<Content: View>: View {
             content(debugEvents.isEmpty ? target : ValseMotion.replay(debugEvents, at: t))
         } else {
             ValseAnimatedProgress(p: p, content: content)
+                // same frame as the change (a press reacts on mouse down, like a plain SwiftUI `.animation`)…
+                .onValueChange(of: target) { _, t in settle(t) }
+                // …and keyed on the value as the safety net that cannot miss a change (settle is idempotent)
                 .task(id: target) { settle(target) }
         }
     }
