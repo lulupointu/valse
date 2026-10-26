@@ -249,7 +249,7 @@ struct ModelDownloadIndicator: View {
                 Text(loc: "download.cancel.question").font(Theme.Fonts.hint).foregroundStyle(IStyle.label)
                 HStack(spacing: 10) {
                     Spacer()
-                    Button(tr("download.keep")) { flow.keepDownloading(s) }.buttonStyle(.link).font(Theme.Fonts.hint)
+                    Button(tr("download.keep")) { flow.keepDownloading(s) }.buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint)
                         .testID("modelDownloads.keep.\(s.id)")
                     Button(tr("download.cancel.confirm")) { flow.confirmCancel(s) }
                         .buttonStyle(SecondaryButtonStyle()).testID("modelDownloads.confirmCancel.\(s.id)")

@@ -449,7 +449,8 @@ struct LibraryRow: View {
                         }
                     }
                     Spacer(minLength: 4)
-                    if let similar = item.similar, hover || selected || item.playing {
+                    // a row whose license card is open is the active row too (its controls stay, whatever the pointer)
+                    if let similar = item.similar, hover || selected || item.playing || LicenseCardState.shared.shownID == item.id {
                         Button { similar() } label: {
                             Image(systemName: "waveform.and.magnifyingglass").font(.system(size: 12))
                                 .foregroundStyle(Theme.textSecondary).frame(width: 22, height: 22)

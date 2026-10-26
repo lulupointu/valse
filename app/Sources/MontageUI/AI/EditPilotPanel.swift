@@ -181,7 +181,7 @@ private struct PlanCardView: View {
                         ProgressView().controlSize(.small)
                         Text(loc: "pilot.planning").font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
                         Spacer()
-                        Button(tr("ai.cancel")) { store.cancelPilotWork() }.buttonStyle(.link).font(Theme.Fonts.hint)
+                        Button(tr("ai.cancel")) { store.cancelPilotWork() }.buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint)
                     }
                 case .empty:
                     ForEach(Array(EditPilotPanel.suggestionKeys.prefix(3).enumerated()), id: \.offset) { _, key in

@@ -197,6 +197,26 @@ struct ValseExportButtonStyle: ButtonStyle {
     }
 }
 
+/// Inline text action ("Use an existing file…", "Keep", "Change"): mint label, underlined while hovered, dimmed while
+/// pressed. Replaces `.buttonStyle(.link)`, which draws in the system link blue and ignores the Valse tint.
+struct ValseLinkButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { ValseLink(label: configuration.label, pressed: configuration.isPressed) }
+}
+
+private struct ValseLink<Label: View>: View {
+    let label: Label
+    let pressed: Bool
+    @State private var hover = false
+    @Environment(\.isEnabled) private var enabled
+    var body: some View {
+        label
+            .foregroundStyle(enabled ? Theme.accentText.opacity(pressed ? 0.6 : 1) : Theme.textTertiary)
+            .underline(hover && enabled)
+            .contentShape(Rectangle())
+            .valseHover($hover)
+    }
+}
+
 /// Full-width 32 pt dialog button (DialogFooter: Cancel / Save sharing the width).
 struct ValseWideButtonStyle: ButtonStyle {
     let kind: ValseButtonKind
