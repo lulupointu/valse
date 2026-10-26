@@ -1,0 +1,19 @@
+/* TEMPORAIRE (VALSE-APP, tour 9) : le menu « Options Valse », choix de design ouverts. À supprimer avec ValseOptions.swift. */
+"valseopt.menu" = "Options Valse";
+"valseopt.clip" = "Couleurs des clips de la timeline";
+"valseopt.clip.a" = "A · Fonctionnelles (actuelles)";
+"valseopt.clip.b" = "B · Palette Valse";
+"valseopt.export" = "Bouton Exporter";
+"valseopt.export.a" = "A · Appel à l’action moutarde";
+"valseopt.export.b" = "B · Principal sarcelle";
+"valseopt.export.c" = "C · Discret";
+"valseopt.tabs" = "Onglet sélectionné";
+"valseopt.tabs.a" = "A · Libellé menthe + soulignement sarcelle";
+"valseopt.tabs.b" = "B · Pastille menthe";
+"valseopt.tabs.c" = "C · Pilule en relief";
+"valseopt.tools" = "Icônes de la barre d’outils";
+"valseopt.tools.a" = "A · Pictogrammes simples";
+"valseopt.tools.b" = "B · Touches discrètes";
+"valseopt.sliders" = "Curseurs";
+"valseopt.sliders.a" = "A · Crème";
+"valseopt.sliders.b" = "B · Sarcelle";

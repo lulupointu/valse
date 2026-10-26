@@ -214,7 +214,7 @@ extension TimelineView {
         if !ctx.selection.isEmpty {
             for k in range where ctx.selection.contains(run[k].id) {
                 let cr = CGRect(x: xOf(run[k].start), y: r.minY, width: max(2, CGFloat((run[k].end - run[k].start) * pps)), height: r.height)
-                c.rect(cr, .white, radius: 1, border: 1.5)
+                c.rect(cr, Theme.TL.selection, radius: 1, border: 1.5)
             }
         }
     }

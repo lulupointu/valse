@@ -277,7 +277,7 @@ struct EQEditor: View {
                                         c.audio.eq?.gains[i] = v.rounded(); c.audio.eq?.presetID = nil
                                     }
                                 }), in: AudioEQ.gainRange) { editing in editing ? store.beginGesture("cmd.eq") : store.endGesture() }
-                                    .controlSize(.mini).tint(.white)
+                                    .controlSize(.mini).valseSliderTint()
                                     .frame(width: 84)
                                     .rotationEffect(.degrees(-90))
                                     .frame(width: 22, height: 84)

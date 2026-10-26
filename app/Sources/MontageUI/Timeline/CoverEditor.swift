@@ -429,7 +429,7 @@ struct CoverEditorView: View {
             HStack {
                 Slider(value: Binding.perceived(get: { (model.textContent(i)?.fontSize ?? 0.1) * 250 },
                                       set: { v in model.updateText(i) { $0.fontSize = v / 250 } }), in: 5...80)
-                    .controlSize(.small).tint(.white).testID("cover.fontSizeSlider")
+                    .controlSize(.small).valseSliderTint().testID("cover.fontSizeSlider")
                 Text(verbatim: "\(Int(((model.textContent(i)?.fontSize ?? 0.1) * 250).rounded()))")
                     .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textPrimary).frame(width: 28)
                 ColorSwatchButton(color: t.color) { c in model.updateText(i) { $0.color = c } }

@@ -40,6 +40,9 @@ public struct RootView: View {
             .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.2), value: app.screen)
             .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.15), value: app.modal?.id)
             .background(app.screen == .home ? Theme.home : Theme.window)
+            // VALSE-APP: every system control without its own tint (sliders, switches, progress, pickers) uses Valse
+            // teal instead of the macOS accent colour
+            .tint(Theme.accent)
             .preferredColorScheme(.dark)
             .uitestNoMotion()
         }
@@ -182,7 +185,7 @@ struct RecoveryDialog: View {
             DialogCard(title: tr("recovery.title"), width: 420) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 22)).foregroundStyle(Color(hex: 0xE8B33A))
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 22)).foregroundStyle(Theme.Valse.mustard)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(loc: "recovery.message").font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)

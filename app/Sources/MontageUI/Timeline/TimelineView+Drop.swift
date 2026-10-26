@@ -76,7 +76,7 @@ extension TimelineView {
             // the new lane: a faint band across the timeline, accent line on its edge
             let lane = CGRect(x: TimelineLayout.headerWidth, y: r.minY, width: bounds.width - TimelineLayout.headerWidth, height: r.height)
             c.rect(lane, RGBA(1, 1, 1, 0.05))
-            c.rect(CGRect(x: lane.minX, y: r.maxY - 1, width: lane.width, height: 1), RGBA(0.34, 0.75, 0.8, 0.8))
+            c.rect(CGRect(x: lane.minX, y: r.maxY - 1, width: lane.width, height: 1), Theme.TL.accent(0.8))
         }
         c.rect(r, Self.placeholderFill, radius: 4)
         c.rect(r, RGBA(1, 1, 1, 0.35), radius: 4, border: 1)

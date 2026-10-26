@@ -87,7 +87,7 @@ public struct SliderRow: View {
                         editing ? onBegin() : onEnd()
                     }
                     .controlSize(.small)
-                    .tint(.white)
+                    .valseSliderTint()
                     .testID(testID ?? "slider.\(label)")
                     TextField("", text: $text)
                         .textFieldStyle(.plain)
@@ -166,25 +166,74 @@ public struct SegmentedTabs: View {
     }
 }
 
+/// Primary action in the editor: teal fill with ink text (6.2:1; white on teal was 2.4:1), the hero "Custom" press
+/// (springy 95 % squash, fill dimmed while held). Valse design/ui/STYLE_GUIDE.md §3–4.
 public struct AccentButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12).frame(height: 26)
-            .background(Theme.accent.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
+        ValseEditorButton(label: configuration.label, pressed: configuration.isPressed, kind: .primary)
     }
 }
 
+/// Secondary action: warm control fill, primary text; brighter on hover, same press as `AccentButtonStyle`.
 public struct SecondaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12).frame(height: 26)
-            .background(Theme.buttonSecondary.opacity(configuration.isPressed ? 0.7 : 1), in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
+        ValseEditorButton(label: configuration.label, pressed: configuration.isPressed, kind: .secondary)
+    }
+}
+
+/// The editor's Export button (title bar): the one brand call to action of the editor. Its loudness is an open owner
+/// choice (TEMPORARY `ValseOptions.export`: A mustard CTA, B teal primary, C quiet).
+struct ValseExportButtonStyle: ButtonStyle {
+    @ObservedObject private var options = ValseOptions.shared
+    func makeBody(configuration: Configuration) -> some View {
+        let kind: ValseEditorButton<Configuration.Label>.Kind = switch options.export {
+        case .a: .brand
+        case .b: .primary
+        case .c: .quiet
+        }
+        return ValseEditorButton(label: configuration.label, pressed: configuration.isPressed, kind: kind)
+    }
+}
+
+/// Editor-sized button body shared by the styles above. Press = `ValsePress` (Custom's spring 0.25 / 0.55, 95 %
+/// squash, fill to 75 % / 85 %); hover = `.valseHover` (never sticks). Reduce Motion: no squash.
+struct ValseEditorButton<Label: View>: View {
+    enum Kind { case primary, secondary, brand, quiet }
+    let label: Label
+    let pressed: Bool
+    let kind: Kind
+    var height: CGFloat = 26
+    var fontSize: CGFloat = 12
+    var minWidth: CGFloat? = nil
+    @State private var hover = false
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        let hot = hover && enabled
+        let fill: Color = switch kind {
+        case .primary: Theme.accent.opacity(pressed ? 0.85 : 1)
+        case .brand: Theme.Valse.mustard.opacity(pressed ? 0.85 : 1)
+        case .secondary: (hot ? Theme.control : Theme.buttonSecondary).opacity(pressed ? ValsePress.fillOpacity : 1)
+        case .quiet: (hot ? Theme.control : Theme.menu).opacity(pressed ? ValsePress.fillOpacity : 1)
+        }
+        let text: Color = switch kind {
+        case .primary, .brand: Theme.onAccent
+        case .secondary: Theme.textPrimary
+        case .quiet: Theme.accentText
+        }
+        label
+            .font(.system(size: fontSize, weight: kind == .secondary ? .regular : .semibold))
+            .foregroundStyle(text)
+            .padding(.horizontal, 12).frame(minWidth: minWidth).frame(height: height)
+            .background(fill, in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius)
+                .strokeBorder(kind == .quiet ? Theme.separator : .clear))
+            .opacity(enabled ? 1 : 0.45)
+            .scaleEffect(pressed && !reduceMotion ? ValsePress.keyScale : 1)
+            .animation(reduceMotion ? nil : .spring(response: ValsePress.response, dampingFraction: ValsePress.damping), value: pressed)
+            .valseHover($hover)
     }
 }
 
@@ -202,17 +251,49 @@ public struct IconButton: View {
         WithPerceptionTracking {
             Button(action: action) {
                 Image(systemName: symbol)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 14, weight: active ? .medium : .regular))
                     .frame(width: 26, height: 26)
-                    .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(enabled ? 0.85 : 0.3))
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ValseIconButtonStyle(active: active))
             .disabled(!enabled)
             .help(help)
             .accessibilityLabel(Text(verbatim: help))   // SE-017: icon-only buttons speak their tooltip
             .accessibilityAddTraits(active ? .isSelected : [])
         }
+    }
+}
+
+/// Dense tool icons (timeline toolbar, player bar, title bar): the quiet treatment (STYLE_GUIDE §4), never a spring on
+/// these editing tools. Active = mint glyph. Hover (TEMPORARY `ValseOptions.toolIcons`): A the glyph brightens,
+/// B a soft fill fades in behind it as on the selection bar keys. Press: the fill / glyph dims at once (no squash).
+struct ValseIconButtonStyle: ButtonStyle {
+    var active = false
+    func makeBody(configuration: Configuration) -> some View {
+        ValseIconKey(label: configuration.label, pressed: configuration.isPressed, active: active)
+    }
+}
+
+private struct ValseIconKey<Label: View>: View {
+    let label: Label
+    let pressed: Bool
+    let active: Bool
+    @State private var hover = false
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var options = ValseOptions.shared
+    var body: some View {
+        let hot = hover && enabled
+        let keys = options.toolIcons == .b
+        let glyph: Color = !enabled ? Theme.textPrimary.opacity(0.3)
+            : active ? Theme.accentText
+            : (hot ? Theme.textPrimary : Theme.textPrimary.opacity(0.82))
+        label
+            .foregroundStyle(glyph.opacity(pressed ? 0.7 : 1))
+            .background(keys && (hot || pressed) ? Theme.control.opacity(pressed ? 1 : 0.85) : .clear,
+                        in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
+            .animation(ValseMotion.live(reduceMotion) ? .easeOut(duration: 0.12) : nil, value: hot)
+            .valseHover($hover)
     }
 }
 

@@ -394,15 +394,12 @@ extension ProjectColorSpace {
     var exportLabelKey: String { "export.colorSpace.\(rawValue)" }
 }
 
+/// Export dialog buttons (28 pt): the default action is the teal primary (ink text), the others secondary; Custom's press.
 struct ExportButtonStyle: ButtonStyle {
     let accent: Bool
-    @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
-            .frame(minWidth: 72).padding(.horizontal, 12).frame(height: 28)
-            .background((accent ? Theme.accent : Theme.buttonSecondary).opacity(configuration.isPressed ? 0.75 : (isEnabled ? 1 : 0.4)),
-                        in: RoundedRectangle(cornerRadius: 4))
+        ValseEditorButton(label: configuration.label, pressed: configuration.isPressed, kind: accent ? .primary : .secondary,
+                          height: 28, fontSize: 13, minWidth: 72)
     }
 }
 

@@ -2,33 +2,54 @@ import SwiftUI
 import AppKit
 import MontageCore
 
-/// Design tokens from docs/UX.md §1.2–1.4 (CapCut dark theme). Use these, never literal colours.
+/// Design tokens. Use these, never literal colours. VALSE-APP: the CapCut greys and cyan of docs/UX.md §1.2–1.4 are
+/// remapped to the Valse warm charcoal + teal (direction.md "editor remap", Valse design/ui/STYLE_GUIDE.md §2). Warm
+/// neutrals keep their chroma low so they never bias footage; the viewer itself stays pure neutral black.
 public enum Theme {
     // Backgrounds
-    public static let window = Color(hex: 0x141414)
-    public static let home = Color(hex: 0x0D0D0D)
-    public static let panel = Color(hex: 0x1B1B1C)
-    public static let panelHeader = Color(hex: 0x303030)
-    public static let inset = Color(hex: 0x121212)
-    public static let control = Color(hex: 0x3B3B3B)
-    public static let buttonSecondary = Color(hex: 0x4F4F4F)
-    public static let stepper = Color(hex: 0x3D3D3D)
-    public static let segmentSelected = Color(hex: 0x3A3A3A)
-    public static let trackMain = Color(hex: 0x242425)
-    public static let menu = Color(hex: 0x2E2E2E)
-    public static let separator = Color(hex: 0x2A2A2A)
-    public static let headerSeparator = Color(hex: 0x070709)
-    // Accent
-    public static let accent = Color(hex: 0x57BECB)
-    public static let accentDim = Color(hex: 0x387379)
+    public static let window = Color(hex: 0x131210)
+    public static let home = Color(hex: 0x121110)
+    public static let panel = Color(hex: 0x1C1A17)
+    public static let panelHeader = Color(hex: 0x2C2925)
+    public static let inset = Color(hex: 0x131210)
+    public static let control = Color(hex: 0x34302B)
+    public static let buttonSecondary = Color(hex: 0x3D3934)
+    public static let stepper = Color(hex: 0x34302B)
+    public static let segmentSelected = Color(hex: 0x3A3631)
+    public static let trackMain = Color(hex: 0x22201D)
+    public static let menu = Color(hex: 0x2A2723)
+    public static let separator = Color(hex: 0x2E2A25)
+    public static let headerSeparator = Color(hex: 0x080706)
+    // Accent (Valse teal; anything drawn on an accent fill is `onAccent` ink, never white: 6.2:1 vs 2.4:1)
+    public static let accent = Color(hex: 0x2BAF90)
+    public static let accentDim = Color(hex: 0x1E5E4F)
+    public static let onAccent = Color(hex: 0x14110C)
+    /// Accent as text / glyph on dark surfaces (mint, 11:1): active tab labels, selected glyphs.
+    public static let accentText = Color(hex: 0xA1D4B1)
     // Text
-    public static let textPrimary = Color(hex: 0xE6E6E6)
-    public static let textSecondary = Color(hex: 0xB3B3B3)
-    public static let textTertiary = Color(hex: 0x7A7A7A)
-    public static let ruler = Color(hex: 0x8A8A8A)
+    public static let textPrimary = Color(hex: 0xF1EBDD)
+    public static let textSecondary = Color(hex: 0xBDB5A6)
+    public static let textTertiary = Color(hex: 0x958D80)
+    public static let ruler = Color(hex: 0x8F877A)
+
+    /// TEMPORARY (VALSE-APP round 9) mirror of `ValseOptions.clipColors == .b`, read by the Metal timeline drawing.
+    nonisolated(unsafe) public static var valseClipPalette = false
 
     // Timeline clip colours (as rendered)
     public static func clipColor(_ kind: TrackKind) -> RGBA {
+        if valseClipPalette {
+            // Option B: the same roles in the Valse palette, desaturated and darkened for long viewing (thumbnails sit
+            // on video; labels stay white): teal, burgundy, orange, mustard, plum, sea green, olive.
+            switch kind {
+            case .video: return RGBA(hex: 0x1D5247)
+            case .audio: return RGBA(hex: 0x4E2231)
+            case .text: return RGBA(hex: 0xA2502C)
+            case .sticker: return RGBA(hex: 0xB0852F)
+            case .effect: return RGBA(hex: 0x7A3451)
+            case .filter: return RGBA(hex: 0x3D6A5D)
+            case .adjustment: return RGBA(hex: 0x86723A)
+            }
+        }
         switch kind {
         case .video: return RGBA(hex: 0x1D4950)
         case .audio: return RGBA(hex: 0x182F55)
@@ -39,8 +60,28 @@ public enum Theme {
         case .adjustment: return RGBA(hex: 0xA58744)
         }
     }
-    public static let waveform = RGBA(hex: 0x3A7FAF)
-    public static let waveformOnVideo = RGBA(hex: 0x2F5E63)
+    public static var waveform: RGBA { valseClipPalette ? RGBA(hex: 0xD9846A) : RGBA(hex: 0x3A7FAF) }
+    public static var waveformOnVideo: RGBA { valseClipPalette ? RGBA(hex: 0x2E7464) : RGBA(hex: 0x2F5E63) }
+
+    /// Timeline chrome drawn by the Metal canvas (RGBA, same values as the SwiftUI tokens above). Clip colours and
+    /// waveforms are functional coding (above / `ValseOptions.clipColors`); white overlays on clips stay neutral.
+    public enum TL {
+        public static let background = RGBA(hex: 0x1C1A17)     // panel
+        public static let laneMain = RGBA(hex: 0x22201D)       // trackMain
+        public static let lane = RGBA(hex: 0x1E1C19)
+        public static let header = RGBA(hex: 0x201E1B)
+        public static let headerChip = RGBA(hex: 0x2A2723)
+        public static let headerText = RGBA(hex: 0xF1EBDD)
+        public static let scrollThumb = RGBA(hex: 0x3A3631)
+        public static let tick = RGBA(hex: 0x5A544C)
+        public static let rulerText = RGBA(hex: 0x8F877A)
+        public static let emptyText = RGBA(hex: 0xC9C1B2)
+        public static let accent = RGBA(hex: 0x2BAF90)         // teal: drop targets, snap, in / out, selection marks
+        public static func accent(_ alpha: Double) -> RGBA { RGBA(hex: 0x2BAF90, alpha: alpha) }
+        /// Playhead and selected-clip frame: warm cream instead of pure white (reads on every clip colour).
+        public static let playhead = RGBA(hex: 0xF3E9C8)
+        public static let selection = RGBA(hex: 0xF3E9C8)
+    }
 
     // Metrics (pt)
     public enum Metrics {
@@ -48,8 +89,8 @@ public enum Theme {
         public static let outerGutter: CGFloat = 8
         public static let gutter: CGFloat = 6
         public static let panelHeader: CGFloat = 42
-        public static let panelRadius: CGFloat = 6
-        public static let buttonRadius: CGFloat = 4
+        public static let panelRadius: CGFloat = 8
+        public static let buttonRadius: CGFloat = 6
         public static let inspectorPadding: CGFloat = 12
         public static let rowSpacing: CGFloat = 10
         public static let minAssetWidth: CGFloat = 340

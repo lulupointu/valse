@@ -146,7 +146,7 @@ struct TimelineToolbarBar: View, Equatable {
                 IconButton("minus.magnifyingglass", help: tr("toolbar.zoomOut")) { store.zoomTimeline(by: 1 / 1.25) }.testID("toolbar.zoomOut")
                 Slider(value: Binding.perceived(get: { log(m.pixelsPerSecond) }, set: { v in store.zoomTimeline(by: exp(v) / store.pixelsPerSecond) }),
                        in: log(2)...log(1200))
-                    .controlSize(.mini).frame(width: 90).tint(.white).testID("toolbar.zoomSlider")
+                    .controlSize(.mini).frame(width: 90).valseSliderTint().testID("toolbar.zoomSlider")
                 IconButton("plus.magnifyingglass", help: tr("toolbar.zoomIn")) { store.zoomTimeline(by: 1.25) }.testID("toolbar.zoomIn")
             }
             .padding(.horizontal, 8)

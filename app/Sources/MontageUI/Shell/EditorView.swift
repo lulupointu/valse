@@ -285,7 +285,7 @@ struct TitleBar: View {
                             Text(loc: "titlebar.export")
                         }
                     }
-                    .buttonStyle(AccentButtonStyle())
+                    .buttonStyle(ValseExportButtonStyle())
                     .disabled(store.projectDuration == .zero)
                     .keyboardShortcut("e", modifiers: .command)
                     .testID("titlebar.export")
@@ -304,19 +304,21 @@ struct ToastView: View {
     var body: some View {
         WithPerceptionTracking {
             if let toast {
-                // CapCut (UX §9): centred white pill, black 12 pt text; errors stay red
+                // Valse feedback sticker (STYLE_GUIDE §3): a flat mint pill with ink text on a hard teal offset block
+                // (zero blur, no soft shadow); errors: burgundy pill, cream text, orange block.
                 HStack(spacing: 10) {
                     Text(verbatim: toast.message)
                     if let title = toast.actionTitle, let action = toast.action {   // C4: "Undo" after an instant edit
-                        Button(action: action) { Text(verbatim: title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.accentDim) }
+                        Button(action: action) { Text(verbatim: title).font(.system(size: 12, weight: .bold)).underline() }
                             .buttonStyle(.plain).testID("toast.action")
                     }
                 }
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(toast.isError ? .white : .black)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(toast.isError ? Theme.Valse.cream : Theme.Valse.ink)
                     .padding(.horizontal, 14).padding(.vertical, 7)
-                    .background(toast.isError ? Color(hex: 0xC24040) : Color.white, in: Capsule())
-                    .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.35), radius: TestAnchors.isEnabled ? 0 : 8)
+                    .background(toast.isError ? Theme.Valse.burgundy : Theme.Valse.mint, in: Capsule())
+                    .offset(x: -1, y: -1)
+                    .background(Capsule().fill(toast.isError ? Theme.Valse.orange : Theme.Valse.teal).offset(x: 2, y: 2))
                     .transition(.opacity.combined(with: .move(edge: .top)))
                     .id(toast.id)
             }
