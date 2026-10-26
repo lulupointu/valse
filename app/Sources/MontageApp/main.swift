@@ -77,6 +77,8 @@ struct Options {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let options = Options(CommandLine.arguments)
+    /// Activation policy / launch activation for this process (pure decision in MontageUI, LaunchActivationTests).
+    let launchPlan = LaunchActivation.current
     var window: NSWindow!
     var store: EditorStore!
     var app: AppModel!
@@ -188,12 +190,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         w.center()
         if options.uitest != nil || options.offscreen || options.snapshot != nil {
             w.orderBack(nil)  // offscreen (UITestWindow / OffscreenWindow, far off every screen), never activated
-        } else if options.background {
-            // Never cover or activate over other apps (another agent may be driving the screen): behind everything.
+        } else if !launchPlan.activates {
+            // --background / --home-demo: never cover or activate over other apps (another agent may be driving the
+            // screen): behind everything.
             w.orderBack(nil)
         } else {
-            w.makeKeyAndOrderFront(nil)
-            if #available(macOS 14, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+            // Normal launch (open / Finder / Dock): key window, active app (LaunchActivation explains bug 1).
+            if let p = launchPlan.policyAfterLaunch { NSApp.setActivationPolicy(p.appKit) }
+            LaunchActivation.activate(w)
         }
         window = w
         if let f = options.windowIDFile {
@@ -316,7 +320,8 @@ if CommandLine.arguments.contains("--uitest") { UITestDriver.prepareProcess() }
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-// --background: accessory policy = no Dock icon and no activation on launch.
-let headless = CommandLine.arguments.contains("--background") || CommandLine.arguments.contains("--uitest")
-app.setActivationPolicy(headless ? .accessory : .regular)
+// Headless runs (--uitest, --background, --snapshot, --offscreen, --home-demo): accessory policy = no Dock icon and no
+// activation on launch. A normal launch must NOT set the policy here, before run(): that lost the launch activation
+// (bug 1, see LaunchActivation).
+if let p = delegate.launchPlan.policyBeforeRun { app.setActivationPolicy(p.appKit) }
 app.run()
