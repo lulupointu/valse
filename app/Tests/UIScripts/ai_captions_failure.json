@@ -1,0 +1,19 @@
+// BUG-CAPTION-ERRORS: a caption run that fails says why and offers the fix (permission refused → Open System Settings + use the speech model), not "Try again".
+{
+  "project": "demo",
+  "lang": "en",
+  "speech": {"failure": "permissionDenied", "helper": true},
+  "steps": [
+    {"click": "id:asset.tab.captions"},
+    {"click": "id:asset.nav.auto"},
+    {"waitFor": {"path": "ui.captions.readiness", "equals": "ready"}},
+    {"click": "id:captions.generate"},
+    {"waitFor": {"path": "ui.captions.failure", "equals": "permissionDenied"}},
+    {"expect": {"path": "ui.captions.remedies", "equals": ["settings.speechRecognition", "useSpeechModel"]}},
+    {"expect": {"path": "ui.captions.title", "equals": "Montage isn't allowed to recognize speech"}},
+    {"expect": {"path": "ui.anchors", "contains": "captions.failure"}},
+    {"snapshot": "captions-failure", "element": "id:captions.failure", "baseline": "ai_captions_failure_permission"},
+    {"click": "id:captions.remedy.settings.speechRecognition"},
+    {"waitFor": {"path": "ui.captions.lastRemedy", "equals": "settings.speechRecognition"}}
+  ]
+}

@@ -265,6 +265,7 @@ public final class UITestDriver {
         window.contentView?.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
         launchMs = ProcessLaunch.millisecondsSinceStart()
+        Self.applySpeechHooks(script)
         if let reason = Self.applyModelPolicy(script) {
             StateDump.write(["name": name, "script": config.script.path, "passed": true, "skipped": reason, "steps": [Any]()],
                             to: out.appendingPathComponent("report.json"))
@@ -343,6 +344,18 @@ public final class UITestDriver {
     /// "not installed" on every machine and AI scripts assert the "Download model" UX. A script that needs real
     /// inference declares `"requires": {"models": ["coreml.lama-800"]}`: it then uses the user's models folder
     /// (`MONTAGE_MODELS_DIR` or ~/Library/Application Support/Montage/Models) and is SKIPPED (reason returned) when one is missing.
+    /// Speech recognition depends on the Mac (permission, installed languages, helper): scripts see a READY setup
+    /// unless they force one with `"speech": {"readiness": "languageUnavailable:fr", "failure": "permissionDenied",
+    /// "helper": true}` (BUG-CAPTION-ERRORS failure cards; specs: `SpeechFailure.parse`).
+    static func applySpeechHooks(_ script: [String: Any]) {
+        SpeechTestHooks.reset()
+        SpeechTestHooks.forcedReadiness = .ready
+        guard let s = script["speech"] as? [String: Any] else { return }
+        if let r = (s["readiness"] as? String).flatMap(SpeechTestHooks.parseReadiness) { SpeechTestHooks.forcedReadiness = r }
+        SpeechTestHooks.forcedFailure = (s["failure"] as? String).flatMap(SpeechFailure.parse)
+        SpeechTestHooks.forcedHelperPresent = s["helper"] as? Bool
+    }
+
     static func applyModelPolicy(_ script: [String: Any]) -> String? {
         // `"requires": {"minOS": 14}`: the feature under test needs that macOS major version (e.g. a 14+ Vision API)
         if let min = ((script["requires"] as? [String: Any])?["minOS"] as? NSNumber)?.intValue, osMajor < min {

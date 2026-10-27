@@ -71,7 +71,7 @@ import MontageTestSupport
             guard let wav = AIFixtures.speechFR, let ref = AIFixtures.speechFRReference else { print("skip: bench media missing"); return }
             let t: Transcript
             do { t = try await Transcriber.transcribe(wav: wav, request: .init(language: nil, engine: .apple)) }
-            catch AIToolError.unavailable(let why) { print("skip: Apple speech unavailable (\(why))"); return }
+            catch let why as SpeechFailure { print("skip: Apple speech unavailable (\(why))"); return }
             let wer = WordErrorRate.compute(reference: ref, hypothesis: t.text)
             print("metric stt_wer_apple=\(wer) engine=\(t.engine)")
             #expect(t.language == "fr")

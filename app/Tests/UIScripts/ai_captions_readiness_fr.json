@@ -1,0 +1,22 @@
+// BUG-CAPTION-ERRORS: pre-flight on a Mac that can't recognize French by itself (Intel, macOS 13): the panel says so before Generate, in French, and the button becomes "Télécharger et créer les sous-titres".
+{
+  "project": "demo",
+  "lang": "fr",
+  // the run that follows the (simulated) download fails on purpose: no real speech engine / permission prompt in tests
+  "speech": {"readiness": "languageUnavailable:fr", "helper": true, "failure": "other"},
+  "steps": [
+    {"click": "id:asset.tab.captions"},
+    {"click": "id:asset.nav.auto"},
+    {"waitFor": {"path": "ui.captions.readiness", "equals": "languageUnavailable"}},
+    {"expect": {"path": "ui.captions.title", "equals": "Ce Mac ne peut pas reconnaître seul la parole en français"}},
+    {"expect": {"path": "ui.captions.generateTitle", "equals": "captions.remedy.download"}},
+    {"expect": {"path": "ui.anchors", "contains": "captions.readiness"}},
+    {"snapshot": "captions-readiness-fr", "element": "id:captions.readiness", "baseline": "ai_captions_readiness_fr"},
+    {"snapshot": "captions-panel-fr", "element": "id:captions.panel"},
+    {"click": "id:captions.generate"},
+    {"waitFor": {"path": "ui.captions.lastRemedy", "equals": "download"}},
+    // once the model is in, the captions run starts by itself (here it fails on purpose → the card offers "Relancer")
+    {"waitFor": {"path": "ui.captions.failure", "equals": "other", "timeout": 120}},
+    {"expect": {"path": "ui.captions.remedies", "equals": ["retry"]}}
+  ]
+}

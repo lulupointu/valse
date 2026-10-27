@@ -12,10 +12,10 @@
 "captions.deleteCurrent" = "Delete current captions";
 "captions.autoLyrics" = "Auto lyrics";
 "captions.engine" = "Speech recognition";
-"captions.engine.whisper" = "Whisper large-v3-turbo · high accuracy, on device";
-"captions.engine.apple" = "Apple speech (fast). Download the Whisper model for the best accuracy.";
-"captions.engine.noRuntime" = "Whisper model installed, but the whisper.cpp runtime is missing. Using Apple speech.";
-"captions.engineChoice" = "Engine";
+"captions.engine.whisper" = "High accuracy · runs on your Mac";
+"captions.engine.apple" = "Standard recognition (Apple). Download the speech model for better accuracy.";
+"captions.engine.noRuntime" = "High accuracy isn't available in this copy of Montage. Update Montage to use it.";
+"captions.engineChoice" = "Recognition";
 "captions.addedCount" = "Captions added (%d)";
 "captions.cancelled" = "Caption generation canceled";
 "captions.error.noAudio" = "Add a clip with sound to the timeline first.";
@@ -89,8 +89,7 @@
 "models.installed" = "Installed";
 "models.remove" = "Remove the model";
 "models.license" = "License: %@";
-"models.runtimeOK" = "whisper.cpp runtime found.";
-"models.runtimeMissing" = "whisper.cpp runtime not found (bundle it with scripts/build_whisper.sh or install whisper-cpp). Apple speech is used meanwhile.";
+"models.runtimeMissing" = "High-accuracy speech recognition isn't included in this copy of Montage. Update Montage to get it.";
 "models.done" = "Done";
 "inspector.tab.tts" = "Text to speech";
 "tts.search" = "Search voices";
