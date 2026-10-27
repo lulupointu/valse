@@ -191,7 +191,8 @@ extension TimelineView {
                 drag = .move(m)
             }
         case .trim(let ids, let anchor, let edge, let origin):
-            var t = l.time(atX: pt.x)
+            // unclamped: a head drag left of 0 still grows the clip (TimelineOps clamps to media / track rules)
+            var t = l.unclampedTime(atX: pt.x)
             snapLine = nil
             if freeSnap, let s = snapIndex?.snap(t, playhead: store.transport.playhead, pixelsPerSecond: l.pixelsPerSecond), s.snapped {
                 t = s.0; snapLine = t

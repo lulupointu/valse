@@ -1,0 +1,24 @@
+// BUG-FIRST-CLIP-TRIM-LEFT: cut the start of the first main-track clip, then drag its left edge further left (past 0,
+// over the track headers): the hidden source comes back, the clip stays at 0 and the next clip ripples right.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": [{"path": "main.clips.0.duration", "approx": 6.0}, {"path": "main.clips.0.sourceStart", "equals": 0},
+                {"path": "main.clips.1.start", "approx": 5.5}]},
+    {"drag": "clip:main/0:leading", "by": [60, 0]},
+    {"expect": [{"path": "main.clips.0.start", "equals": 0}, {"path": "main.clips.0.sourceStart", "gt": 0.5},
+                {"path": "main.clips.0.duration", "lt": 5.5}, {"path": "main.clips.1.start", "lt": 5.0},
+                {"path": "undo.name", "equals": "cmd.trim"}, {"path": "undo.depth", "equals": 1}]},
+    // a short drag left of 0 restores part of the cut
+    {"drag": "clip:main/0:leading", "by": [-30, 0]},
+    {"expect": [{"path": "main.clips.0.start", "equals": 0}, {"path": "main.clips.0.sourceStart", "gt": 0.1},
+                {"path": "main.clips.0.sourceStart", "lt": 1.2}, {"path": "main.clips.0.duration", "gt": 4.8},
+                {"path": "undo.depth", "equals": 2}, {"path": "undo.inGesture", "equals": false}]},
+    // a long one restores everything, stopping at the media start
+    {"drag": "clip:main/0:leading", "by": [-140, 0]},
+    {"expect": [{"path": "main.clips.0.start", "equals": 0}, {"path": "main.clips.0.sourceStart", "equals": 0},
+                {"path": "main.clips.0.duration", "approx": 6.0}, {"path": "main.clips.1.start", "approx": 5.5},
+                {"path": "undo.depth", "equals": 3}]},
+    {"snapshot": "restored", "element": "id:timeline"}
+  ]
+}

@@ -205,6 +205,10 @@ public enum TimelineOps {
                 // can't reveal media before 0
                 let earliest = c.start - c.sourceStart / rate
                 newStart = max(newStart, earliest)
+            } else if let md = mediaDuration, md != .indefinite, c.reversed {
+                // reversed: the head shows the source end, so it can't reveal media past the asset's end
+                let earliest = c.start - max(.zero, md - (c.sourceStart + c.sourceDuration)) / rate
+                newStart = max(newStart, earliest)
             }
             // On the magnetic main track the clip may grow leftwards past 0; compaction re-packs it.
             let magnetic = tl.tracks[loc.track].isMain && tl.mainTrackMagnet
