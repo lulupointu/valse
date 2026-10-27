@@ -293,7 +293,7 @@ struct CaptionFooter: View {
                     .foregroundStyle(IStyle.caption).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .popover(isPresented: $showKeys, arrowEdge: .top) { CaptionShortcutsCard() }
+                .fittedPopover(isPresented: $showKeys, arrowEdge: .top) { CaptionShortcutsCard() }
                 .testID("captions.shortcuts")
                 if store.captionEditor.followSuspended {
                     PillButton(title: tr("capedit.follow"), symbol: "arrow.down", accent: true) { store.captionResumeFollow() }
@@ -327,7 +327,6 @@ struct CaptionShortcutsCard: View {
                 }
             }
             .padding(14)
-            .background(Theme.menu)
         }
     }
 }
