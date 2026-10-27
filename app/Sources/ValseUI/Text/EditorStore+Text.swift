@@ -218,11 +218,8 @@ extension EditorStore {
 
     // MARK: Captions
 
-    /// Caption track the inspector's caption editor works on: the selected caption's track, else the first one.
-    var activeCaptionTrackIndex: Int? {
-        if let c = singleSelectedClip, let ti = CaptionOps.trackIndex(of: c.id, in: project.timeline) { return ti }
-        return CaptionOps.captionTracks(project.timeline).first
-    }
+    /// Caption track the inspector's caption editor works on (its language tab, see `captionEditorTrackIndex`).
+    var activeCaptionTrackIndex: Int? { captionEditorTrackIndex }
 
     func captionEdit(_ nameKey: String, _ body: @escaping @Sendable (inout Project) throws -> Void) {
         if !perform(Edit(nameKey, body)) { showToast(tr("captions.error.cantDoHere"), error: true) }
@@ -242,11 +239,10 @@ extension EditorStore {
         _ = perform(Edit("cmd.captionText") { p in try CaptionOps.setText(id, s, in: &p) })
     }
 
-    /// Caption list ＋ (C4): a new caption after this one, selected.
+    /// A new EMPTY caption after this one, selected (the editor's + is `captionInsertAfter`).
     func addCaption(after id: ClipID) {
         let newID = ClipID()
-        let text = tr("captions.newCaption")
-        if perform(Edit("cmd.captionAdd") { p in _ = try CaptionOps.insertAfter(id, text: text, newID: newID, in: &p) }) {
+        if perform(Edit("cmd.captionAdd") { p in _ = try CaptionOps.insertAfter(id, text: "", newID: newID, in: &p) }) {
             selection = [newID]
             seek(to: project.timeline.clip(newID)?.start ?? transport.playhead)
         }
@@ -322,19 +318,8 @@ extension EditorStore {
         perform(Edit("cmd.captionWrap") { p in CaptionOps.wrap(trackIndex: ti, maxCharsPerLine: maxChars, maxLines: maxLines, in: &p) })
     }
 
-    func setBilingualDisplay(_ d: BilingualDisplay) {
-        guard let ti = activeCaptionTrackIndex else { return }
-        perform(Edit("cmd.captionBilingual") { p in
-            for i in p.timeline.tracks[ti].clips.indices {
-                guard case .text(var t) = p.timeline.tracks[ti].clips[i].content, t.caption != nil else { continue }
-                t.caption?.display = d
-                p.timeline.tracks[ti].clips[i].content = .text(t)
-            }
-        })
-    }
-
     /// "Local captions": import SRT / VTT / ASS / LRC / TXT as a new caption track (≤ 3 MB, like CapCut).
-    func importCaptions(from url: URL) {
+    func importCaptions(from url: URL, language: String? = nil) {
         let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         guard size <= CaptionFiles.maxImportBytes else { showToast(tr("captions.import.tooLarge"), error: true); return }
         guard let data = try? Data(contentsOf: url),
@@ -344,17 +329,24 @@ extension EditorStore {
             showToast(tr("captions.import.failed"), error: true); return
         }
         let origin: CaptionOrigin = fmt == .lrc ? .lyrics : .imported
-        perform(Edit("cmd.captionImport") { p in CaptionOps.addCaptionTrack(segs, to: &p, origin: origin) })
+        // CAP-LANG-TRACKS: the new track's language (chosen in + Add, else detected from the text)
+        let lang = CaptionLanguageTracks.normalized(language ?? CaptionLanguages.detect(segs.prefix(30).map(\.text).joined(separator: " ")))
+        let box = UncheckedSendableBox<TrackID?>(nil)
+        perform(Edit("cmd.captionImport") { p in
+            box.value = CaptionOps.addCaptionTrack(segs, to: &p, origin: origin)
+            if let id = box.value, let ti = p.timeline.trackIndex(id) { p.timeline.tracks[ti].captionLanguage = lang }
+        })
+        if let id = box.value { captionEditor.activeTrackID = id }
         showToast(tr("captions.import.done", segs.count))
     }
 
-    func chooseCaptionFileToImport() {
+    func chooseCaptionFileToImport(language: String? = nil) {
         let p = NSOpenPanel()
         p.allowedContentTypes = ["srt", "vtt", "ass", "ssa", "lrc", "txt"].compactMap { UTType(filenameExtension: $0) }
         p.allowsMultipleSelection = false
         p.begin { [weak self] r in
             guard r == .OK, let url = p.url else { return }
-            Task { @MainActor in self?.importCaptions(from: url) }
+            Task { @MainActor in self?.importCaptions(from: url, language: language) }
         }
     }
 

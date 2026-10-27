@@ -89,6 +89,9 @@ public struct InspectorTab: Identifiable {
     public var subTabs: [InspectorSubTab]
     /// Sticky bar under the sections ("Apply to all", "Modify"…), nil = none.
     public let footer: (@MainActor (InspectorContext, String?) -> AnyView?)?
+    /// Order depending on the selection (nil = `order`), e.g. Captions first for a caption, last for other clips.
+    public var dynamicOrder: (@MainActor (InspectorContext) -> Int)? = nil
+    func order(for ctx: InspectorContext) -> Int { dynamicOrder?(ctx) ?? order }
     public init(id: String, titleKey: String, order: Int, subTabs: [InspectorSubTab] = [],
                 footer: (@MainActor (InspectorContext, String?) -> AnyView?)? = nil,
                 appliesTo: @escaping @MainActor (InspectorContext) -> Bool) {
@@ -128,6 +131,9 @@ public struct InspectorSection: Identifiable {
     public let appliesTo: @MainActor (InspectorContext) -> Bool
     public let chrome: (@MainActor (InspectorContext) -> InspectorSectionChrome)?
     public let content: @MainActor (InspectorContext) -> AnyView
+    /// The section fills the panel and scrolls itself (no panel ScrollView, no rebuild on selection change: the caption
+    /// editor, CAP-EDITOR-UX). Only honoured when it is the only section of its (sub-)tab.
+    public var ownsScroll = false
     public init(id: String, tab: String, subTab: String? = nil, order: Int, titleKey: String?,
                 appliesTo: @escaping @MainActor (InspectorContext) -> Bool = { _ in true },
                 chrome: (@MainActor (InspectorContext) -> InspectorSectionChrome)? = nil,
@@ -152,7 +158,7 @@ public enum InspectorRegistry {
     }
 
     public static func tabs(for ctx: InspectorContext) -> [InspectorTab] {
-        allTabs.filter { $0.appliesTo(ctx) && !sections(tab: $0.id, ctx: ctx).isEmpty }.sorted { $0.order < $1.order }
+        allTabs.filter { $0.appliesTo(ctx) && !sections(tab: $0.id, ctx: ctx).isEmpty }.sorted { $0.order(for: ctx) < $1.order(for: ctx) }
     }
 
     /// Every applicable section of a tab, all sub-tabs together.

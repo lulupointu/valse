@@ -34,7 +34,7 @@ strings is the common word (video editing), not the app.
 | look at the UI | `scripts/screenshot.sh --demo --offscreen` (then Read the PNG) |
 | slots / disk / stop own runs | `scripts/slots.sh status`, `scripts/cleanup.sh --dry-run`, `scripts/kill_tests.sh --dry-run` |
 | app bundle | `scripts/build_app.sh [--host-only]`; Intel unit tests: `scripts/test_x86.sh [--filter X]` |
-| release (owner) / updater check | `scripts/release.sh <version>` (docs/RELEASING.md); `scripts/updater_e2e.sh` after touching the updater |
+| release (orchestrator, after merged user-visible work) / updater check | `scripts/release.sh <version>` (docs/RELEASING.md); `scripts/updater_e2e.sh` after touching the updater |
 | feature counts | `python3 scripts/feature_status.py --list partial --area TL` |
 
 ## Gate policy (2026-10-21, owner-approved: agents run the quick check, the orchestrator the full one)

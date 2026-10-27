@@ -30,16 +30,12 @@
 "captions.replace" = "Find and replace";
 "captions.replaceWith" = "Replace with";
 "captions.replaceAll" = "Replace all";
-"captions.translateTo" = "Translate to";
 "captions.translate" = "Translate";
 "captions.translated" = "Captions translated";
 "captions.translateFailed" = "Couldn't translate the captions. Try again.";
 "captions.translateUnsupported" = "This language pair can't be translated on this Mac.";
 "captions.sameLanguage" = "The captions are already in this language.";
-"captions.removeTranslation" = "Remove translation";
 "captions.playFrom" = "Double-click to play from this caption";
-"captions.playFromTime" = "Double-click to play from %@";
-"captions.shortcutsHint" = "Split a caption: Enter · New line: ⌘ Enter · Merge up: Delete at the start · Merge down: Fn Delete at the end";
 "captions.display.original" = "Original";
 "captions.display.bilingual" = "Bilingual";
 "captions.display.translationOnly" = "Translation only";

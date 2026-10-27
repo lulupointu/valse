@@ -33,7 +33,6 @@
 "captions.failure.other.repeated.body" = "Les sous-titres ne peuvent toujours pas être créés. Copiez les détails et envoyez-les-nous.";
 "captions.failure.notApplied" = "Aucun sous-titre n'a été ajouté.";
 "captions.failure.detailsCopied" = "Détails copiés";
-"captions.addedNoSpeakers" = "Sous-titres ajoutés (%d). Impossible de distinguer les intervenants.";
 "captions.phase.permission" = "En attente de l'autorisation…";
 "captions.engine.needsModel" = "Ce Mac a besoin du modèle vocal pour créer des sous-titres.";
 "align.error.failed" = "Impossible d'aligner le script sur la vidéo à cause d'un problème inattendu. Réessayez.";

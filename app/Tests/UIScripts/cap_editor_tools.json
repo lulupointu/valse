@@ -1,0 +1,50 @@
+// CAP-EDITOR-UX pinned tools: the editor shows with nothing selected; search highlights (list not filtered) with a
+// "n/N" counter and Enter = next match (row active); Replace = the current match only; Split options re-split the
+// whole language after an inline warning (one undo step); ↻ replays the line and pauses at its end.
+{
+  "project": "demo-transcript:captions",
+  "steps": [
+    {"expect": [{"path": "selection.count", "equals": 0}, {"path": "ui.inspectorTabs", "contains": "captions"}]},
+    {"click": "id:inspector.tab.captions"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 3}},
+    {"click": "id:captions.search"},
+    {"type": "we"},
+    {"waitFor": {"path": "ui.captionEditor.matches", "equals": 3}},
+    {"expect": [{"path": "ui.captionEditor.count", "equals": 3}, {"path": "ui.anchors", "contains": "captions.search.count"}]},
+    {"key": "return"},
+    {"waitFor": {"path": "ui.captionEditor.matchIndex", "equals": 1}},
+    {"waitFor": {"path": "ui.captionEditor.active", "equals": 1}},
+    {"snapshot": "cap-editor-search", "element": "id:captions.editor", "mask": ["id:captions.search"], "baseline": true},
+    // replace only the current match
+    {"click": "id:captions.replace"},
+    {"waitFor": {"path": "ui.anchors", "contains": "captions.replace.field"}},
+    {"click": "id:captions.replace.field"},
+    {"type": "us"},
+    {"click": "id:captions.replace.one"},
+    {"waitFor": {"path": "ui.captionEditor.texts.1", "equals": "us we talk about captions."}},
+    {"expect": [{"path": "undo.name", "equals": "cmd.captionReplace"}, {"path": "ui.captionEditor.matches", "equals": 2},
+                {"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show. Today"}]},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "ui.captionEditor.texts.1", "equals": "we we talk about captions."}},
+    // split options: choosing a rule warns first, then re-splits the whole language as one step
+    {"click": "id:captions.split"},
+    {"waitFor": {"path": "ui.captionEditor.splitOpen", "equals": true}},
+    {"click": "id:captions.split.0"},
+    {"waitFor": {"path": "ui.anchors", "contains": "captions.split.confirm"}},
+    {"expect": {"path": "ui.captionEditor.count", "equals": 3}},
+    {"click": "id:captions.split.confirm"},
+    {"waitFor": {"path": "ui.captionEditor.split", "equals": "1x16"}},
+    {"expect": [{"path": "ui.captionEditor.count", "gt": 3}, {"path": "undo.name", "equals": "cmd.captionWrap"}]},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 3}},
+    {"click": "id:captions.split"},
+    {"waitFor": {"path": "ui.captionEditor.splitOpen", "equals": false}},
+    // ↻ replay line: plays the caption then pauses at its end
+    {"click": "id:captions.row.2", "at": [0.03, 0.5]},
+    {"waitFor": {"path": "ui.captionEditor.active", "equals": 1}},
+    {"click": "id:captions.replay.2"},
+    {"waitFor": {"path": "ui.captionEditor.nowPlayingIndex", "equals": 1, "timeout": 30}},
+    {"waitFor": {"path": "isPlaying", "equals": false, "timeout": 30, "progress": ["playhead"]}},
+    {"expect": [{"path": "ui.captionEditor.nowPlayingIndex", "equals": 1}, {"path": "ui.captionEditor.active", "equals": 1}]}
+  ]
+}

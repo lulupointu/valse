@@ -23,7 +23,7 @@ enum InspectorMultiEdit {
         "text.template", "text.template.tools", "text.counter", "speed.velocity",
     ]
     /// Id prefixes / parts of single-clip sections (masks are edited with canvas handles on one clip).
-    static let singleOnlyPrefixes = ["mask.", "tracking.", "tts.", "captions."]
+    static let singleOnlyPrefixes = ["mask.", "tracking.", "tts."]   // the caption editor works with any selection
     static let singleOnlyParts = [".mask."]
 
     static func shows(_ section: InspectorSection, _ ctx: InspectorContext) -> Bool {

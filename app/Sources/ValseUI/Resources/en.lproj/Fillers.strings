@@ -3,8 +3,6 @@
 "text.sub.templates" = "Templates";
 "captions.applyAllMain" = "Apply to all main captions";
 "captions.applyAllMain.help" = "Style changes made to this caption also apply to every caption of its track";
-"captions.addAfter" = "Add a caption after this one";
 "captions.delete" = "Delete caption";
-"captions.newCaption" = "New caption";
 "cmd.captionAdd" = "Add caption";
 "cmd.captionDelete" = "Delete caption";

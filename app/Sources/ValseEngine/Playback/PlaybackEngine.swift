@@ -136,8 +136,10 @@ public final class PlaybackEngine {
                 self.onTimeUpdate?(self.requestedTime)
             }
         }
+        let lanes = audioState
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] p, _ in
             let playing = p.rate != 0
+            if playing { lanes.playerRate = Double(abs(p.rate)) }   // lane taps: composition time per frame
             Task { @MainActor in
                 guard let self else { return }
                 // stopped by itself (end of item): the playhead is where the player stopped

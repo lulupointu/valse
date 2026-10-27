@@ -30,6 +30,14 @@ public final class AudioMixState: @unchecked Sendable {
     }
 
     var currentVersion: Int { lock.withLock { version } }
+
+    /// Playback rate of the player the lanes feed (preview J/K/L; 1 for export): composition time per output frame is
+    /// `playerRate / sampleRate`, whatever the segment speed (`LaneProcessor.step`). Set by `PlaybackEngine`.
+    private var _playerRate: Double = 1
+    public var playerRate: Double {
+        get { lock.withLock { _playerRate } }
+        set { lock.withLock { _playerRate = newValue } }
+    }
     func liveChain(_ id: ClipID) -> [LiveNode] { lock.withLock { live[id] ?? [] } }
 
     /// What the lane taps see (tests / diagnostics): called on the audio render thread, keep it cheap.
@@ -137,7 +145,7 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
 
     func reset() {
         for c in chains.values { c.reset() }
-        last = nil; nextTime = nil; gainIndex = 0; lastSounded = false
+        last = nil; nextTime = nil; gainIndex = 0; lastSounded = false; lastStamp = nil; lastStep = nil
         state.tapObserver?(.reset)
     }
 
@@ -152,10 +160,13 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         let channels = min(buffers.count, 8)
         for c in 0..<channels { table[c] = buffers[c].mData!.assumingMemoryBound(to: Float.self) }
         let block = AudioBlock(channels: channels, frames: frames, pointers: table)
-        // composition time per frame: 1 / sampleRate at rate 1, `rate` times that after the time-pitch stage
-        let d = duration.isNumeric ? duration.seconds : 0
-        let step = d > 0 ? d / Double(frames) : 1 / sampleRate
         let stamped = time.isNumeric
+        let step = Self.step(stamp: stamped ? time.seconds : nil, previous: lastStamp, lastStep: lastStep, frames: frames,
+                             duration: duration, sampleRate: sampleRate,
+                             playerRate: labelsLeadOneBuffer ? state.playerRate : 1, leads: labelsLeadOneBuffer,
+                             speed: { self.segmentScale(at: $0) })
+        lastStamp = stamped ? (time.seconds, frames) : nil
+        lastStep = step
         let t0 = stamped ? time.seconds + (labelsLeadOneBuffer ? Double(frames) * step : 0) : nextTime ?? 0
         // probe: a stamped buffer with sound that does not follow the previous one (which had sound too) by < 0.5 s.
         // Seeks reset the taps; the buffers a paused item repeats are silent.
@@ -170,6 +181,44 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         if let capture = state.tapCapture {
             capture(stamped ? t0 : .nan, UnsafeBufferPointer(start: table[0], count: frames), sampleRate, step)
         }
+    }
+
+    /// Stamp and frame count of the previous buffer (nil: none since the last reset, or it had no timestamp).
+    private var lastStamp: (time: Double, frames: Int)?
+    private var lastStep: Double?
+
+    /// Composition time one frame of this buffer covers (BUG-SPEED-AUDIO-TAIL / BUG-CUT-AUDIO-ARTEFACT).
+    /// On a speed-scaled segment the post-effects tap's `duration` is NOT the composition time the buffer covers: it is
+    /// that span × speed² (measured, AVPlayer and AVAssetReaderAudioMixOutput alike: 4× at speed 2, ¼ at speed 0.5),
+    /// while the timestamps advance by the true span. Taken as is, the clip gains ran 4× too fast inside each buffer at
+    /// 2× (the end of a sped-up clip and the frames before a cut muted) and, in preview, the one-buffer lead put every
+    /// buffer 256 ms late (the last quarter second of a 2× clip muted). The step therefore comes from consecutive stamps
+    /// (Δ / previous frames: exact at any segment speed and player rate) when that agrees with the previous step or the
+    /// estimate (else it is a seek, not a buffer span). The estimate (first buffer after a seek, paused repeats) is the
+    /// reported duration on an unscaled segment, else `playerRate / sampleRate` (the first buffer of a play on a scaled
+    /// segment reports neither span × speed² nor the span).
+    static func step(stamp: Double?, previous: (time: Double, frames: Int)?, lastStep: Double?, frames: Int,
+                     duration: CMTime, sampleRate: Double, playerRate: Double = 1, leads: Bool = false,
+                     speed: (Double) -> Double) -> Double {
+        let nominal = 1 / sampleRate
+        let d = duration.isNumeric ? duration.seconds : 0
+        // the segment the samples come from: one buffer after a leading stamp (located at rate 1)
+        let k = stamp.map { speed($0 + (leads ? Double(frames) * nominal : 0)) } ?? 1
+        let estimate = d > 0 && frames > 0 && abs(k - 1) < 1e-3 ? d / Double(frames) : nominal * max(playerRate, 1e-3)
+        func near(_ a: Double, _ b: Double) -> Bool { abs(a - b) <= 0.05 * b }
+        if let stamp, let previous, previous.frames > 0 {
+            let s = (stamp - previous.time) / Double(previous.frames)
+            if s > 0, near(s, estimate) || lastStep.map({ near(s, $0) }) == true { return s }
+        }
+        return estimate
+    }
+
+    /// Speed of the segment playing at composition time `t` on this lane (1 outside clips).
+    private func segmentScale(at t: Double) -> Double {
+        guard let e = entries.first(where: { $0.end > t + 1e-6 && $0.start <= t + 1e-6 }) else { return 1 }
+        if case .constant(let v) = e.clip.speed { return v }
+        let local = Time(t - e.start)
+        return e.clip.speed.rate(at: local, outputDuration: e.clip.duration)
     }
 
     /// Multiplies the buffer by the lane's gain curve (linear inside each ramp, 0 outside every ramp).

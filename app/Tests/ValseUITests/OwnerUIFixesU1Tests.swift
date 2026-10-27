@@ -88,10 +88,12 @@ import ValseCore
         let lang = L10n.shared.language
         defer { L10n.shared.setLanguageForSession(lang) }
         L10n.shared.setLanguageForSession("fr")
-        let text = CaptionRow.playFromHelp(Time(3.4))
-        #expect(text == "Double-cliquez pour lire à partir de 00:00:03")
+        // CAP-EDITOR-UX: the double-click-the-number tooltip is gone; each row has ↻ "Replay line" and its start time
+        let text = tr("capedit.replay")
+        #expect(text == "Rejouer la ligne")
+        #expect(CaptionStamp.short(Time(65.84)) == "1:05.8")
         L10n.shared.setLanguageForSession("en")
-        #expect(CaptionRow.playFromHelp(Time(65)) == "Double-click to play from 00:01:05")
+        #expect(tr("capedit.replay") == "Replay line")
         guard let dir = ProcessInfo.processInfo.environment["VALSE_U1_SHOTS"] else { return }
         for (name, s) in [("tooltip-fr", text), ("tooltip-long-fr", "Double-cliquez pour lire à partir de cette légende (texte de l’info-bulle plus long que la largeur maximale)")] {
             let w = TooltipWindow()

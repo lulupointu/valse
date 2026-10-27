@@ -105,6 +105,12 @@ public struct InspectorPanel: View {
                                 .padding(.top, 12).padding(.bottom, 10)
                             Rectangle().fill(Theme.separator).frame(height: 2).padding(.horizontal, Theme.Metrics.inspectorPadding)
                         }
+                        if st.sections.count == 1, let only = st.sections.first, only.ownsScroll {
+                            // CAP-EDITOR-UX: a full-height section with its own scroll view, kept across selection changes
+                            only.content(ctx)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                                .testID("inspector.section.\(only.id)")
+                        } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 0) {
                                 ForEach(st.sections) { section in
@@ -116,6 +122,7 @@ public struct InspectorPanel: View {
                             .padding(.bottom, 16)
                         }
                         .id("\(store.selection.hashValue)-\(store.selectedTransition?.description ?? "")-\(active.id)-\(sub?.id ?? "")")
+                        }
                         if let footer = st.footer {
                             HStack(spacing: 8) { Spacer(); footer }
                                 .padding(.horizontal, Theme.Metrics.inspectorPadding)

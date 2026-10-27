@@ -117,6 +117,7 @@ public enum ShortcutRegistry {
     public static func handle(_ e: NSEvent, store: EditorStore) -> Bool {
         KeystrokeFeed.shared.record(e)   // PB-015 View ▸ Show keystrokes
         if let responder = e.window?.firstResponder, responder is NSText || responder is NSTextView { return false }
+        if let owner = e.window?.firstResponder as? KeyFocusOwner, owner.handleOwnedKey(e) { return true }   // caption list keys
         if Keymap.isRecording { return false }
         guard let k = key(for: e) else { return false }
         let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])

@@ -359,6 +359,17 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **UI** (`ValseUI/Text/`): `TextInspector` (tabs/sections registered from `BuiltinInspector`), `FontPicker` (+ `FontCatalog`
   over W9's `FontLibrary`), `ClipTextEditor` (typing = one undo step per burst), `CaptionEditor`, `TextAssetTab`, previews rendered
   with the real engine (`TextPreviewCache`). Inline canvas editing is W2's `InlineTextEditor`; `store.beginInlineTextEdit(id)`.
+- **Caption editor** (CAP-EDITOR-UX, `ValseUI/Text/CaptionEditor*.swift`): Inspector ▸ Captions, shown whenever the project
+  has captions; an `ownsScroll` section (the panel neither wraps it in its ScrollView nor rebuilds it on selection change).
+  State `store.captionEditor` (`CaptionEditorState`: language tab, editing id, focus / reveal requests, search) and
+  `store.captionNowPlaying` (tiny observable, rows don't re-render per tick). One NSTextView per row (`CaptionNSTextView`:
+  native click-to-caret, keys in `keyDown` / `performKeyEquivalent`, ⌘Z on the project stack); typing = live gesture
+  `cmd.captionText`, one undo step per burst (`captionTyped` / `endCaptionTyping`, 1.5 s idle); undo / redo put the caret at
+  the first changed character (`captionHistoryWillChange/DidChange` around `EditorStore.undo`). Focus survives model changes
+  through `CaptionFocusRequest`. Paused seeks reveal the playhead on the timeline (`PlayheadFollow.reveal`). UI test dump:
+  `ui.captionEditor.*` (incl. `unrequestedScrolls`: the list must never jump). Languages (CAP-LANG-TRACKS): one caption track
+  per language (`Track.captionLanguage`, split rule `Track.captionSplit`), `CaptionLanguageTracks` (Core: add a language
+  track with the same timing, migrate the old bilingual sub-line on open, `EditorStore.load`).
 - **Add a text style / animation / bubble / template / caption template**: one entry in the matching `Builtin/Text*.swift` /
   `CaptionTemplates.swift` list + keys in `ValseEffects/Resources/*/Text.strings`. `TextRenderTests` renders every registry entry.
 
@@ -382,15 +393,7 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   remap `Clip.timelineTime(forSource:)`, speed curves included), `finish` (linkage to the main clip), translations and
   keyword marks. `CaptionGenerator` (ValseAI) runs the job and ends with `CaptionOps.addCaptionTrack(…, origin: .auto/.lyrics,
   replacing:)`. `RippleCut` (Core) ripple-deletes timeline ranges with captions following (EditPilot remove silences); transcript-based editing and filler removal were removed (FB-01 / FB-11).
-- **Speaker ID** (AI-005 / TX-038): `CaptionData.speaker` ("1", "2"…) + `Project.speakers` (`CaptionSpeaker`: name, colour;
-  optional, old files decode). Core `Captions/Speakers.swift`: `SpeakerClustering` (average-linkage cosine, Auto threshold or
-  fixed count, tiny clusters folded, subsample above 500 windows), `SpeakerCaptions` (split segments at speaker changes with
-  one-word-flip smoothing, majority `assign` for existing captions, palette colours, rename, apply look to a speaker).
-  ValseAI `SpeakerDiarizer`: windows from caption word timings (≤ 2 s, split at 0.5 s pauses) → audio of the clip playing
-  then → `WeSpeakerEmbedder` (Core ML `wespeaker_v2.mlmodelc`, one window per prediction tiled to 10 s: batching windows
-  collapses embeddings in this conversion) or `StatisticsEmbedder` (MFCC + pitch, z-scored) → `SpeakerTurn`s.
-  `CaptionOptions.identifySpeakers` runs it inside `CaptionGenerator` (phase `.speakers`); `SpeakerIdentification` tags
-  existing captions. Multi-file models: `AIModelSpec.parts` (each file SHA-256 checked into a directory). UI `SpeakersUI.swift`.
+- Speaker ID (AI-005 / TX-038) was removed (CAP-NOSPEAKER, owner decision): old files with `speakers` / `speaker` keys still decode (ignored). Multi-file models: `AIModelSpec.parts` (each file SHA-256 checked into a directory).
 - **Cutout**: `MatteGenerator` writes mattes through the render team's `MatteVideoWriter` / `MatteStore.setStill`: `person`
   (VNGeneratePersonSegmentationRequest .balanced + temporal smoothing), `subject` (VNGenerateForegroundInstanceMaskRequest), and
   `custom.<id>` (brush strokes → instances on the painted frame, tracked frame to frame by overlap). Frames are decoded at ≤ 960 px.

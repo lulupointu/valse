@@ -90,28 +90,6 @@ public enum ModelCatalog {
         url: URL(string: "https://huggingface.co/mlboydaisuke/coreml-zoo/resolve/main/lama/LaMa.mlpackage.zip")!,
         bytes: 196_237_256, sha256: "b57b8451a1a86c00aea52d75230fb5f49d3076eec67403192758c9d2b59c0e69", license: "Apache-2.0", runtimeMB: 600)
 
-    /// WeSpeaker ResNet34-LM speaker embeddings (VoxCeleb, CC-BY-4.0: WeSpeaker + pyannote; Core ML conversion with
-    /// fused fbank + 8-bit palettized weights by Fluid Inference), ~8 MB: speaker ID in captions (AI-005). Without it
-    /// diarization falls back to MFCC / pitch statistics.
-    public static let speakerEmbedding: AIModelSpec = {
-        let rev = "https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/7eab74f3463c736418d0eb10296261ae581146c9/wespeaker_v2.mlmodelc/"
-        func part(_ p: String, _ bytes: Int64, _ sha: String) -> AIModelSpec.Part {
-            AIModelSpec.Part(path: p, url: URL(string: rev + p)!, bytes: bytes, sha256: sha)
-        }
-        let parts = [
-            part("weights/weight.bin", 7_243_904, "34004f6798d35cad7071e2fdc67e63faaa782f53697e1cb49bcb452cf81ae151"),
-            part("model.mil", 706_900, "2850f775d6ba659f01f616fed77ce6a45a25de3eb7e4bf3a4b07b658be4e13dd"),
-            part("metadata.json", 2738, "ddc4858b4051254098015cd0b97080149839d697faf7b036f933190e70b26758"),
-            part("coremldata.bin", 359, "6feb2472a71fa9d8a84020c85206138a4f6261c565c9884bf518d59dd5838da7"),
-            part("analytics/coremldata.bin", 243, "d2b1fcde6121aea3ff0e14c1dc50d09dacb0314a2e89156353c31804230a422f"),
-        ]
-        var s = AIModelSpec(id: "coreml.wespeaker-resnet34", kind: .coreML, nameKey: "model.speakers", descriptionKey: "model.speakers.desc",
-                            fileName: "wespeaker_v2.mlmodelc", url: parts[0].url, bytes: parts.reduce(0) { $0 + $1.bytes },
-                            sha256: parts[0].sha256, license: "CC-BY-4.0", runtimeMB: 150)
-        s.parts = parts
-        return s
-    }()
-
     /// Depth Anything V2 Small, F16 Core ML package by Apple (Apache-2.0), 518×392: monocular depth for Relight
     /// (~50 MB, ~300 MB while running). An `.mlpackage` is a directory: the weights are the main file, the model spec
     /// and manifest are companions.
@@ -174,7 +152,7 @@ public enum ModelCatalog {
         return modelsDirectory.appendingPathComponent("DepthAnythingV2SmallF16.mlpackage", isDirectory: true)
     }
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama, speakerEmbedding]
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama]
         + (depthModelSupported ? [depthAnything] : []) + [clip]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 

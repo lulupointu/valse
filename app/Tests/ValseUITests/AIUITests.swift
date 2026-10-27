@@ -33,14 +33,23 @@ import ValseTestSupport
         #expect(tabs.contains("captions") && tabs.contains("text"))
     }
 
+    /// CAP-LANG-TRACKS: a translation is a new language track (same timing), one undo step, hidden when added with +.
     @Test func translationsApplyAsOneUndoStep() async throws {
         let (s, _) = try await captionStore()
         let caps = SpeechCaptions.captions(in: s.project.timeline)
         #expect(s.hasAutoCaptions)
-        s.applyTranslations([caps[0].id: "Hello and welcome."], display: .both)
-        #expect(CaptionOps.text(s.project.timeline.clip(caps[0].id)!)?.caption?.translation == "Hello and welcome.")
+        let source = try #require(s.captionEditorTrackIndex.map { s.project.timeline.tracks[$0].id })
+        s.ai.translationSource = TranslationSource(trackID: source, hidden: true)
+        s.applyTranslations([caps[0].id: "Hello and welcome."], target: "en")
+        let tracks = CaptionOps.captionTracks(s.project.timeline).map { s.project.timeline.tracks[$0] }
+        #expect(tracks.count == 2)
+        let en = try #require(tracks.first { $0.captionLanguage == "en" })
+        #expect(en.isHidden)
+        #expect(CaptionOps.text(en.clips[0])?.string == "Hello and welcome.")
+        #expect(en.clips.map(\.start) == tracks.first { $0.id == source }?.clips.map(\.start))
+        #expect(s.captionEditor.activeTrackID == en.id)
         s.undo()
-        #expect(CaptionOps.text(s.project.timeline.clip(caps[0].id)!)?.caption?.translation == nil)
+        #expect(CaptionOps.captionTracks(s.project.timeline).count == 1)
         #expect(s.captionLanguage == "fr")
     }
 
@@ -119,7 +128,8 @@ import ValseTestSupport
         try ProjectPackage.save(s.project, to: d.appendingPathComponent("ai-demo.valse"))   // for scripts/screenshot.sh --open
         try snapshot(AutoCaptionsPanel(store: s), to: d.appendingPathComponent("ai-autocaptions-\(lang).png"), size: CGSize(width: 520, height: 560))
         let caps = SpeechCaptions.captions(in: s.project.timeline)
-        s.applyTranslations([caps[0].id: "Hello and welcome."], display: .both)
+        if let ti = s.captionEditorTrackIndex { s.ai.translationSource = TranslationSource(trackID: s.project.timeline.tracks[ti].id, hidden: false) }
+        s.applyTranslations([caps[0].id: "Hello and welcome."], target: "en")
         s.selection = [caps[0].id]; s.inspectorTab = "captions"
         try snapshot(InspectorPanel(store: s), to: d.appendingPathComponent("ai-captions-inspector-\(lang).png"))
         s.inspectorTab = "tts"

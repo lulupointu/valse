@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Only what the edit changed is copied — the changed `TextContent` properties (font, size, colour, stroke, background,
 /// karaoke, bubble…) plus the clip's position / scale / rotation, opacity and blend — so per-caption differences that
-/// weren't touched (e.g. speaker colours, a caption moved by hand when the edit was a colour change) survive. Text, runs,
+/// weren't touched (e.g. a word coloured by hand, a caption moved by hand when the edit was a colour change) survive. Text, runs,
 /// word timings, translations and timing are never copied.
 public enum CaptionStyleSync {
     /// `TextContent` properties that are per caption, never copied.

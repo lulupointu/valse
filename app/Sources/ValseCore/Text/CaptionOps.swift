@@ -70,7 +70,6 @@ public enum CaptionOps {
         data.origin = origin
         data.words = s.words.map { CaptionWord($0.text, start: Time($0.start) - start, end: Time($0.end) - start) }
         data.translation = s.translation
-        data.speaker = s.speaker
         if s.translation != nil, data.display == nil { data.display = .both }
         t.caption = data
         var c = Clip(content: .text(t), start: start, duration: Time(max(s.end - s.start, 0.1)))
@@ -80,9 +79,12 @@ public enum CaptionOps {
     }
 
     /// Adds a caption track built from `segments` (the AI team's auto captions / lyrics, imported SRT/VTT/ASS/LRC, scripts).
-    /// `replacing` removes existing caption tracks of the same origin first (CapCut "Delete current captions").
+    /// `replacing` removes existing captions of the same origin first (CapCut "Delete current captions"): their tracks
+    /// go away, except a track that also holds other clips (a title dropped on the caption track), which keeps those.
     /// Overlapping segments are clipped so captions never overlap. Returns the new track id (nil when nothing was added).
     /// `style` / `position` default to the canvas-aware caption look (`CaptionLayout`).
+    /// BUG-AUTOCAPTION-SHIFT: the captions always go on a NEW text track just above the main track; no pre-existing
+    /// clip (any track) changes track, start or duration, and the other tracks keep their relative order.
     @discardableResult
     public static func addCaptionTrack(_ segments: [CaptionSegment], to project: inout Project, style: TextContent? = nil,
                                        origin: CaptionOrigin = .auto, position: Vec2? = nil,
@@ -92,9 +94,11 @@ public enum CaptionOps {
         let position = position ?? CaptionLayout.position(canvas: canvas)
         var tl = project.timeline
         if replacing {
-            tl.tracks.removeAll { t in
-                isCaptionTrack(t) && t.clips.allSatisfy { text($0)?.caption?.origin == origin }
+            func replaced(_ c: Clip) -> Bool { text(c)?.caption?.origin == origin }
+            for ti in tl.tracks.indices where isCaptionTrack(tl.tracks[ti]) && !tl.tracks[ti].clips.allSatisfy(replaced) {
+                tl.tracks[ti].clips.removeAll(where: replaced)   // keeps the other clips where they are
             }
+            tl.tracks.removeAll { t in isCaptionTrack(t) && t.clips.allSatisfy(replaced) }
         }
         var clips: [Clip] = []
         var last = Time.zero
@@ -151,7 +155,7 @@ public enum CaptionOps {
             let w = t.caption.map { _ in words(of: c) } ?? []
             return CaptionSegment(text: s, start: c.start.seconds, end: c.end.seconds,
                                   words: w.map { ($0.text, (origin + $0.start).seconds, (origin + $0.end).seconds) },
-                                  translation: t.caption?.translation, speaker: t.caption?.speaker)
+                                  translation: t.caption?.translation)
         }
     }
 

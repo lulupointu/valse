@@ -27,6 +27,14 @@ public enum TranscriptDemo {
                 segments.append(CaptionSegment(text: tl.map(\.text).joined(separator: " "), start: a.start, end: b.end, words: tl))
             }
         }
+        if spec.contains("long") {
+            // CAP-EDITOR-UX scripts: 40 short captions, more than the caption list shows at once
+            let span = max(p.duration.seconds, 8) / 40
+            segments = (0..<40).map { i in
+                let a = Double(i) * span
+                return CaptionSegment(text: "Caption number \(i + 1) of the long list", start: a, end: a + span * 0.9)
+            }
+        }
         if spec.contains("captions"), let id = CaptionOps.addCaptionTrack(segments, to: &p) {
             SpeechCaptions.finish(trackID: id, in: &p)
         }

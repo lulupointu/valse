@@ -140,7 +140,11 @@ public struct TimelineLayout {
     /// View x of a timeline time.
     public func x(_ t: Time) -> CGFloat { Self.headerWidth + CGFloat((t.seconds - scrollTime) * pixelsPerSecond) }
     /// Timeline time at a view x.
-    public func time(atX x: CGFloat) -> Time { Time(max(0, Double(x - Self.headerWidth) / pixelsPerSecond + scrollTime)) }
+    public func time(atX x: CGFloat) -> Time { Time(max(0, unclampedSeconds(atX: x))) }
+    /// Timeline time at a view x, negative left of 0 (over the track headers). Edge trims use it so the first clip of
+    /// the magnetic main track can grow leftwards past 0 (BUG-FIRST-CLIP-TRIM-LEFT); `TimelineOps.trim` does the clamping.
+    public func unclampedTime(atX x: CGFloat) -> Time { Time(unclampedSeconds(atX: x)) }
+    private func unclampedSeconds(atX x: CGFloat) -> Double { Double(x - Self.headerWidth) / pixelsPerSecond + scrollTime }
     /// Time span of `points` at this zoom.
     public func duration(points: CGFloat) -> Time { Time(Double(points) / pixelsPerSecond) }
 
