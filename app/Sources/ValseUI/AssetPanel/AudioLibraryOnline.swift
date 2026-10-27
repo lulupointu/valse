@@ -322,7 +322,7 @@ enum OnlineAudioDrop {
 
     static func track(_ s: String) -> OnlineTrack? {
         guard s.hasPrefix("valse-online:") else { return nil }
-        let id = String(s.dropFirst(15))
+        let id = String(s.dropFirst("valse-online:".count))
         let st = OnlineAudioState.shared
         return st.known.values.first { $0.id == id } ?? st.saved.values.first { $0.id == id }
     }

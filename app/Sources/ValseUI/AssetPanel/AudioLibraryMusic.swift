@@ -139,7 +139,7 @@ enum AudioLibrarySections {
     // MARK: Drag & drop
 
     static func handleDrop(_ s: String, store: EditorStore, time: Time, target: InsertTarget) -> Bool {
-        if s.hasPrefix("valse-lib:"), let c = ContentLibrary.item(id: String(s.dropFirst(12))) {
+        if s.hasPrefix("valse-lib:"), let c = ContentLibrary.item(id: String(s.dropFirst("valse-lib:".count))) {
             addLibrary(c, store: store, at: time, target: target)
             return true
         }
@@ -147,7 +147,7 @@ enum AudioLibrarySections {
     }
 
     static func dropDuration(_ s: String) -> Time? {
-        if s.hasPrefix("valse-lib:"), let c = ContentLibrary.item(id: String(s.dropFirst(12))) { return Time(c.duration ?? 1) }
+        if s.hasPrefix("valse-lib:"), let c = ContentLibrary.item(id: String(s.dropFirst("valse-lib:".count))) { return Time(c.duration ?? 1) }
         return OnlineAudioDrop.duration(s)
     }
 }

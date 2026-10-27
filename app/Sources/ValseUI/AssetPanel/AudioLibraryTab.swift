@@ -62,7 +62,7 @@ enum AudioLibraryPayload {
 
     static let dropHandler: LibraryDropHandlers.Handler = { s, store, time, target in
         if s.hasPrefix("valse-file:") {
-            store.importFiles([URL(fileURLWithPath: String(s.dropFirst(13)))], thenInsertAt: time, target: target)
+            store.importFiles([URL(fileURLWithPath: String(s.dropFirst("valse-file:".count)))], thenInsertAt: time, target: target)
             return true
         }
         return AudioLibrarySections.handleDrop(s, store: store, time: time, target: target)

@@ -34,7 +34,7 @@ import ValseTestSupport
         let s = ModelCatalog.whisperTurbo
         #expect(s.url.absoluteString.hasPrefix("https://huggingface.co/ggerganov/whisper.cpp/"))
         #expect(s.sha256.count == 64)
-        #expect(ModelCatalog.modelsDirectory.path.contains("Valse"))
+        #expect(ModelCatalog.modelsDirectory == ValsePaths.defaultSupportDirectory.appendingPathComponent("Models", isDirectory: true))
     }
 
     @Test func sha256MatchesKnownDigest() throws {
