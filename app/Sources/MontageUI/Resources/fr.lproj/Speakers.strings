@@ -13,7 +13,7 @@
 "speakers.applyStyle.help" = "Appliquer le style du sous-titre sélectionné à tous les sous-titres de cet intervenant";
 "speakers.styleApplied" = "Style appliqué aux sous-titres de l'intervenant";
 "speakers.done" = "%d intervenants identifiés";
-"speakers.failed" = "Impossible d'identifier les intervenants. Réessaie.";
+"speakers.failed" = "Impossible d'identifier les intervenants. Réessayez.";
 "speakers.cancelled" = "Identification des intervenants annulée";
 "speakers.job" = "Identification des intervenants";
 "cmd.identifySpeakers" = "Identifier les intervenants";

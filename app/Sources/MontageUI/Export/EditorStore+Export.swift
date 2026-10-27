@@ -26,7 +26,10 @@ extension EditorStore {
             guard let self else { return }
             switch item.state {
             case .done: self.showToast(tr("export.toast.done", item.primaryURL?.lastPathComponent ?? item.title))
-            case .failed(let m): self.showToast(m, error: true)
+            case .failed(let m):
+                if let d = item.failureDetail {
+                    self.showToast(m, error: true, actionTitle: tr("action.copyDetails")) { ErrorDetails.copy(d) }
+                } else { self.showToast(m, error: true) }
             default: break
             }
         }
@@ -79,7 +82,10 @@ extension EditorStore {
                 try await Task.detached { try TimelineInterchange.write(p, format: format, name: name, to: url) }.value
                 showToast(tr("export.toast.timeline", url.lastPathComponent))
             } catch {
-                showToast(tr("export.error.failed"), error: true)
+                let f = ExportQueue.failure(error, title: url.lastPathComponent)
+                if let d = f.detail {
+                    showToast(f.message, error: true, actionTitle: tr("action.copyDetails")) { ErrorDetails.copy(d) }
+                } else { showToast(f.message, error: true) }
             }
         }
     }

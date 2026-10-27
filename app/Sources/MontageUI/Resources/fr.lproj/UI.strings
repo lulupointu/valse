@@ -116,10 +116,10 @@
 /* Notifications */
 "toast.undo" = "Annuler : %@";
 "toast.redo" = "Rétablir : %@";
-"toast.importFailed" = "Impossible d'importer %d fichier(s).";
+"toast.importFailed.one" = "Impossible d'importer « %@ » : Montage ne prend pas en charge ce format.";
+"toast.importFailed.other" = "Impossible d'importer %d fichiers : Montage ne prend pas en charge leur format.";
 "toast.needTwoClips" = "Ajoutez d'abord au moins deux clips sur la piste principale.";
 "toast.recovered" = "Montage s'est fermé de manière inattendue. Votre projet a été restauré depuis le dernier enregistrement automatique.";
-"toast.saveFailed" = "Impossible d'enregistrer le projet.";
 "toast.aiDone" = "%@ : terminé";
 
 /* Exportation */

@@ -107,7 +107,8 @@
 "tts.generating" = "Génération en cours du discours…";
 "tts.generate" = "Générer la voix";
 "tts.added" = "Le texte et la voix sont ajoutés à la piste";
-"tts.failed" = "Impossible de générer la voix. Essayez une autre voix.";
+"tts.failed" = "Impossible de créer la voix off. Essayez une autre voix.";
+"tts.voiceMissing" = "La voix « %@ » n'est pas installée sur ce Mac. Choisissez-en une autre ou ajoutez-la dans Réglages Système ▸ Accessibilité ▸ Contenu énoncé.";
 "cmd.tts" = "Synthèse vocale";
 "audio.job.isolate" = "Isolation de la voix…";
 "tts.voice.hqBadge" = "✦ Améliorée";

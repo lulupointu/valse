@@ -168,7 +168,7 @@ public final class AppModel {
             let url = try library.create(p, folder: folder)
             enterEditor { $0.store.load(project: p, packageURL: url) }
         } catch {
-            store.showToast(tr("toast.saveFailed"), error: true)
+            store.showToast(tr(FileErrorKind.classify(error) == .diskFull ? "home.error.createDiskFull" : "home.error.create"), error: true)
         }
     }
 
@@ -212,7 +212,15 @@ public final class AppModel {
                         await refresh()
                     }
                 }
-                store.showToast(tr(key), error: true)
+                if case .newerSchema? = error as? PersistenceError, UpdateController.shared.isAvailable {
+                    // BUG-ERROR-COPY: the fix is an update: offer it
+                    store.showToast(tr(key), error: true, actionTitle: tr("action.checkUpdates")) { [weak self] in
+                        UpdateController.shared.checkNow()
+                        self?.modal = .settings(.about)
+                    }
+                } else {
+                    store.showToast(tr(key), error: true)
+                }
             }
         }
     }
@@ -291,29 +299,37 @@ public final class AppModel {
 
     // MARK: Project operations (Home)
 
-    func run(_ body: @escaping @Sendable (ProjectLibrary) throws -> Void) {
+    /// `failure` = the toast for a non-`PersistenceError` failure, naming the operation and the project
+    /// (BUG-ERROR-COPY: "The operation couldn't be completed." said nothing).
+    func run(failure: String? = nil, _ body: @escaping @Sendable (ProjectLibrary) throws -> Void) {
         let lib = library
         Task {
             do { try await Task.detached { try body(lib) }.value } catch let e as PersistenceError {
                 store.showToast(tr(e.messageKey), error: true)
             } catch {
-                store.showToast(tr("home.error.fileOperation"), error: true)
+                EngineLog.error("project operation failed: \(String(describing: error))")
+                store.showToast(failure ?? tr("home.error.fileOperation"), error: true)
             }
             await refresh()
         }
+    }
+
+    /// "Couldn't <op> “Name”." for one project, "Couldn't <op> N projects." for several.
+    static func failureMessage(_ key: String, _ items: [LibraryEntry]) -> String {
+        items.count == 1 ? tr(key + ".one", items[0].name) : tr(key + ".other", items.count)
     }
 
     public func rename(_ e: LibraryEntry, to name: String) {
         let url = e.url
         renamingID = nil
         guard name != e.name, !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        run { lib in try lib.rename(url, to: name) }
+        run(failure: tr("home.error.rename", e.name)) { lib in try lib.rename(url, to: name) }
     }
 
     public func duplicate(_ items: [LibraryEntry]) {
         let urls = items.map(\.url)
         selectedIDs = []
-        run { lib in for u in urls { try lib.duplicate(u) } }
+        run(failure: Self.failureMessage("home.error.duplicate", items)) { lib in for u in urls { try lib.duplicate(u) } }
     }
 
     /// Delete = move to Trash with an Undo toast (no confirmation, UX.md §2.1).
@@ -325,7 +341,8 @@ public final class AppModel {
                 lastTrashed = try await Task.detached { try lib.moveToTrash(urls) }.value
                 store.showToast(trCount("home.trashed", urls.count))
             } catch {
-                store.showToast(tr("home.error.fileOperation"), error: true)
+                EngineLog.error("move to Trash failed: \(String(describing: error))")
+                store.showToast(Self.failureMessage("home.error.trash", items), error: true)
             }
             selectedIDs = []
             await refresh()
@@ -340,12 +357,12 @@ public final class AppModel {
 
     public func restore(_ items: [LibraryEntry]) {
         let urls = items.map(\.url)
-        run { lib in for u in urls { try lib.restore(u) } }
+        run(failure: Self.failureMessage("home.error.restore", items)) { lib in for u in urls { try lib.restore(u) } }
     }
 
     public func deletePermanently(_ items: [LibraryEntry]) {
         let urls = items.map(\.url)
-        run { lib in for u in urls { try lib.deletePermanently(u) } }
+        run(failure: Self.failureMessage("home.error.delete", items)) { lib in for u in urls { try lib.deletePermanently(u) } }
     }
 
     public func emptyTrash() { run { lib in lib.emptyTrash() } }

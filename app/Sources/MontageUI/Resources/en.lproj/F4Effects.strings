@@ -22,7 +22,15 @@
 "fx.custom.folder" = "Show the effects folder";
 "fx.custom.empty" = "Make your own effects: “New effect” creates a package (manifest.json + a Metal shader with sliders) and shows it in Finder. Edit the shader, then Reload. Import adds packages others shared (folder or ZIP).";
 "fx.custom.imported" = "Imported “%@”";
-"fx.custom.importFailed" = "The effect couldn't be loaded. See the message under the buttons.";
+"fx.custom.importFailed" = "Couldn't load “%@”: %@.";
+"fx.custom.reloadFailed.one" = "Couldn't load “%@”. The reason is shown below the Import and Reload buttons.";
+"fx.custom.reloadFailed.other" = "Couldn't load %d effects. The reasons are shown below the Import and Reload buttons.";
+"fx.custom.reason.noManifest" = "its manifest.json is missing";
+"fx.custom.reason.badManifest" = "its manifest.json can't be read";
+"fx.custom.reason.noShader" = "its shader file is missing";
+"fx.custom.reason.compile" = "its shader doesn't compile (details below the Import and Reload buttons)";
+"fx.custom.reason.unzip" = "the ZIP file can't be opened";
+"fx.custom.reason.other" = "Montage can't read it";
 "fx.custom.created" = "New effect created. Edit effect.metal, then Reload.";
 "fx.custom.reloaded" = "Custom effects reloaded";
 "fx.custom.showInFinder" = "Show in Finder";

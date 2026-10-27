@@ -93,7 +93,7 @@ extension EditorStore {
         }
         guard let video = a.livePhotoVideoURL else { return }
         Task {
-            guard var v = try? await MediaProbe.probe(video) else { showToast(tr("toast.importFailed", 1), error: true); return }
+            guard var v = try? await MediaProbe.probe(video) else { showImportFailure([video]); return }
             if let e = project.media.first(where: { $0.contentHash == v.contentHash }) { v = e } else { v.folderID = a.folderID }
             let asset = v
             edit("cmd.livePhoto") { p in try TimelineOps.replaceMedia(id, with: asset, in: &p) }

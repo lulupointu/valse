@@ -8,7 +8,7 @@
 "about.updates.downloading" = "Downloading Montage %@…";
 "about.updates.downloadingPct" = "Downloading Montage %@… %d %%";
 "about.updates.ready" = "Montage %@ is ready and will install when you quit.";
-"about.updates.failed" = "Couldn't check for updates: %@";
+"about.updates.failed" = "Couldn't check for updates. Check your internet connection; Montage will try again next time it opens.";
 "update.banner.title" = "Montage %@ is ready";
 "update.banner.hint" = "Installs when you quit, or restart now.";
 "update.banner.exporting" = "Restart once your export finishes.";

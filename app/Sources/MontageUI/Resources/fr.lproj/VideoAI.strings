@@ -7,7 +7,9 @@
 "cmd.splitScenes" = "Diviser les scènes";
 "cmd.separateAudio" = "Séparer l'audio";
 "audio.separate.done" = "Audio séparé";
-"audio.separate.failed" = "Impossible de séparer l'audio. Réessayez.";
+"audio.separate.failed" = "Impossible de séparer l'audio à cause d'un problème inattendu. Réessayez.";
+"audio.separate.needsModel" = "La séparation des instruments nécessite le modèle de musique (%@). Téléchargez-le.";
+"audio.separate.incomplete" = "La séparation des instruments nécessite un composant absent de cette copie de Montage. Mettez Montage à jour pour l'obtenir.";
 "inspector.reframe" = "Recadrage automatique";
 "reframe.ratio" = "Format";
 "reframe.speed" = "Vitesse déplacement caméra";
@@ -38,7 +40,7 @@
 "tracking.none" = "Aucun";
 "tracking.motion" = "Suivi de mouvement";
 "tracking.scale" = "Mettre à l'échelle avec l'objet";
-"tracking.hint" = "Fais glisser le cadre jaune sur l'objet à suivre (les coins le redimensionnent), puis lance le suivi.";
+"tracking.hint" = "Faites glisser le cadre jaune sur l'objet à suivre (les coins le redimensionnent), puis lancez le suivi.";
 "tracking.noVideo" = "Place le cadre sur une vidéo sous ce clip.";
 "tracking.start" = "Démarrer le suivi";
 "tracking.again" = "Suivre à nouveau";
@@ -46,7 +48,7 @@
 "tracking.job" = "Suivi en cours…";
 "tracking.applying" = "Suivi en cours… %d %%";
 "tracking.done" = "Suivi terminé";
-"tracking.failed" = "Impossible de suivre l'objet. Essaie un cadre plus grand.";
+"tracking.failed" = "Impossible de suivre l'objet. Essayez un cadre plus grand.";
 "tracking.cancelled" = "Suivi annulé";
 
 /* W10 looks couleur (CL-007/008/009, AI-055) */
@@ -55,8 +57,8 @@
 "look.correct" = "Correction des couleurs";
 "look.applying" = "Correspondance des couleurs…";
 "look.matching" = "Correspondance des couleurs…";
-"look.failed" = "Impossible d'ajuster les couleurs. Réessaie.";
-"look.match.hint" = "Sélectionne un cadre ou importe une image pour appliquer ses couleurs à ce clip.";
+"look.failed" = "Impossible d'ajuster les couleurs. Réessayez.";
+"look.match.hint" = "Sélectionnez un cadre ou importez une image pour appliquer ses couleurs à ce clip.";
 "look.match.source" = "Source";
 "look.match.select" = "Sélectionner le cadre source";
 "look.match.import" = "Importer une image";
@@ -82,7 +84,7 @@
 "enhance.job" = "Amélioration de la vidéo…";
 "enhance.applying" = "Amélioration de la vidéo… %d %%";
 "enhance.done" = "Vidéo améliorée";
-"enhance.failed" = "Impossible d'améliorer la vidéo. Réessaie.";
+"enhance.failed" = "Impossible d'améliorer la vidéo. Réessayez.";
 "enhance.cancelled" = "Amélioration de la vidéo annulée";
 
 /* W10 rédacteur IA (AI-029) */
@@ -90,7 +92,7 @@
 "writer.topic" = "Sujet";
 "writer.topic.placeholder" = "Exemple : une introduction à la première révolution industrielle";
 "writer.requirements" = "Exigences";
-"writer.requirements.placeholder" = "Saisis la description du style, le nombre de caractères et d'autres détails";
+"writer.requirements.placeholder" = "Saisissez la description du style, le nombre de caractères et d'autres détails";
 "writer.kind.talking" = "Script oral";
 "writer.kind.ad" = "Publicité";
 "writer.kind.inspirational" = "Inspirant";
@@ -106,9 +108,10 @@
 "writer.addSplit" = "Diviser et ajouter";
 "writer.addNoSplit" = "Ajouter sans diviser";
 "writer.added" = "Sous-titres ajoutés";
-"writer.failed" = "Impossible de générer le script. Réessaie.";
-"writer.disclaimer" = "Les scripts sont générés automatiquement par l'IA sur ce Mac. Vérifie-les avant de publier.";
-"writer.needsModel" = "Le rédacteur IA a besoin d'Apple Intelligence ou du modèle de texte local (Qwen3 4B) de la liste des modèles IA.";
+"writer.failed" = "Impossible de rédiger le script à cause d'un problème inattendu. Réessayez.";
+"writer.disclaimer" = "Les scripts sont générés automatiquement par l'IA sur ce Mac. Vérifiez-les avant de publier.";
+"writer.needsModel" = "Pour rédiger des scripts sur ce Mac, activez Apple Intelligence ou téléchargez le modèle de texte local (%@).";
+"writer.incomplete" = "La rédaction de scripts nécessite un composant absent de cette copie de Montage. Activez Apple Intelligence ou mettez Montage à jour pour l'obtenir.";
 
 /* W10 créateur de clips IA (AI-031) */
 "tlmenu.clipper" = "Créateur de clips IA…";
@@ -123,10 +126,10 @@
 "clipper.style.chronological" = "Chronologique";
 "clipper.style.speech" = "Basé sur le discours";
 "clipper.requirements" = "Autres exigences";
-"clipper.requirements.placeholder" = "Décris le style, l'ambiance ou les moments à mettre en avant";
+"clipper.requirements.placeholder" = "Décrivez le style, l'ambiance ou les moments à mettre en avant";
 "clipper.captions" = "Ajouter des sous-titres";
 "clipper.hint.llm" = "Trouve des temps forts autonomes dans le discours avec le modèle de langage sur l'appareil.";
-"clipper.hint.local" = "Trouve les temps forts du discours (mots-clés, rythme, phrases complètes). Installe le modèle de texte local pour de meilleurs choix.";
+"clipper.hint.local" = "Trouve les temps forts du discours (mots-clés, rythme, phrases complètes). Installez le modèle de texte local pour de meilleurs choix.";
 "clipper.get" = "Obtenir les clips";
 "clipper.job" = "Découpage IA…";
 "clipper.progress" = "Découpage IA… %d %%";
@@ -135,7 +138,7 @@
 "clipper.back" = "Retour";
 "clipper.save" = "Enregistrer";
 "clipper.done" = "Clips mis en évidence ajoutés";
-"clipper.failed" = "Impossible de créer les clips. Réessaie.";
+"clipper.failed" = "Impossible de créer les clips. Réessayez.";
 
 /* W10 mosaïque des visages (AI-051) */
 "faceCover.title" = "Mosaïque des visages";
@@ -146,7 +149,7 @@
 "faceCover.job" = "Détection des visages…";
 "faceCover.applying" = "Détection des visages… %d %%";
 "faceCover.done" = "Visages masqués";
-"faceCover.failed" = "Impossible de détecter les visages. Réessaie.";
+"faceCover.failed" = "Impossible de détecter les visages. Réessayez.";
 
 /* W10 suivi de la caméra (AI-013) */
 "cameraLock.title" = "Suivi de la caméra";
@@ -162,12 +165,12 @@
 "cameraLock.job" = "Application du suivi de la caméra…";
 "cameraLock.applying" = "Application du suivi de la caméra… %d %%";
 "cameraLock.done" = "Suivi de la caméra appliqué";
-"cameraLock.failed" = "Essaie une vidéo avec des personnes.";
+"cameraLock.failed" = "Aucune personne détectée. Essayez une vidéo avec des personnes.";
 "cameraLock.cancelled" = "Suivi de la caméra annulé";
 
 /* W10 suppression IA (AI-041) */
 "remove.title" = "Suppression IA";
-"remove.hint" = "Peins sur ce que tu veux supprimer (sur les vidéos : objets immobiles, logos, filigranes), puis Supprimer.";
+"remove.hint" = "Peignez sur ce que vous voulez supprimer (sur les vidéos : objets immobiles, logos, filigranes), puis cliquez sur Supprimer.";
 "remove.needsModel" = "La suppression IA a besoin du modèle LaMa (190 Mo, exécuté sur ce Mac).";
 "remove.clear" = "Effacer";
 "remove.apply" = "Supprimer";
@@ -175,7 +178,7 @@
 "remove.job" = "Suppression des objets…";
 "remove.applying" = "Suppression des objets… %d %%";
 "remove.done" = "Objets supprimés";
-"remove.failed" = "Impossible de supprimer les objets. Réessaie.";
+"remove.failed" = "Impossible de supprimer les objets. Réessayez.";
 "remove.cancelled" = "Suppression IA annulée";
 "media.smartSearch" = "Rechercher par contenu ou dialogue";
 "media.indexing" = "Indexation des médias…";

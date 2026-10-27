@@ -22,7 +22,15 @@
 "fx.custom.folder" = "Afficher le dossier des effets";
 "fx.custom.empty" = "Créez vos propres effets : « Nouvel effet » crée un paquet (manifest.json + un shader Metal avec curseurs) et l'affiche dans le Finder. Modifiez le shader, puis Recharger. Importer ajoute des paquets partagés par d'autres (dossier ou ZIP).";
 "fx.custom.imported" = "« %@ » importé";
-"fx.custom.importFailed" = "L'effet n'a pas pu être chargé. Voir le message sous les boutons.";
+"fx.custom.importFailed" = "Impossible de charger « %@ » : %@.";
+"fx.custom.reloadFailed.one" = "Impossible de charger « %@ ». La raison est indiquée sous les boutons Importer et Recharger.";
+"fx.custom.reloadFailed.other" = "Impossible de charger %d effets. Les raisons sont indiquées sous les boutons Importer et Recharger.";
+"fx.custom.reason.noManifest" = "son fichier manifest.json est absent";
+"fx.custom.reason.badManifest" = "son fichier manifest.json est illisible";
+"fx.custom.reason.noShader" = "son fichier de shader est absent";
+"fx.custom.reason.compile" = "son shader ne se compile pas (détails sous les boutons Importer et Recharger)";
+"fx.custom.reason.unzip" = "le fichier ZIP ne peut pas être ouvert";
+"fx.custom.reason.other" = "Montage ne peut pas le lire";
 "fx.custom.created" = "Nouvel effet créé. Modifiez effect.metal, puis Recharger.";
 "fx.custom.reloaded" = "Effets personnalisés rechargés";
 "fx.custom.showInFinder" = "Afficher dans le Finder";

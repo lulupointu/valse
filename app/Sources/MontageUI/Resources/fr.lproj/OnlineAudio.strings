@@ -23,10 +23,10 @@
 "online.badKey.message" = "Vérifiez la clé API dans Réglages ▸ Musique.";
 "online.failed.title" = "Impossible de charger la musique";
 "online.error.offline" = "Pas de connexion Internet.";
-"online.error.key" = "Clé API non valide.";
+"online.error.key" = "Le service de musique a refusé votre clé API. Vérifiez-la dans Réglages ▸ Musique.";
 "online.error.rate" = "Trop de recherches. Réessayez dans une minute.";
-"online.error.server" = "Le service de musique a renvoyé une erreur (%d).";
-"online.error.decoding" = "Réponse inattendue du service de musique.";
+"online.error.server" = "La musique en ligne n'est pas disponible pour le moment. Parcourez la bibliothèque hors ligne ou réessayez plus tard.";
+"online.error.decoding" = "La musique en ligne n'est pas disponible pour le moment. Parcourez la bibliothèque hors ligne ou réessayez plus tard.";
 "online.error.audio" = "Le fichier téléchargé n'est pas un son lisible.";
 "online.footer" = "Résultats de %@ · uniquement des licences sûres pour les réseaux sociaux";
 "online.footer.none" = "Aucune source de musique connectée";

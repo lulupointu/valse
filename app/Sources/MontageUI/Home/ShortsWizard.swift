@@ -93,7 +93,7 @@ public final class ShortsWizardState {
             case .cancelled:
                 step = .settings
             default:
-                if case .failed(let msg) = state { error = tr(msg.contains("noSpeech") ? "ai.error.noSpeech" : "shorts.error.failed") }
+                if case .failed(let msg) = state { error = tr(msg.contains("noSpeech") ? "highlights.noSpeech" : "shorts.error.failed") }
                 step = .settings
             }
         }

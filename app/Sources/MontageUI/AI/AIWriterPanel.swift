@@ -29,8 +29,15 @@ struct AIWriterPanel: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         if !AIWriter.isAvailable {
-                            HintText(text: tr("writer.needsModel"), color: IStyle.warning)
-                            Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(SecondaryButtonStyle())
+                            // BUG-ERROR-COPY: a button that fixes it, not "from the AI models list"
+                            if LlamaRuntime.cliURL == nil {
+                                HintText(text: tr("writer.incomplete"), color: IStyle.warning)
+                            } else {
+                                let spec = ModelCatalog.qwen3_4b
+                                HintText(text: tr("writer.needsModel", ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)), color: IStyle.warning)
+                                Button(tr("action.download")) { store.ai.downloads.require([spec]) {} }
+                                    .buttonStyle(SecondaryButtonStyle()).testID("writer.downloadModel")
+                            }
                         }
                         label("writer.topic")
                         TextField(tr("writer.topic.placeholder"), text: Binding.perceived(get: { st.topic }, set: { st.topic = $0 }), axis: .vertical)

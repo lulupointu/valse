@@ -92,7 +92,7 @@ extension EditorStore {
                 guard let c = p.timeline.clip(id), t > c.start, t < c.end else { continue }
                 try TimelineOps.trim(id, edge: edge, to: t, in: &p); did = true
             }
-            if !did { throw EditError.invalidTime }
+            if !did { throw EditError.playheadOutsideClip }
         }
         if edge == .head, let c = ids.first.flatMap({ project.timeline.clip($0) }) { seek(to: c.start) }
     }
@@ -267,7 +267,7 @@ extension EditorStore {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task {
             let (assets, _) = await MediaProbe.probeAll([url])
-            guard let a0 = assets.first else { showToast(tr("toast.importFailed", 1), error: true); return }
+            guard let a0 = assets.first else { showImportFailure([url]); return }
             let a = project.media.first { $0.contentHash == a0.contentHash } ?? a0
             edit("cmd.replace") { p in try TimelineOps.replaceMedia(c.id, with: a, in: &p) }
             await ProxyManager.shared.request([a])

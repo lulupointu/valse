@@ -822,6 +822,41 @@ CapCut calls library items "ressources" (material). Montage should use **"ressou
 
 ---
 
+## 11. Error messages (style guide, owner-approved, BUG-ERROR-COPY)
+
+Montage rule (stricter than CapCut, which says "Try again" everywhere). Applies to every toast, inline message, banner
+and alert, en + fr.
+
+1. **Say what didn't happen, in terms of the user's goal**: "Couldn't create captions.", "Montage can't save “Trip”."
+   Never the component that broke. fr opener: "Impossible de …".
+2. **Give the reason when it is known and the user can act on it** (permission, missing download, file offline, disk
+   full, unsupported format, no speech). Error domains, exit codes, HTTP codes, engine / helper names and file paths go to
+   `EngineLog` or a **Copy Details** button, never into the text.
+3. **Say what to do, and put it on a button when the app can do it** ("Open Storage Settings", "Download", "Relink…",
+   "Check for Updates", "Save As…"). The text explains why, the button does it. Write a menu path only when there is no button.
+4. **"Try again" only when a retry can work** (network blip, busy server, rate limit, interrupted download, unknown
+   cause the first time: "… because of an unexpected problem. Try again."). Never for permissions, missing models or
+   components, unsupported hardware / format, missing files or a full disk.
+5. **No jargon**: no whisper.cpp, runtime, moteur, encoder, LAME, API key (unless the user typed one), codes.
+6. **No blame, no alarm, no apology**: no lone "Error", "Failed", "Invalid", "Corrupted", "lost"; no "Oops", no "Sorry".
+7. **Length**: toast ≤ ~90 characters, one action at most; inline panel message = title + 1-2 sentences, ≤ 2 buttons.
+   Sentences end with a period; buttons don't. en curly quotes “ ”, fr « » (plain spaces, like the rest of the fr
+   tables), US "canceled".
+8. **fr**: vouvoiement only (`scripts/l10n_check.py` rejects "tu", "Réessaie"…), imperative ("Téléchargez…"), glossary §10.
+9. **Where it shows**: instant edit refused → toast (no action); panel task fails → inline message next to its button
+   (+ toast with the action if the panel is closed); prerequisite known before the click → pre-flight card, not a
+   failure; **work at risk (save, open, export) → persistent banner / alert, never only a 2.5 s toast** (save failures:
+   `SaveFailureBanner`); background job → its row keeps the reason (+ Copy Details).
+10. **System Settings names**: "System Settings ▸ Privacy & Security ▸ …" / "Réglages Système ▸ Confidentialité et
+    sécurité ▸ …"; the button is "Open System Settings" / "Ouvrir Réglages Système" (deep links: `SystemSettingsPane`,
+    MontageUI/Support/SystemSettingsLinks.swift).
+
+Template: en `<What didn't happen>. <Why, if known>. <What to do>.` / fr `<Ce qui n'a pas abouti>. <Pourquoi>. <Que faire>.`
+Example: "Couldn't download the model. Check your internet connection, then try again." / "Not enough space to download
+the model. Free up 574 MB, then try again." Shared actions and messages live in `MontageUI/Resources/*/Errors.strings`.
+
+---
+
 
 ## Appendix: screenshot index
 
