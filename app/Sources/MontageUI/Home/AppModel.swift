@@ -89,6 +89,7 @@ public final class AppModel {
         switcher.app = self
         ProjectSwitcher.active = switcher
         OnlineAudioState.openSettings = { [weak self] in self?.modal = .settings(.music) }
+        ModifyProjectButton.openProjectSettings = { [weak self] in self?.modal = .projectSettings }   // BUG-OVERSIZED-SHEETS
         // UI tests / demo screenshots (sandbox) neither read nor write the user's Home view preferences
         if !HomeSandbox.isActive {
             if let v = AppDefaults.store.string(forKey: "MontageHomeViewMode"), let m = ViewMode(rawValue: v) { viewMode = m }

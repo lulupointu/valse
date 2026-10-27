@@ -181,6 +181,7 @@ struct ModelDownloadPrompt: View {
             }
             .padding(10)
             .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+            .scrollsWhenTight()   // BUG-OVERSIZED-SHEETS: buttons stay visible in a small window
             HintText(text: tr("download.prompt.privacy"))
             HStack(spacing: 10) {
                 Spacer()
@@ -191,7 +192,7 @@ struct ModelDownloadPrompt: View {
             }
         }
         .padding(20)
-        .frame(width: 400)
+        .fittedFrame(width: 400)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.separator))
         .shadow(radius: 20)

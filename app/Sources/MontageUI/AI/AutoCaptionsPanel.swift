@@ -170,6 +170,7 @@ struct SpeechModelCard: View {
                     }
                 }
                 Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(.link).font(Theme.Fonts.hint)
+                    .testID("models.manage")
             }
             .padding(10)
             .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
@@ -228,8 +229,29 @@ struct ModelManagerSheet: View {
     var body: some View {
         WithPerceptionTracking {
             let mm = ModelManager.shared
-            VStack(alignment: .leading, spacing: 14) {
+            // BUG-OVERSIZED-SHEETS: an in-window modal (EditorView `.inWindowModal`) never taller than the window: title
+            // pinned on top, the model list scrolls, Done pinned at the bottom.
+            VStack(alignment: .leading, spacing: 0) {
                 Text(loc: "models.title").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    .padding([.top, .horizontal], 20).padding(.bottom, 14)
+                list(mm).padding(.horizontal, 20).scrollsWhenTight()
+                HStack {
+                    Spacer()
+                    Button(tr("models.done"), action: close).buttonStyle(AccentButtonStyle())
+                        .keyboardShortcut(.cancelAction).testID("models.done").reportsFit("modelsDone")
+                }
+                .padding(.top, 14).padding([.horizontal, .bottom], 20)
+            }
+            .fittedFrame(width: 460)
+            .testID("models.sheet")
+            .background(Theme.panel)
+            .onAppear { mm.refresh() }
+        }
+    }
+
+    private func list(_ mm: ModelManager) -> some View {
+        WithPerceptionTracking {
+            VStack(alignment: .leading, spacing: 14) {
                 HintText(text: tr("models.privacy"))
                 ForEach(ModelCatalog.all) { spec in
                     WithPerceptionTracking {
@@ -254,13 +276,7 @@ struct ModelManagerSheet: View {
                     Image(systemName: WhisperRuntime.cliURL != nil ? "checkmark.circle" : "exclamationmark.triangle").foregroundStyle(WhisperRuntime.cliURL != nil ? Theme.accent : IStyle.warning)
                     HintText(text: WhisperRuntime.cliURL != nil ? tr("models.runtimeOK") : tr("models.runtimeMissing"))
                 }
-                HStack { Spacer(); Button(tr("models.done"), action: close).buttonStyle(AccentButtonStyle()) }
             }
-            .padding(20)
-            .frame(width: 460)
-            .testID("models.sheet")
-            .background(Theme.panel)
-            .onAppear { mm.refresh() }
         }
     }
 }

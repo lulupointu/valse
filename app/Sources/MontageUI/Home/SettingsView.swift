@@ -33,7 +33,7 @@ struct SettingsView: View {
 
     var body: some View {
         WithPerceptionTracking {
-            DialogCard(title: tr("settings.title"), width: width, onClose: close) {
+            DialogCard(title: tr("settings.title"), width: width, onClose: close, bodyScrolls: false) {
                 VStack(spacing: 14) {
                     SettingsTabBar(selection: $tab)
                     ScrollView {
@@ -55,13 +55,15 @@ struct SettingsView: View {
                         .lockHorizontalScroll()   // U1-2: vertical only
                     }
                     .horizontalBounceBasedOnSize()
-                    .frame(height: tab == .shortcuts ? 470 : 440)
+                    // BUG-OVERSIZED-SHEETS: shrinks (down to 120 pt) when the window is smaller than the dialog
+                    .frame(minHeight: 120, idealHeight: tab == .shortcuts ? 470 : 440, maxHeight: tab == .shortcuts ? 470 : 440)
                     .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
                     .testID("settings.body")
                     if tab == .shortcuts { ShortcutFooterControls(keymap: keymap) }
-                    DialogFooter(okEnabled: dirty, onCancel: close, onOK: save)
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                DialogFooter(okEnabled: dirty, onCancel: close, onOK: save)
             }
             .testID("settings")
             .onAppear {

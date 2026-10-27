@@ -101,7 +101,7 @@ struct WhatsNewCard: View {
     @Perception.Bindable var onboarding = Onboarding.shared
     var body: some View {
         WithPerceptionTracking {
-            DialogCard(title: tr("whatsnew.title"), width: 440, onClose: { onboarding.closeWhatsNew() }) {
+            DialogCard(title: tr("whatsnew.title"), width: 440, onClose: { onboarding.closeWhatsNew() }, footerSpacing: 10) {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(Onboarding.whatsNew, id: \.self) { k in
                         WithPerceptionTracking {
@@ -111,14 +111,15 @@ struct WhatsNewCard: View {
                             }
                         }
                     }
-                    HStack {
-                        Button(tr("tips.replay")) { onboarding.closeWhatsNew(); onboarding.start() }
-                            .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
-                        Spacer()
-                        Button(tr("common.ok")) { onboarding.closeWhatsNew() }.buttonStyle(AccentButtonStyle()).testID("whatsnew.ok")
-                    }
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                HStack {
+                    Button(tr("tips.replay")) { onboarding.closeWhatsNew(); onboarding.start() }
+                        .buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+                    Spacer()
+                    Button(tr("common.ok")) { onboarding.closeWhatsNew() }.buttonStyle(AccentButtonStyle()).testID("whatsnew.ok")
+                }
             }
             .testID("whatsnew")
         }

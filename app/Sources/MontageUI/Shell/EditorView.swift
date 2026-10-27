@@ -54,7 +54,7 @@ public struct EditorView: View {
         .overlay(alignment: .topTrailing) {
             // W5: during UI tests the keyframe panel (normally a floating NSPanel) lives in the offscreen test window
             if TestAnchors.isEnabled && store.keyframeUI.showsPanel {
-                KeyframePanel(store: store).frame(width: 500, height: 420)   // over the (SwiftUI) inspector, clear of Metal views
+                KeyframePanel(store: store).fittedFrame(CGSize(width: 500, height: 420))   // over the (SwiftUI) inspector, clear of Metal views
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.separator))
                     .testID("panel.keyframes").padding(.top, 60).padding(.trailing, 14)
             }
@@ -105,7 +105,9 @@ public struct EditorView: View {
             }
         }
         .overlay { ModelDownloadOverlay(store: store) }   // OB-07 download popup + bottom-right progress
-        .sheet(isPresented: Binding.perceived(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
+        // BUG-OVERSIZED-SHEETS: in-window (a SwiftUI sheet sizes itself to its content: taller than the window / screen)
+        .inWindowModal(isPresented: Binding.perceived(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 }),
+                       fitKey: "models") {
             WithPerceptionTracking {
                 ModelManagerSheet { store.ai.isModelSheetPresented = false }   // W10 AI models
             }

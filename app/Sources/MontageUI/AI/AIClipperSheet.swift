@@ -27,14 +27,18 @@ struct AIClipperSheet: View {
 
     var body: some View {
         WithPerceptionTracking {
+            // BUG-OVERSIZED-SHEETS: the body scrolls in a small window, the buttons stay pinned
             VStack(alignment: .leading, spacing: 14) {
                 Text(loc: "clipper.title").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                if st.highlights.isEmpty {
-                    settings
-                } else {
-                    results
+                VStack(alignment: .leading, spacing: 14) {
+                    if st.highlights.isEmpty {
+                        settings
+                    } else {
+                        results
+                    }
+                    if let e = st.error { HintText(text: e, color: IStyle.warning) }
                 }
-                if let e = st.error { HintText(text: e, color: IStyle.warning) }
+                .scrollsWhenTight()
                 HStack {
                     Button(tr("ai.cancel")) { cancel(); close() }.buttonStyle(SecondaryButtonStyle())
                     Spacer()
@@ -47,7 +51,7 @@ struct AIClipperSheet: View {
                 }
             }
             .padding(20)
-            .frame(width: 520)
+            .fittedFrame(width: 520)
             .background(Theme.panel)
             .testID("clipper.sheet")
         }

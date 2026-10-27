@@ -134,6 +134,7 @@ final class KeyframePanelController: NSObject, NSWindowDelegate {
         p.delegate = self
         p.contentView = NSHostingView(rootView: KeyframePanel(store: store).environment(\.colorScheme, .dark).uitestNoMotion())
         if let w = NSApp.mainWindow { p.setFrameTopLeftPoint(NSPoint(x: w.frame.midX - 280, y: w.frame.midY + 120)) }
+        p.fitToScreen(NSApp.mainWindow?.screen)   // BUG-OVERSIZED-SHEETS: never larger than / outside the screen
         return p
     }
 
