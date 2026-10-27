@@ -33,13 +33,19 @@ import Foundation
         #expect(CaptionOps.clipIndex(at: Time(9), in: clips) == nil)
     }
 
+    /// CAP-UX2-BADGE: only against the chosen split rule, never "As generated", per line once wrapped.
     @Test func overLimitBadge() {
         let rule = CaptionSplitRule(charsPerLine: 16, lines: 1)
-        #expect(CaptionOps.overLimit("short", duration: Time(2), rule: rule) == nil)
-        #expect(CaptionOps.overLimit("this line is too long", duration: Time(5), rule: rule)?.limit == 16)
-        #expect(CaptionOps.overLimit("two\nlines", duration: Time(5), rule: rule) != nil)
-        // > 20 characters per second
-        #expect(CaptionOps.overLimit("a fairly long caption here", duration: Time(0.5), rule: nil) != nil)
+        #expect(CaptionOps.overLimit("short", rule: rule) == nil)
+        #expect(CaptionOps.overLimit("this line is too long", rule: rule) == .lineTooLong(chars: 21, max: 16))
+        #expect(CaptionOps.overLimit("two\nlines", rule: rule) == .lineTooLong(chars: 8, max: 16))
+        // As generated: no badge, however long or fast
+        #expect(CaptionOps.overLimit("a fairly long caption here, read very fast", rule: nil) == nil)
+        // 2 × 32: 42 characters wrap to 2 lines and fit (the old badge said "42/29")
+        let two = CaptionSplitRule(charsPerLine: 32, lines: 2)
+        #expect(CaptionOps.overLimit("Si on compte sur lui pour la laisser venir,", rule: two) == nil)
+        #expect(CaptionOps.overLimit(String(repeating: "word ", count: 15), rule: two) == .tooLong(chars: 75, max: 64, lines: 2, perLine: 32))
+        #expect(CaptionOps.overLimit("a\nb\nc", rule: two) == .tooManyLines(lines: 3, max: 2))
         #expect(CaptionSplitRule(charsPerLine: 200, lines: 9) == CaptionSplitRule(charsPerLine: 60, lines: 3))
     }
 

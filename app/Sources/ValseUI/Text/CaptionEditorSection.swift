@@ -7,7 +7,8 @@ import Perception
 
 /// Inspector ▸ Captions (CAP-EDITOR-UX, owner sketch 2026-10-27): a full-height section with its own scroll view.
 /// Pinned on top: language tabs + Export + Delete all (A), Split options (B), search / replace (C); then the caption
-/// list (D, the only part that scrolls) and a footer (E). Shown whenever the project has captions.
+/// list (D, the only part that scrolls) and a footer (E). Shown for selected captions, or nothing selected in a
+/// project with captions (CAP-UX2-TAB).
 struct CaptionEditorSection: View {
     let ctx: InspectorContext
 
@@ -70,6 +71,7 @@ struct CaptionList: View {
 
     var body: some View {
         WithPerceptionTracking {
+            let _ = CaptionTextMeasure.noteListBody()
             let ed = store.captionEditor
             let matches = store.captionMatches()
             let current = matches.isEmpty ? nil : matches[min(ed.matchIndex, matches.count - 1)]
@@ -82,7 +84,8 @@ struct CaptionList: View {
                         ForEach(Array(track.clips.enumerated()), id: \.element.id) { i, c in
                             WithPerceptionTracking {
                                 CaptionRow(store: store, index: i + 1, clip: c, text: CaptionOps.text(c)?.string ?? "",
-                                           isActive: c.id == active, isLast: i == track.clips.count - 1, rightToLeft: rtl,
+                                           isActive: c.id == active, stripAbove: c.id == active && ed.stripAbove,
+                                           isLast: i == track.clips.count - 1, rightToLeft: rtl,
                                            rule: track.captionSplit,
                                            highlights: (byClip[c.id] ?? []).map { NSRange(location: $0.range.location, length: $0.range.length) },
                                            current: current?.clipID == c.id ? current.map { NSRange(location: $0.range.location, length: $0.range.length) } : nil)
@@ -115,6 +118,8 @@ struct CaptionRow: View, Equatable {
     let clip: Clip
     let text: String
     let isActive: Bool
+    /// Timing strip above the text instead of under it (CAP-UX2-JUMP, `CaptionEditorState.stripAbove`).
+    let stripAbove: Bool
     let isLast: Bool
     let rightToLeft: Bool
     let rule: CaptionSplitRule?
@@ -124,15 +129,18 @@ struct CaptionRow: View, Equatable {
 
     static func == (a: CaptionRow, b: CaptionRow) -> Bool {
         a.store === b.store && a.index == b.index && a.clip == b.clip && a.text == b.text && a.isActive == b.isActive
+            && a.stripAbove == b.stripAbove
             && a.isLast == b.isLast && a.rightToLeft == b.rightToLeft && a.rule == b.rule && a.highlights == b.highlights
             && a.current == b.current
     }
 
     var body: some View {
         WithPerceptionTracking {
+            let _ = CaptionTextMeasure.noteRowBody()
             let playing = store.captionNowPlaying.id == clip.id
-            let over = CaptionOps.overLimit(text, duration: clip.duration, rule: rule)
+            let over = CaptionOps.overLimit(text, rule: rule)
             VStack(alignment: .leading, spacing: 6) {
+                if isActive && stripAbove { CaptionTimingStrip(store: store, clip: clip, text: text) }
                 HStack(alignment: .top, spacing: 8) {
                     gutter(playing: playing, over: over)
                     CaptionTextField(store: store, clipID: clip.id, text: text, isActive: isActive, rightToLeft: rightToLeft,
@@ -142,7 +150,7 @@ struct CaptionRow: View, Equatable {
                         .opacity(playing && !isActive ? 1 : (isActive ? 1 : 0.92))
                     buttons
                 }
-                if isActive { CaptionTimingStrip(store: store, clip: clip, text: text) }
+                if isActive && !stripAbove { CaptionTimingStrip(store: store, clip: clip, text: text) }
             }
             .padding(.leading, 12).padding(.trailing, 8).padding(.vertical, 8)
             .background(isActive ? Theme.accentDim.opacity(0.55) : (hover ? Theme.Valse.raised : .clear))
@@ -152,6 +160,7 @@ struct CaptionRow: View, Equatable {
             .onHover { hover = $0 }
             // gutter / empty area: like a click in the text, caret at the end
             .onTapGesture {
+                if !isActive, let tv = CaptionTextRegistry.view(clip.id) { CaptionTextRegistry.noteClick(tv) }
                 store.captionActivate(clip.id, seek: true)
                 store.captionFocus(clip.id, caret: .end)
             }
@@ -165,7 +174,16 @@ struct CaptionRow: View, Equatable {
         }
     }
 
-    func gutter(playing: Bool, over: (count: Int, limit: Int)?) -> some View {
+    /// Badge text + tooltip of a caption that does not fit the split rule (CAP-UX2-BADGE).
+    static func badge(_ o: CaptionOverLimit) -> (label: String, help: String) {
+        switch o {
+        case .lineTooLong(let n, let m): return (tr("capedit.over.chars", n, m), tr("capedit.over.help.line", n, m))
+        case .tooLong(let n, let m, let lines, let per): return (tr("capedit.over.chars", n, m), tr("capedit.over.help.caption", n, lines, per))
+        case .tooManyLines(let l, let m): return (tr("capedit.over.lines", l, m), tr("capedit.over.help.lines", l, m))
+        }
+    }
+
+    func gutter(playing: Bool, over: CaptionOverLimit?) -> some View {
         VStack(alignment: .trailing, spacing: 3) {
             HStack(spacing: 2) {
                 Text(verbatim: "▸").font(.system(size: 9)).foregroundStyle(Theme.accentText).opacity(playing ? 1 : 0)
@@ -174,13 +192,15 @@ struct CaptionRow: View, Equatable {
                     .foregroundStyle(isActive || playing ? Theme.textPrimary : IStyle.caption)
             }
             if let over {
-                Text(verbatim: "\(over.count)/\(over.limit)").font(.system(size: 9.5, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(Theme.warning)
-                    .help(tr("capedit.overLimit.help"))
+                let b = Self.badge(over)
+                Text(verbatim: b.label).font(.system(size: 9.5, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Theme.warning).lineLimit(1).minimumScaleFactor(0.75)
+                    .help(b.help)
+                    .accessibilityLabel(Text(verbatim: b.help))
                     .testID("captions.over.\(index)")
             }
         }
-        .frame(width: 52, alignment: .trailing)
+        .frame(width: 60, alignment: .trailing)
         .padding(.top, 2)
         .testID(playing ? "captions.nowPlaying" : "captions.gutter.\(index)")
     }
@@ -244,7 +264,7 @@ struct CaptionTimingStrip: View {
                      + " · " + tr("capedit.cps", Int(CaptionOps.charsPerSecond(text, duration: clip.duration).rounded())))
                     .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
-            .padding(.leading, 60)
+            .padding(.leading, 68)
             .testID("captions.timing")
         }
     }

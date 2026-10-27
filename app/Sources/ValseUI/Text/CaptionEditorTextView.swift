@@ -21,6 +21,27 @@ enum CaptionTextRegistry {
         guard let tv = current, tv.window?.firstResponder === tv else { return nil }
         return tv.selectedRange().location
     }
+    /// Selected length in the focused caption (UI tests: a simple click selects nothing, CAP-UX2-JUMP).
+    static var selectionLength: Int {
+        guard let tv = current, tv.window?.firstResponder === tv else { return 0 }
+        return tv.selectedRange().length
+    }
+    /// Text views of the caption rows on screen, by clip id.
+    static let views = NSMapTable<NSString, CaptionNSTextView>.strongToWeakObjects()
+    static func view(_ id: ClipID) -> CaptionNSTextView? { views.object(forKey: id.description as NSString) }
+    /// Caption texts on screen that show a selection (CAP-UX2-SELECTION: only the edited one may).
+    static var rowsWithSelection: Int {
+        (views.objectEnumerator()?.allObjects as? [CaptionNSTextView] ?? []).filter { $0.window != nil && $0.selectedRange().length > 0 }.count
+    }
+    /// The last clicked caption text and its window y at the click (UI tests: `clickDrift`).
+    static weak var clicked: CaptionNSTextView?
+    static var clickedY: CGFloat = 0
+    static func noteClick(_ tv: CaptionNSTextView) { clicked = tv; clickedY = tv.windowY() }
+    /// How far the clicked caption moved on screen since the click (-1: none / gone).
+    static var clickDrift: Double {
+        guard let tv = clicked, tv.window != nil else { return -1 }
+        return Double(abs(tv.windowY() - clickedY))
+    }
 }
 
 /// One caption's text (CAP-EDITOR-UX). Native NSTextView: a click puts the caret where it lands. Every keystroke
@@ -52,19 +73,27 @@ struct CaptionTextField: NSViewRepresentable {
         tv.insertionPointColor = NSColor(Theme.accentText)
         tv.textContainerInset = .zero
         tv.textContainer?.lineFragmentPadding = 0
-        tv.isVerticallyResizable = true
+        // SwiftUI sizes the view (sizeThatFits measures offscreen): a self-resizing text view fed back into SwiftUI's
+        // layout and spun the main thread (CAP-UX2-CRASH)
+        tv.isVerticallyResizable = false
+        tv.isHorizontallyResizable = false
+        tv.autoresizingMask = []
         tv.textContainer?.widthTracksTextView = true
+        tv.textContainer?.heightTracksTextView = false
+        tv.textContainer?.containerSize = NSSize(width: 240, height: CGFloat.greatestFiniteMagnitude)
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.isAutomaticDashSubstitutionEnabled = false
         tv.isAutomaticTextReplacementEnabled = false
         tv.string = text
         tv.setAccessibilityIdentifier("captions.text.\(clipID)")
+        CaptionTextRegistry.views.setObject(tv, forKey: clipID.description as NSString)
         return tv
     }
 
     func updateNSView(_ tv: CaptionNSTextView, context: Context) {
         let c = context.coordinator
         c.parent = self
+        CaptionTextRegistry.views.setObject(tv, forKey: clipID.description as NSString)
         tv.setAccessibilityLabel(accessibilityLabel)
         tv.placeholder = tr("capedit.placeholder")
         if tv.baseWritingDirection != (rightToLeft ? .rightToLeft : .leftToRight) {
@@ -86,12 +115,12 @@ struct CaptionTextField: NSViewRepresentable {
         }
     }
 
+    /// Measured offscreen (`CaptionTextMeasure`), never by resizing the live text view: SwiftUI proposes several widths
+    /// per pass, and re-laying out the live view at each one resized it, which invalidated SwiftUI's layout again — a
+    /// main-thread layout storm in the caption list (CAP-UX2-CRASH, owner's 0.4.0 hang of 2026-10-27).
     func sizeThatFits(_ proposal: ProposedViewSize, nsView tv: CaptionNSTextView, context: Context) -> CGSize? {
         let w = max(proposal.width ?? 240, 40)
-        guard let lm = tv.layoutManager, let tc = tv.textContainer else { return nil }
-        tc.containerSize = NSSize(width: w, height: .greatestFiniteMagnitude)
-        lm.ensureLayout(for: tc)
-        return CGSize(width: w, height: max(18, ceil(lm.usedRect(for: tc).height) + 2))
+        return CGSize(width: w, height: CaptionTextMeasure.height(tv.string, width: w, font: tv.font ?? .systemFont(ofSize: 13)))
     }
 
     @MainActor final class Coordinator: NSObject, NSTextViewDelegate {
@@ -112,7 +141,6 @@ struct CaptionTextField: NSViewRepresentable {
             store.endCaptionTyping()
             // a click in the caption being edited only moves the caret
             guard focusedByThisClick || !(store.captionEditor.editingID == id && tv.window?.firstResponder === tv) else { return }
-            if store.captionActiveID != id { tv.keepOnScreenPosition() }
             store.captionActivate(id, seek: true)
         }
 
@@ -205,11 +233,15 @@ final class CaptionNSTextView: NSTextView {
     /// The window makes the text view first responder BEFORE delivering the click's mouseDown: remember that click.
     private var focusingClick: TimeInterval?
 
+    /// A click activates its row only once the button is released (CAP-UX2-JUMP): AppKit's text tracking loop runs on
+    /// an unchanged layout, so a simple click places the caret and never drags a selection. The activation itself never
+    /// moves the clicked text either (`CaptionEditorState.stripAbove`).
     override func mouseDown(with event: NSEvent) {
         let fresh = focusingClick == event.timestamp
         focusingClick = nil
-        if let c = coordinator { MainActor.assumeIsolated { c.willClick(self, focusedByThisClick: fresh) } }
+        CaptionTextRegistry.noteClick(self)
         super.mouseDown(with: event)
+        if let c = coordinator { MainActor.assumeIsolated { c.willClick(self, focusedByThisClick: fresh) } }
     }
 
     override func becomeFirstResponder() -> Bool {
@@ -225,6 +257,10 @@ final class CaptionNSTextView: NSTextView {
     }
 
     override func resignFirstResponder() -> Bool {
+        // CAP-UX2-SELECTION: a caption that stops being edited keeps no selection highlight. Collapsed before resigning:
+        // changing the selection afterwards brings the (macOS 14+) insertion indicator back on a view that isn't editing.
+        let sel = selectedRange()
+        if sel.length > 0 { setSelectedRange(NSRange(location: sel.location, length: 0)) }
         let ok = super.resignFirstResponder()
         if ok, let c = coordinator { MainActor.assumeIsolated { c.didResignFirstResponder() } }
         return ok
@@ -346,29 +382,8 @@ final class CaptionNSTextView: NSTextView {
         }
     }
 
-    // MARK: Keep the clicked row in place
-
-    /// Activating a row moves the timing strip from the previously active row: when that row is above, everything
-    /// below would shift up under the mouse. Scroll by the same amount so the clicked text stays where it was.
-    func keepOnScreenPosition() {
-        guard let scroll = enclosingScrollView, let doc = scroll.documentView else { return }
-        let clip = scroll.contentView
-        let y0 = convert(bounds.origin, to: doc).y
-        let offset = y0 - clip.bounds.origin.y
-        for delay in [0.0, 0.03, 0.1, 0.25] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak scroll] in
-                guard let self, let scroll, let doc = scroll.documentView, self.window != nil else { return }
-                let clip = scroll.contentView
-                let y = self.convert(self.bounds.origin, to: doc).y
-                let maxY = max(0, doc.bounds.height - clip.bounds.height)
-                let target = min(max(y - offset, 0), maxY)
-                guard abs(target - clip.bounds.origin.y) > 0.5 else { return }
-                self.coordinator?.store.captionEditor.allowListScroll()
-                clip.scroll(to: NSPoint(x: clip.bounds.origin.x, y: target))
-                scroll.reflectScrolledClipView(clip)
-            }
-        }
-    }
+    /// Window y of the text (UI tests: `ui.captionEditor.clickDrift`, the clicked caption must not move).
+    func windowY() -> CGFloat { convert(bounds.origin, to: nil).y }
 }
 
 // MARK: - List focus (after Esc) and scroll watching
@@ -491,4 +506,60 @@ final class CaptionScrollProbeView: NSView {
         guard abs(y - lastY) > 0.5 else { return }
         store.captionEditor.noteListScroll()
     }
+}
+
+// MARK: - Offscreen measuring (CAP-UX2-CRASH)
+
+/// Heights of caption texts, laid out in a private TextKit stack (the live text views are never resized to measure)
+/// and cached by (text, width, font). `measuresLastSecond` / `layoutsLastSecond` let a UI test prove the list is not
+/// re-measuring in a loop (`ui.captionEditor.measuresLastSecond`).
+@MainActor
+enum CaptionTextMeasure {
+    private struct Key: Hashable { let text: String; let width: CGFloat; let font: String; let size: CGFloat }
+    private static var cache: [Key: CGFloat] = [:]
+    private static let storage = NSTextStorage()
+    private static let container: NSTextContainer = {
+        let tc = NSTextContainer(size: NSSize(width: 240, height: CGFloat.greatestFiniteMagnitude))
+        tc.lineFragmentPadding = 0
+        let lm = NSLayoutManager()
+        lm.addTextContainer(tc)
+        storage.addLayoutManager(lm)
+        return tc
+    }()
+    /// sizeThatFits calls / real TextKit layouts, time-stamped (the last second is what counts).
+    private static var calls: [TimeInterval] = []
+    private static var layouts: [TimeInterval] = []
+
+    static func height(_ s: String, width: CGFloat, font: NSFont) -> CGFloat {
+        let now = ProcessInfo.processInfo.systemUptime
+        record(&calls, now)
+        let key = Key(text: s, width: width, font: font.fontName, size: font.pointSize)
+        if let h = cache[key] { return h }
+        record(&layouts, now)
+        let tc = container
+        guard let lm = tc.layoutManager else { return 18 }
+        tc.containerSize = NSSize(width: width, height: CGFloat.greatestFiniteMagnitude)
+        storage.setAttributedString(NSAttributedString(string: s.isEmpty ? " " : s, attributes: [.font: font]))
+        lm.ensureLayout(for: tc)
+        let h = max(18, ceil(lm.usedRect(for: tc).height) + 2)   // usedRect includes the line after a trailing break
+        if cache.count > 4000 { cache.removeAll(keepingCapacity: true) }
+        cache[key] = h
+        return h
+    }
+
+    private static func record(_ a: inout [TimeInterval], _ now: TimeInterval) {
+        a.append(now)
+        if a.count > 64, let i = a.firstIndex(where: { $0 >= now - 1 }), i > 0 { a.removeFirst(i) }
+    }
+
+    /// Body evaluations of the caption list (`listBodiesLastSecond`): stays near 0 while playing.
+    private static var listBodies: [TimeInterval] = []
+    static func noteListBody() { record(&listBodies, ProcessInfo.processInfo.systemUptime) }
+    static var listBodiesLastSecond: Int { let t = ProcessInfo.processInfo.systemUptime - 1; return listBodies.filter { $0 >= t }.count }
+    private static var rowBodies: [TimeInterval] = []
+    static func noteRowBody() { record(&rowBodies, ProcessInfo.processInfo.systemUptime) }
+    static var rowBodiesLastSecond: Int { let t = ProcessInfo.processInfo.systemUptime - 1; return rowBodies.filter { $0 >= t }.count }
+
+    static var measuresLastSecond: Int { let t = ProcessInfo.processInfo.systemUptime - 1; return calls.filter { $0 >= t }.count }
+    static var layoutsLastSecond: Int { let t = ProcessInfo.processInfo.systemUptime - 1; return layouts.filter { $0 >= t }.count }
 }

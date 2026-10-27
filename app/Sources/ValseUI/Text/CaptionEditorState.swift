@@ -54,8 +54,10 @@ public final class CaptionEditorState {
     /// Custom split rule being edited (Split options ▸ Custom…).
     public var customRule = CaptionSplitRule(charsPerLine: 32, lines: 2)
     public var showCustomRule = false
-    /// Split rule chosen, waiting for the inline confirmation (re-split warns, then applies to the whole language).
-    public var pendingRule: CaptionSplitRule?
+    /// The active row shows its timing strip above its text (CAP-UX2-JUMP): when the previously active row was above
+    /// it, the strip "moves down" to just above the new row's text, so the text above it keeps its height and the
+    /// clicked caption never moves; activating a row below none / above the previous one puts the strip under it.
+    public internal(set) var stripAbove = false
     /// Top bar ▸ Delete all: inline confirmation shown.
     public var confirmDeleteAll = false
     /// Top bar ▸ + Add (language) popover.
@@ -128,11 +130,21 @@ extension EditorStore {
     /// timeline scrolls to show it (only when off-screen).
     func captionActivate(_ id: ClipID, seek: Bool) {
         if selection != [id] {
+            captionPlaceStrip(for: id)
             captionEditor.selectingFromEditor = true
             selection = [id]
             captionEditor.selectingFromEditor = false
         }
         if seek, !transport.isPlaying, let c = project.timeline.clip(id) { captionSeekPaused(to: c.start) }
+    }
+
+    /// Before `id` becomes the active row: its timing strip goes above its text when the active row is above it
+    /// (same track), else under it (`CaptionEditorState.stripAbove`).
+    func captionPlaceStrip(for id: ClipID) {
+        let tl = project.timeline
+        var above = false
+        if let prev = captionActiveID, let a = tl.locate(prev), let b = tl.locate(id), a.track == b.track { above = a.clip < b.clip }
+        if captionEditor.stripAbove != above { captionEditor.stripAbove = above }
     }
 
     func captionSeekPaused(to t: Time) {
@@ -158,6 +170,7 @@ extension EditorStore {
         guard selection.count == 1, let id = selection.first, let ti = CaptionOps.trackIndex(of: id, in: project.timeline) else { return }
         let tid = project.timeline.tracks[ti].id
         if captionEditor.activeTrackID != tid { captionEditor.activeTrackID = tid }
+        if !captionEditor.selectingFromEditor, captionEditor.stripAbove { captionEditor.stripAbove = false }
         if !captionEditor.selectingFromEditor, captionEditor.editingID != id { captionEditor.reveal = CaptionRevealRequest(id: id) }
     }
 
@@ -468,7 +481,7 @@ extension EditorStore {
 
     /// Re-splits the active language with `rule` (one undo step + toast with Undo).
     func captionResplit(_ rule: CaptionSplitRule) {
-        guard let ti = captionEditorTrackIndex else { return }
+        guard let ti = captionEditorTrackIndex, project.timeline.tracks[ti].captionSplit != rule else { return }
         endCaptionTyping()
         let tid = project.timeline.tracks[ti].id
         let ok = perform(Edit("cmd.captionWrap") { p in _ = try CaptionOps.resplit(trackID: tid, rule: rule, in: &p) })
@@ -502,6 +515,15 @@ extension EditorStore {
             }
         }
         d["caret"] = CaptionTextRegistry.caret ?? -1
+        // CAP-UX2-JUMP / CAP-UX2-CRASH
+        d["selectionLength"] = CaptionTextRegistry.selectionLength
+        d["clickDrift"] = CaptionTextRegistry.clickDrift
+        d["rowsWithSelection"] = CaptionTextRegistry.rowsWithSelection
+        d["stripAbove"] = ed.stripAbove
+        d["measuresLastSecond"] = CaptionTextMeasure.measuresLastSecond
+        d["layoutsLastSecond"] = CaptionTextMeasure.layoutsLastSecond
+        d["listBodiesLastSecond"] = CaptionTextMeasure.listBodiesLastSecond
+        d["rowBodiesLastSecond"] = CaptionTextMeasure.rowBodiesLastSecond
         d["languages"] = CaptionOps.captionTracks(project.timeline).map { project.timeline.tracks[$0].captionLanguage ?? "" }
         d["shown"] = CaptionOps.captionTracks(project.timeline).map { !project.timeline.tracks[$0].isHidden }
         return d

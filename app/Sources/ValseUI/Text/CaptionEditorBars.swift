@@ -156,7 +156,6 @@ struct CaptionSplitOptions: View {
     var body: some View {
         WithPerceptionTracking {
             let ed = store.captionEditor
-            let lang = CaptionLanguages.inSentence(track.captionLanguage)
             VStack(alignment: .leading, spacing: 6) {
                 Button { ed.splitOpen.toggle() } label: {
                     HStack(spacing: 6) {
@@ -176,7 +175,7 @@ struct CaptionSplitOptions: View {
                         ForEach(Array(CaptionSplitRule.presets.enumerated()), id: \.offset) { i, r in
                             WithPerceptionTracking {
                                 radio(CaptionSplitLabels.preset(r), on: track.captionSplit == r && !ed.showCustomRule, id: "captions.split.\(i)") {
-                                    ed.showCustomRule = false; ed.pendingRule = r
+                                    ed.showCustomRule = false; apply(r)
                                 }
                             }
                         }
@@ -187,16 +186,6 @@ struct CaptionSplitOptions: View {
                         if ed.showCustomRule { customEditor(ed) }
                     }
                     .padding(.leading, 18)
-                    if let r = ed.pendingRule {
-                        CaptionConfirmRow(message: tr("capedit.split.confirm", track.clips.count, lang, CaptionSplitLabels.summary(r)),
-                                          action: tr("capedit.split.apply"), testID: "captions.split") {
-                            ed.pendingRule = nil
-                        } confirm: {
-                            ed.pendingRule = nil; ed.showCustomRule = false
-                            store.captionResplit(r)
-                        }
-                        .padding(.horizontal, -12)
-                    }
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
@@ -207,9 +196,15 @@ struct CaptionSplitOptions: View {
         HStack(spacing: 8) {
             stepper(tr("capedit.split.chars"), ed.customRule.charsPerLine, 8...60, id: "chars") { ed.customRule = CaptionSplitRule(charsPerLine: $0, lines: ed.customRule.lines) }
             stepper(tr("capedit.split.lines"), ed.customRule.lines, 1...3, id: "lines") { ed.customRule = CaptionSplitRule(charsPerLine: ed.customRule.charsPerLine, lines: $0) }
-            PillButton(title: tr("capedit.split.apply")) { ed.pendingRule = ed.customRule }.testID("captions.split.custom.apply")
+            PillButton(title: tr("capedit.split.apply")) { ed.showCustomRule = false; apply(ed.customRule) }.testID("captions.split.custom.apply")
         }
         .padding(.leading, 22).padding(.vertical, 4)
+    }
+
+    /// Applies at once (one undo step, toast with Undo; owner 2026-10-27: no confirmation). The current rule: nothing.
+    func apply(_ r: CaptionSplitRule) {
+        guard track.captionSplit != r else { return }
+        store.captionResplit(r)
     }
 
     func stepper(_ label: String, _ v: Int, _ range: ClosedRange<Int>, id: String, _ set: @escaping (Int) -> Void) -> some View {

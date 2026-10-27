@@ -8,7 +8,11 @@
 "capedit.setEnd" = "Set end to playhead";
 "capedit.mergeNext" = "Merge with next";
 "capedit.splitAtCaret" = "Split at caret";
-"capedit.overLimit.help" = "Longer or faster to read than the split options allow";
+"capedit.over.chars" = "%1$d/%2$d chars";
+"capedit.over.lines" = "%1$d/%2$d lines";
+"capedit.over.help.line" = "Line too long: %1$d characters, max %2$d for this split option";
+"capedit.over.help.caption" = "Caption too long: %1$d characters, max %2$d lines of %3$d for this split option";
+"capedit.over.help.lines" = "Too many lines: %1$d, max %2$d for this split option";
 "capedit.start" = "start";
 "capedit.end" = "end";
 "capedit.nudgeEarlier" = "Move %@ one frame earlier (⇧: 10 frames)";
@@ -53,8 +57,7 @@
 "capedit.split.chars" = "Characters per line";
 "capedit.split.lines" = "Lines";
 "capedit.split.apply" = "Re-split";
-"capedit.split.confirm" = "Re-split the %1$d %2$@ captions into %3$@? Line breaks made by hand are replaced. You can undo this.";
-"capedit.resplit.done" = "Re-split into %d captions";
+"capedit.resplit.done" = "Re-cut into %d captions";
 "capedit.search.placeholder" = "Search in %@";
 "capedit.find.count" = "%1$d/%2$d";
 "capedit.find.previous" = "Previous match (⇧↩)";

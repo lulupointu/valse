@@ -1,6 +1,6 @@
 // CAP-EDITOR-UX pinned tools: the editor shows with nothing selected; search highlights (list not filtered) with a
-// "n/N" counter and Enter = next match (row active); Replace = the current match only; Split options re-split the
-// whole language after an inline warning (one undo step); ↻ replays the line and pauses at its end.
+// "n/N" counter and Enter = next match (row active); Replace = the current match only; Split options re-cut the
+// whole language at once (one undo step, CAP-UX2-SPLIT); ↻ replays the line and pauses at its end.
 {
   "project": "demo-transcript:captions",
   "steps": [
@@ -26,15 +26,21 @@
                 {"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show. Today"}]},
     {"key": "cmd+z"},
     {"waitFor": {"path": "ui.captionEditor.texts.1", "equals": "we we talk about captions."}},
-    // split options: choosing a rule warns first, then re-splits the whole language as one step
+    // split options (CAP-UX2-SPLIT): a rule applies at once (no confirmation), one undo step; a longer rule after a
+    // shorter one merges again (it used to do nothing); the current rule again is a no-op
     {"click": "id:captions.split"},
     {"waitFor": {"path": "ui.captionEditor.splitOpen", "equals": true}},
     {"click": "id:captions.split.0"},
-    {"waitFor": {"path": "ui.anchors", "contains": "captions.split.confirm"}},
-    {"expect": {"path": "ui.captionEditor.count", "equals": 3}},
-    {"click": "id:captions.split.confirm"},
     {"waitFor": {"path": "ui.captionEditor.split", "equals": "1x16"}},
-    {"expect": [{"path": "ui.captionEditor.count", "gt": 3}, {"path": "undo.name", "equals": "cmd.captionWrap"}]},
+    {"expect": [{"path": "ui.captionEditor.count", "gt": 5}, {"path": "undo.name", "equals": "cmd.captionWrap"},
+                {"path": "ui.anchors", "notContains": "captions.split.confirm"}]},
+    {"click": "id:captions.split.3"},
+    {"waitFor": {"path": "ui.captionEditor.split", "equals": "2x42"}},
+    {"expect": [{"path": "ui.captionEditor.count", "lte": 4}, {"path": "undo.depth", "equals": 2}]},
+    {"click": "id:captions.split.3"},
+    {"expect": [{"path": "undo.depth", "equals": 2}, {"path": "ui.captionEditor.split", "equals": "2x42"}]},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "ui.captionEditor.split", "equals": "1x16"}},
     {"key": "cmd+z"},
     {"waitFor": {"path": "ui.captionEditor.count", "equals": 3}},
     {"click": "id:captions.split"},
