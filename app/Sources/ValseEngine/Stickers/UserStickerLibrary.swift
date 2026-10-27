@@ -27,8 +27,7 @@ public final class UserStickerLibrary: @unchecked Sendable {
             // UI / unit tests: sandboxed, empty per run (never the user's library)
             return FileManager.default.temporaryDirectory.appendingPathComponent("valse-uitest-stickers-\(getpid())", isDirectory: true)
         }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("Valse/Stickers", isDirectory: true)
+        return ValsePaths.defaultSupportDirectory.appendingPathComponent("Stickers", isDirectory: true)
     }
 
     public enum Kind: String, Codable, Sendable { case still, animated, lottie, sequence }

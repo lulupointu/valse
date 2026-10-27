@@ -17,8 +17,7 @@ import ValseTestSupport
     static let fixtureVersion = 2
 
     static func fixture(_ lang: String) async throws -> Fixture? {
-        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ValseDev/fixtures", isDirectory: true)
+        let dir = ValsePaths.developmentCacheDirectory.appendingPathComponent("fixtures", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let wav = dir.appendingPathComponent("speech_onsets_\(lang)_v\(fixtureVersion).wav")
         let tsv = dir.appendingPathComponent("speech_onsets_\(lang)_v\(fixtureVersion).tsv")

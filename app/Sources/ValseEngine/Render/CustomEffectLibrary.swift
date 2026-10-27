@@ -22,6 +22,8 @@ public final class CustomEffectLibrary: @unchecked Sendable {
     public static let idPrefix = "user.effect."
     public static let groupKey = "effect.group.custom"
     public static let packageExtension = "valsefx"
+    /// Packages written before the rename (`<id>.montagefx`) load and import like `.valsefx` ones.
+    public static let packageExtensions = [packageExtension, LegacyNames.effectPackageExtension]
 
     public static var defaultDirectory: URL {
         if let d = ProcessInfo.processInfo.environment["VALSE_USER_EFFECTS_DIR"], !d.isEmpty { return URL(fileURLWithPath: d) }
@@ -29,8 +31,7 @@ public final class CustomEffectLibrary: @unchecked Sendable {
         if CommandLine.arguments.contains("--uitest") || name.contains("xctest") || name.contains("swiftpm-testing") {
             return FileManager.default.temporaryDirectory.appendingPathComponent("valse-uitest-effects-\(getpid())", isDirectory: true)
         }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("Valse/Effects", isDirectory: true)
+        return ValsePaths.defaultSupportDirectory.appendingPathComponent("Effects", isDirectory: true)
     }
 
     public struct Param: Codable, Sendable, Hashable {
@@ -100,7 +101,7 @@ public final class CustomEffectLibrary: @unchecked Sendable {
     public func loadAll(compile: Bool = false) -> [String: String] {
         let fm = FileManager.default
         let folders = ((try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [])
-            .filter { $0.pathExtension == Self.packageExtension }
+            .filter { Self.packageExtensions.contains($0.pathExtension) }
         var failures: [String: String] = [:]
         var seen = Set<String>()
         for f in folders {
@@ -156,6 +157,9 @@ public final class CustomEffectLibrary: @unchecked Sendable {
             try? fm.removeItem(at: dest)
             try fm.copyItem(at: src, to: dest)
         }
+        // an updated version of a package installed before the rename replaces its `.montagefx` folder
+        let legacy = directory.appendingPathComponent("\(e.manifest.id).\(LegacyNames.effectPackageExtension)", isDirectory: true)
+        if legacy.standardizedFileURL != src.standardizedFileURL { try? fm.removeItem(at: legacy) }
         let stored = Entry(manifest: e.manifest, folder: dest)
         Registries.effects.register(Self.descriptor(stored))
         EffectPipelines.shared.invalidate(effect: d.id)

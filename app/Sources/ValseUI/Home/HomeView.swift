@@ -26,7 +26,7 @@ struct HomeView: View {
             .overlay(alignment: .top) { ToastView(toast: app.store.toast).padding(.top, 54) }
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in
                 HomeDrop.load(providers) { urls in
-                    let projects = urls.filter { ["valse", "zip"].contains($0.pathExtension.lowercased()) }
+                    let projects = urls.filter { ProjectPackage.isPackage($0) || $0.pathExtension.lowercased() == "zip" }
                     if !projects.isEmpty { app.importProjects(projects) }
                 }
                 return true

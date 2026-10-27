@@ -28,8 +28,7 @@ public final class LUTLibrary: @unchecked Sendable {
     public static let idPrefix = "user.lut."
 
     public static var defaultDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("Valse/LUTs", isDirectory: true)
+        ValsePaths.defaultSupportDirectory.appendingPathComponent("LUTs", isDirectory: true)
     }
 
     public struct Entry: Sendable, Hashable, Codable {

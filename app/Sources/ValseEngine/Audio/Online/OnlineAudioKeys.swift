@@ -9,17 +9,66 @@ public protocol OnlineAudioSecretStore: AnyObject, Sendable {
 }
 
 /// macOS Keychain (generic passwords, service "fr.valse.online-audio", one account per provider id).
+/// Keys saved before the rename (service "fr.montage.online-audio", created by the old bundle id) are copied over at
+/// the first launch (`migrateLegacyItems`) or at the first read, without any keychain prompt: an item macOS would ask
+/// about (its access list names the old app) stays where it is, and the key reads as not set (the user enters it
+/// again in Settings ▸ Music).
 public final class KeychainSecretStore: OnlineAudioSecretStore, @unchecked Sendable {
     public let service: String
-    public init(service: String = "fr.valse.online-audio") { self.service = service }
+    /// Where this store looks for keys saved by Montage (nil: nowhere).
+    let legacyService: String?
+
+    /// scripts/updater_e2e.sh test copies use their own services, never the user's.
+    static var testSuffix: String {
+        Bundle.main.bundleIdentifier != "fr.valse.Valse" && ProcessInfo.processInfo.environment["VALSE_UPDATER_TEST"] == "1"
+            ? ".updater-e2e" : ""
+    }
+    public static var defaultService: String { "fr.valse.online-audio" + testSuffix }
+    static var defaultLegacyService: String { LegacyNames.keychainService + testSuffix }
+
+    public init(service: String = KeychainSecretStore.defaultService) {
+        self.service = service
+        legacyService = service == Self.defaultService ? Self.defaultLegacyService : nil
+    }
 
     public func get(_ account: String) -> String? {
-        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+        if let v = Self.read(service: service, account: account, interactive: true) { return v }
+        guard let legacyService, let v = Self.read(service: legacyService, account: account, interactive: false) else { return nil }
+        set(v, for: account)
+        return v
+    }
+
+    static func read(service: String, account: String, interactive: Bool) -> String? {
+        var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
                                 kSecAttrAccount as String: account, kSecReturnData as String: true,
                                 kSecMatchLimit as String: kSecMatchLimitOne]
+        if !interactive { q[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail }
         var out: CFTypeRef?
         guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data else { return nil }
         return String(data: d, encoding: .utf8)
+    }
+
+    /// First launch after the rename: copies every key of the old service that can be read without a prompt.
+    /// Returns the accounts copied. Old items are kept (Montage may still be installed elsewhere).
+    @discardableResult
+    public static func migrateLegacyItems() -> [String] {
+        let store = KeychainSecretStore()
+        guard let legacy = store.legacyService else { return [] }
+        // attributes only (no secret): never asks
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: legacy,
+                                kSecReturnAttributes as String: true, kSecMatchLimit as String: kSecMatchLimitAll,
+                                kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail]
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let items = out as? [[String: Any]] else { return [] }
+        var copied: [String] = []
+        for item in items {
+            guard let account = item[kSecAttrAccount as String] as? String,
+                  read(service: store.service, account: account, interactive: false) == nil,
+                  let v = read(service: legacy, account: account, interactive: false) else { continue }
+            store.set(v, for: account)
+            copied.append(account)
+        }
+        return copied
     }
 
     public func set(_ value: String?, for account: String) {

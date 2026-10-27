@@ -378,8 +378,7 @@ public final class UITestDriver {
         if let d = ProcessInfo.processInfo.environment["VALSE_MODELS_DIR"], !d.isEmpty {
             ModelCatalog.directoryOverride = URL(fileURLWithPath: d, isDirectory: true)
         } else {
-            ModelCatalog.directoryOverride = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("Valse/Models", isDirectory: true)
+            ModelCatalog.directoryOverride = ValsePaths.defaultSupportDirectory.appendingPathComponent("Models", isDirectory: true)
         }
         let missing = required.filter { id in ModelCatalog.spec(id).flatMap(ModelCatalog.installedURL) == nil }
         guard !missing.isEmpty else { return nil }

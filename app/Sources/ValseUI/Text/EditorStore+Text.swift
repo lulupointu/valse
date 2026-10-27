@@ -65,7 +65,7 @@ final class TextPresetStore {
     nonisolated static var url: URL { ValsePaths.supportDirectory.appendingPathComponent("text-presets.json") }
 
     init() {
-        if let d = try? Data(contentsOf: Self.url), let p = try? JSONDecoder().decode([Preset].self, from: d) { presets = p }
+        if let d = try? Data(contentsOf: Self.url), let p = try? JSONDecoder().decode([Preset].self, from: LegacyNames.migrateContentIDs(inJSON: d)) { presets = p }
     }
 
     func add(_ p: Preset) { presets.insert(p, at: 0); save() }

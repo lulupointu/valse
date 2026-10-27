@@ -150,8 +150,7 @@ public enum ContentLibrary {
     /// ~/Library/Caches/ValseDev/content); its `out/` folder mirrors the bundle's Content folder.
     public static var developerCache: URL {
         if let p = ProcessInfo.processInfo.environment["VALSE_CONTENT_CACHE"], !p.isEmpty { return URL(fileURLWithPath: p) }
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Caches/ValseDev/content", isDirectory: true)
+        return ValsePaths.developmentCacheDirectory.appendingPathComponent("content", isDirectory: true)
     }
 
     /// Candidate folders, most specific first.

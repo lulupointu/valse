@@ -36,7 +36,11 @@ def log(*a):
 
 
 def cache_dir():
-    p = os.environ.get("VALSE_CONTENT_CACHE") or os.path.expanduser("~/Library/Caches/ValseDev/content")
+    dev = os.path.expanduser("~/Library/Caches/ValseDev")
+    legacy = os.path.expanduser("~/Library/Caches/MontageDev")   # caches fetched before the Montage → Valse rename
+    if not os.path.isdir(dev) and os.path.isdir(legacy):
+        dev = legacy
+    p = os.environ.get("VALSE_CONTENT_CACHE") or os.path.join(dev, "content")
     return os.path.abspath(p)
 
 

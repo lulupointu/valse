@@ -32,7 +32,7 @@ public enum SupportPackage {
         if c.includeLog { try Data(sessionLog().utf8).write(to: staging.appendingPathComponent("valse.log")) }
         if let s = c.settingsURL, fm.fileExists(atPath: s.path) { try? fm.copyItem(at: s, to: staging.appendingPathComponent("settings.json")) }
         if let dir = c.crashReportsDirectory, let items = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) {
-            let crashes = items.filter { $0.lastPathComponent.hasPrefix("Valse") || $0.lastPathComponent.hasPrefix("Valse") }
+            let crashes = items.filter { $0.lastPathComponent.hasPrefix("Valse") || $0.lastPathComponent.hasPrefix(LegacyNames.appName) }
                 .sorted { modified($0) > modified($1) }
                 .prefix(5)
             if !crashes.isEmpty {
@@ -68,7 +68,7 @@ public enum SupportPackage {
         let p = Process(), pipe = Pipe()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/log")
         p.arguments = ["show", "--style", "compact", "--last", "2h", "--predicate",
-                       "subsystem == \"fr.valse\" AND processID == \(ProcessInfo.processInfo.processIdentifier)"]
+                       "(subsystem == \"\(EngineLog.subsystem)\" OR subsystem == \"\(LegacyNames.logSubsystem)\") AND processID == \(ProcessInfo.processInfo.processIdentifier)"]
         p.standardOutput = pipe
         p.standardError = FileHandle.nullDevice
         guard (try? p.run()) != nil else { return "(log unavailable)\n" }

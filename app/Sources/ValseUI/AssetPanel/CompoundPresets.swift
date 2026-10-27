@@ -15,7 +15,7 @@ final class CompoundPresetLibrary {
         let fm = FileManager.default
         let files = (try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         presets = files.filter { $0.pathExtension == "json" }
-            .compactMap { try? JSONDecoder().decode(CompoundPreset.self, from: Data(contentsOf: $0)) }
+            .compactMap { try? JSONDecoder().decode(CompoundPreset.self, from: LegacyNames.migrateContentIDs(inJSON: Data(contentsOf: $0))) }
             .sorted { $0.created > $1.created }
     }
 

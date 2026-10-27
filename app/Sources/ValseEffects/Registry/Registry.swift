@@ -22,7 +22,8 @@ public final class Registry<Item: Identifiable & Sendable>: @unchecked Sendable 
         lock.withLock { items[id] = nil; order.removeAll { $0 == id } }
     }
 
-    public subscript(id: String) -> Item? { lock.withLock { items[id] } }
+    /// An ID saved before the Montage → Valse rename ("montage.effect.blur") finds its Valse item.
+    public subscript(id: String) -> Item? { lock.withLock { items[id] ?? items[LegacyNames.contentID(id)] } }
 
     public var all: [Item] { lock.withLock { order.compactMap { items[$0] } } }
 }

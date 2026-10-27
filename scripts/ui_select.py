@@ -40,6 +40,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UI_DIR = "app/Tests/UIScripts"
 MAP = "app/Tests/ui_map.txt"
 TESTING = "app/Sources/ValseUI/Testing/"
+# the UI module's test support at any commit (`--commit` replays of commits made before the module was renamed)
+TESTING_RE = re.compile(r"app/Sources/\w+UI/Testing/")
+
+
+def testing_file(path):
+    """`UITestDriver.swift` for app/Sources/<module>UI/Testing/UITestDriver.swift, else None."""
+    m = TESTING_RE.match(path)
+    return path[m.end():] if m else None
 LITERAL = re.compile(r'"((?:[A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z0-9_]*(?:\\\()?)')   # "inspector.tab.\(  /  "cmd.split"
 ACTIONS = ["click", "press", "doubleClick", "rightClick", "contextMenu", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit",
            "release", "wait", "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log",
@@ -960,9 +968,9 @@ class Reach:
             nxt = []
             for f, b, ranges, how, origin, render in frontier:
                 found = None
-                if depth > 0 and f.path.startswith(TESTING):
+                if depth > 0 and testing_file(f.path):
                     # reached the UI test support itself: the scripts using that driver step / dump key
-                    fname, ln = f.path[len(TESTING):], ranges[0][0]
+                    fname, ln = testing_file(f.path), ranges[0][0]
                     if fname in ("UITestDriver.swift", "SyntheticEvents.swift"):
                         pred, what = driver_hunk_preds(fname, f.lines, ln)
                         users = [n for n in sorted(scripts) if pred is not ALL and pred(scripts[n])]
@@ -1107,8 +1115,8 @@ def select(src, scripts=None, map_text=None):
             sel.add_if(lambda s: b in s.baselines or f'"{b}"' in s.text, f"uses changed baseline {b}")
             continue
         # test support
-        if rel.startswith(TESTING) and rel.endswith(".swift"):
-            fname = rel[len(TESTING):]
+        if testing_file(rel) and rel.endswith(".swift"):
+            fname = testing_file(rel)
             if fname in ("UITestDriver.swift", "SyntheticEvents.swift"):
                 old, new = src.read_old(rel), src.read_new(rel)
                 removed, added = changed_lines(old, new)

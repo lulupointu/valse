@@ -114,6 +114,10 @@ final class SparkleUpdater: NSObject, UpdateController.Backend {
 }
 
 extension SparkleUpdater: SPUUpdaterDelegate {
+    /// The appcast lists Valse releases on the `valse` channel next to the bridge item (no channel) that copies installed
+    /// before the rename (Montage, which knows no channels) take first (scripts/release_appcast.py, docs/RELEASING.md).
+    /// Valse reads both and takes the newest; a pre-rename copy only sees the bridge.
+    nonisolated func allowedChannels(for updater: SPUUpdater) -> Set<String> { ["valse"] }
     nonisolated func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         let v = item.displayVersionString
         MainActor.assumeIsolated {

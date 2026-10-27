@@ -53,7 +53,7 @@ extension EditorStore {
         p.canChooseDirectories = true
         p.canChooseFiles = true
         p.treatsFilePackagesAsDirectories = false
-        p.allowedContentTypes = [.zip, .folder, .directory, UTType(filenameExtension: CustomEffectLibrary.packageExtension) ?? .folder]
+        p.allowedContentTypes = [.zip, .folder, .directory] + CustomEffectLibrary.packageExtensions.compactMap { UTType(filenameExtension: $0) }
         p.message = tr("fx.custom.import.message")
         if p.runModal() == .OK, let u = p.url { importCustomEffect(u) }
     }

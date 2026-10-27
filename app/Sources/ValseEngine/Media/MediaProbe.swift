@@ -174,7 +174,7 @@ public enum MediaProbe {
         let fm = FileManager.default
         for u in urls {
             var isDir: ObjCBool = false
-            if fm.fileExists(atPath: u.path, isDirectory: &isDir), isDir.boolValue, u.pathExtension.lowercased() != ProjectPackage.fileExtension {
+            if fm.fileExists(atPath: u.path, isDirectory: &isDir), isDir.boolValue, !ProjectPackage.isPackage(u) {
                 let root = u.standardizedFileURL.pathComponents
                 let e = fm.enumerator(at: u, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles, .skipsPackageDescendants])
                 var files: [URL] = []

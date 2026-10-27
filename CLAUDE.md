@@ -3,6 +3,9 @@
 Valse is a native macOS video editor (CapCut parity, local-first). Swift 6, SwiftPM only (no Xcode project), deployment
 target macOS 13 (Apple Silicon + Intel), UI in en + fr. Built ONLY by Claude agents: an orchestrator (main session)
 and feature agents in git worktrees under `.claude/worktrees/`. The main checkout is the integration branch `main`.
+The app was called Montage until 0.3: old names (bundle id, folders, `.montage`, `montage.*` content IDs) are only read,
+through `ValseCore/Persistence/LegacyNames.swift` (docs/RELEASING.md "bridge"); never add new ones. "montage" in French
+strings is the common word (video editing), not the app.
 
 ## Module map (`app/Sources/`, deps flow left to right; details: docs/ARCHITECTURE.md §1)
 - `ValseCore`: time, model (Project/Timeline/Track/Clip), `TimelineOps`, commands + undo, persistence, L10n. Foundation only.

@@ -122,7 +122,7 @@ extension EditorStore {
     /// File ▸ Import project as subproject… (MI-019).
     public func importSubprojectPanel() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: ProjectPackage.fileExtension) ?? .package]
+        panel.allowedContentTypes = ProjectPackage.contentTypes
         panel.treatsFilePackagesAsDirectories = false
         panel.canChooseDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }

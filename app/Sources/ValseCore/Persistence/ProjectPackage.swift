@@ -32,6 +32,15 @@ public enum PersistenceError: Error, Equatable, Sendable {
 /// content hash and can be rebuilt.
 public enum ProjectPackage {
     public static let fileExtension = "valse"
+    /// Packages saved by Montage (`.montage`) open as they are; they keep their name (never renamed for the user).
+    public static let legacyFileExtensions = [LegacyNames.projectExtension]
+    public static let fileExtensions = [fileExtension] + legacyFileExtensions
+    /// UTIs (Info.plist): `fr.valse.project` (exported), `fr.montage.project` (imported, read).
+    public static let typeIdentifier = "fr.valse.project"
+    public static let legacyTypeIdentifier = LegacyNames.projectUTI
+
+    /// A project package path (`.valse`, or a `.montage` saved before the rename).
+    public static func isPackage(_ url: URL) -> Bool { fileExtensions.contains(url.pathExtension.lowercased()) }
     public static let projectFileName = "project.json"
     public static let summaryFileName = "summary.json"
     public static let coverFileName = "cover.jpg"
@@ -93,7 +102,9 @@ public enum ProjectPackage {
             }
             // media copied into the package ("Copy to project", "Pack project") whose package was renamed or moved
             let own = packageURL.appendingPathComponent("media").appendingPathComponent(p.media[i].url.lastPathComponent)
-            if fm.fileExists(atPath: own.path) { p.media[i].url = own.standardizedFileURL }
+            if fm.fileExists(atPath: own.path) { p.media[i].url = own.standardizedFileURL; continue }
+            // a file in one of Montage's folders (pasted media, generated speech…) that moved to the Valse one
+            if let moved = ValsePaths.movedFromLegacyFolder(p.media[i].url) { p.media[i].url = moved }
         }
     }
 
@@ -115,6 +126,8 @@ public enum ProjectMigrator {
     public static let steps: [Int: Step] = [:]
 
     public static func migrate(_ data: Data) throws -> Data {
+        // projects saved before the Montage → Valse rename name built-in content "montage.…" (any schema version)
+        let data = LegacyNames.migrateContentIDs(inJSON: data)
         guard var obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw PersistenceError.unreadable("root is not an object")
         }

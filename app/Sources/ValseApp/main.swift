@@ -21,6 +21,7 @@ import ValseUI
 ///   --home-demo <n>           temporary library with n sample projects (settings isolated); --ui-state <spec> opens a dialog
 ///   --imgdiff <a.png> <b.png> [--threshold 16] [--tolerance 0.005] [--diff out.png]   compare two images, JSON result
 ///   --analyze-content <manifest.json> <content-dir> <out.json>   analyse the music/SFX library (fetch_music_pack.sh)
+///   --check-project <package>  load a project like the editor does, print a JSON verdict (scripts/updater_e2e.sh)
 struct Options {
     var open: URL?
     var demo = false
@@ -230,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Finder "Open With" / drop on the Dock icon (MI-028): projects open, media files are imported.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let store, let app else { return }
-        let projects = urls.filter { $0.pathExtension.lowercased() == ProjectPackage.fileExtension }
+        let projects = urls.filter(ProjectPackage.isPackage)
         if let p = projects.first { app.open(p) }
         let media = urls.filter { !projects.contains($0) }
         if !media.isEmpty, app.screen == .editor { store.importMedia(media) }
@@ -327,6 +328,11 @@ final class ClosureTarget: NSObject {
     @objc func fire() { handler() }
 }
 
+// Montage → Valse (docs/RELEASING.md): first launch of the bridge build from `Montage.app` renames the bundle and
+// relaunches; then the pre-rename settings, folders and keychain items move to Valse, before anything reads them.
+BundleRename.relaunchFromValseBundleIfNeeded()
+RebrandLaunch.migrateIfNeeded()
+if let i = CommandLine.arguments.firstIndex(of: "--check-project") { exit(ProjectCheckCLI.run(Array(CommandLine.arguments[(i + 1)...]))) }
 // UI tests: private per-process settings domain + pasteboard, set before anything reads a setting (AppDefaults)
 if CommandLine.arguments.contains("--uitest") { AppDefaults.isolateForUITest() }
 if let i = CommandLine.arguments.firstIndex(of: "--imgdiff") { exit(ImageDiffCLI.run(Array(CommandLine.arguments[(i + 1)...]))) }

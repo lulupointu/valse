@@ -26,7 +26,7 @@ always app/Sources/ValseEngine/Playback/*  playback_seek_while_playing player_* 
 docs/*                                       NONE
 bench/*                                      NONE
 app/Tests/PerfScripts/*                      NONE
-app/Tests/Mont*Tests/*                       NONE
+app/Tests/Valse*Tests/*                       NONE
 app/Sources/ValseTestSupport/*             NONE
 scripts/perf.sh                              NONE
 scripts/uitest.sh                            swiftui_taps c3_tooltips

@@ -55,15 +55,27 @@ public enum SessionLock {
     public static func unregisterTestHolder(_ pid: Int32) { holdersLock.withLock { _ = testHolders.remove(pid) } }
 
     /// A live process that is Valse: same bundle identifier (another copy of Valse.app), else the same executable
-    /// name ("Valse", development builds run unbundled).
+    /// name ("Valse", development builds run unbundled). A copy from before the rename (Montage, `fr.montage.Montage`)
+    /// counts too, both ways, so mixed versions never take each other's open projects for crashed sessions.
     public static func isValseHolder(_ pid: Int32) -> Bool {
         guard pid > 0, isAlive(pid) else { return false }
         if holdersLock.withLock({ testHolders.contains(pid) }) { return true }
         guard let exe = executablePath(of: pid) else { return false }
         let theirs = URL(fileURLWithPath: exe).resolvingSymlinksInPath()
-        if let mine = Bundle.main.bundleIdentifier, let other = bundleIdentifier(ofExecutable: theirs) { return mine == other }
         let myName = Bundle.main.executableURL?.lastPathComponent ?? ProcessInfo.processInfo.processName
-        return theirs.lastPathComponent == myName
+        return sameApp(myBundleID: Bundle.main.bundleIdentifier, myName: myName,
+                       theirBundleID: bundleIdentifier(ofExecutable: theirs), theirName: theirs.lastPathComponent)
+    }
+
+    static let familyBundleIDs: Set<String> = ["fr.valse.Valse", LegacyNames.bundleID]
+    static let familyNames: Set<String> = ["Valse", LegacyNames.appName]
+
+    /// Same app, the pre-rename name included (pure, unit-tested).
+    static func sameApp(myBundleID: String?, myName: String, theirBundleID: String?, theirName: String) -> Bool {
+        if let mine = myBundleID, let other = theirBundleID {
+            return mine == other || (familyBundleIDs.contains(mine) && familyBundleIDs.contains(other))
+        }
+        return theirName == myName || (familyNames.contains(myName) && familyNames.contains(theirName))
     }
 
     static func executablePath(of pid: Int32) -> String? {
@@ -124,7 +136,31 @@ public enum ValsePaths {
         if let o = override(defaultDraftsOverrideKey) { return o }
         let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Movies")
-        return movies.appendingPathComponent("Valse", isDirectory: true)
+        return named(in: movies)
+    }
+
+    /// `<base>/Valse`, or the pre-rename `<base>/Montage` while only that one exists (its move failed or hasn't run:
+    /// `RebrandMigration`; development checkouts and tests on a machine that ran Montage). Never both: a new folder
+    /// is only created where nothing older exists.
+    static func named(in base: URL) -> URL {
+        let fm = FileManager.default
+        let new = base.appendingPathComponent("Valse", isDirectory: true)
+        let legacy = base.appendingPathComponent(LegacyNames.folderName, isDirectory: true)
+        return !fm.fileExists(atPath: new.path) && fm.fileExists(atPath: legacy.path) ? legacy : new
+    }
+
+    /// A file a project saved by Montage referenced inside one of Montage's folders (pasted media, generated speech,
+    /// looks… in `Application Support/Montage`, a recording in `~/Movies/Montage`) that moved with its folder to the
+    /// Valse one: its new URL, or nil (not such a path, or not there either).
+    public static func movedFromLegacyFolder(_ url: URL) -> URL? {
+        let path = url.path
+        for parent in ["/Library/Application Support/", "/Library/Caches/", "/Movies/"] {
+            let old = parent + LegacyNames.folderName + "/"
+            guard let r = path.range(of: old) else { continue }
+            let candidate = URL(fileURLWithPath: path.replacingCharacters(in: r, with: parent + "Valse/"))
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        return nil
     }
 
     /// ~/Library/Caches/Valse — proxies, thumbnails, waveforms (rebuildable, keyed by content hash).
@@ -159,15 +195,27 @@ public enum ValsePaths {
     }()
 
     public static var defaultCacheDirectory: URL {
-        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("Valse", isDirectory: true)
+        named(in: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!)
     }
 
     /// ~/Library/Application Support/Valse — settings, recent projects, AI packs.
     public static var supportDirectory: URL {
         if let o = override(supportOverrideKey) { return o }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("Valse", isDirectory: true)
+        return defaultSupportDirectory
+    }
+
+    /// The user's real Application Support/Valse, never the UI-test sandbox (AI runtimes and models aren't settings).
+    public static var defaultSupportDirectory: URL {
+        named(in: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!)
+    }
+
+    /// ~/Library/Caches/ValseDev (development builds' music library and test fixtures), or the pre-rename MontageDev.
+    public static var developmentCacheDirectory: URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let new = base.appendingPathComponent("ValseDev", isDirectory: true)
+        let legacy = base.appendingPathComponent(LegacyNames.devCacheFolderName, isDirectory: true)
+        let fm = FileManager.default
+        return !fm.fileExists(atPath: new.path) && fm.fileExists(atPath: legacy.path) ? legacy : new
     }
 
     /// A fresh, unused "Project N.valse" URL in `directory`.

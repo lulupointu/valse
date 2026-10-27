@@ -145,7 +145,7 @@ public enum SpeedInterpolation: String, Hashable, Codable, Sendable {
 public struct SpeedCurve: Hashable, Codable, Sendable {
     /// Sorted by x, first x = 0, last x = 1, all v > 0.
     public var points: [SpeedPoint]
-    /// Preset this curve came from (e.g. "montage.speed.montage"), for UI highlighting.
+    /// Preset this curve came from (e.g. "valse.speed.montage"), for UI highlighting.
     public var presetID: String?
     /// nil = `.linear` (files written before smooth curves existed).
     public var interpolation: SpeedInterpolation?
@@ -262,7 +262,7 @@ public struct SpeedCurvePreset: Sendable, Identifiable {
     /// "Customized": starts flat at 1× with five editable beats.
     public static let customized = SpeedCurvePreset(id: "valse.speed.custom", nameKey: "speed.preset.custom", points: [
         SpeedPoint(0, 1), SpeedPoint(0.25, 1), SpeedPoint(0.5, 1), SpeedPoint(0.75, 1), SpeedPoint(1, 1)])
-    public static let montage = SpeedCurvePreset(id: "montage.speed.montage", nameKey: "speed.preset.montage", points: [
+    public static let montage = SpeedCurvePreset(id: "valse.speed.montage", nameKey: "speed.preset.montage", points: [
         SpeedPoint(0, 1), SpeedPoint(0.1, 1), SpeedPoint(0.5, 5.2), SpeedPoint(0.65, 0.2), SpeedPoint(0.8, 1), SpeedPoint(1, 1)])
     public static let heroTime = SpeedCurvePreset(id: "valse.speed.hero", nameKey: "speed.preset.hero", points: [
         SpeedPoint(0, 1), SpeedPoint(0.18, 5), SpeedPoint(0.42, 0.25), SpeedPoint(0.58, 0.25), SpeedPoint(0.82, 5), SpeedPoint(1, 1)])
@@ -277,7 +277,10 @@ public struct SpeedCurvePreset: Sendable, Identifiable {
 
     /// In CapCut's tile order (after "None").
     public static let all: [SpeedCurvePreset] = [customized, montage, heroTime, bullet, jumpCut, flashIn, flashOut]
-    public static func preset(_ id: String?) -> SpeedCurvePreset? { (all + velocity).first { $0.id == id } }
+    public static func preset(_ id: String?) -> SpeedCurvePreset? {
+        let id = id.map(LegacyNames.contentID)   // "montage.speed.hero" saved before the rename
+        return (all + velocity).first { $0.id == id }
+    }
 
     /// Speed ▸ Velocity effects (CapCut's one-tap speed ramps), W3-9. Same curve model, editable in Speed ▸ Curve.
     public static let velocity: [SpeedCurvePreset] = [

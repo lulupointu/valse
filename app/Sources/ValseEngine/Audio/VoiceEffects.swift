@@ -60,7 +60,7 @@ public struct VoiceEffectDescriptor: Sendable, Identifiable {
 /// name in Audio.strings (en + fr).
 public enum VoiceEffects {
     public static var all: [VoiceEffectDescriptor] { filters + characters }
-    public static func descriptor(_ id: String) -> VoiceEffectDescriptor? { byID[id] }
+    public static func descriptor(_ id: String) -> VoiceEffectDescriptor? { byID[id] ?? byID[LegacyNames.contentID(id)] }
     private static let byID: [String: VoiceEffectDescriptor] = Dictionary(uniqueKeysWithValues: (filters + characters).map { ($0.id, $0) })
 
     // MARK: helpers

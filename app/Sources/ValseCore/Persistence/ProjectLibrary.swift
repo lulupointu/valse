@@ -99,7 +99,7 @@ public final class ProjectLibrary: @unchecked Sendable {
     public func keepProjectsListed() {
         let fm = FileManager.default
         let urls = ((try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? [])
-            .filter { $0.pathExtension == ProjectPackage.fileExtension }
+            .filter(ProjectPackage.isPackage)
         lock.withLock { for u in urls where !index.external.contains(Self.key(u)) { index.external.append(Self.key(u)) } }
         persist()
     }
@@ -134,7 +134,7 @@ public final class ProjectLibrary: @unchecked Sendable {
         let fm = FileManager.default
         func packages(in dir: URL) -> [URL] {
             ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? [])
-                .filter { $0.pathExtension == ProjectPackage.fileExtension }
+                .filter(ProjectPackage.isPackage)
         }
         purgeTrash()
         let trashed = packages(in: trashDirectory)
@@ -245,12 +245,12 @@ public final class ProjectLibrary: @unchecked Sendable {
     }
 
     /// An unused package URL named after `name` in `directory` ("Name.valse", "Name (1).valse"…).
-    public static func uniquePackageURL(for name: String, in directory: URL) -> URL {
+    public static func uniquePackageURL(for name: String, in directory: URL, pathExtension: String = ProjectPackage.fileExtension) -> URL {
         let fm = FileManager.default
         let base = sanitized(name)
         let taken = Set(((try? fm.contentsOfDirectory(atPath: directory.path)) ?? []).map { ($0 as NSString).deletingPathExtension })
         let n = uniqueName(base, existing: taken)
-        return directory.appendingPathComponent(n).appendingPathExtension(ProjectPackage.fileExtension)
+        return directory.appendingPathComponent(n).appendingPathExtension(pathExtension)
     }
 
     /// Names used by projects not in the Trash (for `defaultName`).
@@ -301,9 +301,11 @@ public final class ProjectLibrary: @unchecked Sendable {
         p.name = name
         try ProjectPackage.save(p, to: url)
         let dir = url.deletingLastPathComponent()
-        let target = dir.appendingPathComponent(Self.sanitized(name)).appendingPathExtension(ProjectPackage.fileExtension)
+        // a .montage package (saved before the rename) keeps its extension: renaming only changes the name
+        let ext = url.pathExtension.isEmpty ? ProjectPackage.fileExtension : url.pathExtension
+        let target = dir.appendingPathComponent(Self.sanitized(name)).appendingPathExtension(ext)
         guard target.standardizedFileURL != url.standardizedFileURL else { return url }
-        let dest = FileManager.default.fileExists(atPath: target.path) ? Self.uniquePackageURL(for: name, in: dir) : target
+        let dest = FileManager.default.fileExists(atPath: target.path) ? Self.uniquePackageURL(for: name, in: dir, pathExtension: ext) : target
         try FileManager.default.moveItem(at: url, to: dest)
         rekey(from: url, to: dest)
         return dest
@@ -500,10 +502,10 @@ public enum ProjectArchive {
     public static func findPackage(in dir: URL) -> URL? {
         let fm = FileManager.default
         let top = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        if let p = top.first(where: { $0.pathExtension == ProjectPackage.fileExtension }) { return p }
+        if let p = top.first(where: ProjectPackage.isPackage) { return p }
         for sub in top where (try? sub.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
             let inner = (try? fm.contentsOfDirectory(at: sub, includingPropertiesForKeys: nil)) ?? []
-            if let p = inner.first(where: { $0.pathExtension == ProjectPackage.fileExtension }) { return p }
+            if let p = inner.first(where: ProjectPackage.isPackage) { return p }
         }
         return nil
     }

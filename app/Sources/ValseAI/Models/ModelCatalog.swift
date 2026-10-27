@@ -249,9 +249,7 @@ public enum WhisperRuntime {
         c.append(ValsePaths.supportDirectory.appendingPathComponent("bin/whisper-cli").path)
         c.append(ValsePaths.supportDirectory.appendingPathComponent("AIPacks/whisper/whisper-cli").path)
         // the user's real App Support (UI tests sandbox `supportDirectory`, but runtimes aren't settings)
-        if let u = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            c.append(u.appendingPathComponent("Valse/bin/whisper-cli").path)
-        }
+        c.append(ValsePaths.defaultSupportDirectory.appendingPathComponent("bin/whisper-cli").path)
         c += ["/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli"]
         return c.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }
@@ -269,9 +267,7 @@ public enum LlamaRuntime {
         c.append(Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/llama-completion").path)
         c.append(ValsePaths.supportDirectory.appendingPathComponent("bin/llama-completion").path)
         // the user's real App Support (UI tests sandbox `supportDirectory`, but runtimes aren't settings)
-        if let u = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            c.append(u.appendingPathComponent("Valse/bin/llama-completion").path)
-        }
+        c.append(ValsePaths.defaultSupportDirectory.appendingPathComponent("bin/llama-completion").path)
         return c.first { fm.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }
     }
     public static var model: URL? { ModelCatalog.installedURL(ModelCatalog.qwen3_4b) }

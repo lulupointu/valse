@@ -23,7 +23,8 @@
   <!-- no Sparkle polling: Valse checks at launch / wake and on a release push (ValseUpdatePushURL, ntfy) -->
   <key>SUEnableAutomaticChecks</key><false/>
   <key>SUAutomaticallyUpdate</key><true/>
-  <key>ValseUpdatePushURL</key><string>https://ntfy.sh/montage-valse-91d5915283fb1a9e5a9b/json</string>
+  <!-- copies from before the rename listen on the old topic (MontageUpdatePushURL): scripts/release.sh posts to both -->
+  <key>ValseUpdatePushURL</key><string>https://ntfy.sh/valse-updates-1412b8b4e4c0ee31cf96/json</string>
   <key>SUEnableSystemProfiling</key><false/>
   <key>SUVerifyUpdateBeforeExtraction</key><true/>
   <key>NSSpeechRecognitionUsageDescription</key><string>Valse recognizes speech on your Mac to create captions. Nothing leaves your Mac.</string>
@@ -36,7 +37,8 @@
       <key>CFBundleTypeRole</key><string>Editor</string>
       <key>LSHandlerRank</key><string>Owner</string>
       <key>LSTypeIsPackage</key><true/>
-      <key>LSItemContentTypes</key><array><string>fr.valse.project</string></array>
+      <!-- fr.montage.project: packages saved before the rename (.montage) open in Valse and show its icon -->
+      <key>LSItemContentTypes</key><array><string>fr.valse.project</string><string>fr.montage.project</string></array>
     </dict>
     <dict>
       <key>CFBundleTypeName</key><string>Media</string>
@@ -52,6 +54,15 @@
       <key>UTTypeDescription</key><string>Valse Project</string>
       <key>UTTypeConformsTo</key><array><string>com.apple.package</string></array>
       <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>valse</string></array></dict>
+    </dict>
+  </array>
+  <key>UTImportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key><string>fr.montage.project</string>
+      <key>UTTypeDescription</key><string>Valse Project</string>
+      <key>UTTypeConformsTo</key><array><string>com.apple.package</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>montage</string></array></dict>
     </dict>
   </array>
 </dict>

@@ -3,7 +3,8 @@
 #   1. `git worktree prune`; clean-check worktrees ($TMPDIR/valse-clean.*) older than --hours are removed
 #   2. .build of every worktree whose branch is already merged into main, unless the worktree is in use: a process
 #      has its cwd inside it, or its .build was written in the last --hours (the main checkout is never touched)
-#   3. $TMPDIR/valse-* leftovers older than --hours (the shared synthetic-media cache valse-test-media-v1 is kept)
+#   3. $TMPDIR/valse-* leftovers older than --hours (the shared synthetic-media cache valse-test-media-v1 is kept),
+#      and the montage-* ones of checkouts from before the Montage → Valse rename
 #   4. dead / hung test-slot locks (scripts/slots.sh reclaim)
 #   --merged-worktrees: step 2 instead removes the .build of every worktree whose HEAD commit (branch or detached) is
 #      an ancestor of main or of a batch-* branch (its work is integrated), whose `git status` is clean (untracked files
@@ -64,7 +65,8 @@ while IFS=$'\t' read -r WT BR; do
   [[ -z "$WT" ]] && continue
   WTP="$(cd "$WT" 2>/dev/null && pwd -P || echo "$WT")"
   [[ "$WTP" == "$MAIN" ]] && continue
-  if [[ "$WTP" == "$TMPD"/valse-clean.* || "$WTP" == "$TMPD"/valse-run-* ]]; then
+  if [[ "$WTP" == "$TMPD"/valse-clean.* || "$WTP" == "$TMPD"/valse-run-* \
+        || "$WTP" == "$TMPD"/montage-clean.* || "$WTP" == "$TMPD"/montage-run-* ]]; then   # pre-rename names
     if [[ -n "$(find "$WTP" -maxdepth 0 -mmin +"$MINS" 2>/dev/null)" ]] && ! in_use "$WTP"; then
       say "stale clean-check worktree $WTP"
       [[ $DRY == 1 ]] || { git -C "$MAIN" worktree remove --force "$WTP" 2>/dev/null || rm -rf "$WTP"; }
@@ -107,7 +109,7 @@ echo "▶ \$TMPDIR/valse-* older than $HOURS h ($TMPD)"
 # processes running inside $TMPDIR (a live UI test / clean check): their top-level entry is kept
 BUSY="$(while IFS= read -r c; do if [[ "$c" == "$TMPD"/* ]]; then echo "$TMPD/$(cut -d/ -f1 <<< "${c#"$TMPD"/}")"; fi; done <<< "$CWDS" | sort -u)"
 LIST="$SCRATCH_LIST"
-find "$TMPD" -maxdepth 1 -name 'valse-*' ! -name 'valse-test-media-v1' -mmin +"$MINS" 2>/dev/null | sort > "$LIST"
+find "$TMPD" -maxdepth 1 \( -name 'valse-*' -o -name 'montage-*' \) ! -name '*-test-media-v1' -mmin +"$MINS" 2>/dev/null | sort > "$LIST"
 if [[ -n "$BUSY" ]]; then grep -vxF "$BUSY" "$LIST" > "$LIST.f" || true; mv "$LIST.f" "$LIST"; fi
 N="$(wc -l < "$LIST" | tr -d ' ')"
 if [[ $DRY == 1 ]]; then

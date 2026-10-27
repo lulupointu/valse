@@ -382,7 +382,7 @@ public final class AppModel {
     /// Home ▸ Import project (a `.valse` package or a packed `.zip`).
     public func importProjectPanel() {
         let p = NSOpenPanel()
-        p.allowedContentTypes = [UTType(filenameExtension: ProjectPackage.fileExtension) ?? .package, .zip]
+        p.allowedContentTypes = ProjectPackage.contentTypes + [.zip]
         p.allowsMultipleSelection = true
         p.canChooseDirectories = true
         p.treatsFilePackagesAsDirectories = false
@@ -463,11 +463,11 @@ public final class AppModel {
 
     public func openPanel(newWindow: Bool = false) {
         let p = NSOpenPanel()
-        p.allowedContentTypes = [UTType(filenameExtension: ProjectPackage.fileExtension) ?? .package]
+        p.allowedContentTypes = ProjectPackage.contentTypes
         p.treatsFilePackagesAsDirectories = false
         p.canChooseDirectories = true
         if p.runModal() == .OK, let u = p.url {
-            if u.pathExtension == ProjectPackage.fileExtension { if newWindow { openInNewWindow(u) } else { open(u) } } else { store.showToast(tr("error.notAPackage"), error: true) }
+            if ProjectPackage.isPackage(u) { if newWindow { openInNewWindow(u) } else { open(u) } } else { store.showToast(tr("error.notAPackage"), error: true) }
         }
     }
 }

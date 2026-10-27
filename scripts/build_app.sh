@@ -7,7 +7,8 @@
 # and verifies every manifest item (file present, SHA-256) — fails if the cache is incomplete; `--no-content` skips it
 # (a missing cache only warns unless VALSE_REQUIRE_CONTENT=1).
 # Bundles the AI sidecar runtimes (whisper-cli, demucs, llama-completion) into Contents/Helpers from
-# scripts/build_ai_runtimes.sh's install dir (VALSE_AI_BIN_DIR, default Application Support/Valse/bin); each must
+# scripts/build_ai_runtimes.sh's install dir (VALSE_AI_BIN_DIR, default Application Support/Valse/bin, or the
+# pre-rename Application Support/Montage/bin while only that one exists); each must
 # contain every built arch. Missing / thin runtimes only warn unless VALSE_REQUIRE_RUNTIMES=1 (release packaging).
 # The executable is universal (arm64 + x86_64, macOS 13+ per Info.plist / LC_BUILD_VERSION): each arch is built
 # separately and merged with lipo; the resource bundles are architecture-independent (taken from the host build).
@@ -51,7 +52,10 @@ cp app/Bundle/ValseIcon.icns "$APP/Contents/Resources/ValseIcon.icns"
 cp -R app/Bundle/en.lproj app/Bundle/fr.lproj "$APP/Contents/Resources/"
 # SwiftPM resource bundles (localized strings of every module) → Contents/Resources (found by ResourceBundleLocator)
 for b in "$BIN"/Valse_*.bundle; do cp -R "$b" "$APP/Contents/Resources/"; done
-CACHE="${VALSE_CONTENT_CACHE:-$HOME/Library/Caches/ValseDev/content}/out"
+DEV_CACHE="$HOME/Library/Caches/ValseDev"
+# checkouts that fetched the library before the rename have it in the pre-rename MontageDev cache
+[[ ! -d "$DEV_CACHE" && -d "$HOME/Library/Caches/MontageDev" ]] && DEV_CACHE="$HOME/Library/Caches/MontageDev"
+CACHE="${VALSE_CONTENT_CACHE:-$DEV_CACHE/content}/out"
 if [[ $CONTENT == 1 && ! -d "$CACHE" && "${VALSE_REQUIRE_CONTENT:-0}" != 1 ]]; then
   echo "warning: music/SFX library not fetched ($CACHE missing) — app built WITHOUT it. Run scripts/fetch_music_pack.sh" \
        "(VALSE_REQUIRE_CONTENT=1 makes this an error for release packaging)." >&2
@@ -81,7 +85,9 @@ EOF
 fi
 # AI sidecar runtimes → Contents/Helpers (looked up there first by WhisperRuntime / DemucsRuntime / LlamaRuntime).
 # Without them a user's Mac has no whisper (captions fall back to Apple speech, absent on Intel), no stems, no local LLM.
-RUNTIMES="${VALSE_AI_BIN_DIR:-$HOME/Library/Application Support/Valse/bin}"
+SUPPORT="$HOME/Library/Application Support/Valse"
+[[ ! -d "$SUPPORT" && -d "$HOME/Library/Application Support/Montage" ]] && SUPPORT="$HOME/Library/Application Support/Montage"
+RUNTIMES="${VALSE_AI_BIN_DIR:-$SUPPORT/bin}"
 HELPERS=()
 RT_PROBLEMS=()
 for b in whisper-cli demucs llama-completion; do

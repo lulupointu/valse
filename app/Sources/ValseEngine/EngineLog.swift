@@ -4,7 +4,8 @@ import ValseCore
 
 /// Engine logging (unified logging, subsystem "fr.valse"). `VALSE_DEBUG=1` also mirrors to stderr.
 public enum EngineLog {
-    static let logger = Logger(subsystem: "fr.valse", category: "engine")
+    public static let subsystem = "fr.valse"
+    static let logger = Logger(subsystem: subsystem, category: "engine")
     static let mirror = ProcessInfo.processInfo.environment["VALSE_DEBUG"] != nil
 
     public static func info(_ s: String) {
