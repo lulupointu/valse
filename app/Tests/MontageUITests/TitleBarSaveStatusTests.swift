@@ -3,7 +3,8 @@ import Foundation
 import MontageCore
 @testable import MontageUI
 
-/// VALSE-APP round 12: the title bar's inline rename and the quiet save status.
+/// VALSE-APP round 12: the title bar's inline rename and the quiet save status (the failure's reason and fix are
+/// BUG-ERROR-COPY's `saveFailure` banner).
 @MainActor @Suite(.serialized) struct TitleBarSaveStatusTests {
     @Test func renameIsOneUndoStepAndIgnoresBlankOrUnchangedNames() {
         let s = EditorStore()
@@ -18,34 +19,22 @@ import MontageCore
         #expect(s.projectName == "0127")
     }
 
-    @Test func aFullDiskGetsItsOwnReason() {
-        let full = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteOutOfSpaceError)
-        let posix = NSError(domain: NSPOSIXErrorDomain, code: Int(ENOSPC))
-        let wrapped = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSUnderlyingErrorKey: posix])
-        let other = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)
-        #expect(EditorStore.saveFailureKey(full) == "save.failed.diskFull")
-        #expect(EditorStore.saveFailureKey(posix) == "save.failed.diskFull")
-        #expect(EditorStore.saveFailureKey(wrapped) == "save.failed.diskFull")
-        #expect(EditorStore.saveFailureKey(other) == "save.failed.generic")
-    }
-
     @Test func aFailureStaysUntilASaveSucceeds() {
         let s = EditorStore()
         s.autosaveEnabled = false
-        s.saveEnded(failureKey: "save.failed.diskFull", explicit: false)
-        #expect(s.saveStatus == .failed("save.failed.diskFull"))
-        s.saveEnded(failureKey: "save.failed.diskFull", explicit: false)
-        #expect(s.saveStatus == .failed("save.failed.diskFull"))
-        s.saveEnded(failureKey: nil, explicit: false)
-        // tests run quiet (no timed "Saved"); the failure is cleared either way
-        #expect(s.saveStatus != .failed("save.failed.diskFull"))
+        s.saveEnded(ok: false, explicit: false)
+        #expect(s.saveStatus == .failed)
+        s.saveEnded(ok: false, explicit: false)
+        #expect(s.saveStatus == .failed)
+        s.saveEnded(ok: true, explicit: false)
+        #expect(s.saveStatus != .failed)
     }
 
     @Test func quietFastAutosavesNeverChangeTheTitleBar() {
         let s = EditorStore()
         s.autosaveEnabled = false
         s.saveBegan()
-        s.saveEnded(failureKey: nil, explicit: false)
+        s.saveEnded(ok: true, explicit: false)
         #expect(s.saveStatus == .idle)
     }
 }

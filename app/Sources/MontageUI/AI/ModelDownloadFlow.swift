@@ -181,6 +181,7 @@ struct ModelDownloadPrompt: View {
             }
             .padding(10)
             .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+            .scrollsWhenTight()   // BUG-OVERSIZED-SHEETS: buttons stay visible in a small window
             HintText(text: tr("download.prompt.privacy"))
             HStack(spacing: 10) {
                 Spacer()
@@ -191,7 +192,7 @@ struct ModelDownloadPrompt: View {
             }
         }
         .padding(20)
-        .frame(width: 400)
+        .fittedFrame(width: 400)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
         .valseFloatingCard(radius: 10)
         .testID("modelPrompt")
@@ -210,8 +211,15 @@ struct ModelDownloadIndicator: View {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(IStyle.warning)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: ModelCatalog.spec(id).map { tr($0.nameKey) } ?? id).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
-                            Text(verbatim: tr("download.failed", flow.failures[id] ?? "")).font(Theme.Fonts.hint).foregroundStyle(IStyle.warning)
+                            // the message is a full sentence already (no "Download failed: …" wrapper, BUG-ERROR-COPY)
+                            Text(verbatim: flow.failures[id] ?? "").font(Theme.Fonts.hint).foregroundStyle(IStyle.warning)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .testID("modelDownloads.failure.\(id)")
+                            if flow.manager.failureReasons[id] == .diskFull {
+                                Button(tr("action.openStorageSettings")) { SystemSettingsPane.storage.open() }
+                                    .buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint)
+                                    .testID("modelDownloads.storage.\(id)")
+                            }
                         }
                         Spacer()
                         Button { flow.dismissFailure(id) } label: { Image(systemName: "xmark") }

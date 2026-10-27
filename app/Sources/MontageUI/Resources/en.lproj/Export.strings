@@ -30,7 +30,7 @@
 "export.audioBits" = "Audio bits";
 "export.sampleRate" = "Audio sampling";
 "export.hz" = "%.1f kHz";
-"export.mp3.unavailable" = "MP3 needs the FFmpeg add-on (with LAME)";
+"export.mp3.unavailable" = "MP3 export needs the FFmpeg add-on. Export as M4A or WAV instead.";
 "export.gif" = "Export GIF";
 "export.captions" = "Caption exporting";
 "export.captions.none" = "This project has no captions.";

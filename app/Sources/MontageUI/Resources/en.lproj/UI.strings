@@ -115,10 +115,10 @@
 /* Toasts */
 "toast.undo" = "Undo: %@";
 "toast.redo" = "Redo: %@";
-"toast.importFailed" = "%d file(s) could not be imported.";
+"toast.importFailed.one" = "“%@” can't be imported: Montage doesn't support this format.";
+"toast.importFailed.other" = "%d files can't be imported: Montage doesn't support their format.";
 "toast.needTwoClips" = "Add at least two clips to the main track first.";
 "toast.recovered" = "Montage quit unexpectedly. Your project was restored from the last autosave.";
-"toast.saveFailed" = "The project could not be saved.";
 "toast.aiDone" = "%@: done";
 
 /* Export */

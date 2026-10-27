@@ -24,7 +24,18 @@ public final class AIUIState {
     public var captionJob: JobID?
     public var captionPhase: CaptionPhase?
     public var captionProgress: Double = 0
-    public var captionError: String?
+    /// Why the last caption run failed (BUG-CAPTION-ERRORS): the panel shows it as a card with its fixes.
+    public var captionFailure: SpeechFailure?
+    /// The same unexpected failure happened twice in a row ("Copy Details" instead of "Generate again").
+    public var captionFailureRepeated = false
+    /// Pre-flight result for the current language / engine (`refreshCaptionReadiness`).
+    public var captionReadiness: SpeechReadiness = .ready
+    /// The Auto captions panel is on screen (a failure then shows inline, not only as a toast).
+    @PerceptionIgnored public var captionsPanelVisible = false
+    /// Last run was Auto lyrics (fixes that regenerate redo the same kind).
+    @PerceptionIgnored var lastCaptionRunLyrics = false
+    /// Last fix performed (UI tests: `ui.captions.lastRemedy`; system panes / file pickers aren't opened under tests).
+    public var lastSpeechRemedy = ""
     // Translation in progress (bilingual / translate)
     public var translating = false
     /// Language detected by the last auto-caption run.
@@ -144,7 +155,9 @@ extension EditorStore {
         var options = captionOptions
         options.lyrics = lyrics
         let project = self.project
-        ai.captionError = nil
+        let previousFailure = ai.captionFailure
+        ai.captionFailure = nil
+        ai.lastCaptionRunLyrics = lyrics
         ai.captionProgress = 0
         ai.captionPhase = .extracting
         let box = CaptionBox()
@@ -158,23 +171,24 @@ extension EditorStore {
                 }, phase: { ph in Task { @MainActor in self?.ai.captionPhase = ph } })
             }
             ai.captionJob = id
-            let state = await JobQueue.shared.wait(id)
+            let (state, error) = await JobQueue.shared.waitResult(id)
             ai.captionJob = nil
             ai.captionPhase = nil
             switch state {
             case .done:
-                guard let r = box.result, perform(r.command) else { return }
+                // the edit can be refused (project changed meanwhile): say so instead of failing silently
+                guard let r = box.result, perform(r.command) else { showToast(tr("captions.failure.notApplied"), error: true); return }
+                ai.captionFailureRepeated = false
                 ai.captionSpokenLanguage = r.language
-                showToast(tr("captions.addedCount", r.count))
+                showToast(r.speakersSkipped ? tr("captions.addedNoSpeakers", r.count) : tr("captions.addedCount", r.count))
                 if let first = SpeechCaptions.captions(in: self.project.timeline).first {
                     selection = [first.id]
                     inspectorTab = "captions"
                 }
                 if let target, target != r.language { translateCaptions(to: target, display: .both) }
             case .failed(let msg):
-                let key = msg.contains("noSpeech") ? "ai.error.noSpeech" : (msg.contains("noInput") ? "captions.error.noAudio" : "captions.error.failed")
-                ai.captionError = tr(key)
-                showToast(tr(key), error: true)
+                presentCaptionFailure(SpeechFailure.classify(error ?? SpeechFailure.other(detail: msg), language: opts.language),
+                                      previous: previousFailure)
             case .cancelled:
                 showToast(tr("captions.cancelled"))
             default: break

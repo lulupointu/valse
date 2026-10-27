@@ -176,7 +176,8 @@ extension RGBA {
 extension View {
     /// Round 13: a SwiftUI popover's own surface (NSPopover's material, a cool neutral grey around #373738 that no
     /// token controls: the "too bright" grey the owner spotted) is painted with the chrome's menu fill, arrow included
-    /// (the negative padding reaches under the arrow; the popover clips it to its shape).
+    /// (the negative padding reaches under the arrow; the popover clips it to its shape). Applied by  to
+    /// every popover.
     public func valsePopoverSurface() -> some View {
         background(Theme.menu.padding(-80))
     }

@@ -43,12 +43,18 @@ struct DetailRow: View {
 }
 
 struct ModifyProjectButton: View {
+    /// Opens the app-level Project settings modal (set by AppModel; nil without one: shown over the inspector).
+    @MainActor static var openProjectSettings: (() -> Void)?
     @Perception.Bindable var store: EditorStore
     @State private var presented = false
     var body: some View {
         WithPerceptionTracking {
-            PillButton(title: tr("details.modify")) { presented = true }
-                .sheet(isPresented: $presented) { WithPerceptionTracking { ProjectSettingsSheet(store: store, isPresented: $presented) } }
+            // BUG-OVERSIZED-SHEETS: the app's Project settings modal (File ▸ Project settings), centred in the window
+            // and clamped to it, instead of a sheet sized to its content.
+            PillButton(title: tr("details.modify")) { if let open = Self.openProjectSettings { open() } else { presented = true } }
+                .inWindowModal(isPresented: $presented, fitKey: "projectSettings") {
+                    WithPerceptionTracking { ProjectSettingsSheet(store: store, isPresented: $presented) }
+                }
         }
     }
 }
@@ -172,16 +178,18 @@ struct ProjectSettingsSheet: View {
                     }
                     .padding(16)
                     .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
-                    HStack(spacing: 12) {
-                        Button { isPresented = false } label: { Text(loc: "common.cancel") }
-                            .buttonStyle(ValseWideButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
-                        Button { save() } label: { Text(loc: "common.save") }
-                            .buttonStyle(ValseWideButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction).testID("projectSettings.save")
-                    }
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+                .scrollsWhenTight()   // BUG-OVERSIZED-SHEETS: Cancel / Save stay pinned in a small window
+                HStack(spacing: 12) {
+                    Button { isPresented = false } label: { Text(loc: "common.cancel") }
+                        .buttonStyle(ValseWideButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
+                    Button { save() } label: { Text(loc: "common.save") }
+                        .buttonStyle(ValseWideButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction).testID("projectSettings.save")
+                }
+                .padding(.top, 14).padding([.horizontal, .bottom], 16)
             }
-            .frame(width: 512)
+            .fittedFrame(width: 512)
             .background(Theme.panel)
             .preferredColorScheme(.dark)
             .testID("projectSettings")

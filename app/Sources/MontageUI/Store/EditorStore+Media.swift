@@ -19,7 +19,7 @@ extension EditorStore {
         let folderOf = Dictionary(items.map { ($0.url, $0.folderPath) }, uniquingKeysWith: { a, _ in a })
         Task {
             let (assets, failed) = await Task.detached { await Self.probeImport(items.map(\.url)) }.value
-            if !failed.isEmpty { showToast(tr("toast.importFailed", failed.count), error: true) }
+            if !failed.isEmpty { showImportFailure(failed) }
             guard !assets.isEmpty else { return }
             let existing = Dictionary(project.media.map { ($0.contentHash, $0) }, uniquingKeysWith: { a, _ in a })
             let fresh = assets.filter { existing[$0.contentHash] == nil }
@@ -55,6 +55,16 @@ extension EditorStore {
     }
 
     /// Probing with Live Photo pairing and image-sequence detection (off-main).
+    /// BUG-ERROR-COPY: names the file (one) with the reason, plural-correct (several), and shows the files in Finder.
+    func showImportFailure(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        let msg = urls.count == 1 ? tr("toast.importFailed.one", urls[0].lastPathComponent) : tr("toast.importFailed.other", urls.count)
+        showToast(msg, error: true, actionTitle: tr("action.showInFinder")) {
+            guard !TestAnchors.isEnabled else { return }
+            NSWorkspace.shared.activateFileViewerSelecting(urls)
+        }
+    }
+
     nonisolated static func probeImport(_ urls: [URL]) async -> (assets: [MediaAsset], failed: [URL]) {
         let (pairs, rest0) = LivePhoto.pair(urls)
         let (seqs, rest) = MediaProbe.detectSequences(rest0)
@@ -172,7 +182,7 @@ extension EditorStore {
     public func addLivePhotoVideo(_ id: MediaID) {
         guard let still = project.asset(id), let video = still.livePhotoVideoURL else { return }
         Task {
-            guard var a = try? await MediaProbe.probe(video) else { showToast(tr("toast.importFailed", 1), error: true); return }
+            guard var a = try? await MediaProbe.probe(video) else { showImportFailure([video]); return }
             if let e = project.media.first(where: { $0.contentHash == a.contentHash }) { a = e } else {
                 a.folderID = still.folderID
                 perform(AddMedia([a]))

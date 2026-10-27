@@ -113,13 +113,17 @@ extension EditorStore {
     public func separateAudio(_ clipID: ClipID, part: SeparatedPart) {
         guard let clip = project.timeline.clip(clipID), let asset = clip.mediaID.flatMap(project.asset), asset.hasAudio else { return }
         Task {
+            let box = OutputBox()
             let id = await JobQueue.shared.enqueue(titleKey: "audio.job.separate", priority: 0, heavy: true, subject: clipID.description) { progress in
-                if case .stem = part { try await StemSeparator.separate(asset) { progress.report($0) } }
-                else { try await VoiceIsolator.separate(asset) { progress.report($0) } }
+                do {
+                    if case .stem = part { try await StemSeparator.separate(asset) { progress.report($0) } }
+                    else { try await VoiceIsolator.separate(asset) { progress.report($0) } }
+                } catch { box.error = error; throw error }
             }
-            guard await JobQueue.shared.wait(id) == .done,
-                  let stem = AudioStemStore.shared.readyStem(media: asset, kind: part.storeKind) else {
-                showToast(tr("audio.separate.failed"), error: true); return
+            let state = await JobQueue.shared.wait(id)
+            if case .cancelled = state { return }
+            guard state == .done, let stem = AudioStemStore.shared.readyStem(media: asset, kind: part.storeKind) else {
+                separationFailed(box.error, retry: { [weak self] in self?.separateAudio(clipID, part: part) }); return
             }
             do {
                 let dir = MontagePaths.supportDirectory.appendingPathComponent("Generated/stems", isDirectory: true)
@@ -145,8 +149,26 @@ extension EditorStore {
                     p.timeline = tl
                 })
                 showToast(tr("audio.separate.done"))
-            } catch { showToast(tr("audio.separate.failed"), error: true) }
+            } catch { separationFailed(error, retry: nil) }
         }
+    }
+
+    /// BUG-ERROR-COPY: a missing model / helper is not "try again".
+    private func separationFailed(_ error: (any Error)?, retry: (@MainActor () -> Void)?) {
+        if let error { EngineLog.error("separate audio failed: \(String(describing: error))") }
+        if case .modelMissing? = error as? AIToolError {
+            if DemucsRuntime.cliURL == nil {
+                showToast(tr("audio.separate.incomplete"), error: true)
+            } else {
+                let spec = ModelCatalog.demucs4
+                showToast(tr("audio.separate.needsModel", ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)), error: true,
+                          actionTitle: tr("action.download")) { [weak self] in
+                    self?.ai.downloads.require([spec]) { retry?() }
+                }
+            }
+            return
+        }
+        showToast(tr("audio.separate.failed"), error: true)
     }
 
     /// Auto reframe (AI-012): subject tracking → smoothed path → fill-scale + position keyframes; the project ratio

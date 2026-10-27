@@ -145,7 +145,7 @@ struct CropDialogModal: View {
             ZStack {
                 Color.black.opacity(0.45).ignoresSafeArea().onTapGesture {}
                 CropDialogView(store: store, model: model)
-                    .frame(width: 780, height: 600)
+                    .fittedFrame(CGSize(width: 780, height: 600))   // BUG-OVERSIZED-SHEETS: the stage shrinks
                     .background(Theme.panel)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .modalHoverShield()   // FB-07

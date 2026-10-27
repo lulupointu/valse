@@ -1,6 +1,6 @@
 /* F4 finisher — AI rows (AI-028 recherche CLIP, AI-002 paroles, AI-006 styles de voix). */
 "model.clip" = "CLIP (recherche intelligente)";
 "model.clip.desc" = "Trouve les ressources à partir d'une description de l'image, comme « un chien sur la plage ».";
-"f4ai.clip.offer" = "Décris une scène pour la retrouver (« coucher de soleil sur la mer ») : télécharge le modèle de recherche intelligente.";
+"f4ai.clip.offer" = "Décrivez une scène pour la retrouver (« coucher de soleil sur la mer ») : téléchargez le modèle de recherche intelligente.";
 "captions.phase.separating" = "Séparation de la voix…";
 "f4ai.denoise.hint" = "L'intensité règle la quantité de bruit supprimée : 25 % ≈ −10 dB, 50 % ≈ −20 dB, 100 % ne garde que la voix.";

@@ -26,15 +26,23 @@ extension EditorStore {
                 }
             }
             st.job = id
-            let state = await JobQueue.shared.wait(id)
+            let (state, error) = await JobQueue.shared.waitResult(id)
             st.job = nil
             switch state {
             case .done:
                 guard let o = box.output, perform(o.command) else { return }
                 showToast(tr("align.done", o.count, Int((o.matchRatio * 100).rounded())))
-            case .failed(let msg):
-                let key = msg.contains("mismatch") ? "align.error.mismatch" : (msg.contains("noInput") ? "captions.error.noAudio" : "ai.error.noSpeech")
-                showToast(tr(key), error: true)
+            case .failed:
+                // typed reasons (BUG-CAPTION-ERRORS): a permission / language problem is not "no speech"
+                let text: String
+                if let f = error as? ScriptAligner.Failure {
+                    text = tr(f == .mismatch ? "align.error.mismatch" : "captions.failure.noSpeech.title")
+                } else if let e = error as? AIToolError, case .noInput = e {
+                    text = tr("captions.error.noAudio")
+                } else {
+                    text = SpeechFailure.userText(error, fallbackKey: "align.error.failed", noSpeechKey: "captions.failure.noSpeech.title")
+                }
+                showToast(text, error: true)
             case .cancelled: showToast(tr("align.cancelled"))
             default: break
             }

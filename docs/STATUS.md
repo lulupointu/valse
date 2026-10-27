@@ -179,6 +179,23 @@ build passed 135 / 185 UI scripts (35 failed, identical arm64 / x86_64-Rosetta).
 - W2 built the on-canvas parts of W3's CV-003/004 (handles, rotate handle, snapping); canvas fill (W3) is excluded from canvas hit-testing.
 
 ## Owner bug reports (fixed)
+- 2026-10-27 v0.2.1 BUG-NO-WHISPER-RUNTIME: a user (2017 Intel MBP, macOS 13) got "Impossible d'ajouter des sous-titres"
+  with the Whisper model installed. Releases never bundled the AI sidecars (whisper-cli, demucs, llama-completion) and
+  Apple on-device speech is unavailable on that Mac. build_app.sh now copies them (universal, signed) into
+  Contents/Helpers; release.sh requires them (MONTAGE_REQUIRE_RUNTIMES=1). Shipped in v0.2.1.
+- 2026-10-27 batch-ux1 BUG-CAPTION-ERRORS: typed `SpeechFailure` (13 reasons) with title / body / fix buttons in the Auto
+  captions panel (toast + main fix when closed); pre-flight readiness before Generate; no 3 s permission timeout; a
+  speaker-ID failure keeps the captions; JobQueue keeps the thrown Error (`error(_:)`, `waitResult(_:)`). Not done:
+  AssetInventory install of Apple speech languages on macOS 26.
+- 2026-10-27 batch-ux1 BUG-ERROR-COPY: error-message style guide (UX.md §11) applied app-wide outside speech: typed
+  reasons, persistent save-failure banner (autosave failures were silent), export Copy Details, model download disk-full
+  vs network, l10n_check rejects tutoiement. Not done: Relink… button in the export sheet; typed ExportError for disk full.
+- 2026-10-27 batch-ux1 BUG-OVERSIZED-SHEETS: modals, popovers and windows never larger than their window / the screen
+  (Support/WindowFit.swift: `.inWindowModal`, `.fittedPopover`, `fittedFrame`, `scrollsWhenTight`, `fitToScreen`);
+  WindowFitTests rejects raw `.sheet(` / `.popover(`, unfitted windows and fixed frames ≥ 600×400. Gap: popovers in
+  detached-panel windows clamp to the main window. Flaky seen in the agent gates: assets_library (stock thumbs),
+  u1_playhead_follow, TransitionRenderTests.everyTransitionIsRealTimeAt1080p, ExportCancelTests.userCancelAbandons…;
+  one hang in Exporter.pump (copyNextSampleBuffer, Exporter.swift:503).
 - 2026-10-25 batch-color1 BUG-SDR-IN-HDR: an SDR clip (WhatsApp H.264 BT.709) in an HLG project (1018 (1)) looked dark,
   grey and soft in preview and export. Causes: (1) AVFoundation converted the SDR source frames to HLG BT.2020 before the
   compositor (mixed HDR+SDR composition, no `canConformColorOfSourceFrames`) and the renderer converted them again from

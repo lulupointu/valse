@@ -219,7 +219,7 @@ struct MediaBinView: View {
             Spacer(minLength: 4)
             if missing > 0 {
                 Button { LinkMediaPanel.runFolder(store) } label: {
-                    Label(tr("media.missing", missing), systemImage: "exclamationmark.triangle").font(.system(size: 11))
+                    Label(trCount("media.missing", missing), systemImage: "exclamationmark.triangle").font(.system(size: 11))
                 }
                 .buttonStyle(.plain).foregroundStyle(Theme.danger).help(tr("media.linkFolder.message"))
             }
@@ -530,7 +530,7 @@ struct MediaCard: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
-            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset).valsePopoverSurface() } }
+            .fittedPopover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset) } }
             .mediaTap(asset, store: store, order: order, tab: tab, width: cardWidth)
             .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
             .task(id: asset.contentHash) {
@@ -711,7 +711,7 @@ struct MediaRow: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
-            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset).valsePopoverSurface() } }
+            .fittedPopover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset) } }
             .mediaTap(asset, store: store, order: order, tab: tab, width: stripWidth)
             .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
             .task(id: "\(asset.contentHash).\(count)") { await loadFrames() }

@@ -12,9 +12,10 @@
 "export.aspect.portrait9x16" = "9:16";
 "export.aspect.square1x1" = "1:1";
 "export.aspect.portrait4x5" = "4:5";
-"export.error.missingMedia" = "Média manquant : %@";
-"export.error.space" = "Espace libre insuffisant dans le dossier d'exportation.";
-"export.error.encoder" = "Ce format nécessite un encodeur qui n'est pas installé.";
+"export.error.missingMedia" = "Certains médias sont introuvables : %@. Reliez-les avant d'exporter.";
+"export.error.space" = "Pas assez d'espace libre pour exporter ici. Libérez de l'espace ou choisissez un autre emplacement d'exportation.";
+"export.error.encoder" = "Ce Mac ne peut pas exporter en %@. Choisissez MP4 (H.264) ou un autre format.";
+"export.error.noPermission" = "Montage ne peut pas écrire dans ce dossier. Choisissez un autre emplacement d'exportation.";
 "export.preset.youtube1080" = "YouTube 1080p";
 "export.preset.youtube4k" = "YouTube 4K";
 "export.preset.youtubeShorts" = "YouTube Shorts (9:16)";

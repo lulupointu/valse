@@ -5,7 +5,8 @@
 "media.folder.name" = "Nom du dossier";
 "media.folder.delete" = "Supprimer le dossier";
 "media.moveTo" = "Déplacer vers";
-"media.missing" = "%d média(s) perdu(s)";
+"media.missing.one" = "%d fichier introuvable";
+"media.missing.other" = "%d fichiers introuvables";
 "media.lost" = "Média perdu";
 "media.link" = "Lier le média";
 "media.link.message" = "Localisez « %@ ».";

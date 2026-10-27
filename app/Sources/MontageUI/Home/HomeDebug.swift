@@ -210,7 +210,7 @@ extension AppModel {
                 case .idle: return "idle"
                 case .saving: return "saving"
                 case .saved: return "saved"
-                case .failed(let key): return "failed:" + key } }(),
+                case .failed: return "failed" } }(),
             "launchedWindows": ProjectWindows.launched,
             "renderedRanges": store.renderedPreviewRanges().map { [$0.start.seconds, $0.end.seconds] },
             "settings": {

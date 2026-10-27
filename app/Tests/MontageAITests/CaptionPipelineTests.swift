@@ -51,8 +51,47 @@ import MontageTestSupport
         _ = try await p.addVideo(.solid(.black), seconds: 1)
         let silent = try await TestMedia.audio(seconds: 1.5, hz: 0)
         _ = try await p.addMedia(silent, at: .zero, target: .newTrack)
-        await #expect(throws: AIToolError.self) {
+        await #expect(throws: SpeechFailure.noSpeech(language: nil)) {
             _ = try await CaptionGenerator.run(project: p.project, options: CaptionOptions(source: .allTracks))
+        }
+        // forced language: the reason keeps it (the card then offers "Detect language automatically")
+        await #expect(throws: SpeechFailure.noSpeech(language: "fr")) {
+            _ = try await CaptionGenerator.run(project: p.project, options: CaptionOptions(language: "fr", source: .allTracks))
+        }
+    }
+
+    /// BUG-CAPTION-ERRORS: typed input failures instead of a generic "try again".
+    @Test func inputFailuresAreTyped() async throws {
+        var p = TestProject()
+        _ = try await p.addVideo(.solid(.black), seconds: 1)
+        // no clip with sound: All tracks vs a chosen track
+        await #expect(throws: SpeechFailure.nothingToCaption(trackChosen: false)) {
+            _ = try await CaptionGenerator.run(project: p.project, options: CaptionOptions(source: .allTracks))
+        }
+        await #expect(throws: SpeechFailure.nothingToCaption(trackChosen: true)) {
+            _ = try await CaptionGenerator.run(project: p.project, options: CaptionOptions(source: .mainTrack))
+        }
+        // the source file was moved: offline, with the media to relink
+        let tone = try await TestMedia.audio(seconds: 1.5, hz: 440)
+        let moved = FileManager.default.temporaryDirectory.appendingPathComponent("montage-offline-\(UUID().uuidString).m4a")
+        try FileManager.default.copyItem(at: tone, to: moved)
+        _ = try await p.addMedia(moved, at: .zero, target: .newTrack)
+        try FileManager.default.removeItem(at: moved)
+        let asset = try #require(p.project.media.first { $0.url == moved })
+        await #expect(throws: SpeechFailure.mediaOffline(name: asset.name, media: asset.id)) {
+            _ = try await CaptionGenerator.run(project: p.project, options: CaptionOptions(source: .allTracks))
+        }
+    }
+
+    /// A failing audio extraction says why (file gone / no sound), never a raw AVFoundation error.
+    @Test func audioExtractorFailuresAreTyped() async throws {
+        let gone = FileManager.default.temporaryDirectory.appendingPathComponent("montage-missing-\(UUID().uuidString).wav")
+        await #expect(throws: SpeechFailure.mediaOffline(name: gone.lastPathComponent, media: nil)) {
+            _ = try await AudioExtractor.wav16k(gone, range: nil)
+        }
+        let video = try await TestMedia.video(.solid(.black), seconds: 1)
+        await #expect(throws: SpeechFailure.noSoundInFile(name: video.lastPathComponent)) {
+            _ = try await AudioExtractor.wav16k(video, range: nil)
         }
     }
 }

@@ -123,6 +123,7 @@ public enum StateDump {
             }),
         ]
         if let t = store.toast { ui["toast"] = t.message }
+        if let f = store.saveFailure { ui["saveFailure"] = f.dumpName }
         if let pv = store.playerUI.preview {
             ui["preview"] = ["kind": pv.kind.rawValue, "item": pv.itemID, "duration": pv.range.duration.seconds,
                              "time": (store.playerUI.previewTime - pv.range.start).seconds] as [String: Any]
@@ -138,6 +139,7 @@ public enum StateDump {
         ui["tooltip"] = TooltipCenter.shared.shownText ?? NSNull()          // C6: visible tooltip text
         ui["tooltipPending"] = TooltipCenter.shared.pendingText ?? NSNull()
         ui["modalHoverShield"] = ModalHoverGate.isActive()   // FB-07: an in-window modal owns the pointer
+        ui["fit"] = HostWindowSpace.shared.dump()   // BUG-OVERSIZED-SHEETS: fitted cards / buttons inside the window
         // on-screen transition tiles whose still thumbnail has not been rendered yet (snapshots waitFor 0)
         let tiles = TestAnchors.shared.ids.filter { $0.hasPrefix("transition.tile.") }
         ui["transitionThumbsMissing"] = tiles.filter { !TransitionThumbnails.shared.hasStill("montage.transition." + $0.dropFirst("transition.tile.".count)) }.count
@@ -176,6 +178,7 @@ public enum StateDump {
         ui["models"] = store.modelsStateDump()   // AI model manager states (download flow)
         ui["relight"] = ["pending": RelightUIState.shared.pendingCount]   // AI2 Relight: depth passes starting / running
         ui["transcript"] = store.transcriptStateDump()   // C4: {open, status, words, language, captionsNav, applyToAllCaptions}
+        ui["captions"] = store.captionsStateDump()   // BUG-CAPTION-ERRORS {failure, readiness, remedies, title, body, lastRemedy, phase, generateTitle}
         // background jobs (AI, proxies…): `{"waitFor": {"path": "ui.activeJobs", "equals": 0}}` waits for them
         ui["jobs"] = store.jobs.map { ["title": $0.titleKey, "progress": $0.progress, "state": "\($0.state)"] as [String: Any] }
         ui["activeJobs"] = store.jobs.filter { $0.state == .queued || $0.state == .running }.count

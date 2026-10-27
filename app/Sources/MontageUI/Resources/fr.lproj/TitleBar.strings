@@ -7,7 +7,4 @@
 "save.saved" = "Enregistré";
 "save.savedAt" = "Enregistré à %@";
 "save.notSaved" = "Non enregistré";
-"save.failed.diskFull" = "Impossible d’enregistrer le projet : le disque est plein.";
-"save.failed.generic" = "Impossible d’enregistrer le projet.";
-"save.retry" = "Réessayer";
 "save.retryHelp" = "Cliquez pour réessayer.";

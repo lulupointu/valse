@@ -169,7 +169,8 @@ CVPixelBuffers (decoder) ─────────┐ ▼
 - `L10n` merges all tables of the active language into one dictionary. Fallback order: language → en → key. Use `tr("key", args…)` and `Text(loc: "key")`. Plurals: `.stringsdict` + `L10n.plural`. **No hard-coded UI strings**, and SwiftUI `Text("literal")` is banned (use `Text(verbatim:)` only for data).
 - **In-app override**: `L10n.shared.setLanguagePreference("system"|"en"|"fr")` is persisted in UserDefaults and posts `L10n.didChange`. `LocaleState.revision` is the root view's identity, so the UI rebuilds instantly and the menu bar is rebuilt. `--lang fr` sets the language for one session. `Info.plist` declares `CFBundleLocalizations` = en, fr.
 - **Completeness**: `scripts/l10n_check.py` (run by `scripts/test.sh`) fails on any key missing in fr or en, empty values, and literal keys used in code that are missing from en. `LocalizationCoverageTests` checks dynamic keys (registries, enums) in both languages.
-- One table per feature (e.g. `Resources/en.lproj/Captions.strings`) avoids merge conflicts. French register: **vous**. Terminology follows UX.md §10.
+- One table per feature (e.g. `Resources/en.lproj/Captions.strings`) avoids merge conflicts. French register: **vous** (l10n_check rejects tutoiement). Terminology follows UX.md §10.
+- **Error messages** follow UX.md §11 (what happened, why, what to do + a button; "Try again" only when it can work; codes only in the log / Copy Details). Classify errors into user reasons in code (`FileErrorKind`, `ModelFailureReason`, `SaveFailure`, `ExportQueue.failure`), never by matching `String(describing: error)`.
 
 ## 12. Extension registries: add ONE thing in ONE place
 

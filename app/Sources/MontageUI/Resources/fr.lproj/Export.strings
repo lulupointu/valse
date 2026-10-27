@@ -30,7 +30,7 @@
 "export.audioBits" = "Bits audio";
 "export.sampleRate" = "Échantillonnage audio";
 "export.hz" = "%.1f kHz";
-"export.mp3.unavailable" = "Le MP3 nécessite le module FFmpeg (avec LAME)";
+"export.mp3.unavailable" = "L'exportation MP3 nécessite le module FFmpeg. Exportez plutôt en M4A ou en WAV.";
 "export.gif" = "Exporter en GIF";
 "export.captions" = "Exportation des sous-titres";
 "export.captions.none" = "Ce projet n'a pas de sous-titres.";

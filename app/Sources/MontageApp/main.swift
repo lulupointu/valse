@@ -187,6 +187,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if #available(macOS 13.3, *) { host.safeAreaRegions = [] }
         w.contentView = host
         w.center()
+        // BUG-OVERSIZED-SHEETS: the default 1687×983 (and the 1100×680 minimum) never exceed a small screen's visible
+        // frame (13" MacBook Pro). Offscreen windows (UI tests, snapshots) keep their exact size.
+        if !isOffscreen { w.fitToScreen() }
         if options.uitest != nil || options.offscreen || options.snapshot != nil {
             w.orderBack(nil)  // offscreen (UITestWindow / OffscreenWindow, far off every screen), never activated
         } else if !launchPlan.activates {
@@ -216,6 +219,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.terminate(nil)
         return false
     }
+
+    /// BUG-OVERSIZED-SHEETS: moved to a smaller display → shrink into its visible frame.
+    func windowDidChangeScreen(_ notification: Notification) {
+        if !isOffscreen, let w = notification.object as? NSWindow { w.fitToScreen() }
+    }
+
+    private var isOffscreen: Bool { options.uitest != nil || options.offscreen || options.snapshot != nil }
 
     /// Finder "Open With" / drop on the Dock icon (MI-028): projects open, media files are imported.
     func application(_ application: NSApplication, open urls: [URL]) {

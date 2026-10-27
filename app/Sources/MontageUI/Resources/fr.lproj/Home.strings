@@ -71,7 +71,18 @@
 "home.imported.one" = "%d projet importé";
 "home.imported.other" = "%d projets importés";
 "home.savedToProject" = "Enregistré dans le projet";
-"home.error.fileOperation" = "L'opération n'a pas pu aboutir.";
+"home.error.fileOperation" = "Montage n'a pas pu modifier les fichiers du projet. Vérifiez que leur disque est connecté et qu'il reste de l'espace.";
+"home.error.create" = "Impossible de créer le projet. Vérifiez que votre disque est connecté, puis réessayez.";
+"home.error.createDiskFull" = "Impossible de créer le projet : le disque est plein. Libérez de l'espace, puis réessayez.";
+"home.error.rename" = "Impossible de renommer « %@ ». Vérifiez que son disque est connecté.";
+"home.error.duplicate.one" = "Impossible de dupliquer « %@ ». Vérifiez qu'il reste de l'espace sur le disque.";
+"home.error.duplicate.other" = "Impossible de dupliquer %d projets. Vérifiez qu'il reste de l'espace sur le disque.";
+"home.error.trash.one" = "Impossible de placer « %@ » dans la corbeille.";
+"home.error.trash.other" = "Impossible de placer %d projets dans la corbeille.";
+"home.error.restore.one" = "Impossible de restaurer « %@ » depuis la corbeille.";
+"home.error.restore.other" = "Impossible de restaurer %d projets depuis la corbeille.";
+"home.error.delete.one" = "Impossible de supprimer « %@ ».";
+"home.error.delete.other" = "Impossible de supprimer %d projets.";
 "home.error.import" = "Ce n'est pas un projet Montage.";
 "error.openElsewhere" = "Ce projet est ouvert dans une autre fenêtre Montage.";
 

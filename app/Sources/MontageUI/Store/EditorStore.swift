@@ -120,6 +120,8 @@ public final class EditorStore {
     public private(set) var packageURL: URL? { didSet { syncProjectSlices() } }
     public private(set) var lastAutosave: Date?
     public var toast: Toast?
+    /// The last save / autosave failed (BUG-ERROR-COPY): persistent banner until a save succeeds or it is dismissed.
+    public internal(set) var saveFailure: SaveFailure?
     public private(set) var jobs: [JobInfo] = []
     public var isExportSheetPresented = false
     /// Export queue + dialog requests (W11, MontageUI/Export).
@@ -510,9 +512,11 @@ public final class EditorStore {
             session.markSaved()
             lastAutosave = Date()
             firstUnsavedEdit = nil
-            saveEnded(failureKey: nil, explicit: true)
+            saveFailure = nil
+            saveEnded(ok: true, explicit: true)
         } catch {
-            saveEnded(failureKey: Self.saveFailureKey(error), explicit: true)
+            reportSaveFailure(error, url: url)
+            saveEnded(ok: false, explicit: true)
         }
     }
 
@@ -520,11 +524,10 @@ public final class EditorStore {
 
     /// What the title bar shows about saving. Quiet by design: `saving` only when a save takes > 0.5 s, `saved` only
     /// briefly after a visible / explicit save or a recovery from a failure (fast autosaves change nothing on screen),
-    /// `failed` stays until a save succeeds (with a toast offering Retry when it first happens).
+    /// `failed` stays until a save succeeds. The reason and its fix are BUG-ERROR-COPY's `saveFailure` banner; the title
+    /// bar shows the quiet "Not saved" key (click = retry, the banner's message as tooltip).
     public enum SaveStatus: Equatable {
-        case idle, saving, saved
-        /// l10n key of the reason (`save.failed.diskFull`, `save.failed.generic`).
-        case failed(String)
+        case idle, saving, saved, failed
     }
     public private(set) var saveStatus: SaveStatus = .idle
     @PerceptionIgnored private var slowSaveTask: Task<Void, Never>?
@@ -540,16 +543,11 @@ public final class EditorStore {
         }
     }
 
-    func saveEnded(failureKey: String?, explicit: Bool) {
+    func saveEnded(ok: Bool, explicit: Bool) {
         guard Self.debugSaveStatus == nil else { return }
         slowSaveTask?.cancel()
         savedFadeTask?.cancel()
-        if let key = failureKey {
-            let first: Bool = { if case .failed = saveStatus { return false } else { return true } }()
-            saveStatus = .failed(key)
-            if first { showToast(tr(key), error: true, actionTitle: tr("save.retry")) { [weak self] in self?.save() } }
-            return
-        }
+        if !ok { saveStatus = .failed; return }
         let wasVisible: Bool = { switch saveStatus { case .saving, .failed: return true; default: return false } }()
         guard wasVisible || explicit, !Self.quietSaveStatus else { saveStatus = .idle; return }
         saveStatus = .saved
@@ -563,25 +561,15 @@ public final class EditorStore {
     /// UI tests / screenshots: no timed status changes (deterministic baselines); failures still show.
     static let quietSaveStatus: Bool = CommandLine.arguments.contains("--uitest") || CommandLine.arguments.contains("--snapshot")
 
-    /// Review stills only: `VALSE_DEBUG_SAVE=saving|saved|diskFull|failed` pins the title bar's save status on load.
+    /// Review stills only: `VALSE_DEBUG_SAVE=saving|saved|failed` pins the title bar's save status on load.
     static let debugSaveStatus: SaveStatus? = {
         switch ProcessInfo.processInfo.environment["VALSE_DEBUG_SAVE"] {
         case "saving": return .saving
         case "saved": return .saved
-        case "diskFull": return .failed("save.failed.diskFull")
-        case "failed": return .failed("save.failed.generic")
+        case "failed": return .failed
         default: return nil
         }
     }()
-
-    /// The reason shown for a failed save: a full disk gets its own message.
-    nonisolated static func saveFailureKey(_ error: Error) -> String {
-        let ns = error as NSError
-        let full = (ns.domain == NSCocoaErrorDomain && ns.code == NSFileWriteOutOfSpaceError)
-            || (ns.domain == NSPOSIXErrorDomain && ns.code == Int(ENOSPC))
-            || ((ns.userInfo[NSUnderlyingErrorKey] as? NSError).map { $0.domain == NSPOSIXErrorDomain && $0.code == Int(ENOSPC) } ?? false)
-        return full ? "save.failed.diskFull" : "save.failed.generic"
-    }
 
     /// Renames the open project in place (title bar), as one undo step. Blank or unchanged names are ignored.
     public func renameProject(_ name: String) {
@@ -644,14 +632,14 @@ public final class EditorStore {
             if self.packageURL == nil { self.packageURL = url; SessionLock.acquire(url) }
             let rev = self.session.revision
             self.saveBegan()
-            // nil = saved, else the l10n key of the failure (round 12: autosave failures are no longer silent)
-            let failure = await Task.detached { () -> String? in
-                do { try ProjectPackage.save(snapshot, to: url); return nil } catch { return EditorStore.saveFailureKey(error) }
+            let error: (any Error)? = await Task.detached { () -> (any Error)? in
+                do { try ProjectPackage.save(snapshot, to: url); return nil } catch { return error }
             }.value
-            let ok = failure == nil
+            let ok = error == nil
             if ok && self.session.revision == rev { self.session.markSaved(); self.lastAutosave = Date(); self.firstUnsavedEdit = nil }
-            self.saveEnded(failureKey: failure, explicit: false)
-            if ok { self.didAutosave(snapshot, to: url) }
+            if ok { self.saveFailure = nil; self.didAutosave(snapshot, to: url) }
+            if let error { self.reportSaveFailure(error, url: url) }   // BUG-ERROR-COPY: autosave failures were silent
+            self.saveEnded(ok: ok, explicit: false)
         }
     }
 
@@ -663,7 +651,7 @@ public final class EditorStore {
             guard await tool.isAvailable() else { showToast(tr("ai.error.unavailable"), error: true); return }
             let box = OutputBox()
             let id = await JobQueue.shared.enqueue(titleKey: tool.nameKey, priority: 1, heavy: true, subject: input.clipID?.description) { progress in
-                box.output = try await tool.run(input, progress)
+                do { box.output = try await tool.run(input, progress) } catch { box.error = error; throw error }
             }
             let state = await JobQueue.shared.wait(id)
             switch state {
@@ -671,7 +659,15 @@ public final class EditorStore {
                 if case .edit(let cmd) = box.output { perform(cmd) }
                 showToast(tr("toast.aiDone", tr(tool.nameKey)))
             case .failed:
-                showToast(tr("ai.error.unavailable"), error: true)
+                // BUG-ERROR-COPY: "not available on this Mac" only for the availability check above; a job failure
+                // says what failed, or which model to download
+                if case .modelMissing(let mid)? = box.error as? AIToolError, let spec = ModelCatalog.spec(mid) {
+                    showToast(tr("ai.error.toolNeedsModel", tr(tool.nameKey), tr(spec.nameKey)), error: true, actionTitle: tr("action.download")) { [weak self] in
+                        self?.ai.downloads.require([spec]) { self?.runAITool(tool) }
+                    }
+                } else {
+                    showToast(tr("ai.error.toolFailed", tr(tool.nameKey)), error: true)
+                }
             default: break
             }
         }
@@ -683,7 +679,8 @@ public final class EditorStore {
         let t = Toast(message: message, isError: error, actionTitle: actionTitle, action: action)
         toast = t
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(action == nil ? 2.5 : 6))
+            // error messages are full sentences (cause + what to do): 5 s to read them (BUG-ERROR-COPY)
+            try? await Task.sleep(for: .seconds(action != nil ? 6 : error ? 5 : 2.5))
             if self?.toast == t { self?.toast = nil }
         }
     }
@@ -698,4 +695,4 @@ public final class EditorStore {
     }
 }
 
-nonisolated final class OutputBox: @unchecked Sendable { var output: AIToolOutput = .none }
+nonisolated final class OutputBox: @unchecked Sendable { var output: AIToolOutput = .none; var error: (any Error)? }

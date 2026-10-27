@@ -182,7 +182,9 @@ final class OnlineAudioState {
         case .offline: return tr("online.error.offline")
         case .invalidKey: return tr("online.error.key")
         case .rateLimited: return tr("online.error.rate")
-        case .server(let c): return tr("online.error.server", c)
+        case .server(let c):   // BUG-ERROR-COPY: the HTTP code goes to the log, not the message
+            EngineLog.error("online music: HTTP \(c)")
+            return tr("online.error.server")
         case .decoding: return tr("online.error.decoding")
         case .badAudio: return tr("online.error.audio")
         }

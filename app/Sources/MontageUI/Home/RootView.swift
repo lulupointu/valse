@@ -43,6 +43,7 @@ public struct RootView: View {
             // VALSE-APP: every system control without its own tint (sliders, switches, progress, pickers) uses Valse
             // teal instead of the macOS accent colour
             .tint(Theme.accent)
+            .publishesHostWindowSize()   // BUG-OVERSIZED-SHEETS: modals / popovers clamp to the window
             .preferredColorScheme(.dark)
             .uitestNoMotion()
         }
@@ -82,12 +83,29 @@ struct ModalHost: View {
     }
 }
 
-/// Card chrome shared by the dialogs: title bar, body, radius 10, `bg.panel`, a hard offset block (Valse, no soft shadow).
-struct DialogCard<Content: View>: View {
+/// Card chrome shared by the dialogs: title bar, body, radius 10, `bg.panel`, the Valse floating-card hairline (no soft
+/// shadow). BUG-OVERSIZED-SHEETS: never larger than the window (`fittedFrame(width:)`); the body scrolls when the window is too
+/// small (`bodyScrolls`; false = the content has its own flexible scroll area), the `footer` (the dialog's buttons,
+/// laid out 14 pt under the body, 16 pt insets) stays pinned below it.
+struct DialogCard<Content: View, Footer: View>: View {
     let title: String
     var width: CGFloat = 512
     var onClose: (() -> Void)?
-    @ViewBuilder let content: Content
+    var bodyScrolls = true
+    let content: Content
+    let footer: Footer
+    private var hasFooter = true
+
+    /// Space between the body and the footer.
+    var footerSpacing: CGFloat = 14
+
+    init(title: String, width: CGFloat = 512, onClose: (() -> Void)? = nil, bodyScrolls: Bool = true, footerSpacing: CGFloat = 14,
+         @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
+        self.title = title; self.width = width; self.onClose = onClose; self.bodyScrolls = bodyScrolls
+        self.footerSpacing = footerSpacing
+        self.content = content(); self.footer = footer()
+    }
+
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 0) {
@@ -103,12 +121,22 @@ struct DialogCard<Content: View>: View {
                 }
                 .padding(.horizontal, 16).frame(height: 44)
                 Rectangle().fill(Theme.separator).frame(height: 1)
-                content
+                if bodyScrolls { content.scrollsWhenTight() } else { content }
+                if hasFooter { footer.padding(.top, footerSpacing).padding([.horizontal, .bottom], 16) }
             }
-            .frame(width: width)
+            .fittedFrame(width: width)
+            .reportsFit("dialog")
             .background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
             .valseFloatingCard(radius: 10)
         }
+    }
+}
+
+extension DialogCard where Footer == EmptyView {
+    init(title: String, width: CGFloat = 512, onClose: (() -> Void)? = nil, bodyScrolls: Bool = true,
+         @ViewBuilder content: () -> Content) {
+        self.init(title: title, width: width, onClose: onClose, bodyScrolls: bodyScrolls, content: content, footer: { EmptyView() })
+        hasFooter = false
     }
 }
 
@@ -128,6 +156,7 @@ struct DialogFooter: View {
                 Button(action: onOK) { Text(verbatim: okTitle).contentShape(Rectangle()) }
                     .buttonStyle(ValseWideButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction).disabled(!okEnabled)
                     .testID("dialog.ok")
+                    .reportsFit("dialogOK")   // BUG-OVERSIZED-SHEETS: the primary button stays inside the window
             }
         }
     }
@@ -143,7 +172,7 @@ struct TextPromptDialog: View {
     @FocusState private var focused: Bool
     var body: some View {
         WithPerceptionTracking {
-            DialogCard(title: title, width: 360) {
+            DialogCard(title: title, width: 360, bodyScrolls: false) {   // one field: never taller than a window
                 VStack(spacing: 16) {
                     TextField("", text: $text)
                         .textFieldStyle(.plain).font(.system(size: 13))
@@ -190,10 +219,11 @@ struct RecoveryDialog: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    DialogFooter(cancelTitle: tr("recovery.notNow"), okTitle: tr("recovery.recover"),
-                                 onCancel: { app.dismissRecovery(urls) }, onOK: { if let u = urls.first { app.dismissRecovery(Array(urls.dropFirst())); app.recover(u) } })
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                DialogFooter(cancelTitle: tr("recovery.notNow"), okTitle: tr("recovery.recover"),
+                             onCancel: { app.dismissRecovery(urls) }, onOK: { if let u = urls.first { app.dismissRecovery(Array(urls.dropFirst())); app.recover(u) } })
             }
         }
     }

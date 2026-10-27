@@ -92,7 +92,7 @@ public struct SplitClips: EditCommand {
         for id in ids {
             if (try? TimelineOps.split(id, at: time, in: &project.timeline)) != nil { did = true }
         }
-        if !did { throw EditError.invalidTime }
+        if !did { throw EditError.cannotSplitHere }
     }
 }
 

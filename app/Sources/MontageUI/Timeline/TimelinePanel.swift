@@ -138,7 +138,7 @@ struct TimelineToolbarBar: View, Equatable {
                     Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 14, height: 26)
                 }
                 .buttonStyle(ValseIconButtonStyle()).help(tr("linkage.title"))
-                .popover(isPresented: $showLinkage, arrowEdge: .bottom) { WithPerceptionTracking { LinkageSettingsView(store: store).valsePopoverSurface() } }
+                .fittedPopover(isPresented: $showLinkage, arrowEdge: .bottom) { WithPerceptionTracking { LinkageSettingsView(store: store) } }
                 IconButton("rectangle.and.hand.point.up.left", help: tr(m.previewAxis ? "toolbar.previewAxis.off" : "toolbar.previewAxis.on"), active: m.previewAxis) {
                     ui.previewAxis.toggle()
                 }

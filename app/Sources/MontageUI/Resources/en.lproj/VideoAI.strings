@@ -7,7 +7,9 @@
 "cmd.splitScenes" = "Split scenes";
 "cmd.separateAudio" = "Separate audio";
 "audio.separate.done" = "Audio separated";
-"audio.separate.failed" = "Couldn't separate audio. Try again.";
+"audio.separate.failed" = "Couldn't separate the audio because of an unexpected problem. Try again.";
+"audio.separate.needsModel" = "Separating instruments needs the music model (%@). Download it.";
+"audio.separate.incomplete" = "Separating instruments needs a component that isn't in this copy of Montage. Update Montage to get it.";
 "inspector.reframe" = "Auto reframe";
 "reframe.ratio" = "Aspect ratio";
 "reframe.speed" = "Camera moving speed";
@@ -106,9 +108,10 @@
 "writer.addSplit" = "Split and add";
 "writer.addNoSplit" = "Add without split";
 "writer.added" = "Captions added";
-"writer.failed" = "Couldn't generate the script. Try again.";
+"writer.failed" = "Couldn't write the script because of an unexpected problem. Try again.";
 "writer.disclaimer" = "Scripts are generated automatically by AI on this Mac. Check them before publishing.";
-"writer.needsModel" = "The AI writer needs Apple Intelligence or the local text model (Qwen3 4B) from the AI models list.";
+"writer.needsModel" = "To write scripts on this Mac, turn on Apple Intelligence or download the local text model (%@).";
+"writer.incomplete" = "Writing scripts needs a component that isn't in this copy of Montage. Turn on Apple Intelligence, or update Montage to get it.";
 
 /* W10 AI clipper (AI-031) */
 "tlmenu.clipper" = "AI clipper…";
@@ -162,12 +165,12 @@
 "cameraLock.job" = "Applying camera tracking effect...";
 "cameraLock.applying" = "Applying camera tracking effect... %d%%";
 "cameraLock.done" = "Camera tracking applied";
-"cameraLock.failed" = "Try a video with people in it.";
+"cameraLock.failed" = "No people found. Try a video with people in it.";
 "cameraLock.cancelled" = "Camera tracking canceled";
 
 /* W10 AI remove (AI-041) */
 "remove.title" = "AI remove";
-"remove.hint" = "Brush over what you want to remove (on videos: still objects, logos, watermarks), then Remove.";
+"remove.hint" = "Brush over what you want to remove (on videos: still objects, logos, watermarks), then click Remove.";
 "remove.needsModel" = "AI remove needs the LaMa model (190 MB, runs on this Mac).";
 "remove.clear" = "Clear";
 "remove.apply" = "Remove";

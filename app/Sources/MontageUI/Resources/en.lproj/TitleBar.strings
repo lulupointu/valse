@@ -7,7 +7,4 @@
 "save.saved" = "Saved";
 "save.savedAt" = "Saved at %@";
 "save.notSaved" = "Not saved";
-"save.failed.diskFull" = "Couldn't save the project: the disk is full.";
-"save.failed.generic" = "Couldn't save the project.";
-"save.retry" = "Retry";
 "save.retryHelp" = "Click to try again.";

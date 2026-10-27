@@ -47,11 +47,12 @@ public struct EditorView: View {
         }
         .background(Theme.window)
         .overlay { QuickCutOverlay(store: store) }   // TL-048 Quick cut popover (hangs from the timeline toolbar button)
+        .overlay(alignment: .top) { SaveFailureBanner(store: store).padding(.top, 92) }   // BUG-ERROR-COPY: work at risk
         .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
         .overlay(alignment: .topTrailing) {
             // W5: during UI tests the keyframe panel (normally a floating NSPanel) lives in the offscreen test window
             if TestAnchors.isEnabled && store.keyframeUI.showsPanel {
-                KeyframePanel(store: store).frame(width: 500, height: 420)   // over the (SwiftUI) inspector, clear of Metal views
+                KeyframePanel(store: store).fittedFrame(CGSize(width: 500, height: 420))   // over the (SwiftUI) inspector, clear of Metal views
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.separator))
                     .testID("panel.keyframes").padding(.top, 60).padding(.trailing, 14)
             }
@@ -102,7 +103,9 @@ public struct EditorView: View {
             }
         }
         .overlay { ModelDownloadOverlay(store: store) }   // OB-07 download popup + bottom-right progress
-        .sheet(isPresented: Binding.perceived(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 })) {
+        // BUG-OVERSIZED-SHEETS: in-window (a SwiftUI sheet sizes itself to its content: taller than the window / screen)
+        .inWindowModal(isPresented: Binding.perceived(get: { store.ai.isModelSheetPresented }, set: { store.ai.isModelSheetPresented = $0 }),
+                       fitKey: "models") {
             WithPerceptionTracking {
                 ModelManagerSheet { store.ai.isModelSheetPresented = false }   // W10 AI models
             }
@@ -426,7 +429,7 @@ struct SaveStatusView: View {
                 case .saved:
                     Label { Text(loc: "save.saved") } icon: { Image(systemName: "checkmark") }
                         .labelStyle(.titleAndIcon).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.success)
-                case .failed(let key):
+                case .failed:
                     Button { store.save() } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10.5)).foregroundStyle(Theme.danger)
@@ -435,8 +438,8 @@ struct SaveStatusView: View {
                         .padding(.horizontal, 6).frame(height: 22)
                     }
                     .buttonStyle(ValseIconButtonStyle())
-                    .help(tr(key) + " " + tr("save.retryHelp"))
-                    .accessibilityLabel(Text(verbatim: tr("save.notSaved") + ", " + tr(key)))
+                    .help((store.saveFailure.map { $0.message(project: store.projectName) + " " } ?? "") + tr("save.retryHelp"))
+                    .accessibilityLabel(Text(verbatim: tr("save.notSaved") + (store.saveFailure.map { ", " + $0.message(project: store.projectName) } ?? "")))
                     .testID("titlebar.saveFailed")
                 case .idle:
                     // (not in UI tests: autosave timing would make the title-bar baselines flaky)

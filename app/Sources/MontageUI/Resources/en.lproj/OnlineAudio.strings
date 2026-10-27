@@ -23,10 +23,10 @@
 "online.badKey.message" = "Check the API key in Settings ▸ Music.";
 "online.failed.title" = "Couldn't load the music";
 "online.error.offline" = "No internet connection.";
-"online.error.key" = "Invalid API key.";
+"online.error.key" = "The music service rejected your API key. Check it in Settings ▸ Music.";
 "online.error.rate" = "Too many searches. Try again in a minute.";
-"online.error.server" = "The music service answered with an error (%d).";
-"online.error.decoding" = "Unexpected answer from the music service.";
+"online.error.server" = "Online music isn't available right now. Browse the offline library, or try again later.";
+"online.error.decoding" = "Online music isn't available right now. Browse the offline library, or try again later.";
 "online.error.audio" = "The downloaded file isn't playable audio.";
 "online.footer" = "Results from %@ · only licenses safe for social media";
 "online.footer.none" = "No music source connected";

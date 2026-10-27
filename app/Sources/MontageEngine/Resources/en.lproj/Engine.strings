@@ -4,7 +4,7 @@
 
 "export.error.empty" = "There is nothing to export yet.";
 "export.error.cancelled" = "Export cancelled.";
-"export.error.failed" = "Export failed.";
+"export.error.failed" = "Couldn't export “%@”. Try a different format or resolution, or export again.";
 "export.codec.h264" = "H.264";
 "export.codec.hevc" = "HEVC (H.265)";
 "export.codec.proRes422" = "Apple ProRes 422";

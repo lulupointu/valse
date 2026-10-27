@@ -39,7 +39,7 @@ struct UpdateStatusLine: View {
         switch updates.state {
         case .checking: return tr("about.updates.checking")
         case .downloading(let v, let p): return p.map { tr("about.updates.downloadingPct", v, Int(($0 * 100).rounded())) } ?? tr("about.updates.downloading", v)
-        case .failed(let m): return tr("about.updates.failed", m)
+        case .failed: return tr("about.updates.failed")   // BUG-ERROR-COPY: Sparkle's raw text stays in its log
         case .upToDate: return tr("about.updates.upToDate") + lastChecked
         case .idle, .ready: return tr(updates.automaticallyChecks ? "about.updates.autoHint" : "about.updates.offHint") + lastChecked
         }

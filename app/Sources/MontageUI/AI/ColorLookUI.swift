@@ -164,12 +164,12 @@ extension EditorStore {
                 box.command = try await work()
             }
             ai.lookJobs[key] = id
-            let st = await JobQueue.shared.wait(id)
+            let (st, error) = await JobQueue.shared.waitResult(id)
             if ai.lookJobs[key] == id { ai.lookJobs[key] = nil }
             switch st {
             case .done:
                 if let cmd = box.command, perform(cmd), kind == .match { ColorLookUI.shared.matchOpen = nil }
-            case .failed(let e) where kind == .card: showToast(tr(e.contains("notFound") ? "colorCard.notFound" : "look.failed"), error: true)
+            case .failed where kind == .card: showToast(tr(error is ColorCardError ? "colorCard.notFound" : "look.failed"), error: true)
             case .failed: showToast(tr("look.failed"), error: true)
             default: break
             }

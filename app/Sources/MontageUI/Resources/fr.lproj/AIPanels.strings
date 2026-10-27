@@ -12,10 +12,10 @@
 "captions.deleteCurrent" = "Supprimer les sous-titres actuels";
 "captions.autoLyrics" = "Paroles automatiques";
 "captions.engine" = "Reconnaissance vocale";
-"captions.engine.whisper" = "Whisper large-v3-turbo · haute précision, sur l'appareil";
-"captions.engine.apple" = "Reconnaissance Apple (rapide). Téléchargez le modèle Whisper pour une précision maximale.";
-"captions.engine.noRuntime" = "Modèle Whisper installé, mais le moteur whisper.cpp est introuvable. La reconnaissance Apple est utilisée.";
-"captions.engineChoice" = "Moteur";
+"captions.engine.whisper" = "Haute précision · fonctionne sur votre Mac";
+"captions.engine.apple" = "Reconnaissance standard (Apple). Téléchargez le modèle vocal pour plus de précision.";
+"captions.engine.noRuntime" = "La haute précision n'est pas disponible dans cette copie de Montage. Mettez Montage à jour pour l'utiliser.";
+"captions.engineChoice" = "Reconnaissance";
 "captions.addedCount" = "Sous-titres ajoutés (%d)";
 "captions.cancelled" = "Génération des sous-titres annulée";
 "captions.error.noAudio" = "Ajoutez d'abord un clip avec du son à la timeline.";
@@ -89,8 +89,7 @@
 "models.installed" = "Installé";
 "models.remove" = "Supprimer le modèle";
 "models.license" = "Licence : %@";
-"models.runtimeOK" = "Moteur whisper.cpp trouvé.";
-"models.runtimeMissing" = "Moteur whisper.cpp introuvable (intégrez-le avec scripts/build_whisper.sh ou installez whisper-cpp). La reconnaissance Apple est utilisée en attendant.";
+"models.runtimeMissing" = "La reconnaissance vocale haute précision n'est pas incluse dans cette copie de Montage. Mettez Montage à jour pour l'obtenir.";
 "models.done" = "OK";
 "inspector.tab.tts" = "Synthèse vocale";
 "tts.search" = "Rechercher des voix";
@@ -107,7 +106,8 @@
 "tts.generating" = "Génération en cours du discours…";
 "tts.generate" = "Générer la voix";
 "tts.added" = "Le texte et la voix sont ajoutés à la piste";
-"tts.failed" = "Impossible de générer la voix. Essayez une autre voix.";
+"tts.failed" = "Impossible de créer la voix off. Essayez une autre voix.";
+"tts.voiceMissing" = "La voix « %@ » n'est pas installée sur ce Mac. Choisissez-en une autre ou ajoutez-la dans Réglages Système ▸ Accessibilité ▸ Contenu énoncé.";
 "cmd.tts" = "Synthèse vocale";
 "audio.job.isolate" = "Isolation de la voix…";
 "tts.voice.hqBadge" = "✦ Améliorée";

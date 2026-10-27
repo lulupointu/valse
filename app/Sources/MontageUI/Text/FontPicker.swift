@@ -25,9 +25,9 @@ struct FontRow: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .popover(isPresented: $open, arrowEdge: .leading) {
+                    .fittedPopover(isPresented: $open, arrowEdge: .leading) {
                         WithPerceptionTracking {
-                            FontPickerList(selected: font) { name in apply(name) }.valsePopoverSurface()
+                            FontPickerList(selected: font) { name in apply(name) }
                         }
                     }
                     StepperButton { d in step(d) }
@@ -93,7 +93,7 @@ struct FontPickerList: View {
                     }
                 }
             }
-            .frame(width: 280, height: 420)
+            .frame(width: 280, height: min(420, HostWindowSpace.shared.available.height))   // BUG-OVERSIZED-SHEETS
             .background(Theme.panel)
         }
     }

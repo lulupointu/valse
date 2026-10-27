@@ -56,8 +56,9 @@ struct ExportSheet: View {
                 Rectangle().fill(ExportStyle.separator).frame(height: 1)
                 if jobs.isEmpty { form } else { ExportProgressView(store: store, jobs: jobs, cover: model.coverPreview, onClose: close) }
             }
-            .frame(width: Self.size.width, height: Self.size.height)
+            .fittedFrame(Self.size)   // BUG-OVERSIZED-SHEETS: ideal size, clamped to the window (the form scrolls)
             .background(ExportStyle.background)
+            .reportsFit("export")
             .testID("export.dialog")
             .task {
                 model.mp3Available = await MP3Encoder.isAvailable()
@@ -120,7 +121,7 @@ struct ExportSheet: View {
                 .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain).padding(8).testID("export.editCover")
-            .popover(isPresented: $coverPopover, arrowEdge: .bottom) { WithPerceptionTracking { CoverEditor(model: model, store: store).valsePopoverSurface() } }
+            .fittedPopover(isPresented: $coverPopover, arrowEdge: .bottom) { WithPerceptionTracking { CoverEditor(model: model, store: store) } }
         }
         .frame(width: 320, height: 180)
     }
@@ -380,7 +381,7 @@ struct ExportSheet: View {
                 .buttonStyle(ExportButtonStyle(accent: false)).keyboardShortcut(.cancelAction).testID("export.cancel")
             Button(tr("export.export")) { startExport() }
                 .buttonStyle(ExportButtonStyle(accent: true)).keyboardShortcut(.defaultAction)
-                .disabled(!model.canExport).testID("export.confirm")
+                .disabled(!model.canExport).testID("export.confirm").reportsFit("exportConfirm")
         }
         .padding(.horizontal, 16).frame(height: 60)
     }

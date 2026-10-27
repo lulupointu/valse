@@ -43,7 +43,7 @@ BUILD="$(git rev-list --count HEAD)"
 # --- build -------------------------------------------------------------------------------------------------------------
 swift package resolve >/dev/null
 SPARKLE_BIN="$(cd .build/artifacts/sparkle/Sparkle/bin && pwd)"
-MONTAGE_REQUIRE_CONTENT=1 MONTAGE_SIGN_IDENTITY="$IDENTITY" MONTAGE_VERSION="$VERSION" MONTAGE_BUILD="$BUILD" \
+MONTAGE_REQUIRE_CONTENT=1 MONTAGE_REQUIRE_RUNTIMES=1 MONTAGE_SIGN_IDENTITY="$IDENTITY" MONTAGE_VERSION="$VERSION" MONTAGE_BUILD="$BUILD" \
   scripts/build_app.sh >/dev/null
 APP=build/Montage.app
 OUT="build/release/$VERSION"

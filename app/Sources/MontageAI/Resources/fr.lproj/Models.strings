@@ -3,9 +3,11 @@
 "model.whisperSmall" = "Whisper small";
 "model.whisperSmall.desc" = "Modèle vocal plus léger pour les Mac disposant de peu de mémoire libre.";
 "model.error.checksum" = "Le fichier téléchargé est endommagé. Réessayez.";
-"model.error.network" = "Impossible de télécharger le modèle. Vérifiez votre connexion et réessayez.";
+"model.error.network" = "Impossible de télécharger le modèle. Vérifiez votre connexion Internet, puis réessayez.";
 "model.error.cancelled" = "Téléchargement annulé";
-"model.error.io" = "Impossible d'enregistrer le fichier du modèle.";
+"model.error.io" = "Impossible d'enregistrer le modèle sur ce Mac. Vérifiez qu'il reste de l'espace sur le disque, puis réessayez.";
+"model.error.space" = "Pas assez d'espace pour télécharger le modèle. Libérez %@, puis réessayez.";
+"model.error.notInstalled" = "Le téléchargement est terminé mais le modèle n'a pas pu être installé. Téléchargez-le à nouveau.";
 "model.demucs4" = "HTDemucs (4 pistes)";
 "model.demucs4.desc" = "Séparation de sources musicales : voix, batterie, basses et autres instruments.";
 "model.demucs6" = "HTDemucs (6 pistes)";
@@ -13,6 +15,6 @@
 "model.qwen3" = "Qwen3 4B (IA de texte locale)";
 "model.qwen3.desc" = "Écrit et réécrit des scripts, choisit les temps forts sur ce Mac quand Apple Intelligence est désactivé.";
 "model.lama" = "LaMa (suppression d'objets)";
-"model.lama.desc" = "Supprime les objets que tu peins dans les images et les vidéos courtes.";
+"model.lama.desc" = "Supprime les objets sur lesquels vous peignez dans les images et les vidéos courtes.";
 "model.depth" = "Depth Anything V2 (ajout de lumière)";
 "model.depth.desc" = "Estime la profondeur de chaque image pour éclairer les visages et les objets en relief.";

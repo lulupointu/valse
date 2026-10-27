@@ -46,9 +46,10 @@ struct NewProjectDialog: View {
                     }
                     .padding(16)
                     .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
-                    DialogFooter(okTitle: tr("newProject.create"), onCancel: { app.modal = nil }, onOK: create)
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                DialogFooter(okTitle: tr("newProject.create"), onCancel: { app.modal = nil }, onOK: create)
             }
             .onAppear {
                 let names = Set(app.entries.filter { $0.trashedAt == nil }.map(\.name))
@@ -78,7 +79,7 @@ struct ProjectDetailsDialog: View {
     var body: some View {
         WithPerceptionTracking {
             let s = entry.summary
-            DialogCard(title: tr("home.details"), width: 440, onClose: { app.modal = nil }) {
+            DialogCard(title: tr("home.details"), width: 440, onClose: { app.modal = nil }, footerSpacing: 12) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 14) {
                         CoverView(entry: entry).frame(width: 120, height: 120).clipShape(RoundedRectangle(cornerRadius: 6))
@@ -104,14 +105,15 @@ struct ProjectDetailsDialog: View {
                             .help(tr("cache.clear"))
                             .disabled((app.cacheSizes[entry.id] ?? 0) == 0)
                     }
-                    HStack {
-                        Button(tr("home.showInFinder")) { app.revealInFinder(entry) }.buttonStyle(SecondaryButtonStyle())
-                        Spacer()
-                        Button(tr("home.open")) { app.modal = nil; app.open(entry.url) }.buttonStyle(AccentButtonStyle())
-                    }
-                    .padding(.top, 4)
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                HStack {
+                    Button(tr("home.showInFinder")) { app.revealInFinder(entry) }.buttonStyle(SecondaryButtonStyle())
+                    Spacer()
+                    Button(tr("home.open")) { app.modal = nil; app.open(entry.url) }.buttonStyle(AccentButtonStyle())
+                }
+                .padding(.top, 4)
             }
             .onAppear { app.computeCacheSize(entry) }
         }
@@ -125,7 +127,7 @@ struct VersionHistoryDialog: View {
     @State private var selected: ProjectVersions.Version?
     var body: some View {
         WithPerceptionTracking {
-            DialogCard(title: tr("version.title"), width: 460, onClose: { app.modal = nil }) {
+            DialogCard(title: tr("version.title"), width: 460, onClose: { app.modal = nil }, bodyScrolls: false, footerSpacing: 12) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(loc: "version.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                     ScrollView {
@@ -155,16 +157,17 @@ struct VersionHistoryDialog: View {
                             }
                         }
                     }
-                    .frame(height: 280)
+                    .frame(minHeight: 80, idealHeight: 280, maxHeight: 280)   // BUG-OVERSIZED-SHEETS: shrinks to fit
                     .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
-                    HStack {
-                        Button(tr("version.saveNow")) { app.store.saveVersionNow(); reloadSoon() }.buttonStyle(SecondaryButtonStyle()).testID("version.saveNow")
-                        Spacer()
-                        Button(tr("version.restore")) { if let selected { restore(selected) } }
-                            .buttonStyle(AccentButtonStyle()).disabled(selected == nil).opacity(selected == nil ? 0.5 : 1).testID("version.restore")
-                    }
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                HStack {
+                    Button(tr("version.saveNow")) { app.store.saveVersionNow(); reloadSoon() }.buttonStyle(SecondaryButtonStyle()).testID("version.saveNow")
+                    Spacer()
+                    Button(tr("version.restore")) { if let selected { restore(selected) } }
+                        .buttonStyle(AccentButtonStyle()).disabled(selected == nil).opacity(selected == nil ? 0.5 : 1).testID("version.restore")
+                }
             }
             .onAppear(perform: reload)
         }
@@ -190,7 +193,7 @@ struct RelinkDialog: View {
     var body: some View {
         WithPerceptionTracking {
             let missing = app.store.missingMedia
-            DialogCard(title: tr("relink.title"), width: 480, onClose: { app.modal = nil }) {
+            DialogCard(title: tr("relink.title"), width: 480, onClose: { app.modal = nil }, bodyScrolls: false, footerSpacing: 12) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(verbatim: trCount("relink.message", missing.count)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -218,15 +221,16 @@ struct RelinkDialog: View {
                             }
                         }
                     }
-                    .frame(maxHeight: 260)
+                    .frame(maxHeight: 260)   // shrinks when the window is small (BUG-OVERSIZED-SHEETS)
                     .background(Theme.inset.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
-                    HStack {
-                        Button(tr("relink.searchFolder")) { searchFolder() }.buttonStyle(SecondaryButtonStyle()).disabled(missing.isEmpty)
-                        Spacer()
-                        Button(missing.isEmpty ? tr("common.done") : tr("relink.later")) { app.modal = nil }.buttonStyle(AccentButtonStyle()).testID("relink.close")
-                    }
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                HStack {
+                    Button(tr("relink.searchFolder")) { searchFolder() }.buttonStyle(SecondaryButtonStyle()).disabled(missing.isEmpty)
+                    Spacer()
+                    Button(missing.isEmpty ? tr("common.done") : tr("relink.later")) { app.modal = nil }.buttonStyle(AccentButtonStyle()).testID("relink.close")
+                }
             }
         }
     }
