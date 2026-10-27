@@ -220,6 +220,19 @@ public enum ModelCatalog {
 
     /// Best installed speech model (turbo first).
     public static var installedWhisperModel: URL? { installedURL(whisperTurbo) ?? installedURL(whisperSmall) }
+
+    /// UserDefaults key: the user chose the lighter speech model after running out of memory (BUG-CAPTION-ERRORS).
+    public static let preferLighterWhisperKey = "speech.preferLighterModel"
+    /// Speech model used for transcription: the lighter one when the user chose it and it is installed.
+    public static var preferredWhisperModel: URL? {
+        if UserDefaults.standard.bool(forKey: preferLighterWhisperKey), let u = installedURL(whisperSmall) { return u }
+        return installedWhisperModel
+    }
+    /// The spec of `preferredWhisperModel` (the one to download again when it is damaged).
+    public static var preferredWhisperSpec: AIModelSpec {
+        if UserDefaults.standard.bool(forKey: preferLighterWhisperKey), installedURL(whisperSmall) != nil { return whisperSmall }
+        return installedURL(whisperTurbo) != nil || installedURL(whisperSmall) == nil ? whisperTurbo : whisperSmall
+    }
 }
 
 /// The whisper.cpp command-line runtime (`whisper-cli`, Metal). Like FFmpeg it runs as a separate process

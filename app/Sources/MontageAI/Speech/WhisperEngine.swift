@@ -53,6 +53,7 @@ public enum WhisperEngine {
                 try await run(o.cli, args + ["-nfa", "-dtw", preset], progress: progress)
                 return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en")
             } catch is CancellationError { throw CancellationError() }
+            catch let f as SpeechFailure where [.appIncomplete, .speechModelDamaged, .diskFull].contains(f) { throw f }   // no retry helps
             catch { EngineLog.error("whisper DTW run failed (\(error)), retrying without DTW") }
         }
         try await run(o.cli, args, progress: progress)
@@ -77,15 +78,52 @@ public enum WhisperEngine {
                 }
             }
         }
-        let status: Int32 = try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Int32, Error>) in
-                p.terminationHandler = { proc in c.resume(returning: proc.terminationStatus) }
-                do { try p.run() } catch { p.terminationHandler = nil; c.resume(throwing: error) }
-            }
-        } onCancel: { if p.isRunning { p.terminate() } }
+        let end: (status: Int32, signal: Bool)
+        do {
+            end = try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (c: CheckedContinuation<(status: Int32, signal: Bool), Error>) in
+                    p.terminationHandler = { proc in c.resume(returning: (proc.terminationStatus, proc.terminationReason == .uncaughtSignal)) }
+                    do { try p.run() } catch { p.terminationHandler = nil; c.resume(throwing: error) }
+                }
+            } onCancel: { if p.isRunning { p.terminate() } }
+        } catch {
+            err.fileHandleForReading.readabilityHandler = nil
+            EngineLog.error("whisper-cli failed to launch: \(error)")
+            throw classifyLaunch(error)
+        }
         err.fileHandleForReading.readabilityHandler = nil
         try Task.checkCancellation()
-        guard status == 0 else { throw AIToolError.unavailable("whisper-cli exit \(status): \(progressBox.tail)") }
+        guard end.status == 0 else {
+            let tail = progressBox.tail
+            EngineLog.error("whisper-cli \(end.signal ? "signal" : "exit") \(end.status): \(tail)")
+            throw classifyExit(status: end.status, signal: end.signal, stderr: tail)
+        }
+    }
+
+    /// `Process.run` failed: the helper is missing, not executable, quarantined or built for another CPU (EBADARCH on
+    /// an Intel Mac): only an update of Montage fixes it.
+    static func classifyLaunch(_ error: any Error) -> SpeechFailure {
+        let ns = error as NSError
+        if SpeechFailure.isDiskFull(ns) { return .diskFull }
+        return .appIncomplete
+    }
+
+    /// whisper-cli ended badly: killed (SIGKILL = memory pressure / jetsam), illegal instruction (CPU without the
+    /// instructions it was built for), model that doesn't load, or something else.
+    static func classifyExit(status: Int32, signal: Bool, stderr: String) -> SpeechFailure {
+        if signal {
+            if status == SIGKILL { return .notEnoughMemory }
+            if status == SIGILL { return .appIncomplete }
+            return .other(detail: "whisper signal \(status)")
+        }
+        let s = stderr.lowercased()
+        if s.contains("failed to load model") || s.contains("failed to initialize whisper context") || s.contains("invalid model") {
+            return .speechModelDamaged
+        }
+        if s.contains("bad cpu type") { return .appIncomplete }
+        if s.contains("no space left") { return .diskFull }
+        if s.contains("failed to allocate") || s.contains("out of memory") { return .notEnoughMemory }
+        return .other(detail: "whisper exit \(status): \(stderr)")
     }
 
     /// whisper.cpp DTW alignment-heads preset for a ggml model file (nil = unknown model → no DTW).
@@ -121,7 +159,7 @@ public enum WhisperEngine {
 
     /// Parses `-ojf` output into words.
     public static func parse(_ data: Data, fallbackLanguage: String) throws -> Transcript {
-        guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIToolError.unavailable("bad json") }
+        guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw SpeechFailure.other(detail: "whisper: bad json") }
         let lang = (obj["result"] as? [String: Any])?["language"] as? String ?? fallbackLanguage
         let segments = obj["transcription"] as? [[String: Any]] ?? []
         func isSpecial(_ t: String) -> Bool { t.hasPrefix("[_") || t.hasPrefix("<|") }

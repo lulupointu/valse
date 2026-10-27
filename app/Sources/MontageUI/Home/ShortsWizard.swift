@@ -81,7 +81,7 @@ public final class ShortsWizardState {
                 }, phase: { ph in Task { @MainActor in ShortsWizardState.shared.phase = ph } })
             }
             job = id
-            let state = await JobQueue.shared.wait(id)
+            let (state, failure) = await JobQueue.shared.waitResult(id)
             job = nil
             switch state {
             case .done:
@@ -93,7 +93,7 @@ public final class ShortsWizardState {
             case .cancelled:
                 step = .settings
             default:
-                if case .failed(let msg) = state { error = tr(msg.contains("noSpeech") ? "ai.error.noSpeech" : "shorts.error.failed") }
+                if case .failed = state { error = SpeechFailure.userText(failure, fallbackKey: "shorts.error.failed") }
                 step = .settings
             }
         }

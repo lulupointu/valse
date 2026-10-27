@@ -52,7 +52,6 @@ struct AutoCaptionsPanel: View {
                             }
                         }
                         AdvancedSpeechSection(store: store)
-                        if let err = ai.captionError { HintText(text: err, color: IStyle.warning) }
                         HStack {
                             Spacer()
                             Button(tr("captions.autoLyrics")) { store.generateCaptions(lyrics: true) }
@@ -67,6 +66,15 @@ struct AutoCaptionsPanel: View {
             .background(Theme.panel)
             .background(TranslationHost(store: store))
             .testID("captions.panel")
+            // pre-flight (BUG-CAPTION-ERRORS): re-checked whenever what it depends on may have changed
+            .onAppear { ai.captionsPanelVisible = true; store.refreshCaptionReadiness() }
+            .onDisappear { ai.captionsPanelVisible = false }
+            .onChange(of: ai.captionLanguage) { _ in store.refreshCaptionReadiness() }
+            .onChange(of: ai.captionEngine) { _ in store.refreshCaptionReadiness() }
+            .onChange(of: ModelManager.shared.state(ModelCatalog.whisperTurbo).isInstalled) { _ in store.refreshCaptionReadiness() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                store.refreshCaptionReadiness()
+            }
         }
     }
 
@@ -74,9 +82,18 @@ struct AutoCaptionsPanel: View {
 
     @ViewBuilder var footer: some View {
         let ai = store.ai
+        let blocker = store.captionBlocker
         VStack(spacing: 8) {
+            // why the last run failed, else what would block the next one, each with its fix
+            if let f = ai.captionFailure {
+                SpeechFailureCard(store: store, failure: f, repeated: ai.captionFailureRepeated, testID: "captions.failure")
+            } else if let b = blocker, ai.captionJob == nil {
+                SpeechFailureCard(store: store, failure: b, repeated: false, testID: "captions.readiness", hidden: [.downloadSpeechModel])
+            }
             if ai.captionJob != nil {
-                JobProgressLine(text: "\(tr(ai.captionPhase?.titleKey ?? "captions.phase.transcribing")) \(Int(ai.captionProgress * 100))%",
+                let waiting = ai.captionPhase == .permission
+                JobProgressLine(text: waiting ? tr("captions.phase.permission")
+                                    : "\(tr(ai.captionPhase?.titleKey ?? "captions.phase.transcribing")) \(Int(ai.captionProgress * 100))%",
                                 progress: ai.captionProgress) { store.cancelCaptions() }
             }
             HStack {
@@ -85,10 +102,13 @@ struct AutoCaptionsPanel: View {
                     Text(loc: "captions.deleteCurrent").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                 }
                 Spacer()
-                Button(tr("captions.generate")) { store.generateCaptions() }
+                let titleKey = store.captionGenerateTitleKey
+                Button(tr(titleKey)) {
+                    if titleKey == "captions.generate" { store.generateCaptions() } else { store.performSpeechRemedy(.downloadSpeechModel) }
+                }
                     .buttonStyle(AccentButtonStyle())
                     .testID("captions.generate")
-                    .disabled(ai.captionJob != nil || !hasAudio)
+                    .disabled(ai.captionJob != nil || !hasAudio || blocker == .appIncomplete)
                     .help(hasAudio ? "" : tr("captions.error.noAudio"))
             }
         }
@@ -163,6 +183,10 @@ struct SpeechModelCard: View {
                     }
                     Spacer()
                 }
+                if state.isInstalled && !runtime && UpdateController.shared.isAvailable {
+                    Button(tr("captions.remedy.checkForUpdates")) { UpdateController.shared.checkNow() }
+                        .buttonStyle(.link).font(Theme.Fonts.hint).testID("captions.engine.checkUpdates")
+                }
                 ModelStateControls(spec: spec)
                 if state.isInstalled && runtime {
                     InlineRow(label: tr("captions.engineChoice")) {
@@ -180,6 +204,8 @@ struct SpeechModelCard: View {
     func engineLine(_ s: AIModelState, _ runtime: Bool) -> String {
         if s.isInstalled && runtime { return tr("captions.engine.whisper") }
         if s.isInstalled && !runtime { return tr("captions.engine.noRuntime") }
+        // pre-flight said Apple speech can't do it here: the model is required, not just better
+        if store.captionBlocker.map({ store.speechRemedies(for: $0).first == .downloadSpeechModel }) == true { return tr("captions.engine.needsModel") }
         return tr("captions.engine.apple")
     }
 }
@@ -272,9 +298,18 @@ struct ModelManagerSheet: View {
                         .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
                     }
                 }
-                HStack(spacing: 6) {
-                    Image(systemName: WhisperRuntime.cliURL != nil ? "checkmark.circle" : "exclamationmark.triangle").foregroundStyle(WhisperRuntime.cliURL != nil ? Theme.accent : IStyle.warning)
-                    HintText(text: WhisperRuntime.cliURL != nil ? tr("models.runtimeOK") : tr("models.runtimeMissing"))
+                // nothing to say when the speech helper is there; otherwise say how to get it (no developer jargon)
+                if WhisperRuntime.cliURL == nil {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle").foregroundStyle(IStyle.warning)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HintText(text: tr("models.runtimeMissing"))
+                            if UpdateController.shared.isAvailable {
+                                Button(tr("captions.remedy.checkForUpdates")) { UpdateController.shared.checkNow() }
+                                    .buttonStyle(.link).font(Theme.Fonts.hint).testID("models.checkUpdates")
+                            }
+                        }
+                    }
                 }
             }
         }

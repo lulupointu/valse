@@ -38,6 +38,9 @@ public actor JobQueue {
     private var tasks: [JobID: Task<Void, Never>] = [:]
     private var subscribers: [UUID: AsyncStream<[JobInfo]>.Continuation] = [:]
     private var waiters: [JobID: [CheckedContinuation<JobInfo.State, Never>]] = [:]
+    /// The error a `.failed` job threw (the state only carries its description): callers present typed reasons
+    /// (e.g. `SpeechFailure`) instead of matching strings. Trimmed with the job history.
+    private var errors: [JobID: any Error] = [:]
     private var isShutDown = false
     /// Heavy jobs waiting for `HeavyWorkGate` (not schedulable yet) / holding it until they end (test processes).
     private var awaitingGate: Set<JobID> = []
@@ -100,6 +103,15 @@ public actor JobQueue {
         return await withCheckedContinuation { c in waiters[id, default: []].append(c) }
     }
 
+    /// The error thrown by a failed job (nil while it runs, when it succeeded or was cancelled).
+    public func error(_ id: JobID) -> (any Error)? { errors[id] }
+
+    /// Waits for a job to end; returns its final state and, when it failed, the error it threw.
+    public func waitResult(_ id: JobID) async -> (state: JobInfo.State, error: (any Error)?) {
+        let s = await wait(id)
+        return (s, errors[id])
+    }
+
     public var snapshot: [JobInfo] { order.compactMap { jobs[$0] } }
 
     /// Stream of job lists (current list first).
@@ -140,18 +152,21 @@ public actor JobQueue {
         let handle = JobProgress(id: job.id, queue: self)
         tasks[job.id] = Task.detached(priority: job.priority > 0 ? .userInitiated : .utility) { [weak self] in
             var end: JobInfo.State = .done
+            var thrown: (any Error)?
             do { try await body(handle) } catch is CancellationError { end = .cancelled } catch {
                 end = Task.isCancelled ? .cancelled : .failed(String(describing: error))
+                thrown = error
             }
             if Task.isCancelled, end == .done { end = .cancelled }
-            await self?.finish(job.id, end)
+            await self?.finish(job.id, end, error: thrown)
         }
         publish()
         schedule()
     }
 
-    private func finish(_ id: JobID, _ state: JobInfo.State) {
+    private func finish(_ id: JobID, _ state: JobInfo.State, error: (any Error)? = nil) {
         jobs[id]?.state = state
+        if case .failed = state, let error { errors[id] = error }
         if state == .done { jobs[id]?.progress = 1 }
         tasks[id] = nil
         work[id] = nil
@@ -159,7 +174,7 @@ public actor JobQueue {
         for w in waiters.removeValue(forKey: id) ?? [] { w.resume(returning: state) }
         // keep finished jobs visible briefly; trim history
         let finished = order.filter { if let s = jobs[$0]?.state { return s != .queued && s != .running }; return false }
-        if finished.count > 20 { for f in finished.prefix(finished.count - 20) { jobs[f] = nil; order.removeAll { $0 == f } } }
+        if finished.count > 20 { for f in finished.prefix(finished.count - 20) { jobs[f] = nil; errors[f] = nil; order.removeAll { $0 == f } } }
         publish()
         schedule()
     }

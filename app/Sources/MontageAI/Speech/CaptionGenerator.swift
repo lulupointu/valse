@@ -33,6 +33,8 @@ public struct CaptionOptions: Sendable, Equatable {
 /// Progress phases shown by the captions sheet ("Generating captions…" → "Splitting captions…" → "Adding caption clips").
 public enum CaptionPhase: String, Sendable {
     case extracting, separating, transcribing, splitting, speakers, adding
+    /// The macOS speech-recognition prompt is open: "Waiting for permission…".
+    case permission
     public var titleKey: String { "captions.phase.\(rawValue)" }
 }
 
@@ -41,6 +43,8 @@ public struct CaptionResult: Sendable {
     public let count: Int
     public let language: String
     public let engine: String
+    /// "Identify speakers" was on but the speakers couldn't be told apart: the captions are added without them.
+    public var speakersSkipped = false
 }
 
 /// Runs speech recognition for the chosen clips and builds the undoable "Auto captions" edit. Each media range is
@@ -64,7 +68,10 @@ public enum CaptionGenerator {
     public static func run(project p: Project, options o: CaptionOptions, progress: (@Sendable (Double) -> Void)? = nil,
                            phase: (@Sendable (CaptionPhase) -> Void)? = nil) async throws -> CaptionResult {
         let clips = sourceClips(p, o.source)
-        guard !clips.isEmpty else { throw AIToolError.noInput }
+        guard !clips.isEmpty else { throw SpeechFailure.nothingToCaption(trackChosen: o.source != .allTracks) }
+        if let forced = SpeechTestHooks.forcedFailure { throw forced }   // UI tests: failure cards
+        let request = Transcriber.Request(language: o.language, engine: o.engine, keepFillers: o.settings.removeFillers,
+                                          candidates: Self.candidates(uiLanguage: L10n.shared.language))
         // merged source ranges per media
         var ranges: [MediaID: [TimeRange]] = [:]
         for c in clips { ranges[c.mediaID!, default: []].append(c.sourceRange) }
@@ -91,23 +98,34 @@ public enum CaptionGenerator {
             } else {
                 phase?(.extracting)
                 var source = PlayableURL.resolve(asset)
+                guard FileManager.default.fileExists(atPath: source.path) else {
+                    throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id)
+                }
                 if let m = lyricsMethod, m != .none {
                     phase?(.separating)   // AI-002 "Separating vocals…"
                     let base = done
                     let v = try await LyricsVocals.vocals(asset, method: m) { f in progress?(0.05 + 0.85 * (base + 0.5 * f * frac)) }
                     if let u = v.url { source = u }
                 }
-                let wav = try await AudioExtractor.wav16k(source, range: range)
+                let wav: URL
+                do { wav = try await AudioExtractor.wav16k(source, range: range) }
+                catch SpeechFailure.mediaOffline { throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id) }
+                catch SpeechFailure.noSoundInFile { throw SpeechFailure.noSoundInFile(name: asset.name) }
                 defer { try? FileManager.default.removeItem(at: wav) }
                 if AudioExtractor.isSilent(wav) {
                     t = Transcript(engine: "silence", language: o.language ?? "", words: [])
                 } else {
+                    // Apple speech asks for permission once: wait for the user's answer ("Waiting for permission…")
+                    if Transcriber.willAskPermission(request) {
+                        phase?(.permission)
+                        _ = await Transcriber.requestAuthorization()
+                        try Task.checkCancellation()
+                    }
                     phase?(.transcribing)
                     // with vocal separation the transcription is the second half of this range's progress
                     let sep = (lyricsMethod ?? .none) == .none ? 0.0 : 0.5
                     let base = done + sep * frac
-                    let r = try await Transcriber.transcribe(
-                        wav: wav, request: .init(language: o.language, engine: o.engine, keepFillers: keepFillers)) { f in
+                    let r = try await Transcriber.transcribe(wav: wav, request: request) { f in
                             progress?(0.05 + 0.85 * (base + (1 - sep) * f * frac))
                         }
                     t = r.shifted(by: range.start.seconds)
@@ -132,15 +150,24 @@ public enum CaptionGenerator {
                 segments += SpeechCaptions.segments(t, for: c, settings: settings)
             }
         }
-        guard !segments.isEmpty else { throw AIToolError.noSpeech }
+        guard !segments.isEmpty else { throw SpeechFailure.noSpeech(language: o.language) }
         var speakers = false
+        var speakersSkipped = false
         if o.identifySpeakers && !o.lyrics {
             phase?(.speakers)
-            let turns = try await SpeakerDiarizer.turns(segments: segments, clips: clips, project: p, speakerCount: o.speakerCount) { f in
-                progress?(0.9 + 0.07 * f)
+            // the transcription succeeded: a speaker problem never costs the captions (added without speaker colours)
+            do {
+                let turns = try await SpeakerDiarizer.turns(segments: segments, clips: clips, project: p, speakerCount: o.speakerCount) { f in
+                    progress?(0.9 + 0.07 * f)
+                }
+                segments = SpeakerCaptions.split(segments, turns: turns)
+                speakers = !turns.isEmpty
+                speakersSkipped = turns.isEmpty
+            } catch is CancellationError { throw CancellationError() }
+            catch {
+                EngineLog.error("speaker identification failed, captions added without speakers: \(error)")
+                speakersSkipped = true
             }
-            segments = SpeakerCaptions.split(segments, turns: turns)
-            speakers = !turns.isEmpty
         }
         phase?(.adding)
         progress?(0.97)
@@ -157,7 +184,14 @@ public enum CaptionGenerator {
             SpeechCaptions.finish(trackID: id, in: &p)
             if tagged { SpeakerCaptions.finish(in: &p) } else { SpeakerCaptions.syncSpeakers(in: &p) }
         }
-        return CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
+        var result = CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
+        result.speakersSkipped = speakersSkipped
+        return result
+    }
+
+    /// Apple-engine auto-detect candidates: the UI language first (it names the language in messages).
+    static func candidates(uiLanguage: String) -> [String] {
+        uiLanguage == "en" ? ["en", "fr"] : ["fr", "en"]
     }
 
     static func merge(_ rs: [TimeRange], pad: Time, limit: Time) -> [TimeRange] {
