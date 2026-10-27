@@ -176,7 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                        backing: .buffered, defer: false)
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
-        w.backgroundColor = NSColor(srgbRed: 0x14 / 255.0, green: 0x14 / 255.0, blue: 0x14 / 255.0, alpha: 1)
+        w.backgroundColor = RGBA(hex: ValseOptions.shared.chrome.palette.window).nsColor   // the chrome canvas (was a neutral #141414)
         w.minSize = NSSize(width: 1100, height: 680)
         w.title = "Montage"
         w.delegate = self

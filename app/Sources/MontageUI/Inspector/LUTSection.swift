@@ -22,11 +22,9 @@ struct LUTSection: View {
                 HStack {
                     Text(loc: "inspector.lut.name").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker(tr("inspector.lut.name"), selection: Binding.perceived(get: { current?.typeID ?? "" }, set: { choose($0) })) {
-                        Text(loc: "inspector.lut.none").tag("")
-                        ForEach(LUTLibrary.shared.all, id: \.id) { Text(verbatim: $0.name).tag($0.id) }
-                    }
-                    .labelsHidden().frame(width: 150).id(revision)
+                    Dropdown(items: [(id: "", title: tr("inspector.lut.none"))] + LUTLibrary.shared.all.map { (id: $0.id, title: $0.name) },
+                             selection: current?.typeID ?? "") { choose($0) }
+                        .frame(width: 150).id(revision)
                     Button(tr("inspector.lut.import")) { importLUT() }.buttonStyle(SecondaryButtonStyle())
                 }
                 if let current {

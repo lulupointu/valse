@@ -1,0 +1,9 @@
+/* TEMPORAIRE (VALSE-APP, tour 13) : le menu « Options Valse », les palettes de couleurs de l’interface. À supprimer avec ValseOptions.swift. */
+"valseopt.menu" = "Options Valse";
+"valseopt.chrome" = "Couleurs de l’interface";
+"valseopt.chrome.warm" = "1 · Anthracite chaud (actuel)";
+"valseopt.chrome.soft" = "2 · Anthracite doux (moins brun)";
+"valseopt.chrome.graphite" = "3 · Graphite (gris neutre)";
+"valseopt.chrome.ink" = "4 · Encre (noir bleuté)";
+"valseopt.chrome.plum" = "5 · Prune (noir aubergine)";
+"valseopt.chrome.deep" = "6 · Contraste profond (plus sombre, filets)";

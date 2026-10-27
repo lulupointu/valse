@@ -39,11 +39,9 @@ struct VoiceoverPanel: View {
                     HStack {
                         Text(loc: "record.input").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                         Spacer()
-                        Picker(tr("record.input"), selection: $device) {
-                            Text(loc: "record.input.default").tag(UInt32(0))
-                            ForEach(devices) { Text(verbatim: $0.name).tag($0.id) }
-                        }
-                        .labelsHidden().frame(width: 180).disabled(phase != .idle)
+                        Dropdown(items: [(id: UInt32(0), title: tr("record.input.default"))] + devices.map { (id: $0.id, title: $0.name) },
+                                 selection: device, enabled: phase == .idle) { device = $0 }
+                            .frame(width: 180)
                     }
                     // level meter
                     GeometryReader { g in
@@ -167,7 +165,7 @@ struct VoiceoverButton: View {
     var body: some View {
         WithPerceptionTracking {
             IconButton("mic", help: tr("toolbar.voiceover"), active: shown) { shown.toggle() }
-                .popover(isPresented: $shown, arrowEdge: .bottom) { WithPerceptionTracking { VoiceoverPanel(store: store) } }
+                .popover(isPresented: $shown, arrowEdge: .bottom) { WithPerceptionTracking { VoiceoverPanel(store: store).valsePopoverSurface() } }
         }
     }
 }

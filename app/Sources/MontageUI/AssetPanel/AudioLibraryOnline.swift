@@ -457,9 +457,9 @@ struct ChipRow: View {
                             let on = id == selection
                             Button { select(id) } label: {
                                 Text(verbatim: title(id)).font(.system(size: 11.5, weight: on ? .semibold : .regular))
-                                    .foregroundStyle(on ? Color.black : Theme.textPrimary)
+                                    .foregroundStyle(on ? Theme.onAccent : Theme.textPrimary)
                                     .padding(.horizontal, 10).frame(height: 24)
-                                    .background(on ? Theme.accent : Color(white: 0.2), in: Capsule())
+                                    .background(on ? Theme.accent : Theme.control, in: Capsule())   // round 13: was a neutral #333
                             }
                             .buttonStyle(.plain)
                             .testID("\(idPrefix).\(id.isEmpty ? "popular" : id)")

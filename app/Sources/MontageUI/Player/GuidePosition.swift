@@ -32,7 +32,7 @@ struct GuidePositionPopover: View {
                     Text(loc: g.axis == .vertical ? "player.guide.vertical" : "player.guide.horizontal")
                         .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                     TextField("", text: $text)
-                        .textFieldStyle(.roundedBorder).frame(width: 70).font(.system(size: 12).monospacedDigit())
+                        .textFieldStyle(ValseFieldStyle()).frame(width: 70).font(.system(size: 12).monospacedDigit())
                         .onSubmit { commit(id, length) }
                         .testID("guide.position")
                     SubTabBar(items: [("px", "px"), ("pct", "%")], selection: percent ? "pct" : "px") { v in

@@ -27,7 +27,7 @@ struct FontRow: View {
                     .buttonStyle(.plain)
                     .popover(isPresented: $open, arrowEdge: .leading) {
                         WithPerceptionTracking {
-                            FontPickerList(selected: font) { name in apply(name) }
+                            FontPickerList(selected: font) { name in apply(name) }.valsePopoverSurface()
                         }
                     }
                     StepperButton { d in step(d) }

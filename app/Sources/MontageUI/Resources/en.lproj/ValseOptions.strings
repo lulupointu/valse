@@ -1,0 +1,9 @@
+/* TEMPORARY (VALSE-APP round 13): the "Valse options" menu, the chrome colour palettes. Delete with ValseOptions.swift. */
+"valseopt.menu" = "Valse options";
+"valseopt.chrome" = "Chrome colours";
+"valseopt.chrome.warm" = "1 · Warm charcoal (current)";
+"valseopt.chrome.soft" = "2 · Soft charcoal (less brown)";
+"valseopt.chrome.graphite" = "3 · Graphite (neutral grey)";
+"valseopt.chrome.ink" = "4 · Ink (blue-black)";
+"valseopt.chrome.plum" = "5 · Plum (aubergine-black)";
+"valseopt.chrome.deep" = "6 · Deep contrast (darker, hairlines)";

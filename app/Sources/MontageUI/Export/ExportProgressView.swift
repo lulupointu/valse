@@ -218,7 +218,7 @@ struct ExportQueueButton: View {
                                 }
                             }.frame(maxHeight: 320)
                         }
-                        .padding(14).frame(width: 360).background(Theme.menu)
+                        .padding(14).frame(width: 360).valsePopoverSurface()
                     }
                 }
             }

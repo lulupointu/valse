@@ -120,7 +120,7 @@ struct ExportSheet: View {
                 .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain).padding(8).testID("export.editCover")
-            .popover(isPresented: $coverPopover, arrowEdge: .bottom) { WithPerceptionTracking { CoverEditor(model: model, store: store) } }
+            .popover(isPresented: $coverPopover, arrowEdge: .bottom) { WithPerceptionTracking { CoverEditor(model: model, store: store).valsePopoverSurface() } }
         }
         .frame(width: 320, height: 180)
     }

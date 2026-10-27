@@ -138,7 +138,7 @@ struct TimelineToolbarBar: View, Equatable {
                     Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 14, height: 26)
                 }
                 .buttonStyle(ValseIconButtonStyle()).help(tr("linkage.title"))
-                .popover(isPresented: $showLinkage, arrowEdge: .bottom) { WithPerceptionTracking { LinkageSettingsView(store: store) } }
+                .popover(isPresented: $showLinkage, arrowEdge: .bottom) { WithPerceptionTracking { LinkageSettingsView(store: store).valsePopoverSurface() } }
                 IconButton("rectangle.and.hand.point.up.left", help: tr(m.previewAxis ? "toolbar.previewAxis.off" : "toolbar.previewAxis.on"), active: m.previewAxis) {
                     ui.previewAxis.toggle()
                 }
@@ -209,7 +209,7 @@ struct RenameClipBar: View {
             HStack(spacing: 8) {
                 Image(systemName: "pencil").foregroundStyle(Theme.accent)
                 Text(loc: "tlmenu.rename").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                TextField("", text: $name).textFieldStyle(.roundedBorder).frame(width: 260).focused($focused)
+                TextField("", text: $name).textFieldStyle(ValseFieldStyle()).frame(width: 260).focused($focused)
                     .onSubmit { commit() }.testID("rename.field")
                 Button(tr("common.ok")) { commit() }.buttonStyle(SecondaryButtonStyle()).controlSize(.small).testID("rename.ok")
                 Button(tr("common.cancel")) { store.timelineUI.renamingClip = nil }.buttonStyle(SecondaryButtonStyle()).controlSize(.small)

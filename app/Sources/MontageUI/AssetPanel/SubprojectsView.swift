@@ -91,7 +91,7 @@ struct SubprojectsView: View {
                 .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack")).testID("subprojects.add.\(index)")
             }
             if renaming == c.id {
-                TextField("", text: $name).textFieldStyle(.roundedBorder).font(.system(size: 11.5))
+                TextField("", text: $name).textFieldStyle(ValseFieldStyle()).font(.system(size: 11.5))
                     .onSubmit { store.renameSubproject(c.id, to: name); renaming = nil }
                     .testID("subprojects.renameField")
             } else {

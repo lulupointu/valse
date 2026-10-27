@@ -530,7 +530,7 @@ struct MediaCard: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
-            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset) } }
+            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset).valsePopoverSurface() } }
             .mediaTap(asset, store: store, order: order, tab: tab, width: cardWidth)
             .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
             .task(id: asset.contentHash) {
@@ -711,7 +711,7 @@ struct MediaRow: View {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }
-            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset) } }
+            .popover(isPresented: $showInfo) { WithPerceptionTracking { MediaInfoView(asset: asset).valsePopoverSurface() } }
             .mediaTap(asset, store: store, order: order, tab: tab, width: stripWidth)
             .onDrag { NSItemProvider(object: MediaSelection.payload(asset, order: order) as NSString) }
             .task(id: "\(asset.contentHash).\(count)") { await loadFrames() }
