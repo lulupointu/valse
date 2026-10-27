@@ -131,9 +131,17 @@ public enum CompositionBuilder {
             var laneClips: [AudioLaneKey: [Clip]] = [:]
             var rampFloor: [AudioLaneKey: Time] = [:]
             var laneVolumes: [AudioLaneKey: [(ramps: [GainRamp], end: Time)]] = [:]
+            // BUG-CUT-AUDIO-ARTEFACT: audio changes A/B lane only where neighbours overlap (transition): butted clips —
+            // a split — stay on one composition track, so contiguous source ranges decode and resample as one stream
+            // (on alternating lanes the second half restarted the 44.1 → 48 kHz resampler at the cut: a different
+            // sub-sample phase for the whole second clip and a transient at the cut).
+            var audioLane = 0
+            var previous: Clip?
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = lanes == 2 ? i % 2 : 0
+                if lanes == 2, let p = previous, p.transitionOut != nil || clip.start < p.end { audioLane = 1 - audioLane }
+                previous = clip
                 let choice = sources(asset)
                 // Reverse: play the reversed render forwards from the mirrored in-point (same remap, frame exact).
                 var videoURL = choice.video, audioURL = choice.audio
@@ -183,7 +191,7 @@ public enum CompositionBuilder {
                 if let processedURL { audioEntry = try await AssetCache.shared.entry(processedURL) }
                 let streamIndex = clip.reversed && reversedURL != nil ? 0 : clip.audioStreamIndex
                 if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(streamIndex) {
-                    let key = AudioLaneKey(lane: lane, format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex))
+                    let key = AudioLaneKey(lane: audioLane, format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex))
                     if aLanes[key] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                         let p = AVMutableAudioMixInputParameters(track: at)
                         p.trackID = at.trackID
