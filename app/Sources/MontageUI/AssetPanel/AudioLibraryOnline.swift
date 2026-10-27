@@ -140,9 +140,12 @@ final class OnlineAudioState {
             await withTaskGroup(of: (Int, Result<[OnlineTrack], OnlineAudioError>).self) { g in
                 for (i, (p, k)) in active.enumerated() {
                     g.addTask {
-                        do { return (i, .success(try await p.search(q, key: k, http: http))) } catch {
-                            return (i, .failure(OnlineAudioError.from(error)))
-                        }
+                        // the Result is built first, the tuple returned outside do/catch: with -O (Swift 6.3.3)
+                        // `do { return (i, .success(try await …)) } catch { … }` returned index 0 from every child, so
+                        // the last provider overwrote the first (release builds only: Jamendo rows missing)
+                        let r: Result<[OnlineTrack], OnlineAudioError>
+                        do { r = .success(try await p.search(q, key: k, http: http)) } catch { r = .failure(OnlineAudioError.from(error)) }
+                        return (i, r)
                     }
                 }
                 for await (i, r) in g { byProvider[i] = r }
