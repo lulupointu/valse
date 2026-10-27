@@ -24,8 +24,6 @@ public struct Project: Codable, Sendable, Equatable {
     /// Editing inside compound clips (TL-021): the parent timelines to return to. nil = not inside a compound.
     public var compoundEdit: [CompoundEditFrame]?
 
-    /// Diarized caption speakers (names + colours, AI-005 / TX-038). Optional so older files decode.
-    public var speakers: [CaptionSpeaker]?
     /// Multi-timeline (TL-023): every timeline in tab order; nil = one timeline. The active one is live in
     /// `timeline` / `settings` (see `TimelineSlot`). Optional so older files decode.
     public var timelines: [TimelineSlot]?

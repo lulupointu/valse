@@ -70,7 +70,6 @@ public enum CaptionOps {
         data.origin = origin
         data.words = s.words.map { CaptionWord($0.text, start: Time($0.start) - start, end: Time($0.end) - start) }
         data.translation = s.translation
-        data.speaker = s.speaker
         if s.translation != nil, data.display == nil { data.display = .both }
         t.caption = data
         var c = Clip(content: .text(t), start: start, duration: Time(max(s.end - s.start, 0.1)))
@@ -156,7 +155,7 @@ public enum CaptionOps {
             let w = t.caption.map { _ in words(of: c) } ?? []
             return CaptionSegment(text: s, start: c.start.seconds, end: c.end.seconds,
                                   words: w.map { ($0.text, (origin + $0.start).seconds, (origin + $0.end).seconds) },
-                                  translation: t.caption?.translation, speaker: t.caption?.speaker)
+                                  translation: t.caption?.translation)
         }
     }
 

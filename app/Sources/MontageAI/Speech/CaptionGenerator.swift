@@ -17,22 +17,17 @@ public struct CaptionOptions: Sendable, Equatable {
     public var lyrics: Bool
     /// Caption look (nil = the text team's default caption style).
     public var style: TextContent?
-    /// "Identify speakers" (AI-005): diarize, split captions at speaker changes, colour per speaker.
-    public var identifySpeakers: Bool = false
-    /// Number of speakers (nil = Auto).
-    public var speakerCount: Int? = nil
     public init(language: String? = nil, engine: SpeechEngine = .automatic, source: Source = .allTracks,
                 settings: CaptionSettings = CaptionSettings(), replaceExisting: Bool = true, lyrics: Bool = false,
-                style: TextContent? = nil, identifySpeakers: Bool = false, speakerCount: Int? = nil) {
+                style: TextContent? = nil) {
         self.language = language; self.engine = engine; self.source = source; self.settings = settings
         self.replaceExisting = replaceExisting; self.lyrics = lyrics; self.style = style
-        self.identifySpeakers = identifySpeakers; self.speakerCount = speakerCount
     }
 }
 
 /// Progress phases shown by the captions sheet ("Generating captions…" → "Splitting captions…" → "Adding caption clips").
 public enum CaptionPhase: String, Sendable {
-    case extracting, separating, transcribing, splitting, speakers, adding
+    case extracting, separating, transcribing, splitting, adding
     /// The macOS speech-recognition prompt is open: "Waiting for permission…".
     case permission
     public var titleKey: String { "captions.phase.\(rawValue)" }
@@ -43,8 +38,6 @@ public struct CaptionResult: Sendable {
     public let count: Int
     public let language: String
     public let engine: String
-    /// "Identify speakers" was on but the speakers couldn't be told apart: the captions are added without them.
-    public var speakersSkipped = false
 }
 
 /// Runs speech recognition for the chosen clips and builds the undoable "Auto captions" edit. Each media range is
@@ -151,24 +144,6 @@ public enum CaptionGenerator {
             }
         }
         guard !segments.isEmpty else { throw SpeechFailure.noSpeech(language: o.language) }
-        var speakers = false
-        var speakersSkipped = false
-        if o.identifySpeakers && !o.lyrics {
-            phase?(.speakers)
-            // the transcription succeeded: a speaker problem never costs the captions (added without speaker colours)
-            do {
-                let turns = try await SpeakerDiarizer.turns(segments: segments, clips: clips, project: p, speakerCount: o.speakerCount) { f in
-                    progress?(0.9 + 0.07 * f)
-                }
-                segments = SpeakerCaptions.split(segments, turns: turns)
-                speakers = !turns.isEmpty
-                speakersSkipped = turns.isEmpty
-            } catch is CancellationError { throw CancellationError() }
-            catch {
-                EngineLog.error("speaker identification failed, captions added without speakers: \(error)")
-                speakersSkipped = true
-            }
-        }
         phase?(.adding)
         progress?(0.97)
         let lang = detected.max { $0.value < $1.value }?.key ?? o.language ?? "en"
@@ -176,25 +151,23 @@ public enum CaptionGenerator {
         let origin: CaptionOrigin = o.lyrics ? .lyrics : .auto
         let style = o.style
         let final = segments
-        let tagged = speakers
         let cmd = Edit(o.lyrics ? "cmd.lyrics" : "cmd.captions") { p in
-            try insert(final, style: style, origin: origin, replacing: replace, speakers: tagged, into: &p)
+            try insert(final, style: style, origin: origin, replacing: replace, language: lang, into: &p)
         }
-        var result = CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
-        result.speakersSkipped = speakersSkipped
-        return result
+        return CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
     }
 
     /// The "Auto captions" / "Auto lyrics" edit body: a new caption track (never on an existing track, so no existing
-    /// clip moves: BUG-AUTOCAPTION-SHIFT), captions linked to the main clips under them, speakers registered.
+    /// clip moves: BUG-AUTOCAPTION-SHIFT), captions linked to the main clips under them.
     @discardableResult
     public static func insert(_ segments: [CaptionSegment], style: TextContent?, origin: CaptionOrigin, replacing: Bool,
-                              speakers: Bool, into p: inout Project) throws -> TrackID {
+                              language: String? = nil, into p: inout Project) throws -> TrackID {
         guard let id = CaptionOps.addCaptionTrack(segments, to: &p, style: style, origin: origin, replacing: replacing) else {
             throw EditError.nothingToDo
         }
         SpeechCaptions.finish(trackID: id, in: &p)
-        if speakers { SpeakerCaptions.finish(in: &p) } else { SpeakerCaptions.syncSpeakers(in: &p) }
+        // CAP-LANG-TRACKS: the track knows its language
+        if let ti = p.timeline.trackIndex(id) { p.timeline.tracks[ti].captionLanguage = CaptionLanguageTracks.normalized(language) }
         return id
     }
 

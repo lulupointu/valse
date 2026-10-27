@@ -33,7 +33,6 @@
 "captions.failure.other.repeated.body" = "Captions still can't be created. Copy the details and send them to us.";
 "captions.failure.notApplied" = "No captions were added.";
 "captions.failure.detailsCopied" = "Details copied";
-"captions.addedNoSpeakers" = "Captions added (%d). Couldn't tell the speakers apart.";
 "captions.phase.permission" = "Waiting for permission…";
 "captions.engine.needsModel" = "This Mac needs the speech model to create captions.";
 "align.error.failed" = "Couldn't match the script to the video because of an unexpected problem. Try again.";

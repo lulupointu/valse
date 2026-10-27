@@ -1,14 +1,11 @@
 /* Text engine UI (W7): text inspector, font picker, captions editor, Text asset tab. */
 "captions.tab" = "Sous-titres";
 "captions.templates" = "Modèles de sous-titres";
-"captions.tip" = "Double-cliquez sur le numéro pour lire depuis le sous-titre · Diviser : Entrée · Nouvelle ligne : ⌘ Entrée · Fusionner vers le haut : Supprimer au début · Fusionner vers le bas : Fn Supprimer à la fin";
 "captions.added" = "Sous-titres ajoutés";
 "captions.updated" = "Sous-titres mis à jour";
 "captions.applyAll" = "Appliquer à tous les sous-titres";
 "captions.applyAll.help" = "Copier le style, la position et les animations de ce sous-titre sur tous les sous-titres";
 "captions.bilingual" = "Sous-titres bilingues";
-"captions.bilingual.both" = "Bilingues";
-"captions.bilingual.translationOnly" = "Version traduite uniquement";
 "captions.error.cantDoHere" = "Impossible ici";
 "captions.error.cantMerge" = "Impossible de fusionner ici";
 "captions.error.cantSplit" = "Impossible de diviser ici";
@@ -17,10 +14,7 @@
 "captions.export.failed" = "Impossible d'exporter les sous-titres";
 "captions.find" = "Rechercher et remplacer";
 "captions.find.caseSensitive" = "Respecter la casse";
-"captions.find.count" = "%d trouvé(s)";
 "captions.find.none" = "Aucun résultat";
-"captions.find.placeholder" = "Rechercher";
-"captions.replace.placeholder" = "Remplacer par";
 "captions.replaceAll" = "Tout remplacer";
 "captions.replaced" = "%d remplacement(s)";
 "captions.import" = "Importer";
@@ -35,8 +29,6 @@
 "captions.script.failed" = "Impossible de diviser le texte en sous-titres";
 "captions.script.split" = "Diviser et ajouter";
 "captions.script.noSplit" = "Ajouter sans diviser";
-"captions.wrap" = "Renvoi à la ligne des sous-titres";
-"captions.wrap.option" = "%d caractères · %d ligne(s)";
 "cmd.captionApplyAll" = "Appliquer à tous les sous-titres";
 "cmd.captionBilingual" = "Sous-titres bilingues";
 "cmd.captionImport" = "Importer des sous-titres";

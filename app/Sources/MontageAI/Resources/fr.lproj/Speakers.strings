@@ -1,3 +1,0 @@
-"model.speakers" = "WeSpeaker (identification des intervenants)";
-"model.speakers.desc" = "Distingue les intervenants pour des sous-titres avec le nom de chaque intervenant. Sans ce modèle, une analyse de voix plus simple est utilisée.";
-"captions.phase.speakers" = "Identification des intervenants…";

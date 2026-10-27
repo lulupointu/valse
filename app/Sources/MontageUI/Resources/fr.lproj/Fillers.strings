@@ -3,8 +3,6 @@
 "text.sub.templates" = "Modèles";
 "captions.applyAllMain" = "Appliquer à tous les sous-titres principaux";
 "captions.applyAllMain.help" = "Les changements de style de ce sous-titre s’appliquent aussi à tous les sous-titres de sa piste";
-"captions.addAfter" = "Ajouter un sous-titre après celui-ci";
 "captions.delete" = "Supprimer le sous-titre";
-"captions.newCaption" = "Nouveau sous-titre";
 "cmd.captionAdd" = "Ajouter un sous-titre";
 "cmd.captionDelete" = "Supprimer le sous-titre";

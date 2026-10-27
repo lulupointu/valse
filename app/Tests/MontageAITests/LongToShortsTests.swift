@@ -11,7 +11,7 @@ import MontageTestSupport
 /// Needs whisper.cpp + a whisper model (skipped otherwise).
 @Suite(.serialized) struct LongToShortsTests {
     static func talkingVideo() async throws -> URL? {
-        guard let conv = try await SpeakerDiarizationTests.conversation() else { return nil }
+        guard let conv = try await SyntheticDialogue.conversation() else { return nil }
         let dir = FileManager.default.temporaryDirectory
         let video = dir.appendingPathComponent("montage-shorts-src-video.mp4")
         try await SyntheticMedia.writeVideo(to: video, size: CGSize(width: 320, height: 180), seconds: 80, fps: 10,

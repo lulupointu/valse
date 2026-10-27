@@ -19,7 +19,7 @@ enum CaptionLanguages {
 }
 
 /// Text ▸ Auto captions (UX_AI §1.2, [119]): Spoken language (Auto detect), Bilingual captions, track selector,
-/// Identify speakers, speech model card; footer: ☐ Delete current captions · [Generate]. Non-blocking progress.
+/// speech model card; footer: ☐ Delete current captions · [Generate]. Non-blocking progress.
 struct AutoCaptionsPanel: View {
     let store: EditorStore
 
@@ -40,16 +40,6 @@ struct AutoCaptionsPanel: View {
                         if sources.count > 2 {
                             label("captions.selectTrack")
                             Dropdown(items: sources, selection: sourceKey(ai.captionSource)) { k in ai.captionSource = source(for: k) }
-                        }
-                        // AI-005: speaker ID (diarization) → captions split and coloured per speaker
-                        HStack(spacing: 8) {
-                            CapCheckbox(isOn: Binding.perceived(get: { ai.identifySpeakers }, set: { ai.identifySpeakers = $0 })).testID("captions.identifySpeakers")
-                            Text(loc: "speakers.identifyOption").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
-                            Spacer()
-                            if ai.identifySpeakers {
-                                Dropdown(items: SpeakersInspector.countItems, selection: ai.speakerCount) { ai.speakerCount = $0 }
-                                    .frame(width: 96).testID("captions.speakerCount")
-                            }
                         }
                         AdvancedSpeechSection(store: store)
                         HStack {
@@ -326,13 +316,14 @@ struct TranslationHost: View {
                 Color.clear.frame(width: 0, height: 0)
                     .translationTask(TranslationSession.Configuration(source: Locale.Language(identifier: req.source),
                                                                       target: Locale.Language(identifier: req.target))) { session in
-                        let caps = SpeechCaptions.captions(in: store.project.timeline).map { ($0.id, CaptionOps.text($0)?.string ?? "") }
+                        let caps = store.captionTranslationItems()
                         do {
                             let map = try await CaptionTranslator.translate(caps, with: session)
-                            store.applyTranslations(map, display: req.display)
+                            store.applyTranslations(map, target: req.target)
                         } catch {
                             store.ai.translating = false
                             store.ai.translationRequest = nil
+                            store.ai.translationSource = nil
                             store.showToast(tr("captions.translateFailed"), error: true)
                         }
                     }
