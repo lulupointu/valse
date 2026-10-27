@@ -15,23 +15,13 @@ import ValseTestSupport
 @Suite struct CutFrameContinuityTests {
     static let fps = 30.0
 
-    /// iPhone-like stream structure (ffmpeg / x265): HEVC Main10, 30 fps, 5 s, OPEN GOPs of 28 frames (CRA at 0, 28, 56,
-    /// 84, 112 …; P every 4th frame, the 3 B frames before each CRA decoded after it — what IMG_9081 has). Each frame
-    /// shows its index as 8 vertical black / white stripes (bit k = stripe k, left to right).
-    static func openGOPClip() throws -> URL? {
-        guard let ff = HDRTests.ffmpegPath else { return nil }
-        let url = TestMedia.directory.appendingPathComponent("frame-drop-opengop-v1.mov")
-        if TestMedia.isUsable(url) { return url }
-        let tmp = TestMedia.directory.appendingPathComponent("tmp-\(UUID().uuidString).mov")
-        defer { try? FileManager.default.removeItem(at: tmp) }
-        _ = try HDRTests.shell(ff, ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=224x128:r=30:d=5",
-                                    "-vf", "geq=lum='if(mod(floor(N/pow(2\\,floor(X*8/W)))\\,2)\\,235\\,16)':cb=128:cr=128,format=yuv420p10le",
-                                    "-c:v", "libx265", "-preset", "ultrafast", "-profile:v", "main10", "-tag:v", "hvc1",
-                                    "-x265-params", "log-level=error:keyint=28:min-keyint=28:bframes=3:b-adapt=0:open-gop=1:scenecut=0",
-                                    tmp.path])
-        guard FileManager.default.fileExists(atPath: tmp.path) else { return nil }
-        TestMedia.publishFile(tmp, as: url)
-        return url
+    /// iPhone-structured stream (`TestMovies.writeFrameIndexHEVC`): HEVC, 30 fps, 5 s, open GOPs of 28 frames (CRA key
+    /// frames at 28, 56, 84, 112 …, flagged in the `sync` sample group like IMG_9081; an x265 file without that group
+    /// did NOT reproduce). Each frame shows its index as stripes.
+    static func openGOPClip() async throws -> URL {
+        try await TestMedia.cached(TestMedia.directory.appendingPathComponent("frame-drop-opengop-v2.mov")) { tmp in
+            try await TestMovies.writeFrameIndexHEVC(to: tmp, frames: 150)
+        }
     }
 
     /// The owner's layout: (timeline start, duration, source start) in seconds.
@@ -59,16 +49,6 @@ import ValseTestSupport
             p.project.timeline.tracks[main].clips = clips
         }
         return p.project
-    }
-
-    /// The frame index shown by a BGRA frame (stripes sampled on the middle row).
-    static func frameIndex(_ pb: CVPixelBuffer) -> Int {
-        CVPixelBufferLockBaseAddress(pb, .readOnly); defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
-        let w = CVPixelBufferGetWidth(pb), h = CVPixelBufferGetHeight(pb), bpr = CVPixelBufferGetBytesPerRow(pb)
-        let p = CVPixelBufferGetBaseAddress(pb)!.assumingMemoryBound(to: UInt8.self)
-        var v = 0
-        for k in 0..<8 where p[(h / 2) * bpr + Int((Double(k) + 0.5) * Double(w) / 8) * 4 + 1] > 128 { v |= 1 << k }
-        return v
     }
 
     /// Source frame the timeline shows at `t` (top track with a clip there), nil outside every clip.
@@ -100,7 +80,7 @@ import ValseTestSupport
             var out: [(Double, Int)] = []
             guard reader.startReading() else { return out }
             while let s = output.copyNextSampleBuffer() {
-                if let pb = CMSampleBufferGetImageBuffer(s) { out.append((CMSampleBufferGetPresentationTimeStamp(s).seconds, frameIndex(pb))) }
+                if let pb = CMSampleBufferGetImageBuffer(s) { out.append((CMSampleBufferGetPresentationTimeStamp(s).seconds, TestMovies.frameIndex(stripes: pb))) }
             }
             return out
         }
@@ -117,7 +97,7 @@ import ValseTestSupport
     }
 
     @Test func splitsBeforeAnOpenGOPKeyFrameShowEveryFrame() async throws {
-        guard let clip = try Self.openGOPClip() else { return }   // no ffmpeg on this machine
+        let clip = try await Self.openGOPClip()
         let project = try await Self.project(clip, layout: Self.ownerSplits)
         // preview composition (what AVPlayer plays) and export composition, read through the compositor
         for purpose in [RenderPurpose.preview, .export] {
@@ -133,7 +113,7 @@ import ValseTestSupport
 
     /// One-lane track (overlay, no transition): a jump cut whose second clip starts on the P frame before a CRA.
     @Test func overlayJumpCutBeforeAnOpenGOPKeyFrameShowsEveryFrame() async throws {
-        guard let clip = try Self.openGOPClip() else { return }
+        let clip = try await Self.openGOPClip()
         let project = try await Self.project(clip, layout: [(0, 0.438, 2.652), (0.438, 0.526, 3.604)], overlay: true)
         let built = try await CompositionBuilder.build(project: project, purpose: .export)
         Self.check(try await Self.frames(built.composition, composition: built.videoComposition), project, "overlay")
