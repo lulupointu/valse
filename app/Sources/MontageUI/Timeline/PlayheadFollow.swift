@@ -28,6 +28,17 @@ struct PlayheadFollow: Equatable {
         if isPlaying { manual = true; lastUserScroll = now }
     }
 
+    /// CAP-EDITOR-UX: paused seek from the caption editor. New left-edge time that brings an off-screen playhead into
+    /// view with `padding` (left edge + padding / right edge − padding), nil when it is already visible.
+    static func reveal(playhead: Double, scrollTime: Double, pixelsPerSecond: Double, visibleWidth: Double) -> Double? {
+        guard pixelsPerSecond > 0, visibleWidth > 0 else { return nil }
+        let span = visibleWidth / pixelsPerSecond
+        let pad = min(padding, visibleWidth / 4) / pixelsPerSecond
+        if playhead < scrollTime { return max(0, playhead - pad) }
+        if playhead > scrollTime + span { return max(0, playhead - span + pad) }
+        return nil
+    }
+
     /// New left-edge time for the timeline, or nil to leave it where it is.
     /// - Parameters: `visibleWidth` = clip area width in points (without the track headers).
     mutating func update(isPlaying: Bool, playhead: Double, scrollTime: Double, pixelsPerSecond: Double,

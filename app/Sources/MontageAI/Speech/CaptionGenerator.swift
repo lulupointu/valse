@@ -152,7 +152,7 @@ public enum CaptionGenerator {
         let style = o.style
         let final = segments
         let cmd = Edit(o.lyrics ? "cmd.lyrics" : "cmd.captions") { p in
-            try insert(final, style: style, origin: origin, replacing: replace, into: &p)
+            try insert(final, style: style, origin: origin, replacing: replace, language: lang, into: &p)
         }
         return CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
     }
@@ -161,11 +161,13 @@ public enum CaptionGenerator {
     /// clip moves: BUG-AUTOCAPTION-SHIFT), captions linked to the main clips under them.
     @discardableResult
     public static func insert(_ segments: [CaptionSegment], style: TextContent?, origin: CaptionOrigin, replacing: Bool,
-                              into p: inout Project) throws -> TrackID {
+                              language: String? = nil, into p: inout Project) throws -> TrackID {
         guard let id = CaptionOps.addCaptionTrack(segments, to: &p, style: style, origin: origin, replacing: replacing) else {
             throw EditError.nothingToDo
         }
         SpeechCaptions.finish(trackID: id, in: &p)
+        // CAP-LANG-TRACKS: the track knows its language
+        if let ti = p.timeline.trackIndex(id) { p.timeline.tracks[ti].captionLanguage = CaptionLanguageTracks.normalized(language) }
         return id
     }
 

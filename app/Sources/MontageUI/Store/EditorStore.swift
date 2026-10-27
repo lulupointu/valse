@@ -115,6 +115,10 @@ public final class EditorStore {
     public let ai = AIUIState()
     /// Keyframe clipboard / keyframe panel (W5, MontageUI/Keyframes).
     public let keyframeUI = KeyframeUIState()
+    /// Inspector ▸ Captions editor state (CAP-EDITOR-UX, MontageUI/Text/CaptionEditorState.swift).
+    public let captionEditor = CaptionEditorState()
+    /// Caption under the playhead in the caption editor (its own small observable: rows don't re-render per tick).
+    public let captionNowPlaying = CaptionNowPlaying()
     /// Timeline zoom (points per second).
     public var pixelsPerSecond: Double = 40
     public private(set) var packageURL: URL? { didSet { syncProjectSlices() } }
@@ -151,8 +155,8 @@ public final class EditorStore {
         sessionStorage = EditSession(project: project)
         self.packageURL = packageURL
         engine = PlaybackEngine(project: project)
-        engine.onTimeUpdate = { [weak self] t in self?.engineTimeDidUpdate(t) }
-        engine.onPlayStateChange = { [weak self] playing in self?.transport.isPlaying = playing }
+        engine.onTimeUpdate = { [weak self] t in self?.engineTimeDidUpdate(t); self?.captionPlayheadDidChange(t) }
+        engine.onPlayStateChange = { [weak self] playing in self?.transport.isPlaying = playing; self?.captionPlayStateDidChange(playing) }
         ProxyManager.shared.onProxyReady = { [weak self] hash in
             guard let self else { return }
             self.proxyPending.remove(hash)   // the engine switches to the proxy itself (ProxyManager.proxyReadyNotification)
@@ -242,11 +246,20 @@ public final class EditorStore {
     }
 
     public func undo() {
+        let caption = captionHistoryWillChange()   // CAP-EDITOR-UX: ends a caption typing burst, remembers the caret
         if let key = session.undo() { showToast(tr("toast.undo", tr(key))); didChangeProject() }
+        captionHistoryDidChange(caption)
     }
 
     public func redo() {
+        let caption = captionHistoryWillChange()
         if let key = session.redo() { showToast(tr("toast.redo", tr(key))); didChangeProject() }
+        captionHistoryDidChange(caption)
+    }
+
+    /// Undoes the last step without a toast (CAP-EDITOR-UX: an empty caption added with + and left empty disappears).
+    func undoQuietly() {
+        if session.undo() != nil { didChangeProject() }
     }
 
     private func didChangeProject() {
@@ -324,14 +337,18 @@ public final class EditorStore {
         syncSelectionSlices()
         if playerUI.loopEnabled { updateLoopRange() }
         let ctx = InspectorContext(store: self)
+        let inCaptions = inspectorTab == "captions"
         if ctx.kind != inspectorKind {
             inspectorTabByKind[inspectorKind] = inspectorTab
             inspectorKind = ctx.kind
             inspectorTab = inspectorTabByKind[ctx.kind]
         }
+        // CAP-EDITOR-UX: the caption editor stays open while the selection changes (clicking a caption row selects it)
+        if inCaptions, InspectorRegistry.tabs(for: ctx).contains(where: { $0.id == "captions" }) { inspectorTab = "captions" }
         if let t = inspectorTab, !InspectorRegistry.tabs(for: ctx).contains(where: { $0.id == t }) {
             inspectorTab = nil
         }
+        captionSelectionDidChange()
     }
 
     // MARK: Selection helpers
@@ -596,6 +613,8 @@ public final class EditorStore {
 
     /// Replaces the open project (new project, demo, recovery) without history.
     public func load(project p: Project, packageURL url: URL? = nil) {
+        let p = Self.captionLanguagesMigrated(p)   // CAP-LANG-TRACKS: caption languages, bilingual sub-lines → tracks
+        captionEditor.activeTrackID = nil
         if let old = packageURL { SessionLock.release(old) }
         packageURL = url
         if let url { SessionLock.acquire(url) }

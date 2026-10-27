@@ -1,0 +1,55 @@
+// CAP-EDITOR-UX (owner requirements): a click in a caption that isn't being edited puts the caret there, makes the row
+// active and, paused, moves the playhead to the caption start; the list never scrolls when another caption starts being
+// edited (even scrolled down a long list); typing updates the model live; ⌘Z / ⇧⌘Z undo / redo the typing burst.
+{
+  "project": "demo-transcript:captions:long",
+  "steps": [
+    {"click": "id:inspector.tab.captions"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 40}},
+    {"expect": [{"path": "ui.inspectorTab", "equals": "captions"}, {"path": "ui.anchors", "contains": "captions.search"},
+                {"path": "ui.anchors", "contains": "captions.split"}]},
+    // a caption selected on the timeline is revealed in the list (the list scrolls down to it)
+    {"select": ["clip:1/19"]},
+    {"waitFor": {"path": "ui.captionEditor.active", "equals": 19}},
+    {"waitFor": {"path": "ui.captionEditor.listScrollY", "gt": 0}},
+    {"expect": {"path": "ui.inspectorTab", "equals": "captions"}},
+    {"seek": 0},
+    {"waitFor": {"path": "playhead", "lt": 0.05}},
+    // click in the text of row 20: editing, active, paused seek to its start, no scroll
+    {"click": "id:captions.row.20", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 19}},
+    {"waitFor": {"path": "ui.captionEditor.playheadAtActiveStart", "equals": true}},
+    {"expect": [{"path": "ui.captionEditor.active", "equals": 19}, {"path": "ui.captionEditor.unrequestedScrolls", "equals": 0},
+                {"path": "isPlaying", "equals": false}, {"path": "ui.inspectorTab", "equals": "captions"}]},
+    // another caption: the list stays where it is (no jump to the top, no focus loss)
+    {"click": "id:captions.row.19", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 18}},
+    {"waitFor": {"path": "ui.captionEditor.playheadAtActiveStart", "equals": true}},
+    {"expect": [{"path": "ui.captionEditor.unrequestedScrolls", "equals": 0}, {"path": "ui.captionEditor.listScrollY", "gt": 0}]},
+    // a second click in the caption being edited only moves the caret (no seek)
+    {"seek": 0.01},
+    {"waitFor": {"path": "playhead", "lt": 0.05}},
+    {"click": "id:captions.row.19", "at": [0.3, 0.3]},
+    {"expect": [{"path": "ui.captionEditor.editingIndex", "equals": 18}, {"path": "playhead", "lt": 0.05}]},
+    // Tab: next caption, caret at the end; typing updates the caption live (one burst)
+    {"key": "tab"},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 19}},
+    {"waitFor": {"path": "ui.captionEditor.caret", "equals": 34}},
+    {"type": " ok"},
+    {"waitFor": {"path": "ui.captionEditor.texts.19", "equals": "Caption number 20 of the long list ok"}},
+    {"expect": [{"path": "ui.transcript.captions.19.text", "equals": "Caption number 20 of the long list ok"},
+                {"path": "ui.captionEditor.unrequestedScrolls", "equals": 0}]},
+    // ⌘Z while the burst is open: the whole burst is undone, the caret goes back to where the text changed
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "ui.captionEditor.texts.19", "equals": "Caption number 20 of the long list"}},
+    {"expect": [{"path": "ui.captionEditor.editingIndex", "equals": 19}, {"path": "ui.captionEditor.caret", "equals": 34},
+                {"path": "undo.redoDepth", "gte": 1}]},
+    {"key": "cmd+shift+z"},
+    {"waitFor": {"path": "ui.captionEditor.texts.19", "equals": "Caption number 20 of the long list ok"}},
+    {"expect": [{"path": "undo.name", "equals": "cmd.captionText"}, {"path": "ui.captionEditor.unrequestedScrolls", "equals": 0}]},
+    // Esc: editing stops (no blinking caret in the snapshot), the row stays active
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.captionEditor.listFocused", "equals": true}},
+    {"snapshot": "cap-editor-editing", "element": "id:captions.editor", "baseline": true}
+  ]
+}

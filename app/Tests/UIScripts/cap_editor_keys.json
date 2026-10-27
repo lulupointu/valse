@@ -1,0 +1,62 @@
+// CAP-EDITOR-UX keyboard model: ↩ splits at the caret and keeps the focus (caret at the start of the new caption),
+// ⌫ at the start merges up (caret at the join), ⌘Z puts the caret back at the split point, Esc gives the keys to the
+// list (↓ moves the active row, ↩ edits it), + inserts an EMPTY caption with the caret in it, left empty it disappears.
+{
+  "project": "demo-transcript:captions",
+  "steps": [
+    {"click": "id:inspector.tab.captions"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 3}},
+    {"click": "id:captions.row.2", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 1}},
+    {"key": "shift+tab"},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 0}},
+    {"waitFor": {"path": "ui.captionEditor.caret", "equals": 36}},
+    {"key": "left", "repeat": 5},
+    {"waitFor": {"path": "ui.captionEditor.caret", "equals": 31}},
+    // ↩ = split here; the focus stays, caret at the start of "Today"
+    {"key": "return"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 4}},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 1}},
+    {"expect": [{"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show."},
+                {"path": "ui.captionEditor.texts.1", "equals": "Today"}, {"path": "ui.captionEditor.caret", "equals": 0},
+                {"path": "undo.name", "equals": "cmd.captionSplit"}]},
+    // ⌫ at the start = merge into the previous caption, caret at the join
+    {"key": "delete"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 3}},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 0}},
+    {"expect": [{"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show. Today"},
+                {"path": "ui.captionEditor.caret", "equals": 31}, {"path": "undo.name", "equals": "cmd.captionMerge"}]},
+    // undo the merge, then the split: the caret ends at the split point
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 4}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 3}},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 0}},
+    {"expect": [{"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show. Today"},
+                {"path": "ui.captionEditor.caret", "gte": 30}, {"path": "ui.captionEditor.caret", "lte": 31}]},
+    // Esc: stop editing, the list keeps the keys
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.captionEditor.listFocused", "equals": true}},
+    {"expect": [{"path": "ui.captionEditor.editingIndex", "equals": -1}, {"path": "ui.captionEditor.active", "equals": 0}]},
+    {"key": "down"},
+    {"waitFor": {"path": "ui.captionEditor.active", "equals": 1}},
+    {"waitFor": {"path": "ui.captionEditor.playheadAtActiveStart", "equals": true}},
+    {"key": "return"},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 1}},
+    {"expect": {"path": "ui.captionEditor.caret", "equals": 26}},
+    // + inserts an EMPTY caption after the row, caret in it
+    {"click": "id:captions.add.2"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 4}},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 2}},
+    {"expect": [{"path": "ui.captionEditor.texts.2", "equals": ""}, {"path": "undo.name", "equals": "cmd.captionAdd"}]},
+    {"type": "Fresh"},
+    {"waitFor": {"path": "ui.captionEditor.texts.2", "equals": "Fresh"}},
+    // a second empty one, left empty: it disappears again
+    {"click": "id:captions.add.3"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 5}},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 3}},
+    {"key": "shift+tab"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 4}},
+    {"expect": [{"path": "ui.captionEditor.editingIndex", "equals": 2}, {"path": "ui.captionEditor.texts.2", "equals": "Fresh"}]}
+  ]
+}

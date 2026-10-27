@@ -1,0 +1,43 @@
+// CAP-LANG-TRACKS: one caption track per language. The demo captions are detected as English; + Add ▸ French ▸ Empty,
+// same timing adds a second language tab, hidden in the video, with editable empty rows; each language edits on its
+// own; right-click ▸ Shown in video shows it; Delete all asks inline, is one undo step.
+{
+  "project": "demo-transcript:captions",
+  "steps": [
+    {"click": "id:inspector.tab.captions"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 3}},
+    {"expect": [{"path": "ui.captionEditor.languages.count", "equals": 1}, {"path": "ui.captionEditor.language", "equals": "en"}]},
+    {"click": "id:captions.lang.add"},
+    {"waitFor": {"path": "ui.anchors", "contains": "captions.lang.card"}},
+    {"click": "id:captions.lang.option.fr"},
+    {"click": "id:captions.lang.mode.empty"},
+    {"click": "id:captions.lang.confirm"},
+    {"waitFor": {"path": "ui.captionEditor.languages.count", "equals": 2}},
+    {"expect": [{"path": "ui.captionEditor.language", "equals": "fr"}, {"path": "ui.captionEditor.count", "equals": 3},
+                {"path": "ui.captionEditor.texts.0", "equals": ""}, {"path": "ui.captionEditor.shown.0", "equals": true},
+                {"path": "ui.captionEditor.shown.1", "equals": false}, {"path": "ui.anchors", "contains": "captions.empty"},
+                {"path": "undo.name", "equals": "cmd.captionAddLanguage"}]},
+    {"snapshot": "cap-editor-new-language", "element": "id:captions.editor", "baseline": true},
+    // the French captions are typed independently of the English ones
+    {"click": "id:captions.row.1", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 0}},
+    {"type": "Bonjour"},
+    {"waitFor": {"path": "ui.captionEditor.texts.0", "equals": "Bonjour"}},
+    {"click": "id:captions.lang.0"},
+    {"waitFor": {"path": "ui.captionEditor.language", "equals": "en"}},
+    {"expect": {"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show. Today"}},
+    // right-click ▸ Shown in video
+    {"contextMenu": "id:captions.lang.1", "item": "capedit.lang.shown"},
+    {"waitFor": {"path": "ui.captionEditor.shown.1", "equals": true}},
+    // Delete all French captions: inline confirmation, one undo step
+    {"click": "id:captions.lang.1"},
+    {"waitFor": {"path": "ui.captionEditor.language", "equals": "fr"}},
+    {"click": "id:captions.deleteAll"},
+    {"waitFor": {"path": "ui.anchors", "contains": "captions.deleteAll.confirm"}},
+    {"click": "id:captions.deleteAll.confirm"},
+    {"waitFor": {"path": "ui.captionEditor.languages.count", "equals": 1}},
+    {"expect": [{"path": "ui.captionEditor.language", "equals": "en"}, {"path": "undo.name", "equals": "cmd.captionDeleteAll"}]},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "ui.captionEditor.languages.count", "equals": 2}}
+  ]
+}

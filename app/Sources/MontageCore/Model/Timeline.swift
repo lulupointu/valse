@@ -53,6 +53,10 @@ public struct Track: Codable, Sendable, Equatable, Identifiable {
     /// Track volume (TL-018), linear gain applied on top of every clip's own volume (1 = 0 dB, max 2 ≈ +6 dB). nil = 1.
     public var volume: Double?
     public var gain: Double { volume ?? 1 }
+    /// Caption tracks (CAP-LANG-TRACKS): BCP-47 language of the captions ("fr", "en", "pt-BR"). nil = not known yet.
+    public var captionLanguage: String?
+    /// Caption tracks: the split rule chosen in the caption editor (CAP-EDITOR-UX). nil = none chosen.
+    public var captionSplit: CaptionSplitRule?
 
     public init(kind: TrackKind, isMain: Bool = false, clips: [Clip] = []) {
         id = TrackID(); self.kind = kind; self.isMain = isMain

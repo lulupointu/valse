@@ -1,5 +1,5 @@
 // C4: Inspector ▸ Captions follows CapCut [17]: Captions is the first tab, rows are number + text (no timing steppers),
-// the selected / hovered row shows ＋ (add a caption after) and 🗑 (delete); each is one undo step.
+// the selected / hovered row shows ＋ (add an EMPTY caption after, CAP-EDITOR-UX) and 🗑 (delete); each is one undo step.
 {
   "project": "demo-transcript:captions",
   "steps": [
@@ -11,7 +11,7 @@
     {"snapshot": "caption-list", "element": "id:panel.inspector"},
     {"click": "id:captions.add.1"},
     {"expect": [{"path": "undo.name", "equals": "cmd.captionAdd"}, {"path": "ui.transcript.captions.count", "equals": 4},
-                {"path": "ui.transcript.captions.1.text", "equals": "New caption"},
+                {"path": "ui.transcript.captions.1.text", "equals": ""},
                 {"path": "ui.transcript.captions.2.text", "equals": "we we talk about captions."}]},
     {"click": "id:captions.delete.2"},
     {"expect": [{"path": "undo.name", "equals": "cmd.captionDelete"}, {"path": "ui.transcript.captions.count", "equals": 3}]},

@@ -1,0 +1,21 @@
+// CAP-EDITOR-UX in French: language tab, Exporter, Options de découpage (open, current rule), pinned search
+// "Rechercher en anglais", active row with ↻ + 🗑 and the timing strip, footer "3 sous-titres · Raccourcis".
+{
+  "project": "demo-transcript:captions",
+  "lang": "fr",
+  "steps": [
+    {"select": ["clip:1/1"]},
+    {"waitFor": {"path": "ui.inspectorTabs.0", "equals": "captions"}},
+    {"click": "id:inspector.tab.captions"},
+    {"waitFor": {"path": "ui.captionEditor.active", "equals": 1}},
+    {"click": "id:captions.split"},
+    {"waitFor": {"path": "ui.captionEditor.splitOpen", "equals": true}},
+    {"expect": [{"path": "ui.anchors", "contains": "captions.timing"}, {"path": "ui.anchors", "contains": "captions.replay.2"},
+                {"path": "ui.anchors", "contains": "captions.count"}]},
+    {"snapshot": "cap-editor-fr", "element": "id:captions.editor", "baseline": true},
+    {"hover": "id:captions.replay.2"},
+    {"waitFor": {"path": "ui.tooltip", "equals": "Rejouer la ligne"}},
+    {"click": "id:captions.split"},
+    {"waitFor": {"path": "ui.captionEditor.splitOpen", "equals": false}}
+  ]
+}

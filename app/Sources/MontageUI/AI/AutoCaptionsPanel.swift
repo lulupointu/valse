@@ -316,13 +316,14 @@ struct TranslationHost: View {
                 Color.clear.frame(width: 0, height: 0)
                     .translationTask(TranslationSession.Configuration(source: Locale.Language(identifier: req.source),
                                                                       target: Locale.Language(identifier: req.target))) { session in
-                        let caps = SpeechCaptions.captions(in: store.project.timeline).map { ($0.id, CaptionOps.text($0)?.string ?? "") }
+                        let caps = store.captionTranslationItems()
                         do {
                             let map = try await CaptionTranslator.translate(caps, with: session)
-                            store.applyTranslations(map, display: req.display)
+                            store.applyTranslations(map, target: req.target)
                         } catch {
                             store.ai.translating = false
                             store.ai.translationRequest = nil
+                            store.ai.translationSource = nil
                             store.showToast(tr("captions.translateFailed"), error: true)
                         }
                     }

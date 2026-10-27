@@ -36,6 +36,8 @@ public final class AIUIState {
     public var captionSpokenLanguage: String?
     /// Pending translation request handled by a `.translationTask` host view (needs the OS download prompt).
     public var translationRequest: TranslationRequest?
+    /// CAP-LANG-TRACKS: the caption track being translated into a new language track, and whether it starts hidden.
+    public var translationSource: TranslationSource?
     // Cutout: clip → running matte job
     public var cutoutJobs: [ClipID: JobID] = [:]
     public var reframeJobs: [ClipID: JobID] = [:]
@@ -201,43 +203,11 @@ extension EditorStore {
         return r.dominantLanguage?.rawValue ?? L10n.shared.language
     }
 
-    /// Bilingual captions: translates every caption on device (Apple Translation). Installed language pairs run
-    /// directly in the background; otherwise a translation host view asks the system to download the pair first.
+    /// Bilingual captions (Auto captions ▸ Bilingual): the active caption track translated on device into a second,
+    /// visible language track stacked above it (CAP-LANG-TRACKS).
     public func translateCaptions(to target: String, display: BilingualDisplay) {
-        let caps = SpeechCaptions.captions(in: project.timeline)
-        guard !caps.isEmpty else { return }
-        let source = captionLanguage
-        guard source != target else { showToast(tr("captions.sameLanguage"), error: true); return }
-        ai.translating = true
-        let items = caps.map { ($0.id, CaptionOps.text($0)?.string ?? "") }
-        Task {
-            switch await CaptionTranslator.status(from: source, to: target) {
-            case .installed:
-                do {
-                    let map = try await CaptionTranslator.translate(items, from: source, to: target)
-                    applyTranslations(map, display: display)
-                } catch {
-                    ai.translationRequest = TranslationRequest(source: source, target: target, display: display)
-                }
-            case .needsDownload:
-                ai.translationRequest = TranslationRequest(source: source, target: target, display: display)
-            case .unsupported:
-                ai.translating = false
-                showToast(tr("captions.translateUnsupported"), error: true)
-            }
-        }
-    }
-
-    func applyTranslations(_ map: [ClipID: String], display: BilingualDisplay) {
-        ai.translating = false
-        ai.translationRequest = nil
-        guard !map.isEmpty else { return }
-        perform(Edit("cmd.captionTranslate") { p in SpeechCaptions.setTranslations(map, display: display, in: &p.timeline) })
-        showToast(tr("captions.translated"))
-    }
-
-    public func clearCaptionTranslations() {
-        perform(Edit("cmd.captionTranslate") { p in SpeechCaptions.clearTranslations(in: &p.timeline) })
+        guard let ti = captionEditorTrackIndex else { return }
+        captionTranslate(from: project.timeline.tracks[ti].id, to: target, hidden: false)
     }
 
     // MARK: Cutout

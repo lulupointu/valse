@@ -28,8 +28,14 @@ enum TextInspector {
         AnyView(PillButton(title: tr("inspector.saveAsPreset"), accent: true) { ctx.store.saveTextPreset() })
     }, appliesTo: { $0.kind == .text })
 
-    /// Captions comes first for caption clips (CapCut: Captions | Text | Animation | …).
-    static let captionsTab = InspectorTab(id: "captions", titleKey: "captions.tab", order: -1, appliesTo: isCaption)
+    /// Captions comes first for caption clips (CapCut: Captions | Text | Animation | …). CAP-EDITOR-UX: shown whenever
+    /// the project has captions (after Details with nothing selected, last for other clips).
+    static let captionsTab: InspectorTab = {
+        var t = InspectorTab(id: "captions", titleKey: "captions.tab", order: -1, appliesTo: { isCaption($0) || hasCaptions($0) })
+        t.dynamicOrder = { ctx in isCaption(ctx) || ctx.store.selectedClipsSlice.contains(where: CaptionOps.isCaption) ? -1 : (ctx.kind == .none ? -1 : 100) }
+        return t
+    }()
+    static func hasCaptions(_ ctx: InspectorContext) -> Bool { !CaptionOps.captionTracks(ctx.store.project.timeline).isEmpty }
 
     static let tabs = [textTab, captionsTab]
 
@@ -58,7 +64,11 @@ enum TextInspector {
                          chrome: TextCurveSection.chrome) { AnyView(TextCurveSection(ctx: $0)) },
         InspectorSection(id: "text.bubble", tab: "text", subTab: "bubble", order: 0, titleKey: nil) { AnyView(TextBubbleSection(ctx: $0)) },
         InspectorSection(id: "text.templates", tab: "text", subTab: "templates", order: 0, titleKey: nil) { AnyView(TextEffectsSection(ctx: $0)) },
-        InspectorSection(id: "captions.list", tab: "captions", order: 0, titleKey: nil) { AnyView(CaptionEditorSection(ctx: $0)) },
+        {
+            var s = InspectorSection(id: "captions.list", tab: "captions", order: 0, titleKey: nil) { AnyView(CaptionEditorSection(ctx: $0)) }
+            s.ownsScroll = true
+            return s
+        }(),
         InspectorSection(id: "captions.spokenWord", tab: "text", subTab: "spokenWord", order: 0, titleKey: "spokenWord.section",
                          appliesTo: isCaption, chrome: CaptionSpokenWordSection.chrome) { AnyView(CaptionSpokenWordSection(ctx: $0)) },
     ]

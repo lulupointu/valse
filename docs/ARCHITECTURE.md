@@ -359,6 +359,17 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
 - **UI** (`MontageUI/Text/`): `TextInspector` (tabs/sections registered from `BuiltinInspector`), `FontPicker` (+ `FontCatalog`
   over W9's `FontLibrary`), `ClipTextEditor` (typing = one undo step per burst), `CaptionEditor`, `TextAssetTab`, previews rendered
   with the real engine (`TextPreviewCache`). Inline canvas editing is W2's `InlineTextEditor`; `store.beginInlineTextEdit(id)`.
+- **Caption editor** (CAP-EDITOR-UX, `MontageUI/Text/CaptionEditor*.swift`): Inspector ▸ Captions, shown whenever the project
+  has captions; an `ownsScroll` section (the panel neither wraps it in its ScrollView nor rebuilds it on selection change).
+  State `store.captionEditor` (`CaptionEditorState`: language tab, editing id, focus / reveal requests, search) and
+  `store.captionNowPlaying` (tiny observable, rows don't re-render per tick). One NSTextView per row (`CaptionNSTextView`:
+  native click-to-caret, keys in `keyDown` / `performKeyEquivalent`, ⌘Z on the project stack); typing = live gesture
+  `cmd.captionText`, one undo step per burst (`captionTyped` / `endCaptionTyping`, 1.5 s idle); undo / redo put the caret at
+  the first changed character (`captionHistoryWillChange/DidChange` around `EditorStore.undo`). Focus survives model changes
+  through `CaptionFocusRequest`. Paused seeks reveal the playhead on the timeline (`PlayheadFollow.reveal`). UI test dump:
+  `ui.captionEditor.*` (incl. `unrequestedScrolls`: the list must never jump). Languages (CAP-LANG-TRACKS): one caption track
+  per language (`Track.captionLanguage`, split rule `Track.captionSplit`), `CaptionLanguageTracks` (Core: add a language
+  track with the same timing, migrate the old bilingual sub-line on open, `EditorStore.load`).
 - **Add a text style / animation / bubble / template / caption template**: one entry in the matching `Builtin/Text*.swift` /
   `CaptionTemplates.swift` list + keys in `MontageEffects/Resources/*/Text.strings`. `TextRenderTests` renders every registry entry.
 

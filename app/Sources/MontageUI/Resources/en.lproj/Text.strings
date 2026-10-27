@@ -1,14 +1,11 @@
 /* Text engine UI (W7): text inspector, font picker, captions editor, Text asset tab. */
 "captions.tab" = "Captions";
 "captions.templates" = "Caption templates";
-"captions.tip" = "Double-click the number to play from the caption · Split: Enter · New line: ⌘ Enter · Merge up: Delete at the start · Merge down: Fn Delete at the end";
 "captions.added" = "Captions added";
 "captions.updated" = "Captions updated";
 "captions.applyAll" = "Apply to all captions";
 "captions.applyAll.help" = "Copy this caption's style, position and animations to every caption";
 "captions.bilingual" = "Bilingual captions";
-"captions.bilingual.both" = "Bilingual";
-"captions.bilingual.translationOnly" = "Translation only";
 "captions.error.cantDoHere" = "Can't do that here";
 "captions.error.cantMerge" = "Can't merge here";
 "captions.error.cantSplit" = "Can't split here";
@@ -17,10 +14,7 @@
 "captions.export.failed" = "Couldn't export captions";
 "captions.find" = "Find and replace";
 "captions.find.caseSensitive" = "Match case";
-"captions.find.count" = "%d found";
 "captions.find.none" = "No match";
-"captions.find.placeholder" = "Find";
-"captions.replace.placeholder" = "Replace with";
 "captions.replaceAll" = "Replace all";
 "captions.replaced" = "%d replaced";
 "captions.import" = "Import";
@@ -35,8 +29,6 @@
 "captions.script.failed" = "Couldn't split text to captions";
 "captions.script.split" = "Split and add";
 "captions.script.noSplit" = "Add without split";
-"captions.wrap" = "Captions line wrap";
-"captions.wrap.option" = "%d characters · %d line(s)";
 "cmd.captionApplyAll" = "Apply to all captions";
 "cmd.captionBilingual" = "Bilingual captions";
 "cmd.captionImport" = "Import captions";
