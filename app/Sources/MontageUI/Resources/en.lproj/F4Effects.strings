@@ -16,7 +16,7 @@
 
 /* FX-018 custom effects */
 "fx.custom.import" = "Import";
-"fx.custom.import.message" = "Choose an effect package (.montagefx folder or ZIP)";
+"fx.custom.import.message" = "Choose an effect package (.valsefx folder or ZIP)";
 "fx.custom.new" = "New effect";
 "fx.custom.reload" = "Reload";
 "fx.custom.folder" = "Show the effects folder";
@@ -30,7 +30,7 @@
 "fx.custom.reason.noShader" = "its shader file is missing";
 "fx.custom.reason.compile" = "its shader doesn't compile (details below the Import and Reload buttons)";
 "fx.custom.reason.unzip" = "the ZIP file can't be opened";
-"fx.custom.reason.other" = "Montage can't read it";
+"fx.custom.reason.other" = "Valse can't read it";
 "fx.custom.created" = "New effect created. Edit effect.metal, then Reload.";
 "fx.custom.reloaded" = "Custom effects reloaded";
 "fx.custom.showInFinder" = "Show in Finder";

@@ -51,7 +51,7 @@ import MontageEngine
         let f = SpeechFailure.languageUnavailable(language: "fr", canAddDictation: false)
         let m = f.message(uiLanguage: "fr")
         #expect(m.title.text(fr) == "Ce Mac ne peut pas reconnaître seul la parole en français")
-        #expect(m.body.text(fr).hasPrefix("Téléchargez le modèle vocal de Montage ("))
+        #expect(m.body.text(fr).hasPrefix("Téléchargez le modèle vocal de Valse ("))
         #expect(f.message(uiLanguage: "en").title.text(en) == "This Mac can't recognize speech in French on its own")
         #expect(f.remedies(helperPresent: true, modelInstalled: false, updatesAvailable: true) == [.downloadSpeechModel])
         // when dictation can add the language, it is the second way

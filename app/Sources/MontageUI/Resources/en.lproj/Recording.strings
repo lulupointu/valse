@@ -15,9 +15,9 @@
 "record.layout.single" = "Single track";
 "record.microphone" = "Microphone";
 "record.device.default" = "Default";
-"record.hint.screen" = "Montage's own windows are hidden from the recording. The result is added at the playhead.";
+"record.hint.screen" = "Valse's own windows are hidden from the recording. The result is added at the playhead.";
 "record.hint.camera" = "The recording is added at the playhead as its own clip.";
-"record.hint.recording" = "Montage is not recorded. Stop to add the recording to your project.";
+"record.hint.recording" = "Valse doesn't appear in the recording. Stop to add the recording to your project.";
 "record.start" = "Start recording";
 "record.countdown" = "Recording starts…";
 "record.recording" = "Recording";
@@ -30,11 +30,11 @@
 "record.compound" = "Screen recording";
 "record.file.screen" = "Screen recording";
 "record.file.camera" = "Camera recording";
-"record.permission.screen" = "Montage needs permission to record your screen";
-"record.permission.camera" = "Montage needs access to your camera";
-"record.permission.microphone" = "Montage needs access to your microphone";
+"record.permission.screen" = "Valse needs permission to record your screen";
+"record.permission.camera" = "Valse needs access to your camera";
+"record.permission.microphone" = "Valse needs access to your microphone";
 "record.permission.ask" = "macOS asks you once. Recordings stay on your Mac.";
-"record.permission.denied" = "Access is off. Turn Montage on in System Settings ▸ Privacy & Security, then check again (screen recording may need Montage to be reopened).";
+"record.permission.denied" = "Access is off. Turn Valse on in System Settings ▸ Privacy & Security, then check again (screen recording may need Valse to be reopened).";
 "record.permission.allow" = "Allow access";
 "record.permission.openSettings" = "Open System Settings";
 "record.permission.recheck" = "Check again";

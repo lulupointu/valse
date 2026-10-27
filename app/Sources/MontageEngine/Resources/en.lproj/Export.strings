@@ -15,7 +15,7 @@
 "export.error.missingMedia" = "Some media can't be found: %@. Relink them before exporting.";
 "export.error.space" = "Not enough free space to export here. Free up space, or choose another export location.";
 "export.error.encoder" = "This Mac can't export to %@. Choose MP4 (H.264) or another format.";
-"export.error.noPermission" = "Montage can't write to this folder. Choose another export location.";
+"export.error.noPermission" = "Valse can't write to this folder. Choose another export location.";
 "export.preset.youtube1080" = "YouTube 1080p";
 "export.preset.youtube4k" = "YouTube 4K";
 "export.preset.youtubeShorts" = "YouTube Shorts (9:16)";

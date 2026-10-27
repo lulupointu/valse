@@ -51,7 +51,7 @@
 "fontbook.hint" = "Importez jusqu'à 9 polices TTF / OTF / TTC à la fois ; elles restent disponibles dans tous les projets.";
 "fontbook.noImported" = "Aucune police importée — importez ou déposez des fichiers de police ici.";
 "fontbook.reveal" = "Afficher dans le Finder";
-"fontbook.remove" = "Retirer de Montage";
+"fontbook.remove" = "Retirer de Valse";
 "fontbook.selectText" = "Sélectionnez un texte pour appliquer la police";
 "fontbook.removed" = "%@ retirée";
 "fontbook.removeFailed" = "Impossible de retirer %@";

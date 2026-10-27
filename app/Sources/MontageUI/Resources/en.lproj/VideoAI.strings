@@ -9,7 +9,7 @@
 "audio.separate.done" = "Audio separated";
 "audio.separate.failed" = "Couldn't separate the audio because of an unexpected problem. Try again.";
 "audio.separate.needsModel" = "Separating instruments needs the music model (%@). Download it.";
-"audio.separate.incomplete" = "Separating instruments needs a component that isn't in this copy of Montage. Update Montage to get it.";
+"audio.separate.incomplete" = "Separating instruments needs a component that isn't in this copy of Valse. Update Valse to get it.";
 "inspector.reframe" = "Auto reframe";
 "reframe.ratio" = "Aspect ratio";
 "reframe.speed" = "Camera moving speed";
@@ -111,7 +111,7 @@
 "writer.failed" = "Couldn't write the script because of an unexpected problem. Try again.";
 "writer.disclaimer" = "Scripts are generated automatically by AI on this Mac. Check them before publishing.";
 "writer.needsModel" = "To write scripts on this Mac, turn on Apple Intelligence or download the local text model (%@).";
-"writer.incomplete" = "Writing scripts needs a component that isn't in this copy of Montage. Turn on Apple Intelligence, or update Montage to get it.";
+"writer.incomplete" = "Writing scripts needs a component that isn't in this copy of Valse. Turn on Apple Intelligence, or update Valse to get it.";
 
 /* W10 AI clipper (AI-031) */
 "tlmenu.clipper" = "AI clipper…";

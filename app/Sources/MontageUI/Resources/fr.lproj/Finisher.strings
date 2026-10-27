@@ -74,18 +74,18 @@
 "settings.mouse.hint" = "⇧ + défilement fait toujours défiler horizontalement. Les trackpads défilent dans les deux sens ; pincez pour zoomer.";
 
 "about.checkUpdates" = "Rechercher des mises à jour";
-"about.updates.hint" = "Ouvre la page des versions dans votre navigateur. Montage ne vérifie jamais de lui-même.";
-"about.updates.manual" = "Les mises à jour sont manuelles : aucune page de mise à jour n'est configurée pour cette version. Montage ne se connecte jamais à Internet de lui-même.";
+"about.updates.hint" = "Ouvre la page des versions dans votre navigateur. Valse ne vérifie jamais d'elle-même.";
+"about.updates.manual" = "Les mises à jour sont manuelles : aucune page de mise à jour n'est configurée pour cette version. Valse ne se connecte jamais à Internet d'elle-même.";
 "env.run" = "Test de l'environnement";
 "env.running" = "Test en cours…";
-"env.verdict.smooth" = "Votre ordinateur peut faire tourner Montage de façon fluide";
-"env.verdict.warnings" = "Montage fonctionnera, avec quelques limites";
+"env.verdict.smooth" = "Votre ordinateur peut faire tourner Valse de façon fluide";
+"env.verdict.warnings" = "Valse fonctionnera, avec quelques limites";
 "env.gpu" = "Processeur graphique";
 "env.gpu.advice" = "Processeur graphique ancien : baissez la qualité d'aperçu ou activez les proxys.";
 "env.memory" = "Mémoire";
 "env.memory.advice" = "Peu de mémoire : gardez les proxys activés et fermez les autres apps pendant le montage 4K.";
 "env.os" = "Système";
-"env.os.advice" = "Montage nécessite macOS 13 ou une version ultérieure.";
+"env.os.advice" = "Valse nécessite macOS 13 ou une version ultérieure.";
 "env.os.advice13" = "Certaines fonctions d’IA nécessitent macOS 14 ou une version ultérieure (détourage de sujet, traduction, Apple Intelligence). Tout le reste fonctionne.";
 "env.decode" = "Décodage matériel";
 "env.decode.advice" = "Pas de décodage matériel HEVC : les vidéos HEVC utiliseront des proxys.";
@@ -194,10 +194,10 @@
 "panel.detach.assets" = "Détacher le panneau Médias";
 "panel.detach.inspector" = "Détacher le panneau de modification";
 "panel.detach.timeline" = "Détacher la chronologie";
-"panel.detached.player" = "Montage — Lecteur";
-"panel.detached.assets" = "Montage — Médias";
-"panel.detached.inspector" = "Montage — Panneau de modification";
-"panel.detached.timeline" = "Montage — Chronologie";
+"panel.detached.player" = "Valse — Lecteur";
+"panel.detached.assets" = "Valse — Médias";
+"panel.detached.inspector" = "Valse — Panneau de modification";
+"panel.detached.timeline" = "Valse — Chronologie";
 "panel.detached.placeholder" = "Ce panneau est dans une fenêtre séparée";
 "panel.attach" = "Rattacher";
 /* TL-022 / MI-019 subprojects */
@@ -215,7 +215,7 @@
 "menu.importSubproject" = "Importer un projet comme sous-projet…";
 /* MI-018 import timeline */
 "menu.importTimeline" = "Importer une chronologie (FCPXML / XML)…";
-"importTimeline.failed" = "Ce fichier n’est pas une chronologie FCPXML / XML lisible par Montage";
+"importTimeline.failed" = "Ce fichier n’est pas une chronologie FCPXML / XML lisible par Valse";
 "importTimeline.done" = "« %@ » importée comme nouvelle chronologie";
 "importTimeline.missing" = "« %@ » importée — %d fichier(s) média introuvable(s) (affichés comme des espaces)";
 "cmd.importTimeline" = "Importer une chronologie";
@@ -246,7 +246,7 @@
 "tips.export.title" = "5. Exportez";
 "tips.export.body" = "Quand vous avez fini, Exporter crée la vidéo sur votre Mac — rien n’est envoyé en ligne. Aide ▸ Afficher les astuces de l’éditeur relance cette visite.";
 "whatsnew.menu" = "Nouveautés";
-"whatsnew.title" = "Nouveautés de Montage";
+"whatsnew.title" = "Nouveautés de Valse";
 "whatsnew.layouts" = "Dispositions : Affichage ▸ Disposition (Médias d’abord, Lecteur d’abord, Vertical pour le 9:16…) et dispositions personnalisées.";
 "whatsnew.subprojects" = "Sous-projets : les clips composés sont listés dans Médias ▸ Sous-projets ; importez un autre projet comme sous-projet.";
 "whatsnew.beatSync" = "Vitesse ▸ Effets de vélocité ▸ Synchroniser sur les temps, avec un flash, une secousse ou un zoom à chaque temps.";

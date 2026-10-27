@@ -84,7 +84,7 @@
 "record.input.default" = "Par défaut du système";
 "record.muteProject" = "Couper le son du projet pendant l'enregistrement";
 "record.openSettings" = "Ouvrir les Réglages Système";
-"record.permissionDenied" = "Montage a besoin d'accéder au micro. Autorisez-le dans Réglages Système ▸ Confidentialité et sécurité ▸ Micro.";
+"record.permissionDenied" = "Valse a besoin d'accéder au micro. Autorisez-le dans Réglages Système ▸ Confidentialité et sécurité ▸ Micro.";
 "record.start" = "Démarrer l'enregistrement";
 "record.stop" = "Arrêter l'enregistrement";
 "record.title" = "Enregistrer une voix off";

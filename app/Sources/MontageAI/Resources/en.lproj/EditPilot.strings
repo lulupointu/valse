@@ -104,8 +104,8 @@
 "cmd.dictate" = "Dictate";
 "dictate.start" = "Dictate";
 "dictate.stop" = "Stop dictating";
-"dictate.error.notAuthorized" = "Allow speech recognition for Montage in System Settings ▸ Privacy & Security to dictate.";
-"dictate.error.microphone" = "Allow microphone access for Montage in System Settings ▸ Privacy & Security to dictate.";
+"dictate.error.notAuthorized" = "Allow speech recognition for Valse in System Settings ▸ Privacy & Security to dictate.";
+"dictate.error.microphone" = "Allow microphone access for Valse in System Settings ▸ Privacy & Security to dictate.";
 "dictate.error.language" = "On-device dictation isn't available for this language. Turn on Dictation in System Settings ▸ Keyboard to download it.";
 "dictate.error.noMicrophone" = "No microphone found.";
 "dictate.error.failed" = "Couldn't start dictation.";

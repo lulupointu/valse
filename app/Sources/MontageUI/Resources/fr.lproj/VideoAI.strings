@@ -9,7 +9,7 @@
 "audio.separate.done" = "Audio séparé";
 "audio.separate.failed" = "Impossible de séparer l'audio à cause d'un problème inattendu. Réessayez.";
 "audio.separate.needsModel" = "La séparation des instruments nécessite le modèle de musique (%@). Téléchargez-le.";
-"audio.separate.incomplete" = "La séparation des instruments nécessite un composant absent de cette copie de Montage. Mettez Montage à jour pour l'obtenir.";
+"audio.separate.incomplete" = "La séparation des instruments nécessite un composant absent de cette copie de Valse. Mettez Valse à jour pour l'obtenir.";
 "inspector.reframe" = "Recadrage automatique";
 "reframe.ratio" = "Format";
 "reframe.speed" = "Vitesse déplacement caméra";
@@ -111,7 +111,7 @@
 "writer.failed" = "Impossible de rédiger le script à cause d'un problème inattendu. Réessayez.";
 "writer.disclaimer" = "Les scripts sont générés automatiquement par l'IA sur ce Mac. Vérifiez-les avant de publier.";
 "writer.needsModel" = "Pour rédiger des scripts sur ce Mac, activez Apple Intelligence ou téléchargez le modèle de texte local (%@).";
-"writer.incomplete" = "La rédaction de scripts nécessite un composant absent de cette copie de Montage. Activez Apple Intelligence ou mettez Montage à jour pour l'obtenir.";
+"writer.incomplete" = "La rédaction de scripts nécessite un composant absent de cette copie de Valse. Activez Apple Intelligence ou mettez Valse à jour pour l'obtenir.";
 
 /* W10 créateur de clips IA (AI-031) */
 "tlmenu.clipper" = "Créateur de clips IA…";

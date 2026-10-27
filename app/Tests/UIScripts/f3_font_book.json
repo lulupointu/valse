@@ -1,5 +1,5 @@
 // MI-021: Text ▸ Fonts (font book) — a font file dropped on the app is imported (listed under Imported with a live
-// preview), ☆ adds it to the favourites, a click applies it to the selected text, 🗑 removes it from Montage.
+// preview), ☆ adds it to the favourites, a click applies it to the selected text, 🗑 removes it from Valse.
 // MI-024: the starred font (and ☆ text effects / templates, hover star on their tiles) show up under Text ▸ Yours ▸ Favorites.
 // Font: DejaVu Sans Display (Bitstream Vera licence, fixtures/LICENSE_DEJAVU.txt).
 {

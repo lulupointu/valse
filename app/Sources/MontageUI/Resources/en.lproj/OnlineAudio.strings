@@ -52,7 +52,7 @@
 "audio.license.copyCredit" = "Copy credit";
 "settings.tab.music" = "Music";
 "settings.music.online" = "Online music & sounds";
-"settings.music.online.hint" = "Montage goes online only when you open or search Audio ▸ Online; your searches are sent to the services below. Nothing else in the app uses the network.";
+"settings.music.online.hint" = "Valse goes online only when you open or search Audio ▸ Online; your searches are sent to the services below. Nothing else in the app uses the network.";
 "settings.music.provider.freesound" = "Sound effects and music loops. CC0 (no credit) and CC BY (credit shown) only.";
 "settings.music.provider.jamendo" = "Music by independent artists. CC BY only (credit required).";
 "settings.music.key.placeholder" = "Paste your API key";

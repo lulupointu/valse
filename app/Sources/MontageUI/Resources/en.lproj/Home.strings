@@ -23,7 +23,7 @@
 "home.templates.title" = "Templates";
 "home.templates.soon" = "Templates are coming soon. Meanwhile, start a new project and use the Text and Effects libraries.";
 "home.importProject" = "Import project";
-"home.importProject.subtitle" = "Open a .montage package or a packed .zip";
+"home.importProject.subtitle" = "Open a .valse package or a packed .zip";
 "home.projects" = "Projects";
 "home.search" = "Search projects (⌘F)";
 "home.search.placeholder" = "Search projects";
@@ -71,7 +71,7 @@
 "home.imported.one" = "Imported %d project";
 "home.imported.other" = "Imported %d projects";
 "home.savedToProject" = "Saved to project";
-"home.error.fileOperation" = "Montage couldn't change the project files. Check that their disk is connected and has free space.";
+"home.error.fileOperation" = "Valse couldn't change the project files. Check that their disk is connected and has free space.";
 "home.error.create" = "Couldn't create the project. Check that your disk is connected, then try again.";
 "home.error.createDiskFull" = "Couldn't create the project: the disk is full. Free up space, then try again.";
 "home.error.rename" = "Couldn't rename “%@”. Check that its disk is connected.";
@@ -83,8 +83,8 @@
 "home.error.restore.other" = "Couldn't put back %d projects from the Trash.";
 "home.error.delete.one" = "Couldn't delete “%@”.";
 "home.error.delete.other" = "Couldn't delete %d projects.";
-"home.error.import" = "This is not a Montage project.";
-"error.openElsewhere" = "This project is open in another Montage window.";
+"home.error.import" = "This is not a Valse project.";
+"error.openElsewhere" = "This project is open in another Valse window.";
 
 /* New project */
 "newProject.title" = "New project";
@@ -92,15 +92,15 @@
 "newProject.originalHint" = "Original: the first clip you add sets the ratio and resolution.";
 
 /* Recovery */
-"recovery.title" = "Montage quit unexpectedly";
+"recovery.title" = "Valse quit unexpectedly";
 "recovery.message" = "Do you want to recover the unsaved project?";
-"recovery.hint" = "Montage autosaves every few seconds, so at most the last seconds of work are lost.";
+"recovery.hint" = "Valse autosaves every few seconds, so at most the last seconds of work are lost.";
 "recovery.recover" = "Recover project";
 "recovery.notNow" = "Not now";
 
 /* Versions */
 "version.title" = "Version history";
-"version.hint" = "Montage keeps a version every few minutes while you edit and when you close the project. Restoring keeps the current state as a version too, and can be undone.";
+"version.hint" = "Valse keeps a version every few minutes while you edit and when you close the project. Restoring keeps the current state as a version too, and can be undone.";
 "version.empty" = "No versions yet.";
 "version.saveNow" = "Save version now";
 "version.restore" = "Restore";
@@ -115,8 +115,8 @@
 
 /* Relink */
 "relink.title" = "Media not found";
-"relink.message.one" = "%d media file of this project can't be found. Locate it and Montage also looks for other missing files in the same folder.";
-"relink.message.other" = "%d media files of this project can't be found. Locate one and Montage also looks for the others in the same folder.";
+"relink.message.one" = "%d media file of this project can't be found. Locate it and Valse also looks for other missing files in the same folder.";
+"relink.message.other" = "%d media files of this project can't be found. Locate one and Valse also looks for the others in the same folder.";
 "relink.locate" = "Locate…";
 "relink.locateMessage" = "Locate “%@”";
 "relink.searchFolder" = "Search a folder…";
@@ -163,7 +163,7 @@
 "settings.language.hint" = "The interface switches immediately, no restart needed.";
 "settings.theme" = "Theme";
 "settings.theme.dark" = "Dark";
-"settings.theme.hint" = "Like CapCut, Montage uses a dark theme designed for video work.";
+"settings.theme.hint" = "Valse uses a dark theme designed for video work.";
 "settings.notifications" = "Notifications";
 "settings.notifyExport" = "Notify me when an export finishes";
 "settings.exportSound" = "Play a sound when an export finishes";
@@ -204,7 +204,7 @@
 "settings.autoRender" = "Auto render";
 "settings.autoRender.hint" = "Automatically render the heavy parts of your video to make the preview smoother.";
 "settings.cacheLocation" = "Cache location";
-"settings.cacheLocation.hint" = "Takes effect the next time Montage starts.";
+"settings.cacheLocation.hint" = "Takes effect the next time Valse starts.";
 "settings.export.followProject" = "Same as project";
 "settings.export.hint" = "Defaults of the Export dialog. You can still change them for each export.";
 

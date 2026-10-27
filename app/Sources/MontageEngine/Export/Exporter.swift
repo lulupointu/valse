@@ -364,7 +364,7 @@ public enum Exporter {
             items.append(m)
         }
         let sw = AVMutableMetadataItem(); sw.keySpace = .common; sw.key = AVMetadataKey.commonKeySoftware as NSString
-        sw.identifier = .commonIdentifierSoftware; sw.value = "Montage" as NSString
+        sw.identifier = .commonIdentifierSoftware; sw.value = "Valse" as NSString
         items.append(sw)
         return items
     }

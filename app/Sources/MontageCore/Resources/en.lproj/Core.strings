@@ -27,15 +27,15 @@
 "error.trackNotFound" = "The track no longer exists.";
 "error.mediaNotFound" = "Media file not found.";
 "error.trackLocked" = "The track is locked. Unlock it to edit its clips.";
-"error.invalidTime" = "Montage can't do that at this position. Move the playhead or select another clip.";
+"error.invalidTime" = "Valse can't do that at this position. Move the playhead or select another clip.";
 "error.incompatibleTrack" = "This clip can't go on that track.";
 "error.nothingToDo" = "There's nothing to change here.";
 "error.cannotSplitHere" = "Move the playhead inside a clip, away from its edges, to split it.";
 "error.playheadOutsideClip" = "Move the playhead inside the clip first.";
-"error.notAPackage" = "This is not a Montage project.";
+"error.notAPackage" = "This is not a Valse project.";
 "error.unreadable" = "The project file could not be read.";
-"error.newerSchema" = "This project was made with a newer version of Montage. Update Montage to open it.";
-"error.migrationFailed" = "Montage couldn't update this project to the current version. The original file is unchanged.";
+"error.newerSchema" = "This project was made with a newer version of Valse. Update Valse to open it.";
+"error.migrationFailed" = "Valse couldn't update this project to the current version. The original file is unchanged.";
 
 /* Animatable properties */
 "prop.position" = "Position";

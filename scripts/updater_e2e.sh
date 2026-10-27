@@ -30,7 +30,7 @@ tail -c 32 "$WORK/key.der" | base64 > "$WORK/private.key"
 PUB="$("$OPENSSL" pkey -inform DER -in "$WORK/key.der" -pubout -outform DER | tail -c 32 | base64)"
 
 variant() {  # <dir> <version> <build>
-  ditto build/Montage.app "$1/Montage.app"
+  ditto build/Valse.app "$1/Montage.app"
   local p="$1/Montage.app/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier fr.montage.MontageUpdateTest" \
     -c "Set :CFBundleShortVersionString $2" -c "Set :CFBundleVersion $3" \
@@ -59,7 +59,7 @@ FAILED=0
 scenario() {  # <name>: runs the installed version 1 for 25 s, expects version 2 installed after the quit
   local name="$1" app="$WORK/install-$1/Montage.app" v="?"
   echo "▶ $name: launching version 1 offscreen"
-  MONTAGE_UPDATER_TEST=1 "$app/Contents/MacOS/Montage" --background --offscreen --home-demo 0 --quit-after 25 \
+  MONTAGE_UPDATER_TEST=1 "$app/Contents/MacOS/Valse" --background --offscreen --home-demo 0 --quit-after 25 \
     > "$WORK/app-$name.log" 2>&1 || true
   for _ in $(seq 1 60); do
     v="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist" 2>/dev/null || echo "?")"

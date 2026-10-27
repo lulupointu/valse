@@ -6,9 +6,9 @@
 "action.download" = "Télécharger";
 "action.checkUpdates" = "Rechercher des mises à jour";
 "action.showInFinder" = "Afficher dans le Finder";
-"save.failed.diskFull" = "Montage ne peut pas enregistrer « %@ » : le disque est plein. Libérez de l'espace ; vos modifications sont conservées tant que Montage reste ouvert.";
-"save.failed.driveOffline" = "Montage ne peut pas enregistrer « %@ » : le disque « %@ » n'est pas connecté. Rebranchez-le ou choisissez Enregistrer sous…";
-"save.failed.other" = "Montage ne peut pas enregistrer « %@ ». Vos modifications sont conservées tant que Montage reste ouvert. Choisissez Enregistrer sous… pour en enregistrer une copie ailleurs.";
+"save.failed.diskFull" = "Valse ne peut pas enregistrer « %@ » : le disque est plein. Libérez de l'espace ; vos modifications sont conservées tant que Valse reste ouverte.";
+"save.failed.driveOffline" = "Valse ne peut pas enregistrer « %@ » : le disque « %@ » n'est pas connecté. Rebranchez-le ou choisissez Enregistrer sous…";
+"save.failed.other" = "Valse ne peut pas enregistrer « %@ ». Vos modifications sont conservées tant que Valse reste ouverte. Choisissez Enregistrer sous… pour en enregistrer une copie ailleurs.";
 "ai.error.toolFailed" = "Impossible d'appliquer %@ à cause d'un problème inattendu. Réessayez.";
 "ai.error.toolNeedsModel" = "%@ nécessite le modèle %@. Téléchargez-le pour continuer.";
-"highlights.noSpeech" = "Montage n'a entendu personne parler et ne peut donc pas choisir de moments forts. Essayez une vidéo avec de la parole.";
+"highlights.noSpeech" = "Valse n'a entendu personne parler et ne peut donc pas choisir de moments forts. Essayez une vidéo avec de la parole.";

@@ -16,7 +16,7 @@
 
 /* FX-018 effets personnalisés */
 "fx.custom.import" = "Importer";
-"fx.custom.import.message" = "Choisissez un paquet d'effet (dossier .montagefx ou ZIP)";
+"fx.custom.import.message" = "Choisissez un paquet d'effet (dossier .valsefx ou ZIP)";
 "fx.custom.new" = "Nouvel effet";
 "fx.custom.reload" = "Recharger";
 "fx.custom.folder" = "Afficher le dossier des effets";
@@ -30,7 +30,7 @@
 "fx.custom.reason.noShader" = "son fichier de shader est absent";
 "fx.custom.reason.compile" = "son shader ne se compile pas (détails sous les boutons Importer et Recharger)";
 "fx.custom.reason.unzip" = "le fichier ZIP ne peut pas être ouvert";
-"fx.custom.reason.other" = "Montage ne peut pas le lire";
+"fx.custom.reason.other" = "Valse ne peut pas le lire";
 "fx.custom.created" = "Nouvel effet créé. Modifiez effect.metal, puis Recharger.";
 "fx.custom.reloaded" = "Effets personnalisés rechargés";
 "fx.custom.showInFinder" = "Afficher dans le Finder";

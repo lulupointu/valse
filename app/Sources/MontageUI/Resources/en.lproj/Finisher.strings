@@ -74,18 +74,18 @@
 "settings.mouse.hint" = "⇧ + scroll always scrolls horizontally. Trackpads scroll in both directions; pinch zooms.";
 
 "about.checkUpdates" = "Check for updates";
-"about.updates.hint" = "Opens the releases page in your browser. Montage never checks on its own.";
-"about.updates.manual" = "Updates are manual: this build has no update page configured. Montage never connects to the internet on its own.";
+"about.updates.hint" = "Opens the releases page in your browser. Valse never checks on its own.";
+"about.updates.manual" = "Updates are manual: this build has no update page configured. Valse never connects to the internet on its own.";
 "env.run" = "Environment test";
 "env.running" = "Testing…";
-"env.verdict.smooth" = "Your computer can run Montage smoothly";
-"env.verdict.warnings" = "Montage will run, with some limits";
+"env.verdict.smooth" = "Your computer can run Valse smoothly";
+"env.verdict.warnings" = "Valse will run, with some limits";
 "env.gpu" = "Graphics";
 "env.gpu.advice" = "Older GPU: lower the preview quality or turn on proxies.";
 "env.memory" = "Memory";
 "env.memory.advice" = "Little memory: keep proxies on and close other apps while editing 4K.";
 "env.os" = "System";
-"env.os.advice" = "Montage needs macOS 13 or later.";
+"env.os.advice" = "Valse needs macOS 13 or later.";
 "env.os.advice13" = "Some AI features need macOS 14 or later (subject cutout, translation, Apple Intelligence). Everything else works.";
 "env.decode" = "Hardware decoding";
 "env.decode.advice" = "No HEVC hardware decoding: HEVC footage will use proxies.";
@@ -194,10 +194,10 @@
 "panel.detach.assets" = "Detach media panel";
 "panel.detach.inspector" = "Detach editing panel";
 "panel.detach.timeline" = "Detach timeline";
-"panel.detached.player" = "Montage — Player";
-"panel.detached.assets" = "Montage — Media";
-"panel.detached.inspector" = "Montage — Editing panel";
-"panel.detached.timeline" = "Montage — Timeline";
+"panel.detached.player" = "Valse — Player";
+"panel.detached.assets" = "Valse — Media";
+"panel.detached.inspector" = "Valse — Editing panel";
+"panel.detached.timeline" = "Valse — Timeline";
 "panel.detached.placeholder" = "This panel is in a separate window";
 "panel.attach" = "Attach";
 /* TL-022 / MI-019 subprojects */
@@ -215,7 +215,7 @@
 "menu.importSubproject" = "Import project as subproject…";
 /* MI-018 import timeline */
 "menu.importTimeline" = "Import timeline (FCPXML / XML)…";
-"importTimeline.failed" = "This file is not an FCPXML / XML timeline Montage can read";
+"importTimeline.failed" = "This file is not an FCPXML / XML timeline Valse can read";
 "importTimeline.done" = "“%@” imported as a new timeline";
 "importTimeline.missing" = "“%@” imported — %d media file(s) not found (shown as gaps)";
 "cmd.importTimeline" = "Import timeline";
@@ -246,7 +246,7 @@
 "tips.export.title" = "5. Export";
 "tips.export.body" = "When you're done, Export renders the video on your Mac — nothing is uploaded. Help ▸ Show editor tips replays this tour.";
 "whatsnew.menu" = "What's new";
-"whatsnew.title" = "What's new in Montage";
+"whatsnew.title" = "What's new in Valse";
 "whatsnew.layouts" = "Layouts: View ▸ Layout (Media first, Player first, Vertical for 9:16…) and custom layouts.";
 "whatsnew.subprojects" = "Subprojects: compound clips are listed in Media ▸ Subprojects; import another project as a subproject.";
 "whatsnew.beatSync" = "Speed ▸ Velocity effects ▸ Sync to beats, with a flash, shake or zoom on every beat.";

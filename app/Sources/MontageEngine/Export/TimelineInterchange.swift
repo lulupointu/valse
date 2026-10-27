@@ -85,7 +85,7 @@ public enum TimelineInterchange {
         func rid() -> String { defer { nextID += 1 }; return "r\(nextID)" }
         let seqFormat = rid()
         let cs = p.settings.colorSpace == .sdr709 ? "1-1-1 (Rec. 709)" : (p.settings.colorSpace == .hdrHLG ? "9-18-9 (Rec. 2020 HLG)" : "9-16-9 (Rec. 2020 PQ)")
-        res.append(#"<format id="\#(seqFormat)" name="Montage \#(Int(canvas.width))x\#(Int(canvas.height))" frameDuration="\#(clock.fcpFrames(1))" width="\#(Int(canvas.width))" height="\#(Int(canvas.height))" colorSpace="\#(cs)"/>"#)
+        res.append(#"<format id="\#(seqFormat)" name="Valse \#(Int(canvas.width))x\#(Int(canvas.height))" frameDuration="\#(clock.fcpFrames(1))" width="\#(Int(canvas.width))" height="\#(Int(canvas.height))" colorSpace="\#(cs)"/>"#)
         var assetRef: [MediaID: String] = [:]
         for a in p.media {
             var formatAttr = ""
@@ -210,7 +210,7 @@ public enum TimelineInterchange {
         \(res.joined(separator: "\n"))
         </resources>
         <library>
-        <event name="Montage">
+        <event name="Valse">
         <project name="\(esc(name))">
         <sequence format="\(seqFormat)" duration="\(clock.fcp(total))" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
         <spine>
@@ -290,7 +290,7 @@ public enum TimelineInterchange {
                 let vStart = c.start + inT, vDur = c.duration - inT - outT
                 if vStart > cursor { children.append(["OTIO_SCHEMA": "Gap.1", "name": "", "source_range": range(.zero, vStart - cursor)]) }
                 var item: [String: Any] = ["OTIO_SCHEMA": "Clip.2", "name": c.name ?? "", "source_range": range(c.sourceStart + inT * rate(c), vDur),
-                                           "metadata": ["montage": ["clip_id": "\(c.id)"]]]
+                                           "metadata": ["valse": ["clip_id": "\(c.id)"]]]
                 if let mid = c.mediaID, let a = p.asset(mid) {
                     item["name"] = c.name ?? a.name
                     item["media_references"] = ["DEFAULT_MEDIA": ["OTIO_SCHEMA": "ExternalReference.1", "target_url": a.url.absoluteString,

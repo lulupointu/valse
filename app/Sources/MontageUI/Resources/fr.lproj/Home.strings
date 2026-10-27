@@ -23,7 +23,7 @@
 "home.templates.title" = "Modèles";
 "home.templates.soon" = "Les modèles arrivent bientôt. En attendant, créez un projet et utilisez les bibliothèques Texte et Effets.";
 "home.importProject" = "Importer un projet";
-"home.importProject.subtitle" = "Ouvrir un paquet .montage ou un .zip empaqueté";
+"home.importProject.subtitle" = "Ouvrir un paquet .valse ou un .zip empaqueté";
 "home.projects" = "Projets";
 "home.search" = "Rechercher des projets (⌘F)";
 "home.search.placeholder" = "Rechercher des projets";
@@ -71,7 +71,7 @@
 "home.imported.one" = "%d projet importé";
 "home.imported.other" = "%d projets importés";
 "home.savedToProject" = "Enregistré dans le projet";
-"home.error.fileOperation" = "Montage n'a pas pu modifier les fichiers du projet. Vérifiez que leur disque est connecté et qu'il reste de l'espace.";
+"home.error.fileOperation" = "Valse n'a pas pu modifier les fichiers du projet. Vérifiez que leur disque est connecté et qu'il reste de l'espace.";
 "home.error.create" = "Impossible de créer le projet. Vérifiez que votre disque est connecté, puis réessayez.";
 "home.error.createDiskFull" = "Impossible de créer le projet : le disque est plein. Libérez de l'espace, puis réessayez.";
 "home.error.rename" = "Impossible de renommer « %@ ». Vérifiez que son disque est connecté.";
@@ -83,8 +83,8 @@
 "home.error.restore.other" = "Impossible de restaurer %d projets depuis la corbeille.";
 "home.error.delete.one" = "Impossible de supprimer « %@ ».";
 "home.error.delete.other" = "Impossible de supprimer %d projets.";
-"home.error.import" = "Ce n'est pas un projet Montage.";
-"error.openElsewhere" = "Ce projet est ouvert dans une autre fenêtre Montage.";
+"home.error.import" = "Ce n'est pas un projet Valse.";
+"error.openElsewhere" = "Ce projet est ouvert dans une autre fenêtre Valse.";
 
 /* Nouveau projet */
 "newProject.title" = "Nouveau projet";
@@ -92,15 +92,15 @@
 "newProject.originalHint" = "Original : le premier clip ajouté définit le format et la résolution.";
 
 /* Récupération */
-"recovery.title" = "Montage s'est fermé de manière inattendue";
+"recovery.title" = "Valse s'est fermée de manière inattendue";
 "recovery.message" = "Voulez-vous récupérer le projet non enregistré ?";
-"recovery.hint" = "Montage enregistre automatiquement toutes les quelques secondes : au plus les dernières secondes de travail sont perdues.";
+"recovery.hint" = "Valse enregistre automatiquement toutes les quelques secondes : au plus les dernières secondes de travail sont perdues.";
 "recovery.recover" = "Récupérer le projet";
 "recovery.notNow" = "Plus tard";
 
 /* Versions */
 "version.title" = "Historique des versions";
-"version.hint" = "Montage conserve une version toutes les quelques minutes pendant le montage et à la fermeture du projet. Restaurer conserve aussi l'état actuel comme version, et peut être annulé.";
+"version.hint" = "Valse conserve une version toutes les quelques minutes pendant le montage et à la fermeture du projet. Restaurer conserve aussi l'état actuel comme version, et peut être annulé.";
 "version.empty" = "Aucune version pour l'instant.";
 "version.saveNow" = "Enregistrer une version";
 "version.restore" = "Restaurer";
@@ -115,8 +115,8 @@
 
 /* Rétablir les liens */
 "relink.title" = "Médias introuvables";
-"relink.message.one" = "%d fichier média de ce projet est introuvable. Localisez-le : Montage cherche aussi les autres fichiers manquants dans le même dossier.";
-"relink.message.other" = "%d fichiers média de ce projet sont introuvables. Localisez-en un : Montage cherche aussi les autres dans le même dossier.";
+"relink.message.one" = "%d fichier média de ce projet est introuvable. Localisez-le : Valse cherche aussi les autres fichiers manquants dans le même dossier.";
+"relink.message.other" = "%d fichiers média de ce projet sont introuvables. Localisez-en un : Valse cherche aussi les autres dans le même dossier.";
 "relink.locate" = "Localiser…";
 "relink.locateMessage" = "Localiser « %@ »";
 "relink.searchFolder" = "Chercher dans un dossier…";
@@ -163,7 +163,7 @@
 "settings.language.hint" = "L'interface change immédiatement, sans redémarrage.";
 "settings.theme" = "Thème";
 "settings.theme.dark" = "Sombre";
-"settings.theme.hint" = "Comme CapCut, Montage utilise un thème sombre conçu pour la vidéo.";
+"settings.theme.hint" = "Valse utilise un thème sombre conçu pour la vidéo.";
 "settings.notifications" = "Notifications";
 "settings.notifyExport" = "M'avertir à la fin d'une exportation";
 "settings.exportSound" = "Jouer un son à la fin d'une exportation";
@@ -204,7 +204,7 @@
 "settings.autoRender" = "Rendu automatique";
 "settings.autoRender.hint" = "Effectuer automatiquement le rendu des passages lourds pour un aperçu plus fluide.";
 "settings.cacheLocation" = "Emplacement du cache";
-"settings.cacheLocation.hint" = "Prend effet au prochain démarrage de Montage.";
+"settings.cacheLocation.hint" = "Prend effet au prochain démarrage de Valse.";
 "settings.export.followProject" = "Comme le projet";
 "settings.export.hint" = "Valeurs par défaut de la fenêtre d'exportation. Vous pouvez toujours les modifier à chaque exportation.";
 

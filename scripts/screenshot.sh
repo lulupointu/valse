@@ -29,7 +29,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 # MONTAGE_SCREENSHOT_BIN: another Montage executable (e.g. the `swift build` product, scripts/screenshot_selftest.sh)
-BIN="${MONTAGE_SCREENSHOT_BIN:-build/Montage.app/Contents/MacOS/Montage}"
+BIN="${MONTAGE_SCREENSHOT_BIN:-build/Valse.app/Contents/MacOS/Valse}"
 [[ -x "$BIN" ]] || scripts/build_app.sh >/dev/null
 mkdir -p build/screenshots
 OUT="${OUT:-build/screenshots/montage-$LANGTAG.png}"

@@ -14,7 +14,7 @@
 "captions.engine" = "Speech recognition";
 "captions.engine.whisper" = "High accuracy · runs on your Mac";
 "captions.engine.apple" = "Standard recognition (Apple). Download the speech model for better accuracy.";
-"captions.engine.noRuntime" = "High accuracy isn't available in this copy of Montage. Update Montage to use it.";
+"captions.engine.noRuntime" = "High accuracy isn't available in this copy of Valse. Update Valse to use it.";
 "captions.engineChoice" = "Recognition";
 "captions.addedCount" = "Captions added (%d)";
 "captions.cancelled" = "Caption generation canceled";
@@ -78,7 +78,7 @@
 "cutout.previewing" = "Finding the object…";
 "cutout.brushReady" = "Brush more objects, erase the ones to drop, then Apply.";
 "models.title" = "AI models";
-"models.privacy" = "Models run on your Mac. Downloading is the only time Montage goes online, and only when you click Download.";
+"models.privacy" = "Models run on your Mac. Downloading is the only time Valse goes online, and only when you click Download.";
 "models.manage" = "Manage AI models";
 "models.download" = "Download (%@)";
 "models.downloading" = "Downloading model... %d%%";
@@ -89,7 +89,7 @@
 "models.installed" = "Installed";
 "models.remove" = "Remove the model";
 "models.license" = "License: %@";
-"models.runtimeMissing" = "High-accuracy speech recognition isn't included in this copy of Montage. Update Montage to get it.";
+"models.runtimeMissing" = "High-accuracy speech recognition isn't included in this copy of Valse. Update Valse to get it.";
 "models.done" = "Done";
 "inspector.tab.tts" = "Text to speech";
 "tts.search" = "Search voices";

@@ -94,7 +94,7 @@ public struct ExportJobSpec: Sendable {
         var out: [Output] = []
         var taken = Set<String>()
         func unique(_ ext: String) -> URL {
-            let base = Self.sanitized(title.isEmpty ? "Montage" : title)
+            let base = Self.sanitized(title.isEmpty ? "Valse" : title)
             var n = 0
             while true {
                 let name = n == 0 ? "\(base).\(ext)" : "\(base) (\(n)).\(ext)"
@@ -124,7 +124,7 @@ public struct ExportJobSpec: Sendable {
     static func sanitized(_ s: String) -> String {
         let bad = CharacterSet(charactersIn: "/:\\?%*|\"<>")
         let t = s.components(separatedBy: bad).joined(separator: "-").trimmingCharacters(in: .whitespacesAndNewlines)
-        return t.isEmpty ? "Montage" : String(t.prefix(200))
+        return t.isEmpty ? "Valse" : String(t.prefix(200))
     }
 
     public var estimatedBytes: Int64 {

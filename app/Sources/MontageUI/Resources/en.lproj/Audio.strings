@@ -84,7 +84,7 @@
 "record.input.default" = "System default";
 "record.muteProject" = "Mute project while recording";
 "record.openSettings" = "Open System Settings";
-"record.permissionDenied" = "Montage needs access to the microphone. Allow it in System Settings ▸ Privacy & Security ▸ Microphone.";
+"record.permissionDenied" = "Valse needs access to the microphone. Allow it in System Settings ▸ Privacy & Security ▸ Microphone.";
 "record.start" = "Start recording";
 "record.stop" = "Stop recording";
 "record.title" = "Record voiceover";

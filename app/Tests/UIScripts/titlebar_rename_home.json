@@ -1,6 +1,6 @@
 // VALSE-APP round 12: the editor title bar's left cluster - double-click the project name to rename it inline
 // (Return commits as one undo step, Escape cancels), long names truncate in the middle, then the back arrow returns
-// to Home (saving, like Montage ▸ Back to Home ⌘⇧H).
+// to Home (saving, like Valse ▸ Back to Home ⌘⇧H).
 {
   "project": "home:3",
   "steps": [

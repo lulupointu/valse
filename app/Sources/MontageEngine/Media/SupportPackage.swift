@@ -15,24 +15,24 @@ public enum SupportPackage {
         public init(projectJSON: Data? = nil, projectName: String? = nil) { self.projectJSON = projectJSON; self.projectName = projectName }
     }
 
-    /// Writes `Montage support <date>.zip` into `directory` and returns its URL.
+    /// Writes `Valse support <date>.zip` into `directory` and returns its URL.
     public static func build(_ c: Contents, into directory: URL, date: Date = Date()) throws -> URL {
         let fm = FileManager.default
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        let name = "Montage support \(f.string(from: date))"
-        let staging = fm.temporaryDirectory.appendingPathComponent("montage-support-\(UUID().uuidString)").appendingPathComponent(name)
+        let name = "Valse support \(f.string(from: date))"
+        let staging = fm.temporaryDirectory.appendingPathComponent("valse-support-\(UUID().uuidString)").appendingPathComponent(name)
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: staging.deletingLastPathComponent()) }
 
         let env = EnvironmentProbe.run()
-        var info = "Montage support package — \(f.string(from: date))\n"
+        var info = "Valse support package — \(f.string(from: date))\n"
         info += "Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")\n\n"
         for ch in env.checks { info += "\(ch.id): \(ch.value) [\(ch.status.rawValue)]\n" }
         try Data(info.utf8).write(to: staging.appendingPathComponent("environment.txt"))
-        if c.includeLog { try Data(sessionLog().utf8).write(to: staging.appendingPathComponent("montage.log")) }
+        if c.includeLog { try Data(sessionLog().utf8).write(to: staging.appendingPathComponent("valse.log")) }
         if let s = c.settingsURL, fm.fileExists(atPath: s.path) { try? fm.copyItem(at: s, to: staging.appendingPathComponent("settings.json")) }
         if let dir = c.crashReportsDirectory, let items = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) {
-            let crashes = items.filter { $0.lastPathComponent.hasPrefix("Montage") }
+            let crashes = items.filter { $0.lastPathComponent.hasPrefix("Valse") || $0.lastPathComponent.hasPrefix("Montage") }
                 .sorted { modified($0) > modified($1) }
                 .prefix(5)
             if !crashes.isEmpty {
@@ -75,6 +75,6 @@ public enum SupportPackage {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
         let text = String(data: data, encoding: .utf8) ?? ""
-        return text.isEmpty ? "(no Montage log entries in this session)\n" : text
+        return text.isEmpty ? "(no Valse log entries in this session)\n" : text
     }
 }

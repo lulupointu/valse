@@ -103,7 +103,7 @@ extension EditorStore {
         var model = [CChar](repeating: 0, count: max(size, 1))
         sysctlbyname("hw.model", &model, &size, nil, 0)
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
-        return "Montage \(version) · \(String(cString: model)) · macOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nCaptions: \(detail)"
+        return "Valse \(version) · \(String(cString: model)) · macOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nCaptions: \(detail)"
     }
 
     /// Pre-flight for the captions panel: on appear, language / engine change, app activation, model installed.

@@ -200,10 +200,10 @@ struct ThirdPartyLicense: Identifiable {
                           url: "https://sparkle-project.org", text: sparkle),
         ThirdPartyLicense(id: "freeverb", name: "Freeverb (algorithm)", license: "Public domain", usageKey: "about.use.freeverb",
                           url: "https://ccrma.stanford.edu/~jos/pasp/Freeverb.html",
-                          text: "Freeverb was written by Jezar at Dreampoint (June 2000) and released into the public domain. Montage contains an independent Swift implementation of the algorithm."),
+                          text: "Freeverb was written by Jezar at Dreampoint (June 2000) and released into the public domain. Valse contains an independent Swift implementation of the algorithm."),
         ThirdPartyLicense(id: "apple", name: "Apple frameworks (AVFoundation, Metal, Vision, Speech, Core ML)", license: "Apple SDK", usageKey: "about.use.apple",
                           url: "https://developer.apple.com/terms/",
-                          text: "System frameworks provided by macOS under the Apple Developer Program License Agreement. They are not redistributed with Montage."),
+                          text: "System frameworks provided by macOS under the Apple Developer Program License Agreement. They are not redistributed with Valse."),
         ThirdPartyLicense(id: "content", name: "Music & sound effects library (FreePD.com, Free Music Archive, Kenney, OpenGameArt, Wikimedia Commons)",
                           license: "CC0-1.0 / Public domain", usageKey: "about.use.content",
                           url: "https://creativecommons.org/publicdomain/zero/1.0/", text: """
@@ -238,7 +238,7 @@ struct AboutPanel: View {
                         .frame(width: 56, height: 56)
                         .overlay(Image(systemName: "film.stack").font(.system(size: 24, weight: .semibold)).foregroundStyle(.black.opacity(0.8)))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(verbatim: "Montage").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                        Text(verbatim: "Valse").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                         Text(loc: "about.version", version).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                         Text(loc: "about.local").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
                     }

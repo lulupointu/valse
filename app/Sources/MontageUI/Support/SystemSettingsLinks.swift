@@ -30,7 +30,7 @@ enum ErrorDetails {
     static func copy(_ detail: String) {
         let info = ProcessInfo.processInfo
         let text = detail + "\nmacOS " + info.operatingSystemVersionString
-            + "\nMontage " + (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")
+            + "\nValse " + (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")
         AppPasteboard.general.clearContents()
         AppPasteboard.general.setString(text, forType: .string)
     }

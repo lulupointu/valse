@@ -51,7 +51,7 @@
 "fontbook.hint" = "Import up to 9 TTF / OTF / TTC fonts at once; they stay available in every project.";
 "fontbook.noImported" = "No imported fonts yet — import or drop font files here.";
 "fontbook.reveal" = "Show in Finder";
-"fontbook.remove" = "Remove from Montage";
+"fontbook.remove" = "Remove from Valse";
 "fontbook.selectText" = "Select a text clip to apply the font";
 "fontbook.removed" = "%@ removed";
 "fontbook.removeFailed" = "Couldn't remove %@";

@@ -52,7 +52,7 @@
 "audio.license.copyCredit" = "Copier le crédit";
 "settings.tab.music" = "Musique";
 "settings.music.online" = "Musique et sons en ligne";
-"settings.music.online.hint" = "Montage ne se connecte que lorsque vous ouvrez ou recherchez dans Audio ▸ En ligne ; vos recherches sont envoyées aux services ci-dessous. Rien d'autre dans l'app n'utilise le réseau.";
+"settings.music.online.hint" = "Valse ne se connecte que lorsque vous ouvrez ou recherchez dans Audio ▸ En ligne ; vos recherches sont envoyées aux services ci-dessous. Rien d'autre dans l'app n'utilise le réseau.";
 "settings.music.provider.freesound" = "Effets sonores et boucles musicales. Uniquement CC0 (sans crédit) et CC BY (crédit affiché).";
 "settings.music.provider.jamendo" = "Musique d'artistes indépendants. Uniquement CC BY (crédit obligatoire).";
 "settings.music.key.placeholder" = "Collez votre clé API";

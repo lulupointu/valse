@@ -215,7 +215,7 @@ public struct URLSessionOnlineAudioHTTP: OnlineAudioHTTP {
         let c = URLSessionConfiguration.ephemeral
         c.timeoutIntervalForRequest = 15
         c.timeoutIntervalForResource = 120
-        c.httpAdditionalHeaders = ["User-Agent": "Montage/1.0 (macOS video editor)"]
+        c.httpAdditionalHeaders = ["User-Agent": "Valse/1.0 (macOS video editor)"]
         session = URLSession(configuration: c)
     }
     public func get(_ request: URLRequest) async throws -> (Data, Int) {

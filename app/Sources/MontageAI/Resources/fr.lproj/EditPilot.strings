@@ -104,8 +104,8 @@
 "cmd.dictate" = "Dictée";
 "dictate.start" = "Dicter";
 "dictate.stop" = "Arrêter la dictée";
-"dictate.error.notAuthorized" = "Autorisez la reconnaissance vocale pour Montage dans Réglages Système ▸ Confidentialité et sécurité pour dicter.";
-"dictate.error.microphone" = "Autorisez l'accès au micro pour Montage dans Réglages Système ▸ Confidentialité et sécurité pour dicter.";
+"dictate.error.notAuthorized" = "Autorisez la reconnaissance vocale pour Valse dans Réglages Système ▸ Confidentialité et sécurité pour dicter.";
+"dictate.error.microphone" = "Autorisez l'accès au micro pour Valse dans Réglages Système ▸ Confidentialité et sécurité pour dicter.";
 "dictate.error.language" = "La dictée sur l'appareil n'est pas disponible pour cette langue. Activez la dictée dans Réglages Système ▸ Clavier pour la télécharger.";
 "dictate.error.noMicrophone" = "Aucun micro trouvé.";
 "dictate.error.failed" = "Impossible de démarrer la dictée.";

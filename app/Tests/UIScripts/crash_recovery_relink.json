@@ -1,4 +1,4 @@
-// W12 crash recovery prompt ("Montage quit unexpectedly… Recover project") and the relink dialog for missing media.
+// W12 crash recovery prompt ("Valse quit unexpectedly… Recover project") and the relink dialog for missing media.
 {
   "project": "home:3:crash:missing",
   "steps": [

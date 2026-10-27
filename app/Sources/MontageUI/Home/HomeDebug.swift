@@ -67,17 +67,17 @@ extension AppModel {
         // PM-009: `extdrive` = the Save-to folder is on an external drive; `offlinedrive` = its drive isn't connected
         if parts.contains("extdrive") {
             let ext = MontagePaths.draftsDirectory.deletingLastPathComponent().appendingPathComponent("External SSD")
-            StorageLocation.testOverrides[ext.standardizedFileURL.path] = .external(name: "Montage SSD")
+            StorageLocation.testOverrides[ext.standardizedFileURL.path] = .external(name: "Valse SSD")
             preferences.edit { $0.projectsDirectory = ext.path }
         }
         if parts.contains("offlinedrive") {
-            let off = "/Volumes/Montage Test Drive/Montage"
+            let off = "/Volumes/Valse Test Drive/Valse"
             var domain = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
             domain[MontagePaths.draftsOverrideKey] = off
             UserDefaults.standard.setVolatileDomain(domain, forName: UserDefaults.argumentDomain)
             preferences.edit { $0.projectsDirectory = off }
             // P1: the oldest project lives on that disconnected drive too (switcher row dimmed, open refused)
-            if let last = visibleEntries.last?.url { StorageLocation.testOverrides[last.standardizedFileURL.path] = .unavailable(name: "Montage Test Drive") }
+            if let last = visibleEntries.last?.url { StorageLocation.testOverrides[last.standardizedFileURL.path] = .unavailable(name: "Valse Test Drive") }
         }
         await refresh()
         if parts.contains("crash") { checkCrashRecovery() }

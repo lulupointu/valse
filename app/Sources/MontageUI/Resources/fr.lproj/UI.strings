@@ -115,10 +115,10 @@
 /* Notifications */
 "toast.undo" = "Annuler : %@";
 "toast.redo" = "Rétablir : %@";
-"toast.importFailed.one" = "Impossible d'importer « %@ » : Montage ne prend pas en charge ce format.";
-"toast.importFailed.other" = "Impossible d'importer %d fichiers : Montage ne prend pas en charge leur format.";
+"toast.importFailed.one" = "Impossible d'importer « %@ » : Valse ne prend pas en charge ce format.";
+"toast.importFailed.other" = "Impossible d'importer %d fichiers : Valse ne prend pas en charge leur format.";
 "toast.needTwoClips" = "Ajoutez d'abord au moins deux clips sur la piste principale.";
-"toast.recovered" = "Montage s'est fermé de manière inattendue. Votre projet a été restauré depuis le dernier enregistrement automatique.";
+"toast.recovered" = "Valse s'est fermée de manière inattendue. Votre projet a été restauré depuis le dernier enregistrement automatique.";
 "toast.aiDone" = "%@ : terminé";
 
 /* Exportation */
@@ -141,10 +141,10 @@
 "common.done" = "Terminé";
 
 /* Menus */
-"menu.app" = "Montage";
-"menu.about" = "À propos de Montage";
-"menu.hide" = "Masquer Montage";
-"menu.quit" = "Quitter Montage";
+"menu.app" = "Valse";
+"menu.about" = "À propos de Valse";
+"menu.hide" = "Masquer Valse";
+"menu.quit" = "Quitter Valse";
 "menu.file" = "Fichier";
 "menu.new" = "Nouveau projet";
 "menu.open" = "Ouvrir…";

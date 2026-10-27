@@ -14,7 +14,7 @@
 "captions.engine" = "Reconnaissance vocale";
 "captions.engine.whisper" = "Haute précision · fonctionne sur votre Mac";
 "captions.engine.apple" = "Reconnaissance standard (Apple). Téléchargez le modèle vocal pour plus de précision.";
-"captions.engine.noRuntime" = "La haute précision n'est pas disponible dans cette copie de Montage. Mettez Montage à jour pour l'utiliser.";
+"captions.engine.noRuntime" = "La haute précision n'est pas disponible dans cette copie de Valse. Mettez Valse à jour pour l'utiliser.";
 "captions.engineChoice" = "Reconnaissance";
 "captions.addedCount" = "Sous-titres ajoutés (%d)";
 "captions.cancelled" = "Génération des sous-titres annulée";
@@ -78,7 +78,7 @@
 "cutout.previewing" = "Recherche de l'objet…";
 "cutout.brushReady" = "Ajoutez d'autres objets, gommez ceux à retirer, puis appliquez.";
 "models.title" = "Modèles d'IA";
-"models.privacy" = "Les modèles fonctionnent sur votre Mac. Montage ne se connecte à Internet que pour les télécharger, et seulement quand vous cliquez sur Télécharger.";
+"models.privacy" = "Les modèles fonctionnent sur votre Mac. Valse ne se connecte à Internet que pour les télécharger, et seulement quand vous cliquez sur Télécharger.";
 "models.manage" = "Gérer les modèles d'IA";
 "models.download" = "Télécharger (%@)";
 "models.downloading" = "Téléchargement du modèle… %d %%";
@@ -89,7 +89,7 @@
 "models.installed" = "Installé";
 "models.remove" = "Supprimer le modèle";
 "models.license" = "Licence : %@";
-"models.runtimeMissing" = "La reconnaissance vocale haute précision n'est pas incluse dans cette copie de Montage. Mettez Montage à jour pour l'obtenir.";
+"models.runtimeMissing" = "La reconnaissance vocale haute précision n'est pas incluse dans cette copie de Valse. Mettez Valse à jour pour l'obtenir.";
 "models.done" = "OK";
 "inspector.tab.tts" = "Synthèse vocale";
 "tts.search" = "Rechercher des voix";

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds build/Montage.app (release by default; `--debug` for a debug build). Ad-hoc signed unless
+# Builds build/Valse.app (release by default; `--debug` for a debug build). Ad-hoc signed unless
 # MONTAGE_SIGN_IDENTITY names a code-signing identity (scripts/release.sh: the self-signed "Montage Release Signing").
 # MONTAGE_VERSION / MONTAGE_BUILD set CFBundleShortVersionString / CFBundleVersion (release builds; Sparkle compares
 # CFBundleVersion). Sparkle.framework (automatic updates, SE-015) is embedded in Contents/Frameworks.
@@ -35,10 +35,10 @@ done
 # resource bundles: from the host-arch build when it is in the list, else the first one
 BIN="$(dirname "${SLICES[0]}")"
 for arch in $ARCHS; do [[ "$arch" == "$HOST" ]] && BIN="$(swift build -c "$CONFIG" --arch "$arch" --show-bin-path)"; done
-APP=build/Montage.app
+APP=build/Valse.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-lipo -create "${SLICES[@]}" -output "$APP/Contents/MacOS/Montage"
+lipo -create "${SLICES[@]}" -output "$APP/Contents/MacOS/Valse"
 cp app/Bundle/Info.plist "$APP/Contents/Info.plist"
 [[ -n "${MONTAGE_VERSION:-}" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MONTAGE_VERSION" "$APP/Contents/Info.plist"
 [[ -n "${MONTAGE_BUILD:-}" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $MONTAGE_BUILD" "$APP/Contents/Info.plist"
@@ -46,8 +46,8 @@ cp app/Bundle/Info.plist "$APP/Contents/Info.plist"
 # Contents/Frameworks). Universal framework: the host build's copy serves every slice.
 mkdir -p "$APP/Contents/Frameworks"
 ditto "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
-install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/Montage"
-cp app/Bundle/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/Valse"
+cp app/Bundle/ValseIcon.icns "$APP/Contents/Resources/ValseIcon.icns"
 cp -R app/Bundle/en.lproj app/Bundle/fr.lproj "$APP/Contents/Resources/"
 # SwiftPM resource bundles (localized strings of every module) → Contents/Resources (found by ResourceBundleLocator)
 for b in "$BIN"/Montage_*.bundle; do cp -R "$b" "$APP/Contents/Resources/"; done

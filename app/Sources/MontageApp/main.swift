@@ -178,7 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         w.titleVisibility = .hidden
         w.backgroundColor = RGBA(hex: 0x0C0B0A).nsColor   // the chrome canvas, Theme.window (was a neutral #141414)
         w.minSize = NSSize(width: 1100, height: 680)
-        w.title = "Montage"
+        w.title = "Valse"
         w.delegate = self
         w.isReleasedWhenClosed = false
         let host = NSHostingView(rootView: RootView(app: app))

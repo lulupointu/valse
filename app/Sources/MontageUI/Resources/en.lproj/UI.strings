@@ -115,10 +115,10 @@
 /* Toasts */
 "toast.undo" = "Undo: %@";
 "toast.redo" = "Redo: %@";
-"toast.importFailed.one" = "“%@” can't be imported: Montage doesn't support this format.";
-"toast.importFailed.other" = "%d files can't be imported: Montage doesn't support their format.";
+"toast.importFailed.one" = "“%@” can't be imported: Valse doesn't support this format.";
+"toast.importFailed.other" = "%d files can't be imported: Valse doesn't support their format.";
 "toast.needTwoClips" = "Add at least two clips to the main track first.";
-"toast.recovered" = "Montage quit unexpectedly. Your project was restored from the last autosave.";
+"toast.recovered" = "Valse quit unexpectedly. Your project was restored from the last autosave.";
 "toast.aiDone" = "%@: done";
 
 /* Export */
@@ -141,10 +141,10 @@
 "common.done" = "Done";
 
 /* Menus */
-"menu.app" = "Montage";
-"menu.about" = "About Montage";
-"menu.hide" = "Hide Montage";
-"menu.quit" = "Quit Montage";
+"menu.app" = "Valse";
+"menu.about" = "About Valse";
+"menu.hide" = "Hide Valse";
+"menu.quit" = "Quit Valse";
 "menu.file" = "File";
 "menu.new" = "New Project";
 "menu.open" = "Open…";
