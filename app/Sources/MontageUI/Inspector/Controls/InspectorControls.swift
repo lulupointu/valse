@@ -6,18 +6,18 @@ import Perception
 /// Inspector design tokens not in `Theme` (CapCut 9.6 layout, UX.md §1.2 / §5), in the Valse warm neutrals
 /// (VALSE-APP: same lightness steps as the CapCut greys, warm and low-chroma).
 enum IStyle {
-    static var label: Color { Color(hex: Chrome.p.iLabel) }
-    static var caption: Color { Color(hex: Chrome.p.textTertiary) }
-    static var track: Color { Color(hex: Chrome.p.iTrack) }
-    static var field: Color { Color(hex: Chrome.p.iField) }
-    static var dropdown: Color { Color(hex: Chrome.p.iDropdown) }
-    static var tile: Color { Color(hex: Chrome.p.iTile) }
-    static var strip: Color { Color(hex: Chrome.p.iStrip) }
-    static var icon: Color { Color(hex: Chrome.p.iIcon) }
-    static var iconDim: Color { Color(hex: Chrome.p.iconDim) }
+    static let label = Color(hex: 0xE1DBCF)
+    static let caption = Color(hex: 0x9F988E)
+    static let track = Color(hex: 0x484541)
+    static let field = Color(hex: 0x0A0908)
+    static let dropdown = Color(hex: 0x272523)
+    static let tile = Color(hex: 0x393633)
+    static let strip = Color(hex: 0x33302D)
+    static let icon = Color(hex: 0xCDC6BA)
+    static let iconDim = Color(hex: 0x6D675F)
     static let warning = Theme.warning
     static let curve = Theme.Valse.mustard
-    static var graph: Color { Color(hex: Chrome.p.iGraph) }
+    static let graph = Color(hex: 0x0A0908)
     static let rowHeight: CGFloat = 36
     static let labelWidth: CGFloat = 104
     static let fieldWidth: CGFloat = 56

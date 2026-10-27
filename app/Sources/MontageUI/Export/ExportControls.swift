@@ -5,11 +5,11 @@ import Perception
 
 /// Export dialog palette (UX.md §7.1, screenshots 110–113).
 enum ExportStyle {
-    static var background: Color { Theme.panel }
-    static var field: Color { Color(hex: Chrome.p.control) }
-    static var label: Color { Color(hex: Chrome.p.iLabel) }
-    static var disabledLabel: Color { Color(hex: Chrome.p.iconDim) }
-    static var separator: Color { Theme.separator }
+    static let background = Theme.panel
+    static let field = Color(hex: 0x33302D)
+    static let label = Color(hex: 0xE1DBCF)
+    static let disabledLabel = Color(hex: 0x6D675F)
+    static let separator = Theme.separator
     /// Wide enough for the longest French labels on one line ("Échantillonnage audio", UX_GAPS W11-2).
     static let labelWidth: CGFloat = 142
     static let rowHeight: CGFloat = 30

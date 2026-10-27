@@ -2,25 +2,26 @@ import SwiftUI
 import AppKit
 import MontageCore
 
-/// Design tokens. Use these, never literal colours. Neutrals read the active `Chrome.p` palette (round 13,
-/// temporary live switch in ValseOptions.swift); accents are constants. VALSE-APP: the CapCut greys and cyan of docs/UX.md §1.2–1.4 are
-/// remapped to the Valse warm charcoal + teal (direction.md "editor remap", Valse design/ui/STYLE_GUIDE.md §2). Warm
-/// neutrals keep their chroma low so they never bias footage; the viewer itself stays pure neutral black.
+/// Design tokens. Use these, never literal colours. VALSE-APP: the CapCut greys and cyan of docs/UX.md §1.2–1.4 are
+/// remapped to the Valse neutrals + teal (Valse design/ui/STYLE_GUIDE.md §2). Neutrals = the "Deep contrast" ladder
+/// (owner pick, round 14): a near-black canvas, dark panels, hairlines separate the areas, controls keep their step;
+/// the warm-charcoal ladder of rounds 9–13 is retired. Chroma stays low so the chrome never biases footage; the viewer
+/// itself stays pure neutral black.
 public enum Theme {
     // Backgrounds
-    public static var window: Color { Color(hex: Chrome.p.window) }
-    public static var home: Color { Color(hex: Chrome.p.home) }
-    public static var panel: Color { Color(hex: Chrome.p.panel) }
-    public static var panelHeader: Color { Color(hex: Chrome.p.panelHeader) }
-    public static var inset: Color { Color(hex: Chrome.p.inset) }
-    public static var control: Color { Color(hex: Chrome.p.control) }
-    public static var buttonSecondary: Color { Color(hex: Chrome.p.buttonSecondary) }
-    public static var stepper: Color { Color(hex: Chrome.p.stepper) }
-    public static var segmentSelected: Color { Color(hex: Chrome.p.segmentSelected) }
-    public static var trackMain: Color { Color(hex: Chrome.p.trackMain) }
-    public static var menu: Color { Color(hex: Chrome.p.menu) }
-    public static var separator: Color { Color(hex: Chrome.p.separator) }
-    public static var headerSeparator: Color { Color(hex: Chrome.p.headerSeparator) }
+    public static let window = Color(hex: 0x0C0B0A)
+    public static let home = Color(hex: 0x0C0B0A)
+    public static let panel = Color(hex: 0x161513)
+    public static let panelHeader = Color(hex: 0x1D1B19)
+    public static let inset = Color(hex: 0x0A0908)
+    public static let control = Color(hex: 0x33302D)
+    public static let buttonSecondary = Color(hex: 0x3C3936)
+    public static let stepper = Color(hex: 0x33302D)
+    public static let segmentSelected = Color(hex: 0x393633)
+    public static let trackMain = Color(hex: 0x1B1A18)
+    public static let menu = Color(hex: 0x242220)
+    public static let separator = Color(hex: 0x33312E)
+    public static let headerSeparator = Color(hex: 0x000000)
     // Accent (Valse teal; anything drawn on an accent fill is `onAccent` ink, never white: 6.2:1 vs 2.4:1)
     public static let accent = Color(hex: 0x2BAF90)
     public static let accentDim = Color(hex: 0x1E5E4F)
@@ -36,13 +37,13 @@ public enum Theme {
     public static let favorite = Color(hex: 0xF1A512)     // mustard
     public static let warning = Color(hex: 0xF1A512)      // mustard (text-safe: 8.9:1 as a fill under ink, 9:1 as text)
     public static let danger = Color(hex: 0xDD4111)       // orange: glyphs / borders; text uses `dangerText`
-    public static let dangerText = Color(hex: 0xF0805A)   // light orange, 6.4:1 on panel
+    public static let dangerText = Color(hex: 0xF0805A)   // light orange, 6.9:1 on panel
     public static let success = Color(hex: 0xA1D4B1)      // mint
     // Text
-    public static var textPrimary: Color { Color(hex: Chrome.p.textPrimary) }
-    public static var textSecondary: Color { Color(hex: Chrome.p.textSecondary) }
-    public static var textTertiary: Color { Color(hex: Chrome.p.textTertiary) }
-    public static var ruler: Color { Color(hex: Chrome.p.ruler) }
+    public static let textPrimary = Color(hex: 0xF0EBE0)
+    public static let textSecondary = Color(hex: 0xBCB5A9)
+    public static let textTertiary = Color(hex: 0x9F988E)
+    public static let ruler = Color(hex: 0x9F988E)
 
     // Timeline clip colours (as rendered). Owner pick (round 10): the Valse palette, toned down so clips sit calm
     // under the footage: deep teal, burgundy, terracotta, ochre, plum, sea green, olive (lightness × 0.84,
@@ -64,16 +65,16 @@ public enum Theme {
     /// Timeline chrome drawn by the Metal canvas (RGBA, same values as the SwiftUI tokens above). Clip colours and
     /// waveforms are functional coding (above); white overlays on clips stay neutral.
     public enum TL {
-        public static var background: RGBA { RGBA(hex: Chrome.p.tlBackground) }     // panel
-        public static var laneMain: RGBA { RGBA(hex: Chrome.p.tlLaneMain) }       // trackMain
-        public static var lane: RGBA { RGBA(hex: Chrome.p.tlLane) }
-        public static var header: RGBA { RGBA(hex: Chrome.p.tlHeader) }
-        public static var headerChip: RGBA { RGBA(hex: Chrome.p.tlHeaderChip) }
-        public static var headerText: RGBA { RGBA(hex: Chrome.p.textPrimary) }
-        public static var scrollThumb: RGBA { RGBA(hex: Chrome.p.tlScrollThumb) }
-        public static var tick: RGBA { RGBA(hex: Chrome.p.tlTick) }
-        public static var rulerText: RGBA { RGBA(hex: Chrome.p.ruler) }
-        public static var emptyText: RGBA { RGBA(hex: Chrome.p.emptyText) }
+        public static let background = RGBA(hex: 0x161513)     // panel
+        public static let laneMain = RGBA(hex: 0x1B1A18)       // trackMain
+        public static let lane = RGBA(hex: 0x181715)
+        public static let header = RGBA(hex: 0x191816)
+        public static let headerChip = RGBA(hex: 0x242220)
+        public static let headerText = RGBA(hex: 0xF0EBE0)
+        public static let scrollThumb = RGBA(hex: 0x393633)
+        public static let tick = RGBA(hex: 0x585450)
+        public static let rulerText = RGBA(hex: 0x9F988E)
+        public static let emptyText = RGBA(hex: 0xC8C1B5)
         public static let accent = RGBA(hex: 0x2BAF90)         // teal: drop targets, snap, in / out, selection marks
         public static func accent(_ alpha: Double) -> RGBA { RGBA(hex: 0x2BAF90, alpha: alpha) }
         /// Playhead and selected-clip frame: warm cream instead of pure white (reads on every clip colour).
@@ -113,7 +114,7 @@ public enum Theme {
     /// navy, never tinted enough to bias footage); the 80s palette comes from the logo and is used as accent + stripe motif.
     public enum Valse {
         // Brand palette (logo)
-        public static let teal = Color(hex: 0x2BAF90)       // functional accent: selection, focus, active (6.9:1 on canvas)
+        public static let teal = Color(hex: 0x2BAF90)       // functional accent: selection, focus, active (7.2:1 on canvas)
         public static let mint = Color(hex: 0xA1D4B1)       // accent text on dark / hover highlight of teal
         /// Deeper mint for the editor's selection stickers (tabs): calmer than Home's mint, ink on it 7.9:1.
         public static let mintDeep = Color(hex: 0x7FB394)
@@ -122,18 +123,18 @@ public enum Theme {
         public static let burgundy = Color(hex: 0x8C0027)   // film edges of the stripe motif only
         public static let cream = Color(hex: 0xF3E9C8)      // wordmark
         public static let ink = Color(hex: 0x14110C)        // text on teal / mustard fills (6.2:1 / 8.9:1)
-        // Warm neutrals (dark → light)
-        public static var canvas: Color { Color(hex: Chrome.p.canvas) }     // window / Home background
-        public static var sidebar: Color { Color(hex: Chrome.p.sidebar) }
-        public static var surface: Color { Color(hex: Chrome.p.surface) }    // cards, hero
-        public static var raised: Color { Color(hex: Chrome.p.raised) }     // hover / selected surface
-        public static var control: Color { Color(hex: Chrome.p.vControl) }    // fields, segmented controls, secondary buttons
-        public static var controlHover: Color { Color(hex: Chrome.p.vControlHover) }
-        public static var stroke: Color { Color(hex: Chrome.p.stroke) }     // hairlines, card borders
+        // Neutrals, Deep contrast ladder (dark → light)
+        public static let canvas = Color(hex: 0x0C0B0A)     // window / Home background
+        public static let sidebar = Color(hex: 0x100F0E)
+        public static let surface = Color(hex: 0x161513)    // cards, hero
+        public static let raised = Color(hex: 0x1F1D1B)     // hover / selected surface
+        public static let control = Color(hex: 0x242220)    // fields, segmented controls, secondary buttons
+        public static let controlHover = Color(hex: 0x33302D)
+        public static let stroke = Color(hex: 0x33312E)     // hairlines, card borders
         // Text (contrast on canvas / control)
-        public static var text: Color { Color(hex: Chrome.p.textPrimary) }       // 15.9 / 12.5
-        public static var text2: Color { Color(hex: Chrome.p.textSecondary) }      // 9.3 / 7.3
-        public static var text3: Color { Color(hex: Chrome.p.textTertiary) }      // 5.8 / 4.5
+        public static let text = Color(hex: 0xF0EBE0)       // 16.5 / 13.3
+        public static let text2 = Color(hex: 0xBCB5A9)      // 9.7 / 7.8
+        public static let text3 = Color(hex: 0x9F988E)      // 6.9 / 5.6 (4.6 on Theme.control)
         // Selection
         public static let selectedFill = Color(hex: 0x2BAF90, alpha: 0.14)
         /// Stripe order of the ribbon, outside → centre (mirrored on the other side).

@@ -9,10 +9,7 @@ public struct RootView: View {
     @Perception.Bindable var app: AppModel
     private let locale = LocaleState.shared
 
-    public init(app: AppModel) {
-        self.app = app
-        _ = ValseOptions.shared   // TEMPORARY (round 13): applies the saved / forced chrome palette before the first render
-    }
+    public init(app: AppModel) { self.app = app }
 
     public var body: some View {
         WithPerceptionTracking {

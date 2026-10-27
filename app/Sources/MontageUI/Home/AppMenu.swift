@@ -305,7 +305,6 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
             item("whatsnew.menu", enabled: { [unowned self] in self.inEditor }) { Onboarding.shared.showsWhatsNew = true },
             item("menu.licenses") { [unowned self] in self.app.modal = .settings(.about) },
         ]))
-        if let options = ValseOptions.menuItem() { main.addItem(options) }   // TEMPORARY (VALSE-APP round 13: chrome colours)
         return main
     }
 
