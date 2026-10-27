@@ -66,8 +66,10 @@ final class DetachedPanelsController: NSObject, NSWindowDelegate {
             let f = other.visibleFrame
             w.setFrame(NSRect(x: f.midX - p.defaultSize.width / 2, y: f.midY - p.defaultSize.height / 2,
                               width: min(p.defaultSize.width, f.width), height: min(p.defaultSize.height, f.height)), display: false)
+            w.fitToScreen(other)
         } else {
             w.center()
+            w.fitToScreen(editor)   // BUG-OVERSIZED-SHEETS: e.g. the 1400 pt timeline window on a 1280 pt screen
         }
         return w
     }

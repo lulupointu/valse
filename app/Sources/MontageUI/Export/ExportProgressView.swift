@@ -204,7 +204,7 @@ struct ExportQueueButton: View {
                 .buttonStyle(.plain)
                 .help(tr("export.queue"))
                 .testID("titlebar.exportQueue")
-                .popover(isPresented: $open, arrowEdge: .bottom) {
+                .fittedPopover(isPresented: $open, arrowEdge: .bottom) {
                     WithPerceptionTracking {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {

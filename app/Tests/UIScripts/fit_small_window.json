@@ -1,0 +1,33 @@
+// BUG-OVERSIZED-SHEETS: in a small 900×600 editor window the AI models dialog, the Export dialog and Settings stay
+// inside the window (ui.fit.outside empty) and their primary buttons are visible and work.
+{
+  "project": "demo",
+  "size": [900, 600],
+  "steps": [
+    {"click": "id:asset.tab.captions"},
+    {"click": "id:asset.nav.auto"},
+    {"click": "id:captions.advanced"},
+    {"click": "id:models.manage"},
+    {"waitFor": {"path": "ui.fit.shown", "contains": "modelsDone"}},
+    {"expect": [{"path": "ui.fit.shown", "contains": "models"}, {"path": "ui.fit.outside", "equals": ""},
+                {"path": "ui.fit.window.1", "equals": 600}]},
+    {"snapshot": "models-small", "element": "id:models.sheet"},
+    {"click": "id:models.done"},
+    {"waitFor": {"path": "ui.fit.shown", "notContains": "models"}},
+
+    {"key": "cmd+e"},
+    {"waitFor": {"path": "ui.export.dialog.canExport", "equals": true}},
+    {"waitFor": {"path": "ui.fit.shown", "contains": "exportConfirm"}},
+    {"expect": [{"path": "ui.fit.shown", "contains": "export"}, {"path": "ui.fit.outside", "equals": ""}]},
+    {"snapshot": "export-small", "element": "id:export.dialog"},
+    {"click": "id:export.cancel"},
+    {"expect": {"path": "ui.exportSheet", "equals": false}},
+
+    {"menu": "menu.app/menu.settings"},
+    {"waitFor": {"path": "ui.fit.shown", "contains": "dialogOK"}},
+    {"expect": [{"path": "ui.fit.shown", "contains": "dialog"}, {"path": "ui.fit.outside", "equals": ""}]},
+    {"snapshot": "settings-small", "element": "id:settings"},
+    {"click": "id:dialog.cancel"},
+    {"waitFor": {"path": "app.modal", "equals": ""}}
+  ]
+}

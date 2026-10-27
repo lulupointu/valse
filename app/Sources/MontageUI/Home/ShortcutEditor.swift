@@ -15,14 +15,15 @@ struct ShortcutEditorView: View {
 
     var body: some View {
         WithPerceptionTracking {
-            DialogCard(title: tr("keymap.title"), width: 760, onClose: close) {
+            DialogCard(title: tr("keymap.title"), width: 760, onClose: close, bodyScrolls: false) {
                 VStack(spacing: 14) {
                     ShortcutList(keymap: keymap, compact: false)
-                        .frame(height: 520)
+                        .frame(minHeight: 120, idealHeight: 520, maxHeight: 520)   // BUG-OVERSIZED-SHEETS: shrinks to fit
                     ShortcutFooterControls(keymap: keymap)
-                    DialogFooter(okEnabled: dirty, onCancel: close, onOK: save)
                 }
-                .padding(16)
+                .padding([.top, .horizontal], 16)
+            } footer: {
+                DialogFooter(okEnabled: dirty, onCancel: close, onOK: save)
             }
             .testID("shortcuts")
             .onAppear { keymap = Keymap.shared.copy() }

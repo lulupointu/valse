@@ -260,10 +260,11 @@ struct CoverEditorView: View {
                     Rectangle().fill(Theme.separator).frame(width: 1)
                     textPanel.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
+                .scrollsWhenTight()   // BUG-OVERSIZED-SHEETS: footer stays pinned in a small window
                 Rectangle().fill(Theme.separator).frame(height: 1)
                 footer
             }
-            .frame(width: Self.size.width, height: Self.size.height)
+            .fittedFrame(Self.size)
             .background(Theme.panel)
             .testID("cover.dialog")
         }

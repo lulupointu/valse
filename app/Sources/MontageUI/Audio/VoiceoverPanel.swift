@@ -167,7 +167,7 @@ struct VoiceoverButton: View {
     var body: some View {
         WithPerceptionTracking {
             IconButton("mic", help: tr("toolbar.voiceover"), active: shown) { shown.toggle() }
-                .popover(isPresented: $shown, arrowEdge: .bottom) { WithPerceptionTracking { VoiceoverPanel(store: store) } }
+                .fittedPopover(isPresented: $shown, arrowEdge: .bottom) { WithPerceptionTracking { VoiceoverPanel(store: store) } }
         }
     }
 }
