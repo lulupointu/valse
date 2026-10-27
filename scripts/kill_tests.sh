@@ -1,11 +1,11 @@
 #!/bin/bash
-# Stops Montage test / build runs started from ONE checkout (default: this one), and nothing else. The narrow, allow-listed
+# Stops Valse test / build runs started from ONE checkout (default: this one), and nothing else. The narrow, allow-listed
 # replacement for `kill <pid>` / `pkill -f …` (agents may not kill arbitrary processes on the shared machine).
 #   Matches only these processes: bash interpreting scripts/{test,uitest,check_fast,check_clean,test_x86,screenshot,perf}.sh
 #   (argv = bash + that script; wrapper shells whose command line merely mentions it don't match), swift-build,
-#   swift-test, swiftpm-testing-helper, xctest, the Montage binary (…/Montage --uitest|--screenshot…), sample.
+#   swift-test, swiftpm-testing-helper, xctest, the Valse binary (…/Valse --uitest|--screenshot…), sample.
 #   A process belongs to the checkout when its cwd is inside it (agent worktrees under <checkout>/.claude/worktrees/ are
-#   other checkouts and never match), or it runs in a check_clean temp worktree ($TMPDIR/montage-clean.*) and one of its
+#   other checkouts and never match), or it runs in a check_clean temp worktree ($TMPDIR/valse-clean.*) and one of its
 #   ancestors has its cwd inside the checkout. This script and its own ancestors are never touched. Whole process trees
 #   are stopped (TERM, then KILL after 3 s); their test slots are released by their exit hooks or the next reclaim.
 # Usage: scripts/kill_tests.sh [--dry-run] [--dir <checkout>]
@@ -22,7 +22,7 @@ done
 cd "$(dirname "$0")/.."
 [[ -n "$DIR" ]] || DIR="$(pwd -P)"
 source scripts/lib.sh
-CWD_FILE="$(mktemp -t montage-kill-cwd)"; PS_FILE="$(mktemp -t montage-kill-ps)"
+CWD_FILE="$(mktemp -t valse-kill-cwd)"; PS_FILE="$(mktemp -t valse-kill-ps)"
 trap 'rm -f "$CWD_FILE" "$PS_FILE"' EXIT
 lsof -a -d cwd -Fpn 2>/dev/null | awk '/^p/{p=substr($0,2)} /^n/{print p "\t" substr($0,2)}' > "$CWD_FILE" || true
 ps -A -o pid=,ppid=,command= > "$PS_FILE"
@@ -50,7 +50,7 @@ is_test_proc() { # command line → 0 when it is one of the allowed kinds (argv[
         */scripts/test.sh|*/scripts/uitest.sh|*/scripts/check_fast.sh|*/scripts/check_clean.sh|*/scripts/test_x86.sh|*/scripts/screenshot.sh|*/scripts/perf.sh) return 0;;
       esac; return 1;;
     */swift-build|*/swift-test|*/swiftpm-testing-helper|*/xctest|/usr/bin/sample|sample) return 0;;
-    */Montage) [[ " $rest " == *" --uitest "* || " $rest " == *" --screenshot"* || " $rest " == *" --snapshot"* ]];;
+    */Valse) [[ " $rest " == *" --uitest "* || " $rest " == *" --screenshot"* || " $rest " == *" --snapshot"* ]];;
     *) return 1;;
   esac
 }
@@ -58,7 +58,7 @@ belongs() { # pid → 0 when it runs for $DIR
   local pid="$1" c a n=0
   c="$(cwd_of "$pid")"
   inside "$c" && return 0
-  [[ "$c" == */montage-clean.* ]] || return 1
+  [[ "$c" == */valse-clean.* ]] || return 1
   a="$(ppid_of "$pid")"
   while [[ -n "$a" && "$a" != 0 && "$a" != 1 && $n -lt 30 ]]; do
     inside "$(cwd_of "$a")" && return 0
@@ -78,7 +78,7 @@ while read -r pid ppid cmd; do
   ROOTS+=("$pid")
   echo "$([[ $DRY == 1 ]] && echo "would stop" || echo "stopping") PID $pid: $(cut -c1-150 <<< "$cmd")"
 done < "$PS_FILE"
-[[ ${#ROOTS[@]} == 0 ]] && { echo "no Montage test processes running for $DIR"; exit 0; }
+[[ ${#ROOTS[@]} == 0 ]] && { echo "no Valse test processes running for $DIR"; exit 0; }
 [[ $DRY == 1 ]] && exit 0
 for p in "${ROOTS[@]}"; do kill_tree "$p"; done
 echo "stopped ${#ROOTS[@]} process tree(s) for $DIR"

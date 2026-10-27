@@ -5,7 +5,7 @@
   "project": "demo",
   "steps": [
     {"click": "id:asset.tab.text"},
-    {"drop": {"text": "template:montage.template.countUp"}, "on": "time:1@2"},
+    {"drop": {"text": "template:valse.template.countUp"}, "on": "time:1@2"},
     {"expect": [{"path": "selectedClips.0.kind", "equals": "text"}, {"path": "ui.anchors", "contains": "inspector.section.text.counter"},
                 {"path": "ui.anchors", "contains": "text.template.separate"}]},
     {"seek": 2.0},

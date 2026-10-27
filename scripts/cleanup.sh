@@ -1,9 +1,9 @@
 #!/bin/bash
 # Frees disk space left behind by agents and test runs (safe to run any time, from any checkout).
-#   1. `git worktree prune`; clean-check worktrees ($TMPDIR/montage-clean.*) older than --hours are removed
+#   1. `git worktree prune`; clean-check worktrees ($TMPDIR/valse-clean.*) older than --hours are removed
 #   2. .build of every worktree whose branch is already merged into main, unless the worktree is in use: a process
 #      has its cwd inside it, or its .build was written in the last --hours (the main checkout is never touched)
-#   3. $TMPDIR/montage-* leftovers older than --hours (the shared synthetic-media cache montage-test-media-v1 is kept)
+#   3. $TMPDIR/valse-* leftovers older than --hours (the shared synthetic-media cache valse-test-media-v1 is kept)
 #   4. dead / hung test-slot locks (scripts/slots.sh reclaim)
 #   --merged-worktrees: step 2 instead removes the .build of every worktree whose HEAD commit (branch or detached) is
 #      an ancestor of main or of a batch-* branch (its work is integrated), whose `git status` is clean (untracked files
@@ -23,10 +23,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 MAIN="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)"
-TMPD="${MONTAGE_REAL_TMPDIR:-${TMPDIR:-/tmp}}"; TMPD="$(cd "$TMPD" && pwd -P)"
+TMPD="${VALSE_REAL_TMPDIR:-${TMPDIR:-/tmp}}"; TMPD="$(cd "$TMPD" && pwd -P)"
 MINS=$(( HOURS * 60 ))
 FREED=0
-SCRATCH_LIST="$(mktemp -t montage-cleanup-list)"
+SCRATCH_LIST="$(mktemp -t valse-cleanup-list)"
 trap 'rm -f "$SCRATCH_LIST" "$SCRATCH_LIST.f"' EXIT
 say() { if [[ $DRY == 1 ]]; then echo "would remove: $*"; else echo "removed: $*"; fi; }
 kb() { du -sk "$1" 2>/dev/null | awk '{print $1}'; }
@@ -64,7 +64,7 @@ while IFS=$'\t' read -r WT BR; do
   [[ -z "$WT" ]] && continue
   WTP="$(cd "$WT" 2>/dev/null && pwd -P || echo "$WT")"
   [[ "$WTP" == "$MAIN" ]] && continue
-  if [[ "$WTP" == "$TMPD"/montage-clean.* || "$WTP" == "$TMPD"/montage-run-* ]]; then
+  if [[ "$WTP" == "$TMPD"/valse-clean.* || "$WTP" == "$TMPD"/valse-run-* ]]; then
     if [[ -n "$(find "$WTP" -maxdepth 0 -mmin +"$MINS" 2>/dev/null)" ]] && ! in_use "$WTP"; then
       say "stale clean-check worktree $WTP"
       [[ $DRY == 1 ]] || { git -C "$MAIN" worktree remove --force "$WTP" 2>/dev/null || rm -rf "$WTP"; }
@@ -103,11 +103,11 @@ while IFS=$'\t' read -r WT BR; do
   zap "$WTP/.build" "$WTP/.build ($B merged into main)"
 done <<< "$WTLIST"
 
-echo "▶ \$TMPDIR/montage-* older than $HOURS h ($TMPD)"
+echo "▶ \$TMPDIR/valse-* older than $HOURS h ($TMPD)"
 # processes running inside $TMPDIR (a live UI test / clean check): their top-level entry is kept
 BUSY="$(while IFS= read -r c; do if [[ "$c" == "$TMPD"/* ]]; then echo "$TMPD/$(cut -d/ -f1 <<< "${c#"$TMPD"/}")"; fi; done <<< "$CWDS" | sort -u)"
 LIST="$SCRATCH_LIST"
-find "$TMPD" -maxdepth 1 -name 'montage-*' ! -name 'montage-test-media-v1' -mmin +"$MINS" 2>/dev/null | sort > "$LIST"
+find "$TMPD" -maxdepth 1 -name 'valse-*' ! -name 'valse-test-media-v1' -mmin +"$MINS" 2>/dev/null | sort > "$LIST"
 if [[ -n "$BUSY" ]]; then grep -vxF "$BUSY" "$LIST" > "$LIST.f" || true; mv "$LIST.f" "$LIST"; fi
 N="$(wc -l < "$LIST" | tr -d ' ')"
 if [[ $DRY == 1 ]]; then
@@ -121,7 +121,7 @@ else
 fi
 FREED=$(( FREED + K ))
 [[ $DRY == 1 ]] || git -C "$MAIN" worktree prune   # clean-check worktrees whose temp dir was just removed
-CACHE="$TMPD/montage-test-media-v1"
+CACHE="$TMPD/valse-test-media-v1"
 [[ -d "$CACHE" ]] && echo "  kept the synthetic test-media cache $CACHE ($(human "$(kb "$CACHE")"); delete it by hand if needed, it regenerates)"
 
 echo "▶ test slots"

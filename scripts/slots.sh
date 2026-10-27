@@ -3,35 +3,35 @@
 # Source it, then call `slots_acquire` (one of the slots) or `slots_acquire_all` (exclusive: every slot —
 # scripts/perf.sh, so timings are not disturbed by other teams). Released on exit (`slots_release`; the EXIT hook is
 # chained through scripts/lib.sh `on_exit`, so callers may add their own hooks). Nested scripts (check_clean → test.sh)
-# reuse the parent's slot (MONTAGE_SLOT_HELD).
+# reuse the parent's slot (VALSE_SLOT_HELD).
 #
-# Locks are mkdir directories under /tmp/montage-locks (MONTAGE_LOCK_DIR) holding the owner's PID, its start time,
+# Locks are mkdir directories under /tmp/valse-locks (VALSE_LOCK_DIR) holding the owner's PID, its start time,
 # command and directory. A lock is RECLAIMED (and the reclaim printed) when its holder
 #   - is dead (or its PID was reused by another process), or
-#   - has been idle for MONTAGE_SLOT_IDLE_MIN minutes (default 20): its whole process tree used < 2 CPU-seconds and
+#   - has been idle for VALSE_SLOT_IDLE_MIN minutes (default 20): its whole process tree used < 2 CPU-seconds and
 #     started no new process that lived >= 10 s (`sleep`s aside) in that time, as seen by checks ≤ 2 min apart (a hung run). The idle
 #     holder's process tree is killed so it cannot resume later. (A hung build / test under scripts/lib.sh
 #     `run_watched` is killed sooner by its hang watchdog; the script then exits and its EXIT hook frees the slot.)
-# Slot count: MONTAGE_SLOTS, default min(max(2, cores / 5), max(1, RAM GB / 6)) — a gate (build + parallel tests or a
+# Slot count: VALSE_SLOTS, default min(max(2, cores / 5), max(1, RAM GB / 6)) — a gate (build + parallel tests or a
 # UI app) needs ~5 cores and up to ~5 GB. Slot 0 is always offered; the others only while the 1-min load average is
-# below MONTAGE_SLOT_MAX_LOAD (default 3 × cores), so an overloaded machine runs fewer gates at once.
+# below VALSE_SLOT_MAX_LOAD (default 3 × cores), so an overloaded machine runs fewer gates at once.
 # Waiters queue FIFO (ticket files in <lock dir>/queue; dead waiters' tickets are dropped): only the oldest waiting run
 # may take a free slot, so a run never starves behind newer ones. The tests themselves are load-robust: this cap is for
-# throughput, not for correctness. MONTAGE_NO_SLOTS=1 skips locking entirely.
+# throughput, not for correctness. VALSE_NO_SLOTS=1 skips locking entirely.
 #
 # Run directly:  scripts/slots.sh status    holders, age, CPU, idle time
 #                scripts/slots.sh reclaim   reclaim dead / idle slots now
-SLOTS_DIR="${MONTAGE_LOCK_DIR:-/tmp/montage-locks}"
+SLOTS_DIR="${VALSE_LOCK_DIR:-/tmp/valse-locks}"
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 _SLOTS_CORES="$(sysctl -n hw.ncpu 2>/dev/null || echo 8)"
 _SLOTS_MEM_GB=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 17179869184) / 1073741824 ))
 _SLOTS_BY_CPU=$(( _SLOTS_CORES / 5 > 2 ? _SLOTS_CORES / 5 : 2 ))
 _SLOTS_BY_MEM=$(( _SLOTS_MEM_GB / 6 > 1 ? _SLOTS_MEM_GB / 6 : 1 ))
-SLOTS_N="${MONTAGE_SLOTS:-$(( _SLOTS_BY_CPU < _SLOTS_BY_MEM ? _SLOTS_BY_CPU : _SLOTS_BY_MEM ))}"
+SLOTS_N="${VALSE_SLOTS:-$(( _SLOTS_BY_CPU < _SLOTS_BY_MEM ? _SLOTS_BY_CPU : _SLOTS_BY_MEM ))}"
 SLOTS_TICKET=""
-SLOTS_IDLE_SECS=$(( ${MONTAGE_SLOT_IDLE_MIN:-20} * 60 ))
-[[ -n "${MONTAGE_SLOT_IDLE_SECS:-}" ]] && SLOTS_IDLE_SECS="$MONTAGE_SLOT_IDLE_SECS"   # tests of the reclaim itself
-SLOTS_MAX_LOAD="${MONTAGE_SLOT_MAX_LOAD:-$(( _SLOTS_CORES * 3 ))}"
+SLOTS_IDLE_SECS=$(( ${VALSE_SLOT_IDLE_MIN:-20} * 60 ))
+[[ -n "${VALSE_SLOT_IDLE_SECS:-}" ]] && SLOTS_IDLE_SECS="$VALSE_SLOT_IDLE_SECS"   # tests of the reclaim itself
+SLOTS_MAX_LOAD="${VALSE_SLOT_MAX_LOAD:-$(( _SLOTS_CORES * 3 ))}"
 SLOTS_HELD=()
 _SLOTS_CMD="$0${*:+ $*}"   # the sourcing script and its arguments (positional parameters are inherited by `source`)
 
@@ -148,7 +148,7 @@ _slots_first_in_line() { # 0 when our ticket is the oldest live one (drops dead 
 }
 
 slots_acquire() {
-  [[ "${MONTAGE_NO_SLOTS:-0}" == 1 || -n "${MONTAGE_SLOT_HELD:-}" ]] && return 0
+  [[ "${VALSE_NO_SLOTS:-0}" == 1 || -n "${VALSE_SLOT_HELD:-}" ]] && return 0
   mkdir -p "$SLOTS_DIR"
   local waited=0 i
   on_exit slots_release
@@ -159,7 +159,7 @@ slots_acquire() {
     if [[ ! -d "$SLOTS_DIR/exclusive" ]] && _slots_first_in_line; then
       for ((i = 0; i < SLOTS_N; i++)); do
         (( i > 0 )) && ! _slots_load_ok && break
-        if _slot_try "$SLOTS_DIR/slot.$i"; then _slots_ticket_drop; export MONTAGE_SLOT_HELD=1; return 0; fi
+        if _slot_try "$SLOTS_DIR/slot.$i"; then _slots_ticket_drop; export VALSE_SLOT_HELD=1; return 0; fi
       done
     fi
     (( waited % 30 == 0 )) && _slots_wait_msg
@@ -168,7 +168,7 @@ slots_acquire() {
 }
 
 slots_acquire_all() {
-  [[ "${MONTAGE_NO_SLOTS:-0}" == 1 || -n "${MONTAGE_SLOT_HELD:-}" ]] && return 0
+  [[ "${VALSE_NO_SLOTS:-0}" == 1 || -n "${VALSE_SLOT_HELD:-}" ]] && return 0
   mkdir -p "$SLOTS_DIR"
   local waited=0 i
   on_exit slots_release
@@ -184,7 +184,7 @@ slots_acquire_all() {
     done
   done
   rm -f "$SLOTS_DIR/exclusive/heartbeat"
-  export MONTAGE_SLOT_HELD=1
+  export VALSE_SLOT_HELD=1
 }
 
 slots_release() {

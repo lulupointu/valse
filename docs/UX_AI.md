@@ -1,4 +1,4 @@
-# Montage UX reference, part 2: CapCut's AI and Pro features
+# Valse UX reference, part 2: CapCut's AI and Pro features
 
 Companion to `docs/UX.md`. It fills the gaps UX.md marked as "not explored": we couldn't run these features live without signing in.
 Read UX.md first. This file reuses its tokens, inspector anatomy (§5), timeline anatomy (§6) and glossary (§10).
@@ -21,14 +21,14 @@ Read UX.md first. This file reuses its tokens, inspector anatomy (§5), timeline
 
 Labels are written `English / Français`. `%1` = placeholder.
 Ignore everything about credits, "uses left", Pro paywalls, sign-in, upload consent ("Allow CapCut to upload your media to our server")
-and cloud queues ("In line… Estimated 1h+ wait"). Montage runs everything on device and has none of this. We list those strings only
+and cloud queues ("In line… Estimated 1h+ wait"). Valse runs everything on device and has none of this. We list those strings only
 so you know what to drop.
 
 ---
 
 ## 0. The shared "AI job" pattern (applies to almost every feature below)
 
-CapCut runs every AI process the same way. Montage should build it **once** (a job system + clip-overlay UI) and reuse it everywhere.
+CapCut runs every AI process the same way. Valse should build it **once** (a job system + clip-overlay UI) and reuse it everywhere.
 
 | Stage | What the user sees | Example strings (en / fr) | Conf. |
 |---|---|---|---|
@@ -37,21 +37,21 @@ CapCut runs every AI process the same way. Montage should build it **once** (a j
 | Progress | **Non-blocking.** The clip on the timeline gets a dark translucent overlay with a progress label, e.g. "Applying auto cutout... 37%". You can keep editing other clips. The inspector section shows the same text/spinner. | "Applying auto cutout... %1% / Application en cours du découpage automatique… %1%", "Stabilizing being applied... %1%", "Applying optical flow... %1%", "Isolating voice... %1%", "Applying relight... %1%", "AI removing... %1%" | [R] text, [L] for cutout progress on the clip, [I] overlay styling |
 | Cancel | Unticking the checkbox (or Undo) while it runs cancels the job. Some features ask first. A toast confirms. | "Cutout is being applied. Undo cutout? / Découpage en cours d'application. Annuler le découpage ?", "Quit applying vocal isolation?", "Stop generating?", toasts "Video stabilization canceled", "Optical flow canceled", "Auto reframe canceled", "Relight is canceled" | [R] |
 | Done | Toast (dark pill, bottom-centre of the player, ~2 s). The clip overlay disappears and the player shows the result. | "Auto cutout completed / Découpage automatique terminé", "Video stabilization completed", "Optical flow applied", "Vocal isolation applied", "Auto reframe applied", "Relight applied", "Customized cutout applied" | [R] |
-| Failure | Toast (or inline message in the panel) with the cause and the action; "Try again" only when a retry can work (Montage rule, docs/UX.md §11 "Error messages"; CapCut always says "Try again"). | "Couldn't auto remove background. Try again.", "Couldn't stabilize video. Try again.", "Couldn't apply auto reframe. Try again later." | [R] |
+| Failure | Toast (or inline message in the panel) with the cause and the action; "Try again" only when a retry can work (Valse rule, docs/UX.md §11 "Error messages"; CapCut always says "Try again"). | "Couldn't auto remove background. Try again.", "Couldn't stabilize video. Try again.", "Couldn't apply auto reframe. Try again later." | [R] |
 | Undo/redo | Each application is one named undo step. | "Undo: AI expand / Annuler : développement par l'IA", "Undo: Keep vocal", "Redo: Remove vocal", "Color match: %1", "Auto adjust：%1" | [R] |
 | Export guard | Export is blocked, or waits, while jobs are running. | "Can't export. Some features are being applied. / Exportation impossible. Certaines fonctionnalités sont en cours d'application.", "You can export after the relight is completed", during export: "Removing background and stabilizing..." / "Stabilizing..." | [R] |
 | Mutual exclusion | Features that rewrite geometry exclude each other. A confirm dialog lists what will be removed. | "%1 and %2 applied to your video will be removed if you apply auto reframe.", "Auto reframe will be removed if you turn on stabilize.", "Auto reframe will be removed if you crop the video." | [R] |
 | Can't apply | Disabled with a toast for unsupported inputs: compound clips, reversed clips, templates, AI avatars, images, library music, clips that are too long. | "Can't apply vocal isolation to compound clips", "…to reversed clips", "Clips need to be within %1 minutes to apply vocal isolation", "Keep the clip within 30 minutes" (enhance quality) | [R] |
 | Concurrency | "Can't apply. The clip is being expanded.", "Can't expand. Another feature is being applied." **One heavy job per clip at a time.** Different clips can run in parallel or queue. | | [R] |
 | Long jobs | Some panels offer **Minimize / Réduire** ("Expanding may take a while. You can tap "Minimize" to continue editing this project.") or **Run in background / Exécuter en arrière-plan** (audio translator). | | [R] |
-| Privacy prompt (first use, face/body features) | "Allow CapCut to recognize your facial and body features for retouching?" + "Your media won't be uploaded to our server." `[Allow]` | | [R] (Montage: show a one-time, local-only notice, or nothing at all) |
+| Privacy prompt (first use, face/body features) | "Allow CapCut to recognize your facial and body features for retouching?" + "Your media won't be uploaded to our server." `[Allow]` | | [R] (Valse: show a one-time, local-only notice, or nothing at all) |
 
 **Result storage model** [I, consistent with all strings]: the AI result is a **cached derived asset attached to the clip**
 (matte sequence, stabilized transform track, interpolated frames, separated stem…). The clip keeps its identity, trims and keyframes.
 Unticking the section hides the result instantly, and ticking it again reuses the cache ("The applied optical flow result won't be removed").
 Nothing new appears on the timeline unless the feature says otherwise (captions, TTS, separated audio, shorts).
 
-**Montage requirements derived from this:**
+**Valse requirements derived from this:**
 - A per-clip job badge/overlay with % on the timeline, plus the same status in the inspector section header.
 - Cancel by unticking or ⌘Z.
 - Results cached on disk by (source hash, params), so re-ticking is instant.
@@ -88,7 +88,7 @@ Click count: Text tab → Auto captions → (optional language) → Generate = *
 ### 1.3 Progress and result
 - Progress: a blocking overlay over the editor: "Generating captions... / Génération en cours des légendes…", then
   "Splitting captions... / Division en cours des légendes…", then "Adding caption clips. Do not take any actions. / Ajout des clips de
-  sous-titres. N'effectue aucune action." [R]. **This is the one AI flow that blocks the UI in CapCut.** For Montage: show a modal sheet with
+  sous-titres. N'effectue aucune action." [R]. **This is the one AI flow that blocks the UI in CapCut.** For Valse: show a modal sheet with
   progress and **Cancel** (our ASR runs locally and may take longer). Keep it non-blocking if we can insert atomically at the end.
 - Result [L][R]: a new **caption track** of text clips (one clip per caption, each ≤2 lines, "One piece of caption can be divided into at most
   two lines") placed above the main track and **linked to the source clips**. Toast "Captions added / Légendes ajoutées". Captions get the
@@ -127,7 +127,7 @@ Under Text ▸ caption template or the template row. Arrangement: **Word by word
 **Whole screen / Écran entier**. **Words per line / Nombre de mots par ligne**, **Lines per screen / Nombre de lignes par écran**,
 **No limit**. Animation states: **Spoken word / Mot prononcé**, **Unspoken word**, **Spoken line / Ligne prononcée**, **Unspoken line**,
 **Keyword / Mot-clé** (each with its own style; e.g. "Unspoken captions ▸ Opacity"). Keyword emphasis: **Special emphasis style**,
-**Separate lines for keywords**, **Separate screens for keywords**. Montage needs **word-level timestamps** for all of this.
+**Separate lines for keywords**, **Separate screens for keywords**. Valse needs **word-level timestamps** for all of this.
 
 ### 1.6 Export captions [L][R]
 Export dialog ▸ ☐ **Caption exporting / Exportation de sous-titres** → Format SRT/TXT. Toasts: "Captions exported", "Couldn't export captions".
@@ -143,7 +143,7 @@ Buttons: **Split and add / Diviser et ajouter**, **Add without split / Ajouter s
 
 ### 2.1 Where
 - Timeline toolbar button **Transcript / Transcription** (visible when a clip is selected) [L]. Its tooltip is "Transcript-based editing /
-  Édition basée sur la transcription" [R][T]. **Montage (C4)**: always visible — the transcript is global (every main-track clip with
+  Édition basée sur la transcription" [R][T]. **Valse (C4)**: always visible — the transcript is global (every main-track clip with
   sound), no selection needed; the panel says whether it is up to date ("Out of date — timeline changed · Update", incremental) and its
   main action is **Remove filler words** (scope: everywhere, or the selected clips), whose review UI is shared with Captions ▸ Filler
   words. Apply style = Settings ▸ Edit ▸ Labs (Instant / Review list / Inline), see STATUS.md C4.
@@ -213,9 +213,9 @@ See UX.md §7 (live-verified). "*Pick color of the photo, and then adjust bright
 
 ### 3.4 Magic cutout (effect) [R]
 "✨Magic cutout" is a video effect: select the subject, then ✓ to apply ("Select & tap ✓ to apply. It may take a moment."). Progress "Your effect
-is %1% ready. Hang tight!" with **Keep generating / Discard**. Duration %1–%2 s. Cloud. P2 for Montage.
+is %1% ready. Hang tight!" with **Keep generating / Discard**. Duration %1–%2 s. Cloud. P2 for Valse.
 
-**Montage:** Vision person segmentation gives a live preview while the full-quality matte job runs. Click count stays **3** (select → Cutout → tick).
+**Valse:** Vision person segmentation gives a live preview while the full-quality matte job runs. Click count stays **3** (select → Cutout → tick).
 
 ---
 
@@ -277,7 +277,7 @@ the effect on the current interface." [R]
 
 **B) Standalone dialog** (`SmartCrop` plugin, `ui.type: dialog`) [R]: opened from the home screen / the tools list. **Import only 1 video at a time**,
 the same three options plus **Frame size / Taille du cadre**, a preview with a timebar, **Import again**, and **Export video**
-("Video exported"). Montage can skip this and use path A.
+("Video exported"). Valse can skip this and use path A.
 
 Clicks (A): select → Video ▸ Basic → tick → pick ratio = **4**.
 
@@ -289,7 +289,7 @@ excludes auto reframe [R].
 
 ### 4.9 AI movement / Mouvement par l'IA [R]
 ☐ AI movement → presets **Dynamic / Dynamique** · **Soft / Doux** · **Shake / Secouer** · **Zoom / Zoomer** (+ scale [I]). It excludes auto
-reframe: "Auto reframe will be removed if you apply AI movement." Local Ken-Burns in Montage.
+reframe: "Auto reframe will be removed if you apply AI movement." Local Ken-Burns in Valse.
 
 ### 4.10 Relight / Ajout de lumière [L][R]
 ☐ Relight section (it also appears under "AI tools / Outils IA"):
@@ -306,7 +306,7 @@ reframe: "Auto reframe will be removed if you apply AI movement." Local Ken-Burn
 ### 4.11 AI remove / AI remix / AI expand [L][R]
 - **AI remove / Suppression par l'IA**: brush (**Brush to select**, **Size**, **Erase**), optional prompt "Describe what you want to remove", `[Remove]`.
   Video duration limited to %1–%2 s. "AI removing... %1%", "Estimated time left: %1:%2". Pick a result ("Select a result you like") →
-  **Apply** → "Result applied" [R]. A tutorial also mentions Quick/Custom brush [T]. **Montage: P1, local LaMa per frame.**
+  **Apply** → "Result applied" [R]. A tutorial also mentions Quick/Custom brush [T]. **Valse: P1, local LaMa per frame.**
 - **AI remix**: brush + prompt "Examples: brown hair, light blue dress…" → Generate → results. Cloud, P2.
 - **AI expand**: "AI expanding... %1%", **Minimize**, "Expand further", "Edit expanded area". Cloud, P2.
 
@@ -318,7 +318,7 @@ reframe: "Auto reframe will be removed if you apply AI movement." Local Ken-Burn
   slider [I]. It can't use Pro materials [R].
 - **☐ Color correction / Correction des couleurs** ("Correct colors in one click") plus strength [R][I]. Multicam has a variant: "Automatically correct
   colors in each camera's footage for a consistent look." [R]
-- These are all statistical, so Montage needs no ML. Results are parameter changes, and they stay editable.
+- These are all statistical, so Valse needs no ML. Results are parameter changes, and they stay editable.
 
 ---
 
@@ -399,7 +399,7 @@ chanson** [R]. Tiles 78 pt, click = download + apply + play [L]. Parameters unde
 - "Create your custom voice with 10 seconds of audio." Sources: record (reading prompts, e.g. "Read the text out loud and clearly in a quiet
   environment.") or upload/extract. "Creating custom voice... %1%". Listen: "You are listening to your custom voice." [R]
 - Changing an existing clip to a custom voice: "Changing to custom voice...", "Stop changing to custom voice?" [R]
-- Montage: P1/P2 local, with a consent notice.
+- Valse: P1/P2 local, with a consent notice.
 
 ### 6.7 Audio / video translator [R]
 Audio ▸ ☐ **Audio translator / Outil de traduction de fichiers audio** (or Video translator). Pick a target language → **Apply** → progress, with
@@ -457,7 +457,7 @@ Video/image clip → inspector tab **AI stylize / Stylisation par l'IA** [L]:
   **Regenerate** → **Apply** → "AI effect applied" [R]. Video ≤ **10 s** ("Clips need to be within 10 seconds to apply AI effects"); on video it
   first stylizes the first frame ("The AI effect will be applied to the first frame of the video. Select a style to apply it to the whole video.") [R].
 - **☐ Style**: preset grid (cloud). Mutually exclusive with AI effects ("The applied style will be removed if you apply AI effect.") [R].
-- Montage: local style filters (NPR shaders, fast style nets) in the same tab. Same states, without a queue.
+- Valse: local style filters (NPR shaders, fast style nets) in the same tab. Same states, without a queue.
 
 ---
 
@@ -480,14 +480,14 @@ Video/image clip → inspector tab **AI stylize / Stylisation par l'IA** [L]:
 - Flow [R]: **Select media** (filter "Select videos with speech", **Select all**, `Next (%1)`) → settings: content type **Any content · Podcast ·
   Interview · Product demo · Tutorial**; total length **<5 min · 5–10 min · 10+ min** (+ "3min+"); clip **Duration**: **Auto · 0–15s · 15–30s ·
   30s–1min · 1min+**; **Editing style / Style d'édition**: **Auto (edit based on your video content)** · **Chronological** · **Story-driven** ·
-  **Speech-based** · **Montage**; **More requirements** prompt ("Describe the style, mood, or moments to highlight"); **Upload outline**
+  **Speech-based** · **Valse**; **More requirements** prompt ("Describe the style, mood, or moments to highlight"); **Upload outline**
   → **Start clipping** / **Get clips**.
 - Progress: "Creating clips... %1%" / "AI clipping... %1%", "About %1s left", **View later** ("We'll notify you when it's ready.") and
   **Cancel** → "Cancel clipping? Your highlight clips in progress will be lost." `[Keep generating]` `[Cancel]` [R].
 - Results **Highlight clips / Clips avec mise en évidence**: list/grid, **Drag to reorder**, **Add chapter**, **Auto arrange clips**, **Save as new
   folder**, `[Save]`. "Get highlight clips?" warns: "Keyframes and speed changes will be removed. Some elements may be removed or may not sync
   with the main track." Then it **rebuilds the main track** [R].
-- Montage: local Whisper + LLM scoring. Keep the same three-step wizard.
+- Valse: local Whisper + LLM scoring. Keep the same three-step wizard.
 
 ---
 
@@ -499,7 +499,7 @@ Video/image clip → inspector tab **AI stylize / Stylisation par l'IA** [L]:
 - Output actions: **Make longer / shorter / rewrite** ("This feature can add more content… / shorten… / rewrite…"); **Add to track** (with **Split
   and add** / **Add without split**), saved to "AI writer" history ("Captions added and saved to "AI writer"") [R].
 - Progress "Generating..." / "Almost there...". Disclaimer "Scripts are generated automatically by AI…" [R].
-- Montage: local LLM (Foundation Models / Qwen). Results land as caption/text clips.
+- Valse: local LLM (Foundation Models / Qwen). Results land as caption/text clips.
 
 ---
 
@@ -523,7 +523,7 @@ A newer panel (it analyzes locally: "CapCut will process your projects directly 
   voice + Reduce noise; Normalize loudness), **Express better** (Add captions, Style captions, AI movement, avatar). Each item shows **Clips to
   improve** and `[Apply]` (applies to every flagged clip). Undo per suggestion: "Remove retouching effects?", "Voice enhancement and noise
   reduction that were applied automatically will be removed." **Analyze again** after edits ("Project updated. Try analyzing again.").
-- Montage: a good P1. It's just orchestration of features we already have.
+- Valse: a good P1. It's just orchestration of features we already have.
 
 ---
 
@@ -543,7 +543,7 @@ A newer panel (it analyzes locally: "CapCut will process your projects directly 
   exported · Open the folder to view them." `[Open folder]`.
 - Errors [R]: "Export failed", FAT32 too-large, invalid path, "Audio files not found → [Link audio files] / [Export anyway]", "The video may not export
   successfully. Close other applications or select a lower resolution and try again." (low memory, which matters on 8 GB).
-- Montage: progress bar with % + elapsed/remaining time + **Cancel**, a non-modal mini progress in the title bar when the dialog is closed,
+- Valse: progress bar with % + elapsed/remaining time + **Cancel**, a non-modal mini progress in the title bar when the dialog is closed,
   then "Open folder" / "Export again" / "Close".
 
 ---
@@ -568,11 +568,11 @@ A newer panel (it analyzes locally: "CapCut will process your projects directly 
   A detached panel becomes its own native window (movable to a second screen; tip "Try [Separate window, Dual screen] to make editing easier.").
   The remaining panels reflow to fill the main window. Closing the detached window docks the panel back [I]. A **Window / Fenêtre** menu exists [R].
 - **Responsive**: "Auto layout / Disposition automatique" [R]. Below a minimum window size: "Please expand the window to continue using CapCut" [R].
-- Montage: NSWindow-based detach for the player (full-screen on the second display) and the timeline is P1. Implement the 5 presets + 3 custom slots.
+- Valse: NSWindow-based detach for the player (full-screen on the second display) and the timeline is P1. Implement the 5 presets + 3 custom slots.
 
 ---
 
-## 16. Summary for Montage implementers
+## 16. Summary for Valse implementers
 
 | Feature | Location | Clicks | Feedback | Timeline result |
 |---|---|---|---|---|
@@ -598,4 +598,4 @@ A newer panel (it analyzes locally: "CapCut will process your projects directly 
 **Remaining gaps (not verifiable without running the features):** pixel layout and exact styling of the on-clip progress overlay; the exact
 timeline placement of separated stems; default strength values for Enhance voice, Auto adjust and Color match; the Beats 1 vs 2 density
 definition; whether Custom layout slots need an explicit save; whether a detached window re-docks on close. Each of these is marked [I] above.
-Montage should decide them and record the decision here.
+Valse should decide them and record the decision here.

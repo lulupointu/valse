@@ -7,12 +7,12 @@
 #                            SDR white, AAC 44.1 kHz stereo carrying speech, Apple make/model tags
 #   speech_en.m4a            English speech (say, en_GB), ~0.9 s pause in the middle, AAC 48 kHz mono
 #   music_120bpm.m4a         8 s, 120 BPM: kick on every beat, hi-hat off-beats, two alternating chords, AAC stereo
-# Owner footage stays opt-in and uncommitted: MONTAGE_REAL_FOOTAGE="/path/a.MOV|/path/b.MOV" (docs/TESTING.md).
+# Owner footage stays opt-in and uncommitted: VALSE_REAL_FOOTAGE="/path/a.MOV|/path/b.MOV" (docs/TESTING.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=app/Tests/UIScripts/fixtures/real
 mkdir -p "$OUT"
-T="$(mktemp -d -t montage-fixtures)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d -t valse-fixtures)"; trap 'rm -rf "$T"' EXIT
 command -v ffmpeg >/dev/null || { echo "ffmpeg missing (brew install ffmpeg)"; exit 1; }
 
 # ---- speech -----------------------------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ G="$(layer 250 156 40 58 124 160 228 48 34 92 16)"
 B="$(layer 244 142 30 108 100 132 222 34 26 92 14)"
 ffmpeg -v error -y -f lavfi -i "color=c=black:s=1080x1920,format=rgb24" -frames:v 1 \
   -vf "geq=r='$R':g='$G':b='$B',gblur=sigma=3" "$T/still.png"
-if [[ -n "${MONTAGE_FIXTURE_STILL:-}" ]]; then cp "$T/still.png" "$MONTAGE_FIXTURE_STILL"; fi
+if [[ -n "${VALSE_FIXTURE_STILL:-}" ]]; then cp "$T/still.png" "$VALSE_FIXTURE_STILL"; fi
 # SDR drawing → real HLG signal: BT.709 display gamma → linear → BT.2020 primaries → scene light with SDR white at
 # HLG 75 % (BT.2408, E = 0.265) → HLG OETF. The window (near-white) is 3× SDR white: a highlight above SDR, as in iPhone HLG.
 L() { echo "pow($1(X,Y)/255,2.4)"; }
@@ -59,7 +59,7 @@ EG="(0.265*$BOOST*(0.0691*$(L r)+0.9195*$(L g)+0.0114*$(L b)))"
 EB="(0.265*$BOOST*(0.0164*$(L r)+0.0880*$(L g)+0.8956*$(L b)))"
 ffmpeg -v error -y -i "$T/still.png" -vf "format=rgb24,geq=r='$(OETF "$ER")':g='$(OETF "$EG")':b='$(OETF "$EB")'" "$T/still_hlg.png"
 mv "$T/still_hlg.png" "$T/still.png"
-[[ -n "${MONTAGE_FIXTURE_STILL:-}" ]] && exit 0
+[[ -n "${VALSE_FIXTURE_STILL:-}" ]] && exit 0
 # speech + faint room tone, iPhone audio format
 ffmpeg -v error -y -i "$OUT/speech_en.m4a" -f lavfi -i "anoisesrc=color=pink:amplitude=0.004:r=44100:d=4" \
   -filter_complex "[0:a]aresample=44100,apad,atrim=0:4,pan=stereo|c0=c0|c1=c0[s];[s][1:a]amix=inputs=2:normalize=0[a]" -map "[a]" "$T/audio.wav"

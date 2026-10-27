@@ -1,21 +1,21 @@
 ---
 name: write-ui-script
-description: Write or fix a Montage UI test script (app/Tests/UIScripts/*.json, run by scripts/uitest.sh) - DSL steps and targets, waitFor on state dump paths instead of sleeps, text-field key routing gotcha, element-scoped snapshots and baselines (incl. macos13 overrides), test IDs and check_fast script selection (ui_select.py). Use when adding UI coverage for a feature, when a UI script is flaky or fails, or when re-recording baselines.
+description: Write or fix a Valse UI test script (app/Tests/UIScripts/*.json, run by scripts/uitest.sh) - DSL steps and targets, waitFor on state dump paths instead of sleeps, text-field key routing gotcha, element-scoped snapshots and baselines (incl. macos13 overrides), test IDs and check_fast script selection (ui_select.py). Use when adding UI coverage for a feature, when a UI script is flaky or fails, or when re-recording baselines.
 ---
 
-# Montage UI scripts (full reference: docs/TESTING.md §1-2; driver: app/Sources/MontageUI/Testing/UITestDriver.swift)
+# Valse UI scripts (full reference: docs/TESTING.md §1-2; driver: app/Sources/ValseUI/Testing/UITestDriver.swift)
 
 The app runs offscreen, never activated; events are synthetic and in-process. Run one:
 `scripts/uitest.sh app/Tests/UIScripts/<name>.json` (`--no-build` after a build, `--timeout <s>`, `--no-retry` to see
 the first failure). Output: `build/uitest/<name>/report.json`, `final.json` (state dump), PNGs, `failure.{json,png}`.
-`MONTAGE_UITEST_DEBUG=1` logs each event and its hit view. Copy a close example: `split_undo`, `inspector_field`,
+`VALSE_UITEST_DEBUG=1` logs each event and its hit view. Copy a close example: `split_undo`, `inspector_field`,
 `drag_media_to_timeline`, `text_add`, `c6_tooltips`, `audio_online`, `w5_keyframe_ease`, `ai_remove`.
 
 ## Skeleton (`//` comments only on their own line: trailing comments break the JSON)
 ```json
 // what it proves (one line)
 {
-  // project: empty | demo | demo-bin | demo-transcript… | media:N | stress:N[:M] | home[:N[:…]] | fixtures/x.montage
+  // project: empty | demo | demo-bin | demo-transcript… | media:N | stress:N[:M] | home[:N[:…]] | fixtures/x.valse
   "project": "demo",
   "lang": "en",
   // optional: SKIPPED (exit 3) when missing; also {"content": true}, {"minOS": 14}
@@ -72,7 +72,7 @@ holds, but `{"click": "id:x"}` works. Wait for something the element's appearanc
 - report.json records each expect's `waitMs` and `expect_wait_ms_max`; uitest.sh prints `⚠ slow expect` when one waited
   > 2 s although the UI had settled = a latency regression (the app reacts late), fix it rather than ignore it.
 - Snapshots: re-rendered until two consecutive renders are identical AND (with a baseline) it matches the baseline,
-  ≤ 30 s (a hang bound, `MONTAGE_UITEST_SNAPSHOT_LIMIT`); a real difference fails with the last diff, and so does a
+  ≤ 30 s (a hang bound, `VALSE_UITEST_SNAPSHOT_LIMIT`); a real difference fails with the last diff, and so does a
   view that never renders the same twice (something keeps animating / reloading).
 - `id:` clicks are delivered exactly (SwiftUI `.testID` and AppKit `setAccessibilityIdentifier` targets alike): when
   the press is dispatched the window is laid out and drawn and the element located again, and press + release go
@@ -89,8 +89,8 @@ holds, but `{"click": "id:x"}` works. Wait for something the element's appearanc
   starts Face detection, which fails at once on the faceless demo clip and unticks the section; ai_camera_custom_box).
   Reach the control without starting the job (expand the section via its title: `"at": [0.15, 0.5]`), or `waitFor` the
   job's end state first.
-  Driver self-test: `MONTAGE_UITEST_INJECT_CLICK_SKEW=0,40` / `MONTAGE_UITEST_INJECT_CLICK_VANISH=1` /
-  `MONTAGE_UITEST_INJECT_AX_NO_WINDOWS=1` (a11yAudit with an empty AXWindows) (scripts must pass).
+  Driver self-test: `VALSE_UITEST_INJECT_CLICK_SKEW=0,40` / `VALSE_UITEST_INJECT_CLICK_VANISH=1` /
+  `VALSE_UITEST_INJECT_AX_NO_WINDOWS=1` (a11yAudit with an empty AXWindows) (scripts must pass).
 - `waitFor` reads the same state as `expect` (`project.*` paths included).
 - Transition / effect thumbnails render asynchronously: before a snapshot of the transitions tab
   `{"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0}}` (on-screen tiles whose still is not rendered yet).

@@ -1,6 +1,6 @@
 # Project brief (read first — every agent)
 
-Goal: build a local-only clone of CapCut (desktop) **with all its Pro features**, named **"Montage"** (working name).
+Goal: build a local-only clone of CapCut (desktop) **with all its Pro features**, named **"Valse"** (working name).
 - Runs 100% locally: no network calls, no accounts, no cloud AI. All AI features use on-device models/frameworks.
 - Fully localized in **French** and English (follows system language, switchable in Settings).
 - Success criteria: (1) feature completeness vs CapCut Pro, (2) smooth UX even on a base MacBook Air (Apple Silicon, 8 GB RAM).

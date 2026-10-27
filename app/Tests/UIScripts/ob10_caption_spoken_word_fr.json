@@ -7,7 +7,7 @@
     {"click": "id:inspector.tab.text"},
     {"click": "id:inspector.sub.templates"},
     {"waitFor": {"path": "ui.anchors", "contains": "text.templates.caption"}},
-    {"click": "id:captionTemplate.montage.captionTemplate.fillYellow"},
+    {"click": "id:captionTemplate.valse.captionTemplate.fillYellow"},
     {"waitFor": {"path": "selectedClips.0.spokenWord.mode", "equals": "fillSpoken"}},
     {"expect": {"path": "selectedClips.0.spokenWord.outline", "equals": true}},
     {"click": "id:inspector.sub.spokenWord"},

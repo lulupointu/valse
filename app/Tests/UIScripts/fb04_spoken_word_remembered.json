@@ -6,7 +6,7 @@
     {"click": "id:inspector.tab.text"},
     {"click": "id:inspector.sub.templates"},
     {"waitFor": {"path": "ui.anchors", "contains": "text.templates.caption"}},
-    {"click": "id:captionTemplate.montage.captionTemplate.boxGreen"},
+    {"click": "id:captionTemplate.valse.captionTemplate.boxGreen"},
     {"waitFor": {"path": "selectedClips.0.spokenWord.box", "equals": true}},
     {"click": "id:inspector.sub.spokenWord"},
     {"waitFor": {"path": "ui.anchors", "contains": "spokenWord.mode"}},

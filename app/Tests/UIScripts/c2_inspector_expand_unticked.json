@@ -15,10 +15,10 @@
     {"click": "id:inspector.sub.cutout"},
     {"click": "id:inspector.section.cutout.chroma", "at": [0, 0.5], "offset": [90, 0]},
     {"expect": [{"path": "ui.anchors", "contains": "inspector.section.cutout.chroma.body"},
-                {"path": "selectedClips.0.effects", "notContains": "montage.key.chroma"}, {"path": "undo.depth", "equals": 0}]},
+                {"path": "selectedClips.0.effects", "notContains": "valse.key.chroma"}, {"path": "undo.depth", "equals": 0}]},
     {"snapshot": "chroma-expanded-off", "element": "id:panel.inspector"},
     {"click": "id:inspector.section.cutout.chroma", "at": [0, 0], "offset": [20, 25]},
-    {"expect": [{"path": "undo.name", "equals": "cmd.chromaKey"}, {"path": "selectedClips.0.effects", "contains": "montage.key.chroma"},
+    {"expect": [{"path": "undo.name", "equals": "cmd.chromaKey"}, {"path": "selectedClips.0.effects", "contains": "valse.key.chroma"},
                 {"path": "ui.anchors", "contains": "inspector.section.cutout.chroma.body"}]}
   ]
 }

@@ -7,7 +7,7 @@
     {"click": "id:inspector.tab.text"},
     {"click": "id:inspector.sub.templates"},
     {"waitFor": {"path": "ui.anchors", "contains": "text.templates.caption"}},
-    {"click": "id:captionTemplate.montage.captionTemplate.boxGreen"},
+    {"click": "id:captionTemplate.valse.captionTemplate.boxGreen"},
     {"waitFor": {"path": "selectedClips.0.spokenWord.box", "equals": true}},
     {"expect": [{"path": "selectedClips.0.spokenWord.mode", "equals": "highlightWord"}, {"path": "selectedClips.0.spokenWord.scale", "equals": 105}]},
     {"click": "id:inspector.sub.spokenWord"},

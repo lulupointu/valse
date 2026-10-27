@@ -1,0 +1,130 @@
+import Testing
+import Foundation
+import ValseCore
+@testable import ValseEngine
+@testable import ValseUI
+import ValseTestSupport
+
+/// W8 audio UI: localization of dynamic keys, inspector registration, store flows (voice changer, beats, recording).
+@MainActor @Suite(.serialized) struct AudioUITests {
+    func waitUntil(_ cond: () -> Bool) async {
+        // wall-clock bound (30 s): under full clean-checkout load the beat analysis job can take > 6 s
+        let end = Date().addingTimeInterval(30)
+        while !cond(), Date() < end { try? await Task.sleep(for: .milliseconds(10)) }
+    }
+
+    @Test func dynamicAudioKeysAreLocalized() {
+        ValseBootstrap.registerResources()
+        var keys: [String] = VoiceEffects.all.map(\.nameKey) + VoiceEffects.all.flatMap { $0.params.map(\.nameKey) }
+        keys += VoiceCategory.allCases.map(\.nameKey) + ChannelMode.allCases.map(\.nameKey) + VocalSeparation.allCases.map(\.nameKey)
+        keys += LoudnessNormalization.targets.map { "audio.loudness.target.\(Int(-$0))" }
+        keys += EQEditor.presets.map { "audio.eq.\($0.id)" }
+        keys += AudioInspector.sections.compactMap(\.titleKey) + AudioInspector.tabs.map(\.titleKey) + [AudioInspector.voiceSubTab.titleKey]
+        let en = L10n.shared.keys(for: "en"), fr = L10n.shared.keys(for: "fr")
+        let missing = Set(keys).filter { !en.contains($0) || !fr.contains($0) }.sorted()
+        #expect(missing.isEmpty, "missing: \(missing)")
+    }
+
+    @Test func audioTabsShowVoiceChanger() async throws {
+        var p = TestProject()
+        let a = try await p.addAudio(seconds: 1)
+        let v = try await p.addVideo(.solid(.red), seconds: 1, audioHz: 440)
+        let s = EditorStore(project: p.project)
+        s.autosaveEnabled = false
+        s.selection = [a]
+        let audioTabs = InspectorRegistry.tabs(for: InspectorContext(store: s)).map(\.id)
+        #expect(audioTabs.contains("audioBasic") && audioTabs.contains("audioVoice"))
+        #expect(audioTabs.firstIndex(of: "audioVoice")! < audioTabs.firstIndex(of: "speed")!)
+        s.selection = [v]
+        let ctx = InspectorContext(store: s)
+        let tab = try #require(InspectorRegistry.tabs(for: ctx).first { $0.id == "audio" })
+        #expect(InspectorRegistry.subTabs(of: tab, ctx: ctx).map(\.id) == ["basic", "voice"])
+    }
+
+    /// Owner crash (project 1018, TTS clip): selecting an audio clip then deleting / deselecting it re-evaluated the
+    /// Basic tab's checkbox chrome with `ctx.clip == nil` before the panel dropped the section → force unwrap trap.
+    @Test func audioSectionChromeSurvivesClipRemoval() async throws {
+        var p = TestProject()
+        let a = try await p.addAudio(seconds: 1)
+        let s = EditorStore(project: p.project)
+        s.autosaveEnabled = false
+        s.selection = [a]
+        let ctx = InspectorContext(store: s)
+        let bindings = AudioInspector.sections.filter { $0.tabID == "audioBasic" }.compactMap { $0.chrome?(ctx).isEnabled }
+        #expect(!bindings.isEmpty)
+        s.perform(DeleteClips([a]))
+        #expect(s.project.timeline.clip(a) == nil)
+        for b in bindings { _ = b.wrappedValue; b.wrappedValue = true }  // stale bindings: no crash, no edit
+        s.selection = []
+        #expect(ctx.clip == nil)
+        let late = AudioInspector.sections.filter { $0.tabID == "audioBasic" }.compactMap { $0.chrome?(ctx).isEnabled }
+        for b in late { #expect(b.wrappedValue == false) }
+    }
+
+    @Test func voiceChangerAppliesAndUndoes() async throws {
+        var p = TestProject()
+        let a = try await p.addAudio(seconds: 1)
+        let b = try await p.addAudio(seconds: 1, hz: 220, target: .newTrack)
+        let s = EditorStore(project: p.project)
+        s.autosaveEnabled = false
+        s.selection = [a]
+        s.applyVoice(VoiceEffects.descriptor("valse.voice.robot")!.makeEffect(), toAll: false)
+        #expect(s.project.timeline.clip(a)?.audio.voice?.typeID == "valse.voice.robot")
+        #expect(s.project.timeline.clip(b)?.audio.voice == nil)
+        s.applyVoice(VoiceEffects.descriptor("valse.voice.echo")!.makeEffect(), toAll: true)
+        #expect(s.project.timeline.clip(b)?.audio.voice?.typeID == "valse.voice.echo")
+        s.undo()
+        #expect(s.project.timeline.clip(b)?.audio.voice == nil)
+        #expect(s.project.timeline.clip(a)?.audio.voice?.typeID == "valse.voice.robot")
+    }
+
+    @Test func autoBeatsWritesClipBeats() async throws {
+        // 120 BPM clicks
+        // signal generation off the main actor (the playback tests need it)
+        let click = await Task.detached {
+            AudioBuffer(seconds: 6, channels: 2) { _, t in
+                let d = (t - 0.25).truncatingRemainder(dividingBy: 0.5)
+                return t >= 0.25 && d < 0.02 ? Float(0.6 * sin(2 * .pi * 2000 * t) * exp(-d * 200)) : 0
+            }
+        }.value
+        var p = TestProject()
+        let a = try await p.addAudio(click)
+        let s = EditorStore(project: p.project)
+        s.autosaveEnabled = false
+        s.selection = [a]
+        // deterministic: await the analysis job + edit (under load it queues behind other tests' jobs)
+        await s.autoBeats(level: 2)?.value
+        let beats = try #require(s.project.timeline.clip(a)?.beats)
+        #expect(beats.count >= 9, "\(beats.count) beats")
+        let inner = beats.filter { $0.seconds > 1 && $0.seconds < 5 }
+        #expect(inner.allSatisfy { b in abs((b.seconds - 0.25).remainder(dividingBy: 0.5)) < 0.03 })
+        s.autoBeats(level: nil)
+        #expect(s.project.timeline.clip(a)?.beats == nil)
+    }
+
+    @Test func recordingIsInsertedAtStartOnAudioTrack() async throws {
+        var p = TestProject()
+        try await p.addVideo(.solid(.blue), seconds: 3)
+        let s = EditorStore(project: p.project)
+        s.autosaveEnabled = false
+        let url = TestMedia.directory.appendingPathComponent("rec-\(UUID().uuidString).caf")
+        try await Task.detached { try AudioFileIO.write(AudioTestSignals.sine(300, seconds: 1), to: url, format: .wav16) }.value
+        s.insertRecording(url, at: Time(1))
+        await waitUntil { s.project.timeline.tracks.contains { $0.kind == .audio } }
+        let track = try #require(s.project.timeline.tracks.first { $0.kind == .audio })
+        #expect(track.clips.count == 1 && track.clips[0].start == Time(1))
+        #expect(abs(track.clips[0].duration.seconds - 1) < 0.02)
+    }
+
+    @Test func extractAudioFromVideoFile() async throws {
+        let video = try await TestMedia.video(.solid(.red), seconds: 1, audioHz: 440)
+        let dst = FileManager.default.temporaryDirectory.appendingPathComponent("x-\(UUID().uuidString) (audio).m4a")
+        try await AudioExtractor.extract(from: video, to: dst)
+        let (frames, f) = try await Task.detached {
+            let b = try await AudioFileIO.read(dst)
+            return (b.frames, AudioTestSignals.dominantFrequency(b, lo: 300, hi: 600, from: 0.2, to: 0.8))
+        }.value
+        #expect(abs(Double(frames) / 48000 - 1) < 0.05)
+        #expect(abs(f - 440) < 3)
+    }
+}

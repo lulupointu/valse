@@ -1,4 +1,4 @@
-"""Generates Montage's bundled Lottie stickers (Bodymovin JSON, 512x512, 30 fps). Re-run to regenerate."""
+"""Generates Valse's bundled Lottie stickers (Bodymovin JSON, 512x512, 30 fps). Re-run to regenerate."""
 import json, math, os, sys
 
 OUT = sys.argv[1]

@@ -4,7 +4,7 @@
 #
 # Usage: scripts/perf.sh [--air] [--no-smoke] [--no-build] [--out results.json] [--thresholds bench/perf_thresholds.json]
 #   --air        MacBook Air approximation: runs under `taskpolicy -c background` (efficiency cores only, throttled
-#                I/O — pessimistic vs a real M1 Air's 4P+4E) with MONTAGE_SIMULATE_RAM_GB=8 (8 GB memory policies:
+#                I/O — pessimistic vs a real M1 Air's 4P+4E) with VALSE_SIMULATE_RAM_GB=8 (8 GB memory policies:
 #                720p preview, forced proxies, smaller caches). Compared against the "air" thresholds.
 #   --no-smoke   skip the 4K perf smoke tests (they are skipped anyway when bench/media is missing)
 # Writes build/perf/results.json: {"mode", "machine", "metrics": {...}, "violations": [...]}. Exit 1 on any violation.
@@ -24,23 +24,23 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 WRAP=(); ENVS=()
-if [[ $MODE == air ]]; then WRAP=(taskpolicy -c background); ENVS=(MONTAGE_SIMULATE_RAM_GB=8); fi
+if [[ $MODE == air ]]; then WRAP=(taskpolicy -c background); ENVS=(VALSE_SIMULATE_RAM_GB=8); fi
 DIR="$ROOT/build/perf/$MODE"; rm -rf "$DIR"; mkdir -p "$DIR"
 # exclusive: takes every test slot so other teams' builds/tests don't disturb the timings (scripts/slots.sh)
 source scripts/slots.sh; slots_acquire_all
 
-[[ $BUILD == 1 ]] && swift build -c release --product Montage >&2
-BIN="$(swift build -c release --show-bin-path)/Montage"
+[[ $BUILD == 1 ]] && swift build -c release --product Valse >&2
+BIN="$(swift build -c release --show-bin-path)/Valse"
 
 # Thread-CPU (`_cpu_`) metrics are measured with the CPU clocks held up (PERF-R1: UITestDriver's PerfClockWarmer, off
-# with MONTAGE_PERF_WARM=0): on a quiet machine the bursty perf steps let the cores clock down and they inflated 1.5-4x.
+# with VALSE_PERF_WARM=0): on a quiet machine the bursty perf steps let the cores clock down and they inflated 1.5-4x.
 # Load rule (DX-C, OB-PERF): wall-clock, GPU-time and thread-CPU metrics GATE only when the 1-min load average stays <= the core count across
-# the measurement (sampled before / after each part, max taken; MONTAGE_PERF_CORES overrides the core count). Taking
+# the measurement (sampled before / after each part, max taken; VALSE_PERF_CORES overrides the core count). Taking
 # every slot does not stop load from outside the slot system (VMs, other builds). Above it, the measurement is retried
 # once after waiting <= 5 min for the load to drop; if still loaded, those metrics are reported "UNRELIABLE" and don't
 # gate. Memory and gross GPU-time bounds always gate.
-CORES="${MONTAGE_PERF_CORES:-$(sysctl -n hw.ncpu)}"
-export MONTAGE_PERF_CORES="$CORES"   # TimingBudget uses the same core count for its load rule
+CORES="${VALSE_PERF_CORES:-$(sysctl -n hw.ncpu)}"
+export VALSE_PERF_CORES="$CORES"   # TimingBudget uses the same core count for its load rule
 LOADMAX=0
 sample_load() { local l; l="$(sysctl -n vm.loadavg | awk '{ printf "%.2f", $2 }' | tr ',' '.')"; LOADMAX="$(awk -v a="$LOADMAX" -v b="$l" 'BEGIN { print (b > a ? b : a) }')"; }
 loaded() { awk -v l="$LOADMAX" -v c="$CORES" 'BEGIN { exit !(l > c) }'; }
@@ -69,13 +69,13 @@ measure() {
   ACODE=$?
   [[ $UICODE == 0 ]] && UICODE=$ACODE
   sample_load
-  # Wall-clock budgets of unit tests (TimingBudget: asserted with MONTAGE_PERF=1, skipped by the same load rule) —
+  # Wall-clock budgets of unit tests (TimingBudget: asserted with VALSE_PERF=1, skipped by the same load rule) —
   # ALWAYS run, also with --no-smoke and without bench/media: check_clean.sh --ui gates on them.
   echo "▶ unit-test timing budgets ($MODE)" >&2
-  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter "$UNIT_TIMING" 2>&1 \
+  env VALSE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter "$UNIT_TIMING" 2>&1 \
     | tee "$DIR/unit-timing.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
   if grep -qE '^✘ Test ' "$DIR/unit-timing.log" || ! grep -qE 'Test run with [0-9]+ tests' "$DIR/unit-timing.log"; then
-    echo '{"stack":"montage","metric":"unit_timing_budget_failures","value":1,"unit":"count"}' >> "$DIR/smoke.jsonl"   # failed / crashed
+    echo '{"stack":"valse","metric":"unit_timing_budget_failures","value":1,"unit":"count"}' >> "$DIR/smoke.jsonl"   # failed / crashed
   fi
   sample_load
   set -e
@@ -84,7 +84,7 @@ measure() {
 measure
 if loaded; then
   echo "⚠ machine loaded during the measurement (1-min load $LOADMAX > $CORES cores): waiting <= 5 min, then measuring again" >&2
-  for ((w = 0; w < ${MONTAGE_PERF_LOAD_WAIT:-300}; w += 10)); do   # MONTAGE_PERF_LOAD_WAIT: seconds (self-check: 0)
+  for ((w = 0; w < ${VALSE_PERF_LOAD_WAIT:-300}; w += 10)); do   # VALSE_PERF_LOAD_WAIT: seconds (self-check: 0)
     L="$(sysctl -n vm.loadavg | awk '{ print $2 }' | tr ',' '.')"
     awk -v l="$L" -v c="$CORES" 'BEGIN { exit !(l <= c) }' && break
     sleep 10
@@ -95,9 +95,9 @@ if [[ $SMOKE == 1 && -f bench/media/.done ]]; then
   echo "▶ 4K perf smoke + audit ($MODE)" >&2
   set +e
   # typical 1080p project memory: own process (its metric is the lifetime peak footprint)
-  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfMemoryTests' 2>&1 \
+  env VALSE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfMemoryTests' 2>&1 \
     | tee "$DIR/memory.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
-  env MONTAGE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfSmokeTests|PerfAuditTests' 2>&1 \
+  env VALSE_PERF=1 ${ENVS[@]+"${ENVS[@]}"} ${WRAP[@]+"${WRAP[@]}"} swift test -c release --scratch-path .build/perf -Xswiftc -enable-testing --skip-build --filter 'PerfSmokeTests|PerfAuditTests' 2>&1 \
     | tee "$DIR/smoke.log" | grep -E '^\{"stack"' >> "$DIR/smoke.jsonl"
   sample_load
   set -e

@@ -39,7 +39,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UI_DIR = "app/Tests/UIScripts"
 MAP = "app/Tests/ui_map.txt"
-TESTING = "app/Sources/MontageUI/Testing/"
+TESTING = "app/Sources/ValseUI/Testing/"
 LITERAL = re.compile(r'"((?:[A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z0-9_]*(?:\\\()?)')   # "inspector.tab.\(  /  "cmd.split"
 ACTIONS = ["click", "press", "doubleClick", "rightClick", "contextMenu", "drag", "scroll", "hover", "key", "type", "menu", "drop", "dragExit",
            "release", "wait", "idle", "snapshot", "dump", "expect", "waitFor", "seek", "select", "perf", "metric", "log",
@@ -500,7 +500,7 @@ def project_pred(case):
     if m:
         return lambda s, v=m.group(1): s.project.startswith(v)
     if case.startswith("default"):
-        return lambda s: "/" in s.project or s.project.endswith(".montage")
+        return lambda s: "/" in s.project or s.project.endswith(".valse")
     return None
 
 

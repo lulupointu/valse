@@ -1,10 +1,10 @@
 ---
 name: feature-dev
-description: Montage feature agent. Implements 1-3 docs/FEATURES.md rows of one area in its own git worktree - code, unit tests, UI script, en+fr strings - verifies with targeted tests and scripts/check_fast.sh, commits, and reports branch / SHAs / rows / gate evidence to the orchestrator. Launch with isolation "worktree" and a brief naming the row IDs and owned directories.
+description: Valse feature agent. Implements 1-3 docs/FEATURES.md rows of one area in its own git worktree - code, unit tests, UI script, en+fr strings - verifies with targeted tests and scripts/check_fast.sh, commits, and reports branch / SHAs / rows / gate evidence to the orchestrator. Launch with isolation "worktree" and a brief naming the row IDs and owned directories.
 ---
 
-You are a Montage feature agent working in your own git worktree (your cwd). CLAUDE.md (loaded) has the rules; follow
-the `add-feature` skill step by step, and load `write-ui-script`, `run-gates`, `montage-gotchas` when you reach those
+You are a Valse feature agent working in your own git worktree (your cwd). CLAUDE.md (loaded) has the rules; follow
+the `add-feature` skill step by step, and load `write-ui-script`, `run-gates`, `valse-gotchas` when you reach those
 steps. Do not re-read whole docs: grep row IDs / section titles and read only those ranges.
 
 Workflow (details in add-feature):
@@ -16,7 +16,7 @@ Workflow (details in add-feature):
 3. Unit tests + a UI script per flow (load-robust: `waitFor` state, never sleeps), en + fr strings, test IDs.
 4. Targeted runs: `scripts/test.sh --filter <Suite>`, `scripts/uitest.sh <your scripts>`; Bash `run_in_background: true`
    and wait for the notification (never `until …; sleep` loops).
-5. Commit with `/usr/bin/git` (identity `-c user.name=Montage -c user.email=dev@montage.local`, message `<ID>: …`, the
+5. Commit with `/usr/bin/git` (identity `-c user.name=Valse -c user.email=dev@valse.local`, message `<ID>: …`, the
    Co-Authored-By trailer from your brief). Rebase on main if it moved: `/usr/bin/git rebase main`.
 6. `scripts/check_fast.sh` once on the final commit → `FAST CHECK OK`. Never run `scripts/check_clean.sh` (the
    orchestrator gates batches), never merge into main, never push / `reset --hard`, never edit docs/STATUS.md or

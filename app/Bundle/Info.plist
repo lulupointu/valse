@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleIdentifier</key><string>fr.montage.Montage</string>
+  <key>CFBundleIdentifier</key><string>fr.valse.Valse</string>
   <key>CFBundleName</key><string>Valse</string>
   <key>CFBundleDisplayName</key><string>Valse</string>
   <key>CFBundleExecutable</key><string>Valse</string>
@@ -20,10 +20,10 @@
   <!-- SE-015 automatic updates (Sparkle 2, docs/RELEASING.md). The updater stays off while SUPublicEDKey is empty. -->
   <key>SUFeedURL</key><string>https://github.com/lulupointu/valse/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key><string>vvP40kRMoISD7F5k5afwMIbky8iHHv1+56TtPv//lWY=</string>
-  <!-- no Sparkle polling: Valse checks at launch / wake and on a release push (MontageUpdatePushURL, ntfy) -->
+  <!-- no Sparkle polling: Valse checks at launch / wake and on a release push (ValseUpdatePushURL, ntfy) -->
   <key>SUEnableAutomaticChecks</key><false/>
   <key>SUAutomaticallyUpdate</key><true/>
-  <key>MontageUpdatePushURL</key><string>https://ntfy.sh/montage-valse-91d5915283fb1a9e5a9b/json</string>
+  <key>ValseUpdatePushURL</key><string>https://ntfy.sh/montage-valse-91d5915283fb1a9e5a9b/json</string>
   <key>SUEnableSystemProfiling</key><false/>
   <key>SUVerifyUpdateBeforeExtraction</key><true/>
   <key>NSSpeechRecognitionUsageDescription</key><string>Valse recognizes speech on your Mac to create captions. Nothing leaves your Mac.</string>
@@ -36,7 +36,7 @@
       <key>CFBundleTypeRole</key><string>Editor</string>
       <key>LSHandlerRank</key><string>Owner</string>
       <key>LSTypeIsPackage</key><true/>
-      <key>LSItemContentTypes</key><array><string>fr.montage.project</string></array>
+      <key>LSItemContentTypes</key><array><string>fr.valse.project</string></array>
     </dict>
     <dict>
       <key>CFBundleTypeName</key><string>Media</string>
@@ -48,10 +48,10 @@
   <key>UTExportedTypeDeclarations</key>
   <array>
     <dict>
-      <key>UTTypeIdentifier</key><string>fr.montage.project</string>
+      <key>UTTypeIdentifier</key><string>fr.valse.project</string>
       <key>UTTypeDescription</key><string>Valse Project</string>
       <key>UTTypeConformsTo</key><array><string>com.apple.package</string></array>
-      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>montage</string></array></dict>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>valse</string></array></dict>
     </dict>
   </array>
 </dict>

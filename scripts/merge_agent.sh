@@ -3,7 +3,7 @@
 #   1. checks the branch passed the full gate: a check_clean.ok stamp (written by scripts/check_clean.sh --ui on success,
 #      in <its worktree>/build/, or the file given with --stamp) names the branch head, mode "ui"
 #   2. fast-forwards main (in the main checkout) to the branch — never a merge commit, never a reset
-#   3. scripts/build_app.sh in the main checkout (build/Montage.app)
+#   3. scripts/build_app.sh in the main checkout (build/Valse.app)
 #   4. removes that worktree's .build (≈ 0.85 GB; the worktree and branch are kept)
 # Usage: scripts/merge_agent.sh <branch> [--check-only] [--stamp <file>] [--docs-delta-ok] [--skip-gate-check] [--no-build-app] [--keep-build]
 #   --check-only     only verify the gate (exit 0 = mergeable as far as the gate goes), merge nothing

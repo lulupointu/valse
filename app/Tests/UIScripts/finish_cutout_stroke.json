@@ -11,7 +11,7 @@
     {"click": "id:inspector.section.cutout.chroma", "at": [0, 0.5], "offset": [20, 0]},
     {"expect": {"path": "ui.anchors", "contains": "inspector.section.cutout.stroke"}},
     {"click": "id:inspector.section.cutout.stroke", "at": [0, 0.5], "offset": [20, 0]},
-    {"expect": [{"path": "selectedClips.0.effects", "contains": "montage.cutout.stroke"}, {"path": "undo.name", "equals": "cmd.cutoutStroke"}]},
+    {"expect": [{"path": "selectedClips.0.effects", "contains": "valse.cutout.stroke"}, {"path": "undo.name", "equals": "cmd.cutoutStroke"}]},
     {"click": "id:cutout.stroke.preset.3"},
     {"expect": {"path": "project.timeline.tracks.0.clips.0.effects.1.params.color.color._0.b", "lt": 0.1}},
     {"snapshot": "cutout-stroke", "element": "id:panel.inspector"},

@@ -8,7 +8,7 @@
 #      - scripts/uitest.sh --jobs K on the UI scripts relevant to the diff vs the base + uncommitted changes
 #        (scripts/ui_select.py: small smoke set + scripts derived from the changed lines — driver actions, state-dump
 #        keys, l10n keys, the test IDs / l10n keys reached from the changed Swift declarations — + ui_map.txt rules);
-#        K = MONTAGE_UI_JOBS or 4, capped like check_clean (lib.sh ui_jobs_cap); heavy (ML) scripts one at a time
+#        K = VALSE_UI_JOBS or 4, capped like check_clean (lib.sh ui_jobs_cap); heavy (ML) scripts one at a time
 # One test slot is held for the whole run (scripts/slots.sh).
 # Diff base (default auto): the nearest of main / the local batch-* branches HEAD is based on (most recent merge-base;
 # a batch that already contains HEAD doesn't count); the base used is printed.
@@ -20,12 +20,12 @@
 #   --no-unit / --no-ui   skip a stage
 #   --all-ui              every UI script (still incremental, no clean checkout)
 #   --list                print the selected UI scripts and why, then exit
-#   --ui-jobs K           UI apps at once (default MONTAGE_UI_JOBS or 4, capped; 1 = one at a time)
+#   --ui-jobs K           UI apps at once (default VALSE_UI_JOBS or 4, capped; 1 = one at a time)
 #   --serial              the old schedule: unit tests, THEN the UI scripts one at a time (slower, same tests)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-BASE=auto; UNIT=1; UIRUN=1; ALLUI=0; LIST=0; UFILTER=(); UI_JOBS="${MONTAGE_UI_JOBS:-4}"; SERIAL=0
+BASE=auto; UNIT=1; UIRUN=1; ALLUI=0; LIST=0; UFILTER=(); UI_JOBS="${VALSE_UI_JOBS:-4}"; SERIAL=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --base) BASE="$2"; shift 2;;
@@ -101,7 +101,7 @@ report_ui() { # rc duration
 if [[ $UNIT == 1 && $UIRUN == 1 && $SERIAL == 0 ]]; then
   # one build first (tests + app: the UI apps then run with --no-build while test.sh's own build is a no-op), then the
   # unit suite and the UI scripts at the same time (both load-robust, docs/TESTING.md); each keeps its own retries
-  if ! run_watched build/check_fast-build.log bash -c 'swift build --build-tests && swift build --product Montage'; then
+  if ! run_watched build/check_fast-build.log bash -c 'swift build --build-tests && swift build --product Valse'; then
     echo "✘ build failed:"; grep -E "error:|HUNG" build/check_fast-build.log | sort -u | head -30 | sed 's/^/  /'
     echo "FAST CHECK FAILED ($(mins "$START"); log: build/check_fast-build.log)"; exit 1
   fi

@@ -28,7 +28,7 @@
                 {"path": "undo.inGesture", "equals": true}]},
     {"click": "id:pilot.apply"},
     {"expect": [{"path": "undo.name", "equals": "cmd.editPilot"}, {"path": "undo.inGesture", "equals": false},
-                {"path": "canvas.aspect", "equals": "9:16"}, {"path": "main.clips.0.transition", "equals": "montage.transition.dissolve"},
+                {"path": "canvas.aspect", "equals": "9:16"}, {"path": "main.clips.0.transition", "equals": "valse.transition.dissolve"},
                 {"path": "ui.pilot.state", "equals": "applied"}]},
     {"snapshot": "pilot-applied", "element": "id:panel.assets"},
     {"click": "id:pilot.undo"},

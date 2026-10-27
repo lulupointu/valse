@@ -25,8 +25,8 @@ Flo|Alors, euh, je vais vous montrer une astuce toute simple.
 Flo|Vous sélectionnez vos clips, puis vous réglez la durée minimale.
 Flo|Et voilà, le tour est joué, c'est vraiment magique.
 EOF
-music=$(ls $repo/app/Sources/MontageEngine/Resources/ContentLibrary/**/*.m4a 2>/dev/null | head -1)
-[[ -n $music ]] || music=$(ls $repo/build/Montage.app/Contents/Resources/Content/music/*.m4a | head -1)
+music=$(ls $repo/app/Sources/ValseEngine/Resources/ContentLibrary/**/*.m4a 2>/dev/null | head -1)
+[[ -n $music ]] || music=$(ls $repo/build/Valse.app/Contents/Resources/Content/music/*.m4a | head -1)
 ffmpeg -v error -y -i "$music" -t 120 -ar 16000 -ac 1 -f f32le $out/raw/music.f32
 for f in app/Tests/UIScripts/fixtures/real/speech_en.m4a bench/media/speech_fr.wav bench/media/a.mp4; do
   ffmpeg -v error -y -i $repo/$f -ar 16000 -ac 1 -f f32le $out/raw/real_${${f:t}%.*}.f32

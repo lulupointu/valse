@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Writes the Sparkle appcast.xml of one Montage release to stdout (called by scripts/release.sh, SE-015).
+"""Writes the Sparkle appcast.xml of one Valse release to stdout (called by scripts/release.sh, SE-015).
 
-One item: the full Montage.zip plus a binary delta per previous release found in --deltas (files named
-Montage<build>-<from build>.delta). Every archive is signed with Sparkle's sign_update (EdDSA private key from the
+One item: the full Valse.zip plus a binary delta per previous release found in --deltas (files named
+Valse<build>-<from build>.delta). Every archive is signed with Sparkle's sign_update (EdDSA private key from the
 login keychain). The appcast is an asset of the release itself, so releases/latest/download/appcast.xml always
 describes the newest release.
 """
@@ -35,7 +35,7 @@ def main():
     sig, length = sign(a.sign_update, a.zip, a.ed_key_file)
     deltas = []
     for name in sorted(os.listdir(a.deltas)):
-        m = re.fullmatch(rf"Montage{re.escape(a.build)}-(\d+)\.delta", name)
+        m = re.fullmatch(rf"Valse{re.escape(a.build)}-(\d+)\.delta", name)
         if not m:
             continue
         dsig, dlen = sign(a.sign_update, os.path.join(a.deltas, name), a.ed_key_file)
@@ -47,7 +47,7 @@ def main():
     print(f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
-    <title>Montage</title>
+    <title>Valse</title>
     <item>
       <title>{escape(a.version)}</title>
       <pubDate>{email.utils.formatdate(usegmt=True)}</pubDate>
@@ -55,7 +55,7 @@ def main():
       <sparkle:shortVersionString>{escape(a.version)}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>{escape(a.min_system)}</sparkle:minimumSystemVersion>
       <link>{escape(f"https://github.com/{a.repo}/releases/tag/{a.tag}")}</link>
-      <enclosure url={quoteattr(base + "Montage.zip")} length="{length}" type="application/octet-stream" sparkle:edSignature="{sig}"/>{delta_xml}
+      <enclosure url={quoteattr(base + "Valse.zip")} length="{length}" type="application/octet-stream" sparkle:edSignature="{sig}"/>{delta_xml}
     </item>
   </channel>
 </rss>""")

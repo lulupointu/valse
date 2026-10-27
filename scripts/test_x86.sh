@@ -6,7 +6,7 @@
 # Note: Metal under Rosetta still runs on the Apple GPU — this checks the CPU / x86 code paths (Float16 replacement,
 # SIMD, floating point), not Intel GPUs.
 # Usage: scripts/test_x86.sh [--filter <regex>]… [--skip <regex>]… [other swift-testing args]
-#   default filter: the Core, Effects and Engine suites (MONTAGE_X86_ALL=1 → every test target)
+#   default filter: the Core, Effects and Engine suites (VALSE_X86_ALL=1 → every test target)
 set -euo pipefail
 if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,9p' "$0"; exit 0; fi
 cd "$(dirname "$0")/.."
@@ -19,8 +19,8 @@ if ! run_watched build/build-x86.log swift build --arch x86_64 --build-tests; th
   echo "X86_64 BUILD FAILED (see build/build-x86.log)"; exit 1
 fi
 BIN=.build/x86_64-apple-macosx/debug
-BUNDLE="$BIN/MontagePackageTests.xctest/Contents/MacOS/MontagePackageTests"
-# named like SwiftPM's helper: MontageProcess.isUnitTest recognises the test process by this name
+BUNDLE="$BIN/ValsePackageTests.xctest/Contents/MacOS/ValsePackageTests"
+# named like SwiftPM's helper: ValseProcess.isUnitTest recognises the test process by this name
 RUNNER="$BIN/x86-runner/swiftpm-testing-helper"
 if [[ ! -x "$RUNNER" || scripts/test_x86.sh -nt "$RUNNER" ]]; then
   printf '%s\n' '#include <dlfcn.h>' '#include <stdio.h>' \
@@ -35,8 +35,8 @@ if [[ ! -x "$RUNNER" || scripts/test_x86.sh -nt "$RUNNER" ]]; then
   clang -arch x86_64 -mmacosx-version-min=13.0 -o "$RUNNER" "$BIN/x86-runner.c"
 fi
 ARGS=("$@")
-if [[ ${#ARGS[@]} == 0 && "${MONTAGE_X86_ALL:-0}" != 1 ]]; then
-  ARGS=(--filter 'MontageCoreTests\.' --filter 'MontageEffectsTests\.' --filter 'MontageEngineTests\.')
+if [[ ${#ARGS[@]} == 0 && "${VALSE_X86_ALL:-0}" != 1 ]]; then
+  ARGS=(--filter 'ValseCoreTests\.' --filter 'ValseEffectsTests\.' --filter 'ValseEngineTests\.')
 fi
 use_private_tmpdir test-x86
 DEV="$(xcode-select -p)/Platforms/MacOSX.platform/Developer"

@@ -1,23 +1,23 @@
-# Montage: agent playbook (loaded every turn: keep it short)
+# Valse: agent playbook (loaded every turn: keep it short)
 
-Montage is a native macOS video editor (CapCut parity, local-first). Swift 6, SwiftPM only (no Xcode project), deployment
+Valse is a native macOS video editor (CapCut parity, local-first). Swift 6, SwiftPM only (no Xcode project), deployment
 target macOS 13 (Apple Silicon + Intel), UI in en + fr. Built ONLY by Claude agents: an orchestrator (main session)
 and feature agents in git worktrees under `.claude/worktrees/`. The main checkout is the integration branch `main`.
 
 ## Module map (`app/Sources/`, deps flow left to right; details: docs/ARCHITECTURE.md §1)
-- `MontageCore`: time, model (Project/Timeline/Track/Clip), `TimelineOps`, commands + undo, persistence, L10n. Foundation only.
-- `MontageEffects`: content registries (effects, transitions, animations, stickers, text styles), shaders.
-- `MontageEngine`: Metal compositor (`FrameRenderer`), playback, export, media probe, proxies, caches, `JobQueue`. No AppKit.
-- `MontageAI`: AI tools, model catalog, speech, Vision mattes, TTS. `MontageUI`: `EditorStore`, panels, timeline, inspector,
-  Home, UI test driver (`MontageUI/Testing/`). `MontageApp`: `main.swift`. `MontageTestSupport`: test helpers.
-- Tests: `app/Tests/Montage*Tests/` (unit), `app/Tests/UIScripts/*.json` (UI scripts), `app/Tests/Baselines/` (PNG
+- `ValseCore`: time, model (Project/Timeline/Track/Clip), `TimelineOps`, commands + undo, persistence, L10n. Foundation only.
+- `ValseEffects`: content registries (effects, transitions, animations, stickers, text styles), shaders.
+- `ValseEngine`: Metal compositor (`FrameRenderer`), playback, export, media probe, proxies, caches, `JobQueue`. No AppKit.
+- `ValseAI`: AI tools, model catalog, speech, Vision mattes, TTS. `ValseUI`: `EditorStore`, panels, timeline, inspector,
+  Home, UI test driver (`ValseUI/Testing/`). `ValseApp`: `main.swift`. `ValseTestSupport`: test helpers.
+- Tests: `app/Tests/Valse*Tests/` (unit), `app/Tests/UIScripts/*.json` (UI scripts), `app/Tests/Baselines/` (PNG
   baselines, `macos13/` overrides), `app/Tests/ui_map.txt` (smoke / always / fallback rules; check_fast selection = `scripts/ui_select.py --explain`), `app/Tests/quarantine.txt`.
 
 ## Docs (never read the big ones whole: grep your section / row ID, then read that range)
 - docs/BRIEF.md (goal), docs/AGENT_GUIDE.md (workflow + gate policy), docs/ARCHITECTURE.md (§11 l10n, §12 registries,
   §16 "How to add X", §17 work map = who owns which directory), docs/TESTING.md (UI DSL, baselines, perf).
 - docs/FEATURES.md (196 KB, rows by ID), docs/UX.md / UX_AI.md (87 / 53 KB, screenshots in docs/ux/), docs/STATUS.md (tracker).
-- Skills (load instead of re-reading docs): `add-feature`, `run-gates`, `write-ui-script`, `montage-gotchas`,
+- Skills (load instead of re-reading docs): `add-feature`, `run-gates`, `write-ui-script`, `valse-gotchas`,
   `orchestrate-features` (orchestrator only). Agent definition for feature work: `.claude/agents/feature-dev.md`.
 
 ## Commands (all exist in scripts/; `-h` prints usage)
@@ -44,7 +44,7 @@ and feature agents in git worktrees under `.claude/worktrees/`. The main checkou
 ## Hard rules
 - Never send real mouse/keyboard input, never activate apps or open windows on screen. UI = `scripts/uitest.sh` /
   `scripts/screenshot.sh --offscreen` only (offscreen window, synthetic in-process events).
-- Commit in your worktree only: `/usr/bin/git -c user.name=Montage -c user.email=dev@montage.local commit -m "<ID>: …"`,
+- Commit in your worktree only: `/usr/bin/git -c user.name=Valse -c user.email=dev@valse.local commit -m "<ID>: …"`,
   message ending with the `Co-Authored-By:` trailer you were given. Every commit builds. Never push, never
   `reset --hard`, never force anything, never merge into main (the orchestrator does, via merge_agent.sh).
 - Don't edit docs/STATUS.md or docs/FEATURES.md unless your brief says so: report row statuses, the orchestrator writes them.
@@ -52,7 +52,7 @@ and feature agents in git worktrees under `.claude/worktrees/`. The main checkou
   "waiting for test slot…": that is normal, keep waiting. Never run two of your own heavy runs at once.
 - Anything > 1 min (`swift build`, test.sh, uitest.sh, check_fast.sh): Bash `run_in_background: true`, then end your turn
   and wait for the completion notification. NEVER write `until grep …; do sleep …; done` / `sleep N; cat log` polling.
-- Stop your own hung run with `scripts/kill_tests.sh` (only Montage test processes of your checkout), never `kill`/`pkill`.
+- Stop your own hung run with `scripts/kill_tests.sh` (only Valse test processes of your checkout), never `kill`/`pkill`.
 - Stay in the directories your work-map area owns; shared hotspots (model fields, EditorStore, Package.swift, registry lists)
   get small additive edits only.
 

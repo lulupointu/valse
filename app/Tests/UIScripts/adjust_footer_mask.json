@@ -15,7 +15,7 @@
     {"expect": [{"path": "undo.name", "equals": "cmd.adjust.applyAll"},
                 {"path": "project.timeline.tracks.0.clips.1.effects", "count": 1},
                 {"path": "project.timeline.tracks.0.clips.1.effects.0.params.brightness.scalar._0", "approx": 1.0},
-                {"path": "project.timeline.tracks.0.clips.2.effects.0.typeID", "equals": "montage.adjust.basic"}]},
+                {"path": "project.timeline.tracks.0.clips.2.effects.0.typeID", "equals": "valse.adjust.basic"}]},
     {"snapshot": "adjust-footer", "element": "id:panel.inspector"},
     {"click": "id:inspector.sub.hsl"},
     {"expect": {"path": "ui.anchors", "contains": "adjust.savePreset"}},

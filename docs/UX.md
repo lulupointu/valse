@@ -1,4 +1,4 @@
-# Montage UX reference: how CapCut desktop looks and behaves
+# Valse UX reference: how CapCut desktop looks and behaves
 
 Source: hands-on session with **CapCut for macOS 9.6.0** (Qt/QML + CEF app, bundle id `com.lemon.lvoverseas`) on a 1728×1117 pt
 Retina screen, English UI, October 2026. Screenshots are in `docs/ux/`. Every size is in **points** (pt = 1 macOS logical pixel).
@@ -6,7 +6,7 @@ Colors were sampled from full-resolution screenshots (sRGB). French terms come f
 (see §10).
 
 > Clone the **behaviour and feel** (layout, densities, flows, feedback). Don't copy CapCut's upsell surfaces: "Pro" diamonds,
-> "Unlock for 2.39€", "x uses left for today", sign-in, cloud "Spaces" and coach-mark popups. Montage has none of these. They are
+> "Unlock for 2.39€", "x uses left for today", sign-in, cloud "Spaces" and coach-mark popups. Valse has none of these. They are
 > listed below only so you know what to leave out.
 
 ---
@@ -79,7 +79,7 @@ Panel corners: **radius ≈ 6 pt**. Panels sit flat on the gutter with no shadow
 | `coachmark` | `#F5D04C` yellow card, black text | one-time tips (don't clone, or use for first-run hints only) |
 | `snap.guide` | `#57BECB` (accent), 1 pt solid lines across the whole canvas | canvas snap guides (see §4) |
 
-Montage can also offer a light theme. CapCut has none, so derive one from these tokens.
+Valse can also offer a light theme. CapCut has none, so derive one from these tokens.
 
 ### 1.3 Typography
 - System sans (CapCut ships its own fonts, but the UI renders in a SF-like grotesque). On macOS use **SF Pro**.
@@ -109,7 +109,7 @@ Montage can also offer a light theme. CapCut has none, so derive one from these 
 ### 2.1 Home screen ([02_home](ux/02_home.png))
 Window 1471×981 pt, bg `#0D0D0D`. Layout:
 - **Left sidebar, 215 pt wide** (bg `#0D0D0D`, items 40 pt tall, radius 6). Account card at the top (Sign in / Join Pro: drop it in
-  Montage). Caption "Video editing" (11 pt grey). Nav items with an icon and 13 pt label: **Home** (selected: bg `#1E2829`, a teal-tinted
+  Valse). Caption "Video editing" (11 pt grey). Nav items with an icon and 13 pt label: **Home** (selected: bg `#1E2829`, a teal-tinted
   dark grey), Templates, Spaces ▾. Divider. "Design Studio [New]". A promo card is pinned at the bottom.
 - **Main column** (24 pt margins):
   1. **Hero "New project" button**: full-width banner (~1040×157 pt, radius 8) with a cyan→teal gradient (`#6CC9DD` → `#4FB4C9`)
@@ -124,10 +124,10 @@ Window 1471×981 pt, bg `#0D0D0D`. Layout:
   5. **Project grid**: square thumbnail cards **98×98 pt**, radius 6, 24 pt gaps. Under each: name (13 pt white) and "size | duration"
      (`4.1K | 00:00`, 12 pt grey). **Hover** shows a `…` button in the thumbnail's bottom-right ([03](ux/03_home_card_hover.png)).
      Right-click or `…` opens a menu: **Upload · Rename · ─ · Duplicate · Delete ⌫** ([04](ux/04_home_card_menu.png)).
-     Delete asks for confirmation in a small 280 pt alert (⚠ icon, "Are you sure to delete?", "Do you want to delete selected projects? This action is irreversible.", `[Cancel]` `[OK]` accent). Montage should move deleted projects to the Trash, offer undo, and skip the alert. Double-click (or single click) opens the project. Empty state: no grid, just the New-project hero.
+     Delete asks for confirmation in a small 280 pt alert (⚠ icon, "Are you sure to delete?", "Do you want to delete selected projects? This action is irreversible.", `[Cancel]` `[OK]` accent). Valse should move deleted projects to the Trash, offer undo, and skip the alert. Double-click (or single click) opens the project. Empty state: no grid, just the New-project hero.
 - Top-right icons: upload/sync, feedback, **settings ⚙** (opens Settings, §2.5).
 - Returning home from the editor shows a centred **toast pill "Saved to project"** (white pill, black 12 pt text, auto-hides after about 2 s).
-- On launch CapCut may show a "Recommended" what's-new modal ([01](ux/01_home_whats_new_popup.png)). Montage shouldn't nag. A
+- On launch CapCut may show a "Recommended" what's-new modal ([01](ux/01_home_whats_new_popup.png)). Valse shouldn't nag. A
   small "What's new" entry is enough.
 
 ### 2.2 New-project flow (click count = 1)
@@ -172,7 +172,7 @@ ratio and resolution.
 ### 2.6 Autosave
 There's no Save command at all. The project autosaves continuously (a few seconds after each edit) and the title bar shows **"Auto
 saved: HH:MM:SS"** next to the traffic lights. Leaving the editor (CapCut ▸ Back to home page) saves and shows the "Saved to project"
-toast. Montage should do the same (debounced autosave about 2 s after the last edit, atomic writes) and keep ⌘S as a no-op that flashes
+toast. Valse should do the same (debounced autosave about 2 s after the last edit, atomic writes) and keep ⌘S as a no-op that flashes
 "Saved".
 
 **Valse (owner decision, replaces the "Auto saved" label):** a quiet status right of the project name: nothing while editing,
@@ -190,7 +190,7 @@ save shows a persistent orange "⚠ Not saved" (click = retry). The title bar le
 - **Top tab bar** (42 pt, `#303030`): 10 icon tabs, each a **18 pt monoline icon above an 11 pt label**, about 50 pt pitch, left-aligned
   with 8 pt inset: **Media · Audio · Text · Stickers · Effects · Transitions · Filters · Adjustment · Templates · AI avatar**. Active
   tab = icon and label in accent `#57BECB` (the icon becomes filled). **Captions is its own tab between Transitions and Filters** (current
-  CapCut, owner screenshot 2026-10-19; older builds had captions under Text): **Auto captions · Local captions** (Montage adds **Filler
+  CapCut, owner screenshot 2026-10-19; older builds had captions under Text): **Auto captions · Local captions** (Valse adds **Filler
   words**, the shared transcript / filler review, C4). Shortcut: **⇥ Tab** = "Switch material panel".
 - **Left sub-nav column, 120 pt wide** (inside the panel, 9 pt padding): stacked items **28 pt tall, radius 4**. Group headers are
   filled buttons (`#2A2A2A` / white bold text with a chevron ▾/▴, collapsible). The selected group/item = bg `#2F4E52` (accent.dim)
@@ -198,7 +198,7 @@ save shows a persistent orange "⚠ Not saved" (click = retry). The title bar le
   Halloween 🎃, Black Friday, Classic, ✨ Magic cutout, NEW, Hits, Intro & Outro, Wild Pics, Party… · `Body effects ▾`.
 - **Content area**: search field on top (full width, 28 pt, `#141414` bg, radius 4, 🔍 + placeholder "People are searching Retro":
   rotating suggestions), then a section caption ("Trending", 13 pt) and a **thumbnail grid**.
-- Panel footer (Media tab only): "✂ AI clipper … Select media to get started [Start clipping]" bar (`#303030`, 40 pt). Montage can
+- Panel footer (Media tab only): "✂ AI clipper … Select media to get started [Start clipping]" bar (`#303030`, 40 pt). Valse can
   skip it.
 
 ### 3.2 Grid cards
@@ -232,7 +232,7 @@ save shows a persistent orange "⚠ Not saved" (click = retry). The title bar le
   left and right edges**: you can set an in/out range on the source before adding it. **Hover: the thumbnail scrubs through the video
   following the mouse X position**, and the ⊕ button appears bottom-right. Click = preview in the player ("Previewing — video", playable
   with Space). "Added" chip once used on the timeline.
-- Montage (owner, C6): bigger tiles, about 3 per row at the default panel width. **List view** = one wide rounded filmstrip
+- Valse (owner, C6): bigger tiles, about 3 per row at the default panel width. **List view** = one wide rounded filmstrip
   per media across the panel (frames, duration top right, name below, screenshot 27). Hover shows a white time bar; clicking
   the media already in the preview moves the preview to that time, another media opens at its start.
 - Empty state: see §2.3. Drag files from Finder anywhere on the panel or the timeline.
@@ -275,7 +275,7 @@ button). Adding creates an adjustment-layer clip (ochre) that colour-corrects ev
 ### 3.11 Templates ([67](ux/67_assets_templates.png))
 Search "Search for templates" + filter dropdowns **Orientation All ▾ · Clips No limit ▾ · Duration No limit ▾**. Categories (Trending,
 Premium, Vie quotidienne, Selfie…). Cards are tall 9:16 or 16:9 previews (~74×124 pt) with "Featured" chip, usage count, clip count, ☆, ⬇.
-Hover plays the template video. Montage: local templates only (low priority).
+Hover plays the template video. Valse: local templates only (low priority).
 
 ### 3.12 AI avatar ([68](ux/68_assets_aiavatar.png))
 Video translator / AI dialogue scene. Cloud features, out of scope.
@@ -383,7 +383,7 @@ Tabs: **Video · Audio · Speed · Animation · Adjust · AI stylize** (images h
 **Video ▸ Enhance** ([25](ux/25_insp_video_enhance.png)) = retouch: pill tabs **Face · Body · Hair · Face presets · Body presets**. ☐ Auto styles (preset grid, loads with a spinner "Loading…"). ☐ Face: mode dropdown "Single mode", sliders Plump, Even, Clear blemishes, Sparkly skin, … (all 0–100, default 0). Footer `[Save as preset]`.
 
 **Audio** ([29](ux/29_insp_audio.png), [43](ux/43_insp_audio_voicechanger.png)): sub-tabs **Basic · Voice changer**.
-- Basic ↺ ‹◇›: **Volume** slider, field `100%` (Montage, owner 2026-10-24: percent like iMovie, range 0 … 400 %, 100 % at 3/4 of
+- Basic ↺ ‹◇›: **Volume** slider, field `100%` (Valse, owner 2026-10-24: percent like iMovie, range 0 … 400 %, 100 % at 3/4 of
   the track; CapCut shows `0.0dB`, −∞…+20 dB) ‹◇›; **Fade in** `0.0s` and **Fade out** `0.0s` (0 to half the clip length). These have no keyframes (the diamond is shown greyed out).
 - ☐ Loudness normalization ("Normalize the loudness of the selected clip or clips to a target level", target from settings −23/−16/−14 LUFS) · ☐ Enhance voice ⓘ ↺ · ☐ Video translator · ☐ Reduce noise · (further down: ☐ Vocal isolation / remove vocals, ☐ Beats).
 - Voice changer: ☐ Apply to all; search field ("People are searching Podcast"); pill tabs **Voice filters · Voice characters · Speech to song**; "All" grid of **78×78 pt square tiles** `#3A3A3A` with a centred 13 pt name and a ⬇ download badge bottom-right (until downloaded). The selected tile ("Original") gets an accent border. Filters: Original, Fuller Voice, Helium, Mic Echo, Clear Vocals, Cosmic Bot, Voice Crisper, Broken Mic, Teenager, Magic Chords, Studio Mic, Bass Boost, Voice Focus, Full Voice, Bass Mic, Ghost Voice, Super Reverb, Underwater, Super Bass, PA Announcer, Mad Gremlin, Crystal Clear, High Resolution, Sonic Destructor, … Selecting a tile shows its parameters (e.g. Pitch, Timbre 0–100) under the grid.
@@ -406,7 +406,7 @@ Tabs: **Video · Audio · Speed · Animation · Adjust · AI stylize** (images h
 - Color wheel: ☑ Color wheel ↺; mode dropdown **Primary / Log**; Strength 100; **4 wheels**: Shadows, Middle grey, Tint (=highlights), Offset. Each wheel is about 88 pt with a draggable centre puck, a luminance arc slider on its right side, an ↺ per wheel, and an R/G/B numeric read-out row under it (`0.00 0.00 0.00`).
 - Mask: same mask UI as Video ▸ Mask (limits the adjustment to a region).
 
-**AI stylize** ([33](ux/33_insp_aistylize.png)): ☐ AI effects (prompt box + Random + Generate) · ☐ Style (pills Trending, AI painting, AI Photo, Particle, Hair Salon, Expressions, Motion, Split, Portrait, Face swap, Scene swap, Video effects; thumbnail grid 46 pt). Cloud-only, so it's out of scope for Montage except for local style filters.
+**AI stylize** ([33](ux/33_insp_aistylize.png)): ☐ AI effects (prompt box + Random + Generate) · ☐ Style (pills Trending, AI painting, AI Photo, Particle, Hair Salon, Expressions, Motion, Split, Portrait, Face swap, Scene swap, Video effects; thumbnail grid 46 pt). Cloud-only, so it's out of scope for Valse except for local style filters.
 
 ### 5.2 Text clip ([74](ux/74_text_added.png), [76](ux/76_insp_text_basic_2.png), [77](ux/77_insp_text_basic_3.png), [127](ux/127_insp_text_bubble.png), [129](ux/129_insp_text_animation.png), [130](ux/130_insp_text_tracking.png), [131](ux/131_insp_text_tts.png))
 Tabs: **Text · Animation · Tracking · Text to speech**. Footer `[Save as preset]`.
@@ -487,7 +487,7 @@ after about 1.5 s (see §8.3).
   dark outline). Click or drag on the ruler = scrub. Click on an empty part of a track = move the playhead there (and deselect).
 - With **preview axis ON**, hovering over the timeline shows a second, thinner grey line that follows the mouse, and the player shows that
   frame (hover scrubbing).
-- **Follow during playback** (Montage, owner U1, 2026-10-20): the timeline never fights a scroll — wheel / trackpad / scrollbar / pinch
+- **Follow during playback** (Valse, owner U1, 2026-10-20): the timeline never fights a scroll — wheel / trackpad / scrollbar / pinch
   while playing turns the follow off until the next play or seek (or until the user has scrolled the line back on screen and stopped scrolling for 1 s). On play, an off-screen playhead is brought in: off the left → the line
   40 pt from the left edge; off the right → 40 pt from the right edge. While playing, when the line reaches the right edge the timeline
   pages (line back 40 pt from the left) (`PlayheadFollow`). CapCut's own follow was not re-observed live in U1 (agents send no real input).
@@ -590,7 +590,7 @@ after about 1.5 s (see §8.3).
 | **Speed curve** | Select → Speed → **Curve** → click preset (e.g. Montage). Optional: drag beat points in the curve editor. The clip gets a dotted curve badge. | 3–4 |
 | **Keyframe animation** | Select clip → move playhead to the start → click the **◇** of a row (e.g. Scale), and it fills ◆ → move the playhead → change the value (slider/field/canvas drag). **A second keyframe is created automatically**, so no need to click ◇ again. Keyframes show as diamonds on the selected clip. Right-click a keyframe for easing (Ease in/out, Linear, preset curves). | 4 |
 | **Add text + animation** | Text tab → hover "Default text" → ⊕ (adds 3 s at the playhead, centred, selected) → type in the text box (or double-click on the canvas) → Animation tab → In → click a preset (it previews once). | 5 |
-| **Auto captions** | Text tab → Auto captions → Spoken language ▾ → **Generate** (Pro/cloud in CapCut). The result is a caption track of text clips plus a caption list in the inspector where editing a line updates the clip. Montage: on-device speech recognition, same panel. | 3 |
+| **Auto captions** | Text tab → Auto captions → Spoken language ▾ → **Generate** (Pro/cloud in CapCut). The result is a caption track of text clips plus a caption list in the inspector where editing a line updates the clip. Valse: on-device speech recognition, same panel. | 3 |
 | **Background removal** | Select clip → Video ▸ **Cutout** → ☑ Auto cutout (progress shown on the clip, non-blocking). Customized: ☑ Customized → brush/eraser on the canvas (size slider) → Apply. | 3 |
 | **Chroma key** | Select clip → Video ▸ Remove BG → ☑ Chroma key → click 🖊 color picker → click the green on the canvas (a loupe ring shows the colour under the cursor, [125](ux/125_chroma_picker_hover.png)) → adjust Strength (default 20) / Shadow (0) / Feather edge / Clean up edge. | 5 |
 | **Mask** | Select → Video ▸ Mask → **+ Add mask** (creates a rectangle and selects it) → pick a shape tile → adjust on the canvas (move, resize, feather ↕ handle, rotate ⟳, round corners) or with the fields. Invert via the icon. | 3 |
@@ -601,7 +601,7 @@ after about 1.5 s (see §8.3).
 | **Beat detection** | Select music clip → toolbar **♥ beats** button ▾ → None / **Beats 1** / Beats 2 ([132](ux/132_beats_menu.png)). Beat markers (yellow dots) appear under the clip and clips snap to them. Manual: M adds a marker. | 3 |
 | **Voice changer** | Select clip with audio → Audio (or Voice changer) tab → Voice changer → click a tile (downloads, applies, plays). | 3 |
 | **Freeze frame** | Playhead → select clip → toolbar **Freeze**. It splits at the playhead and inserts a **3 s "Freeze" still clip** (labelled "Freeze" on the timeline, [118](ux/118_after_freeze.png)), rippling the rest. | 2 |
-| **Reverse** | Select clip → toolbar **Reverse**. In CapCut this shows a **blocking modal** "Reversing clip… 22 %" with Cancel ([116](ux/116_reverse_progress_modal.png)). Keyframes get mirrored. Montage should do this non-blocking (progress on the clip) or instantly via reverse-decode. | 2 |
+| **Reverse** | Select clip → toolbar **Reverse**. In CapCut this shows a **blocking modal** "Reversing clip… 22 %" with Cancel ([116](ux/116_reverse_progress_modal.png)). Keyframes get mirrored. Valse should do this non-blocking (progress on the clip) or instantly via reverse-decode. | 2 |
 | **Export** | ⌘E or the title-bar **Export** button → dialog → Export. | 2 |
 
 ### 7.1 Export dialog ([110](ux/110_export_dialog.png), [112](ux/112_export_dropdowns.png), [113](ux/113_export_audio_gif.png), [114](ux/114_export_progress.png))
@@ -617,10 +617,10 @@ after about 1.5 s (see §8.3).
 - Footer: 🎞 **"Duration: 48s | Size: 72 MB (estimated)"**, live-updated when options change. `[Cancel]` `[Export]` (accent).
 - Defaults remember the last choice per user.
 - If Pro materials are used, CapCut shows an upsell interstitial listing them instead ("You're using the following Pro features", each with a ⌖
-  locate button that jumps to the clip). Montage: never.
+  locate button that jumps to the clip). Valse: never.
 - **During/after export**: the same window turns into a progress + share view: the left preview shows "Generating… 0 %" then plays the result
   (with a play/pause scrubber). The right side offers share targets (cloud: drop them). Footer **`[📁 Open folder]`** · `[Close]` ·
-  `[Share]`. A 48 s 1080p export finished in about 1 s (hardware encoding). Montage: progress bar + "Open folder" / "Export again" / "Close".
+  `[Share]`. A 48 s 1080p export finished in about 1 s (hardware encoding). Valse: progress bar + "Open folder" / "Export again" / "Close".
 
 ---
 
@@ -632,7 +632,7 @@ after about 1.5 s (see §8.3).
 - **Edit**: Undo ⌘Z · Reset (= Redo) ⇧⌘Z · Split ⌘B · Copy ⌘C · Cut ⌘X · Paste ⌘V · Delete ⌫ · (Emoji & Symbols)
 - **Help**: Feedback · Shortcut · Walkthrough
 
-Montage should have a **richer, conventional Mac menu bar** (Edit/Clip/Timeline/Marker/View/Window) that exposes the same commands as
+Valse should have a **richer, conventional Mac menu bar** (Edit/Clip/Timeline/Marker/View/Window) that exposes the same commands as
 the shortcut list below. That's better for discoverability and VoiceOver. Keep CapCut's key bindings.
 
 ### 8.2 Shortcut window (Help ▸ Shortcut, also the ⌨ icon in the title bar)
@@ -703,11 +703,11 @@ undo, redo, split, delete-left/right (disabled), delete and marker.
   `#3A3A3A` highlight; sub-nav items brighten. The cursor changes to ⟷ on clip edges, a blade in split mode, ✥ on canvas layers, and a
   rotation cursor on the rotate handle.
 - **Tooltips**: dark pills (`#000` at 85 %, 12 pt white, radius 4) after about 1.5 s hover, naming the action and its shortcut ("Split(⌘+B)").
-  Montage (owner, C6): 0.2 s every time, gone the moment the mouse leaves or clicks.
+  Valse (owner, C6): 0.2 s every time, gone the moment the mouse leaves or clicks.
 - **Toasts**: centred white pill with black text ("Saved to project") that fades after about 2 s. Undo/redo is silent in 9.6 (no toast seen).
-  Montage should add "Undo: <action>" toasts (FEATURES.md trait #9).
+  Valse should add "Undo: <action>" toasts (FEATURES.md trait #9).
 - **Coach marks**: one-time yellow cards with an arrow ("Right-click the keyframe to create variable speed animations" [OK]). They appear the
-  first time a feature is used. Montage can use the same pattern sparingly, always dismissible with one click.
+  first time a feature is used. Valse can use the same pattern sparingly, always dismissible with one click.
 - **Loading**: inline spinner ring + "Loading…" text centred in the panel when a grid fetches; per-tile ⬇ badge → circular progress ring;
   "Generating… N %" for export. Long processing (reverse, AI) shows progress **on the clip** or a small modal with Cancel.
 - **Empty states**: dashed drop-zone lane "Drag material here and start to create" on the timeline; big Import card in Media; player black
@@ -732,10 +732,10 @@ Source: `/Applications/CapCut.app/Contents/Resources/po/fr-FR.po` joined with `e
 strings). Use it as a **terminology reference** so French users find familiar words. Don't copy strings wholesale.
 
 **Tone:** CapCut FR addresses the user as **"tu"** ("Fais glisser les ressources ici et commence à créer", "Lis avec attention").
-Montage should pick one register and stick to it. We recommend *tu* to match CapCut, or *vous* for a more "pro" feel. Mixing them is
+Valse should pick one register and stick to it. We recommend *tu* to match CapCut, or *vous* for a more "pro" feel. Mixing them is
 the worst option. Some CapCut FR translations are poor (marked ⚠). Prefer the better alternative given.
 
-| English (CapCut UI) | CapCut français | Note / recommended for Montage |
+| English (CapCut UI) | CapCut français | Note / recommended for Valse |
 |---|---|---|
 | Media | Médias | |
 | Audio | Audio (tab) / Contenu audio | "Audio" for the tab |
@@ -743,7 +743,7 @@ the worst option. Some CapCut FR translations are poor (marked ⚠). Prefer the 
 | Stickers | Stickers | |
 | Effects / Video effects / Body effects | Effets / Effets vidéo / Effets corporels | |
 | Transitions | Transitions | |
-| Captions / Auto captions | Légendes / Légendes automatiques (also "Sous-titres") | **Montage: "Sous-titres" everywhere** (owner, 2026-10-20, U1: tab, inspector, list, commands; masculine: "ce sous-titre", "tous les sous-titres"). Only a social-media *post* caption stays "légende" |
+| Captions / Auto captions | Légendes / Légendes automatiques (also "Sous-titres") | **Valse: "Sous-titres" everywhere** (owner, 2026-10-20, U1: tab, inspector, list, commands; masculine: "ce sous-titre", "tous les sous-titres"). Only a social-media *post* caption stays "légende" |
 | Filters | Filtres | |
 | Adjustment | Ajustement | |
 | Templates | Modèles | |
@@ -824,16 +824,16 @@ the worst option. Some CapCut FR translations are poor (marked ⚠). Prefer the 
 | Drag and drop videos, photos, and audio files here | Fais glisser des vidéos, photos et fichiers audio et dépose-les ici | |
 | Drag material here and start to create | Fais glisser les ressources ici et commence à créer | |
 
-CapCut calls library items "ressources" (material). Montage should use **"ressources"** or **"médias"** consistently.
+CapCut calls library items "ressources" (material). Valse should use **"ressources"** or **"médias"** consistently.
 
 ---
 
 ## 11. Error messages (style guide, owner-approved, BUG-ERROR-COPY)
 
-Montage rule (stricter than CapCut, which says "Try again" everywhere). Applies to every toast, inline message, banner
+Valse rule (stricter than CapCut, which says "Try again" everywhere). Applies to every toast, inline message, banner
 and alert, en + fr.
 
-1. **Say what didn't happen, in terms of the user's goal**: "Couldn't create captions.", "Montage can't save “Trip”."
+1. **Say what didn't happen, in terms of the user's goal**: "Couldn't create captions.", "Valse can't save “Trip”."
    Never the component that broke. fr opener: "Impossible de …".
 2. **Give the reason when it is known and the user can act on it** (permission, missing download, file offline, disk
    full, unsupported format, no speech). Error domains, exit codes, HTTP codes, engine / helper names and file paths go to
@@ -855,11 +855,11 @@ and alert, en + fr.
    `SaveFailureBanner`); background job → its row keeps the reason (+ Copy Details).
 10. **System Settings names**: "System Settings ▸ Privacy & Security ▸ …" / "Réglages Système ▸ Confidentialité et
     sécurité ▸ …"; the button is "Open System Settings" / "Ouvrir Réglages Système" (deep links: `SystemSettingsPane`,
-    MontageUI/Support/SystemSettingsLinks.swift).
+    ValseUI/Support/SystemSettingsLinks.swift).
 
 Template: en `<What didn't happen>. <Why, if known>. <What to do>.` / fr `<Ce qui n'a pas abouti>. <Pourquoi>. <Que faire>.`
 Example: "Couldn't download the model. Check your internet connection, then try again." / "Not enough space to download
-the model. Free up 574 MB, then try again." Shared actions and messages live in `MontageUI/Resources/*/Errors.strings`.
+the model. Free up 574 MB, then try again." Shared actions and messages live in `ValseUI/Resources/*/Errors.strings`.
 
 ---
 

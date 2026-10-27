@@ -3,7 +3,7 @@
   "project": "demo",
   "steps": [
     {"click": "id:asset.tab.text"},
-    {"drop": {"text": "montage.text.default"}, "on": "time:1@2"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
     {"seek": 1.5},
     {"click": "id:inspector.check.text.stroke"},
     {"expect": [{"path": "selectedClips.0.strokeWidth", "gt": 0}, {"path": "selectedClips.0.strokePosition", "equals": "outside"}]},
