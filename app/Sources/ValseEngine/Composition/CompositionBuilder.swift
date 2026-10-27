@@ -66,7 +66,11 @@ public actor AssetCache {
         return e
     }
 
-    public func evict(_ url: URL) { entries[url] = nil }
+    /// Drops `url` and its decode aliases (`CompositionBuilder.decodeAlias`, same file under another spelling).
+    public func evict(_ url: URL) {
+        let file = url.standardizedFileURL
+        entries = entries.filter { $0.key.standardizedFileURL != file }
+    }
 }
 
 /// Project → AVMutableComposition + AVVideoComposition (ValseCompositor) + AVAudioMix.
@@ -102,6 +106,7 @@ public enum CompositionBuilder {
         let duration = max(skip.item(project.duration), project.settings.frameRate.frameDuration)
         var trackMap: [ClipID: CMPersistentTrackID] = [:]
         var videoTrackIDs: [CMPersistentTrackID] = []
+        var decodeRuns: [CMPersistentTrackID: DecodeRun] = [:]   // last video segment per composition track (BUG-FRAME-DROP)
         var audioParams: [AVMutableAudioMixInputParameters] = []
         let audioState = existingAudioState ?? AudioMixState()
         audioState.update(project: project)
@@ -160,12 +165,18 @@ public enum CompositionBuilder {
                 let segments = place(remapSegments(mapped, asset: asset, frameRate: fr), clipStart: clip.start, skip: skip)
                 mapped.start = .zero
 
+                let sourceFrame = (asset.frameRate ?? .fps30).frameDuration
                 if asset.kind == .video, asset.hasVideo, track.kind.isVisual {
                     let entry = try await AssetCache.shared.entry(videoURL)
                     if let src = entry.video {
                         if vLanes[lane] == nil { vLanes[lane] = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) }
                         if let vt = vLanes[lane] {
-                            try insert(clip: mapped, segments: segments, from: src, sourceRange: entry.videoRange, into: vt)
+                            let (variants, run) = decodeVariants(clip: mapped, segments: segments, url: videoURL, after: decodeRuns[vt.trackID],
+                                                                 tolerance: sourceFrame * 0.5)
+                            let alias = variants.contains(1) ? try await AssetCache.shared.entry(decodeAlias(videoURL)).video : nil
+                            try insert(clip: mapped, segments: segments, from: src, alias: alias, variants: variants,
+                                       sourceRange: entry.videoRange, into: vt)
+                            decodeRuns[vt.trackID] = run
                             trackMap[clip.id] = vt.trackID
                         }
                     }
@@ -180,7 +191,12 @@ public enum CompositionBuilder {
                         guard let at = auxLanes[key] else { continue }
                         var shifted = mapped
                         shifted.sourceStart = mapped.sourceStart + shift
-                        try insert(clip: shifted, segments: segments, from: src, sourceRange: entry.videoRange, into: at, stretch: false)
+                        let (variants, run) = decodeVariants(clip: shifted, segments: segments, url: url, after: decodeRuns[at.trackID],
+                                                             tolerance: sourceFrame * 0.5)
+                        let alias = variants.contains(1) ? try await AssetCache.shared.entry(decodeAlias(url)).video : nil
+                        try insert(clip: shifted, segments: segments, from: src, alias: alias, variants: variants,
+                                   sourceRange: entry.videoRange, into: at, stretch: false)
+                        decodeRuns[at.trackID] = run
                         auxMap[clip.id, default: [:]][role] = at.trackID
                     }
                 }
@@ -402,9 +418,13 @@ public enum CompositionBuilder {
     /// Inserts a clip's speed segments into a composition track at the clip's timeline position.
     /// `stretch`: when the media is shorter than the segment asks for, stretch what exists over the whole output
     /// range (main lanes: no black frame) or keep the exact rate and leave the rest empty (aux lanes: timing matters).
+    /// `alias` / `variants`: the same file opened under its decode alias, and which of the two each segment reads
+    /// (0 = `src`, 1 = `alias`; see `decodeVariants`). Without them every segment reads `src`.
     static func insert(clip: Clip, segments: [(output: TimeRange, source: TimeRange)], from src: AVAssetTrack,
+                       alias: AVAssetTrack? = nil, variants: [Int] = [],
                        sourceRange srcRange: CMTimeRange, into dst: AVMutableCompositionTrack, stretch: Bool = true) throws {
-        for seg in segments {
+        for (k, seg) in segments.enumerated() {
+            let src = k < variants.count && variants[k] == 1 ? alias ?? src : src
             var at = (clip.start + seg.output.start).cmTime
             let wanted = CMTimeRange(start: (clip.sourceStart + seg.source.start).cmTime, duration: seg.source.duration.cmTime)
             let s = CMTimeRangeGetIntersection(wanted, otherRange: srcRange)
@@ -425,6 +445,46 @@ public enum CompositionBuilder {
                 dst.scaleTimeRange(CMTimeRange(start: at, duration: s.duration), toDuration: outDur)
             }
         }
+    }
+
+    /// BUG-FRAME-DROP: AVFoundation decodes each composition track's segments from one file as one stream: when a
+    /// track's next segment of the same file starts a little further on (jump cut, or the A/B lane's next clip after a
+    /// split), it does not restart at the sync sample but keeps decoding from where the previous segment stopped. With
+    /// iPhone HEVC (open GOPs: the B frames shown just before each CRA key frame are decoded after it, and reference the
+    /// previous GOP) the frames right after such a segment start were then never delivered: the compositor got the
+    /// first frame again for up to 3 frames (100 ms freeze, then a jump), in the preview and in exports — measured on
+    /// the owner's project "1018 (1)": a split at 3.604 s of IMG_9081 (frame 108, CRA at 112). Only when the previous
+    /// segment's decode had started in the GOP before (crossing the CRA); a decode started fresh was always right.
+    /// A segment that does not continue its track's previous segment (same file, source contiguous) therefore reads
+    /// the file under another spelling (`decodeAlias`): a different source URL makes AVFoundation start a fresh decode
+    /// at the sync sample. Contiguous segments (one clip's speed pieces, a split kept on one track) keep the stream.
+    struct DecodeRun: Equatable { var url: URL; var variant: Int; var end: Time }
+
+    /// Same file, other URL: `dir/./name` (AVFoundation keys a track's decode by the segment URL, not the file;
+    /// AVURLAsset keeps the spelling, `standardizedFileURL` maps it back).
+    static func decodeAlias(_ url: URL) -> URL {
+        URL(fileURLWithPath: url.deletingLastPathComponent().path + "/./" + url.lastPathComponent)
+    }
+
+    /// Which file spelling each of a clip's segments reads on a track whose last video segment was `run`, and the run
+    /// after them. A segment continues the run (same variant) when it reads the same file from where the run ended
+    /// (± `tolerance`); otherwise a segment of the same file switches variant, and another file starts variant 0.
+    static func decodeVariants(clip: Clip, segments: [(output: TimeRange, source: TimeRange)], url: URL, after run: DecodeRun?,
+                               tolerance: Time) -> (variants: [Int], run: DecodeRun?) {
+        var run = run
+        var variants: [Int] = []
+        for seg in segments {
+            let start = clip.sourceStart + seg.source.start
+            let v: Int
+            if let r = run, r.url == url {
+                v = abs((start - r.end).ticks) <= tolerance.ticks ? r.variant : 1 - r.variant
+            } else {
+                v = 0
+            }
+            variants.append(v)
+            run = DecodeRun(url: url, variant: v, end: start + seg.source.duration)
+        }
+        return (variants, run)
     }
 
     /// Linear ramp pieces per eased volume-keyframe span.

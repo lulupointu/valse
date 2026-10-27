@@ -2,6 +2,7 @@
 import CoreGraphics
 import CoreVideo
 import Foundation
+import VideoToolbox
 import ValseCore
 import ValseEngine
 
@@ -102,5 +103,66 @@ public enum TestMovies {
         if let img { ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h)) }
         // straight alpha: the drawn content is fully opaque or fully clear in tests, nothing to un-premultiply
         _ = straight
+    }
+
+    /// iPhone-structured HEVC (BUG-FRAME-DROP): Apple's encoder with frame reordering and OPEN GOPs, a key frame every
+    /// `keyInterval` frames — the key frames after the first are CRA pictures (the file's `sync` sample group says so,
+    /// like an iPhone .mov), and the B frames shown just before each are decoded after it. Frame `i` shows `i` as
+    /// `bits` vertical stripes, left to right, white = 1 (`frameIndex(stripes:)` reads it back).
+    public static func writeFrameIndexHEVC(to url: URL, frames: Int, fps: Int32 = 30, size: CGSize = CGSize(width: 224, height: 128),
+                                           keyInterval: Int = 28, bits: Int = 8) async throws {
+        try? FileManager.default.removeItem(at: url)
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        func settings(openGOP: Bool) -> [String: Any] {
+            var c: [String: Any] = [AVVideoAllowFrameReorderingKey: true, AVVideoMaxKeyFrameIntervalKey: keyInterval,
+                                    AVVideoAverageBitRateKey: 2_000_000]
+            if openGOP { c[kVTCompressionPropertyKey_AllowOpenGOP as String] = true }
+            return [AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoWidthKey: Int(size.width), AVVideoHeightKey: Int(size.height),
+                    AVVideoCompressionPropertiesKey: c]
+        }
+        let open = settings(openGOP: true)
+        let vIn = AVAssetWriterInput(mediaType: .video,
+                                     outputSettings: writer.canApply(outputSettings: open, forMediaType: .video) ? open : settings(openGOP: false))
+        vIn.expectsMediaDataInRealTime = false
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: vIn, sourcePixelBufferAttributes: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey as String: Int(size.width), kCVPixelBufferHeightKey as String: Int(size.height)])
+        writer.add(vIn)
+        guard writer.startWriting() else { throw writer.error ?? NSError(domain: "Valse", code: 90) }
+        writer.startSession(atSourceTime: .zero)
+        for i in 0..<frames {
+            try await SyntheticMedia.waitUntilReady(vIn, writer)
+            var pbOut: CVPixelBuffer?
+            if let pool = adaptor.pixelBufferPool { CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pbOut) }
+            guard let pb = pbOut else { throw writer.error ?? NSError(domain: "Valse", code: 92) }
+            CVPixelBufferLockBaseAddress(pb, [])
+            let w = CVPixelBufferGetWidth(pb), h = CVPixelBufferGetHeight(pb), bpr = CVPixelBufferGetBytesPerRow(pb)
+            let p = CVPixelBufferGetBaseAddress(pb)!.assumingMemoryBound(to: UInt8.self)
+            for y in 0..<h {
+                for x in 0..<w {
+                    let v: UInt8 = (i >> (x * bits / w)) & 1 == 1 ? 235 : 16
+                    let o = y * bpr + x * 4
+                    p[o] = v; p[o + 1] = v; p[o + 2] = v; p[o + 3] = 255
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(pb, [])
+            guard adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(i), timescale: fps)) else {
+                throw writer.error ?? NSError(domain: "Valse", code: 93)
+            }
+        }
+        vIn.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: CMTimeValue(frames), timescale: fps))
+        await writer.finishWriting()
+        if writer.status != .completed { throw writer.error ?? NSError(domain: "Valse", code: 91) }
+    }
+
+    /// The index a `writeFrameIndexHEVC` frame shows (BGRA; stripes sampled on the middle row, any scale).
+    public static func frameIndex(stripes pb: CVPixelBuffer, bits: Int = 8) -> Int {
+        CVPixelBufferLockBaseAddress(pb, .readOnly); defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+        let w = CVPixelBufferGetWidth(pb), h = CVPixelBufferGetHeight(pb), bpr = CVPixelBufferGetBytesPerRow(pb)
+        let p = CVPixelBufferGetBaseAddress(pb)!.assumingMemoryBound(to: UInt8.self)
+        var v = 0
+        for k in 0..<bits where p[(h / 2) * bpr + Int((Double(k) + 0.5) * Double(w) / Double(bits)) * 4 + 1] > 128 { v |= 1 << k }
+        return v
     }
 }
