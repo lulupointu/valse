@@ -42,6 +42,10 @@ When 2-4 branches are ready (or 1 if nothing else is close), and no other batch 
    `scripts/cleanup.sh --merged-worktrees` (deletes the `.build` (~1-2 GB each) of every worktree whose HEAD is in main
    or a batch-* branch, with a clean `git status` and no process using it; `--dry-run` first if unsure).
    Run it too whenever free disk is < 10 GB (`df -h .`): gates need 5 GB and fail with DISK FULL below that.
+8. Release (your duty, owner 2026-10-27: not an owner step): once the user-visible work of a request is merged (one
+   release for several batches of the same request is fine), `git push origin main`, then `scripts/release.sh <version>`
+   (docs/RELEASING.md "Cutting a release"; patch = fixes only, minor = new or redesigned features; last version:
+   `gh release list -R lulupointu/valse -L 1`). Report the version to the owner.
 
 ## Disk
 - < 10 GB free → `scripts/cleanup.sh --merged-worktrees` (above); still low → `scripts/cleanup.sh --dry-run` shows the
