@@ -53,20 +53,24 @@ safe and never commit it**: without the EdDSA private key, installed copies can 
    (CFBundleVersion = commit count, so it always grows), signs it, zips it (`Valse.zip`), makes deltas from the last 3
    Valse releases (`Valse<build>-<from>.delta`; their apps are cached in `~/Library/Application Support/ValseRelease/
    apps/<tag>`, the pre-rename `MontageRelease` store is moved there), writes `appcast.xml` (this release on the
-   `valse` channel + the bridge item copied from the latest published appcast) and creates the GitHub release with
+   `valse` channel + the bridge item copied from the latest published appcast, during the week after the bridge
+   release) and creates the GitHub release with
    `Valse.zip`, `appcast.xml` and the deltas, then sends the push to both topics.
 4. Running copies download it within a minute; the others at their next launch.
 
 Never delete or edit a published release's `Valse.zip` (the deltas of later releases are built against it), and never
-delete the bridge release's `Valse-bridge.zip` (every appcast points pre-rename copies at it, forever).
+delete the bridge release's `Valse-bridge.zip` (the bridge release's own appcast points pre-rename copies at it).
 
 ## The Montage → Valse bridge (once)
 Why: Sparkle in a copy installed before the rename (Montage ≤ 0.3, `/Applications/Montage.app`, `fr.montage.Montage`)
 only installs an archive holding an app named like the installed bundle (`Montage.app`) or with the same bundle id, and
 always installs it at the installed path. So the bridge release ships the new Valse build **named `Montage.app`**;
 that build renames its own bundle to `Valse.app` at its first launch. Every later release ships `Valse.app`, which
-installed Valse copies find by bundle id. Copies that skip releases still land on the bridge first: the appcast keeps
-the bridge item without a channel (the only item they see) next to the newest release on the `valse` channel.
+installed Valse copies find by bundle id. Copies that skip a release still land on the bridge first: for one week after the
+bridge release (owner 2026-10-27), later appcasts keep the bridge item without a channel (the only item they see) next
+to the newest release on the `valse` channel. After that week `release_appcast.py` drops it (`--bridge-days`): a
+pre-rename copy that was not opened during that week sees no update at all and is reinstalled by hand (install.sh or
+the `Valse.zip` download); its first launch still migrates everything.
 
 Owner steps:
 1. Merge the rename branch, push `main`.
@@ -80,8 +84,8 @@ Owner steps:
    installed. macOS asks once more for camera / microphone / speech permission (new bundle id: unavoidable). Online
    music keys saved in Settings ▸ Music move over when macOS lets Valse read them without asking; otherwise enter them
    again.
-4. From then on, plain `scripts/release.sh <version>` (it refuses to run until the bridge release is the latest one
-   carrying the bridge item). Keep the bridge release and its `Valse-bridge.zip` forever.
+4. From then on, plain `scripts/release.sh <version>` (it refuses to run while the latest appcast is a pre-rename
+   one). It carries the bridge item for a week, then drops it. Keep the bridge release and its `Valse-bridge.zip`.
 
 What the first launch of Valse does on an existing install (`ValseApp/Rebrand.swift`, `ValseCore/Persistence/
 RebrandMigration.swift`, all once, crash-safe, retried at the next launch if a step could not finish):

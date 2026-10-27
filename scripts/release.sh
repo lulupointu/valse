@@ -7,9 +7,10 @@
 #      `valse` channel + the bridge item for copies installed before the rename (scripts/release_appcast.py)
 #   4. GitHub release v<version> on lulupointu/valse with those assets (the newest release is the one served)
 #   5. push to the ntfy topics (Info.plist ValseUpdatePushURL, and the pre-rename topic old copies listen on)
-# --bridge: the ONE release that moves pre-rename copies (Montage ≤ 0.3, fr.montage.Montage) to Valse: also publishes
+# --bridge: the ONE release that moves pre-rename copies (Montage ≤ 0.4, fr.montage.Montage) to Valse: also publishes
 #   Valse-bridge.zip (this Valse build under the bundle name Montage.app, the name those copies look for), its appcast
-#   item has no channel, no deltas. Every later appcast repeats that item: never delete Valse-bridge.zip.
+#   item has no channel, no deltas. Later appcasts repeat that item for one week after the bridge release, then drop it
+#   (owner 2026-10-27; scripts/release_appcast.py --bridge-days).
 # One-time setup first: scripts/release_setup.sh. HEAD must be pushed to origin/main.
 # Usage: scripts/release.sh <version, e.g. 0.4.0> [--bridge] [--notes <file.md>] [--dry-run (build + appcast, publish nothing)]
 set -euo pipefail
@@ -50,11 +51,11 @@ security find-identity -v -p codesigning | grep -q "\"$IDENTITY\"" \
   || { echo "✘ no code-signing identity \"$IDENTITY\": run scripts/release_setup.sh"; exit 1; }
 BUILD="$(git rev-list --count HEAD)"
 if [[ ! -d "$STORE" && -d "$LEGACY_STORE" ]]; then mv "$LEGACY_STORE" "$STORE"; fi
-# the latest published appcast: carries the bridge item every later appcast repeats
+# the latest published appcast: carries the bridge item (repeated for a week) or is already a post-rename appcast
 PREV_APPCAST="$(mktemp -t valse-prev-appcast)"
 LATEST_TAG="$(gh release list -R "$REPO" --limit 1 --exclude-drafts --exclude-pre-releases --json tagName -q '.[].tagName' 2>/dev/null || true)"
 [[ -n "$LATEST_TAG" ]] && gh release download "$LATEST_TAG" -R "$REPO" -p appcast.xml -O "$PREV_APPCAST" --clobber >/dev/null 2>&1 || true
-if [[ $BRIDGE == 0 ]] && ! grep -q "Valse-bridge.zip" "$PREV_APPCAST" 2>/dev/null; then
+if [[ $BRIDGE == 0 ]] && ! grep -q -e "Valse-bridge.zip" -e "<sparkle:channel>valse</sparkle:channel>" "$PREV_APPCAST" 2>/dev/null; then
   echo "✘ the latest release ($LATEST_TAG) has no bridge item: publish the bridge release first (--bridge, docs/RELEASING.md)"; exit 1
 fi
 
