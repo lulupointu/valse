@@ -18,6 +18,7 @@
 "capedit.nudgeEarlier" = "Move %@ one frame earlier (⇧: 10 frames)";
 "capedit.nudgeLater" = "Move %@ one frame later (⇧: 10 frames)";
 "capedit.duration" = "%@ s";
+"capedit.timing.placeholder" = "Select a caption to edit its timing";
 "capedit.cps" = "%d char/s";
 "capedit.count" = "%d captions";
 "capedit.count.one" = "1 caption";

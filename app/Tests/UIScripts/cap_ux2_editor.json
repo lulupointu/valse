@@ -1,36 +1,55 @@
-// CAP-UX2 owner feedback round 2: the Captions tab only for captions (TAB); clicking a caption below / above the
-// active one never moves it and a simple click selects nothing (JUMP); a caption left keeps no selection (SELECTION);
-// playing with the editor open does not re-measure the list in a loop (CRASH); the over-limit badge only against the
-// chosen split rule, with an explicit tooltip (BADGE).
+// CAP-UX2 owner feedback round 2: the Captions tab only for captions (TAB); activating a caption never moves any row,
+// the timing controls live in the pinned bar under the list (TIMINGBAR), a simple click selects nothing (JUMP); a
+// caption left keeps no selection (SELECTION); playing with the editor open does not re-measure the list in a loop
+// (CRASH); the over-limit badge only against the chosen split rule, with an explicit tooltip (BADGE).
 {
   "project": "demo-transcript:captions:long",
   "steps": [
     {"select": ["clip:main/0"]},
     {"waitFor": {"path": "ui.inspectorTabs", "notContains": "captions"}},
-    {"select": ["clip:1/0"]},
-    {"waitFor": {"path": "ui.inspectorTabs.0", "equals": "captions"}},
+    {"select": []},
+    {"waitFor": {"path": "ui.inspectorTabs", "contains": "captions"}},
     {"click": "id:inspector.tab.captions"},
     {"waitFor": {"path": "ui.captionEditor.count", "equals": 40}},
-    {"expect": [{"path": "ui.captionEditor.active", "equals": 0}, {"path": "ui.anchors", "notContains": "captions.over.1"},
-                {"path": "ui.anchors", "notContains": "captions.over.2"}]},
-    // JUMP: a click in a row below the active one: caret only, the clicked text stays where it was
+    // nothing active: the timing bar is there, disabled, with its placeholder
+    {"expect": [{"path": "ui.captionEditor.active", "equals": -1}, {"path": "ui.anchors", "contains": "captions.timing.placeholder"},
+                {"path": "ui.anchors", "contains": "captions.timing.end.plus"}, {"path": "ui.anchors", "notContains": "captions.over.1"}]},
+    // top of the list: first activation, then a row below, then a row above: no row moves, caret only
+    {"click": "id:captions.row.1", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 0}},
+    {"expect": [{"path": "ui.captionEditor.rowsMovedSinceClick", "equals": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0},
+                {"path": "ui.anchors", "contains": "captions.timing.duration"}, {"path": "ui.captionEditor.listScrollY", "equals": 0}]},
     {"click": "id:captions.row.3", "at": [0.5, 0.3]},
     {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 2}},
-    {"expect": [{"path": "ui.captionEditor.active", "equals": 2}, {"path": "ui.captionEditor.clickDrift", "lt": 0.5},
-                {"path": "ui.captionEditor.clickDrift", "gte": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0},
-                {"path": "ui.captionEditor.stripAbove", "equals": true}, {"path": "ui.captionEditor.unrequestedScrolls", "equals": 0}]},
+    {"expect": [{"path": "ui.captionEditor.active", "equals": 2}, {"path": "ui.captionEditor.rowsMovedSinceClick", "equals": 0},
+                {"path": "ui.captionEditor.clickDrift", "equals": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0},
+                {"path": "ui.captionEditor.unrequestedScrolls", "equals": 0}]},
     // SELECTION: select text, then click another caption: the first one shows no selection any more
     {"key": "shift+left", "repeat": 4},
     {"waitFor": {"path": "ui.captionEditor.selectionLength", "equals": 4}},
     {"click": "id:captions.row.5", "at": [0.5, 0.3]},
     {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 4}},
     {"expect": [{"path": "ui.captionEditor.rowsWithSelection", "equals": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0},
-                {"path": "ui.captionEditor.clickDrift", "lt": 0.5}, {"path": "ui.captionEditor.clickDrift", "gte": 0}]},
-    // a row above the active one: the strip goes under it, nothing moves either
+                {"path": "ui.captionEditor.rowsMovedSinceClick", "equals": 0}]},
     {"click": "id:captions.row.2", "at": [0.5, 0.3]},
     {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 1}},
-    {"expect": [{"path": "ui.captionEditor.clickDrift", "lt": 0.5}, {"path": "ui.captionEditor.clickDrift", "gte": 0},
-                {"path": "ui.captionEditor.stripAbove", "equals": false}, {"path": "ui.captionEditor.selectionLength", "equals": 0}]},
+    {"expect": [{"path": "ui.captionEditor.rowsMovedSinceClick", "equals": 0}, {"path": "ui.captionEditor.clickDrift", "equals": 0},
+                {"path": "ui.captionEditor.selectionLength", "equals": 0}]},
+    // the bar edits the active caption: end › one frame
+    {"click": "id:captions.timing.end.plus"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.captionTiming"}},
+    {"expect": {"path": "ui.captionEditor.active", "equals": 1}},
+    // scrolled down the list: a row above the active one, then a row below it
+    {"key": "escape"},
+    {"select": ["clip:1/19"]},
+    {"waitFor": {"path": "ui.captionEditor.active", "equals": 19}},
+    {"waitFor": {"path": "ui.captionEditor.listScrollY", "gt": 0}},
+    {"click": "id:captions.row.18", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 17}},
+    {"expect": [{"path": "ui.captionEditor.rowsMovedSinceClick", "equals": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0}]},
+    {"click": "id:captions.row.19", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 18}},
+    {"expect": [{"path": "ui.captionEditor.rowsMovedSinceClick", "equals": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0}]},
     // CRASH: play with the editor open (40 captions): no layout storm
     {"key": "escape"},
     {"waitFor": {"path": "ui.captionEditor.listFocused", "equals": true}},
@@ -50,6 +69,9 @@
     {"click": "id:captions.split.1"},
     {"waitFor": {"path": "ui.captionEditor.split", "equals": "1x24"}},
     {"expect": [{"path": "ui.captionEditor.count", "gt": 40}, {"path": "ui.anchors", "notContains": "captions.over.1"}]},
+    {"select": ["clip:1/0"]},
+    {"waitFor": {"path": "ui.captionEditor.active", "equals": 0}},
+    {"waitFor": {"path": "ui.captionEditor.listScrollY", "equals": 0}},
     {"click": "id:captions.row.1", "at": [0.6, 0.3]},
     {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 0}},
     {"key": "cmd+right"},

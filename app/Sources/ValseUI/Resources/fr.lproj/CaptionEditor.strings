@@ -18,6 +18,7 @@
 "capedit.nudgeEarlier" = "Avancer %@ d’une image (⇧ : 10 images)";
 "capedit.nudgeLater" = "Reculer %@ d’une image (⇧ : 10 images)";
 "capedit.duration" = "%@ s";
+"capedit.timing.placeholder" = "Sélectionnez un sous-titre pour régler son minutage";
 "capedit.cps" = "%d car./s";
 "capedit.count" = "%d sous-titres";
 "capedit.count.one" = "1 sous-titre";
