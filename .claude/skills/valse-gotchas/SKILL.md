@@ -43,6 +43,11 @@ description: Known Valse engineering traps by topic (async tests and AVFoundatio
   (seeking with the clock running froze the preview). Stress: ValseEngineTests/PlaybackStressTests.swift.
 - Never `scaleTimeRange` a composition track to an arbitrary duration: reads inside stretched samples can stall forever
   (`CompositionBuilder.addBase` tiles a 60 s blank unscaled).
+- A composition track's segment that does not continue its previous segment of the same file (jump cut, next A/B
+  lane clip) must read a distinct URL (`CompositionBuilder.decodeAlias`, `dir/./name`): otherwise AVFoundation keeps
+  one decode stream and iPhone open-GOP HEVC (CRA) frames after the cut freeze, in preview and export (BUG-FRAME-DROP).
+  Test media needs Apple's HEVC encoder with AllowOpenGOP; x265 does not reproduce it.
+- On speed-scaled segments a tap's buffer `duration` is span × speed²; step by timestamps (BUG-SPEED-AUDIO-TAIL).
 - Never use `AVAudioTimePitchAlgorithm.varispeed`: hangs the audio reader during export of sped-up clips.
 - MP3 export needs the FFmpeg sidecar (libmp3lame), absent on a fresh Mac: option disabled with a hint; audio format only
   matters when audio is exported.
