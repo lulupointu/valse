@@ -178,15 +178,24 @@ public enum CaptionGenerator {
         let final = segments
         let tagged = speakers
         let cmd = Edit(o.lyrics ? "cmd.lyrics" : "cmd.captions") { p in
-            guard let id = CaptionOps.addCaptionTrack(final, to: &p, style: style, origin: origin, replacing: replace) else {
-                throw EditError.nothingToDo
-            }
-            SpeechCaptions.finish(trackID: id, in: &p)
-            if tagged { SpeakerCaptions.finish(in: &p) } else { SpeakerCaptions.syncSpeakers(in: &p) }
+            try insert(final, style: style, origin: origin, replacing: replace, speakers: tagged, into: &p)
         }
         var result = CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
         result.speakersSkipped = speakersSkipped
         return result
+    }
+
+    /// The "Auto captions" / "Auto lyrics" edit body: a new caption track (never on an existing track, so no existing
+    /// clip moves: BUG-AUTOCAPTION-SHIFT), captions linked to the main clips under them, speakers registered.
+    @discardableResult
+    public static func insert(_ segments: [CaptionSegment], style: TextContent?, origin: CaptionOrigin, replacing: Bool,
+                              speakers: Bool, into p: inout Project) throws -> TrackID {
+        guard let id = CaptionOps.addCaptionTrack(segments, to: &p, style: style, origin: origin, replacing: replacing) else {
+            throw EditError.nothingToDo
+        }
+        SpeechCaptions.finish(trackID: id, in: &p)
+        if speakers { SpeakerCaptions.finish(in: &p) } else { SpeakerCaptions.syncSpeakers(in: &p) }
+        return id
     }
 
     /// Apple-engine auto-detect candidates: the UI language first (it names the language in messages).
