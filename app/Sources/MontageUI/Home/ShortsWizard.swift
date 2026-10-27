@@ -93,7 +93,7 @@ public final class ShortsWizardState {
             case .cancelled:
                 step = .settings
             default:
-                if case .failed = state { error = SpeechFailure.userText(failure, fallbackKey: "shorts.error.failed") }
+                if case .failed = state { error = SpeechFailure.userText(failure, fallbackKey: "shorts.error.failed", noSpeechKey: "highlights.noSpeech") }
                 step = .settings
             }
         }

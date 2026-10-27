@@ -193,7 +193,13 @@ extension EditorStore {
                     try TTSOps.placeSpeech(a, info: info, in: &p)
                 }), !silent { showToast(tr("tts.added")) }
             } catch {
-                showToast(tr("tts.failed"), error: true)
+                // BUG-ERROR-COPY: a voice that produced no audio isn't installed: say so and where to add it
+                if case .noAudio(let v)? = error as? SpeechSynthesisError {
+                    let name = AVSpeechSynthesisVoice(identifier: v)?.name ?? v
+                    showToast(tr("tts.voiceMissing", name), error: true)
+                } else if !(error is CancellationError) {
+                    showToast(tr("tts.failed"), error: true)
+                }
             }
         }
     }

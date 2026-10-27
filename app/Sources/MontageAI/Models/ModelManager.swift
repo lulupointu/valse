@@ -21,13 +21,54 @@ public enum AIModelState: Sendable, Equatable {
 }
 
 public enum ModelError: Error, Sendable, Equatable {
-    case checksumMismatch, httpStatus(Int), cancelled, io(String)
+    case checksumMismatch, httpStatus(Int), cancelled, io(String), diskFull
     public var messageKey: String {
         switch self {
         case .checksumMismatch: return "model.error.checksum"
         case .httpStatus: return "model.error.network"
         case .cancelled: return "model.error.cancelled"
         case .io: return "model.error.io"
+        case .diskFull: return "model.error.space"
+        }
+    }
+}
+
+/// Why a model download / import failed, in user terms (BUG-ERROR-COPY): each reason has its own message and, for a
+/// full disk, its own action (Open Storage Settings) — a full disk used to be reported as "check your connection".
+public enum ModelFailureReason: Sendable, Equatable {
+    case network, diskFull, damaged, notInstalled, io
+
+    public static func classify(_ error: Error) -> ModelFailureReason {
+        switch error {
+        case let e as ModelError:
+            switch e {
+            case .checksumMismatch: return .damaged
+            case .httpStatus: return .network
+            case .diskFull: return .diskFull
+            case .io, .cancelled: return .io   // a full disk is thrown as `.diskFull` where the file is written
+            }
+        default:
+            switch FileErrorKind.classify(error) {
+            case .diskFull: return .diskFull
+            case .noPermission, .readOnlyVolume: return .io
+            case .notFound, .other: break
+            }
+            if (error as NSError).domain == NSURLErrorDomain {
+                let code = URLError.Code(rawValue: (error as NSError).code)
+                return [.cannotCreateFile, .cannotOpenFile, .cannotWriteToFile, .cannotMoveFile, .cannotRemoveFile].contains(code) ? .io : .network
+            }
+            return .io
+        }
+    }
+
+    /// Localized message; `bytes` = the model's size (the space to free on a full disk).
+    public func message(bytes: Int64) -> String {
+        switch self {
+        case .network: return tr("model.error.network")
+        case .diskFull: return tr("model.error.space", ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
+        case .damaged: return tr("model.error.checksum")
+        case .notInstalled: return tr("model.error.notInstalled")
+        case .io: return tr("model.error.io")
         }
     }
 }
@@ -39,6 +80,9 @@ public final class ModelManager {
     public static let shared = ModelManager()
 
     public private(set) var states: [String: AIModelState] = [:]
+    /// Why the last download / import of a model failed (set with `.failed`): the UI adds the matching action
+    /// (Open Storage Settings for `.diskFull`).
+    public private(set) var failureReasons: [String: ModelFailureReason] = [:]
     @PerceptionIgnored private var tasks: [String: Task<Void, Never>] = [:]
     @PerceptionIgnored private var downloads: [String: URLSessionDownloadTask] = [:]
     @PerceptionIgnored private var finishWaiters: [String: [@MainActor (AIModelState) -> Void]] = [:]
@@ -80,20 +124,30 @@ public final class ModelManager {
     private func complete(_ id: String, _ error: Error?) {
         let spec = ModelCatalog.spec(id)
         guard let error else {
-            finish(id, spec.flatMap(ModelCatalog.installedURL).map(AIModelState.installed) ?? .failed("missing")); return
+            if let u = spec.flatMap(ModelCatalog.installedURL) { failureReasons[id] = nil; finish(id, .installed(u)) }
+            else { fail(id, .notInstalled) }
+            return
         }
         switch error {
         case is CancellationError: finish(id, .notInstalled)
         case let e as ModelError where e == .cancelled: finish(id, .notInstalled)
-        case let e as ModelError: finish(id, .failed(tr(e.messageKey)))
-        default: finish(id, .failed(tr("model.error.network")))
+        case let e as URLError where e.code == .cancelled: finish(id, .notInstalled)
+        default:
+            EngineLog.error("model \(id) failed: \(String(describing: error))")
+            fail(id, ModelFailureReason.classify(error))
         }
+    }
+
+    private func fail(_ id: String, _ reason: ModelFailureReason) {
+        failureReasons[id] = reason
+        finish(id, .failed(reason.message(bytes: ModelCatalog.spec(id)?.bytes ?? 0)))
     }
 
     /// Starts downloading a model (no-op if installed or already downloading).
     public func download(_ spec: AIModelSpec) {
         guard !state(spec).isBusy, !state(spec).isInstalled else { return }
         states[spec.id] = .downloading(0)
+        failureReasons[spec.id] = nil
         let id = spec.id
         if let simulation { simulate(spec, simulation); return }
         if spec.parts != nil { downloadParts(spec); return }
@@ -184,7 +238,7 @@ public final class ModelManager {
                 let dst = ModelCatalog.modelsDirectory.appendingPathComponent(spec.fileName, isDirectory: true)
                 if fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
                 if move { try fm.moveItem(at: dir, to: dst) } else { try fm.copyItem(at: dir, to: dst) }
-            } catch { throw ModelError.io(String(describing: error)) }
+            } catch { throw FileErrorKind.classify(error) == .diskFull ? ModelError.diskFull : ModelError.io(String(describing: error)) }
         }.value
     }
 
@@ -203,10 +257,8 @@ public final class ModelManager {
                 if spec.parts != nil { try await Self.verifyAndInstallDirectory(url, spec: spec, move: false) }
                 else { try await Self.verifyAndInstall(url, spec: spec, move: false) }
                 self?.complete(id, nil)
-            } catch let e as ModelError {
-                self?.finish(id, .failed(tr(e.messageKey)))
             } catch {
-                self?.finish(id, .failed(tr("model.error.io")))
+                self?.fail(id, ModelFailureReason.classify(error))
             }
         }
     }
@@ -237,7 +289,7 @@ public final class ModelManager {
                 try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
                 if fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
                 if move { try fm.moveItem(at: file, to: dst) } else { try fm.copyItem(at: file, to: dst) }   // APFS clone
-            } catch { throw ModelError.io(String(describing: error)) }
+            } catch { throw FileErrorKind.classify(error) == .diskFull ? ModelError.diskFull : ModelError.io(String(describing: error)) }
         }.value
     }
 
@@ -294,14 +346,15 @@ enum ModelDownloader {
             // the temp file is deleted when this returns: move it somewhere we own
             let dst = FileManager.default.temporaryDirectory.appendingPathComponent("montage-model-\(UUID().uuidString)")
             do { try FileManager.default.moveItem(at: location, to: dst); continuation?.resume(returning: dst) }
-            catch { continuation?.resume(throwing: ModelError.io(String(describing: error))) }
+            catch { continuation?.resume(throwing: FileErrorKind.classify(error) == .diskFull ? ModelError.diskFull : ModelError.io(String(describing: error))) }
             continuation = nil
         }
 
         func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
             guard let error else { return }
             let ns = error as NSError
-            continuation?.resume(throwing: ns.code == NSURLErrorCancelled ? ModelError.cancelled : ModelError.io(ns.localizedDescription))
+            // keep the URL error itself: `ModelFailureReason.classify` tells network failures from a full disk
+            continuation?.resume(throwing: ns.code == NSURLErrorCancelled ? ModelError.cancelled : error)
             continuation = nil
         }
     }

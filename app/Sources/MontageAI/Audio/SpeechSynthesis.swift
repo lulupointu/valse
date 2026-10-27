@@ -15,6 +15,11 @@ public struct TTSVoice: Sendable, Hashable, Identifiable {
     public let isNovelty: Bool
 }
 
+/// The voice produced no audio: in practice, a voice that isn't installed (downloaded) on this Mac.
+public enum SpeechSynthesisError: Error, Sendable, Equatable {
+    case noAudio(voice: String)
+}
+
 /// Text to speech (AI-006 / AU-030 / TX-016) with AVSpeechSynthesizer, written offline to an audio file.
 /// Files are content-addressed (text + voice + rate + pitch) under Application Support/Montage/Generated/tts, so
 /// a project keeps working after the cache is cleared and identical requests are instant.
@@ -90,7 +95,7 @@ public enum SpeechSynthesis {
                 synth.write(utt) { buffer in writer.append(buffer) }
             }
         } onCancel: { synth.stopSpeaking(at: .immediate); writer.fail(CancellationError()) }
-        guard writer.frames > 0 else { try? FileManager.default.removeItem(at: tmp); throw AIToolError.unavailable("no audio from voice \(voice)") }
+        guard writer.frames > 0 else { try? FileManager.default.removeItem(at: tmp); throw SpeechSynthesisError.noAudio(voice: voice) }
         try? FileManager.default.removeItem(at: url)
         try FileManager.default.moveItem(at: tmp, to: url)
         return url

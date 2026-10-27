@@ -32,7 +32,19 @@ extension EditorStore {
             showToast(tr("fx.custom.imported", CustomEffectLibrary.descriptor(e).nameKey))
         } catch {
             st.problem = CustomEffectLibrary.message(error)
-            showToast(tr("fx.custom.importFailed"), error: true)
+            // BUG-ERROR-COPY: the toast says which effect and why (the compiler log stays under the buttons)
+            showToast(tr("fx.custom.importFailed", url.deletingPathExtension().lastPathComponent, Self.customEffectReason(error)), error: true)
+        }
+    }
+
+    static func customEffectReason(_ e: Error) -> String {
+        switch e as? CustomEffectLibrary.ImportError {
+        case .noManifest?: return tr("fx.custom.reason.noManifest")
+        case .badManifest?: return tr("fx.custom.reason.badManifest")
+        case .noShader?: return tr("fx.custom.reason.noShader")
+        case .compile?: return tr("fx.custom.reason.compile")
+        case .unzip?: return tr("fx.custom.reason.unzip")
+        case nil: return tr("fx.custom.reason.other")
         }
     }
 
@@ -66,7 +78,9 @@ extension EditorStore {
         st.problem = failures.isEmpty ? nil : failures.sorted { $0.key < $1.key }.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
         st.changed(ids + CustomEffectLibrary.shared.all.map(\.effectID))
         engine.forceRebuild()   // clips using an edited effect re-render
-        showToast(failures.isEmpty ? tr("fx.custom.reloaded") : tr("fx.custom.importFailed"), error: !failures.isEmpty)
+        showToast(failures.isEmpty ? tr("fx.custom.reloaded")
+                  : failures.count == 1 ? tr("fx.custom.reloadFailed.one", failures.keys.first ?? "")
+                  : tr("fx.custom.reloadFailed.other", failures.count), error: !failures.isEmpty)
     }
 }
 

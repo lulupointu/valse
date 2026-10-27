@@ -127,7 +127,7 @@ struct AIClipperSheet: View {
             case .done:
                 st.highlights = box.value
                 st.selected = Set(box.value.map(\.id))
-                if box.value.isEmpty { st.error = tr("ai.error.noSpeech") }
+                if box.value.isEmpty { st.error = tr("highlights.noSpeech") }   // BUG-ERROR-COPY: not the captions message
             case .failed: st.error = tr("clipper.failed")
             default: break
             }

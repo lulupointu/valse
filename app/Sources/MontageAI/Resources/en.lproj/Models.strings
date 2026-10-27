@@ -3,9 +3,11 @@
 "model.whisperSmall" = "Whisper small";
 "model.whisperSmall.desc" = "Lighter speech model for Macs with little free memory.";
 "model.error.checksum" = "The downloaded file is damaged. Try again.";
-"model.error.network" = "Couldn't download the model. Check your connection and try again.";
+"model.error.network" = "Couldn't download the model. Check your internet connection, then try again.";
 "model.error.cancelled" = "Download canceled";
-"model.error.io" = "Couldn't save the model file.";
+"model.error.io" = "Couldn't save the model on this Mac. Check that your disk has free space and try again.";
+"model.error.space" = "Not enough space to download the model. Free up %@, then try again.";
+"model.error.notInstalled" = "The download finished but the model couldn't be installed. Download it again.";
 "model.demucs4" = "HTDemucs (4 stems)";
 "model.demucs4.desc" = "Music source separation: vocals, drums, bass and other instruments.";
 "model.demucs6" = "HTDemucs (6 stems)";

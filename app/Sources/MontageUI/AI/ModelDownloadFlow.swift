@@ -212,8 +212,15 @@ struct ModelDownloadIndicator: View {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(IStyle.warning)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: ModelCatalog.spec(id).map { tr($0.nameKey) } ?? id).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
-                            Text(verbatim: tr("download.failed", flow.failures[id] ?? "")).font(Theme.Fonts.hint).foregroundStyle(IStyle.warning)
+                            // the message is a full sentence already (no "Download failed: …" wrapper, BUG-ERROR-COPY)
+                            Text(verbatim: flow.failures[id] ?? "").font(Theme.Fonts.hint).foregroundStyle(IStyle.warning)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .testID("modelDownloads.failure.\(id)")
+                            if flow.manager.failureReasons[id] == .diskFull {
+                                Button(tr("action.openStorageSettings")) { SystemSettingsPane.storage.open() }
+                                    .buttonStyle(.link).font(Theme.Fonts.hint)
+                                    .testID("modelDownloads.storage.\(id)")
+                            }
                         }
                         Spacer()
                         Button { flow.dismissFailure(id) } label: { Image(systemName: "xmark") }

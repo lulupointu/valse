@@ -68,7 +68,18 @@
 "home.imported.one" = "Imported %d project";
 "home.imported.other" = "Imported %d projects";
 "home.savedToProject" = "Saved to project";
-"home.error.fileOperation" = "The operation couldn't be completed.";
+"home.error.fileOperation" = "Montage couldn't change the project files. Check that their disk is connected and has free space.";
+"home.error.create" = "Couldn't create the project. Check that your disk is connected, then try again.";
+"home.error.createDiskFull" = "Couldn't create the project: the disk is full. Free up space, then try again.";
+"home.error.rename" = "Couldn't rename “%@”. Check that its disk is connected.";
+"home.error.duplicate.one" = "Couldn't duplicate “%@”. Check that the disk has free space.";
+"home.error.duplicate.other" = "Couldn't duplicate %d projects. Check that the disk has free space.";
+"home.error.trash.one" = "Couldn't move “%@” to the Trash.";
+"home.error.trash.other" = "Couldn't move %d projects to the Trash.";
+"home.error.restore.one" = "Couldn't put back “%@” from the Trash.";
+"home.error.restore.other" = "Couldn't put back %d projects from the Trash.";
+"home.error.delete.one" = "Couldn't delete “%@”.";
+"home.error.delete.other" = "Couldn't delete %d projects.";
 "home.error.import" = "This is not a Montage project.";
 "error.openElsewhere" = "This project is open in another Montage window.";
 

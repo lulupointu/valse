@@ -110,6 +110,12 @@ struct JobRow: View {
                     } else if job.state == .done {
                         Button { NSWorkspace.shared.activateFileViewerSelecting(job.written) } label: { Image(systemName: "magnifyingglass.circle.fill") }
                             .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.reveal"))
+                    } else if let detail = job.failureDetail {
+                        // BUG-ERROR-COPY: the technical detail is copied, never shown in the message
+                        Button { ErrorDetails.copy(detail) } label: { Image(systemName: "doc.on.doc") }
+                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("action.copyDetails"))
+                            .accessibilityLabel(Text(verbatim: tr("action.copyDetails")))
+                            .testID("export.job.copyDetails")
                     }
                 }
                 if job.isActive { ProgressView(value: job.progress).tint(Theme.accent).controlSize(.small) }

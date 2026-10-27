@@ -20,6 +20,8 @@ public final class ExportJobItem: Identifiable {
     public internal(set) var startedAt: Date?
     public internal(set) var finishedAt: Date?
     public internal(set) var written: [URL] = []
+    /// Technical detail of a failure (error domain / code): "Copy Details" in the job row and the log, never the message.
+    public internal(set) var failureDetail: String?
     @PerceptionIgnored var task: Task<Void, Never>?
 
     init(spec: ExportJobSpec) {
@@ -108,8 +110,12 @@ public final class ExportQueue {
             switch result {
             case .success(let urls): next.written = urls; next.progress = 1; next.state = .done
             case .failure(let e as ExportError) where e == .cancelled: next.state = .cancelled
-            case .failure(let e as ExportError): next.state = .failed(Self.message(e))
-            case .failure(let e): next.state = Task.isCancelled ? .cancelled : .failed(e.localizedDescription)
+            case .failure(let e) where Task.isCancelled && !(e is ExportError): next.state = .cancelled
+            case .failure(let e):
+                let f = Self.failure(e, title: next.title)
+                next.failureDetail = f.detail
+                if let d = f.detail { EngineLog.error("export \(next.title) failed: \(d)") }
+                next.state = .failed(f.message)
             }
             next.finishedAt = Date()
             self?.finished(next)
@@ -117,11 +123,27 @@ public final class ExportQueue {
         }
     }
 
-    static func message(_ e: ExportError) -> String {
-        switch e {
-        case .missingMedia(let names): return tr(e.messageKey, names.joined(separator: ", "))
-        case .failed(let detail): return tr(e.messageKey) + " (\(detail))"
-        default: return tr(e.messageKey)
+    /// User message + technical detail of an export failure (BUG-ERROR-COPY): what happened and what to do; error
+    /// domains / codes only in `detail` (Copy Details, log), never in the message.
+    static func failure(_ error: Error, title: String) -> (message: String, detail: String?) {
+        if let e = error as? ExportError {
+            switch e {
+            case .missingMedia(let names): return (tr(e.messageKey, names.joined(separator: ", ")), nil)
+            case .encoderUnavailable(let format): return (tr(e.messageKey, format.uppercased()), nil)
+            case .failed(let detail):
+                // the writer's error text: a full disk still gets its own message (AVErrorDiskFull = -11807)
+                if detail.contains("ENOSPC") || detail.contains("-11807") || detail.contains("NSFileWriteOutOfSpaceError") {
+                    return (tr("export.error.space"), detail)
+                }
+                return (tr("export.error.failed", title), detail)
+            default: return (tr(e.messageKey), nil)
+            }
+        }
+        let detail = String(describing: error)
+        switch FileErrorKind.classify(error) {
+        case .diskFull: return (tr("export.error.space"), detail)
+        case .noPermission, .readOnlyVolume: return (tr("export.error.noPermission"), detail)
+        case .notFound, .other: return (tr("export.error.failed", title), detail)
         }
     }
 

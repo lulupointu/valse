@@ -219,7 +219,7 @@ struct MediaBinView: View {
             Spacer(minLength: 4)
             if missing > 0 {
                 Button { LinkMediaPanel.runFolder(store) } label: {
-                    Label(tr("media.missing", missing), systemImage: "exclamationmark.triangle").font(.system(size: 11))
+                    Label(trCount("media.missing", missing), systemImage: "exclamationmark.triangle").font(.system(size: 11))
                 }
                 .buttonStyle(.plain).foregroundStyle(.orange).help(tr("media.linkFolder.message"))
             }

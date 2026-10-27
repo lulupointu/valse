@@ -9,5 +9,4 @@
 "download.cancel.question" = "Stop this download?";
 "download.cancel.confirm" = "Stop download";
 "download.keep" = "Keep";
-"download.failed" = "Download failed: %@";
 "download.dismiss" = "Dismiss";

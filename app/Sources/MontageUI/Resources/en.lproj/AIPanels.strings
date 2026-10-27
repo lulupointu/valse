@@ -106,7 +106,8 @@
 "tts.generating" = "Generating speech...";
 "tts.generate" = "Generate speech";
 "tts.added" = "Text and speech are added to the track";
-"tts.failed" = "Couldn't generate speech. Try another voice.";
+"tts.failed" = "Couldn't create the voiceover. Try another voice.";
+"tts.voiceMissing" = "The voice “%@” isn't installed on this Mac. Choose another voice, or add it in System Settings ▸ Accessibility ▸ Spoken Content.";
 "cmd.tts" = "Text to speech";
 "audio.job.isolate" = "Isolating voice...";
 "tts.voice.hqBadge" = "✦ Enhanced";

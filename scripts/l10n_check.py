@@ -107,8 +107,15 @@ def used_keys():
                     keys.setdefault(k, os.path.relpath(path, ROOT))
     return keys
 
+TUTOIEMENT = re.compile(r"\b(?:[Tt]u|[Tt]oi|[Rr]éessaie|[Ee]ssaie|[Vv]érifie-|Choisis|Saisis|Décris|Peins|Clique|Fais)\b")
+
 def main():
     en, fr, problems = tables()
+    # BUG-ERROR-COPY: French UI text uses "vous" (style guide, docs/UX.md "Error messages")
+    for k, v in sorted(fr.items()):
+        m = TUTOIEMENT.search(v) if isinstance(v, str) else None
+        if m:
+            problems.append(f"fr '{k}' uses tutoiement ({m.group(0)}): write it with \"vous\"")
     for k, where in sorted(used_keys().items()):
         if k not in en:
             problems.append(f"key '{k}' used in {where} is missing from en tables")

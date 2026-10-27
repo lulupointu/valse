@@ -120,6 +120,8 @@ public final class EditorStore {
     public private(set) var packageURL: URL? { didSet { syncProjectSlices() } }
     public private(set) var lastAutosave: Date?
     public var toast: Toast?
+    /// The last save / autosave failed (BUG-ERROR-COPY): persistent banner until a save succeeds or it is dismissed.
+    public internal(set) var saveFailure: SaveFailure?
     public private(set) var jobs: [JobInfo] = []
     public var isExportSheetPresented = false
     /// Export queue + dialog requests (W11, MontageUI/Export).
@@ -509,8 +511,9 @@ public final class EditorStore {
             session.markSaved()
             lastAutosave = Date()
             firstUnsavedEdit = nil
+            saveFailure = nil
         } catch {
-            showToast(tr("toast.saveFailed"), error: true)
+            reportSaveFailure(error, url: url)
         }
     }
 
@@ -566,9 +569,13 @@ public final class EditorStore {
             let url = self.packageURL ?? MontagePaths.newProjectURL(baseName: self.projectName)
             if self.packageURL == nil { self.packageURL = url; SessionLock.acquire(url) }
             let rev = self.session.revision
-            let ok = await Task.detached { (try? ProjectPackage.save(snapshot, to: url)) != nil }.value
+            let error: (any Error)? = await Task.detached { () -> (any Error)? in
+                do { try ProjectPackage.save(snapshot, to: url); return nil } catch { return error }
+            }.value
+            let ok = error == nil
             if ok && self.session.revision == rev { self.session.markSaved(); self.lastAutosave = Date(); self.firstUnsavedEdit = nil }
-            if ok { self.didAutosave(snapshot, to: url) }
+            if ok { self.saveFailure = nil; self.didAutosave(snapshot, to: url) }
+            if let error { self.reportSaveFailure(error, url: url) }   // BUG-ERROR-COPY: autosave failures were silent
         }
     }
 
@@ -580,7 +587,7 @@ public final class EditorStore {
             guard await tool.isAvailable() else { showToast(tr("ai.error.unavailable"), error: true); return }
             let box = OutputBox()
             let id = await JobQueue.shared.enqueue(titleKey: tool.nameKey, priority: 1, heavy: true, subject: input.clipID?.description) { progress in
-                box.output = try await tool.run(input, progress)
+                do { box.output = try await tool.run(input, progress) } catch { box.error = error; throw error }
             }
             let state = await JobQueue.shared.wait(id)
             switch state {
@@ -588,7 +595,15 @@ public final class EditorStore {
                 if case .edit(let cmd) = box.output { perform(cmd) }
                 showToast(tr("toast.aiDone", tr(tool.nameKey)))
             case .failed:
-                showToast(tr("ai.error.unavailable"), error: true)
+                // BUG-ERROR-COPY: "not available on this Mac" only for the availability check above; a job failure
+                // says what failed, or which model to download
+                if case .modelMissing(let mid)? = box.error as? AIToolError, let spec = ModelCatalog.spec(mid) {
+                    showToast(tr("ai.error.toolNeedsModel", tr(tool.nameKey), tr(spec.nameKey)), error: true, actionTitle: tr("action.download")) { [weak self] in
+                        self?.ai.downloads.require([spec]) { self?.runAITool(tool) }
+                    }
+                } else {
+                    showToast(tr("ai.error.toolFailed", tr(tool.nameKey)), error: true)
+                }
             default: break
             }
         }
@@ -600,7 +615,8 @@ public final class EditorStore {
         let t = Toast(message: message, isError: error, actionTitle: actionTitle, action: action)
         toast = t
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(action == nil ? 2.5 : 6))
+            // error messages are full sentences (cause + what to do): 5 s to read them (BUG-ERROR-COPY)
+            try? await Task.sleep(for: .seconds(action != nil ? 6 : error ? 5 : 2.5))
             if self?.toast == t { self?.toast = nil }
         }
     }
@@ -615,4 +631,4 @@ public final class EditorStore {
     }
 }
 
-nonisolated final class OutputBox: @unchecked Sendable { var output: AIToolOutput = .none }
+nonisolated final class OutputBox: @unchecked Sendable { var output: AIToolOutput = .none; var error: (any Error)? }

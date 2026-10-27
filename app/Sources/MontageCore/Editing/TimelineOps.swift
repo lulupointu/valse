@@ -8,10 +8,16 @@ public enum EditError: Error, Equatable, Sendable {
     case invalidTime
     case incompatibleTrack
     case nothingToDo
+    /// Split refused: the playhead isn't inside a clip (or too close to its edges). BUG-ERROR-COPY: say the rule.
+    case cannotSplitHere
+    /// Q / W refused: the playhead isn't inside the clip.
+    case playheadOutsideClip
 
     /// Localization key for user-facing toasts.
     public var messageKey: String {
         switch self {
+        case .cannotSplitHere: return "error.cannotSplitHere"
+        case .playheadOutsideClip: return "error.playheadOutsideClip"
         case .clipNotFound: return "error.clipNotFound"
         case .trackNotFound: return "error.trackNotFound"
         case .mediaNotFound: return "error.mediaNotFound"

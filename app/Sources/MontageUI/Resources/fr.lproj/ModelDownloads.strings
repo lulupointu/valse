@@ -9,5 +9,4 @@
 "download.cancel.question" = "Arrêter ce téléchargement ?";
 "download.cancel.confirm" = "Arrêter";
 "download.keep" = "Continuer";
-"download.failed" = "Échec du téléchargement : %@";
 "download.dismiss" = "Fermer";
