@@ -12,11 +12,13 @@ Items:
   itself to Valse.app at first launch and from then on follows the channel item.
   `--bridge`: this release IS the bridge: its single item is the bridge item (no channel, --zip is the
   Montage.app-named archive) and no deltas. Otherwise the bridge item is copied from --previous-appcast (the appcast of
-  the latest published release, which always carries it).
+  the latest published release) while it is at most --bridge-days old (owner 2026-10-27: one week), then dropped for
+  good: a pre-rename copy that missed that week sees no item at all and is reinstalled by hand.
 Every archive is signed with Sparkle's sign_update (EdDSA private key from the login keychain, or --ed-key-file).
 The appcast is an asset of the release itself, so releases/latest/download/appcast.xml always describes the newest one.
 """
 import argparse
+import datetime
 import email.utils
 import os
 import re
@@ -39,19 +41,24 @@ def sign(tool, path, key_file=None):
 
 
 def bridge_item_xml(appcast_path):
-    """The channel-less item whose archive is the bridge zip, re-serialized, or None."""
+    """(the channel-less item whose archive is the bridge zip, re-serialized, its pubDate as a datetime), or None;
+    plus whether the appcast has a `valse` channel item (it is a post-rename appcast)."""
     ET.register_namespace("sparkle", SPARKLE_NS)
     root = ET.parse(appcast_path).getroot()
+    bridge, has_channel = None, False
     for item in root.iter("item"):
-        if item.find(f"{{{SPARKLE_NS}}}channel") is not None:
+        ch = item.find(f"{{{SPARKLE_NS}}}channel")
+        if ch is not None:
+            has_channel = has_channel or ch.text == CHANNEL
             continue
         enc = item.find("enclosure")
-        if enc is not None and enc.get("url", "").rsplit("/", 1)[-1] == BRIDGE_ASSET:
+        if bridge is None and enc is not None and enc.get("url", "").rsplit("/", 1)[-1] == BRIDGE_ASSET:
+            date = email.utils.parsedate_to_datetime(item.findtext("pubDate"))
             ET.indent(item, space="  ", level=2)
             xml = ET.tostring(item, encoding="unicode").strip()
             # ElementTree writes the namespace declaration on the item; the rss root already declares it
-            return "    " + xml.replace(f' xmlns:sparkle="{SPARKLE_NS}"', "")
-    return None
+            bridge = ("    " + xml.replace(f' xmlns:sparkle="{SPARKLE_NS}"', ""), date)
+    return bridge, has_channel
 
 
 def main():
@@ -61,6 +68,7 @@ def main():
     ap.add_argument("--deltas", help="folder of Valse<build>-<from>.delta files")
     ap.add_argument("--bridge", action="store_true", help="this release is the bridge release (see above)")
     ap.add_argument("--previous-appcast", help="appcast.xml of the latest published release (carries the bridge item)")
+    ap.add_argument("--bridge-days", type=float, default=7, help="keep copying the bridge item while it is this young")
     ap.add_argument("--min-system", default="13.0")
     ap.add_argument("--base-url", help="download URL prefix instead of the GitHub release (scripts/updater_e2e.sh)")
     ap.add_argument("--ed-key-file", help="private key file instead of the login keychain (scripts/updater_e2e.sh)")
@@ -93,11 +101,17 @@ def main():
       <enclosure url={quoteattr(base + zip_name)} length="{length}" type="application/octet-stream" sparkle:edSignature="{sig}"/>{delta_xml}
     </item>"""]
     if not a.bridge:
-        bridge = bridge_item_xml(a.previous_appcast) if a.previous_appcast and os.path.exists(a.previous_appcast) else None
-        if bridge is None:
+        found = a.previous_appcast and os.path.exists(a.previous_appcast)
+        bridge, has_channel = bridge_item_xml(a.previous_appcast) if found else (None, False)
+        if bridge is None and not has_channel:
             sys.exit("no bridge item in --previous-appcast: publish the bridge release first (scripts/release.sh <version> "
                      "--bridge), docs/RELEASING.md")
-        items.append(bridge)
+        if bridge is not None:
+            age = datetime.datetime.now(datetime.timezone.utc) - bridge[1]
+            if age <= datetime.timedelta(days=a.bridge_days):
+                items.append(bridge[0])
+            else:
+                print(f"bridge item dropped ({age.days} days old > {a.bridge_days:g})", file=sys.stderr)
     body = "\n".join(items)
     print(f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="{SPARKLE_NS}">
