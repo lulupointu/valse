@@ -68,14 +68,31 @@ struct CaptionTests {
         var (p, ti) = project()
         let a = p.timeline.tracks[ti].clips[0].id, b = p.timeline.tracks[ti].clips[1].id
         try CaptionOps.setTimes(a, end: Time(10), in: &p)
-        #expect(p.timeline.clip(a)!.end == Time(3.5))             // can't overlap the next caption
-        try CaptionOps.nudge(b, start: Time(-2), in: &p)
-        #expect(p.timeline.clip(b)!.start == Time(3.5))           // nor the previous one
+        // CAP-UX2-PUSH: pushes the next caption's start until it is 0.1 s long, never overlaps it
+        #expect(p.timeline.clip(a)!.end == Time(4.9))
+        #expect(p.timeline.clip(b)!.start == Time(4.9) && p.timeline.clip(b)!.end == Time(5))
+        try CaptionOps.setTimes(a, end: Time(3.5), in: &p)       // back: b keeps its new start
+        try CaptionOps.nudge(b, start: Time(-2), in: &p)          // symmetric: trims the previous caption's end
+        #expect(abs((p.timeline.clip(b)!.start - Time(2.9)).seconds) < 1e-6)
+        #expect(p.timeline.clip(a)!.end == p.timeline.clip(b)!.start)
         try CaptionOps.setTimes(a, start: Time(1.5), in: &p)
         let c = p.timeline.clip(a)!
         let w = CaptionOps.words(of: c)[1]                        // "big" stays at 1.6 s
         #expect(c.start + (w.start - c.sourceStart) == Time(1.6))
+        try CaptionOps.nudge(b, start: Time(-5), in: &p)          // stops when the previous caption is 0.1 s long
+        #expect(p.timeline.clip(a)!.duration == CaptionOps.pushMinimumDuration && abs((p.timeline.clip(b)!.start - Time(1.6)).seconds) < 1e-6)
+        #expect(p.timeline.clip(a)!.start == Time(1.5))
         #expect(TimelineOps.validate(p.timeline).isEmpty)
+    }
+
+    /// CAP-UX2-PUSH: a neighbour already shorter than the push minimum is not pushed (the edge stops at it).
+    @Test func pushNeverShortensATinyNeighbour() throws {
+        var p = Project(name: "c")
+        CaptionOps.addCaptionTrack([CaptionSegment(text: "a", start: 0, end: 1), CaptionSegment(text: "b", start: 1, end: 1.05)], to: &p)
+        let ti = CaptionOps.captionTracks(p.timeline)[0]
+        let a = p.timeline.tracks[ti].clips[0].id, b = p.timeline.tracks[ti].clips[1].id
+        try CaptionOps.setEdge(a, start: false, to: Time(2), in: &p)
+        #expect(p.timeline.clip(a)!.end == Time(1) && p.timeline.clip(b)!.start == Time(1))
     }
 
     @Test func findAndReplace() {

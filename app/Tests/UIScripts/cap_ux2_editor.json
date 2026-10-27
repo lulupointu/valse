@@ -1,0 +1,63 @@
+// CAP-UX2 owner feedback round 2: the Captions tab only for captions (TAB); clicking a caption below / above the
+// active one never moves it and a simple click selects nothing (JUMP); a caption left keeps no selection (SELECTION);
+// playing with the editor open does not re-measure the list in a loop (CRASH); the over-limit badge only against the
+// chosen split rule, with an explicit tooltip (BADGE).
+{
+  "project": "demo-transcript:captions:long",
+  "steps": [
+    {"select": ["clip:main/0"]},
+    {"waitFor": {"path": "ui.inspectorTabs", "notContains": "captions"}},
+    {"select": ["clip:1/0"]},
+    {"waitFor": {"path": "ui.inspectorTabs.0", "equals": "captions"}},
+    {"click": "id:inspector.tab.captions"},
+    {"waitFor": {"path": "ui.captionEditor.count", "equals": 40}},
+    {"expect": [{"path": "ui.captionEditor.active", "equals": 0}, {"path": "ui.anchors", "notContains": "captions.over.1"},
+                {"path": "ui.anchors", "notContains": "captions.over.2"}]},
+    // JUMP: a click in a row below the active one: caret only, the clicked text stays where it was
+    {"click": "id:captions.row.3", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 2}},
+    {"expect": [{"path": "ui.captionEditor.active", "equals": 2}, {"path": "ui.captionEditor.clickDrift", "lt": 0.5},
+                {"path": "ui.captionEditor.clickDrift", "gte": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0},
+                {"path": "ui.captionEditor.stripAbove", "equals": true}, {"path": "ui.captionEditor.unrequestedScrolls", "equals": 0}]},
+    // SELECTION: select text, then click another caption: the first one shows no selection any more
+    {"key": "shift+left", "repeat": 4},
+    {"waitFor": {"path": "ui.captionEditor.selectionLength", "equals": 4}},
+    {"click": "id:captions.row.5", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 4}},
+    {"expect": [{"path": "ui.captionEditor.rowsWithSelection", "equals": 0}, {"path": "ui.captionEditor.selectionLength", "equals": 0},
+                {"path": "ui.captionEditor.clickDrift", "lt": 0.5}, {"path": "ui.captionEditor.clickDrift", "gte": 0}]},
+    // a row above the active one: the strip goes under it, nothing moves either
+    {"click": "id:captions.row.2", "at": [0.5, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 1}},
+    {"expect": [{"path": "ui.captionEditor.clickDrift", "lt": 0.5}, {"path": "ui.captionEditor.clickDrift", "gte": 0},
+                {"path": "ui.captionEditor.stripAbove", "equals": false}, {"path": "ui.captionEditor.selectionLength", "equals": 0}]},
+    // CRASH: play with the editor open (40 captions): no layout storm
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.captionEditor.listFocused", "equals": true}},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": true}},
+    {"waitFor": {"path": "ui.captionEditor.nowPlayingIndex", "gte": 3, "timeout": 60, "progress": ["playhead"]}},
+    {"dump": "playing"},
+    {"expect": [{"path": "ui.captionEditor.layoutsLastSecond", "lt": 60}, {"path": "ui.captionEditor.measuresLastSecond", "lt": 600},
+                {"path": "ui.captionEditor.listBodiesLastSecond", "lt": 10}, {"path": "ui.captionEditor.rowBodiesLastSecond", "lt": 120}]},
+    {"key": "space"},
+    {"waitFor": {"path": "isPlaying", "equals": false}},
+    {"dump": "paused"},
+    {"expect": [{"path": "ui.captionEditor.layoutsLastSecond", "equals": 0}, {"path": "ui.captionEditor.measuresLastSecond", "lt": 50}]},
+    // BADGE: a split rule chosen, a caption made too long: "n/24 chars" with an explicit tooltip
+    {"click": "id:captions.split"},
+    {"waitFor": {"path": "ui.captionEditor.splitOpen", "equals": true}},
+    {"click": "id:captions.split.1"},
+    {"waitFor": {"path": "ui.captionEditor.split", "equals": "1x24"}},
+    {"expect": [{"path": "ui.captionEditor.count", "gt": 40}, {"path": "ui.anchors", "notContains": "captions.over.1"}]},
+    {"click": "id:captions.row.1", "at": [0.6, 0.3]},
+    {"waitFor": {"path": "ui.captionEditor.editingIndex", "equals": 0}},
+    {"key": "cmd+right"},
+    {"type": " and more words"},
+    {"waitFor": {"path": "ui.captionEditor.texts.0", "contains": "and more words"}},
+    {"waitFor": {"path": "ui.anchors", "contains": "captions.over.1"}},
+    {"hover": "id:captions.over.1"},
+    {"waitFor": {"path": "ui.tooltip", "contains": "max 24 for this split option"}},
+    {"snapshot": "cap-ux2-badge", "element": "id:captions.row.1", "threshold": 32, "tolerance": 0.02, "baseline": true}
+  ]
+}

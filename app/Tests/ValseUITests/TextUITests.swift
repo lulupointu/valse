@@ -51,6 +51,40 @@ import ValseTestSupport
         #expect(InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: cctx).first?.id == "text.applyAllCaptions")
     }
 
+    /// CAP-UX2-TAB: Captions only for selected captions (or nothing selected in a project with captions), never with a
+    /// non-caption clip in the selection.
+    @Test func captionsTabOnlyForCaptions() throws {
+        let (c, ids) = captionStore()
+        c.selection = []
+        #expect(tabs(c).contains("captions"))
+        c.addDefaultText()
+        let text = try #require(c.singleSelectedClip?.id)
+        #expect(!tabs(c).contains("captions"))                 // a plain text clip
+        c.selection = [ids[0], text]
+        #expect(!tabs(c).contains("captions"))                 // mixed selection
+        c.selection = Set(ids)
+        #expect(tabs(c).first == "captions")                   // several captions
+        let s = store()
+        s.selection = []
+        #expect(!tabs(s).contains("captions"))                 // no captions at all
+    }
+
+    /// CAP-UX2-CRASH: a caption text is measured offscreen; the live text view is never resized by sizeThatFits (that
+    /// fed back into SwiftUI's layout and spun the main thread), and repeated measures hit the cache.
+    @Test func captionMeasureNeverTouchesTheLiveView() {
+        let tv = CaptionNSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 20))
+        tv.string = "A caption long enough to wrap on several lines when it is narrow"
+        let font = NSFont.systemFont(ofSize: 13)
+        let narrow = CaptionTextMeasure.height(tv.string, width: 80, font: font)
+        let wide = CaptionTextMeasure.height(tv.string, width: 600, font: font)
+        #expect(narrow > wide && wide >= 18)
+        #expect(tv.frame.size == NSSize(width: 300, height: 20))
+        let before = CaptionTextMeasure.layoutsLastSecond
+        for _ in 0..<50 { _ = CaptionTextMeasure.height(tv.string, width: 80, font: font) }
+        #expect(CaptionTextMeasure.layoutsLastSecond == before)
+        #expect(CaptionTextMeasure.height("", width: 80, font: font) == CaptionTextMeasure.height("x", width: 80, font: font))
+    }
+
     @Test func addTextAndStyles() throws {
         let s = store()
         s.addDefaultText()

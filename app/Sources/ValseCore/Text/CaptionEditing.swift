@@ -16,6 +16,16 @@ public struct CaptionSplitRule: Hashable, Codable, Sendable {
     public var maxChars: Int { charsPerLine * lines }
 }
 
+/// Why a caption does not fit its track's split rule (row badge, CAP-UX2-BADGE).
+public enum CaptionOverLimit: Equatable, Sendable {
+    /// One-line rule: the caption is `chars` characters, the line holds `max`.
+    case lineTooLong(chars: Int, max: Int)
+    /// Multi-line rule: `chars` characters for at most `lines` lines of `perLine` (`max` = lines × perLine).
+    case tooLong(chars: Int, max: Int, lines: Int, perLine: Int)
+    /// Short enough in characters, but it wraps to more lines than the rule allows.
+    case tooManyLines(lines: Int, max: Int)
+}
+
 /// Caption editor helpers (CAP-EDITOR-UX): pure queries and edits on one caption track, unit-tested in
 /// `CaptionEditingTests`.
 extension CaptionOps {
@@ -50,19 +60,18 @@ extension CaptionOps {
         Double(visibleCharacters(s)) / max(duration.seconds, 0.001)
     }
 
-    /// The over-limit badge of a row: (shown, limit) when the caption has more lines / characters than the split rule
-    /// allows, or reads faster than `maxCharsPerSecond`; nil when it is fine. Informative only.
-    public static func overLimit(_ s: String, duration: Time, rule: CaptionSplitRule?) -> (count: Int, limit: Int)? {
+    /// The over-limit badge of a row (CAP-UX2-BADGE): only when a split rule is chosen and the caption does not fit in
+    /// its lines once wrapped at word boundaries (each typed line wrapped on its own). nil = fits, or no rule
+    /// ("As generated"). Informative only.
+    public static func overLimit(_ s: String, rule: CaptionSplitRule?) -> CaptionOverLimit? {
+        guard let r = rule else { return nil }
+        let typed = s.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        let wrapped = typed.reduce(0) { $0 + max(lines(TextTokenizer.tokens($1), chars: r.charsPerLine).count, 1) }
+        guard wrapped > r.lines else { return nil }
         let n = visibleCharacters(s)
-        if let r = rule {
-            let lines = s.split(separator: "\n", omittingEmptySubsequences: false)
-            let longest = lines.map(\.count).max() ?? 0
-            if lines.count > r.lines || longest > r.charsPerLine || n > r.maxChars { return (n, r.maxChars) }
-        }
-        if n > 0, charsPerSecond(s, duration: duration) > maxCharsPerSecond {
-            return (n, Int((maxCharsPerSecond * duration.seconds).rounded(.down)))
-        }
-        return nil
+        if r.lines == 1 { return .lineTooLong(chars: n, max: r.charsPerLine) }
+        if n > r.maxChars { return .tooLong(chars: n, max: r.maxChars, lines: r.lines, perLine: r.charsPerLine) }
+        return .tooManyLines(lines: wrapped, max: r.lines)
     }
 
     /// Previous / next caption of the same track (nil at the ends).
@@ -98,12 +107,13 @@ extension CaptionOps {
         project.timeline.tracks.remove(at: ti)
     }
 
-    /// Re-splits a whole track with `rule` (Split options) and stores the rule on the track. Returns the caption count.
+    /// Re-cuts a whole track with `rule` (Split options: merges and splits from the current texts, `reflow`) and stores
+    /// the rule on the track. Returns the caption count.
     @discardableResult
     public static func resplit(trackID: TrackID, rule: CaptionSplitRule, in project: inout Project) throws -> Int {
         guard let ti = project.timeline.trackIndex(trackID) else { throw EditError.clipNotFound }
         guard !project.timeline.tracks[ti].isLocked else { throw EditError.trackLocked }
-        wrap(trackIndex: ti, maxCharsPerLine: rule.charsPerLine, maxLines: rule.lines, in: &project)
+        reflow(trackIndex: ti, rule: rule, in: &project)
         project.timeline.tracks[ti].captionSplit = rule
         return project.timeline.tracks[ti].clips.count
     }

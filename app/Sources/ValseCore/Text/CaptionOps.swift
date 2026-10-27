@@ -171,8 +171,10 @@ public enum CaptionOps {
             if tokens.count == old.count {
                 t.caption?.words = zip(old, tokens).map { w, tok in var w = w; w.text = tok; return w }
             } else {
-                let a = old.first?.start ?? c.sourceStart, b = old.last?.end ?? (c.sourceStart + c.duration)
-                t.caption?.words = evenWords(tokens, start: a, end: b)
+                // words still matching keep their timing; changed / added ones are interpolated (CAP-UX2-SPLIT)
+                let a = min(old.first?.start ?? c.sourceStart, c.sourceStart)
+                let b = max(old.last?.end ?? (c.sourceStart + c.duration), c.sourceStart + c.duration)
+                t.caption?.words = retimeWords(tokens, old: old, lo: a, hi: b)
             }
         }
         c.content = .text(t); c.name = string
@@ -257,25 +259,42 @@ public enum CaptionOps {
         project.timeline = tl
     }
 
-    /// Moves a caption's start and/or end (timing nudges in the caption list). Clamped to the neighbours and the
-    /// minimum duration. Word timings stay attached to the audio (a later start trims the head like TimelineOps.trim).
+    /// Shortest a neighbouring caption gets when a caption edge pushes into it (CAP-UX2-PUSH).
+    public static let pushMinimumDuration = Time(0.1)
+
+    /// Moves a caption's start and/or end (timing nudges in the caption list, ⌥⌘I / ⌥⌘O). An edge moved into the
+    /// neighbouring caption pushes that caption's edge along (trimming it, CapCut-like) down to `pushMinimumDuration`;
+    /// beyond that it stops. Word timings stay attached to the audio (a later start trims the head like TimelineOps.trim).
     public static func setTimes(_ id: ClipID, start: Time? = nil, end: Time? = nil, in project: inout Project) throws {
         var tl = project.timeline
         guard let loc = tl.locate(id) else { throw EditError.clipNotFound }
         let clips = tl.tracks[loc.track].clips
         var c = clips[loc.clip]
-        let lo = loc.clip > 0 ? clips[loc.clip - 1].end : .zero
-        let hi = loc.clip + 1 < clips.count ? clips[loc.clip + 1].start : Time.indefinite
         let minD = TimelineOps.minimumClipDuration
+        let prev = loc.clip > 0 ? clips[loc.clip - 1] : nil
+        let next = loc.clip + 1 < clips.count ? clips[loc.clip + 1] : nil
+        // how far an edge may go: into the neighbour until it is pushMinimumDuration long (never shorter than it is)
+        let lo = prev.map { max(.zero, min($0.end, $0.start + pushMinimumDuration)) } ?? .zero
+        let hi = next.map { max($0.start, $0.end - pushMinimumDuration) } ?? Time.indefinite
         var s = (start ?? c.start).clamped(lo, hi - minD)
         var e = (end ?? c.end).clamped(lo + minD, hi)
         if e - s < minD { if start != nil { s = e - minD } else { e = s + minD } }
+        moveStart(&c, to: s)
+        c.duration = e - s
+        tl.tracks[loc.track].clips[loc.clip] = c
+        if var p = prev, p.end > s { p.duration = s - p.start; tl.tracks[loc.track].clips[loc.clip - 1] = p }
+        if var n = next, n.start < e { moveStart(&n, to: e); tl.tracks[loc.track].clips[loc.clip + 1] = n }
+        project.timeline = tl
+    }
+
+    /// Moves a clip's start keeping its end (head trim: content time, keyframes and words stay on the audio).
+    static func moveStart(_ c: inout Clip, to s: Time) {
         let d = s - c.start
+        guard d != .zero else { return }
+        let end = c.end
         c.sourceStart = c.sourceStart + d
         for k in c.keyframes.keys { c.keyframes[k]?.shift(by: -d) }
-        c.start = s; c.duration = e - s
-        tl.tracks[loc.track].clips[loc.clip] = c
-        project.timeline = tl
+        c.start = s; c.duration = end - s
     }
 
     /// Nudges both edges by the given deltas.

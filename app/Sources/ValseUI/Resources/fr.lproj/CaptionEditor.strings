@@ -8,7 +8,11 @@
 "capedit.setEnd" = "Fin à la tête de lecture";
 "capedit.mergeNext" = "Fusionner avec le suivant";
 "capedit.splitAtCaret" = "Scinder au curseur";
-"capedit.overLimit.help" = "Plus long ou plus rapide à lire que ne le permettent les options de découpage";
+"capedit.over.chars" = "%1$d/%2$d car.";
+"capedit.over.lines" = "%1$d/%2$d lignes";
+"capedit.over.help.line" = "Ligne trop longue : %1$d caractères, %2$d max pour cette option de découpage";
+"capedit.over.help.caption" = "Sous-titre trop long : %1$d caractères, %2$d lignes de %3$d max pour cette option de découpage";
+"capedit.over.help.lines" = "Trop de lignes : %1$d, %2$d max pour cette option de découpage";
 "capedit.start" = "le début";
 "capedit.end" = "la fin";
 "capedit.nudgeEarlier" = "Avancer %@ d’une image (⇧ : 10 images)";
@@ -53,7 +57,6 @@
 "capedit.split.chars" = "Caractères par ligne";
 "capedit.split.lines" = "Lignes";
 "capedit.split.apply" = "Redécouper";
-"capedit.split.confirm" = "Redécouper les %1$d sous-titres en %2$@ en %3$@ ? Les retours à la ligne ajoutés à la main sont remplacés. Vous pourrez annuler.";
 "capedit.resplit.done" = "Redécoupé en %d sous-titres";
 "capedit.search.placeholder" = "Rechercher en %@";
 "capedit.find.count" = "%1$d/%2$d";

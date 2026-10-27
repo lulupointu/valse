@@ -28,14 +28,20 @@ enum TextInspector {
         AnyView(PillButton(title: tr("inspector.saveAsPreset"), accent: true) { ctx.store.saveTextPreset() })
     }, appliesTo: { $0.kind == .text })
 
-    /// Captions comes first for caption clips (CapCut: Captions | Text | Animation | …). CAP-EDITOR-UX: shown whenever
-    /// the project has captions (after Details with nothing selected, last for other clips).
+    /// Captions comes first for caption clips (CapCut: Captions | Text | Animation | …). CAP-UX2-TAB (owner, overrides
+    /// "whenever the project has captions"): shown when only captions are selected, or nothing is selected and the
+    /// project has captions; never while a non-caption clip is selected.
     static let captionsTab: InspectorTab = {
-        var t = InspectorTab(id: "captions", titleKey: "captions.tab", order: -1, appliesTo: { isCaption($0) || hasCaptions($0) })
-        t.dynamicOrder = { ctx in isCaption(ctx) || ctx.store.selectedClipsSlice.contains(where: CaptionOps.isCaption) ? -1 : (ctx.kind == .none ? -1 : 100) }
+        var t = InspectorTab(id: "captions", titleKey: "captions.tab", order: -1, appliesTo: showsCaptionsTab)
+        t.dynamicOrder = { _ in -1 }
         return t
     }()
     static func hasCaptions(_ ctx: InspectorContext) -> Bool { !CaptionOps.captionTracks(ctx.store.project.timeline).isEmpty }
+    static func showsCaptionsTab(_ ctx: InspectorContext) -> Bool {
+        let sel = ctx.store.selectedClipsSlice
+        if sel.isEmpty { return ctx.kind == .none ? hasCaptions(ctx) : isCaption(ctx) }
+        return sel.allSatisfy(CaptionOps.isCaption)
+    }
 
     static let tabs = [textTab, captionsTab]
 
