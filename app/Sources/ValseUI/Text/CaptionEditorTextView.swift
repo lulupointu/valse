@@ -36,7 +36,22 @@ enum CaptionTextRegistry {
     /// The last clicked caption text and its window y at the click (UI tests: `clickDrift`).
     static weak var clicked: CaptionNSTextView?
     static var clickedY: CGFloat = 0
-    static func noteClick(_ tv: CaptionNSTextView) { clicked = tv; clickedY = tv.windowY() }
+    /// Window y of every caption text on screen at the last click.
+    final class WeakText { weak var value: CaptionNSTextView?; init(_ v: CaptionNSTextView) { value = v } }
+    static var framesAtClick: [(view: WeakText, y: CGFloat, h: CGFloat)] = []
+    static func noteClick(_ tv: CaptionNSTextView) {
+        clicked = tv; clickedY = tv.windowY()
+        framesAtClick = onScreen().map { (WeakText($0), $0.windowY(), $0.frame.height) }
+    }
+    static func onScreen() -> [CaptionNSTextView] {
+        (views.objectEnumerator()?.allObjects as? [CaptionNSTextView] ?? []).filter { $0.window != nil }
+    }
+    /// Caption rows that moved on screen since the last click (UI tests: must stay 0, CAP-UX2-TIMINGBAR).
+    static var rowsMovedSinceClick: Int {
+        framesAtClick.filter { f in
+            f.view.value.map { $0.window != nil && (abs($0.windowY() - f.y) > 0.5 || abs($0.frame.height - f.h) > 0.5) } ?? false
+        }.count
+    }
     /// How far the clicked caption moved on screen since the click (-1: none / gone).
     static var clickDrift: Double {
         guard let tv = clicked, tv.window != nil else { return -1 }
@@ -235,7 +250,7 @@ final class CaptionNSTextView: NSTextView {
 
     /// A click activates its row only once the button is released (CAP-UX2-JUMP): AppKit's text tracking loop runs on
     /// an unchanged layout, so a simple click places the caret and never drags a selection. The activation itself never
-    /// moves the clicked text either (`CaptionEditorState.stripAbove`).
+    /// moves any row: the timing controls live in the pinned bar under the list (`CaptionTimingBar`, CAP-UX2-TIMINGBAR).
     override func mouseDown(with event: NSEvent) {
         let fresh = focusingClick == event.timestamp
         focusingClick = nil

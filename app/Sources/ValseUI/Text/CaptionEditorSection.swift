@@ -28,6 +28,8 @@ struct CaptionEditorSection: View {
                     if CaptionLanguages.isEmptyLanguage(track) { CaptionEmptyCard(store: store, track: track) }
                     CaptionList(store: store, track: track)
                     CaptionEditorDivider()
+                    CaptionTimingBar(store: store, track: track)
+                    CaptionEditorDivider()
                     CaptionFooter(store: store, track: track)
                 }
                 .testID("captions.editor")
@@ -84,8 +86,7 @@ struct CaptionList: View {
                         ForEach(Array(track.clips.enumerated()), id: \.element.id) { i, c in
                             WithPerceptionTracking {
                                 CaptionRow(store: store, index: i + 1, clip: c, text: CaptionOps.text(c)?.string ?? "",
-                                           isActive: c.id == active, stripAbove: c.id == active && ed.stripAbove,
-                                           isLast: i == track.clips.count - 1, rightToLeft: rtl,
+                                           isActive: c.id == active, isLast: i == track.clips.count - 1, rightToLeft: rtl,
                                            rule: track.captionSplit,
                                            highlights: (byClip[c.id] ?? []).map { NSRange(location: $0.range.location, length: $0.range.length) },
                                            current: current?.clipID == c.id ? current.map { NSRange(location: $0.range.location, length: $0.range.length) } : nil)
@@ -111,15 +112,14 @@ struct CaptionList: View {
 }
 
 /// One caption: start-time gutter · editable text · ↻ + 🗑 (reserved column). The active row has the accent fill, a
-/// 3 pt bar and the timing strip; the now-playing row a ▸ in the gutter.
+/// 3 pt bar; the now-playing row a ▸ in the gutter. Its height depends only on its text (the timing controls are in the
+/// pinned `CaptionTimingBar`, CAP-UX2-TIMINGBAR): activating a row never moves any row.
 struct CaptionRow: View, Equatable {
     let store: EditorStore
     let index: Int
     let clip: Clip
     let text: String
     let isActive: Bool
-    /// Timing strip above the text instead of under it (CAP-UX2-JUMP, `CaptionEditorState.stripAbove`).
-    let stripAbove: Bool
     let isLast: Bool
     let rightToLeft: Bool
     let rule: CaptionSplitRule?
@@ -129,7 +129,6 @@ struct CaptionRow: View, Equatable {
 
     static func == (a: CaptionRow, b: CaptionRow) -> Bool {
         a.store === b.store && a.index == b.index && a.clip == b.clip && a.text == b.text && a.isActive == b.isActive
-            && a.stripAbove == b.stripAbove
             && a.isLast == b.isLast && a.rightToLeft == b.rightToLeft && a.rule == b.rule && a.highlights == b.highlights
             && a.current == b.current
     }
@@ -139,18 +138,14 @@ struct CaptionRow: View, Equatable {
             let _ = CaptionTextMeasure.noteRowBody()
             let playing = store.captionNowPlaying.id == clip.id
             let over = CaptionOps.overLimit(text, rule: rule)
-            VStack(alignment: .leading, spacing: 6) {
-                if isActive && stripAbove { CaptionTimingStrip(store: store, clip: clip, text: text) }
-                HStack(alignment: .top, spacing: 8) {
-                    gutter(playing: playing, over: over)
-                    CaptionTextField(store: store, clipID: clip.id, text: text, isActive: isActive, rightToLeft: rightToLeft,
-                                     highlights: highlights, current: current,
-                                     accessibilityLabel: CaptionStamp.accessibility(index: index, clip))
-                        .frame(minHeight: 20)
-                        .opacity(playing && !isActive ? 1 : (isActive ? 1 : 0.92))
-                    buttons
-                }
-                if isActive && !stripAbove { CaptionTimingStrip(store: store, clip: clip, text: text) }
+            HStack(alignment: .top, spacing: 8) {
+                gutter(playing: playing, over: over)
+                CaptionTextField(store: store, clipID: clip.id, text: text, isActive: isActive, rightToLeft: rightToLeft,
+                                 highlights: highlights, current: current,
+                                 accessibilityLabel: CaptionStamp.accessibility(index: index, clip))
+                    .frame(minHeight: 20)
+                    .opacity(playing && !isActive ? 1 : (isActive ? 1 : 0.92))
+                buttons
             }
             .padding(.leading, 12).padding(.trailing, 8).padding(.vertical, 8)
             .background(isActive ? Theme.accentDim.opacity(0.55) : (hover ? Theme.Valse.raised : .clear))
@@ -247,47 +242,70 @@ struct DashedLine: Shape {
     func path(in r: CGRect) -> Path { Path { p in p.move(to: CGPoint(x: r.minX, y: r.midY)); p.addLine(to: CGPoint(x: r.maxX, y: r.midY)) } }
 }
 
-/// Under the active row: start ‹ › → end ‹ › (1 frame per click, 10 with ⇧), duration, reading speed.
-struct CaptionTimingStrip: View {
+/// Pinned under the list, above the footer (CAP-UX2-TIMINGBAR): timing of the active caption, start ‹ › → end ‹ ›
+/// (1 frame per click, 10 with ⇧; an edge pushes into the neighbour, CAP-UX2-PUSH), duration, reading speed. With no
+/// active caption the controls are disabled and a placeholder shows; the bar keeps its height either way, so the
+/// list never resizes.
+struct CaptionTimingBar: View {
     let store: EditorStore
-    let clip: Clip
-    let text: String
+    let track: Track
+    static let height: CGFloat = 34
 
     var body: some View {
         WithPerceptionTracking {
+            let clip = store.captionActiveID.flatMap { id in track.clips.first { $0.id == id } }
             HStack(spacing: 6) {
-                nudge("start", CaptionStamp.precise(clip.start), helpKey: "capedit.start") { d in store.captionNudge(clip.id, startFrames: d) }
-                Text(verbatim: "→").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                nudge("end", CaptionStamp.precise(clip.end), helpKey: "capedit.end") { d in store.captionNudge(clip.id, endFrames: d) }
+                nudge("start", clip.map { CaptionStamp.precise($0.start) }, helpKey: "capedit.start") { d in
+                    if let id = store.captionActiveID { store.captionNudge(id, startFrames: d) }
+                }
+                Text(verbatim: "→").font(.system(size: 11)).foregroundStyle(Theme.textSecondary).opacity(clip == nil ? 0.4 : 1)
+                nudge("end", clip.map { CaptionStamp.precise($0.end) }, helpKey: "capedit.end") { d in
+                    if let id = store.captionActiveID { store.captionNudge(id, endFrames: d) }
+                }
                 Spacer(minLength: 4)
-                Text(verbatim: tr("capedit.duration", String(format: "%.1f", clip.duration.seconds))
-                     + " · " + tr("capedit.cps", Int(CaptionOps.charsPerSecond(text, duration: clip.duration).rounded())))
-                    .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                if let clip {
+                    let text = CaptionOps.text(clip)?.string ?? ""
+                    Text(verbatim: tr("capedit.duration", String(format: "%.1f", clip.duration.seconds))
+                         + " · " + tr("capedit.cps", Int(CaptionOps.charsPerSecond(text, duration: clip.duration).rounded())))
+                        .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        .testID("captions.timing.duration")
+                } else {
+                    Text(loc: "capedit.timing.placeholder").font(.system(size: 10.5)).foregroundStyle(IStyle.caption)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .testID("captions.timing.placeholder")
+                }
             }
-            .padding(.leading, 68)
+            .padding(.horizontal, 12)
+            .frame(height: Self.height)
             .testID("captions.timing")
         }
     }
 
-    func nudge(_ id: String, _ value: String, helpKey: String, _ step: @escaping (Int) -> Void) -> some View {
+    func nudge(_ id: String, _ value: String?, helpKey: String, _ step: @escaping (Int) -> Void) -> some View {
         HStack(spacing: 1) {
-            arrow("chevron.left", tr("capedit.nudgeEarlier", tr(helpKey))) { step(NSEvent.modifierFlags.contains(.shift) ? -10 : -1) }
-                .testID("captions.timing.\(id).minus")
-            Text(verbatim: value).font(.system(size: 10.5).monospacedDigit()).foregroundStyle(Theme.textPrimary)
+            arrow("chevron.left", tr("capedit.nudgeEarlier", tr(helpKey)), enabled: value != nil) {
+                step(NSEvent.modifierFlags.contains(.shift) ? -10 : -1)
+            }
+            .testID("captions.timing.\(id).minus")
+            Text(verbatim: value ?? "–:––.––").font(.system(size: 10.5).monospacedDigit())
+                .foregroundStyle(value == nil ? Theme.textTertiary : Theme.textPrimary)
                 .frame(minWidth: 40)
-            arrow("chevron.right", tr("capedit.nudgeLater", tr(helpKey))) { step(NSEvent.modifierFlags.contains(.shift) ? 10 : 1) }
-                .testID("captions.timing.\(id).plus")
+            arrow("chevron.right", tr("capedit.nudgeLater", tr(helpKey)), enabled: value != nil) {
+                step(NSEvent.modifierFlags.contains(.shift) ? 10 : 1)
+            }
+            .testID("captions.timing.\(id).plus")
         }
         .padding(.horizontal, 2).frame(height: 20)
         .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
+        .opacity(value == nil ? 0.5 : 1)
     }
 
-    func arrow(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {
+    func arrow(_ symbol: String, _ help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textSecondary)
                 .frame(width: 16, height: 18).contentShape(Rectangle())
         }
-        .buttonStyle(.plain).help(help).accessibilityLabel(Text(verbatim: help))
+        .buttonStyle(.plain).disabled(!enabled).help(help).accessibilityLabel(Text(verbatim: help))
     }
 }
 
