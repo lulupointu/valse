@@ -3,7 +3,7 @@ import Foundation
 @testable import MontageAI
 import MontageCore
 
-/// BUG-AUTOCAPTION-SHIFT: the real "Auto captions" edit body (`CaptionGenerator.insert`, incl. speaker colours) run
+/// BUG-AUTOCAPTION-SHIFT: the real "Auto captions" edit body (`CaptionGenerator.insert`) run
 /// through an `EditSession` on a busy timeline never moves a clip that was already there.
 @Suite struct CaptionInsertionAITests {
     static func asset(_ name: String, audioOnly: Bool) -> MediaAsset {
@@ -18,7 +18,7 @@ import MontageCore
         return out
     }
 
-    @Test func generatedCaptionsWithSpeakersKeepExistingClips() throws {
+    @Test func generatedCaptionsKeepExistingClips() throws {
         var p = Project(name: "captions")
         p.timeline.linkage = true
         p.timeline.mainTrackMagnet = true
@@ -52,31 +52,30 @@ import MontageCore
 
         let segs = (0..<8).map { i -> CaptionSegment in
             let s = Double(i) * 1.4
-            return CaptionSegment(text: "w\(i)", start: s, end: s + 1.3, words: [("w\(i)", s, s + 1.3)], speaker: "\(i % 2 + 1)")
+            return CaptionSegment(text: "w\(i)", start: s, end: s + 1.3, words: [("w\(i)", s, s + 1.3)])
         }
         var session = EditSession(project: p)
         try session.perform(Edit("cmd.captions") { p in
-            try CaptionGenerator.insert(segs, style: nil, origin: .auto, replacing: true, speakers: true, into: &p)
+            try CaptionGenerator.insert(segs, style: nil, origin: .auto, replacing: true, into: &p)
         })
         check(session.project.timeline)
         #expect(SpeechCaptions.captions(in: session.project.timeline).count == 8)
-        #expect(session.project.speakers?.count == 2)
 
         // a second generation ("Delete current captions" on), then auto lyrics next to them
         try session.perform(Edit("cmd.captions") { p in
-            try CaptionGenerator.insert(Array(segs.prefix(3)), style: nil, origin: .auto, replacing: true, speakers: false, into: &p)
+            try CaptionGenerator.insert(Array(segs.prefix(3)), style: nil, origin: .auto, replacing: true, into: &p)
         })
         check(session.project.timeline)
         #expect(SpeechCaptions.captions(in: session.project.timeline).count == 3)
         try session.perform(Edit("cmd.lyrics") { p in
-            try CaptionGenerator.insert(segs, style: nil, origin: .lyrics, replacing: true, speakers: false, into: &p)
+            try CaptionGenerator.insert(segs, style: nil, origin: .lyrics, replacing: true, into: &p)
         })
         check(session.project.timeline)
         #expect(CaptionOps.captionTracks(session.project.timeline).count == 2)
         // nothing to add: refused, nothing changes
         #expect(throws: EditError.nothingToDo) {
             try session.perform(Edit("cmd.captions") { p in
-                try CaptionGenerator.insert([], style: nil, origin: .auto, replacing: true, speakers: false, into: &p)
+                try CaptionGenerator.insert([], style: nil, origin: .auto, replacing: true, into: &p)
             })
         }
         check(session.project.timeline)

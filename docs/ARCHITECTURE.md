@@ -382,15 +382,7 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
   remap `Clip.timelineTime(forSource:)`, speed curves included), `finish` (linkage to the main clip), translations and
   keyword marks. `CaptionGenerator` (MontageAI) runs the job and ends with `CaptionOps.addCaptionTrack(…, origin: .auto/.lyrics,
   replacing:)`. `RippleCut` (Core) ripple-deletes timeline ranges with captions following (EditPilot remove silences); transcript-based editing and filler removal were removed (FB-01 / FB-11).
-- **Speaker ID** (AI-005 / TX-038): `CaptionData.speaker` ("1", "2"…) + `Project.speakers` (`CaptionSpeaker`: name, colour;
-  optional, old files decode). Core `Captions/Speakers.swift`: `SpeakerClustering` (average-linkage cosine, Auto threshold or
-  fixed count, tiny clusters folded, subsample above 500 windows), `SpeakerCaptions` (split segments at speaker changes with
-  one-word-flip smoothing, majority `assign` for existing captions, palette colours, rename, apply look to a speaker).
-  MontageAI `SpeakerDiarizer`: windows from caption word timings (≤ 2 s, split at 0.5 s pauses) → audio of the clip playing
-  then → `WeSpeakerEmbedder` (Core ML `wespeaker_v2.mlmodelc`, one window per prediction tiled to 10 s: batching windows
-  collapses embeddings in this conversion) or `StatisticsEmbedder` (MFCC + pitch, z-scored) → `SpeakerTurn`s.
-  `CaptionOptions.identifySpeakers` runs it inside `CaptionGenerator` (phase `.speakers`); `SpeakerIdentification` tags
-  existing captions. Multi-file models: `AIModelSpec.parts` (each file SHA-256 checked into a directory). UI `SpeakersUI.swift`.
+- Speaker ID (AI-005 / TX-038) was removed (CAP-NOSPEAKER, owner decision): old files with `speakers` / `speaker` keys still decode (ignored). Multi-file models: `AIModelSpec.parts` (each file SHA-256 checked into a directory).
 - **Cutout**: `MatteGenerator` writes mattes through the render team's `MatteVideoWriter` / `MatteStore.setStill`: `person`
   (VNGeneratePersonSegmentationRequest .balanced + temporal smoothing), `subject` (VNGenerateForegroundInstanceMaskRequest), and
   `custom.<id>` (brush strokes → instances on the painted frame, tracked frame to frame by overlap). Frames are decoded at ≤ 960 px.

@@ -280,7 +280,7 @@ public enum CaptionFiles {
                     body = "{\\k\(Int(((first.start - seg.start) * 100).rounded()))}" + body
                 }
             }
-            s += "Dialogue: 0,\(clock(seg.start, msSep: ".", centis: true)),\(clock(seg.end, msSep: ".", centis: true)),Default,\(seg.speaker ?? ""),0,0,0,,\(body)\n"
+            s += "Dialogue: 0,\(clock(seg.start, msSep: ".", centis: true)),\(clock(seg.end, msSep: ".", centis: true)),Default,,0,0,0,,\(body)\n"
         }
         return s
     }

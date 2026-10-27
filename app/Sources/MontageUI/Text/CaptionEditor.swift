@@ -125,7 +125,6 @@ struct CaptionRow: View {
                     .help(CaptionRow.playFromHelp(clip.start))   // U1-5: "… from 00:00:03"
                 CaptionTextField(store: store, clipID: clip.id, previousID: previousID, isLast: isLast)
                     .frame(minHeight: 20)
-                if let sp = t?.caption?.speaker, !sp.isEmpty { SpeakerChip(store: store, speaker: sp) }   // AI-005
                 if let tr2 = t?.caption?.translation, !tr2.isEmpty {
                     Image(systemName: "character.bubble").font(.system(size: 10)).foregroundStyle(IStyle.caption).help(tr2)
                 }

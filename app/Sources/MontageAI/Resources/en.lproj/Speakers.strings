@@ -1,3 +1,0 @@
-"model.speakers" = "WeSpeaker (speaker ID)";
-"model.speakers.desc" = "Tells speakers apart for speaker-labelled captions. Without it, a simpler voice analysis is used.";
-"captions.phase.speakers" = "Identifying speakers...";

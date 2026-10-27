@@ -12,12 +12,6 @@ public final class AIUIState {
     public var captionLanguage: String? = nil
     public var captionEngine: SpeechEngine = .automatic
     public var captionSource: CaptionOptions.Source = .allTracks
-    /// Auto captions ▸ Identify speakers (AI-005) and the number of speakers (nil = Auto).
-    public var identifySpeakers = false
-    public var speakerCount: Int? = nil
-    /// Identify speakers on existing captions (Inspector ▸ Captions ▸ Speakers).
-    public var speakerJob: JobID?
-    public var speakerProgress: Double = 0
     public var replaceCaptions = true
     /// Target language for bilingual captions (nil = none).
     public var bilingualTarget: String? = nil
@@ -140,8 +134,7 @@ extension EditorStore {
 
     public var captionOptions: CaptionOptions {
         CaptionOptions(language: ai.captionLanguage, engine: ai.captionEngine, source: ai.captionSource, settings: CaptionSettings(),
-                              replaceExisting: ai.replaceCaptions && hasAutoCaptions,
-                              identifySpeakers: ai.identifySpeakers, speakerCount: ai.speakerCount)
+                              replaceExisting: ai.replaceCaptions && hasAutoCaptions)
     }
 
     public var hasAutoCaptions: Bool {
@@ -180,7 +173,7 @@ extension EditorStore {
                 guard let r = box.result, perform(r.command) else { showToast(tr("captions.failure.notApplied"), error: true); return }
                 ai.captionFailureRepeated = false
                 ai.captionSpokenLanguage = r.language
-                showToast(r.speakersSkipped ? tr("captions.addedNoSpeakers", r.count) : tr("captions.addedCount", r.count))
+                showToast(tr("captions.addedCount", r.count))
                 if let first = SpeechCaptions.captions(in: self.project.timeline).first {
                     selection = [first.id]
                     inspectorTab = "captions"

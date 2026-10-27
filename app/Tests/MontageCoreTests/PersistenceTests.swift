@@ -22,11 +22,10 @@ import Foundation
             Keyframe(time: 1, value: .vec2(Vec2(0.5, 0.1)), easing: .hold)])
         try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "t", duration: 0.5), in: &p.timeline)
         try TimelineOps.insert(Clip(content: .text(TextContent(string: "Bonjour é ✨")), start: 1, duration: 2), into: &p)
-        // speaker-tagged caption + project speakers (AI-005)
+        // a caption with word timings
         var cap = TextContent(string: "Salut")
-        cap.caption = CaptionData(words: [CaptionWord("Salut", start: 0, end: 0.5)], speaker: "2", origin: .auto)
+        cap.caption = CaptionData(words: [CaptionWord("Salut", start: 0, end: 0.5)], origin: .auto)
         try TimelineOps.insert(Clip(content: .text(cap), start: 4, duration: 1), into: &p)
-        p.speakers = [CaptionSpeaker(id: "1", name: "Alice", color: .white), CaptionSpeaker(id: "2", color: RGBA(hex: 0xFFE14D))]
         let dir = tempDir()
         let url = dir.appendingPathComponent("A.montage")
         try ProjectPackage.save(p, to: url)

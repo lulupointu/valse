@@ -92,25 +92,6 @@ import MontageTestSupport
         }
     }
 
-    @Test func diarizeRealVideo() async throws {
-        guard let v = Self.video, WhisperRuntime.isAvailable else { print("skip: MONTAGE_QA_VIDEO / whisper"); return }
-        try await HeavyWorkGate.run {
-            var p = TestProject()
-            let id = try await p.addMedia(v, at: .zero, target: .newTrack)
-            let clip = try #require(p.project.timeline.clip(id))
-            let wav = try await AudioExtractor.wav16k(v, range: nil)
-            let tr = try await Transcriber.transcribe(wav: wav, request: .init(language: nil, engine: .whisper))
-            var segs: [CaptionSegment] = []
-            for i in stride(from: 0, to: tr.words.count, by: 8) {
-                let w = Array(tr.words[i..<min(i + 8, tr.words.count)])
-                segs.append(CaptionSegment(text: w.map(\.text).joined(separator: " "), start: w.first!.start, end: w.last!.end,
-                                           words: w.map { (text: $0.text, start: $0.start, end: $0.end) }))
-            }
-            let (turns, t) = try await Self.time { try await SpeakerDiarizer.turns(segments: segs, clips: [clip], project: p.project) }
-            print("QA diarization (\(type(of: SpeakerDiarizer.defaultEmbedder()))): \(Set(turns.map(\.speaker)).count) speakers, \(turns.count) turns in \(t)s")
-        }
-    }
-
     @Test func shortsFromRealVideo() async throws {
         guard let v = Self.video, WhisperRuntime.isAvailable else { print("skip: MONTAGE_QA_VIDEO / whisper"); return }
         try await HeavyWorkGate.run {

@@ -45,12 +45,11 @@ public struct CaptionData: Hashable, Codable, Sendable {
     public var translation: String?
     public var display: BilingualDisplay?
     public var subStyle: CaptionSubStyle?
-    public var speaker: String?
     public var origin: CaptionOrigin
     public init(words: [CaptionWord] = [], translation: String? = nil, display: BilingualDisplay? = nil,
-                subStyle: CaptionSubStyle? = nil, speaker: String? = nil, origin: CaptionOrigin = .manual) {
+                subStyle: CaptionSubStyle? = nil, origin: CaptionOrigin = .manual) {
         self.words = words; self.translation = translation; self.display = display; self.subStyle = subStyle
-        self.speaker = speaker; self.origin = origin
+        self.origin = origin
     }
 }
 
@@ -96,13 +95,12 @@ public struct CaptionSegment: Hashable, Sendable {
     /// Optional word timings (timeline seconds). Missing → words are spread evenly when needed.
     public var words: [(text: String, start: Double, end: Double)]
     public var translation: String?
-    public var speaker: String?
     public init(text: String, start: Double, end: Double, words: [(text: String, start: Double, end: Double)] = [],
-                translation: String? = nil, speaker: String? = nil) {
-        self.text = text; self.start = start; self.end = end; self.words = words; self.translation = translation; self.speaker = speaker
+                translation: String? = nil) {
+        self.text = text; self.start = start; self.end = end; self.words = words; self.translation = translation
     }
     public static func == (a: CaptionSegment, b: CaptionSegment) -> Bool {
-        a.text == b.text && a.start == b.start && a.end == b.end && a.translation == b.translation && a.speaker == b.speaker
+        a.text == b.text && a.start == b.start && a.end == b.end && a.translation == b.translation
             && a.words.count == b.words.count && zip(a.words, b.words).allSatisfy { $0.text == $1.text && $0.start == $1.start && $0.end == $1.end }
     }
     public func hash(into h: inout Hasher) { h.combine(text); h.combine(start); h.combine(end) }
