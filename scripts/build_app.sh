@@ -6,12 +6,15 @@
 # Bundles the music + sound-effect library (Contents/Resources/Content) from the scripts/fetch_music_pack.sh cache
 # and verifies every manifest item (file present, SHA-256) — fails if the cache is incomplete; `--no-content` skips it
 # (a missing cache only warns unless MONTAGE_REQUIRE_CONTENT=1).
+# Bundles the AI sidecar runtimes (whisper-cli, demucs, llama-completion) into Contents/Helpers from
+# scripts/build_ai_runtimes.sh's install dir (MONTAGE_AI_BIN_DIR, default Application Support/Montage/bin); each must
+# contain every built arch. Missing / thin runtimes only warn unless MONTAGE_REQUIRE_RUNTIMES=1 (release packaging).
 # The executable is universal (arm64 + x86_64, macOS 13+ per Info.plist / LC_BUILD_VERSION): each arch is built
 # separately and merged with lipo; the resource bundles are architecture-independent (taken from the host build).
 # `--host-only` (or MONTAGE_APP_ARCHS="arm64") builds only the listed / host arch, for quicker local iterations.
 # Usage: scripts/build_app.sh [--debug] [--no-content] [--host-only]
 set -euo pipefail
-if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,12p' "$0"; exit 0; fi
+if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,15p' "$0"; exit 0; fi
 cd "$(dirname "$0")/.."
 CONFIG=release
 CONTENT=1
@@ -76,16 +79,36 @@ if missing or bad:
 print(f"bundled {len(items)} library items ({total / 1e6:.1f} MB) into {dst}")
 EOF
 fi
+# AI sidecar runtimes → Contents/Helpers (looked up there first by WhisperRuntime / DemucsRuntime / LlamaRuntime).
+# Without them a user's Mac has no whisper (captions fall back to Apple speech, absent on Intel), no stems, no local LLM.
+RUNTIMES="${MONTAGE_AI_BIN_DIR:-$HOME/Library/Application Support/Montage/bin}"
+HELPERS=()
+RT_PROBLEMS=()
+for b in whisper-cli demucs llama-completion; do
+  src="$RUNTIMES/$b"
+  if [[ ! -x "$src" ]]; then RT_PROBLEMS+=("$b missing"); continue; fi
+  thin=""
+  for arch in $ARCHS; do lipo "$src" -verify_arch "$arch" 2>/dev/null || thin="$thin $arch"; done
+  if [[ -n "$thin" ]]; then RT_PROBLEMS+=("$b lacks$thin"); continue; fi
+  mkdir -p "$APP/Contents/Helpers"
+  cp "$src" "$APP/Contents/Helpers/$b"
+  HELPERS+=("$APP/Contents/Helpers/$b")
+done
+if [[ ${#RT_PROBLEMS[@]} -gt 0 ]]; then
+  msg="AI runtimes not bundled (${RT_PROBLEMS[*]} in $RUNTIMES). Run scripts/build_ai_runtimes.sh."
+  if [[ "${MONTAGE_REQUIRE_RUNTIMES:-0}" == 1 ]]; then echo "error: $msg" >&2; exit 1; fi
+  echo "warning: $msg" >&2
+fi
 # Inside-out signing (Sparkle's helpers first, never --deep): one identity for everything, so the designated
 # requirement stays the same from release to release (Sparkle and the camera / microphone permissions rely on it).
 IDENTITY="${MONTAGE_SIGN_IDENTITY:--}"
 SPK="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
 sign() { codesign --force --timestamp=none --sign "$IDENTITY" "$@"; }
 if [[ "$IDENTITY" == - ]]; then
-  { for x in "$SPK"/XPCServices/*.xpc "$SPK/Autoupdate" "$SPK/Updater.app" "$APP/Contents/Frameworks/Sparkle.framework"; do
+  { for x in "$SPK"/XPCServices/*.xpc "$SPK/Autoupdate" "$SPK/Updater.app" "$APP/Contents/Frameworks/Sparkle.framework" ${HELPERS[@]+"${HELPERS[@]}"}; do
       [[ -e "$x" ]] && sign "$x"; done; sign "$APP"; } >/dev/null 2>&1 || echo "warning: codesign failed" >&2
 else
-  for x in "$SPK"/XPCServices/*.xpc "$SPK/Autoupdate" "$SPK/Updater.app" "$APP/Contents/Frameworks/Sparkle.framework"; do
+  for x in "$SPK"/XPCServices/*.xpc "$SPK/Autoupdate" "$SPK/Updater.app" "$APP/Contents/Frameworks/Sparkle.framework" ${HELPERS[@]+"${HELPERS[@]}"}; do
     [[ -e "$x" ]] && sign "$x"
   done
   sign "$APP"

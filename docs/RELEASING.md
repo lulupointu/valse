@@ -38,7 +38,9 @@ EdDSA private key, installed copies can never be updated again. New Mac: `script
 
 ## Cutting a release
 1. `main` builds and passed the gate; push it (`git push origin main`).
-2. `scripts/fetch_music_pack.sh` once (the library is required in release builds).
+2. `scripts/fetch_music_pack.sh` once (the library is required in release builds), and `scripts/build_ai_runtimes.sh`
+   once per runtime version bump (universal whisper-cli / demucs / llama-completion are required too: release builds
+   bundle them into `Contents/Helpers`; without them users get no Whisper captions, stems or local LLM).
 3. `scripts/release.sh 0.2.0 [--notes notes.md]` (`--dry-run` = build + appcast only). It builds the universal app
    (CFBundleVersion = commit count, so it always grows), signs it, zips it, makes deltas from the last 3 releases
    (their apps are cached in `~/Library/Application Support/MontageRelease/apps/<tag>`), writes `appcast.xml` and
