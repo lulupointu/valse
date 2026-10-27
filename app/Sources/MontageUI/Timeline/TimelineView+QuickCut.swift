@@ -8,10 +8,10 @@ import MontageCore
 /// dimmed. Drawn after the clips of a row; only visible clips are visited, so a slider tick on a 30-clip timeline is one
 /// cheap canvas rebuild.
 extension TimelineView {
-    static let quickCutDarken = RGBA(0.02, 0.02, 0.03, 0.7)
-    static let quickCutTint = RGBA(0.34, 0.75, 0.8, 0.25)   // accent 0x57BECB
-    static let quickCutEdge = RGBA(0.34, 0.75, 0.8, 1)
-    static let quickCutDim = RGBA(0.106, 0.106, 0.11, 0.62)
+    static let quickCutDarken = RGBA(0.03, 0.025, 0.02, 0.7)
+    static let quickCutTint = Theme.TL.accent(0.25)
+    static let quickCutEdge = Theme.TL.accent
+    static let quickCutDim = RGBA(0.11, 0.102, 0.09, 0.62)   // panel #1C1A17
     /// Hatch tile side (points); the tile repeats seamlessly.
     static let quickCutHatchSize: CGFloat = 10
     /// Narrowest drawn slice (points), centred on the slice.

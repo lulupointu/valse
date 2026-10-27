@@ -139,7 +139,7 @@ struct TextAssetTile<Preview: View>: View {
                 ZStack(alignment: .bottomTrailing) {
                     RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
                         .overlay { preview() }
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.hoverRing : .clear, lineWidth: 1.5))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     if let f = favorite {
                         let on = AssetLibraryStore.shared.isFavorite(f.ns, f.id)
@@ -156,7 +156,7 @@ struct TextAssetTile<Preview: View>: View {
                     }
                     if hover {
                         Button(action: add) {
-                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                                 .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                         }
                         .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))

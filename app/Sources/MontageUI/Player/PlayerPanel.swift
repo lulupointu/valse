@@ -79,7 +79,7 @@ struct ZoomBar: View {
             }
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background(Theme.menu, in: RoundedRectangle(cornerRadius: 8))
-            .shadow(color: .black.opacity(0.4), radius: 8)
+            .valseFloatingCard(radius: 8, depth: 3)
         }
     }
 }
@@ -210,8 +210,8 @@ struct PopupButton<Label: View>: View {
             Button {
                 let m = menu()
                 m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-            } label: { label().contentShape(Rectangle()) }
-                .buttonStyle(.plain)
+            } label: { label().frame(minWidth: 24, minHeight: 24).contentShape(Rectangle()) }
+                .buttonStyle(ValseIconButtonStyle())   // the toolbar key: soft fill on hover like every player / timeline tool
                 .help(help)
         }
     }

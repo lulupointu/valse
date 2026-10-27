@@ -181,7 +181,7 @@ struct SpeechFailureCard: View {
                                         .testID("captions.remedy.\(r.name)")
                                 } else {
                                     Button(r.title.text()) { store.performSpeechRemedy(r) }
-                                        .buttonStyle(.link).font(Theme.Fonts.hint)
+                                        .buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint)
                                         .testID("captions.remedy.\(r.name)")
                                 }
                             }

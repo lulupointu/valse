@@ -137,7 +137,7 @@ struct VersionHistoryDialog: View {
                                     HStack {
                                         Image(systemName: icon(v.kind)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).frame(width: 18)
                                         VStack(alignment: .leading, spacing: 1) {
-                                            Text(verbatim: HomeFormat.date(v.date)).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                                            Text(verbatim: HomeFormat.date(v.date)).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
                                             Text(verbatim: tr(v.kind.nameKey)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
                                         }
                                         Spacer()
@@ -203,9 +203,9 @@ struct RelinkDialog: View {
                                 WithPerceptionTracking {
                                     HStack(spacing: 10) {
                                         Image(systemName: a.kind == .audio ? "waveform" : (a.kind == .image ? "photo" : "film"))
-                                            .font(.system(size: 12)).foregroundStyle(Color(hex: 0xE8B33A)).frame(width: 18)
+                                            .font(.system(size: 12)).foregroundStyle(Theme.warning).frame(width: 18)
                                         VStack(alignment: .leading, spacing: 1) {
-                                            Text(verbatim: a.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                                            Text(verbatim: a.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                                             Text(verbatim: a.url.deletingLastPathComponent().path).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
                                                 .lineLimit(1).truncationMode(.head)
                                         }

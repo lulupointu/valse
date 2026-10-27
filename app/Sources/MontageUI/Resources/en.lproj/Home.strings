@@ -16,6 +16,9 @@
 "home.newProject" = "New project";
 "home.newProject.custom" = "Custom";
 "home.newProject.customHelp" = "New project with ratio, resolution and frame rate";
+"home.playful.hero.subtitle" = "Take the floor: an empty timeline, ready for your clips, music and words.";
+"home.playful.empty.title" = "The floor is yours";
+"home.playful.empty.body" = "Start your first project above, or bring one you already have.";
 "home.templates.subtitle" = "Start from a ready-made edit";
 "home.templates.title" = "Templates";
 "home.templates.soon" = "Templates are coming soon. Meanwhile, start a new project and use the Text and Effects libraries.";

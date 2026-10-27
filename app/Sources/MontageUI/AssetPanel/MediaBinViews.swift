@@ -59,7 +59,7 @@ struct FolderCard: View {
                     Text(verbatim: "\(count)").font(.system(size: 10).monospacedDigit())
                         .padding(.horizontal, 4).padding(.vertical, 1).background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3)).padding(4)
                 }
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(hover || targeted ? Theme.accent : .clear, lineWidth: 1.5))
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(targeted ? Theme.accent : (hover ? Theme.hoverRing : .clear), lineWidth: 1.5))
                 Text(verbatim: folder.name).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
             }
             .contentShape(Rectangle())

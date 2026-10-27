@@ -26,12 +26,14 @@ public struct AssetPanel: View {
                         WithPerceptionTracking {
                             let active = store.activeAssetTab == tab.id
                             Button { store.activeAssetTab = tab.id } label: {
-                                VStack(spacing: 3) {
-                                    Image(systemName: tab.symbol).font(.system(size: 16))
-                                    Text(loc: tab.titleKey).font(Theme.Fonts.tabLabel).lineLimit(1)
+                                ValseTabLabel(active: active) {
+                                    // fixed weights and sizes: the selected sticker never changes the layout
+                                    VStack(spacing: 2) {
+                                        Image(systemName: tab.symbol).font(.system(size: 14, weight: .medium))
+                                        Text(loc: tab.titleKey).font(.system(size: 10, weight: .medium)).lineLimit(1)
+                                    }
+                                    .frame(minWidth: 40)
                                 }
-                                .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(0.85))
-                                .frame(minWidth: 50).padding(.horizontal, 4)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
@@ -39,7 +41,8 @@ public struct AssetPanel: View {
                         }
                     }
                 }
-                .padding(.horizontal, 6)
+                // room for the sticker (1 pt up-left) and its hard block (3 pt down-right) inside the scroll view's clip
+                .padding(.leading, 6).padding(.trailing, 8).padding(.top, 1).padding(.bottom, 3)
             }
         } content: {
             (AssetTabRegistry.tabs.first { $0.id == store.activeAssetTab } ?? AssetTabRegistry.sorted[0]).content(store)
@@ -190,10 +193,10 @@ struct AssetTile<Item>: View {
                             else if let e = tile.emoji { Text(verbatim: e).font(.system(size: 34)) }
                             else if let s = tile.symbol { Image(systemName: s).font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85)) }
                         }
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent : .clear, lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.hoverRing : .clear, lineWidth: 1.5))
                     if hover {
                         Button(action: tile.add) {
-                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                            Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                                 .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
                         }
                         .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack"))
@@ -223,8 +226,8 @@ struct SubNav: View {
                         WithPerceptionTracking {
                             Button { selection = item.id } label: {
                                 Text(verbatim: item.title)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(selection == item.id ? Theme.accent : Theme.textPrimary)
+                                    .font(.system(size: 13, weight: selection == item.id ? .semibold : .regular))
+                                    .foregroundStyle(selection == item.id ? Theme.accentText : Theme.textPrimary)
                                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)   // FR labels wrap (UX_GAPS W13-5)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 8).padding(.vertical, 5).frame(minHeight: 28)

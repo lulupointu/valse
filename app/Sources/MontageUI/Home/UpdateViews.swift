@@ -77,8 +77,7 @@ struct UpdateBanner: View {
                 }
                 .padding(.horizontal, 12).padding(.vertical, 9)
                 .background(Theme.panel, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.separator))
-                .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
+                .valseFloatingCard(radius: 8, depth: 4)
                 .padding(.top, 44).padding(.trailing, 14)
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 .testID("update.banner")

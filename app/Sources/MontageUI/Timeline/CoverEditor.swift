@@ -215,7 +215,7 @@ struct CoverEditorModal: View {
                                 .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
                         }
                     })
-                    .shadow(color: .black.opacity(0.5), radius: 20)
+                    .valseFloatingCard(radius: 10)
             }
             .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
             .onExitCommand { store.closeCoverEditor() }
@@ -236,7 +236,7 @@ struct CoverEditorView: View {
         WithPerceptionTracking {
             VStack(spacing: 0) {
                 HStack {
-                    Text(loc: "cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(loc: "cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     Button { store.closeCoverEditor() } label: {
                         Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
@@ -281,7 +281,7 @@ struct CoverEditorView: View {
             }
             if let i = model.selectedText, let b = model.textBox(i) {
                 let w = max(b.size.width * box.width, 12), h = max(b.size.height * box.height, 12)
-                Rectangle().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3])).foregroundStyle(.white)
+                Rectangle().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3])).foregroundStyle(Theme.textPrimary)
                     .frame(width: w + 8, height: h + 8)
                     .position(x: (0.5 + b.center.x) * box.width, y: (0.5 + b.center.y) * box.height)
                     .allowsHitTesting(false)
@@ -323,7 +323,7 @@ struct CoverEditorView: View {
                             ForEach(0..<n, id: \.self) { i in
                                 WithPerceptionTracking {
                                     ZStack {
-                                        Color(hex: 0x2A2A2A)
+                                        Theme.menu
                                         if i < model.filmstrip.count, let img = model.filmstrip[i] {
                                             Image(decorative: img, scale: 1).resizable().aspectRatio(contentMode: .fill)
                                         }
@@ -381,7 +381,7 @@ struct CoverEditorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text(loc: "cover.text").font(Theme.Fonts.sectionTitle).foregroundStyle(.white)
+                    Text(loc: "cover.text").font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     Button { model.addText() } label: {
                         Label(tr("cover.addText"), systemImage: "plus").font(.system(size: 12))
@@ -421,7 +421,7 @@ struct CoverEditorView: View {
     func textControls(_ i: Int, _ t: TextContent) -> some View {
         TextField("", text: Binding.perceived(get: { model.textContent(i)?.string ?? "" }, set: { s in model.updateText(i) { $0.string = s } }),
                   axis: .vertical)
-            .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(.white)
+            .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary)
             .lineLimit(2...4)
             .padding(8).background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
             .testID("cover.textField")
@@ -430,7 +430,7 @@ struct CoverEditorView: View {
             HStack {
                 Slider(value: Binding.perceived(get: { (model.textContent(i)?.fontSize ?? 0.1) * 250 },
                                       set: { v in model.updateText(i) { $0.fontSize = v / 250 } }), in: 5...80)
-                    .controlSize(.small).tint(.white).testID("cover.fontSizeSlider")
+                    .controlSize(.small).valseSliderTint().testID("cover.fontSizeSlider")
                 Text(verbatim: "\(Int(((model.textContent(i)?.fontSize ?? 0.1) * 250).rounded()))")
                     .font(.system(size: 11).monospacedDigit()).foregroundStyle(Theme.textPrimary).frame(width: 28)
                 ColorSwatchButton(color: t.color) { c in model.updateText(i) { $0.color = c } }

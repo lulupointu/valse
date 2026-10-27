@@ -103,7 +103,7 @@ struct TransitionTile: View {
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(selected || highlighted ? Theme.accent : (hover ? Theme.accent.opacity(0.7) : .clear),
+                            .strokeBorder(selected || highlighted ? Theme.accent : (hover ? Theme.hoverRing : .clear),
                                           lineWidth: selected ? 2 : 1.5))
                     }
                     .buttonStyle(.plain)
@@ -113,7 +113,7 @@ struct TransitionTile: View {
                     if hover || highlighted {
                         // UX.md §3.2: ☆ favourite + ⊕ add, bottom-right
                         HStack(spacing: 4) {
-                            RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Color(hex: 0xF5C542) : .white, fill: Color.black.opacity(0.55),
+                            RoundBadge(symbol: fav ? "star.fill" : "star", tint: fav ? Theme.favorite : .white, fill: Color.black.opacity(0.55),
                                        help: tr(fav ? "fxlib.removeFavorite" : "fxlib.addFavorite")) { EffectFavorites.shared.toggle(descriptor.id) }
                                 .testID("transition.favorite.\(shortID)")
                             RoundBadge(symbol: "plus", tint: .white, fill: Theme.accent, help: tr("asset.addToTrack"), action: add)
@@ -121,7 +121,7 @@ struct TransitionTile: View {
                         }
                         .padding(4)
                     } else if fav {
-                        Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Color(hex: 0xF5C542)).padding(5)
+                        Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Theme.favorite).padding(5)
                             .allowsHitTesting(false)
                     }
                 }

@@ -112,7 +112,7 @@ struct CustomEffectsHeader: View {
                         .testID("fx.custom.empty")
                 }
                 if let p = st.problem {
-                    Text(verbatim: p).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Color(hex: 0xE8A93C))
+                    Text(verbatim: p).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.warning)
                         .lineLimit(6).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         .testID("fx.custom.problem")
                 }

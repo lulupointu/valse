@@ -76,17 +76,18 @@ public struct InspectorPanel: View {
             let st = EditorStore.untracked { Self.structure(store) }
             let ctx = st.ctx, tabs = st.tabs, active = st.active, subs = st.subs, sub = st.sub
             Panel {
-                HStack(spacing: 22) {
+                HStack(spacing: 10) {
                     ForEach(tabs) { tab in
                         WithPerceptionTracking {
                             // a Button (not onTapGesture) so the UI test driver's synthetic clicks reach it
                             Button { store.inspectorTab = tab.id } label: {
-                                Text(loc: tab.titleKey)
-                                    .font(Theme.Fonts.panelTitle)
-                                    .foregroundStyle(tab.id == active?.id ? Theme.accent : Theme.textPrimary)
-                                    .lineLimit(1)
-                                    .fixedSize()
-                                    .contentShape(Rectangle())
+                                ValseTabLabel(active: tab.id == active?.id) {
+                                    Text(loc: tab.titleKey)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .lineLimit(1)
+                                        .fixedSize()
+                                }
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .testID("inspector.tab.\(tab.id)")
@@ -141,8 +142,8 @@ struct SubTabBar: View {
                     WithPerceptionTracking {
                         Button { onSelect(item.id) } label: {
                             Text(verbatim: item.title)
-                                .font(.system(size: 12.5, weight: .medium))
-                                .foregroundStyle(selection == item.id ? Theme.textPrimary : Theme.textSecondary)
+                                .font(.system(size: 12.5, weight: selection == item.id ? .semibold : .medium))
+                                .foregroundStyle(selection == item.id ? Theme.accentText : Theme.textSecondary)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity, minHeight: 26)
                                 .background(selection == item.id ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))

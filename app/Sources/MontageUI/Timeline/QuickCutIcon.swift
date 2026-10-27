@@ -49,10 +49,9 @@ struct QuickCutIconButton: View {
                     .stroke(style: StrokeStyle(lineWidth: 1.5 * Self.glyph / 24, lineCap: .round, lineJoin: .round))
                     .frame(width: Self.glyph, height: Self.glyph)
                     .frame(width: 26, height: 26)
-                    .foregroundStyle(active ? Theme.accent : Theme.textPrimary.opacity(0.85))
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ValseIconButtonStyle(active: active))   // the shared toolbar key: hover fill, mint when on
             .help(help)
             .accessibilityLabel(Text(verbatim: help))
             .accessibilityAddTraits(active ? .isSelected : [])

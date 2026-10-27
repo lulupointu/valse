@@ -12,7 +12,6 @@
 "tab.templates" = "Modèles";
 
 /* Barre de titre */
-"titlebar.autosaved" = "Enregistré automatiquement : %@";
 "titlebar.export" = "Exporter";
 "project.untitled" = "Projet sans titre";
 
@@ -171,6 +170,7 @@
 "menu.window" = "Fenêtre";
 "menu.minimize" = "Réduire";
 "menu.fullscreen" = "Passer en plein écran";
+"menu.close" = "Fermer";
 
 /* Raccourcis */
 "shortcut.playPause" = "Lecture/Pause";

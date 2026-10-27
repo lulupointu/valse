@@ -238,14 +238,14 @@ struct AboutPanel: View {
                         .frame(width: 56, height: 56)
                         .overlay(Image(systemName: "film.stack").font(.system(size: 24, weight: .semibold)).foregroundStyle(.black.opacity(0.8)))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(verbatim: "Montage").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                        Text(verbatim: "Montage").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                         Text(loc: "about.version", version).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                         Text(loc: "about.local").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
                     }
                 }
                 UpdatesAndEnvironment()
                 SettingsDivider()
-                Text(loc: "about.licenses").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Text(loc: "about.licenses").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 VStack(spacing: 6) {
                     ForEach(ThirdPartyLicense.all) { l in
                         WithPerceptionTracking {
@@ -297,7 +297,7 @@ struct ContentLibraryCredits: View {
             VStack(alignment: .leading, spacing: 8) {
                 SettingsDivider()
                 HStack {
-                    Text(loc: "about.content.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(loc: "about.content.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     Text(verbatim: "CC0 / Public domain").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.accent)
                         .padding(.horizontal, 6).frame(height: 18)
@@ -390,7 +390,7 @@ struct UpdatesAndEnvironment: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Image(systemName: report.smooth ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                                .foregroundStyle(report.smooth ? Theme.accent : Color(hex: 0xE8B33A))
+                                .foregroundStyle(report.smooth ? Theme.accent : Theme.warning)
                             Text(loc: report.smooth ? "env.verdict.smooth" : "env.verdict.warnings").font(.system(size: 12.5, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                         }
@@ -399,7 +399,7 @@ struct UpdatesAndEnvironment: View {
                                 VStack(alignment: .leading, spacing: 1) {
                                     HStack(spacing: 6) {
                                         Image(systemName: c.status == .ok ? "checkmark.circle" : c.status == .warning ? "exclamationmark.circle" : "xmark.circle")
-                                            .font(.system(size: 11)).foregroundStyle(c.status == .ok ? Theme.accent : Color(hex: 0xE8B33A))
+                                            .font(.system(size: 11)).foregroundStyle(c.status == .ok ? Theme.accent : Theme.warning)
                                         Text(verbatim: tr(c.titleKey)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).frame(width: 150, alignment: .leading)
                                         Text(verbatim: c.value).font(.system(size: 12)).foregroundStyle(Theme.textPrimary).lineLimit(1).truncationMode(.middle)
                                             .testID("env.value.\(c.id)")

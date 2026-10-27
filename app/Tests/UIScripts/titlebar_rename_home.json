@@ -1,0 +1,43 @@
+// VALSE-APP round 12: the editor title bar's left cluster - double-click the project name to rename it inline
+// (Return commits as one undo step, Escape cancels), long names truncate in the middle, then the back arrow returns
+// to Home (saving, like Montage ▸ Back to Home ⌘⇧H).
+{
+  "project": "home:3",
+  "steps": [
+    {"click": "id:home.newProject"},
+    {"waitFor": {"path": "app.screen", "equals": "editor", "timeout": 5}},
+    {"expect": {"path": "app.saveStatus", "equals": "idle"}},
+    // rename, commit with Return
+    {"doubleClick": "id:titlebar.projectName"},
+    {"waitFor": {"path": "ui.anchors", "contains": "titlebar.rename.field", "timeout": 3}},
+    {"type": "Road trip edit", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "app.projectName", "equals": "Road trip edit", "timeout": 3}},
+    {"expect": {"path": "undo.depth", "equals": 1}},
+    {"snapshot": "titlebar-left", "element": "id:titlebar.cluster", "baseline": true},
+    // rename again, cancel with Escape: the name is unchanged
+    {"doubleClick": "id:titlebar.projectName"},
+    {"waitFor": {"path": "ui.anchors", "contains": "titlebar.rename.field", "timeout": 3}},
+    {"type": "Something else", "replace": true},
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.anchors", "notContains": "titlebar.rename.field", "timeout": 3}},
+    {"expect": [{"path": "app.projectName", "equals": "Road trip edit"}, {"path": "undo.depth", "equals": 1}]},
+    // the rename is undoable
+    {"key": "cmd+z"},
+    {"expect": {"path": "undo.depth", "equals": 0}},
+    {"key": "cmd+shift+z"},
+    {"expect": {"path": "app.projectName", "equals": "Road trip edit"}},
+    // a very long name truncates in the middle (full name in the tooltip)
+    {"doubleClick": "id:titlebar.projectName"},
+    {"waitFor": {"path": "ui.anchors", "contains": "titlebar.rename.field", "timeout": 3}},
+    {"type": "Summer road trip across the Alps with the whole family, final cut v3", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "app.projectName", "equals": "Summer road trip across the Alps with the whole family, final cut v3", "timeout": 3}},
+    {"snapshot": "titlebar-long-name", "element": "id:titlebar.cluster", "baseline": true},
+    // back arrow: Home, saved under the new name
+    {"click": "id:titlebar.home"},
+    {"waitFor": {"path": "app.screen", "equals": "home", "timeout": 5}},
+    {"waitFor": {"path": "ui.toast", "equals": "Saved to project", "timeout": 3}},
+    {"expect": {"path": "app.projects", "contains": "Summer road trip across the Alps with the whole family, final cut v3"}}
+  ]
+}

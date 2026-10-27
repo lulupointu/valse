@@ -119,10 +119,9 @@ struct LoudnessSection: View {
                 HStack {
                     Text(loc: "audio.loudness.targetLabel").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker(tr("audio.loudness.targetLabel"), selection: Binding.perceived(get: { l?.targetLUFS ?? -23 }, set: { ctx.store.setLoudnessTarget($0) })) {
-                        ForEach(LoudnessNormalization.targets, id: \.self) { t in WithPerceptionTracking { Text(loc: "audio.loudness.target.\(Int(-t))").tag(t) } }
-                    }
-                    .labelsHidden().frame(width: 180)
+                    Dropdown(items: LoudnessNormalization.targets.map { (id: $0, title: tr("audio.loudness.target.\(Int(-$0))")) },
+                             selection: l?.targetLUFS ?? -23) { ctx.store.setLoudnessTarget($0) }
+                        .frame(width: 180)
                 }
                 if let m = l?.measuredLUFS, m.isFinite {
                     InfoRow(tr("audio.loudness.measured"), String(format: "%.1f LUFS", m))
@@ -226,10 +225,11 @@ struct ToneSection: View {
                 HStack {
                     Text(loc: "audio.channels").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker(tr("audio.channels"), selection: AudioInspector.clipBinding(ctx, "cmd.channels", get: { $0.audio.channels }, set: { c, v in c.audio.channels = v })) {
-                        ForEach(ChannelMode.allCases, id: \.self) { Text(loc: $0.nameKey).tag($0) }
+                    let channels = AudioInspector.clipBinding(ctx, "cmd.channels", get: { $0.audio.channels }, set: { c, v in c.audio.channels = v })
+                    Dropdown(items: ChannelMode.allCases.map { (id: $0, title: tr($0.nameKey)) }, selection: channels.wrappedValue) {
+                        channels.wrappedValue = $0
                     }
-                    .labelsHidden().frame(width: 180)
+                    .frame(width: 180)
                 }
             }
         }
@@ -256,14 +256,12 @@ struct EQEditor: View {
                 HStack {
                     Text(loc: "audio.eq.preset").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Picker(tr("audio.eq.preset"), selection: Binding.perceived(get: { eq.presetID ?? "custom" }, set: { id in
+                    Dropdown(items: [(id: "custom", title: tr("audio.eq.custom"))] + Self.presets.map { (id: $0.id, title: tr("audio.eq.\($0.id)")) },
+                             selection: eq.presetID ?? "custom") { id in
                         guard let p = Self.presets.first(where: { $0.id == id }), let cid = ctx.clip?.id else { return }
                         Bind.apply(store, cid, "cmd.eq") { $0.audio.eq = AudioEQ(gains: p.gains, presetID: p.id) }
-                    })) {
-                        Text(loc: "audio.eq.custom").tag("custom")
-                        ForEach(Self.presets, id: \.id) { Text(loc: "audio.eq.\($0.id)").tag($0.id) }
                     }
-                    .labelsHidden().frame(width: 180)
+                    .frame(width: 180)
                 }
                 HStack(alignment: .bottom, spacing: 2) {
                     ForEach(0..<AudioEQ.frequencies.count, id: \.self) { i in
@@ -277,7 +275,7 @@ struct EQEditor: View {
                                         c.audio.eq?.gains[i] = v.rounded(); c.audio.eq?.presetID = nil
                                     }
                                 }), in: AudioEQ.gainRange) { editing in editing ? store.beginGesture("cmd.eq") : store.endGesture() }
-                                    .controlSize(.mini).tint(.white)
+                                    .controlSize(.mini).valseSliderTint()
                                     .frame(width: 84)
                                     .rotationEffect(.degrees(-90))
                                     .frame(width: 22, height: 84)
@@ -359,7 +357,7 @@ struct VoiceChangerView: View {
             .lineLimit(2)
             .padding(4)
             .frame(maxWidth: .infinity, minHeight: 64, maxHeight: 64)
-            .background(Color(white: 0.23), in: RoundedRectangle(cornerRadius: 6))
+            .background(IStyle.tile, in: RoundedRectangle(cornerRadius: 6))   // round 13: was a neutral #3B3B3B
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : .clear, lineWidth: 2))
             .contentShape(Rectangle())
             .onTapGesture { ctx.store.applyVoice(d?.makeEffect(), toAll: applyToAll) }

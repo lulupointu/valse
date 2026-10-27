@@ -147,7 +147,7 @@ private struct MessageView: View {
             case .user:
                 HStack {
                     Spacer(minLength: 40)
-                    Text(verbatim: message.text).font(Theme.Fonts.row).foregroundStyle(.white)
+                    Text(verbatim: message.text).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary)
                         .padding(.horizontal, 10).padding(.vertical, 7)
                         .background(Theme.accentDim, in: RoundedRectangle(cornerRadius: 10))
                         .textSelection(.enabled)
@@ -181,7 +181,7 @@ private struct PlanCardView: View {
                         ProgressView().controlSize(.small)
                         Text(loc: "pilot.planning").font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
                         Spacer()
-                        Button(tr("ai.cancel")) { store.cancelPilotWork() }.buttonStyle(.link).font(Theme.Fonts.hint)
+                        Button(tr("ai.cancel")) { store.cancelPilotWork() }.buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint)
                     }
                 case .empty:
                     ForEach(Array(EditPilotPanel.suggestionKeys.prefix(3).enumerated()), id: \.offset) { _, key in

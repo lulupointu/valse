@@ -82,7 +82,7 @@ struct SubprojectsView: View {
                     .frame(height: 80)
                 Text(verbatim: Timecode.shortDuration(c.duration)).font(.system(size: 10, weight: .medium).monospacedDigit())
                     .padding(.horizontal, 4).padding(.vertical, 1).background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
-                    .foregroundStyle(.white).padding(4)
+                    .foregroundStyle(Theme.textPrimary).padding(4)
             }
             .overlay(alignment: .bottomTrailing) {
                 Button { store.addSubproject(c.id) } label: {
@@ -91,7 +91,7 @@ struct SubprojectsView: View {
                 .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack")).testID("subprojects.add.\(index)")
             }
             if renaming == c.id {
-                TextField("", text: $name).textFieldStyle(.roundedBorder).font(.system(size: 11.5))
+                TextField("", text: $name).textFieldStyle(ValseFieldStyle()).font(.system(size: 11.5))
                     .onSubmit { store.renameSubproject(c.id, to: name); renaming = nil }
                     .testID("subprojects.renameField")
             } else {

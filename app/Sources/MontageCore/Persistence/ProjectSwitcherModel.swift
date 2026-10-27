@@ -1,8 +1,8 @@
 import Foundation
 
-/// P1 project switcher (title-bar popover, ⌘⇧O): the pure part — which projects are listed, in which order, their
-/// status, keyboard selection and the checks an open must pass BEFORE the current project is closed.
-/// The UI (`MontageUI/Home/ProjectSwitcher.swift`) feeds it `ProjectLibrary` entries and injected lock / drive providers.
+/// Pure project-list logic first written for the P1 project switcher (its title-bar popover was removed in VALSE-APP
+/// round 12: the editor now only has a back arrow to Home). Still used by `AppModel` for the checks an open must pass
+/// BEFORE the current project is closed (open elsewhere, offline drive, missing package).
 public enum ProjectSwitcherModel {
     public enum Status: String, Sendable, Equatable {
         case normal

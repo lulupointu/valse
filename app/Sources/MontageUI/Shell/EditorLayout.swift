@@ -114,6 +114,7 @@ struct LayoutMenuButton: View {
             }
             .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
             .foregroundStyle(Theme.textSecondary)
+            .tint(Theme.textPrimary.opacity(0.82))   // a menu, not an active toggle: never the accent (round 10)
             .help(tr("layout.title"))
             .testID("titlebar.layout")
         }

@@ -118,7 +118,7 @@ struct DroppedFramesBanner: View {
                 }
                 .padding(.horizontal, 10).padding(.vertical, 5)
                 .background(Theme.menu, in: RoundedRectangle(cornerRadius: 6))
-                .shadow(color: .black.opacity(0.35), radius: 6)
+                .valseFloatingCard(radius: 6, depth: 3)
                 .padding(.bottom, 10)
                 .testID("player.droppedFrames")
             }

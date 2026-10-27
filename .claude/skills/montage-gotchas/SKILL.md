@@ -67,6 +67,9 @@ description: Known Montage engineering traps by topic (async tests and AVFoundat
   verify with `scripts/test_x86.sh --filter X`.
 - Always-visible views read store slices (`store.mediaBin`, `store.usedMediaIDs`), never `store.project` (re-render storm);
   new panels live in their own `IsolatedHost` (MontageUI/Shell/IsolatedHost.swift).
+- **Swift -O miscompile (6.3.3)**: in a task-group child, `do { return (i, .success(try await f())) } catch { return (i, .failure(e)) }`
+  returned i = 0 from every child in release builds only (debug fine) → build the `Result` first, `return (i, r)` after the
+  do/catch (OnlineAudioState.load). Host UI gates run debug: check such code with `scripts/uitest.sh --release`.
 
 ## UI test driver
 - Keys while a text field edits go straight to the window, bypassing the app key monitor: fields needing ↑ ↓ Return Esc

@@ -108,8 +108,7 @@ struct QuickCutPopover: View {
             .padding(14)
             .frame(width: Self.width, alignment: .leading)
             .background(Theme.menu, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.08)))
-            .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+            .valseFloatingCard(radius: 8, depth: 4)
             .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { QuickCutEvents.shared.popoverFrame = $0 }
             .onExitCommand { session.close() }
             .testID("quickcut.popover")

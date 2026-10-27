@@ -221,10 +221,11 @@ struct KeyframeCurveEditor: View {
                         Text(verbatim: tr("keyframes.curve.title", KeyframePanel.name(ref.key, in: clip)))
                             .font(Theme.Fonts.sectionTitle).foregroundStyle(Theme.textPrimary)
                         Spacer()
-                        Picker("", selection: Binding.perceived(get: { store.keyframeUI.graphMode }, set: { store.keyframeUI.graphMode = $0 })) {
-                            ForEach(KeyframeUIState.GraphMode.allCases, id: \.self) { m in WithPerceptionTracking { Text(verbatim: tr("keyframes.graph.\(m.rawValue)")).tag(m) } }
-                        }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 150)
+                        // round 13: the Valse inset segmented control, not the system one (neutral grey)
+                        SegmentedTabs(KeyframeUIState.GraphMode.allCases.map { (id: $0.rawValue, title: tr("keyframes.graph.\($0.rawValue)")) },
+                                      selection: Binding.perceived(get: { store.keyframeUI.graphMode.rawValue },
+                                                                   set: { store.keyframeUI.graphMode = KeyframeUIState.GraphMode(rawValue: $0) ?? .value }))
+                            .frame(width: 150)
                     }
                     if isLast {
                         Text(loc: "keyframes.curve.last").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
@@ -270,7 +271,7 @@ struct CurveGraph: View {
                     let s = g.size
                     let pt = { (x: Double, y: Double) -> CGPoint in Self.point(x, y, in: s) }
                     Canvas { ctx, size in
-                        ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4), with: .color(Color(hex: 0x0F0F0F)))
+                        ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4), with: .color(IStyle.graph))
                         for y in [0.0, 1.0] {
                             var l = Path(); l.move(to: pt(0, y)); l.addLine(to: pt(1, y))
                             ctx.stroke(l, with: .color(.white.opacity(0.18)), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))

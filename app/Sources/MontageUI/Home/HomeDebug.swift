@@ -206,8 +206,12 @@ extension AppModel {
             "folders": folders.map(\.name),
             "trashCount": trashCount,
             "projectName": store.projectName,
+            "saveStatus": { switch store.saveStatus {
+                case .idle: return "idle"
+                case .saving: return "saving"
+                case .saved: return "saved"
+                case .failed: return "failed" } }(),
             "launchedWindows": ProjectWindows.launched,
-            "switcher": switcher.stateDump(),   // P1
             "renderedRanges": store.renderedPreviewRanges().map { [$0.start.seconds, $0.end.seconds] },
             "settings": {
                 // every AppSettings field (encoded), plus the language preference

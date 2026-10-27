@@ -165,7 +165,7 @@ struct SafeForSocialBadge: View {
     let itemID: String
     /// CC BY: amber "Credit" badge (safe for social media once the author is credited).
     var needsCredit = false
-    static let green = Color(hex: 0x5BD08A), amber = Color(hex: 0xF0B44C)
+    static let green = Theme.success, amber = Theme.warning
     var body: some View {
         WithPerceptionTracking {
             let open = LicenseCardState.shared.shownID == itemID
@@ -237,12 +237,12 @@ struct LicenseCard: View {
                 }
             }
             .padding(10)
-            .background(Color(hex: 0x262626), in: RoundedRectangle(cornerRadius: 6))
+            .background(Theme.menu, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(tint.opacity(0.35), lineWidth: 1))
             .overlay(alignment: .topLeading) {
                 // popover arrow pointing at the badge
                 Path { p in p.move(to: CGPoint(x: 0, y: 6)); p.addLine(to: CGPoint(x: 6, y: 0)); p.addLine(to: CGPoint(x: 12, y: 6)) }
-                    .fill(Color(hex: 0x262626)).frame(width: 12, height: 6).offset(x: 54, y: -6)
+                    .fill(Theme.menu).frame(width: 12, height: 6).offset(x: 54, y: -6)
             }
             .testID("audio.license.card")
         }

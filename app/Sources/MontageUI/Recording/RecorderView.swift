@@ -357,11 +357,11 @@ struct RecorderModal: View {
     @ViewBuilder var recording: some View {
         VStack(spacing: 14) {
             HStack(spacing: 8) {
-                Circle().fill(model.paused ? Theme.textTertiary : Color.red).frame(width: 10, height: 10)
+                Circle().fill(model.paused ? Theme.textTertiary : Theme.danger).frame(width: 10, height: 10)
                 Text(loc: model.paused ? "record.paused" : "record.recording").font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
             }
-            Text(verbatim: Self.clock(model.elapsed)).font(.system(size: 40, weight: .medium).monospacedDigit()).foregroundStyle(.white)
+            Text(verbatim: Self.clock(model.elapsed)).font(.system(size: 40, weight: .medium).monospacedDigit()).foregroundStyle(Theme.textPrimary)
                 .testID("record.elapsed")
             HStack(spacing: 12) {
                 Button { store.togglePauseRecording(model) } label: {
@@ -372,11 +372,11 @@ struct RecorderModal: View {
                 .buttonStyle(.plain).testID("record.pause")
                 Button { store.stopRecording(model) } label: {
                     Label(tr("record.stop"), systemImage: "stop.fill").frame(width: 140, height: 32)
-                        .background(Color.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
+                        .background(Theme.danger, in: RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain).testID("record.stop")
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.textPrimary)
             HintText(text: tr("record.hint.recording"))
         }
         .frame(maxWidth: .infinity, minHeight: 180)

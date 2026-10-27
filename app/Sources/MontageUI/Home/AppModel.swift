@@ -76,8 +76,6 @@ public final class AppModel {
 
     @PerceptionIgnored private var scanTask: Task<Void, Never>?
     @PerceptionIgnored private var checkedRecovery = false
-    /// P1: title-bar project switcher (⌘⇧O).
-    public let switcher = ProjectSwitcher()
 
     public init(store: EditorStore, preferences: AppPreferences = .shared, library: ProjectLibrary? = nil) {
         self.store = store
@@ -86,8 +84,7 @@ public final class AppModel {
         preferences.store = store
         preferences.apply(to: store)
         TitleBar.showShortcuts = { [weak self] in self?.modal = .shortcuts }
-        switcher.app = self
-        ProjectSwitcher.active = switcher
+        TitleBar.goHome = { [weak self] in self?.backToHome() }   // VALSE-APP round 12: the title bar's back arrow
         OnlineAudioState.openSettings = { [weak self] in self?.modal = .settings(.music) }
         ModifyProjectButton.openProjectSettings = { [weak self] in self?.modal = .projectSettings }   // BUG-OVERSIZED-SHEETS
         // UI tests / demo screenshots (sandbox) neither read nor write the user's Home view preferences
@@ -173,7 +170,7 @@ public final class AppModel {
         }
     }
 
-    /// Opens a project package in the editor (Home card, File ▸ Open, Finder, recovery, project switcher).
+    /// Opens a project package in the editor (Home card, File ▸ Open / Open Recent, Finder, recovery).
     /// P1 safe switching: every check runs BEFORE the current project is closed (a failed open used to leave the user
     /// with nothing open); if the open still fails after the close, the previous project is reopened (else Home).
     public func open(_ url: URL) {
@@ -231,15 +228,6 @@ public final class AppModel {
         for w in NSApp?.windows ?? [] where w.firstResponder is NSText { w.makeFirstResponder(nil) }
     }
 
-    /// P1 (CapCut): the editor's red close button goes back to Home ("Saved to project") instead of quitting.
-    /// Returns true when the window may close (Home: quits as before).
-    public func windowShouldClose() -> Bool {
-        guard screen == .editor else { return true }
-        switcher.close()
-        backToHome()
-        return false
-    }
-
     /// PM-014: File ▸ Open in New Window / Home ▸ … ▸ Open in new window. The project already open here stays put;
     /// one open in another window is brought forward.
     public func openInNewWindow(_ url: URL) {
@@ -272,9 +260,8 @@ public final class AppModel {
         Task { try? await Task.sleep(for: .milliseconds(250)); isTransitioning = false }
     }
 
-    /// File ▸ New (⌘N) / switcher footer: from the editor, the current project is saved and closed first.
+    /// File ▸ New (⌘N): from the editor, the current project is saved and closed first.
     public func newProjectFromAnywhere() {
-        switcher.close()
         if screen == .editor {
             Self.endTextEditing()
             Task { await store.closeProject(); newProject() }
@@ -283,10 +270,10 @@ public final class AppModel {
         }
     }
 
-    /// Montage ▸ Back to home page: saves (toast "Saved to project"), refreshes the cover, shows Home.
+    /// Montage ▸ Back to home page (⌘⇧H) / the title bar's back arrow: saves (toast "Saved to project"), refreshes the
+    /// cover, shows Home.
     public func backToHome() {
         guard screen == .editor else { return }
-        switcher.close()
         Self.endTextEditing()
         let hadProject = store.packageURL != nil
         Task {

@@ -16,6 +16,9 @@
 "home.newProject" = "Nouveau projet";
 "home.newProject.custom" = "Personnaliser";
 "home.newProject.customHelp" = "Nouveau projet avec format, résolution et fréquence d'images";
+"home.playful.hero.subtitle" = "Entrez dans la danse : une timeline vide, prête pour vos clips, votre musique et vos mots.";
+"home.playful.empty.title" = "La piste est à vous";
+"home.playful.empty.body" = "Lancez votre premier projet ci-dessus, ou importez-en un existant.";
 "home.templates.subtitle" = "Partir d'un montage prêt à l'emploi";
 "home.templates.title" = "Modèles";
 "home.templates.soon" = "Les modèles arrivent bientôt. En attendant, créez un projet et utilisez les bibliothèques Texte et Effets.";

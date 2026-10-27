@@ -126,7 +126,7 @@ struct ShapeStyleSection: View {
                             Image(systemName: drawing ? "xmark" : "pencil.tip").font(.system(size: 12, weight: .semibold))
                             Text(loc: drawing ? "shape.draw.cancel" : "shape.draw").font(.system(size: 12, weight: .semibold))
                         }
-                        .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
+                        .foregroundStyle(Theme.textPrimary).padding(.horizontal, 14).frame(height: 26)
                         .background(drawing ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
                     }
                     .buttonStyle(.plain)

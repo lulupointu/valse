@@ -185,7 +185,7 @@ struct SpeechModelCard: View {
                 }
                 if state.isInstalled && !runtime && UpdateController.shared.isAvailable {
                     Button(tr("captions.remedy.checkForUpdates")) { UpdateController.shared.checkNow() }
-                        .buttonStyle(.link).font(Theme.Fonts.hint).testID("captions.engine.checkUpdates")
+                        .buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint).testID("captions.engine.checkUpdates")
                 }
                 ModelStateControls(spec: spec)
                 if state.isInstalled && runtime {
@@ -193,7 +193,7 @@ struct SpeechModelCard: View {
                         Dropdown(items: SpeechEngine.allCases.map { ($0, tr($0.nameKey)) }, selection: store.ai.captionEngine) { store.ai.captionEngine = $0 }
                     }
                 }
-                Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(.link).font(Theme.Fonts.hint)
+                Button(tr("models.manage")) { store.ai.isModelSheetPresented = true }.buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint)
                     .testID("models.manage")
             }
             .padding(10)
@@ -222,7 +222,7 @@ struct ModelStateControls: View {
                     PillButton(title: tr("models.download", ByteCountFormatter.string(fromByteCount: spec.bytes, countStyle: .file)),
                                symbol: "arrow.down.circle", accent: true) { mm.download(spec) }
                         .testID("model.download.\(spec.id)")
-                    Button(tr("models.locate")) { locate() }.buttonStyle(.link).font(Theme.Fonts.hint)
+                    Button(tr("models.locate")) { locate() }.buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint)
                 }
             case .downloading(let p):
                 JobProgressLine(text: tr("models.downloading", Int(p * 100)), progress: p) { mm.cancel(spec) }
@@ -306,7 +306,7 @@ struct ModelManagerSheet: View {
                             HintText(text: tr("models.runtimeMissing"))
                             if UpdateController.shared.isAvailable {
                                 Button(tr("captions.remedy.checkForUpdates")) { UpdateController.shared.checkNow() }
-                                    .buttonStyle(.link).font(Theme.Fonts.hint).testID("models.checkUpdates")
+                                    .buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint).testID("models.checkUpdates")
                             }
                         }
                     }

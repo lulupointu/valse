@@ -71,26 +71,27 @@ struct CoachCard: View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(loc: step.titleKey).font(.system(size: 13, weight: .semibold)).foregroundStyle(.black)
+                    Text(loc: step.titleKey).font(.system(size: 13, weight: .bold, design: .rounded)).foregroundStyle(Theme.Valse.ink)
                     Spacer()
-                    Text(verbatim: "\(step.rawValue + 1)/\(Onboarding.Step.allCases.count)").font(.system(size: 11).monospacedDigit())
-                        .foregroundStyle(.black.opacity(0.6))
+                    Text(verbatim: "\(step.rawValue + 1)/\(Onboarding.Step.allCases.count)").font(.system(size: 11, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(Theme.Valse.ink.opacity(0.6))
                 }
-                Text(loc: step.bodyKey).font(.system(size: 12)).foregroundStyle(.black.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
+                Text(loc: step.bodyKey).font(.system(size: 12)).foregroundStyle(Theme.Valse.ink.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
                 HStack {
-                    Button(tr("tips.skip")) { onboarding.finish() }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.black.opacity(0.6))
+                    Button(tr("tips.skip")) { onboarding.finish() }.buttonStyle(.plain).font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.Valse.ink.opacity(0.65))
                         .testID("tips.skip")
                     Spacer()
                     Button(tr(step == Onboarding.Step.allCases.last ? "tips.done" : "tips.next")) { onboarding.next() }
-                        .buttonStyle(.plain).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                        .padding(.horizontal, 12).padding(.vertical, 5).background(Color.black.opacity(0.85), in: Capsule())
+                        .buttonStyle(AccentButtonStyle())
                         .testID("tips.next")
                 }
             }
             .padding(12)
             .frame(width: 280)
-            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
-            .shadow(color: .black.opacity(0.4), radius: 10)
+            // Valse coach mark: a flat cream card with ink text on a hard teal offset block (zero blur, no soft shadow)
+            .background(Theme.Valse.cream, in: RoundedRectangle(cornerRadius: 10))
+            .valseHardShadow(Theme.accent, radius: 10, depth: 4)
             .testID("tips.card")
         }
     }

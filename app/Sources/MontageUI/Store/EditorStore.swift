@@ -506,15 +506,76 @@ public final class EditorStore {
     }
 
     private func write(to url: URL) {
+        saveBegan()
         do {
             try ProjectPackage.save(projectForSave, to: url)
             session.markSaved()
             lastAutosave = Date()
             firstUnsavedEdit = nil
             saveFailure = nil
+            saveEnded(ok: true, explicit: true)
         } catch {
             reportSaveFailure(error, url: url)
+            saveEnded(ok: false, explicit: true)
         }
+    }
+
+    // MARK: Save status (VALSE-APP round 12: the title bar's quiet save indicator)
+
+    /// What the title bar shows about saving. Quiet by design: `saving` only when a save takes > 0.5 s, `saved` only
+    /// briefly after a visible / explicit save or a recovery from a failure (fast autosaves change nothing on screen),
+    /// `failed` stays until a save succeeds. The reason and its fix are BUG-ERROR-COPY's `saveFailure` banner; the title
+    /// bar shows the quiet "Not saved" key (click = retry, the banner's message as tooltip).
+    public enum SaveStatus: Equatable {
+        case idle, saving, saved, failed
+    }
+    public private(set) var saveStatus: SaveStatus = .idle
+    @PerceptionIgnored private var slowSaveTask: Task<Void, Never>?
+    @PerceptionIgnored private var savedFadeTask: Task<Void, Never>?
+
+    func saveBegan() {
+        slowSaveTask?.cancel()
+        guard !Self.quietSaveStatus, Self.debugSaveStatus == nil else { return }
+        slowSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled, let self, case .idle = self.saveStatus else { return }
+            self.saveStatus = .saving
+        }
+    }
+
+    func saveEnded(ok: Bool, explicit: Bool) {
+        guard Self.debugSaveStatus == nil else { return }
+        slowSaveTask?.cancel()
+        savedFadeTask?.cancel()
+        if !ok { saveStatus = .failed; return }
+        let wasVisible: Bool = { switch saveStatus { case .saving, .failed: return true; default: return false } }()
+        guard wasVisible || explicit, !Self.quietSaveStatus else { saveStatus = .idle; return }
+        saveStatus = .saved
+        savedFadeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, let self, self.saveStatus == .saved else { return }
+            self.saveStatus = .idle
+        }
+    }
+
+    /// UI tests / screenshots: no timed status changes (deterministic baselines); failures still show.
+    static let quietSaveStatus: Bool = CommandLine.arguments.contains("--uitest") || CommandLine.arguments.contains("--snapshot")
+
+    /// Review stills only: `VALSE_DEBUG_SAVE=saving|saved|failed` pins the title bar's save status on load.
+    static let debugSaveStatus: SaveStatus? = {
+        switch ProcessInfo.processInfo.environment["VALSE_DEBUG_SAVE"] {
+        case "saving": return .saving
+        case "saved": return .saved
+        case "failed": return .failed
+        default: return nil
+        }
+    }()
+
+    /// Renames the open project in place (title bar), as one undo step. Blank or unchanged names are ignored.
+    public func renameProject(_ name: String) {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !n.isEmpty, n != projectName else { return }
+        perform(Edit("cmd.renameProject") { $0.name = n })
     }
 
     public func open(_ url: URL) throws {
@@ -543,6 +604,7 @@ public final class EditorStore {
         syncProjectSlices()
         playerUI.loadGuides(p.guides)
         lastAutosave = nil
+        saveStatus = Self.debugSaveStatus ?? .idle
         engine.update(project: p, force: true)
         engine.seek(to: .zero)
         Task { await ProxyManager.shared.request(p.media) }
@@ -569,6 +631,7 @@ public final class EditorStore {
             let url = self.packageURL ?? MontagePaths.newProjectURL(baseName: self.projectName)
             if self.packageURL == nil { self.packageURL = url; SessionLock.acquire(url) }
             let rev = self.session.revision
+            self.saveBegan()
             let error: (any Error)? = await Task.detached { () -> (any Error)? in
                 do { try ProjectPackage.save(snapshot, to: url); return nil } catch { return error }
             }.value
@@ -576,6 +639,7 @@ public final class EditorStore {
             if ok && self.session.revision == rev { self.session.markSaved(); self.lastAutosave = Date(); self.firstUnsavedEdit = nil }
             if ok { self.saveFailure = nil; self.didAutosave(snapshot, to: url) }
             if let error { self.reportSaveFailure(error, url: url) }   // BUG-ERROR-COPY: autosave failures were silent
+            self.saveEnded(ok: ok, explicit: false)
         }
     }
 

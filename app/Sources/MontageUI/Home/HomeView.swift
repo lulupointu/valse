@@ -21,7 +21,7 @@ struct HomeView: View {
                     HomeTopBar(app: app)
                 }
             }
-            .background(Theme.home)
+            .background(Theme.Valse.canvas)
             .overlay { ShortsWizardHost(app: app) }   // AI2 (AI-031)
             .overlay(alignment: .top) { ToastView(toast: app.store.toast).padding(.top, 54) }
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in
@@ -31,7 +31,7 @@ struct HomeView: View {
                 }
                 return true
             }
-            .task { if !app.hasScanned { await app.refresh() } }
+            .task { if !app.hasScanned { await app.refresh() } } .task { await ValseDebugClock.shared.recordIfRequested() }   // review videos only (VALSE_DEBUG_FRAMES)
         }
     }
 }
@@ -62,14 +62,14 @@ struct HomeSidebar: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 7).fill(LinearGradient(colors: [Color(hex: 0x6CC9DD), Color(hex: 0x4FB4C9)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 28, height: 28)
-                        .overlay(Image(systemName: "film.stack").font(.system(size: 13, weight: .semibold)).foregroundStyle(.black.opacity(0.8)))
-                    Text(verbatim: "Montage").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                HStack(spacing: 6) {
+                    ValseMark(small: true).frame(width: 42, height: 42).padding(.vertical, -4)
+                    Text(verbatim: "Valse").font(Theme.Valse.Fonts.wordmark).foregroundStyle(Theme.Valse.cream)
                 }
-                .padding(.top, 44).padding(.bottom, 20).padding(.leading, 6)
-                Text(loc: "home.videoEditing").font(.system(size: 11)).foregroundStyle(Theme.textTertiary).padding(.leading, 6).padding(.bottom, 4)
+                .padding(.top, 40).padding(.bottom, 22).padding(.leading, 2)
+                .accessibilityElement(children: .combine)
+                Text(loc: "home.videoEditing").font(Theme.Valse.Fonts.overline).foregroundStyle(Theme.Valse.text3)
+                    .textCase(.uppercase).tracking(0.6).padding(.leading, 8).padding(.bottom, 6)
                 NavItem(symbol: "house", title: tr("home.nav.home"), selected: app.section == .projects && app.scope == .all, id: "home") {
                     app.section = .projects; app.scope = .all
                 }
@@ -77,20 +77,23 @@ struct HomeSidebar: View {
                     app.section = .projects; app.scope = .recents
                 }
                 NavItem(symbol: "rectangle.stack", title: tr("home.nav.templates"), selected: app.section == .templates, id: "templates") { app.section = .templates }
-                Rectangle().fill(Theme.separator).frame(height: 1).padding(.vertical, 10)
+                Rectangle().fill(Theme.Valse.stroke).frame(height: 1).padding(.vertical, 12).padding(.horizontal, 8)
                 HStack {
-                    Text(loc: "home.folders").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                    Text(loc: "home.folders").font(Theme.Valse.Fonts.overline).foregroundStyle(Theme.Valse.text3).textCase(.uppercase).tracking(0.6)
                     Spacer()
-                    Button { app.modal = .newFolder } label: { Image(systemName: "plus").font(.system(size: 11, weight: .semibold)) }
-                        .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("home.folder.create")).testID("home.folder.add")
+                    Button { app.modal = .newFolder } label: {
+                        Image(systemName: "plus").font(.system(size: 11, weight: .semibold)).frame(width: 20, height: 20).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).foregroundStyle(Theme.Valse.text2).help(tr("home.folder.create")).testID("home.folder.add")
                 }
-                .padding(.horizontal, 6).padding(.bottom, 2)
+                .padding(.leading, 8).padding(.trailing, 4).padding(.bottom, 2)
                 ScrollView {
                     VStack(spacing: 2) {
                         ForEach(Array(app.folders.enumerated()), id: \.element.id) { i, f in
                             WithPerceptionTracking {
                                 NavItem(symbol: "folder", title: f.name, selected: app.section == .projects && app.scope == .folder(f.id),
-                                        badge: app.entries.filter { $0.folderID == f.id && $0.trashedAt == nil }.count, id: "folder.\(i)") {
+                                        badge: app.entries.filter { $0.folderID == f.id && $0.trashedAt == nil }.count, id: "folder.\(i)",
+                                        tint: ValsePlayfulTint.folder(i)) {
                                     app.section = .projects; app.scope = .folder(f.id)
                                 }
                                 .contextMenu {
@@ -103,8 +106,8 @@ struct HomeSidebar: View {
                             }
                         }
                         if app.folders.isEmpty {
-                            Text(loc: "home.folders.empty").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
-                                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 6).padding(.vertical, 4)
+                            Text(loc: "home.folders.empty").font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text3)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.vertical, 4)
                         }
                     }
                 }
@@ -115,8 +118,9 @@ struct HomeSidebar: View {
                 NavItem(symbol: "gearshape", title: tr("settings.title"), selected: false, id: "settings") { app.modal = .settings(.general) }
                     .padding(.bottom, 14)
             }
-            .padding(.horizontal, 16)
-            .background(Theme.home)
+            .padding(.horizontal, 14)
+            .background(Theme.Valse.sidebar)
+            .overlay(alignment: .trailing) { Rectangle().fill(Theme.Valse.stroke).frame(width: 1) }
         }
     }
 }
@@ -127,24 +131,36 @@ struct NavItem: View {
     let selected: Bool
     var badge: Int = 0
     var id: String = ""
+    /// Idle icon tint (folders rotate through the palette).
+    var tint: Color? = nil
     let action: () -> Void
-    @State private var hover = false
+    @State private var hoverState = false
     var body: some View {
         WithPerceptionTracking {
+            let hover = ValseDebugHover.merge(hoverState, "nav.\(id)")
+            let r = ValseShape.control
             Button(action: action) {
-                HStack(spacing: 10) {
-                    Image(systemName: symbol).font(.system(size: 13)).frame(width: 18)
-                    Text(verbatim: title).font(.system(size: 13, weight: selected ? .medium : .regular)).lineLimit(1)
-                    Spacer(minLength: 0)
-                    if badge > 0 { Text(verbatim: "\(badge)").font(.system(size: 11)).foregroundStyle(Theme.textTertiary) }
+                ValseTween(on: hover && !selected, response: 0.34, damping: 0.5) { p in
+                    HStack(spacing: 10) {
+                        Image(systemName: symbol).font(.system(size: 13, weight: selected ? .bold : .regular))
+                            .foregroundStyle(selected ? Theme.Valse.ink : (tint ?? Theme.Valse.text2))
+                            .scaleEffect(1 + 0.12 * p)
+                            .frame(width: 18)
+                        Text(verbatim: title).font(.system(size: 13, weight: selected ? .bold : .regular)).lineLimit(1)
+                        Spacer(minLength: 0)
+                        if badge > 0 { Text(verbatim: "\(badge)").font(.system(size: 11, weight: selected ? .bold : .regular).monospacedDigit())
+                            .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text3) }
+                    }
                 }
-                .foregroundStyle(selected ? .white : Theme.textSecondary)
-                .padding(.horizontal, 10).frame(height: 36)
-                .background(selected ? Color(hex: 0x1E2829) : (hover ? Color.white.opacity(0.04) : .clear), in: RoundedRectangle(cornerRadius: 6))
+                .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text2)
+                .padding(.leading, 12).padding(.trailing, 10).frame(height: 34)
+                .background(!selected && hover ? Theme.Valse.surface : .clear, in: RoundedRectangle(cornerRadius: r))
+                // Selected = flat mint sticker on a solid teal offset block, ink + bold (block + offset + weight: not hue only).
+                .valseSticker(selected, radius: r)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .onHover { hover = $0 }
+            .valseHover($hoverState)
             .testID("home.nav.\(id)")
         }
     }
@@ -195,7 +211,7 @@ struct ProjectsColumn: View {
                         }
                     } else {
                         ProjectListHeader(app: app)
-                        LazyVStack(spacing: 0) {
+                        LazyVStack(spacing: 5) {
                             ForEach(Array(list.enumerated()), id: \.element.id) { i, e in WithPerceptionTracking { ProjectRow(app: app, entry: e, all: list).testID("home.row.\(i)") } }
                         }
                     }
@@ -203,7 +219,7 @@ struct ProjectsColumn: View {
                 .padding(.horizontal, 32).padding(.top, 44).padding(.bottom, 40)
             }
             .scrollIndicators(.automatic)
-            .background(Theme.home)
+            .background(Theme.Valse.canvas)
             .contentShape(Rectangle())
             .onTapGesture { app.selectedIDs = []; app.renamingID = nil }
             .overlay(alignment: .bottom) { if app.selectedIDs.count > 1 { SelectionBar(app: app) } }
@@ -240,43 +256,54 @@ extension AppModel {
     func targets(_ e: LibraryEntry) -> [LibraryEntry] { selectedIDs.contains(e.id) && selectedIDs.count > 1 ? selectedEntries : [e] }
 }
 
-/// Big gradient banner (cyan → teal), "+ New project": one click → editor. The ⚙ chip opens the settings dialog.
+/// The "+ New project" hero: one click → editor. The Custom chip opens the settings dialog. The ribbon draws itself in
+/// once per launch, then idles (slow film, the loop swelling in 3/4); hover speeds the film up.
 struct NewProjectHero: View {
     @Perception.Bindable var app: AppModel
-    @State private var hover = false
+    @State private var hoverState = false
     var body: some View {
         WithPerceptionTracking {
+            let hover = ValseDebugHover.merge(hoverState, "hero")
+            let r = ValseShape.hero
             Button { app.newProject() } label: {
-                ZStack {
-                    LinearGradient(colors: [Color(hex: 0x6CC9DD), Color(hex: 0x57BECB), Color(hex: 0x4FB4C9)], startPoint: .leading, endPoint: .trailing)
-                    RadialGradient(colors: [.white.opacity(hover ? 0.35 : 0.22), .clear], center: .init(x: 0.62, y: 0.2), startRadius: 0, endRadius: 420)
-                    HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.85)).frame(width: 22, height: 22)
-                            .overlay(Image(systemName: "plus").font(.system(size: 13, weight: .bold)).foregroundStyle(Color(hex: 0x6CC9DD)))
-                        Text(loc: "home.newProject").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.black.opacity(0.85))
+                ZStack(alignment: .leading) {
+                    let bg = hover ? Theme.Valse.raised : Theme.Valse.surface
+                    bg
+                    ValseHeroRibbon(hover: hover, background: bg)
+                    HStack(spacing: 16) {
+                        // "+" tile: pops up off a solid orange offset block and spins a quarter turn on hover (spring).
+                        ValseTween(on: hover, response: 0.45, damping: 0.55) { p in
+                            RoundedRectangle(cornerRadius: 14).fill(Theme.Valse.mustard).frame(width: 44, height: 44)
+                                .overlay(Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(Theme.Valse.ink)
+                                    .rotationEffect(.degrees(90 * p)))
+                                .offset(x: -2 * p, y: -2 * p)
+                                .valseHardShadow(Theme.Valse.orange, radius: 14, depth: 2 * max(0, p))   // 4 pt apart at rest-hover
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(loc: "home.newProject").font(Theme.Valse.Fonts.heroTitle).foregroundStyle(Theme.Valse.text)
+                            Text(loc: "home.playful.hero.subtitle").font(.system(size: 12.5)).foregroundStyle(Theme.Valse.text2)
+                        }
                     }
+                    .padding(.leading, 28)
                 }
-                .frame(height: 140)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .scaleEffect(hover ? 1.003 : 1)
+                .frame(height: ValseHeroRibbon.heroHeight)
+                .clipShape(RoundedRectangle(cornerRadius: r))
+                .overlay(RoundedRectangle(cornerRadius: r).stroke(hover ? Theme.Valse.controlHover : Theme.Valse.stroke))
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .onHover { hover = $0 }
-            .overlay(alignment: .bottomTrailing) {
+            .buttonStyle(ValseSquashStyle())
+            .valseHover($hoverState)
+            .overlay(alignment: .topTrailing) {
                 Button { app.modal = .newProject } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
                         Image(systemName: "slider.horizontal.3").font(.system(size: 11, weight: .semibold))
-                        Text(loc: "home.newProject.custom").font(.system(size: 12, weight: .medium))
+                        Text(loc: "home.newProject.custom")
                     }
-                    .foregroundStyle(Color.black.opacity(0.8))
-                    .padding(.horizontal, 10).frame(height: 26)
-                    .background(Color.white.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ValseSecondaryButtonStyle(compact: true, debugID: "custom"))
                 .help(tr("home.newProject.customHelp"))
                 .testID("home.newProject.custom")
-                .padding(12)
+                .padding(14)
             }
             .accessibilityLabel(Text(loc: "home.newProject"))
             .testID("home.newProject")
@@ -290,12 +317,12 @@ struct HomeFeatureRow: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 14) {
-                FeatureCard(symbol: "rectangle.stack.badge.play", title: tr("home.nav.templates"), subtitle: tr("home.templates.subtitle")) { app.section = .templates }
+                FeatureCard(symbol: "rectangle.stack.badge.play", tint: Theme.Valse.teal, tileBlock: FeatureCard.tealShade, motion: .fan, debugID: "feature0", title: tr("home.nav.templates"), subtitle: tr("home.templates.subtitle")) { app.section = .templates }
                     .testID("home.feature.templates")
-                FeatureCard(symbol: "square.and.arrow.down.on.square", title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
+                FeatureCard(symbol: "square.and.arrow.down.on.square", tint: Theme.Valse.mustard, tileBlock: Theme.Valse.orange, motion: .drop, debugID: "feature1", title: tr("home.importProject"), subtitle: tr("home.importProject.subtitle")) { app.importProjectPanel() }
                     .testID("home.feature.import")
                 // AI2 (AI-031): Long video to shorts wizard (ShortsWizard.swift)
-                FeatureCard(symbol: "scissors.badge.ellipsis", title: tr("shorts.title"), subtitle: tr("shorts.subtitle")) { ShortsWizardState.shared.present() }
+                FeatureCard(symbol: "scissors.badge.ellipsis", tint: Theme.Valse.orange, tileBlock: Theme.Valse.burgundy, motion: .snip, debugID: "feature2", title: tr("shorts.title"), subtitle: tr("shorts.subtitle")) { ShortsWizardState.shared.present() }
                     .testID("home.feature.shorts")
                 Spacer(minLength: 0)
             }
@@ -303,32 +330,227 @@ struct HomeFeatureRow: View {
     }
 }
 
+/// Feature card (round 7). Rest: a flat wash of the card colour on the surface, a hairline. Hover: the card lifts 2 pt
+/// up-left off a solid, muted block of its colour, a cream hairline comes up, and the icon tile pops 1.5 pt off its own
+/// block. Press (`ValseCardPress`): Custom's feel (quick spring, one release pop, dimmed fill), but the motion is the 80s print one: the card is
+/// driven down onto its block (only a sliver left showing) and the tile settles onto its block a beat later; release
+/// springs both back up. Identical for the three cards.
 struct FeatureCard: View {
     let symbol: String
+    var tint: Color = Theme.Valse.teal
+    /// The icon tile's solid block: its darker warm partner (mustard on orange, as the "+" tile; orange on burgundy),
+    /// teal on its own shade (a red or orange fringe under teal read as misregistration).
+    var tileBlock: Color = Theme.Valse.burgundy
+    static let tealShade = Color(hex: 0x20604E)
+    /// The icon's small themed motion while hovered.
+    enum Motion { case fan, drop, snip }
+    var motion: Motion = .fan
+    var debugID = ""
     let title: String
     let subtitle: String
     let action: () -> Void
-    @State private var hover = false
+    @State private var hoverState = false
     var body: some View {
         WithPerceptionTracking {
             Button(action: action) {
-                HStack(spacing: 12) {
-                    Image(systemName: symbol).font(.system(size: 18)).foregroundStyle(Theme.accent).frame(width: 30)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(verbatim: title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
-                        Text(verbatim: subtitle).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(2)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 16)
-                .frame(width: 300, height: 72)
-                .background(LinearGradient(colors: [Color(hex: 0x274759).opacity(hover ? 1 : 0.85), Color(hex: 0x1E3440)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            in: RoundedRectangle(cornerRadius: 8))
-                .contentShape(Rectangle())
+                FeatureCardFace(symbol: symbol, tint: tint, tileBlock: tileBlock, motion: motion, debugID: debugID,
+                                title: title, subtitle: subtitle, hoverState: $hoverState)
             }
-            .buttonStyle(.plain)
-            .onHover { hover = $0 }
+            .buttonStyle(ValsePressReportingStyle())
+            .valseHover($hoverState)
         }
+    }
+}
+
+private struct FeatureCardFace: View {
+    let symbol: String
+    let tint: Color
+    let tileBlock: Color
+    let motion: FeatureCard.Motion
+    let debugID: String
+    let title: String
+    let subtitle: String
+    @Binding var hoverState: Bool
+    @Environment(\.valsePressed) private var pressed
+    @ObservedObject private var clock = ValseDebugClock.shared
+    @State private var anchor = DropdownMenu.Anchor()
+
+    var body: some View {
+        let r = ValseShape.card
+        // Everything is derived from the pointer and the button's own `isPressed`, nothing else is held.
+        let hovered = clock.debugHover(debugID) ?? ValseDebugHover.merge(hoverState, debugID)
+        let held = pressed || clock.debugPressed(debugID)
+        let k = ValseLift.spring(hover: hovered)
+        ValsePressValue(pressed: held, debugID: debugID, response: ValseCardPress.response, damping: ValseCardPress.damping) { press in
+            ValsePressValue(pressed: held, debugID: debugID, response: ValseCardPress.tileResponse, damping: ValseCardPress.tileDamping) { settle in
+                ValseSpringValue(target: hovered ? 1 : 0, response: k.response, damping: k.damping,
+                                 debugEvents: clock.hoverEvents(debugID)) { h in
+                    face(h: h, press: press, settle: settle, radius: r)
+                }
+            }
+        }
+        // the lifted / pushed card and its block stay inside the hit area
+        .contentShape(Rectangle().inset(by: -ValseCardPress.depth))
+        .background(DropdownMenu.AnchorView(anchor: anchor))
+        // A press that ends after the pointer was dragged out (released outside: no action) gets no hover exit from
+        // AppKit while the button is down; re-read where the pointer really is whenever the press starts or ends.
+        .onValueChange(of: pressed) { _, _ in recheckPointer() }
+    }
+
+    private func face(h: Double, press: Double, settle: Double, radius r: CGFloat) -> some View {
+        let up = max(0, h), on = min(1, up)
+        let d = ValseCardPress.card(h: h, k: press)
+        return HStack(spacing: 10) {
+            tile(up: up, settle: settle)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: title).font(Theme.Valse.Fonts.cardTitle).foregroundStyle(Theme.Valse.text)
+                    .lineLimit(1).minimumScaleFactor(0.85)
+                Text(verbatim: subtitle).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text2).lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 12).padding(.trailing, 10)
+        .frame(width: 300, height: 72)
+        .background {
+            // flat fill: a wash of the card colour on the surface (no gradient), a touch stronger while lifted;
+            // dimmed while pressed (Custom's 75 %)
+            ZStack {
+                Theme.Valse.surface
+                tint.opacity(0.10 + 0.04 * on)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: r))
+            .opacity(min(1, 1 - (1 - ValsePress.fillOpacity) * press))
+        }
+        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.stroke))
+        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.cream.opacity(0.22 * on)))
+        .offset(x: d, y: d)
+        .background(RoundedRectangle(cornerRadius: r).fill(tint.opacity(0.42))
+            .offset(x: ValseCardPress.block(h: h), y: ValseCardPress.block(h: h))
+            .opacity(ValseLift.showsBlock(h) ? 1 : 0))
+    }
+
+    /// The icon tile: tile and glyph are one unit (a ZStack), so every offset moves both together and the glyph's own
+    /// motion only rotates / scales about the tile's centre.
+    private func tile(up: Double, settle: Double) -> some View {
+        let t = ValseCardPress.tile(h: up, k2: settle)
+        let b = ValseCardPress.tileDepth * CGFloat(up)
+        return ZStack {
+            RoundedRectangle(cornerRadius: 11).fill(tint)
+            icon(up)
+        }
+        .frame(width: 34, height: 34)
+        .offset(x: -t, y: -t)
+        .background(RoundedRectangle(cornerRadius: 11).fill(tileBlock)
+            .offset(x: b, y: b)
+            .opacity(ValseLift.showsBlock(up) ? 1 : 0))
+    }
+
+    /// One motion per card, following the hover spring, about the glyph's centre: the template stack fans out, the
+    /// import glyph swells, the scissors tilt into a cut.
+    @ViewBuilder private func icon(_ m: Double) -> some View {
+        let glyph = Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.Valse.ink)
+        switch motion {
+        case .fan:
+            ZStack {
+                glyph.opacity(0.4 * min(1, m)).rotationEffect(.degrees(14 * m))
+                glyph.rotationEffect(.degrees(-10 * m))
+            }
+        case .drop:
+            glyph.scaleEffect(1 + 0.12 * m)
+        case .snip:
+            glyph.rotationEffect(.degrees(-14 * m))
+        }
+    }
+
+    private func recheckPointer() {
+        guard !ValseDebugHover.ignoreReal else { return }
+        guard let v = anchor.view, let w = v.window else { if hoverState { hoverState = false }; return }
+        let p = w.mouseLocationOutsideOfEventStream
+        let inside = v.bounds.contains(v.convert(p, from: nil)) && NSApp.isActive && !ModalHoverGate.isBlocked(p, in: w)
+        if hoverState != inside { hoverState = inside }
+    }
+}
+
+/// Press feedback for the hero: a small springy squash.
+struct ValseSquashStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { ValseSquash(pressed: configuration.isPressed) { configuration.label } }
+}
+
+private struct ValseSquash<Label: View>: View {
+    let pressed: Bool
+    @ViewBuilder let label: () -> Label
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        label()
+            .scaleEffect(pressed && !reduceMotion ? 0.985 : 1)
+            .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.6), value: pressed)
+    }
+}
+
+/// The hero's ribbon, animated: draws itself in once per launch (2 s), then idles (film advancing slowly); hover speeds
+/// the film up. The loop's shape never moves. Paused while the window is inactive; static final frame under Reduce
+/// Motion, in UI tests and in plain screenshots.
+struct ValseHeroRibbon: View {
+    let hover: Bool
+    let background: Color
+    @ObservedObject private var clock = ValseDebugClock.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.controlActiveState) private var activeState
+    @State private var introStart: Date? = ValseHeroRibbon.introPlayed ? nil : Date()
+    @State private var introDone = ValseHeroRibbon.introPlayed
+    @State private var hoverChanged = Date.distantPast
+    @State private var film = FilmPhase()
+    @MainActor static var introPlayed = false
+
+    static let introDuration = 2.0
+    /// Ribbon placement (bottom of the V's turn, centreline): the mark at 38 pt is 149 pt tall, hence the 180 pt hero.
+    static let turnFromTrailing: CGFloat = 300, turnBottom: CGFloat = 30
+    static let heroHeight: CGFloat = 180
+    static let idleSpeed = 7.0, hoverSpeed = 34.0   // film, pt / s
+
+    var body: some View {
+        if let t = clock.t {
+            // review clock: intro from t = 0, hover from VALSE_DEBUG_HOVER_AT
+            let hv = max(0, t - clock.hoverAt)
+            let extra = hover ? max(0, hv - 0.25) * (Self.hoverSpeed - Self.idleSpeed) : 0
+            ribbon(trim: ValseMotion.easeInOut(t / Self.introDuration), phase: CGFloat(t * Self.idleSpeed + extra))
+        } else if !ValseMotion.live(reduceMotion) {
+            ribbon(trim: 1, phase: 0)
+        } else {
+            // Idle film paused while the window is inactive (no work in the background), but never the intro: it used to
+            // freeze half drawn (or not drawn at all after an inactive launch) until the window was activated.
+            SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30, paused: activeState == .inactive && introDone)) { tl in
+                let now = tl.date
+                let trim = introStart.map { ValseMotion.easeInOut(now.timeIntervalSince($0) / Self.introDuration) } ?? 1
+                let since = now.timeIntervalSince(hoverChanged)
+                let ramp = hover ? ValseMotion.easeInOut(since / 0.5) : 1 - ValseMotion.easeInOut(since / 0.7)
+                ribbon(trim: trim, phase: film.advance(to: now, speed: Self.idleSpeed + (Self.hoverSpeed - Self.idleSpeed) * ramp))
+            }
+            .onValueChange(of: hover) { _, _ in hoverChanged = Date() }
+            .onAppear { Self.introPlayed = true }
+            .task {
+                guard let s = introStart, !introDone else { return }
+                try? await Task.sleep(for: .seconds(max(0, Self.introDuration - Date().timeIntervalSince(s)) + 0.1))
+                introDone = true
+            }
+        }
+    }
+
+    private func ribbon(trim: Double, phase: CGFloat) -> some View {
+        // the logo's own path at the hero's band width; the loop's right side stays clear of the Custom chip
+        ValseRibbon(width: 38, background: background, loop: .init(turnFromTrailing: Self.turnFromTrailing, bottom: Self.turnBottom),
+                    trim: trim, phase: phase)
+    }
+}
+
+/// Integrates the film position across speed changes (no jump when the hover speed ramps).
+@MainActor final class FilmPhase {
+    private var last: Date?
+    private var value: CGFloat = 0
+    func advance(to now: Date, speed: Double) -> CGFloat {
+        if let l = last { value += CGFloat(min(0.1, max(0, now.timeIntervalSince(l))) * speed) }
+        last = now
+        return value
     }
 }
 
@@ -350,26 +572,32 @@ struct ProjectsHeader: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 8) {
-                Text(verbatim: title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                if app.hasScanned { Text(verbatim: "\(count)").font(.system(size: 12)).foregroundStyle(Theme.textTertiary) }
+                Text(verbatim: title).font(Theme.Valse.Fonts.pageTitle).foregroundStyle(Theme.Valse.text)
+                if app.hasScanned {
+                    Text(verbatim: "\(count)").font(.system(size: 11, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(Theme.Valse.mustard)
+                        .padding(.horizontal, 7).frame(height: 18)
+                        .background(Theme.Valse.mustard.opacity(0.16), in: Capsule())
+                }
                 if app.scope == .trash {
-                    Text(loc: "home.trash.hint", ProjectLibrary.trashRetentionDays).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
+                    Text(loc: "home.trash.hint", ProjectLibrary.trashRetentionDays).font(Theme.Valse.Fonts.caption).foregroundStyle(Theme.Valse.text3)
                 }
                 Spacer()
                 if app.scope == .trash, count > 0 {
-                    Button(tr("home.trash.empty")) { app.emptyTrash() }.buttonStyle(SecondaryButtonStyle()).testID("home.trash.empty")
+                    Button(tr("home.trash.empty")) { app.emptyTrash() }.buttonStyle(ValseSecondaryButtonStyle(compact: true)).testID("home.trash.empty")
                 }
                 if app.isSearching {
                     HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                        Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.Valse.text3)
                         TextField(tr("home.search.placeholder"), text: $app.search)
                             .textFieldStyle(.plain).font(.system(size: 12)).focused($searchFocused).testID("home.search.field")
                             .onExitCommand { app.search = ""; app.isSearching = false }
                         Button { app.search = ""; app.isSearching = false } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).testID("home.search.clear")
+                            .buttonStyle(.plain).foregroundStyle(Theme.Valse.text3).testID("home.search.clear")
                     }
                     .padding(.horizontal, 8).frame(width: 220, height: 28)
-                    .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                    .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: ValseShape.control))
+                    .overlay(RoundedRectangle(cornerRadius: ValseShape.control).stroke(Theme.Valse.teal.opacity(searchFocused ? 0.9 : 0), lineWidth: 1.5))
                     .onAppear { searchFocused = true }
                 } else {
                     HeaderButton(symbol: "magnifyingglass", help: tr("home.search")) { app.isSearching = true }.testID("home.search")
@@ -388,18 +616,25 @@ struct ProjectsHeader: View {
                         Image(systemName: "arrow.up.arrow.down").font(.system(size: 11))
                         Text(verbatim: tr(app.sort.nameKey)).font(.system(size: 12))
                     }
-                    .foregroundStyle(Theme.textPrimary)
+                    .foregroundStyle(Theme.Valse.text)
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .padding(.horizontal, 10).frame(height: 28)
-                .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: ValseShape.control))
                 .help(tr("home.sort"))
                 .testID("home.sort")
+                // Segmented: a raised pill (shape cue) slides with a spring to the active mode; its glyph turns mint.
                 HStack(spacing: 0) {
-                    HeaderButton(symbol: "square.grid.2x2", help: tr("home.view.grid"), active: app.viewMode == .grid) { app.setViewMode(.grid) }.testID("home.view.grid")
-                    HeaderButton(symbol: "list.bullet", help: tr("home.view.list"), active: app.viewMode == .list) { app.setViewMode(.list) }.testID("home.view.list")
+                    HeaderButton(symbol: "square.grid.2x2", help: tr("home.view.grid"), active: app.viewMode == .grid, segment: true) { app.setViewMode(.grid) }.testID("home.view.grid")
+                    HeaderButton(symbol: "list.bullet", help: tr("home.view.list"), active: app.viewMode == .list, segment: true) { app.setViewMode(.list) }.testID("home.view.list")
                 }
-                .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                .background(alignment: .leading) {
+                    ValseTween(on: app.viewMode == .list, response: 0.36, damping: 0.62) { p in
+                        RoundedRectangle(cornerRadius: 6).fill(Theme.Valse.controlHover).frame(width: 32, height: 24).offset(x: 32 * p)
+                    }
+                }
+                .padding(2)
+                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: ValseShape.control))
             }
         }
     }
@@ -409,18 +644,23 @@ struct HeaderButton: View {
     let symbol: String
     let help: String
     var active = false
+    var segment = false
     let action: () -> Void
+    @State private var hover = false
     var body: some View {
         WithPerceptionTracking {
             Button(action: action) {
-                Image(systemName: symbol).font(.system(size: 12))
-                    .foregroundStyle(active ? Theme.accent : Theme.textPrimary)
-                    .frame(width: 36, height: 28)
-                    .background(Color(hex: 0x29292D), in: RoundedRectangle(cornerRadius: 6))
+                Image(systemName: symbol).font(.system(size: 12, weight: active ? .semibold : .regular))
+                    .foregroundStyle(active ? Theme.Valse.mint : (hover ? Theme.Valse.text : Theme.Valse.text2))
+                    .frame(width: segment ? 32 : 36, height: segment ? 24 : 28)
+                    .background(segment ? .clear : (hover ? Theme.Valse.controlHover : Theme.Valse.control),
+                                in: RoundedRectangle(cornerRadius: segment ? 6 : ValseShape.control))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .valseHover($hover)
             .help(help)
+            .accessibilityAddTraits(active ? .isSelected : [])
         }
     }
 }
@@ -429,15 +669,43 @@ struct EmptyProjects: View {
     @Perception.Bindable var app: AppModel
     var body: some View {
         WithPerceptionTracking {
-            VStack(spacing: 10) {
-                Image(systemName: app.scope == .trash ? "trash" : (app.isSearching && !app.search.isEmpty ? "magnifyingglass" : "film"))
-                    .font(.system(size: 30, weight: .light)).foregroundStyle(Theme.textTertiary)
-                Text(verbatim: message).font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
-                if app.scope == .all && !(app.isSearching && !app.search.isEmpty) {
-                    Button(tr("home.importProject")) { app.importProjectPanel() }.buttonStyle(SecondaryButtonStyle())
+            let searching = app.isSearching && !app.search.isEmpty
+            Group {
+                if app.scope == .all && !searching {
+                    // First-run empty library (the hero above is the main way in): the mark, one line, import.
+                    VStack(spacing: 12) {
+                        ValseSwayingMark().frame(width: 120, height: 120)
+                        Text(loc: "home.playful.empty.title").font(Theme.Valse.Fonts.pageTitle).foregroundStyle(Theme.Valse.text)
+                        Text(verbatim: tr("home.playful.empty.body")).font(Theme.Valse.Fonts.body).foregroundStyle(Theme.Valse.text2)
+                            .multilineTextAlignment(.center)
+                        HStack(spacing: 10) {
+                            Button(tr("home.newProject")) { app.newProject() }.buttonStyle(ValsePrimaryButtonStyle()).testID("home.empty.new")
+                            Button(tr("home.importProject")) { app.importProjectPanel() }.buttonStyle(ValseSecondaryButtonStyle())
+                        }
+                        .padding(.top, 6)
+                    }
+                    .padding(.vertical, 28).padding(.horizontal, 40)
+                    .frame(maxWidth: .infinity)
+                    .background {
+                        // a quiet ribbon runs along the bottom of the empty floor
+                        ZStack {
+                            RoundedRectangle(cornerRadius: ValseShape.hero).fill(Theme.Valse.surface.opacity(0.6))
+                            ValseRibbon(width: 22, baseline: 24, entry: 240, turnRadius: 44, background: Theme.Valse.canvas)
+                                .opacity(0.6)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: ValseShape.hero))
+                    }
+                    .padding(.top, 8)
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: app.scope == .trash ? "trash" : (searching ? "magnifyingglass" : "film"))
+                            .font(.system(size: 28, weight: .light)).foregroundStyle(Theme.Valse.text3)
+                        Text(verbatim: message).font(Theme.Valse.Fonts.body).foregroundStyle(Theme.Valse.text2)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity).padding(.top, 40)
                 }
             }
-            .frame(maxWidth: .infinity).padding(.top, 40)
             .testID("home.empty")
         }
     }
@@ -452,42 +720,220 @@ struct EmptyProjects: View {
     }
 }
 
-/// Bottom pill when several projects are selected.
+/// Bottom bar when several projects are selected (round 5): a dark, precise front panel, not a sticker. Raised
+/// surface, 1 pt hairline, a hard 3 pt ink shadow; the only colour is the count, a small mint counter on its teal
+/// block (the selection sticker in miniature). Actions are flat keys in groups split by hairlines: file actions,
+/// then the destructive one (orange glyph, orange when pressed), then close. Keys are quiet (`ValseBarButtonStyle`):
+/// a soft fill on hover, Custom's squash and a mint (Delete: orange) light while pressed.
 struct SelectionBar: View {
     @Perception.Bindable var app: AppModel
     var body: some View {
         WithPerceptionTracking {
-            HStack(spacing: 10) {
-                Text(verbatim: trCount("home.selected", app.selectedIDs.count)).font(.system(size: 12)).foregroundStyle(.white)
-                if app.scope == .trash {
-                    Button(tr("home.restore")) { app.restore(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.restore")
-                    Button(tr("home.deleteForever")) { app.deletePermanently(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.deleteForever")
-                } else {
-                    MoveToFolderMenu(app: app, items: app.selectedEntries)
-                    Button(tr("home.duplicate")) { app.duplicate(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.duplicate")
-                    Button(tr("home.delete")) { app.trash(app.selectedEntries) }.buttonStyle(SecondaryButtonStyle()).testID("home.selection.delete")
+            let r: CGFloat = 12
+            HStack(spacing: 0) {
+                SelectionCount(n: app.selectedIDs.count).padding(.leading, 6).padding(.trailing, 14)
+                ValseBarDivider()
+                HStack(spacing: 2) {
+                    if app.scope == .trash {
+                        Button { app.restore(app.selectedEntries) } label: { ValseBarLabel(symbol: "arrow.uturn.backward", title: tr("home.restore")) }
+                            .buttonStyle(ValseBarButtonStyle(debugID: "bar.restore")).testID("home.selection.restore")
+                    } else {
+                        MoveToFolderButton(app: app)
+                        Button { app.duplicate(app.selectedEntries) } label: { ValseBarLabel(symbol: "plus.square.on.square", title: tr("home.duplicate")) }
+                            .buttonStyle(ValseBarButtonStyle(debugID: "bar.duplicate")).testID("home.selection.duplicate")
+                    }
                 }
-                Button { app.selectedIDs = [] } label: { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
-                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("common.cancel"))
+                .padding(.horizontal, 6)
+                ValseBarDivider()
+                Group {
+                    if app.scope == .trash {
+                        Button { app.deletePermanently(app.selectedEntries) } label: { ValseBarLabel(symbol: "trash", title: tr("home.deleteForever"), destructive: true) }
+                            .buttonStyle(ValseBarButtonStyle(destructive: true, debugID: "bar.delete")).testID("home.selection.deleteForever")
+                    } else {
+                        Button { app.trash(app.selectedEntries) } label: { ValseBarLabel(symbol: "trash", title: tr("home.delete"), destructive: true) }
+                            .buttonStyle(ValseBarButtonStyle(destructive: true, debugID: "bar.delete")).testID("home.selection.delete")
+                    }
+                }
+                .padding(.horizontal, 6)
+                ValseBarDivider()
+                Button { app.selectedIDs = [] } label: { ValseBarLabel(symbol: "xmark", title: nil) }
+                    .buttonStyle(ValseBarButtonStyle(debugID: "bar.close"))
+                    .help(tr("common.cancel"))
+                    .accessibilityLabel(Text(loc: "common.cancel"))
+                    .testID("home.selection.close")
+                    .padding(.leading, 4)
             }
-            .padding(.horizontal, 14).frame(height: 44)
-            .background(Theme.menu, in: RoundedRectangle(cornerRadius: 10))
-            .shadow(color: .black.opacity(0.4), radius: 16)
+            .padding(.horizontal, 6).frame(height: 44)
+            .background(Theme.Valse.raised, in: RoundedRectangle(cornerRadius: r))
+            .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(Theme.Valse.cream.opacity(0.14)))
+            .valseHardShadow(Theme.Valse.ink, radius: r, depth: 3)
+            .modifier(ValseRiseIn())
             .padding(.bottom, 20)
         }
     }
 }
 
-struct MoveToFolderMenu: View {
+/// "2 selected": the number on a mint counter block (ink, bold, tabular digits) sitting on a solid teal block, the
+/// rest of the localized phrase in secondary text. Read as one phrase by VoiceOver.
+private struct SelectionCount: View {
+    let n: Int
+    var body: some View {
+        let full = trCount("home.selected", n)
+        let digits = "\(n)"
+        let rest = full.contains(digits) ? full.replacingOccurrences(of: digits, with: "").trimmingCharacters(in: .whitespaces) : full
+        HStack(spacing: 8) {
+            if full.contains(digits) {
+                Text(verbatim: digits).font(.system(size: 13, weight: .bold).monospacedDigit()).foregroundStyle(Theme.Valse.ink)
+                    .padding(.horizontal, 6).frame(minWidth: 24, minHeight: 22)
+                    .background(Theme.Valse.mint, in: RoundedRectangle(cornerRadius: 6))
+                    .offset(x: -1, y: -1)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Theme.Valse.teal).offset(x: 1, y: 1))
+            }
+            Text(verbatim: rest).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.Valse.text2).lineLimit(1).fixedSize()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: full))
+    }
+}
+
+struct ValseBarDivider: View {
+    var body: some View { Rectangle().fill(Theme.Valse.controlHover).frame(width: 1, height: 20) }
+}
+
+/// A selection bar key's content: glyph + label (or glyph only). Colours follow the key's state (`valsePressed`,
+/// `valseKeyHover`, `isEnabled`): hover brightens the glyph, a pressed key lights up so its content turns ink.
+struct ValseBarLabel: View {
+    let symbol: String
+    let title: String?
+    var destructive = false
+    var menu = false
+    @Environment(\.valsePressed) private var pressed
+    @Environment(\.valseKeyHover) private var hover
+    @Environment(\.isEnabled) private var enabled
+    var body: some View {
+        let text = !enabled ? Theme.Valse.text3.opacity(0.6) : (pressed ? Theme.Valse.ink : Theme.Valse.text)
+        let glyph = !enabled ? text
+            : (pressed ? Theme.Valse.ink : (destructive ? Theme.Valse.orange : (hover ? Theme.Valse.text : Theme.Valse.text2)))
+        HStack(spacing: 6) {
+            Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(glyph)
+            if let title { Text(verbatim: title).font(.system(size: 12, weight: .semibold)).foregroundStyle(text).lineLimit(1).fixedSize() }
+            if menu { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(glyph) }
+        }
+        .padding(.horizontal, title == nil ? 0 : 10)
+        .frame(minWidth: 28, minHeight: 28)
+    }
+}
+
+private struct ValseKeyHoverKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    /// The enclosing selection bar key is hovered.
+    var valseKeyHover: Bool {
+        get { self[ValseKeyHoverKey.self] }
+        set { self[ValseKeyHoverKey.self] = newValue }
+    }
+}
+
+/// Flat key of the selection bar (round 6: quiet). Rest: the label on the panel. Hover: a soft control fill fades in
+/// (120 ms) and the glyph brightens; nothing moves. Press: the hero "Custom" button's recipe (`ValsePress`, a springy
+/// squash to 95 %) and the key lights mint (Delete: orange) with ink content while held. Disabled: dimmed, inert.
+/// State is recomputed on every render from two inputs only, the pointer (`.valseHover`, convergent) and the button's
+/// own `isPressed`; the fade and the squash are keyed on those inputs, so a key can never stay lit, lifted or squashed.
+struct ValseBarButtonStyle: ButtonStyle {
+    var destructive = false
+    var debugID = ""
+    func makeBody(configuration: Configuration) -> some View {
+        ValseBarKey(label: configuration.label, pressed: configuration.isPressed, destructive: destructive, debugID: debugID)
+    }
+}
+
+/// The key's look per state (pure, ValseHoverTests).
+enum ValseBarKeyLook {
+    enum Fill: Equatable { case none, hover, lit }
+    static func fill(hover: Bool, pressed: Bool, enabled: Bool) -> Fill {
+        guard enabled else { return .none }
+        return pressed ? .lit : (hover ? .hover : .none)
+    }
+}
+
+private struct ValseBarKey<Label: View>: View {
+    let label: Label
+    let pressed: Bool
+    let destructive: Bool
+    let debugID: String
+    @State private var hoverState = false
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var clock = ValseDebugClock.shared
+
+    var body: some View {
+        let hover = (clock.debugHover(debugID) ?? ValseDebugHover.merge(hoverState, debugID)) && enabled
+        let held = (pressed || clock.debugPressed(debugID)) && enabled
+        let look = ValseBarKeyLook.fill(hover: hover, pressed: held, enabled: enabled)
+        let fill: Color = switch look {
+        case .lit: destructive ? Theme.Valse.orange : Theme.Valse.mint
+        case .hover: Theme.Valse.controlHover
+        case .none: .clear
+        }
+        ValsePressValue(pressed: held, debugID: debugID) { k in
+            label
+                .environment(\.valsePressed, look == .lit)
+                .environment(\.valseKeyHover, hover)
+                .background(fill, in: RoundedRectangle(cornerRadius: 7))
+                .scaleEffect(ValsePress.scale(k, to: ValsePress.keyScale))
+        }
+        .animation(ValseMotion.live(reduceMotion) ? .easeOut(duration: 0.12) : nil, value: hover)
+        .contentShape(Rectangle())
+        .valseHover($hoverState)
+    }
+}
+
+/// "Move to ⌄" on the selection bar: a bar key that opens a native menu of folders above itself. A SwiftUI `Menu`
+/// with the borderless style drew its own label (system colour, ignoring the bar's), so the key draws its label and
+/// pops the NSMenu itself (UI tests: `{"click": "id:home.selection.moveTo", "menuItem": "<folder>"}`).
+struct MoveToFolderButton: View {
     @Perception.Bindable var app: AppModel
-    let items: [LibraryEntry]
+    @State private var anchor = DropdownMenu.Anchor()
     var body: some View {
         WithPerceptionTracking {
-            Menu(tr("home.moveTo")) { MoveToFolderItems(app: app, items: items) }
-                .menuStyle(.borderlessButton).fixedSize()
-                .padding(.horizontal, 10).frame(height: 26)
-                .background(Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: 4))
+            Button { HomeMoveMenu.show(app: app, items: app.selectedEntries, above: anchor.view) } label: {
+                ValseBarLabel(symbol: "folder", title: tr("home.moveTo"), menu: true)
+            }
+            .buttonStyle(ValseBarButtonStyle(debugID: "bar.move"))
+            .background(DropdownMenu.AnchorView(anchor: anchor))
+            .accessibilityLabel(Text(verbatim: tr("home.moveTo")))
+            .testID("home.selection.moveTo")
         }
+    }
+}
+
+@MainActor
+enum HomeMoveMenu {
+    static func menu(app: AppModel, items: [LibraryEntry]) -> NSMenu {
+        let m = NSMenu()
+        m.autoenablesItems = false
+        m.addItem(PlayerMenuAction.item(tr("home.folder.none")) { app.move(items, to: nil) })
+        if !app.folders.isEmpty { m.addItem(.separator()) }
+        for f in app.folders { m.addItem(PlayerMenuAction.item(f.name) { app.move(items, to: f.id) }) }
+        m.addItem(.separator())
+        m.addItem(PlayerMenuAction.item(tr("home.folder.create") + "…") { app.modal = .newFolder })
+        return m
+    }
+
+    static func show(app: AppModel, items: [LibraryEntry], above view: NSView?) {
+        let m = menu(app: app, items: items)
+        if let sink = DropdownMenu.uitestMenuSink { sink(m); return }
+        if TestAnchors.isEnabled { return }   // UI tests never run a real (modal) menu tracking loop
+        // Open on the next turn of the run loop: a pop-up runs a modal tracking loop, and started inside the button's
+        // action it swallowed the mouse-up, so the key could stay "pressed" (lit) behind and after the menu.
+        Task { @MainActor in popUp(m, above: view) }
+    }
+
+    private static func popUp(_ m: NSMenu, above view: NSView?) {
+        guard let view, view.window != nil else { m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil); return }
+        // the bar sits at the bottom of the window: open upwards, the menu's bottom edge 4 pt above the key
+        let h = m.size.height
+        let y = view.isFlipped ? -4 - h : view.bounds.maxY + 4 + h
+        m.popUp(positioning: nil, at: NSPoint(x: 0, y: y), in: view)
     }
 }
 
@@ -538,23 +984,35 @@ struct ProjectCard: View {
     @Perception.Bindable var app: AppModel
     let entry: LibraryEntry
     let all: [LibraryEntry]
-    @State private var hover = false
+    @State private var hoverState = false
 
     var body: some View {
         WithPerceptionTracking {
+            let hover = ValseDebugHover.merge(hoverState, all.first?.id == entry.id ? "card0" : "-")
             let selected = app.selectedIDs.contains(entry.id)
-            VStack(alignment: .leading, spacing: 6) {
-                CoverView(entry: entry)
-                    .frame(maxWidth: .infinity)
-                    .aspectRatio(1, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : Color.white.opacity(hover ? 0.18 : 0), lineWidth: selected ? 2 : 1))
+            let r = ValseShape.card
+            VStack(alignment: .leading, spacing: 5) {
+                // Hover: the cover lifts up-left off a solid block (hard offset, zero blur) with a cream hairline.
+                // Selected: a 3 pt mint frame around the cover (the cover itself is never tinted) on a solid teal
+                // offset block, a check badge, and the name on a mint label block.
+                ValseTween(on: hover || selected, response: 0.4, damping: 0.6) { p in
+                    let q = min(1, max(0, p))
+                    CoverView(entry: entry)
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(1, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: r))
+                        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(selected ? .clear : Theme.Valse.cream.opacity(0.08 + 0.27 * q)))
+                        .overlay(RoundedRectangle(cornerRadius: r + 3).strokeBorder(selected ? Theme.Valse.mint : .clear, lineWidth: 3).padding(-3))
+                        .offset(x: -2 * p, y: -2 * p)
+                        .modifier(ValseHardShadow(color: selected ? Theme.Valse.teal : Theme.Valse.controlHover, radius: r + (selected ? 3 : 0),
+                                                  depth: 2 * max(0, p), inset: selected ? 3 : 0))
+                }
                     .overlay(alignment: .bottomTrailing) {
                         if hover || selected {
                             Menu { ProjectMenuItems(app: app, entry: entry) } label: {
-                                Image(systemName: "ellipsis").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
-                                    .frame(width: 24, height: 20)
-                                    .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 4))
+                                Image(systemName: "ellipsis").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.Valse.text)
+                                    .frame(width: 26, height: 20)
+                                    .background(Theme.Valse.canvas.opacity(0.78), in: RoundedRectangle(cornerRadius: 6))
                             }
                             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                             .padding(6)
@@ -562,21 +1020,24 @@ struct ProjectCard: View {
                         }
                     }
                     .overlay(alignment: .topLeading) {
-                        if selected {
-                            Image(systemName: "checkmark.circle.fill").font(.system(size: 16)).foregroundStyle(Theme.accent, .white).padding(6)
-                        }
+                        if selected { ValseCheckBadge(size: 22).padding(7) }
                     }
+                    .padding(.bottom, 3)
                 if app.renamingID == entry.id {
                     InlineRenameField(initial: entry.name) { app.rename(entry, to: $0) } onCancel: { app.renamingID = nil }
                 } else {
-                    Text(verbatim: entry.name).font(.system(size: 13)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: entry.name).font(.system(size: 13, weight: selected ? .bold : .medium))
+                        .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text).lineLimit(1).truncationMode(.middle)
+                        .padding(.horizontal, selected ? 5 : 0)
+                        .background(selected ? Theme.Valse.mint : .clear, in: RoundedRectangle(cornerRadius: 4))
+                        .padding(.horizontal, selected ? -5 : 0)   // the label block bleeds left so the text stays aligned
                         .onTapGesture(count: 2) { if entry.trashedAt == nil { app.renamingID = entry.id } }
                 }
-                Text(verbatim: "\(HomeFormat.bytes(entry.sizeBytes)) | \(HomeFormat.duration(entry.summary.duration))")
-                    .font(.system(size: 12)).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                Text(verbatim: "\(HomeFormat.bytes(entry.sizeBytes)) · \(HomeFormat.duration(entry.summary.duration))")
+                    .font(.system(size: 11.5).monospacedDigit()).foregroundStyle(Theme.Valse.text3).lineLimit(1)
             }
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .valseHover($hoverState)
             .onTapGesture { app.click(entry, in: all) }
             .contextMenu { ProjectMenuItems(app: app, entry: entry) }
             .draggable(entry.id)
@@ -598,8 +1059,8 @@ struct InlineRenameField: View {
             TextField("", text: $text)
                 .textFieldStyle(.plain).font(.system(size: 13))
                 .padding(.horizontal, 4).frame(height: 20)
-                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 3))
-                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accent))
+                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: 4))
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.Valse.teal))
                 .focused($focused)
                 .onSubmit { onCommit(text) }
                 .onExitCommand(perform: onCancel)
@@ -617,13 +1078,13 @@ struct CoverView: View {
     var body: some View {
         WithPerceptionTracking {
             // The fill rectangle sizes the view; the cover is an overlay so its aspect-fill never grows the card.
-            Rectangle().fill(Color(hex: 0x1B1B1C))
+            Rectangle().fill(Theme.Valse.surface)
                 .overlay {
                     if let image {
                         Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
                     } else {
                         Image(systemName: entry.summary.clipCount == 0 ? "plus.rectangle.on.rectangle" : "film")
-                            .font(.system(size: 20, weight: .light)).foregroundStyle(Theme.textTertiary.opacity(0.6))
+                            .font(.system(size: 20, weight: .light)).foregroundStyle(Theme.Valse.text3.opacity(0.7))
                     }
                 }
                 .clipped()
@@ -665,14 +1126,15 @@ struct ProjectListHeader: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 0) {
-                col(tr("home.col.name"), .name).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 70)
+                col(tr("home.col.name"), .name).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 72)
                 col(tr("home.col.modified"), .modified).frame(width: 160, alignment: .leading)
                 col(tr("home.col.duration"), .duration).frame(width: 90, alignment: .leading)
                 col(tr("home.col.size"), .size).frame(width: 90, alignment: .leading)
                 Text(loc: "home.col.format").frame(width: 140, alignment: .leading)
             }
-            .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
-            .padding(.horizontal, 8)
+            .font(Theme.Valse.Fonts.overline).foregroundStyle(Theme.Valse.text3).textCase(.uppercase)
+            .padding(.horizontal, 10).padding(.bottom, 6)
+            .overlay(alignment: .bottom) { Rectangle().fill(Theme.Valse.stroke).frame(height: 1) }
         }
     }
     func col(_ t: String, _ s: LibrarySort) -> some View {
@@ -695,26 +1157,36 @@ struct ProjectRow: View {
     var body: some View {
         WithPerceptionTracking {
             let selected = app.selectedIDs.contains(entry.id)
+            let r = ValseShape.control
             HStack(spacing: 0) {
-                CoverView(entry: entry).frame(width: 54, height: 32).clipShape(RoundedRectangle(cornerRadius: 4)).padding(.trailing, 16)
+                CoverView(entry: entry).frame(width: 54, height: 32).clipShape(RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.Valse.stroke))
+                    .overlay(alignment: .topLeading) {
+                        if selected { ValseCheckBadge(size: 15).offset(x: -5, y: -5) }
+                    }
+                    .padding(.trailing, 16)
                 Group {
                     if app.renamingID == entry.id {
                         InlineRenameField(initial: entry.name) { app.rename(entry, to: $0) } onCancel: { app.renamingID = nil }
                     } else {
-                        Text(verbatim: entry.name).font(.system(size: 13)).foregroundStyle(.white).lineLimit(1)
+                        Text(verbatim: entry.name).font(.system(size: 13, weight: selected ? .bold : .medium))
+                            .foregroundStyle(selected ? Theme.Valse.ink : Theme.Valse.text).lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(verbatim: HomeFormat.date(entry.modifiedAt)).frame(width: 160, alignment: .leading)
-                Text(verbatim: HomeFormat.duration(entry.summary.duration)).frame(width: 90, alignment: .leading)
+                Text(verbatim: HomeFormat.duration(entry.summary.duration)).monospacedDigit().frame(width: 90, alignment: .leading)
                 Text(verbatim: HomeFormat.bytes(entry.sizeBytes)).frame(width: 90, alignment: .leading)
                 Text(verbatim: HomeFormat.format(entry.summary)).lineLimit(1).frame(width: 140, alignment: .leading)
             }
-            .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 8).frame(height: 44)
-            .background(selected ? Theme.accentDim.opacity(0.5) : (hover ? Color.white.opacity(0.04) : .clear), in: RoundedRectangle(cornerRadius: 6))
+            .font(.system(size: 12, weight: selected ? .medium : .regular))
+            .foregroundStyle(selected ? Theme.Valse.ink.opacity(0.82) : Theme.Valse.text2)   // ≥ 7:1 on mint
+            .padding(.leading, 12).padding(.trailing, 10).frame(height: 46)
+            .background(!selected && ValseDebugHover.merge(hover, "row0") ? Theme.Valse.surface : .clear, in: RoundedRectangle(cornerRadius: r))
+            // Selected = the flat mint sticker on a solid teal offset block + check badge on the thumbnail + bold ink name.
+            .valseSticker(selected, radius: r)
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
+            .valseHover($hover)
             .onTapGesture { app.click(entry, in: all) }
             .contextMenu { ProjectMenuItems(app: app, entry: entry) }
             .draggable(entry.id)
@@ -762,14 +1234,14 @@ struct TemplatesPlaceholder: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 12) {
-                Image(systemName: "rectangle.stack.badge.play").font(.system(size: 40, weight: .light)).foregroundStyle(Theme.accent)
-                Text(loc: "home.templates.title").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
-                Text(loc: "home.templates.soon").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
+                Image(systemName: "rectangle.stack.badge.play").font(.system(size: 40, weight: .light)).foregroundStyle(Theme.Valse.teal)
+                Text(loc: "home.templates.title").font(Theme.Valse.Fonts.pageTitle).foregroundStyle(Theme.Valse.text)
+                Text(loc: "home.templates.soon").font(Theme.Valse.Fonts.body).foregroundStyle(Theme.Valse.text2)
                     .multilineTextAlignment(.center).frame(maxWidth: 420)
-                Button(tr("home.newProject")) { app.newProject() }.buttonStyle(AccentButtonStyle()).padding(.top, 6)
+                Button(tr("home.newProject")) { app.newProject() }.buttonStyle(ValsePrimaryButtonStyle()).padding(.top, 6)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.home)
+            .background(Theme.Valse.canvas)
         }
     }
 }

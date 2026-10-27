@@ -156,7 +156,7 @@ struct CropDialogModal: View {
                                 .onValueChange(of: g.frame(in: .global)) { _, f in SnapshotRegistry.shared.modalFrame = f }
                         }
                     })
-                    .shadow(color: .black.opacity(0.5), radius: 20)
+                    .valseFloatingCard(radius: 10)
                     .testID("crop.dialog")
             }
             .onDisappear { SnapshotRegistry.shared.modalFrame = nil }
@@ -174,7 +174,7 @@ struct CropDialogView: View {
         WithPerceptionTracking {
             VStack(spacing: 0) {
                 HStack {
-                    Text(loc: "crop.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(loc: "crop.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     Button { store.closeCropDialog() } label: {
                         Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)

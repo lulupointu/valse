@@ -77,7 +77,7 @@ struct TrackingSection: View {
     func tile(symbol: String, title: String, selected: Bool, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                Image(systemName: symbol).font(.system(size: 20)).foregroundStyle(.white)
+                Image(systemName: symbol).font(.system(size: 20)).foregroundStyle(Theme.textPrimary)
                 Text(verbatim: title).font(.system(size: 11)).foregroundStyle(IStyle.caption).lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.8)
             }
             .padding(.horizontal, 4).frame(width: 104, height: 70)

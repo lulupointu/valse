@@ -104,7 +104,7 @@ struct AdjustPresetCard: View {
                             .overlay {
                                 Image(systemName: "slider.horizontal.3").font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85))
                             }
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(isPicked ? Theme.accent : (hover ? Theme.accent.opacity(0.6) : .clear),
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(isPicked ? Theme.accent : (hover ? Theme.hoverRing : .clear),
                                                                                lineWidth: isPicked ? 2 : 1.5))
                             .contentShape(Rectangle())
                     }

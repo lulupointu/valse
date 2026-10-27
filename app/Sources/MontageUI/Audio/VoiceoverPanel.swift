@@ -39,18 +39,16 @@ struct VoiceoverPanel: View {
                     HStack {
                         Text(loc: "record.input").font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary)
                         Spacer()
-                        Picker(tr("record.input"), selection: $device) {
-                            Text(loc: "record.input.default").tag(UInt32(0))
-                            ForEach(devices) { Text(verbatim: $0.name).tag($0.id) }
-                        }
-                        .labelsHidden().frame(width: 180).disabled(phase != .idle)
+                        Dropdown(items: [(id: UInt32(0), title: tr("record.input.default"))] + devices.map { (id: $0.id, title: $0.name) },
+                                 selection: device, enabled: phase == .idle) { device = $0 }
+                            .frame(width: 180)
                     }
                     // level meter
                     GeometryReader { g in
                         WithPerceptionTracking {
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 3).fill(Theme.inset)
-                                RoundedRectangle(cornerRadius: 3).fill(level > 0.9 ? Color.red : Theme.accent)
+                                RoundedRectangle(cornerRadius: 3).fill(level > 0.9 ? Theme.danger : Theme.accent)
                                     .frame(width: g.size.width * CGFloat(min(1, sqrt(level))))
                             }
                         }
@@ -64,11 +62,11 @@ struct VoiceoverPanel: View {
                             ZStack {
                                 Circle().stroke(Color.white.opacity(0.8), lineWidth: 2).frame(width: 46, height: 46)
                                 if phase == .recording {
-                                    RoundedRectangle(cornerRadius: 3).fill(Color.red).frame(width: 18, height: 18)
+                                    RoundedRectangle(cornerRadius: 3).fill(Theme.danger).frame(width: 18, height: 18)
                                 } else if case .countdown(let n) = phase {
-                                    Text(verbatim: "\(n)").font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
+                                    Text(verbatim: "\(n)").font(.system(size: 20, weight: .bold)).foregroundStyle(Theme.textPrimary)
                                 } else {
-                                    Circle().fill(Color.red).frame(width: 34, height: 34)
+                                    Circle().fill(Theme.danger).frame(width: 34, height: 34)
                                 }
                             }
                         }
@@ -79,7 +77,7 @@ struct VoiceoverPanel: View {
                     Text(verbatim: phase == .recording ? Timecode.shortDuration(Time(elapsed)) : tr("record.hint"))
                         .font(Theme.Fonts.hint.monospacedDigit()).foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: .infinity)
-                    if let errorKey { Text(loc: errorKey).font(Theme.Fonts.hint).foregroundStyle(.red) }
+                    if let errorKey { Text(loc: errorKey).font(Theme.Fonts.hint).foregroundStyle(Theme.dangerText) }
                 }
             }
             .padding(16)

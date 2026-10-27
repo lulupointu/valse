@@ -1,0 +1,10 @@
+/* VALSE-APP round 12: the editor title bar's left cluster (back to Home, project name, save status). */
+"titlebar.name.help" = "%@ · Double-click to rename";
+"titlebar.name.renameHint" = "Double-click to rename the project";
+"titlebar.name.rename" = "Rename project";
+"cmd.renameProject" = "Rename project";
+"save.saving" = "Saving…";
+"save.saved" = "Saved";
+"save.savedAt" = "Saved at %@";
+"save.notSaved" = "Not saved";
+"save.retryHelp" = "Click to try again.";

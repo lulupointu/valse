@@ -67,23 +67,27 @@ struct SaveFailureBanner: View {
     var body: some View {
         WithPerceptionTracking {
             if let f = store.saveFailure {
+                // VALSE-APP: a flat dark card (panel) with an orange 1.5 pt border: cream message 15.4:1, light-orange
+                // action 6.9:1, orange warning glyph; no system red, no glow
                 HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.danger)
                     Text(verbatim: f.message(project: store.projectName))
+                        .foregroundStyle(Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .testID("saveFailure.message")
                     Button { store.runSaveFailureAction() } label: {
                         Text(verbatim: tr(f.actionKey)).font(.system(size: 12, weight: .semibold)).underline()
+                            .foregroundStyle(Theme.dangerText)
                     }
                     .buttonStyle(.plain).testID("saveFailure.action")
-                    Button { store.dismissSaveFailure() } label: { Image(systemName: "xmark") }
+                    Button { store.dismissSaveFailure() } label: { Image(systemName: "xmark").foregroundStyle(Theme.textSecondary) }
                         .buttonStyle(.plain).help(tr("action.dismiss")).testID("saveFailure.dismiss")
                 }
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white)
                 .padding(.horizontal, 14).padding(.vertical, 8)
                 .frame(maxWidth: 560)
-                .background(Color(hex: 0xC24040), in: RoundedRectangle(cornerRadius: 8))
+                .background(Theme.panel, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.danger, lineWidth: 1.5))
                 .testID("saveFailure.banner")
             }
         }

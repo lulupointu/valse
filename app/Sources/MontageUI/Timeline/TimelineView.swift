@@ -105,7 +105,7 @@ final class TimelineView: NSView {
     /// Display-list storage reused across frames (no per-frame array growth); see `recycle(_:)`.
     var canvasScratch = Canvas2D()
 
-    static let accent = RGBA(hex: 0x57BECB)
+    static let accent = Theme.TL.accent
 
     init(store: EditorStore) {
         self.store = store
@@ -233,7 +233,7 @@ final class TimelineView: NSView {
     private func draw() {
         let canvas = buildCanvas()
         guard let drawable = metalLayer.nextDrawable(), let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return }
-        renderer.encode(canvas, into: drawable.texture, scale: metalLayer.contentsScale, clear: RGBA(hex: 0x1B1B1C), commandBuffer: cmd)
+        renderer.encode(canvas, into: drawable.texture, scale: metalLayer.contentsScale, clear: Theme.TL.background, commandBuffer: cmd)
         MetalResize.present(drawable, cmd, on: metalLayer)
         recycle(canvas)
     }
@@ -259,13 +259,13 @@ final class TimelineView: NSView {
         for row in l.rows {
             let track = tl.tracks[row.trackIndex]
             c.rect(CGRect(x: headerW, y: row.y, width: W - headerW, height: row.height),
-                   row.isMain ? RGBA(hex: 0x242425) : RGBA(hex: 0x1E1E1F), radius: 0)
+                   row.isMain ? Theme.TL.laneMain : Theme.TL.lane, radius: 0)
             _ = track
         }
         if Self.isEmpty(tl) {
             // CapCut's empty state ([10]): no ruler, no headers, one full-width dashed lane with a film icon and a hint.
             c.clip = CGRect(x: 0, y: 0, width: W, height: H)
-            c.rect(CGRect(x: 0, y: 0, width: W, height: H), RGBA(hex: 0x1B1B1C))
+            c.rect(CGRect(x: 0, y: 0, width: W, height: H), Theme.TL.background)
             let r = Self.emptyLaneRect(viewSize: bounds.size)
             let dropping = dropIndicator != nil || dropPlan != nil
             c.rect(r, RGBA(1, 1, 1, dropping ? 0.07 : 0.025), radius: 6)
@@ -274,7 +274,7 @@ final class TimelineView: NSView {
                 c.image(img, in: CGRect(x: r.minX + 18, y: r.midY - 9, width: 18, height: 18), alpha: 0.75, fill: false)
             }
             c.text(tr("timeline.emptyHint"), at: CGPoint(x: r.minX + 44, y: r.midY - 8), size: 12, weight: .regular,
-                   color: RGBA(hex: 0xC8C8C8))
+                   color: Theme.TL.emptyText)
             return c
         }
 
@@ -296,7 +296,7 @@ final class TimelineView: NSView {
                 let sel = ui.selectedTransition == clips[k].id
                 let hov = !sel && hoverPoint.map { r.insetBy(dx: -2, dy: 0).contains($0) } == true
                 c.rect(r, RGBA(1, 1, 1, sel ? 0.45 : (hov ? 0.4 : 0.26)), radius: 3)
-                if sel || hov { c.rect(r, sel ? .white : RGBA(1, 1, 1, 0.75), radius: 3, border: sel ? 1.5 : 1) }
+                if sel || hov { c.rect(r, sel ? Theme.TL.selection : RGBA(1, 1, 1, 0.75), radius: 3, border: sel ? 1.5 : 1) }
                 if let img = SymbolImages.bowTie {
                     let s = min(16, r.height - 4, r.width - 2)
                     if s >= 8 { c.image(img, in: CGRect(x: r.midX - s / 2, y: r.midY - s / 2, width: s, height: s), alpha: 0.95, fill: false) }
@@ -331,10 +331,10 @@ final class TimelineView: NSView {
             c.rect(CGRect(x: x - 1, y: TimelineLayout.rulerHeight, width: 2, height: H), accent)
             if let ri = d.row, ri < l.rows.count {
                 let r = l.rows[ri]
-                c.rect(CGRect(x: headerW, y: r.y, width: W - headerW, height: r.height), RGBA(0.34, 0.75, 0.8, 0.12))
+                c.rect(CGRect(x: headerW, y: r.y, width: W - headerW, height: r.height), Theme.TL.accent(0.12))
                 if let g = dropGhost, g > .zero {   // ghost of the dropped clip(s)
                     let gr = CGRect(x: x, y: r.y + 2, width: max(4, l.x(d.time + g) - x), height: r.height - 4)
-                    c.rect(gr, RGBA(0.34, 0.75, 0.8, 0.28))
+                    c.rect(gr, Theme.TL.accent(0.28))
                     c.rect(gr, accent, border: 1)
                 }
             }
@@ -352,7 +352,7 @@ final class TimelineView: NSView {
         }
         if case .marquee(let a, let cur, _) = drag {
             let r = a.rect(to: cur, l)
-            c.rect(r, RGBA(0.34, 0.75, 0.8, 0.12))
+            c.rect(r, Theme.TL.accent(0.12))
             c.rect(r, accent, border: 1)
         }
         // Split-mode blade preview
@@ -378,10 +378,10 @@ final class TimelineView: NSView {
 
         // Ruler
         c.clip = CGRect(x: headerW, y: 0, width: W - headerW, height: TimelineLayout.rulerHeight)
-        c.rect(CGRect(x: headerW, y: 0, width: W - headerW, height: TimelineLayout.rulerHeight), RGBA(hex: 0x1B1B1C))
+        c.rect(CGRect(x: headerW, y: 0, width: W - headerW, height: TimelineLayout.rulerHeight), Theme.TL.background)
         if tl.inPoint != nil || tl.outPoint != nil {
             let x0 = l.x(tl.inPoint ?? .zero), x1 = l.x(tl.outPoint ?? max(p.duration, tl.inPoint ?? .zero))
-            c.rect(CGRect(x: x0, y: 0, width: max(1, x1 - x0), height: TimelineLayout.rulerHeight), RGBA(0.34, 0.75, 0.8, 0.22))
+            c.rect(CGRect(x: x0, y: 0, width: max(1, x1 - x0), height: TimelineLayout.rulerHeight), Theme.TL.accent(0.22))
             if tl.inPoint != nil { c.rect(CGRect(x: x0, y: 0, width: 2, height: TimelineLayout.rulerHeight), accent) }
             if tl.outPoint != nil { c.rect(CGRect(x: x1 - 2, y: 0, width: 2, height: TimelineLayout.rulerHeight), accent) }
         }
@@ -394,10 +394,10 @@ final class TimelineView: NSView {
         let (rulerScale, rulerTicks) = rulerTicks(layout: l, width: Double(W), rate: p.settings.frameRate)
         for tick in rulerTicks {
             let x = l.x(tick.time)
-            c.rect(CGRect(x: x, y: tick.isMajor ? 14 : 20, width: 1, height: tick.isMajor ? 10 : 4), RGBA(hex: 0x5A5A5A))
+            c.rect(CGRect(x: x, y: tick.isMajor ? 14 : 20, width: 1, height: tick.isMajor ? 10 : 4), Theme.TL.tick)
             if tick.isMajor {
                 c.text(Self.cachedRulerLabel(tick.frame, unitsPerSecond: rulerScale.unitsPerSecond), at: CGPoint(x: x + 3, y: 2),
-                       size: 10, weight: .regular, color: RGBA(hex: 0x8A8A8A), mono: true)
+                       size: 10, weight: .regular, color: Theme.TL.rulerText, mono: true)
             }
         }
         // Markers
@@ -407,7 +407,7 @@ final class TimelineView: NSView {
             let sel = ui.selectedMarker == m.id
             c.rect(CGRect(x: x - 4, y: 12, width: 8, height: 9), m.color, radius: 2)
             c.rect(CGRect(x: x - 0.5, y: 12, width: 1, height: 12), m.color)
-            if sel { c.rect(CGRect(x: x - 5, y: 11, width: 10, height: 11), .white, radius: 2, border: 1) }
+            if sel { c.rect(CGRect(x: x - 5, y: 11, width: 10, height: 11), Theme.TL.selection, radius: 2, border: 1) }
             if !m.label.isEmpty, l.pixelsPerSecond > 8 {
                 c.text(m.label, at: CGPoint(x: x + 6, y: 11), size: 9, color: m.color, maxWidth: 120)
             }
@@ -415,7 +415,7 @@ final class TimelineView: NSView {
 
         // Headers
         c.clip = CGRect(x: 0, y: TimelineLayout.rulerHeight, width: headerW, height: H)
-        c.rect(CGRect(x: 0, y: 0, width: headerW, height: H), RGBA(hex: 0x1F1F20))
+        c.rect(CGRect(x: 0, y: 0, width: headerW, height: H), Theme.TL.header)
         for row in l.rows {
             let track = tl.tracks[row.trackIndex]
             let r = CGRect(x: 4, y: row.y, width: headerW - 8, height: row.height)
@@ -435,7 +435,7 @@ final class TimelineView: NSView {
                 // "Cover" button in the gap right of the header controls (UX.md §6.3): shows the cover once one is set.
                 let b = coverButtonRect(row)
                 refreshCoverThumbnail()
-                c.rect(b, RGBA(hex: 0x2A2A2A), radius: 4)
+                c.rect(b, Theme.TL.headerChip, radius: 4)
                 if let thumb = coverThumbnail {
                     c.image(thumb, in: b, alpha: 1, radius: 4)
                     c.rect(CGRect(x: b.minX, y: b.maxY - 13, width: b.width, height: 13), RGBA(0, 0, 0, 0.55), radius: 0)
@@ -445,24 +445,24 @@ final class TimelineView: NSView {
                 let (label, size) = Self.fittedLabel(tr("timeline.cover"), width: b.width - 4, maxSize: 10, canvas: c)
                 let w = c.measure(label, size: size)
                 c.text(label, at: CGPoint(x: b.midX - w / 2, y: b.maxY - (coverThumbnail == nil ? 16 : 13)), size: size,
-                       weight: .medium, color: RGBA(hex: 0xE6E6E6))
+                       weight: .medium, color: Theme.TL.headerText)
             }
         }
         c.clip = CGRect(x: 0, y: 0, width: headerW, height: TimelineLayout.rulerHeight)
-        c.rect(CGRect(x: 0, y: 0, width: headerW, height: TimelineLayout.rulerHeight), RGBA(hex: 0x1B1B1C))
+        c.rect(CGRect(x: 0, y: 0, width: headerW, height: TimelineLayout.rulerHeight), Theme.TL.background)
 
         // Horizontal scrollbar
         c.clip = CGRect(x: headerW, y: 0, width: W - headerW, height: H)
         if let thumb = scrollbarThumb(l) {
-            c.rect(thumb, RGBA(hex: 0x373738), radius: 3)
+            c.rect(thumb, Theme.TL.scrollThumb, radius: 3)
         }
 
         // Playhead
         let shown = previewAnchor ?? store.transport.playhead
         let px = l.x(shown)
-        c.rect(CGRect(x: px - 0.75, y: 6, width: 1.5, height: H), .white)
-        c.rect(CGRect(x: px - 5, y: 2, width: 10, height: 10), .white, radius: 3)
-        c.rect(CGRect(x: px - 2.5, y: 10, width: 5, height: 5), .white, radius: 1)
+        c.rect(CGRect(x: px - 0.75, y: 6, width: 1.5, height: H), Theme.TL.playhead)
+        c.rect(CGRect(x: px - 5, y: 2, width: 10, height: 10), Theme.TL.playhead, radius: 3)
+        c.rect(CGRect(x: px - 2.5, y: 10, width: 5, height: 5), Theme.TL.playhead, radius: 1)
         if let h = hoverTime, case .none = drag, ui.tool == .select {
             c.rect(CGRect(x: l.x(h) - 0.5, y: TimelineLayout.rulerHeight, width: 1, height: H),
                    ui.previewAxis ? RGBA(1, 1, 1, 0.55) : RGBA(1, 1, 1, 0.2))
@@ -771,10 +771,10 @@ final class TimelineView: NSView {
         }
         // Selection + keyframes + fade handles
         if selected {
-            c.rect(r, .white, radius: 4, border: 1.5)
+            c.rect(r, Theme.TL.selection, radius: 4, border: 1.5)
             if r.width > 24 {
-                c.rect(CGRect(x: r.minX + 1, y: r.midY - 8, width: 3, height: 16), .white, radius: 1.5)
-                c.rect(CGRect(x: r.maxX - 4, y: r.midY - 8, width: 3, height: 16), .white, radius: 1.5)
+                c.rect(CGRect(x: r.minX + 1, y: r.midY - 8, width: 3, height: 16), Theme.TL.selection, radius: 1.5)
+                c.rect(CGRect(x: r.maxX - 4, y: r.midY - 8, width: 3, height: 16), Theme.TL.selection, radius: 1.5)
             }
             let ky = r.midY
 
@@ -883,7 +883,7 @@ final class TimelineView: NSView {
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: w, height: h, mipmapped: false)
         d.usage = [.renderTarget, .shaderRead]
         guard let out = MetalContext.shared.makeReadbackTexture(d), let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return nil }
-        renderer.encode(buildCanvas(), into: out, scale: s, clear: RGBA(hex: 0x1B1B1C), commandBuffer: cmd)
+        renderer.encode(buildCanvas(), into: out, scale: s, clear: Theme.TL.background, commandBuffer: cmd)
         MetalContext.shared.synchronizeForReadback(out, cmd)
         cmd.commit(); cmd.waitUntilCompleted()
         return TextureReadback.cgImage(out)

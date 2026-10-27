@@ -26,7 +26,7 @@ struct ExportProgressView: View {
                     preview
                     VStack(alignment: .leading, spacing: 14) {
                         Text(loc: allDone ? "export.saved" : (running ? "export.generating.title" : "export.stopped"))
-                            .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
                         ScrollView {
                             VStack(alignment: .leading, spacing: 10) {
                                 ForEach(jobs) { job in WithPerceptionTracking { JobRow(job: job, queue: store.exports.queue) } }
@@ -35,7 +35,7 @@ struct ExportProgressView: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .background(Color(hex: 0x141414), in: RoundedRectangle(cornerRadius: 8))
+                    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .padding(16)
                 Rectangle().fill(ExportStyle.separator).frame(height: 1)
@@ -66,7 +66,7 @@ struct ExportProgressView: View {
             if let player, !running {
                 PlayerLayerView(player: player)
                 Button { player.timeControlStatus == .playing ? player.pause() : player.play() } label: {
-                    Image(systemName: "playpause.fill").font(.system(size: 12)).foregroundStyle(.white).padding(6)
+                    Image(systemName: "playpause.fill").font(.system(size: 12)).foregroundStyle(Theme.textPrimary).padding(6)
                         .background(Color.black.opacity(0.5), in: Circle())
                 }
                 .buttonStyle(.plain).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading).padding(8)
@@ -76,7 +76,7 @@ struct ExportProgressView: View {
                 Color.black.opacity(0.55)
                 if running {
                     VStack(spacing: 8) {
-                        Text(verbatim: tr("export.generating", Int((progress * 100).rounded(.down)))).font(.system(size: 14, weight: .medium)).foregroundStyle(.white)
+                        Text(verbatim: tr("export.generating", Int((progress * 100).rounded(.down)))).font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.textPrimary)
                         ProgressView(value: progress).tint(Theme.accent).frame(width: 200)
                     }
                 }
@@ -101,7 +101,7 @@ struct JobRow: View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
-                    Text(verbatim: job.title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                    Text(verbatim: job.title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                     Spacer()
                     Text(verbatim: status).font(Theme.Fonts.hint).foregroundStyle(statusColor)
                     if job.isActive {
@@ -214,7 +214,7 @@ struct ExportQueueButton: View {
                     WithPerceptionTracking {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text(loc: "export.queue").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                                Text(loc: "export.queue").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                                 Spacer()
                                 Button(tr("export.queue.clear")) { queue.clearFinished() }.buttonStyle(.plain).font(Theme.Fonts.hint).foregroundStyle(Theme.accent)
                             }
@@ -224,7 +224,7 @@ struct ExportQueueButton: View {
                                 }
                             }.frame(maxHeight: 320)
                         }
-                        .padding(14).frame(width: 360).background(Theme.menu)
+                        .padding(14).frame(width: 360)
                     }
                 }
             }

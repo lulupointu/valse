@@ -12,7 +12,6 @@
 "tab.templates" = "Templates";
 
 /* Title bar */
-"titlebar.autosaved" = "Auto saved: %@";
 "titlebar.export" = "Export";
 "project.untitled" = "Untitled project";
 
@@ -171,6 +170,7 @@
 "menu.window" = "Window";
 "menu.minimize" = "Minimize";
 "menu.fullscreen" = "Enter Full Screen";
+"menu.close" = "Close";
 
 /* Shortcuts */
 "shortcut.playPause" = "Play/Pause";

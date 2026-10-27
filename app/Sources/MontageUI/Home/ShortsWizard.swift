@@ -189,7 +189,7 @@ struct ShortsWizardView: View {
                 Text(verbatim: a.name).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 Spacer()
                 Text(verbatim: Self.clock(a.duration.seconds)).font(Theme.Fonts.numeric).foregroundStyle(IStyle.caption)
-                Button(tr("shorts.change")) { st.reset() }.buttonStyle(.link).font(Theme.Fonts.hint).testID("shorts.change")
+                Button(tr("shorts.change")) { st.reset() }.buttonStyle(ValseLinkButtonStyle()).font(Theme.Fonts.hint).testID("shorts.change")
             }
             Text(loc: "shorts.selectPart").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
             VStack(spacing: 4) {

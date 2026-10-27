@@ -112,7 +112,7 @@ struct ImportStickerCard: View {
                         }
                         .foregroundStyle(Theme.textPrimary)
                     }
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.accent.opacity(0.6) : .clear, lineWidth: 1.5))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.hoverRing : .clear, lineWidth: 1.5))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

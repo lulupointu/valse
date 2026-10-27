@@ -103,7 +103,7 @@ struct ProjectSettingsSheet: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 0) {
-                Text(loc: "settings.project.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                Text(loc: "settings.project.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     .padding(16)
                 Rectangle().fill(Theme.separator).frame(height: 1)
                 VStack(alignment: .leading, spacing: 14) {
@@ -171,7 +171,7 @@ struct ProjectSettingsSheet: View {
                             }
                         } else {
                             row(tr("details.proxy")) {
-                                Text(verbatim: tr("details.proxy.\(ProxyManager.shared.policy.rawValue)")).font(.system(size: 12)).foregroundStyle(.white)
+                                Text(verbatim: tr("details.proxy.\(ProxyManager.shared.policy.rawValue)")).font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
                             }
                             HintText(text: tr("settings.project.proxyHint"))
                         }
@@ -182,18 +182,11 @@ struct ProjectSettingsSheet: View {
                 .padding([.top, .horizontal], 16)
                 .scrollsWhenTight()   // BUG-OVERSIZED-SHEETS: Cancel / Save stay pinned in a small window
                 HStack(spacing: 12) {
-                    Button { isPresented = false } label: {
-                        Text(loc: "common.cancel").font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                            .background(Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain).keyboardShortcut(.cancelAction)
-                    Button { save() } label: {
-                        Text(loc: "common.save").font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain).keyboardShortcut(.defaultAction).testID("projectSettings.save")
+                    Button { isPresented = false } label: { Text(loc: "common.cancel") }
+                        .buttonStyle(ValseWideButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
+                    Button { save() } label: { Text(loc: "common.save") }
+                        .buttonStyle(ValseWideButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction).testID("projectSettings.save")
                 }
-                .foregroundStyle(.white)
                 .padding(.top, 14).padding([.horizontal, .bottom], 16)
             }
             .fittedFrame(width: 512)

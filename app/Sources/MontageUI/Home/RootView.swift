@@ -40,6 +40,9 @@ public struct RootView: View {
             .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.2), value: app.screen)
             .animation(TestAnchors.isEnabled ? nil : .easeOut(duration: 0.15), value: app.modal?.id)
             .background(app.screen == .home ? Theme.home : Theme.window)
+            // VALSE-APP: every system control without its own tint (sliders, switches, progress, pickers) uses Valse
+            // teal instead of the macOS accent colour
+            .tint(Theme.accent)
             .publishesHostWindowSize()   // BUG-OVERSIZED-SHEETS: modals / popovers clamp to the window
             .preferredColorScheme(.dark)
             .uitestNoMotion()
@@ -80,8 +83,8 @@ struct ModalHost: View {
     }
 }
 
-/// Card chrome shared by the dialogs: title bar, body, radius 10, `bg.panel`, soft shadow (UX.md §1.4).
-/// BUG-OVERSIZED-SHEETS: never larger than the window (`fittedFrame(width:)`); the body scrolls when the window is too
+/// Card chrome shared by the dialogs: title bar, body, radius 10, `bg.panel`, the Valse floating-card hairline (no soft
+/// shadow). BUG-OVERSIZED-SHEETS: never larger than the window (`fittedFrame(width:)`); the body scrolls when the window is too
 /// small (`bodyScrolls`; false = the content has its own flexible scroll area), the `footer` (the dialog's buttons,
 /// laid out 14 pt under the body, 16 pt insets) stays pinned below it.
 struct DialogCard<Content: View, Footer: View>: View {
@@ -107,7 +110,7 @@ struct DialogCard<Content: View, Footer: View>: View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Text(verbatim: title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(verbatim: title).font(.system(size: 14, weight: .bold, design: .rounded)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     if let onClose {
                         Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
@@ -124,9 +127,7 @@ struct DialogCard<Content: View, Footer: View>: View {
             .fittedFrame(width: width)
             .reportsFit("dialog")
             .background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.06)))
-            // CPU-rendered blur makes offscreen test snapshots take seconds: no shadow under UI tests
-            .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.5), radius: TestAnchors.isEnabled ? 0 : 30, y: 10)
+            .valseFloatingCard(radius: 10)
         }
     }
 }
@@ -149,21 +150,14 @@ struct DialogFooter: View {
     var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 12) {
-                Button(action: onCancel) {
-                    Text(verbatim: cancelTitle).font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                        .background(Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: 6)).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).keyboardShortcut(.cancelAction)
-                .testID("dialog.cancel")
-                Button(action: onOK) {
-                    Text(verbatim: okTitle).font(.system(size: 13, weight: .medium)).frame(maxWidth: .infinity, minHeight: 32)
-                        .background(Theme.accent.opacity(okEnabled ? 1 : 0.4), in: RoundedRectangle(cornerRadius: 6)).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).keyboardShortcut(.defaultAction).disabled(!okEnabled)
-                .testID("dialog.ok")
-                .reportsFit("dialogOK")   // BUG-OVERSIZED-SHEETS: the primary button stays inside the window
+                Button(action: onCancel) { Text(verbatim: cancelTitle).contentShape(Rectangle()) }
+                    .buttonStyle(ValseWideButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
+                    .testID("dialog.cancel")
+                Button(action: onOK) { Text(verbatim: okTitle).contentShape(Rectangle()) }
+                    .buttonStyle(ValseWideButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction).disabled(!okEnabled)
+                    .testID("dialog.ok")
+                    .reportsFit("dialogOK")   // BUG-OVERSIZED-SHEETS: the primary button stays inside the window
             }
-            .foregroundStyle(.white)
         }
     }
 }
@@ -211,14 +205,14 @@ struct RecoveryDialog: View {
             DialogCard(title: tr("recovery.title"), width: 420) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 22)).foregroundStyle(Color(hex: 0xE8B33A))
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 22)).foregroundStyle(Theme.Valse.mustard)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(loc: "recovery.message").font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                             ForEach(urls, id: \.self) { u in
                                 WithPerceptionTracking {
                                     Text(verbatim: "• " + (ProjectPackage.summary(of: u)?.name ?? u.deletingPathExtension().lastPathComponent))
-                                        .font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                                        .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
                                 }
                             }
                             Text(loc: "recovery.hint").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)

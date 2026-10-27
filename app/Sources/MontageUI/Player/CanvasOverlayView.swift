@@ -331,7 +331,7 @@ final class CanvasOverlayView: NSView {
         // pen outline points: hollow dots (drag to reshape)
         if !f.pointPositions.isEmpty {
             ctx.setFillColor(NSColor.white.cgColor)
-            ctx.setStrokeColor(NSColor.systemBlue.cgColor)
+            ctx.setStrokeColor(Theme.TL.accent.cgColor)
             ctx.setLineWidth(1.5)
             for p in f.pointPositions.map(vp.toView) {
                 let r = CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8)

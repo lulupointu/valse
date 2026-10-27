@@ -144,7 +144,7 @@ struct CustomCutoutSection: View {
 
     func toolButton(_ b: CutoutBrushTool, _ t: CutoutBrushTool.Tool, _ symbol: String, _ help: String) -> some View {
         Button { b.tool = t } label: {
-            Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(.white)
+            Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(Theme.textPrimary)
                 .frame(width: 40, height: 40)
                 .background(b.tool == t ? Theme.accentDim : IStyle.tile, in: RoundedRectangle(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(b.tool == t ? Theme.accent : .clear, lineWidth: 1.5))

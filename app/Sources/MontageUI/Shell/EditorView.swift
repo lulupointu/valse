@@ -27,6 +27,7 @@ public struct EditorView: View {
         }
         // BUG-SPACE-FOCUS: the editor's keyboard home (never the media search field), so Space plays at once
         .background(EditorKeyAnchor())
+        .task { await ValseDebugClock.shared.recordIfRequested() }   // review videos only (VALSE_DEBUG_FRAMES)
     }
 
     private var editor: some View {
@@ -45,10 +46,6 @@ public struct EditorView: View {
             }
         }
         .background(Theme.window)
-        .overlay(alignment: .top) {
-            // P1: title-bar project switcher popover
-            if let sw = ProjectSwitcher.active { ProjectSwitcherOverlay(switcher: sw) }
-        }
         .overlay { QuickCutOverlay(store: store) }   // TL-048 Quick cut popover (hangs from the timeline toolbar button)
         .overlay(alignment: .top) { SaveFailureBanner(store: store).padding(.top, 92) }   // BUG-ERROR-COPY: work at risk
         .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
@@ -101,7 +98,7 @@ public struct EditorView: View {
                     Color.black.opacity(0.45).ignoresSafeArea()
                     AIClipperSheet(store: store, st: st) { store.ai.clipper = nil }
                         .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .shadow(radius: 20)
+                        .valseFloatingCard(radius: 10)
                 }
             }
         }
@@ -139,13 +136,13 @@ public struct EditorView: View {
         .overlay {
             // SE-017: keyboard focus ring (View ▸ Next panel)
             if panelFocus.current == p {
-                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).stroke(Theme.accent, lineWidth: 2).allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).strokeBorder(Theme.accent, lineWidth: 1.5).allowsHitTesting(false)
                     .testID("focusRing.\(p.rawValue)")
             }
         }
         .overlay {
             if let s = onboarding.step, s.panel == p {
-                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).stroke(Theme.accent, lineWidth: 2).allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: Theme.Metrics.panelRadius).strokeBorder(Theme.accent, lineWidth: 1.5).allowsHitTesting(false)
             }
         }
     }
@@ -248,36 +245,39 @@ struct Splitter: View {
     }
 }
 
-/// Window title bar (36 pt): autosave status, project name, shortcuts & Export (UX.md §1.1).
+/// Window title bar (36 pt, VALSE-APP round 12). Left: ‹ back to Home, the project name (double-click to rename), the
+/// quiet save status. Centre: the Valse lockup (the mark draws itself in when a project opens). Right: EditPilot,
+/// layout, shortcuts, the export queue and Export. No project switcher: Home is where projects are chosen.
 struct TitleBar: View {
     /// Opens the shortcut window (set by the app shell, W12 `AppModel`).
     @MainActor public static var showShortcuts: (() -> Void)?
+    /// Back to Home (saves the project first: `AppModel.backToHome`, the same path as Montage ▸ Back to Home / ⌘⇧H).
+    @MainActor public static var goHome: (() -> Void)?
     @Perception.Bindable var store: EditorStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         WithPerceptionTracking {
             ZStack {
                 HStack(spacing: 10) {
                     Spacer().frame(width: 76)  // traffic lights
-                    if let saved = store.lastAutosave {
-                        Text(loc: "titlebar.autosaved", saved.formatted(date: .omitted, time: .standard))
-                            .font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
-                    }
-                    Spacer()
+                    ProjectTitleCluster(store: store)
+                    Spacer(minLength: 150)   // the centred lockup's half-width + air: the name truncates before it
                     // AI2: EditPilot editing agent (AI-048), ⌘J
                     Button { store.togglePilot() } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "sparkles").font(.system(size: 12))
                             Text(loc: "pilot.title").font(.system(size: 11, weight: .medium))
                         }
+                        .padding(.horizontal, 6).frame(height: 24)
                     }
-                    .buttonStyle(.plain).foregroundStyle(store.ai.pilot.isOpen ? Theme.accent : Theme.textSecondary)
+                    .buttonStyle(ValseIconButtonStyle(active: store.ai.pilot.isOpen))
                     .help(tr("pilot.help"))
                     .testID("titlebar.pilot")
                     LayoutMenuButton()   // SE-005
                     // CapCut: ⌨ opens the shortcut window (language lives in Settings ▸ General)
                     if let show = TitleBar.showShortcuts {
-                        Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)) }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textSecondary)
+                        Button(action: show) { Image(systemName: "keyboard").font(.system(size: 13)).frame(width: 26, height: 24) }
+                            .buttonStyle(ValseIconButtonStyle())
                             .help(tr("keymap.title"))
                             .testID("titlebar.shortcuts")
                     }
@@ -288,38 +288,194 @@ struct TitleBar: View {
                             Text(loc: "titlebar.export")
                         }
                     }
-                    .buttonStyle(AccentButtonStyle())
+                    .buttonStyle(ValseExportButtonStyle())
                     .disabled(store.projectDuration == .zero)
                     .keyboardShortcut("e", modifiers: .command)
                     .testID("titlebar.export")
                 }
-                ProjectSwitcherButton(store: store)   // P1: click = project switcher (⌘⇧O)
+                ValseEditorMark(height: 24)
             }
             .padding(.horizontal, 10)
             .frame(height: Theme.Metrics.titleBarHeight)
             .background(Theme.window)
+            // the Valse mark's opening intro, once per project open (read untracked: no re-render with the project)
+            .onAppear { introIfNewProject() }
+            .onValueChange(of: store.packageURL) { _, _ in introIfNewProject() }
+        }
+    }
+
+    private func introIfNewProject() {
+        let id = EditorStore.untracked { store.project.id }
+        ValseEditorIntro.shared.projectOpened(id, reduceMotion: reduceMotion)
+    }
+}
+
+/// ‹  Project name  ✓ : the title bar's left cluster (round 12, replaces the project switcher).
+struct ProjectTitleCluster: View {
+    @Perception.Bindable var store: EditorStore
+    @State private var renaming = false
+    var body: some View {
+        WithPerceptionTracking {
+            HStack(spacing: 4) {
+                // the one way back to Home (the red close button quits the app instance)
+                Button { TitleBar.goHome?() } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold)).frame(width: 26, height: 24)
+                }
+                .buttonStyle(ValseIconButtonStyle())
+                .help(tr("menu.home"))
+                .accessibilityLabel(Text(loc: "menu.home"))
+                .testID("titlebar.home")
+                if renaming {
+                    ProjectRenameField(initial: store.projectName) { store.renameProject($0); renaming = false }
+                        onCancel: { renaming = false }
+                } else {
+                    ProjectNameLabel(name: store.projectName) { renaming = true }
+                }
+                SaveStatusView(store: store).padding(.leading, 4)
+            }
+            .testID("titlebar.cluster")
         }
     }
 }
 
+/// The project name: plain bold text at rest; hover shows a quiet key fill and the tooltip "double-click to rename"
+/// (with the full name when it is truncated). Double-click renames in place.
+struct ProjectNameLabel: View {
+    let name: String
+    let rename: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Text(verbatim: name)
+            .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            .lineLimit(1).truncationMode(.middle)
+            .padding(.horizontal, 7).frame(height: 24)
+            .background(hover ? Theme.buttonSecondary.opacity(0.55) : .clear, in: RoundedRectangle(cornerRadius: 6))
+            .modifier(CappedWidth(max: 360))
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2, perform: rename)
+            .valseHover($hover)
+            .help(tr("titlebar.name.help", name))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: name))
+            .accessibilityHint(Text(loc: "titlebar.name.renameHint"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(named: Text(loc: "titlebar.name.rename"), rename)
+            .testID("titlebar.projectName")
+    }
+}
+
+/// Hugs its content up to `max` points (then the content truncates), unlike `.frame(maxWidth:)`, which grows to the
+/// whole offered width: the save status stays right after the name.
+private struct CappedWidth: ViewModifier {
+    let max: CGFloat
+    func body(content: Content) -> some View { CappedWidthLayout(max: max) { content } }
+}
+
+private struct CappedWidthLayout: Layout {
+    let max: CGFloat
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let s = subviews.first else { return .zero }
+        let w = min(proposal.width ?? max, max)
+        return s.sizeThatFits(ProposedViewSize(width: w, height: proposal.height))
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    }
+}
+
+/// Inline rename: Return commits (blank / unchanged = no change), Esc cancels, clicking elsewhere commits.
+struct ProjectRenameField: View {
+    let initial: String
+    let onCommit: (String) -> Void
+    let onCancel: () -> Void
+    @State private var text = ""
+    @State private var done = false
+    @FocusState private var focused: Bool
+    var body: some View {
+        TextField("", text: $text)
+            .textFieldStyle(.plain).font(.system(size: 12.5, weight: .semibold))
+            .padding(.horizontal, 7).frame(width: 240, height: 24)
+            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.accent, lineWidth: 1.5))
+            .focused($focused)
+            .onSubmit { finish(commit: true) }
+            .onExitCommand { finish(commit: false) }
+            .onAppear { text = initial; focused = true }
+            .onValueChange(of: focused) { _, f in if !f { finish(commit: true) } }
+            .accessibilityLabel(Text(loc: "titlebar.name.rename"))
+            .testID("titlebar.rename.field")
+    }
+    private func finish(commit: Bool) {
+        guard !done else { return }
+        done = true
+        commit ? onCommit(text) : onCancel()
+    }
+}
+
+/// The quiet save status after the project name (`EditorStore.saveStatus`): nothing while editing; "Saving…" only
+/// when a save takes > 0.5 s; a brief "✓ Saved" after a visible or explicit save, then a tiny ✓ whose tooltip gives the
+/// last save time; a failed save is impossible to miss: orange ⚠ "Not saved", click to retry (the reason in the
+/// tooltip), until a save succeeds. Flat, no glow; fades only (no motion).
+struct SaveStatusView: View {
+    @Perception.Bindable var store: EditorStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        WithPerceptionTracking {
+            Group {
+                switch store.saveStatus {
+                case .saving:
+                    Text(loc: "save.saving").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                        .accessibilityLabel(Text(loc: "save.saving"))
+                case .saved:
+                    Label { Text(loc: "save.saved") } icon: { Image(systemName: "checkmark") }
+                        .labelStyle(.titleAndIcon).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.success)
+                case .failed:
+                    Button { store.save() } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10.5)).foregroundStyle(Theme.danger)
+                            Text(loc: "save.notSaved").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.dangerText)
+                        }
+                        .padding(.horizontal, 6).frame(height: 22)
+                    }
+                    .buttonStyle(ValseIconButtonStyle())
+                    .help((store.saveFailure.map { $0.message(project: store.projectName) + " " } ?? "") + tr("save.retryHelp"))
+                    .accessibilityLabel(Text(verbatim: tr("save.notSaved") + (store.saveFailure.map { ", " + $0.message(project: store.projectName) } ?? "")))
+                    .testID("titlebar.saveFailed")
+                case .idle:
+                    // (not in UI tests: autosave timing would make the title-bar baselines flaky)
+                    if let saved = store.lastAutosave, !EditorStore.quietSaveStatus {
+                        Image(systemName: "checkmark").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Theme.textTertiary)
+                            .help(tr("save.savedAt", saved.formatted(date: .omitted, time: .shortened)))
+                            .accessibilityLabel(Text(verbatim: tr("save.savedAt", saved.formatted(date: .omitted, time: .shortened))))
+                    }
+                }
+            }
+            .transition(.opacity)
+            .animation(ValseMotion.live(reduceMotion) ? .easeOut(duration: 0.2) : nil, value: store.saveStatus)
+            .testID("titlebar.saveStatus")
+        }
+    }
+}
 struct ToastView: View {
     let toast: Toast?
     var body: some View {
         WithPerceptionTracking {
             if let toast {
-                // CapCut (UX §9): centred white pill, black 12 pt text; errors stay red
+                // Valse feedback sticker (STYLE_GUIDE §3): a flat mint pill with ink text on a hard teal offset block
+                // (zero blur, no soft shadow); errors: burgundy pill, cream text, orange block.
                 HStack(spacing: 10) {
                     Text(verbatim: toast.message)
                     if let title = toast.actionTitle, let action = toast.action {   // C4: "Undo" after an instant edit
-                        Button(action: action) { Text(verbatim: title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.accentDim) }
+                        Button(action: action) { Text(verbatim: title).font(.system(size: 12, weight: .bold)).underline() }
                             .buttonStyle(.plain).testID("toast.action")
                     }
                 }
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(toast.isError ? .white : .black)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(toast.isError ? Theme.Valse.cream : Theme.Valse.ink)
                     .padding(.horizontal, 14).padding(.vertical, 7)
-                    .background(toast.isError ? Color(hex: 0xC24040) : Color.white, in: Capsule())
-                    .shadow(color: .black.opacity(TestAnchors.isEnabled ? 0 : 0.35), radius: TestAnchors.isEnabled ? 0 : 8)
+                    .background(toast.isError ? Theme.Valse.burgundy : Theme.Valse.mint, in: Capsule())
+                    .offset(x: -1, y: -1)
+                    .background(Capsule().fill(toast.isError ? Theme.Valse.orange : Theme.Valse.teal).offset(x: 2, y: 2))
                     .transition(.opacity.combined(with: .move(edge: .top)))
                     .id(toast.id)
             }

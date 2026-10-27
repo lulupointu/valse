@@ -134,7 +134,7 @@ struct AdjustPresetsSection: View {
                         Image(systemName: "slider.horizontal.3").font(.system(size: 10))
                         Text(verbatim: p.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
                     }
-                    .foregroundStyle(.white).padding(.horizontal, 10).frame(height: 24)
+                    .foregroundStyle(Theme.textPrimary).padding(.horizontal, 10).frame(height: 24)
                     .background(Theme.buttonSecondary, in: Capsule())
                     .contentShape(Capsule())
                 }

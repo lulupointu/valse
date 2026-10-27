@@ -22,11 +22,11 @@ struct DictateButton: View {
             Button { toggle() } label: {
                 ZStack {
                     if active {
-                        Circle().fill(Color.red.opacity(0.25 + 0.5 * d.level)).frame(width: 24, height: 24)
+                        Circle().fill(Theme.danger.opacity(0.25 + 0.5 * d.level)).frame(width: 24, height: 24)
                     }
                     Image(systemName: active ? "mic.fill" : "mic")
                         .font(.system(size: 13))
-                        .foregroundStyle(active ? Color.red : (error == nil ? IStyle.icon : IStyle.warning))
+                        .foregroundStyle(active ? Theme.danger : (error == nil ? IStyle.icon : IStyle.warning))
                 }
                 .frame(width: 26, height: 26)
                 .contentShape(Rectangle())

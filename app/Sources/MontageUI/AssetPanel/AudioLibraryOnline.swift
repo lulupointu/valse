@@ -140,9 +140,12 @@ final class OnlineAudioState {
             await withTaskGroup(of: (Int, Result<[OnlineTrack], OnlineAudioError>).self) { g in
                 for (i, (p, k)) in active.enumerated() {
                     g.addTask {
-                        do { return (i, .success(try await p.search(q, key: k, http: http))) } catch {
-                            return (i, .failure(OnlineAudioError.from(error)))
-                        }
+                        // the Result is built first, the tuple returned outside do/catch: with -O (Swift 6.3.3)
+                        // `do { return (i, .success(try await …)) } catch { … }` returned index 0 from every child, so
+                        // the last provider overwrote the first (release builds only: Jamendo rows missing)
+                        let r: Result<[OnlineTrack], OnlineAudioError>
+                        do { r = .success(try await p.search(q, key: k, http: http)) } catch { r = .failure(OnlineAudioError.from(error)) }
+                        return (i, r)
                     }
                 }
                 for await (i, r) in g { byProvider[i] = r }
@@ -417,7 +420,7 @@ struct OnlineAudioView: View {
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     if !state.warnings.isEmpty {
-                        Text(verbatim: state.warnings.joined(separator: " · ")).font(Theme.Fonts.hint).foregroundStyle(Color(hex: 0xF0B44C))
+                        Text(verbatim: state.warnings.joined(separator: " · ")).font(Theme.Fonts.hint).foregroundStyle(Theme.warning)
                             .lineLimit(2).padding(.horizontal, 12).padding(.bottom, 4)
                     }
                     LibraryItemsView(tab: "audio", namespace: "audio", title: title,
@@ -459,9 +462,9 @@ struct ChipRow: View {
                             let on = id == selection
                             Button { select(id) } label: {
                                 Text(verbatim: title(id)).font(.system(size: 11.5, weight: on ? .semibold : .regular))
-                                    .foregroundStyle(on ? Color.black : Theme.textPrimary)
+                                    .foregroundStyle(on ? Theme.onAccent : Theme.textPrimary)
                                     .padding(.horizontal, 10).frame(height: 24)
-                                    .background(on ? Theme.accent : Color(white: 0.2), in: Capsule())
+                                    .background(on ? Theme.accent : Theme.control, in: Capsule())   // round 13: was a neutral #333
                             }
                             .buttonStyle(.plain)
                             .testID("\(idPrefix).\(id.isEmpty ? "popular" : id)")

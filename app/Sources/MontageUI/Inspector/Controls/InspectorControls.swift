@@ -3,20 +3,21 @@ import AppKit
 import MontageCore
 import Perception
 
-/// Inspector design tokens not in `Theme` (sampled from CapCut 9.6 screenshots, UX.md §1.2 / §5).
+/// Inspector design tokens not in `Theme` (CapCut 9.6 layout, UX.md §1.2 / §5), in the Valse warm neutrals
+/// (VALSE-APP: same lightness steps as the CapCut greys, warm and low-chroma).
 enum IStyle {
-    static let label = Color(hex: 0xDCDCDC)
-    static let caption = Color(hex: 0x8C8C8C)
-    static let track = Color(hex: 0x4A4A4A)
-    static let field = Color(hex: 0x121212)
-    static let dropdown = Color(hex: 0x2F2F31)
-    static let tile = Color(hex: 0x3A3A3A)
-    static let strip = Color(hex: 0x353535)
-    static let icon = Color(hex: 0xC8C8C8)
-    static let iconDim = Color(hex: 0x6A6A6A)
-    static let warning = Color(hex: 0xE8B33A)
-    static let curve = Color(hex: 0xF2C230)
-    static let graph = Color(hex: 0x0F0F0F)
+    static let label = Color(hex: 0xE1DBCF)
+    static let caption = Color(hex: 0x9F988E)
+    static let track = Color(hex: 0x484541)
+    static let field = Color(hex: 0x0A0908)
+    static let dropdown = Color(hex: 0x272523)
+    static let tile = Color(hex: 0x393633)
+    static let strip = Color(hex: 0x33302D)
+    static let icon = Color(hex: 0xCDC6BA)
+    static let iconDim = Color(hex: 0x6D675F)
+    static let warning = Theme.warning
+    static let curve = Theme.Valse.mustard
+    static let graph = Color(hex: 0x0A0908)
     static let rowHeight: CGFloat = 36
     static let labelWidth: CGFloat = 104
     static let fieldWidth: CGFloat = 56
@@ -297,7 +298,7 @@ struct KeyframeTripletButtons: View, Equatable {
                 } label: {
                     Image(systemName: m.on ? "diamond.fill" : "diamond")
                         .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(m.on ? Theme.accent : (m.active ? (m.has ? Color.white : IStyle.icon) : IStyle.iconDim.opacity(0.6)))
+                        .foregroundStyle(m.on ? Theme.toolActive : (m.active ? (m.has ? Theme.textPrimary : IStyle.icon) : IStyle.iconDim.opacity(0.6)))
                         .frame(width: 16, height: 20).contentShape(Rectangle())
                 }
                 .disabled(!m.active)
@@ -484,7 +485,7 @@ struct CapCheckbox: View {
         WithPerceptionTracking {
             ZStack {
                 RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
-                if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+                if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.textPrimary) }
             }
             .frame(width: 16, height: 16)
             .contentShape(Rectangle())
@@ -649,7 +650,7 @@ struct RotationDial: View {
         WithPerceptionTracking {
             let r = degrees * .pi / 180
             ZStack {
-                Circle().stroke(Color(hex: 0x9A9A9A), lineWidth: 1.5)
+                Circle().stroke(Color(hex: 0xA49C8F), lineWidth: 1.5)
                 Path { p in
                     p.move(to: CGPoint(x: 11 + cos(r) * 2, y: 11 + sin(r) * 2))
                     p.addLine(to: CGPoint(x: 11 + cos(r) * 6.5, y: 11 + sin(r) * 6.5))
@@ -692,10 +693,9 @@ struct SmallIconButton: View {
         WithPerceptionTracking {
             Button(action: action) {
                 Image(systemName: symbol).font(.system(size: size))
-                    .foregroundStyle(active ? Theme.accent : (enabled ? IStyle.icon : IStyle.iconDim.opacity(0.6)))
                     .frame(width: 22, height: 22).contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ValseIconButtonStyle(active: active))   // quiet key: hover fill, mint when on
             .disabled(!enabled)
             .help(help)
             .accessibilityLabel(Text(verbatim: help))   // SE-017
@@ -717,7 +717,7 @@ struct PillButton: View {
                     if let symbol { Image(systemName: symbol).font(.system(size: 11, weight: .semibold)) }
                     Text(verbatim: title).font(.system(size: 12, weight: .medium))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 12).frame(height: 26)
                 .background(accent ? Theme.accent : Theme.buttonSecondary, in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
                 .contentShape(Rectangle())

@@ -135,7 +135,7 @@ struct AnimationTile: View {
                         // one Canvas: transforms, reveal mask, blur and clipping are rasterised together (never overflow the tile)
                         Canvas { ctx, size in
                             let w = size.width, h = size.height
-                            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(subject == .video ? .black : Color(hex: 0x262626)))
+                            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(subject == .video ? .black : Theme.menu))
                             let r = state.reveal
                             ctx.clip(to: Path(CGRect(x: w * r.left, y: h * r.top, width: w * max(0, 1 - r.left - r.right),
                                                      height: h * max(0, 1 - r.top - r.bottom))))

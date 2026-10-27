@@ -116,7 +116,7 @@ extension View {
     /// `.popover` whose content never gets taller / wider than the window: past that it scrolls.
     func fittedPopover<C: View>(isPresented: Binding<Bool>, arrowEdge: Edge = .top, @ViewBuilder content: @escaping () -> C) -> some View {
         // the one raw popover call (WindowFitTests allows it in this file only)
-        popover(isPresented: isPresented, arrowEdge: arrowEdge) { PopoverFit(content: content()) }
+        popover(isPresented: isPresented, arrowEdge: arrowEdge) { PopoverFit(content: content()).valsePopoverSurface() }   // VALSE-APP round 13: never the system grey
     }
 
     /// In-window replacement for `.sheet`: dimmed window, centred card clamped to the window, Esc closes.

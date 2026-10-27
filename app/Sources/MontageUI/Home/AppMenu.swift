@@ -153,11 +153,6 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         main.addItem(menu("menu.file", [
             item("menu.new", id: "menu.new") { [unowned self] in self.app.newProjectFromAnywhere() },
             item("menu.open", id: "menu.open") { [unowned self] in self.app.openPanel() },
-            // P1: title-bar project switcher; not while typing in a text field (except its own search field)
-            item("menu.switchProject", id: "menu.switchProject", enabled: { [unowned self] in self.inEditor }) { [unowned self] in
-                if !self.app.switcher.isOpen, NSApp.windows.contains(where: { $0.isVisible && $0.firstResponder is NSText }) { return }
-                self.app.switcher.toggle()
-            },
             item("pm.window.openInNewMenu", id: "menu.openInNewWindow") { [unowned self] in self.app.openPanel(newWindow: true) },   // PM-014
             item("pm.window.new", id: "menu.newWindow") { [unowned self] in self.app.newWindow() },
             sub("menu.openRecent", recents.isEmpty ? [item("menu.openRecent.none", enabled: { false }) {}] : recents),
@@ -299,6 +294,10 @@ public final class AppMenuBuilder: NSObject, NSMenuDelegate {
         main.addItem(menu("menu.window", [
             item("menu.minimize", id: "menu.minimize") { NSApp.keyWindow?.miniaturize(nil) },
             item("menu.fullscreen", id: "menu.fullscreen") { NSApp.keyWindow?.toggleFullScreen(nil) },
+            // ⌘W = the red close button of the key window: the project window quits this instance (round 12, one
+            // window = one instance, PM-014); a detached panel / export window just closes. Off under an in-window
+            // dialog, so ⌘W never quits from behind Settings or Export.
+            item("menu.close", id: "menu.close", enabled: { [unowned self] in self.app.modal == nil }) { NSApp.keyWindow?.performClose(nil) },
         ]))
         main.addItem(menu("menu.help", [
             item("menu.shortcuts", id: "menu.shortcuts") { [unowned self] in self.app.modal = .shortcuts },

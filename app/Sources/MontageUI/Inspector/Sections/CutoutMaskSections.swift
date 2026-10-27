@@ -210,7 +210,7 @@ struct ChromaKeySection: View {
                 HStack(spacing: 8) {
                     Text(loc: "key.chroma.color").font(Theme.Fonts.row).foregroundStyle(IStyle.label)
                     Button { pick() } label: {
-                        Image(systemName: "eyedropper").font(.system(size: 13)).foregroundStyle(.white)
+                        Image(systemName: "eyedropper").font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
                             .frame(width: 26, height: 26).background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
                     }
                     .buttonStyle(.plain).help(tr("inspector.chroma.pickHelp")).testID("inspector.chroma.pick")
@@ -335,7 +335,7 @@ struct MaskShapesSection: View {
                                         if target.index >= 1 { InspectorUIState.shared.maskIndex[clip.id] = n }
                                     } label: {
                                         Text(verbatim: tr("inspector.mask.chip", n, tr((m ?? mask).shape.nameKey)))
-                                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                                             .padding(.horizontal, 12).frame(height: 26)
                                             .background(selected ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
                                             .overlay(Capsule().strokeBorder(selected && count > 1 ? Theme.accent : .clear, lineWidth: 1))
@@ -358,7 +358,7 @@ struct MaskShapesSection: View {
                             Image(systemName: "plus").font(.system(size: 12, weight: .semibold))
                             Text(loc: "inspector.mask.add").font(.system(size: 12, weight: .semibold))
                         }
-                        .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
+                        .foregroundStyle(Theme.textPrimary).padding(.horizontal, 14).frame(height: 26)
                         .background(Theme.buttonSecondary, in: Capsule())
                     }
                     .buttonStyle(.plain)
@@ -377,7 +377,7 @@ struct MaskShapesSection: View {
                             Image(systemName: drawing ? "xmark" : "pencil.tip").font(.system(size: 12, weight: .semibold))
                             Text(loc: drawing ? "mask.pen.cancel" : "mask.pen.draw").font(.system(size: 12, weight: .semibold))
                         }
-                        .foregroundStyle(.white).padding(.horizontal, 14).frame(height: 26)
+                        .foregroundStyle(Theme.textPrimary).padding(.horizontal, 14).frame(height: 26)
                         .background(drawing ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
                     }
                     .buttonStyle(.plain)

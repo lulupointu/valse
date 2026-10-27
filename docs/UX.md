@@ -175,6 +175,11 @@ saved: HH:MM:SS"** next to the traffic lights. Leaving the editor (CapCut ▸ Ba
 toast. Montage should do the same (debounced autosave about 2 s after the last edit, atomic writes) and keep ⌘S as a no-op that flashes
 "Saved".
 
+**Valse (owner decision, replaces the "Auto saved" label):** a quiet status right of the project name: nothing while editing,
+"Saving…" only after 0.5 s, "✓ Saved" (mint) for 2 s after ⌘S / a slow save, else a small ✓ ("Saved at 14:32" tooltip); a failed
+save shows a persistent orange "⚠ Not saved" (click = retry). The title bar left is back arrow (⌘⇧H, Back to Home) + project name
+(double-click to rename); the Valse logo is centred; the red close button quits.
+
 ---
 
 ## 3. Asset panel (top-left)
@@ -707,7 +712,8 @@ undo, redo, split, delete-left/right (disabled), delete and marker.
   "Generating… N %" for export. Long processing (reverse, AI) shows progress **on the clip** or a small modal with Cancel.
 - **Empty states**: dashed drop-zone lane "Drag material here and start to create" on the timeline; big Import card in Media; player black
   with 00:00 counters; Details panel when nothing is selected (never a blank inspector).
-- **Autosave indicator**: "Auto saved: HH:MM:SS" in the title bar, updated a few seconds after each edit.
+- **Autosave indicator**: CapCut: "Auto saved: HH:MM:SS" in the title bar, updated a few seconds after each edit. Valse: quiet save
+  status next to the project name (§2.6).
 - **Selection sync**: selecting on the canvas selects the timeline clip and vice versa, and the inspector switches tabs instantly. The
   inspector remembers the last tab per clip type.
 - **Animations**: menus/popovers fade + scale in quickly (about 120 ms); main-track clips slide to their new position when reordering or

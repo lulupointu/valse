@@ -125,26 +125,30 @@ struct SettingsTabBar: View {
     @Binding var selection: SettingsTab
     var body: some View {
         WithPerceptionTracking {
-            HStack(spacing: 2) {
+            HStack(spacing: 0) {
                 ForEach(SettingsTab.allCases, id: \.self) { t in
                     WithPerceptionTracking {
                         Button { selection = t } label: {
-                            Text(verbatim: tr(t.nameKey))
-                                .font(.system(size: 12.5, weight: .medium))
-                                .foregroundStyle(selection == t ? Theme.textPrimary : Theme.textSecondary)
-                                .lineLimit(1).minimumScaleFactor(0.8)
-                                // 9 tabs: a long label ("Performances") keeps its width, the rest share what is left
-                                .frame(minWidth: CGFloat(tr(t.nameKey).count) * 6.4 + 6, maxWidth: .infinity, minHeight: 28)
-                                .background(selection == t ? Theme.segmentSelected : .clear, in: RoundedRectangle(cornerRadius: 5))
-                                .contentShape(Rectangle())
+                            // the editor's tab sticker (round 10: the raised segment looked off); fixed weight, so the
+                            // selection never shifts the other tabs
+                            // 9 tabs: every label keeps its natural width (the sticker hugs it), the cells share
+                            // what is left; en and fr both fit the 640 pt dialog
+                            ValseTabLabel(active: selection == t) {
+                                Text(verbatim: tr(t.nameKey))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .lineLimit(1).fixedSize()
+                                    .frame(minHeight: 20)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .testID("settings.tab.\(t.rawValue)")
                     }
                 }
             }
-            .padding(2)
-            .background(Theme.inset, in: RoundedRectangle(cornerRadius: 6))
+            // room for the sticker's lift and its hard block; no inset track (the sticker carries the selection)
+            .padding(.top, 1).padding(.bottom, 3)
         }
     }
 }
@@ -186,7 +190,7 @@ struct CheckLine: View {
                 HStack(alignment: .top, spacing: 8) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 3).fill(isOn ? Theme.accent : Theme.stepper)
-                        if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white) }
+                        if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.onAccent) }
                     }
                     .frame(width: 16, height: 16)
                     Text(verbatim: label).font(.system(size: 12.5)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)

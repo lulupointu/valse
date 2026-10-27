@@ -77,6 +77,8 @@ struct Options {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let options = Options(CommandLine.arguments)
+    /// Activation policy / launch activation for this process (pure decision in MontageUI, LaunchActivationTests).
+    let launchPlan = LaunchActivation.current
     var window: NSWindow!
     var store: EditorStore!
     var app: AppModel!
@@ -108,8 +110,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.app.trashOrDeleteSelection()
                 return nil
             }
-            // P1 project switcher open: its keys first; other keys go to its search field, never to editor shortcuts
-            if self.app.switcher.isOpen { return self.app.switcher.handle(e) ? nil : e }
             return ShortcutRegistry.handle(e, store: self.store) ? nil : e
         }
         NotificationCenter.default.addObserver(forName: L10n.didChange, object: nil, queue: .main) { [weak self] _ in
@@ -155,6 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let snap = options.snapshot {
             // give the compositor, thumbnails and SwiftUI layout time to settle
             try? await Task.sleep(for: .seconds(3))
+            await ValseReview.waitForRecording()   // review frame sequences (VALSE_DEBUG_FRAMES) only
             let ok = SnapshotRegistry.shared.writePNG(window: window, to: snap)
             QuitDeadline.snapshotWritten = ok
             FileHandle.standardError.write(Data("snapshot \(ok ? "written" : "FAILED"): \(snap.path)\n".utf8))
@@ -175,7 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                        backing: .buffered, defer: false)
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
-        w.backgroundColor = NSColor(srgbRed: 0x14 / 255.0, green: 0x14 / 255.0, blue: 0x14 / 255.0, alpha: 1)
+        w.backgroundColor = RGBA(hex: 0x0C0B0A).nsColor   // the chrome canvas, Theme.window (was a neutral #141414)
         w.minSize = NSSize(width: 1100, height: 680)
         w.title = "Montage"
         w.delegate = self
@@ -191,12 +192,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !isOffscreen { w.fitToScreen() }
         if options.uitest != nil || options.offscreen || options.snapshot != nil {
             w.orderBack(nil)  // offscreen (UITestWindow / OffscreenWindow, far off every screen), never activated
-        } else if options.background {
-            // Never cover or activate over other apps (another agent may be driving the screen): behind everything.
+        } else if !launchPlan.activates {
+            // --background / --home-demo: never cover or activate over other apps (another agent may be driving the
+            // screen): behind everything.
             w.orderBack(nil)
         } else {
-            w.makeKeyAndOrderFront(nil)
-            if #available(macOS 14, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+            // Normal launch (open / Finder / Dock): key window, active app (LaunchActivation explains bug 1).
+            if let p = launchPlan.policyAfterLaunch { NSApp.setActivationPolicy(p.appKit) }
+            LaunchActivation.activate(w)
         }
         window = w
         if let f = options.windowIDFile {
@@ -206,8 +209,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// P1 (CapCut): the red close button in the editor goes back to Home ("Saved to project"); on Home it quits.
-    func windowShouldClose(_ sender: NSWindow) -> Bool { app?.windowShouldClose() ?? true }
+    /// VALSE-APP round 12 (owner): the red close button (and ⌘W, which performs it) quits this app instance, from the
+    /// editor and from Home; the title bar's back arrow is the way back to Home. Each project window is its own
+    /// process (PM-014), so closing the window ends that instance. It goes through `terminate`, exactly like ⌘Q:
+    /// `applicationShouldTerminate` stops background work, saves and closes the project (version + cover), and
+    /// Sparkle's install-on-quit runs. The window stays up while that happens. Only the main window has this delegate:
+    /// detached panels and other windows just close.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        NSApp.terminate(nil)
+        return false
+    }
 
     /// BUG-OVERSIZED-SHEETS: moved to a smaller display → shrink into its visible frame.
     func windowDidChangeScreen(_ notification: Notification) {
@@ -326,7 +337,8 @@ if CommandLine.arguments.contains("--uitest") { UITestDriver.prepareProcess() }
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-// --background: accessory policy = no Dock icon and no activation on launch.
-let headless = CommandLine.arguments.contains("--background") || CommandLine.arguments.contains("--uitest")
-app.setActivationPolicy(headless ? .accessory : .regular)
+// Headless runs (--uitest, --background, --snapshot, --offscreen, --home-demo): accessory policy = no Dock icon and no
+// activation on launch. A normal launch must NOT set the policy here, before run(): that lost the launch activation
+// (bug 1, see LaunchActivation).
+if let p = delegate.launchPlan.policyBeforeRun { app.setActivationPolicy(p.appKit) }
 app.run()

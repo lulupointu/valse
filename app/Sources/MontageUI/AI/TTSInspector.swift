@@ -73,7 +73,7 @@ struct TTSVoicesSection: View {
                 HStack(spacing: 8) {
                     ForEach([("auto", tr("tts.lang.all")), ("fr", tr("tts.lang.fr")), ("en", tr("tts.lang.en"))], id: \.0) { id, title in
                         WithPerceptionTracking {
-                            Text(verbatim: title).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                            Text(verbatim: title).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
                                 .padding(.horizontal, 14).frame(height: 28)
                                 .background(st.language == id ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
                                 .onTapGesture { st.language = id }
@@ -87,7 +87,7 @@ struct TTSVoicesSection: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 120), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(TTSStyle.allCases, id: \.self) { s in
                         WithPerceptionTracking {
-                            Text(verbatim: tr(s.nameKey)).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                            Text(verbatim: tr(s.nameKey)).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary)
                                 .lineLimit(1).minimumScaleFactor(0.8).padding(.horizontal, 8).frame(maxWidth: .infinity).frame(height: 28)
                                 .background(style == s ? Theme.accentDim : Theme.buttonSecondary, in: Capsule())
                                 .contentShape(Capsule())
@@ -107,7 +107,7 @@ struct TTSVoicesSection: View {
                                 WithPerceptionTracking {
                                     Button { st.voice = v.id; sample(v) } label: {
                                         VStack(spacing: 4) {
-                                            Text(verbatim: Self.displayName(v)).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                            Text(verbatim: Self.displayName(v)).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                                                 .multilineTextAlignment(.center).lineLimit(2)
                                             if v.quality >= 1 { Text(verbatim: tr("tts.voice.hqBadge")).font(.system(size: 10)).foregroundStyle(IStyle.caption) }
                                         }
