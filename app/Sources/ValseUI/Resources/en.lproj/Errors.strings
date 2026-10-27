@@ -1,0 +1,14 @@
+/* BUG-ERROR-COPY: shared error actions and messages (style guide: docs/UX.md "Error messages") */
+"action.openStorageSettings" = "Open Storage Settings";
+"action.saveAs" = "Save As…";
+"action.dismiss" = "Dismiss";
+"action.copyDetails" = "Copy Details";
+"action.download" = "Download";
+"action.checkUpdates" = "Check for Updates";
+"action.showInFinder" = "Show in Finder";
+"save.failed.diskFull" = "Valse can't save “%@”: the disk is full. Free up space; your changes are kept while Valse stays open.";
+"save.failed.driveOffline" = "Valse can't save “%@”: the drive “%@” isn't connected. Reconnect it, or choose Save As…";
+"save.failed.other" = "Valse can't save “%@”. Your changes are kept while Valse stays open. Choose Save As… to save a copy elsewhere.";
+"ai.error.toolFailed" = "Couldn't apply %@ because of an unexpected problem. Try again.";
+"ai.error.toolNeedsModel" = "%@ needs the %@ model. Download it to continue.";
+"highlights.noSpeech" = "Valse didn't hear anyone speaking, so it can't pick highlights. Try a video with speech.";

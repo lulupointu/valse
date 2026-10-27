@@ -6,7 +6,7 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
 1. Read docs/BRIEF.md, docs/ARCHITECTURE.md (esp. the registries, "How to add X", §17 work map), and the docs/UX.md + docs/UX_AI.md
    sections for your area (look at the referenced screenshots in docs/ux/). UX parity with CapCut is part of "done".
    The big docs (FEATURES 196 KB, UX 87 KB, STATUS 52 KB) are grepped, not read whole; the project skills
-   (`add-feature`, `write-ui-script`, `run-gates`, `montage-gotchas`) hold the distilled workflow and gotchas.
+   (`add-feature`, `write-ui-script`, `run-gates`, `valse-gotchas`) hold the distilled workflow and gotchas.
 2. Find your rows in docs/FEATURES.md. You own them: implement as many as possible, P0 first, then P1, then P2. Skip rows with status `wontdo` (owner decision) — never implement them.
 
 ## Definition of done (per feature)
@@ -26,7 +26,7 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   scripts/screenshot.sh or in the background.
 - Keep each commit building. Commit messages end with:
   Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
-  (use `/usr/bin/git -c user.name=Montage -c user.email=dev@montage.local commit ...`; in an isolated worktree bare `git`
+  (use `/usr/bin/git -c user.name=Valse -c user.email=dev@valse.local commit ...`; in an isolated worktree bare `git`
   is rewritten by the rtk hook and refused — see CLAUDE.md "Shell in an isolated worktree")
 - Long runs (build, tests, gates): Bash `run_in_background: true`, then wait for the completion notification. Never poll
   with `until grep …; sleep` loops. Stop your own stuck run with `scripts/kill_tests.sh`, not `kill`.
@@ -54,7 +54,7 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   script (still incremental). A one-file change measured 6 min (980 unit tests + 11 UI scripts); while iterating prefer
   the targeted runs, and run check_fast once on the final commit. Single files: `scripts/test.sh --filter X`, `scripts/uitest.sh app/Tests/UIScripts/x.json`.
   Intel (x86_64) build: `scripts/test_x86.sh [--filter X]` runs Core / Effects / Engine tests as x86_64 under Rosetta
-  (CPU code paths only: Metal still runs on the Apple GPU). Float16 doesn't exist on x86_64: use `Half` (MontageCore).
+  (CPU code paths only: Metal still runs on the Apple GPU). Float16 doesn't exist on x86_64: use `Half` (ValseCore).
 - **Full gate (orchestrator, once per batch): `scripts/check_clean.sh --ui`** (clean checkout of exactly HEAD, ~1040 unit
   tests + every UI script at the same time, UI sharded over 4 apps, warm incremental build: ~8-16 min, then the perf gate `scripts/perf.sh --no-smoke` with every slot; `--cold` = fresh
   temp worktree + cold build, `--serial` = old one-at-a-time schedule). It fails when a file under app/ or scripts/ is git-ignored and only counts committed
@@ -65,14 +65,14 @@ Repo: /Users/lulupointu/Development/local-capcut (main branch = integration bran
   "flaky (passed on retry)" and does not fail the gate. Failing twice fails it, unless the test is in
   `app/Tests/quarantine.txt` (still run and reported, not gating; each entry has a date and a reason). Don't quarantine
   your own new failures; a test you broke is a failure. Fix flaky tests when you own them and remove their entry.
-- **Hangs.** test.sh / uitest.sh / check_clean kill a run with no output and ~0 % CPU for 10 min (`MONTAGE_HANG_MINUTES`).
+- **Hangs.** test.sh / uitest.sh / check_clean kill a run with no output and ~0 % CPU for 10 min (`VALSE_HANG_MINUTES`).
   They dump `sample` stacks into the log and fail with "HUNG". A UI script past its timeout is sampled (`hang-sample.txt`).
 - **Slots / disk.** Heavy runs share machine-wide slots. `scripts/slots.sh status` shows who holds them; dead holders,
   and holders idle for 20 min, are reclaimed automatically (with a printed line). The gates fail fast below 5 GB free:
   run `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh`. Test temp files are deleted on exit (private TMPDIR per run).
-- **Real-like media.** `RealLikeMedia` (MontageTestSupport) and `fixtures/real/` (iPhone HEVC Main10 HLG portrait with a
+- **Real-like media.** `RealLikeMedia` (ValseTestSupport) and `fixtures/real/` (iPhone HEVC Main10 HLG portrait with a
   face and speech, English speech with a pause, 120 BPM music) cover player / colour / thumbnail / waveform / beat
-  paths. Prefer them over testsrc patterns for media features. Owner clips are opt-in only (`MONTAGE_REAL_FOOTAGE`), never commit them.
+  paths. Prefer them over testsrc patterns for media features. Owner clips are opt-in only (`VALSE_REAL_FOOTAGE`), never commit them.
 
 ## Finishing (feature agent)
 1. Commit everything (untracked / ignored files under app/ or scripts/ fail the batch gate). If main moved:

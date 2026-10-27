@@ -1,0 +1,444 @@
+import AppKit
+import ValseCore
+import ValseAI
+import ValseEffects
+
+/// Timeline context menus (UX.md §6.5–6.6, [87](../../../../docs/ux/87_ctx_menu_clip.png)): clip, keyframe, marker,
+/// transition, gap, track header. Unavailable items are greyed out, not hidden (CapCut).
+extension TimelineView {
+    private func item(_ key: String, _ equiv: String = "", _ mods: NSEvent.ModifierFlags = [], enabled: Bool = true,
+                      checked: Bool = false, _ body: @escaping () -> Void) -> NSMenuItem {
+        MenuAction.item(tr(key), key: equiv, mods, enabled: enabled, checked: checked, body)
+    }
+    private func sub(_ key: String, _ items: [NSMenuItem]) -> NSMenuItem {
+        let i = NSMenuItem(title: tr(key), action: nil, keyEquivalent: "")
+        let m = NSMenu(title: tr(key)); m.autoenablesItems = false
+        items.forEach(m.addItem)
+        i.submenu = m
+        return i
+    }
+    private func menu(_ items: [NSMenuItem]) -> NSMenu {
+        let m = NSMenu(); m.autoenablesItems = false
+        items.forEach(m.addItem)
+        return m
+    }
+
+    override func rightMouseDown(with e: NSEvent) {
+        let pt = point(e)
+        let l = layoutNow
+        let tl = store.project.timeline
+        var m: NSMenu?
+        switch l.hitTest(pt, timeline: tl, selection: store.selection) {
+        case .clip(let id, _, _):
+            if !store.selection.contains(id) { store.select([id]) }
+            m = clipMenu()
+        case .keyframe(let id, let key, let time, _):
+            let ref = KeyframeRef(clip: id, key: key, time: time)
+            ui.selectedKeyframe = ref
+            m = keyframeMenu(ref)
+        case .marker(let id):
+            ui.selectedMarker = id
+            m = markerMenu(id)
+        case .transition(let left, _, _):
+            store.selection = []; ui.selectedTransition = left
+            m = transitionMenu(left)
+        case .track(let ri):
+            let row = l.rows[ri]
+            let t = l.time(atX: pt.x)
+            m = emptyTrackMenu(at: t, row: row, gap: TimelineOps.gap(at: t, on: row.trackID, in: tl) != nil)
+        case .header(let ri):
+            m = trackMenu(tl.tracks[l.rows[ri].trackIndex])
+        default: break
+        }
+        dirty = true
+        if let m {
+            if let sink = Self.uitestMenuSink { sink(m) } else { NSMenu.popUpContextMenu(m, with: e, for: self) }
+        }
+    }
+
+    /// UI tests (`{"rightClick": …, "menuItem": "a/b"}`): receives the context menu instead of popping it up (a real
+    /// popup runs a modal tracking loop the driver can't reach).
+    @MainActor static var uitestMenuSink: ((NSMenu) -> Void)?
+
+    // MARK: Clip
+
+    func clipMenu() -> NSMenu {
+        let s = store
+        let clips = s.selectedClips
+        let single = s.singleSelectedClip
+        let kind = single.flatMap { s.trackKind(of: $0) }
+        let isMedia = single?.mediaID != nil
+        let asset = single?.mediaID.flatMap(s.project.asset)
+        let isVideo = asset?.kind == .video && kind != .audio
+        let visual = clips.contains { s.trackKind(of: $0)?.isVisual == true }
+        let hasExtract = single.map { c in s.project.timeline.allClips.contains { $0.extractedFrom == c.id } } ?? false
+        let enabledAll = clips.allSatisfy(\.isEnabled)
+        let streams = single.map { TimelineOps.audioStreamCount($0, in: s.project) } ?? 0
+        let current = single?.audioStreamIndex ?? 0
+        var streamItems: [NSMenuItem] = []
+        for k in 0..<max(1, streams) {
+            streamItems.append(MenuAction.item(tr("tlmenu.audioStream.n", k + 1), key: "", [], enabled: streams > 1, checked: current == k) {
+                s.setAudioStream(k)
+            })
+        }
+        let canSeparate: Bool = streams > 1 && isVideo && single?.audio.isMuted == false
+        streamItems.append(.separator())
+        streamItems.append(item("tlmenu.audioStream.separate", enabled: canSeparate) { s.separateAudioStreams() })
+        let streamMenu: NSMenuItem = sub("tlmenu.audioStream", streamItems)
+        // MI-012 (F3): Live Photo clips switch between the still and its motion video
+        let liveStill = single.flatMap { s.livePhotoStill(of: $0) }
+        let liveItem: NSMenuItem = item(liveStill != nil ? "tlmenu.applyPhoto" : "tlmenu.applyLivePhoto",
+                                        enabled: liveStill != nil || asset?.livePhotoVideoURL != nil) { if let c = single { s.toggleLivePhoto(c.id) } }
+        let overlay = single.map { c in kind?.isVisual == true && !(s.project.timeline.locate(c.id).map { s.project.timeline.tracks[$0.track].isMain } ?? true) } ?? false
+
+        var items: [NSMenuItem] = [
+            item("tlmenu.copy", "c", .command) { s.copySelection() },
+            item("tlmenu.cut", "x", .command) { s.cutSelection() },
+            item("tlmenu.paste", "v", .command, enabled: !s.timelineUI.clipboard.isEmpty || AppPasteboard.general.data(forType: ClipboardPayload.type) != nil) { s.paste() },
+            item("tlmenu.duplicate", "d", .command) { s.duplicateSelection() },
+            item("tlmenu.copyAttributes", "c", [.command, .shift], enabled: single != nil) { s.copyAttributes() },
+            item("tlmenu.pasteAttributes", "v", [.command, .shift], enabled: s.timelineUI.attributeSource != nil) { [weak self] in self?.showPasteAttributesDialog() },
+            item("tlmenu.delete", "\u{8}", []) { s.deleteSelection() },
+            .separator(),
+            item("tlmenu.split", "b", .command) { s.split() },
+            sub("tlmenu.edit", [
+                item("tlmenu.freeze", enabled: isVideo) { s.freezeFrame() },
+                item("tlmenu.duplicateFrame", enabled: isVideo) { s.duplicateFrame() },
+                item("tlmenu.unlinkFreeze", enabled: single?.freezeSource != nil) { s.unlinkFreezeSelection() },
+                item("tlmenu.reverse", enabled: isMedia && !(single?.isFreezeFrame ?? true), checked: single?.reversed ?? false) { s.reverseSelection() },
+                item("tlmenu.mirror", enabled: visual) { s.mirrorSelection() },
+                item("tlmenu.rotate", enabled: visual) { s.rotateSelection() },
+                item("tlmenu.crop", enabled: visual && single?.mediaID != nil) { s.openCropDialog() },
+            ]),
+            item("tlmenu.matchCut", enabled: !clips.isEmpty) { s.matchCut() },
+            item("tlmenu.deleteClipMarkers", enabled: clips.contains { !($0.markers ?? []).isEmpty }) { s.removeClipMarkersSelection() },
+            // W10 AI entries
+            sub("tlmenu.splitScenes", [
+                item("tlmenu.splitScenes.scene", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id, mode: .scene) } },
+                item("tlmenu.splitScenes.shot", enabled: isVideo && single != nil) { if let c = single { s.splitScenes(c.id, mode: .shot) } },
+            ]),
+            item("tlmenu.generateCaptions", enabled: single.map { c in c.mediaID.flatMap(s.project.asset)?.hasAudio ?? false } ?? false) {
+                if let c = single { s.ai.captionSource = .clip(c.id); s.generateCaptions() }
+            },
+            item("tlmenu.clipper", enabled: isVideo && single != nil && asset?.hasAudio == true) { if let c = single { s.ai.clipper = AIClipperState(clipID: c.id) } },
+            sub("tlmenu.separateAudio", [
+                item("tlmenu.separateAudio.vocals", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: true) } },
+                item("tlmenu.separateAudio.music", enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, keepVoice: false) } },
+            ] + (StemSeparator.availableStems.isEmpty
+                 ? [item("tlmenu.separateAudio.getStems") { s.requireModels([ModelCatalog.demucs4]) {} }]  // OB-07 download prompt; the stems appear in the menu once installed
+                 : StemSeparator.availableStems.map { st in
+                    item(st.nameKey, enabled: asset?.hasAudio == true) { if let c = single { s.separateAudio(c.id, part: .stem(st)) } }
+                 })),
+            // MI-014 (F3): files with several audio streams — pick the one the clip plays, or split them onto tracks
+            streamMenu,
+            liveItem,
+            item(hasExtract ? "tlmenu.restoreAudio" : "tlmenu.extractAudio", "s", [.control, .shift],
+                 enabled: hasExtract || (isVideo && asset?.hasAudio == true && single?.audio.isMuted == false)) { s.extractOrRestoreAudio() },
+            item("tlmenu.syncAudio", enabled: s.audioClips.count >= 2) { s.syncSelectedAudio() },   // AU-016 (F3)
+            .separator(),
+            item("tlmenu.compound", "g", .option, enabled: !clips.isEmpty) { s.createCompound() },
+            item("tlmenu.uncompound", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                s.explodeCompound()
+            },
+            item("tlmenu.editCompound", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                if let id = single?.id { s.enterCompound(id) }
+            },
+            sub("tlmenu.multicam", [   // TL-024
+                item("multicam.syncAudio", enabled: clips.count >= 2) { s.createMulticam(syncByAudio: true) },
+                item("multicam.syncTimeline", enabled: clips.count >= 2) { s.createMulticam(syncByAudio: false) },
+            ]),
+            item("multicam.grid", enabled: s.selectedMulticam != nil, checked: s.playerUI.multicamGrid) { s.playerUI.multicamGrid.toggle() },
+            item("tlmenu.savePreset", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                if let id = single?.id { s.saveCompoundPreset(id) }   // TL-021 compound presets
+            },
+            item("tlmenu.preprocess", enabled: single.map { if case .compound = $0.content { return true }; return false } ?? false) {
+                if let c = single { s.renderPreview(range: c.range) }   // TL-021 pre-process = render cache of its range
+            },
+            item("tlmenu.group", "g", .command, enabled: clips.count >= 2) { s.groupSelection() },
+            item("tlmenu.ungroup", "g", [.command, .shift], enabled: s.selectionIsGrouped) { s.ungroupSelection() },
+            .separator(),
+            item("tlmenu.exportSelected", enabled: !clips.isEmpty) { s.exportSelectedClips() },
+            item(enabledAll ? "tlmenu.deactivate" : "tlmenu.activate", "v", []) { s.toggleEnabledSelection() },
+            item("tlmenu.replace", enabled: isMedia) { s.replaceSelectedClip() },
+            item("tlmenu.linkMedia", enabled: false) {},
+            item("tlmenu.reveal", enabled: clips.contains { $0.mediaID != nil }) { s.revealSelectedInFinder() },
+            .separator(),
+            item("tlmenu.editEffects", enabled: single.map { !$0.effects.isEmpty } ?? false) { s.inspectorTab = "adjust" },
+            item("keyframes.reset", enabled: clips.contains { !$0.keyframes.isEmpty }) { KeyframePanel.confirmReset(s) },
+            item("tlmenu.speed", "r", .command, enabled: isMedia && asset?.kind != .image) { s.inspectorTab = "speed" },
+            sub("tlmenu.arrange", LayerArrangement.allCases.map { a in item(a.nameKey, enabled: overlay) { s.arrange(a) } }),
+            item("tlmenu.rename", enabled: single != nil) { if let id = single?.id { s.timelineUI.renamingClip = id } },   // TL-040
+            sub("tlmenu.colorLabel", [item("tlmenu.colorLabel.none") { s.setColorLabel(nil) }] +
+                Self.labelColors.indices.map { i in item("tlmenu.colorLabel.\(i)") { s.setColorLabel(i) } }),
+            sub("tlmenu.range", [
+                item("tlmenu.range.byClip", "x", .shift) { s.rangeFromSelection() },
+                item("tlmenu.range.in", "i", []) { s.setInPoint() },
+                item("tlmenu.range.out", "o", []) { s.setOutPoint() },
+                item("tlmenu.range.clear", enabled: s.project.timeline.inPoint != nil || s.project.timeline.outPoint != nil) { s.clearRange() },
+                item("export.menu.range", enabled: s.project.timeline.inPoint != nil || s.project.timeline.outPoint != nil) { s.exportInOutRange() },
+            ]),
+            sub("tlmenu.render", [
+                item("tlmenu.render.all") { s.renderPreview(range: nil) },
+                item("tlmenu.render.inOut", enabled: s.project.timeline.inPoint != nil || s.project.timeline.outPoint != nil) {
+                    s.renderPreview(range: TimeRange(start: s.project.timeline.inPoint ?? .zero,
+                                                     end: s.project.timeline.outPoint ?? s.project.duration))
+                },
+                item("tlmenu.render.selection", enabled: !clips.isEmpty) {
+                    s.renderPreview(range: TimeRange(start: clips.map(\.start).min() ?? .zero, end: clips.map(\.end).max() ?? .zero))
+                },
+                item("tlmenu.render.clear") { s.clearRenderCache() },
+            ]),
+        ]
+        if kind == .audio {
+            items.insert(contentsOf: [
+                .separator(),
+                item("tlmenu.markBeat", "m", []) { s.addMarker() },
+                item("tlmenu.clearBeats", enabled: single?.beats != nil) { s.clearBeatsSelection() },
+                item("tlmenu.splitAudioTrack", enabled: single?.mediaID != nil && single?.audio.channels == .stereo) { s.splitAudioChannels() },
+            ], at: 9)
+        }
+        return menu(items)
+    }
+
+    // MARK: Paste attributes dialog (TL-011)
+
+    func showPasteAttributesDialog() {
+        guard store.timelineUI.attributeSource != nil else { return }
+        let a = NSAlert()
+        a.messageText = tr("attr.title")
+        a.informativeText = tr("attr.message")
+        a.addButton(withTitle: tr("attr.paste"))
+        a.addButton(withTitle: tr("common.cancel"))
+        let stack = NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 6
+        var boxes: [(AttributeGroup, NSButton)] = []
+        for g in AttributeGroup.allCases {
+            let b = NSButton(checkboxWithTitle: tr(g.nameKey), target: nil, action: nil)
+            b.state = store.timelineUI.pasteAttributeGroups.contains(g) ? .on : .off
+            boxes.append((g, b)); stack.addArrangedSubview(b)
+        }
+        let timing = NSPopUpButton(frame: .zero, pullsDown: false)
+        timing.addItems(withTitles: KeyframeTiming.allCases.map { tr($0.nameKey) })
+        timing.selectItem(at: KeyframeTiming.allCases.firstIndex(of: store.timelineUI.pasteKeyframeTiming) ?? 0)
+        let row = NSStackView(views: [NSTextField(labelWithString: tr("attr.timing")), timing])
+        stack.addArrangedSubview(row)
+        stack.frame = NSRect(x: 0, y: 0, width: 260, height: CGFloat(boxes.count + 1) * 26)
+        a.accessoryView = stack
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        let groups = Set(boxes.filter { $0.1.state == .on }.map(\.0))
+        let t = KeyframeTiming.allCases[max(0, timing.indexOfSelectedItem)]
+        store.timelineUI.pasteAttributeGroups = groups
+        store.timelineUI.pasteKeyframeTiming = t
+        store.pasteAttributes(groups: groups, timing: t)
+    }
+
+    // MARK: Keyframe (UX.md §6.5, [101])
+
+    /// Preset curves (Core `EasingPreset.all`, shared with the keyframe panel).
+    static let easingPresets: [(key: String, easing: Easing)] = EasingPreset.all.map { ($0.nameKey, $0.easing) }
+
+    func keyframeMenu(_ ref: KeyframeRef) -> NSMenu {
+        let s = store
+        let current = s.project.timeline.clip(ref.clip)?.keyframes[ref.key]?.keyframes.first { abs(($0.time - ref.time).ticks) < 1000 }?.easing
+        func set(_ e: Easing) {
+            s.edit("cmd.keyframe") { p in
+                guard var track = p.timeline.clip(ref.clip)?.keyframes[ref.key],
+                      let i = track.index(near: ref.time, tolerance: Time(ticks: 1000)) else { throw EditError.nothingToDo }
+                track.setEasing(e, at: i)
+                p.timeline[clip: ref.clip]?.keyframes[ref.key] = track
+            }
+        }
+        return menu([
+            item("easing.easeIn", checked: current == .easeIn) { set(.easeIn) },
+            item("easing.easeOut", checked: current == .easeOut) { set(.easeOut) },
+            item("easing.ease", checked: current == .easeInOut) { set(.easeInOut) },
+            item("easing.linear", checked: current == .linear) { set(.linear) },
+            sub("easing.presets", Self.easingPresets.map { p in item(p.key, checked: current == p.easing) { set(p.easing) } }),
+            item("tlmenu.speed", "k", .option) { if !s.keyframeUI.showsPanel { s.toggleKeyframePanel() } },
+            .separator(),
+            item("tlmenu.copy", "c", .command) { s.copyKeyframes(ref) },
+            item("tlmenu.delete", "\u{8}", []) { s.deleteSmart() },
+        ])
+    }
+
+    // MARK: Marker
+
+    func markerMenu(_ id: MarkerID) -> NSMenu {
+        let s = store
+        let colors = TimelineOps.markerColors.enumerated().map { i, col in
+            item("marker.color.\(i)", checked: s.project.timeline.markers.first { $0.id == id }?.color == col) {
+                s.edit("cmd.marker") { p in try TimelineOps.updateMarker(id, in: &p.timeline) { $0.color = col } }
+            }
+        }
+        return menu([
+            item("marker.edit") { [weak self] in self?.editMarker(id) },
+            sub("marker.color", colors),
+            .separator(),
+            item("marker.delete", "\u{8}", []) { s.edit("cmd.marker.delete") { p in try TimelineOps.removeMarkers([id], in: &p.timeline) } },
+            item("marker.deleteAll") { s.removeAllMarkers() },
+        ])
+    }
+
+    /// "Edit marker": name + note.
+    func editMarker(_ id: MarkerID) {
+        guard let m = store.project.timeline.markers.first(where: { $0.id == id }) else { return }
+        let a = NSAlert()
+        a.messageText = tr("marker.edit")
+        a.addButton(withTitle: tr("common.ok"))
+        a.addButton(withTitle: tr("common.cancel"))
+        let name = NSTextField(string: m.label); name.placeholderString = tr("marker.name")
+        let note = NSTextField(string: m.note ?? ""); note.placeholderString = tr("marker.note")
+        let stack = NSStackView(views: [name, note]); stack.orientation = .vertical; stack.spacing = 6
+        stack.frame = NSRect(x: 0, y: 0, width: 260, height: 54)
+        a.accessoryView = stack
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        let label = name.stringValue, n = note.stringValue
+        store.edit("cmd.marker") { p in try TimelineOps.updateMarker(id, in: &p.timeline) { $0.label = label; $0.note = n.isEmpty ? nil : n } }
+    }
+
+    // MARK: Transition
+
+    func transitionMenu(_ left: ClipID) -> NSMenu {
+        let s = store
+        return menu([
+            item("transition.applyAll") {
+                guard let tr = s.project.timeline.clip(left)?.transitionOut else { return }
+                s.edit("cmd.transition") { p in
+                    guard let main = p.timeline.mainTrack else { return }
+                    for c in main.clips.dropLast() { try TimelineOps.setTransition(c.id, tr, in: &p.timeline) }
+                }
+            },
+            item("tlmenu.delete", "\u{8}", []) { s.perform(SetTransition(left, nil)); s.timelineUI.selectedTransition = nil },
+        ])
+    }
+
+    // MARK: Gap
+
+    func gapMenu(at t: Time, track: TrackID) -> NSMenu { menu(gapItems(at: t, track: track)) }
+
+    func gapItems(at t: Time, track: TrackID) -> [NSMenuItem] {
+        let s = store
+        return [
+            item("gap.close") { s.closeGap(at: t, track: track) },
+            item("gap.closeAll") { s.closeAllGaps(track: track) },
+        ]
+    }
+
+    // MARK: Empty track space (OB-05)
+
+    /// Right-click on an empty part of a track: Paste (at the clicked time, files onto the clicked track; greyed out
+    /// when the clipboard holds nothing pasteable), plus the gap items when the point is inside a gap.
+    func emptyTrackMenu(at t: Time, row: TimelineLayout.Row, gap: Bool) -> NSMenu {
+        let s = store
+        let target: InsertTarget = row.isMain ? .automatic : .track(row.trackID)
+        var items: [NSMenuItem] = [
+            item("tlmenu.paste", "v", .command, enabled: s.timelinePasteContent() != nil) { s.paste(at: t, target: target) },
+        ]
+        if gap { items += [.separator()] + gapItems(at: t, track: row.trackID) }
+        return menu(items)
+    }
+
+    // MARK: Track volume (TL-018)
+
+    /// "Track volume ▸" submenu: a % slider (0 … 200 %, release = one undo step) plus quick presets (AU-VOL-PCT).
+    func trackVolumeMenu(_ t: Track) -> NSMenuItem {
+        let s = store, id = t.id
+        let current = VolumePercent.percent(t.gain)
+        let slider = TrackVolumeSliderView(percent: Double(current)) { p in s.setTrackVolume(id, TrackVolumeMath.gain(percent: p)) }
+        let sliderItem = NSMenuItem(); sliderItem.view = slider
+        var items: [NSMenuItem] = [sliderItem, .separator()]
+        for p in TrackVolumeMath.presets {
+            items.append(MenuAction.item(VolumePercent.labelPercent(Double(p)), key: "", [], checked: current == p && t.gain > 0) {
+                s.setTrackVolume(id, TrackVolumeMath.gain(percent: Double(p)))
+            })
+        }
+        items.append(MenuAction.item(tr("track.volume.mute"), key: "", [], checked: t.gain == 0) { s.setTrackVolume(id, 0) })
+        let i = sub("track.volume", items)
+        i.title = tr("track.volume.title", VolumePercent.label(t.gain))
+        return i
+    }
+
+    // MARK: Track header ⋯ (UX.md §6.3, [90])
+
+    func trackMenu(_ t: Track) -> NSMenu {
+        let s = store
+        let id = t.id
+        var items: [NSMenuItem] = [
+            item(t.isLocked ? "track.unlock" : "track.lock") { s.toggleTrack(id, \.isLocked, key: "cmd.trackLock") },
+        ]
+        if t.kind.isVisual { items.append(item(t.isHidden ? "track.show" : "track.hide") { s.toggleTrack(id, \.isHidden, key: "cmd.trackHide") }) }
+        if t.kind == .audio || t.kind == .video {
+            items.append(item(t.isMuted ? "track.unmute" : "track.mute") { s.toggleTrack(id, \.isMuted, key: "cmd.trackMute") })
+            items.append(item(t.isSolo == true ? "track.unsolo" : "track.solo") { s.toggleSolo(id) })
+        }
+        items.append(.separator())
+        items.append(sub("track.height", TrackHeight.allCases.map { h in
+            item(h.nameKey, checked: (t.heightPreset ?? .standard) == h) { s.setTrackHeight(id, h) }
+        }))
+        if t.kind == .audio || t.kind == .video {
+            // TL-IMOVIE-HEIGHT: no "Audio waveform size" submenu any more (the waveform always fills its area).
+            items.append(trackVolumeMenu(t))
+        }
+        if !t.isMain, t.kind.isVisual {
+            items.append(.separator())
+            items.append(item("gap.closeAll") { s.closeAllGaps(track: id) })
+        } else if t.isMain, !s.project.timeline.mainTrackMagnet {
+            items.append(.separator())
+            items.append(item("gap.closeAll") { s.closeAllGaps(track: id) })
+        }
+        return menu(items)
+    }
+
+}
+
+extension EditorStore {
+    /// TL-040 Rename clip (empty = back to the media / text name).
+    public func renameClip(_ id: ClipID, to name: String) {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        edit("cmd.renameClip") { p in p.timeline[clip: id]?.name = n.isEmpty ? nil : n }
+    }
+
+    /// TL-040 colour label for the selected clips (nil = default kind colour).
+    public func setColorLabel(_ i: Int?) {
+        let ids = selection
+        edit("cmd.colorLabel") { p in for id in ids { p.timeline[clip: id]?.colorLabel = i } }
+    }
+}
+
+/// Track volume in percent (AU-VOL-PCT): 0 … 200 % of unity gain (`Track.volume` stays a linear gain, max 2).
+enum TrackVolumeMath {
+    static let maxPercent = 200.0
+    static let presets = [25, 50, 100, 150, 200]
+    static func gain(percent p: Double) -> Double { min(max(p.rounded(), 0), maxPercent) / 100 }
+}
+
+/// The slider row inside the "Track volume" submenu.
+final class TrackVolumeSliderView: NSView {
+    private let slider: NSSlider
+    private let value = NSTextField(labelWithString: "")
+    private let onChange: (Double) -> Void
+
+    init(percent: Double, onChange: @escaping (Double) -> Void) {
+        self.onChange = onChange
+        slider = NSSlider(value: min(max(percent, 0), TrackVolumeMath.maxPercent), minValue: 0, maxValue: TrackVolumeMath.maxPercent,
+                          target: nil, action: nil)
+        super.init(frame: NSRect(x: 0, y: 0, width: 240, height: 30))
+        slider.frame = NSRect(x: 16, y: 5, width: 150, height: 20)
+        slider.isContinuous = true
+        slider.target = self; slider.action = #selector(changed)
+        slider.setAccessibilityIdentifier("track.volume.slider")
+        value.frame = NSRect(x: 172, y: 7, width: 64, height: 16)
+        value.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        value.textColor = .secondaryLabelColor
+        value.stringValue = VolumePercent.labelPercent(percent)
+        addSubview(slider); addSubview(value)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func changed() {
+        var p = slider.doubleValue.rounded()
+        if abs(p - 100) <= 2 { p = 100 }   // 100 % is sticky
+        value.stringValue = VolumePercent.labelPercent(p)
+        // one undo step per release: commit when the mouse goes up
+        if NSApp.currentEvent?.type == .leftMouseUp || NSApp.currentEvent == nil { onChange(p) }
+    }
+}

@@ -6,7 +6,7 @@
   "size": [1687, 2300],
   "steps": [
     {"click": "id:asset.tab.text"},
-    {"drop": {"text": "montage.text.default"}, "on": "time:12@2"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:12@2"},
     {"click": "id:inspector.tab.animation"},
     {"wait": 2},
     {"snapshot": "anim-in", "element": "id:panel.inspector"},

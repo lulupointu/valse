@@ -5,7 +5,7 @@
 #   --no-retry  don't retry failed tests (default: every failed test is re-run ONCE, alone)
 # A test that fails, then passes alone on the retry, is reported "flaky (passed on retry)" and does not fail the run.
 # A test that fails twice fails the run unless it is listed in app/Tests/quarantine.txt (then it is reported only).
-# Hang watchdog: no new output and ~0 % CPU for MONTAGE_HANG_MINUTES (default 10) → stacks (`sample`) appended to
+# Hang watchdog: no new output and ~0 % CPU for VALSE_HANG_MINUTES (default 10) → stacks (`sample`) appended to
 # build/test.log, the run is killed and fails with "HUNG". Tests run with a private TMPDIR, removed on exit.
 set -euo pipefail
 if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,9p' "$0"; exit 0; fi
@@ -13,7 +13,7 @@ cd "$(dirname "$0")/.."
 ARGS=(); RETRY=1
 for a in "$@"; do
   case "$a" in
-    --perf) export MONTAGE_PERF=1;;
+    --perf) export VALSE_PERF=1;;
     --no-retry) RETRY=0;;
     *) ARGS+=("$a");;
   esac

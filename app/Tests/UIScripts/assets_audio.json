@@ -1,5 +1,5 @@
 // Audio tab: offline library rows — ☆ favourite → Favorites, debounced local search, a library sound effect dropped on
-// the timeline (montage-lib payload). (No generated / synthesized audio any more: owner decision; see audio_library.json
+// the timeline (valse-lib payload). (No generated / synthesized audio any more: owner decision; see audio_library.json
 // and audio_online.json for the rest.)
 {
   "project": "empty",
@@ -20,7 +20,7 @@
     {"expect": {"path": "ui.assets.favorites.audio.0", "equals": "lib.freepd.fresh-focus"}},
     {"click": "id:asset.nav.favorites"},
     {"expect": {"path": "ui.assets.count.audio", "equals": 1}},
-    {"drop": {"string": "montage-lib:sfx.transition.swish-1"}, "on": "time:0@ruler", "offset": [0, 120]},
+    {"drop": {"string": "valse-lib:sfx.transition.swish-1"}, "on": "time:0@ruler", "offset": [0, 120]},
     {"waitFor": {"path": "media.count", "equals": 1, "timeout": 20}},
     {"expect": {"path": "tracks.count", "gte": 2}},
     {"click": "id:asset.nav.sfx.cat.transition"},

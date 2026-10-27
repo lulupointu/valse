@@ -3,8 +3,8 @@
 {
   "project": "demo",
   "steps": [
-    {"drop": {"transition": "montage.transition.wipeLeft"}, "on": "time:10.5@main"},
-    {"expect": [{"path": "main.clips.1.transition", "equals": "montage.transition.wipeLeft"},
+    {"drop": {"transition": "valse.transition.wipeLeft"}, "on": "time:10.5@main"},
+    {"expect": [{"path": "main.clips.1.transition", "equals": "valse.transition.wipeLeft"},
                 {"path": "main.clips.1.transitionDuration", "approx": 0.5}]},
     {"idle": 1},
     {"click": "id:transition.duration.field"},
@@ -22,10 +22,10 @@
     {"key": "cmd+z"},
     {"expect": {"path": "main.clips.1.transitionDuration", "approx": 0.5}},
     {"click": "id:transition.applyAll"},
-    {"expect": [{"path": "main.clips.0.transition", "equals": "montage.transition.wipeLeft"},
-                {"path": "main.clips.1.transition", "equals": "montage.transition.wipeLeft"},
+    {"expect": [{"path": "main.clips.0.transition", "equals": "valse.transition.wipeLeft"},
+                {"path": "main.clips.1.transition", "equals": "valse.transition.wipeLeft"},
                 {"path": "main.clips.-1.transition", "exists": false}]},
     {"key": "cmd+z"},
-    {"expect": {"path": "main.clips.0.transition", "equals": "montage.transition.dissolve"}}
+    {"expect": {"path": "main.clips.0.transition", "equals": "valse.transition.dissolve"}}
   ]
 }

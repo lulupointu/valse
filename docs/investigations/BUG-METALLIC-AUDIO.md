@@ -29,12 +29,12 @@ So the logs do not contain the cause. What they rule out: a clock step / drift c
 AVPlayer / item / audio queue (AQME running count 4 = the item's 4 lanes), dropped mixer volume events, proxy audio
 (preview audio always comes from the original file), spatial audio (IMG_4057 has one AAC mono track, no `apac`).
 
-## What Montage can measure: the lane output (tap) against the source
+## What Valse can measure: the lane output (tap) against the source
 `AudioMixState.tapCapture` (new) hands tests every buffer a lane tap gives to AVPlayer's mixer, after the lane
 processing. `MetallicAudioTests` compares it, buffer by buffer, with the source decoded offline
 (AVAssetReader) at the composition time the tap reports.
 
-Owner-session replay on this Mac (opt-in `MONTAGE_METALLIC_REPRO=1`, IMG_4057's real audio, then a white-noise WAV
+Owner-session replay on this Mac (opt-in `VALSE_METALLIC_REPRO=1`, IMG_4057's real audio, then a white-noise WAV
 control): seek + play, item replaced while playing (`forceRebuild`, as the proxy-ready swap at 18:51:08), seek while
 playing, three 1.5 s all-core CPU spikes, pause → play. Result: every sounding buffer is the source **bit-exact (normalised
 correlation 1.0000)**, no duplicated copy, no stretch — but **at a lag of exactly 4096 samples** (85.3 ms): the tap's
@@ -72,27 +72,27 @@ macOS 13 + 44.1 kHz output is the configuration where AVFoundation already misbe
 - `PlaybackEngine.reportLaneAudio`: the lane taps count time jumps while sounding (a buffer that does not follow the
   previous one: duplicated audio = negative jump, hole = positive); logged every ≤ 2 s as
   `lane audio jumped N× while sounding (largest ±x ms at item t s, rate r): BUG-METALLIC-AUDIO probe`
-  (subsystem `fr.montage`, error level, public). Seeks reset the taps; paused-item repeats are silent and not counted.
+  (subsystem `fr.valse`, error level, public). Seeks reset the taps; paused-item repeats are silent and not counted.
   The fixed owner-session replay here logs 1 jump in 21 s (around the item swap / seeks) and lane output at lag 0
   (±2 samples after a mid-play rebuild): a burst of jumps in steady playback is the signal to look for.
 - `AudioMixState.tapCapture` for tests / future probes.
 
 ## Recipe / questions for the owner (Intel Mac)
 1. Build from this branch (or main once merged). Before playing:
-   `log stream --level debug --predicate 'subsystem == "fr.montage" OR eventMessage CONTAINS "MCM ignoring" OR eventMessage CONTAINS "overload"' > ~/metallic.log`
+   `log stream --level debug --predicate 'subsystem == "fr.valse" OR eventMessage CONTAINS "MCM ignoring" OR eventMessage CONTAINS "overload"' > ~/metallic.log`
 2. Same project 1024, built-in speakers left at 44.1 kHz. Play IMG_4057 from its start for 2 min; scrub / seek while
    playing a few times; leave proxies generating if possible.
 3. When it sounds metallic: note the wall time, do NOT pause first. Switch the output to 48 kHz in Audio MIDI Setup
    while it plays (does it stop?), then pause → play. Then try once with the output at 48 kHz from the start.
 4. Questions: was it like an echo / two voices slightly apart (comb), a robot / buzz (chopped), or underwater / swirly
    (phasey)? Did it start at a precise moment (a click, a seek, the app freezing briefly) or creep in?
-5. Send `~/metallic.log` and the Montage unified log of the session as before. A `lane audio jumped` line at that time
+5. Send `~/metallic.log` and the Valse unified log of the session as before. A `lane audio jumped` line at that time
    = duplicated/missing audio inside our lanes; none = AVFoundation's chain after the tap (then: test the
    48 kHz-output workaround, and a "re-prime" on a TimePitch/route event).
 
 ## Files
-- `app/Sources/MontageEngine/Audio/AudioMix.swift` (`LaneProcessor.labelsLeadOneBuffer`, jump probe, `tapCapture`),
+- `app/Sources/ValseEngine/Audio/AudioMix.swift` (`LaneProcessor.labelsLeadOneBuffer`, jump probe, `tapCapture`),
   `Audio/AudioTap.swift` (doc), `Composition/CompositionBuilder.swift` (preview → labels lead),
   `Playback/PlaybackEngine.swift` (`reportLaneAudio`, `laneAudioJumps`).
-- `app/Tests/MontageEngineTests/MetallicAudioTests.swift`: two regression tests (preview / export clip start) and the
-  opt-in owner-session replay + tap timeline probe (`MONTAGE_METALLIC_REPRO=1`, `MONTAGE_METALLIC_MEDIA=wav`).
+- `app/Tests/ValseEngineTests/MetallicAudioTests.swift`: two regression tests (preview / export clip start) and the
+  opt-in owner-session replay + tap timeline probe (`VALSE_METALLIC_REPRO=1`, `VALSE_METALLIC_MEDIA=wav`).

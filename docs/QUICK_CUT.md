@@ -117,7 +117,7 @@ Per **media** (source time, cached by content hash, independent of any clip):
 8. Store: the speech mask (1 bit per 10 ms ≈ 750 B per minute) + `hasDynamics` (false when nothing qualifies or
    `pk − floor < 10 dB` → whole clip untouched).
 
-Per **clip**, at every slider change (pure, MontageCore):
+Per **clip**, at every slider change (pure, ValseCore):
 1. Take the mask over the clip's source range and map it to timeline time (speed / ramps).
 2. Frames the clip makes inaudible (effective clip gain ≤ −40 dB: volume, volume keyframes, fades, clip mute) are
    blank too. Uniform volume changes don't matter: detection is relative per media.
@@ -142,5 +142,5 @@ Per **clip**, at every slider change (pure, MontageCore):
 - Slider drag: plan for 30 clips + overlay redraw within one frame (plan computation < 2 ms total, measured in a unit
   test).
 - Apply on 30 clips with ~300 cuts: < 300 ms, one undo step.
-- Cache: `Caches/Montage/quickcut/<contentHash>.v3` (suffix bumped whenever the detector's output changes; v2 = fix2
+- Cache: `Caches/Valse/quickcut/<contentHash>.v3` (suffix bumped whenever the detector's output changes; v2 = fix2
   edges, v3 = fix3 step 7), memory + disk. Proxies are irrelevant (audio only).

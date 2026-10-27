@@ -8,7 +8,7 @@
     {"click": "id:inspector.tab.video"},
     {"click": "id:inspector.sub.cutout"},
     {"click": "id:inspector.section.cutout.chroma", "at": [0, 0.5], "offset": [20, 0]},
-    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.key.chroma"}},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "valse.key.chroma"}},
     {"click": "id:inspector.chroma.pick"},
     {"expect": {"path": "ui.toast", "exists": true}},
     {"key": "escape"},

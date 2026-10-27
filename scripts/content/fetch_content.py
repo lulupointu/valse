@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch, verify, transcode and analyse Montage's bundled music + sound-effect library (AU-001 / AU-002 / AU-025).
+"""Fetch, verify, transcode and analyse Valse's bundled music + sound-effect library (AU-001 / AU-002 / AU-025).
 
 Development-time only: the app never touches the network. Sources are curated in scripts/content/music_sources.json
 and scripts/content/sfx_sources.json (CC0 / public domain only). For every item this script
@@ -7,11 +7,11 @@ and scripts/content/sfx_sources.json (CC0 / public domain only). For every item 
      OpenGameArt pack page + the pack's License.txt, Wikimedia Commons API metadata),
   2. downloads the original (retries, Wayback-friendly) and verifies its pinned SHA-256 (`--pin` records new ones),
   3. trims / loudness-normalises and encodes AAC .m4a (afconvert, 48 kHz) into <cache>/out/{music,sfx}/<id>.m4a,
-  4. runs `Montage --analyze-content` (duration, BPM, beats, key, peaks, similarity features) and writes the
-     committed manifest app/Sources/MontageEngine/Resources/ContentLibrary/content_manifest.json.
-scripts/build_app.sh copies <cache>/out into Montage.app/Contents/Resources/Content.
+  4. runs `Valse --analyze-content` (duration, BPM, beats, key, peaks, similarity features) and writes the
+     committed manifest app/Sources/ValseEngine/Resources/ContentLibrary/content_manifest.json.
+scripts/build_app.sh copies <cache>/out into Valse.app/Contents/Resources/Content.
 
-Cache: $MONTAGE_CONTENT_CACHE or ~/Library/Caches/MontageDev/content (shared by all worktrees, never committed).
+Cache: $VALSE_CONTENT_CACHE or ~/Library/Caches/ValseDev/content (shared by all worktrees, never committed).
 Usage: scripts/fetch_music_pack.sh [--pin] [--only music|sfx] [--no-analyze] [--budget-mb 150] [--force-encode]
 """
 import argparse, concurrent.futures, datetime, hashlib, html, json, os, re, shutil, subprocess, sys, time
@@ -19,8 +19,8 @@ import urllib.parse, urllib.request, zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC_DIR = os.path.join(ROOT, "scripts", "content")
-MANIFEST_OUT = os.path.join(ROOT, "app", "Sources", "MontageEngine", "Resources", "ContentLibrary", "content_manifest.json")
-UA = "MontageContentFetch/1.0 (development build script; dev@montage.local)"
+MANIFEST_OUT = os.path.join(ROOT, "app", "Sources", "ValseEngine", "Resources", "ContentLibrary", "content_manifest.json")
+UA = "ValseContentFetch/1.0 (development build script; dev@valse.local)"
 CC0_URL = "https://creativecommons.org/publicdomain/zero/1.0/"
 LICENSES = {
     "CC0-1.0": ("CC0 1.0 Universal (Public Domain Dedication)", CC0_URL),
@@ -36,7 +36,11 @@ def log(*a):
 
 
 def cache_dir():
-    p = os.environ.get("MONTAGE_CONTENT_CACHE") or os.path.expanduser("~/Library/Caches/MontageDev/content")
+    dev = os.path.expanduser("~/Library/Caches/ValseDev")
+    legacy = os.path.expanduser("~/Library/Caches/MontageDev")   # caches fetched before the Montage → Valse rename
+    if not os.path.isdir(dev) and os.path.isdir(legacy):
+        dev = legacy
+    p = os.environ.get("VALSE_CONTENT_CACHE") or os.path.join(dev, "content")
     return os.path.abspath(p)
 
 
@@ -408,10 +412,10 @@ def main():
         return
     cfg = "debug" if a.debug_analyzer else "release"
     log(f"building the analyser ({cfg})…")
-    subprocess.run(["swift", "build", "-c", cfg, "--product", "Montage"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(["swift", "build", "-c", cfg, "--product", "Valse"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
     binp = subprocess.run(["swift", "build", "-c", cfg, "--show-bin-path"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
     final = os.path.join(out, "manifest.json")
-    subprocess.run([os.path.join(binp, "Montage"), "--analyze-content", staging, out, final], check=True)
+    subprocess.run([os.path.join(binp, "Valse"), "--analyze-content", staging, out, final], check=True)
     os.makedirs(os.path.dirname(MANIFEST_OUT), exist_ok=True)
     shutil.copyfile(final, MANIFEST_OUT)
     log(f"manifest → {os.path.relpath(MANIFEST_OUT, ROOT)} ({os.path.getsize(MANIFEST_OUT) / 1e3:.0f} kB)")

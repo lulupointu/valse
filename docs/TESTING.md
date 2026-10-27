@@ -14,57 +14,57 @@ inside its own process. Safe to run while other agents (or the user) use the mac
 | perf numbers / regressions | `scripts/perf.sh` (`--air` = MacBook Air approximation) |
 | feature-agent gate, once on the final commit: incremental build + unit tests + the UI scripts relevant to your diff | `scripts/check_fast.sh` (`--list` = what/why) |
 | full gate, orchestrator, once per batch branch: clean checkout, everything | `scripts/check_clean.sh --ui` |
-| stop your own stuck test runs (Montage test processes of this checkout only) | `scripts/kill_tests.sh --dry-run`, then `scripts/kill_tests.sh` |
+| stop your own stuck test runs (Valse test processes of this checkout only) | `scripts/kill_tests.sh --dry-run`, then `scripts/kill_tests.sh` |
 | who holds the test slots / reclaim dead or hung ones | `scripts/slots.sh status` / `scripts/slots.sh reclaim` |
-| free disk (merged worktrees' .build, `$TMPDIR/montage-*` > 3 h) | `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh` |
+| free disk (merged worktrees' .build, `$TMPDIR/valse-*` > 3 h) | `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh` |
 | merge a batch branch that passed the full gate (orchestrator) | `scripts/merge_agent.sh <branch>` (`--check-only`, `--docs-delta-ok`) |
 | regenerate the real-like fixtures | `scripts/make_fixtures.sh` |
 | just look at the UI | `scripts/screenshot.sh --demo --offscreen` |
 
 **Machine-wide test slots.** `test.sh`, `uitest.sh`, `check_fast.sh` and `check_clean.sh` take one slot shared by every
-checkout (mkdir locks in `/tmp/montage-locks` holding PID, start time, command, cwd); `perf.sh` takes all of them
+checkout (mkdir locks in `/tmp/valse-locks` holding PID, start time, command, cwd); `perf.sh` takes all of them
 (exclusive, and new runs queue behind it). A blocked run prints "waiting for test slot…". Nested scripts reuse their
-parent's slot. Count: `MONTAGE_SLOTS`, default min(max(2, cores / 5), max(1, RAM GB / 6)); slots beyond the first are
-only handed out while the 1-min load is below `MONTAGE_SLOT_MAX_LOAD` (3 × cores). Waiters queue **FIFO** (oldest
+parent's slot. Count: `VALSE_SLOTS`, default min(max(2, cores / 5), max(1, RAM GB / 6)); slots beyond the first are
+only handed out while the 1-min load is below `VALSE_SLOT_MAX_LOAD` (3 × cores). Waiters queue **FIFO** (oldest
 first; `scripts/slots.sh status` lists the queue). A slot is **reclaimed** (and the reclaim printed) when its
 holder is dead / its PID reused, or its whole process tree used < 2 CPU-seconds and started no process for
-`MONTAGE_SLOT_IDLE_MIN` (20) minutes of continuous observation: a hung run, its tree is killed. A hung build / test is
+`VALSE_SLOT_IDLE_MIN` (20) minutes of continuous observation: a hung run, its tree is killed. A hung build / test is
 killed sooner by the hang watchdog below, and the script's exit frees its slot. The cap is for throughput only: the
-tests must pass under any load. `MONTAGE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
+tests must pass under any load. `VALSE_NO_SLOTS=1` disables locking (`scripts/slots.sh`).
 
 **Retries, flaky tests, quarantine.** `test.sh` re-runs every failed test once, alone (`--filter Suite/test()`; the
 `--xunit-output` report names it); `uitest.sh` re-runs a failed script once (first attempt kept in
-`<out>/<name>.attempt1`; before the retry it waits ≤ 60 s, `MONTAGE_RETRY_WAIT`, for the 1-min load to drop below the
+`<out>/<name>.attempt1`; before the retry it waits ≤ 60 s, `VALSE_RETRY_WAIT`, for the 1-min load to drop below the
 core count). A pass on the retry is reported **"flaky (passed on retry)"** and does not fail the run; two
 failures in a row fail it — unless the test is listed in `app/Tests/quarantine.txt` (`<unit|ui> <id> <date> <reason>`,
 validated by `python3 scripts/testlib.py check-quarantine`): quarantined tests still run and are reported, but don't
 gate. `--no-retry` disables retries. A crash (no test summary) or a hang is never retried.
 
 **Hang watchdog.** `swift build`/`swift test` in test.sh, uitest.sh and check_clean.sh run under a watchdog: no new log
-output AND < 1 % CPU (whole process tree) for `MONTAGE_HANG_MINUTES` (default 10) → the process tree, then `sample`
+output AND < 1 % CPU (whole process tree) for `VALSE_HANG_MINUTES` (default 10) → the process tree, then `sample`
 stacks of its processes are appended to the log (`build/test.log`), the tree is killed and the run fails with
 **"HUNG"**. A UI script's `--timeout` (default 120 s) is a hang detector too, not a total limit: the driver touches
 `<out>/<name>/.heartbeat` when a step starts and while it polls (every driver wait has its own progress-based bound), and
 an app whose heartbeat is older than `--timeout` is `sample`d into `<out>/<name>/hang-sample.txt` and killed
 ("TIMEOUT (HUNG): no driver progress for 120s"); a slow script that keeps progressing is not (sanity ceiling
-`MONTAGE_UITEST_MAX_SECONDS`, 1800 s). With `--jobs`, **heavy** scripts (`"requires": {"models": …}` = real ML inference,
+`VALSE_UITEST_MAX_SECONDS`, 1800 s). With `--jobs`, **heavy** scripts (`"requires": {"models": …}` = real ML inference,
 or `"heavy": true`) are started first and run one at a time (the other workers take light scripts meanwhile): three of
 them at once each ran ~3× slower.
 
 **Temp files and disk.** test.sh and uitest.sh run tests / apps with a private `TMPDIR`
-(`$TMPDIR/montage-run-*`) deleted on exit, even on failure or Ctrl-C, so sandboxes (`montage-sandbox-*`), exports, project
-copies and mock downloads never pile up; the synthetic media cache stays shared (`MONTAGE_TEST_MEDIA_DIR`, default
-`$TMPDIR/montage-test-media-v1`). check_clean reuses a persistent clean worktree
+(`$TMPDIR/valse-run-*`) deleted on exit, even on failure or Ctrl-C, so sandboxes (`valse-sandbox-*`), exports, project
+copies and mock downloads never pile up; the synthetic media cache stays shared (`VALSE_TEST_MEDIA_DIR`, default
+`$TMPDIR/valse-test-media-v1`). check_clean reuses a persistent clean worktree
 (`<main checkout>/build/check_clean-cache/wt0|wt1`, ~1.5 GB each: reset to exactly HEAD with `checkout --force` +
 `clean -ffdx` except `.build`, verified pristine, resource bundles rebuilt) for an incremental build. The `.build`
 is wiped (printed as `cold: <reason>`) when the package graph or toolchain changed (Package.swift, Package.resolved,
 target folders, `swift --version`: a removed target's leftover module would let a stale `import` compile), after 20
-gates or 24 h (`MONTAGE_WARM_MAX_GATES` / `MONTAGE_WARM_MAX_HOURS`). Locks are kernel `flock`s (no stale locks).
-`--cold` uses a temp `montage-clean.*` worktree removed on exit. `uitest.sh --jobs K` runs K apps at once: each UI-test app has a private
-settings domain and pasteboard (MontageCore `AppDefaults`, `AppPasteboard`), sandbox, cache folder
-(`montage-test-cache/run-<pid>`, compiled models shared and installed atomically: `AtomicInstall`) and TMPDIR, so
+gates or 24 h (`VALSE_WARM_MAX_GATES` / `VALSE_WARM_MAX_HOURS`). Locks are kernel `flock`s (no stale locks).
+`--cold` uses a temp `valse-clean.*` worktree removed on exit. `uitest.sh --jobs K` runs K apps at once: each UI-test app has a private
+settings domain and pasteboard (ValseCore `AppDefaults`, `AppPasteboard`), sandbox, cache folder
+(`valse-test-cache/run-<pid>`, compiled models shared and installed atomically: `AtomicInstall`) and TMPDIR, so
 scripts can't interact; check_clean runs the UI suite with `--jobs 4` while the unit suite runs. check_fast / check_clean
-fail fast with "DISK FULL" below 5 GB free (`MONTAGE_MIN_FREE_GB`). `MONTAGE_KEEP_TMP=1` keeps the temp dirs to debug.
+fail fast with "DISK FULL" below 5 GB free (`VALSE_MIN_FREE_GB`). `VALSE_KEEP_TMP=1` keeps the temp dirs to debug.
 
 **Real-like fixtures (T1).** `app/Tests/UIScripts/fixtures/real/` (`RealLikeMedia` in Swift), made by
 `scripts/make_fixtures.sh`, fully synthetic:
@@ -75,9 +75,9 @@ fail fast with "DISK FULL" below 5 GB free (`MONTAGE_MIN_FREE_GB`). `MONTAGE_KEE
 
 `RealLikeFootageTests` cover probe, the player, export, thumbnails, Vision face, waveform and beats.
 `ColorSpaceLookTests.realFootageMatchesApple` runs on the clip in every project space; UI script `real_footage_import`.
-Owner footage stays opt-in and uncommitted: `MONTAGE_REAL_FOOTAGE="/path/a.MOV@2|/path/b.MOV"`. These clips are added
-to the colour tests and `RealLikeFootageTests.ownerFootageProbesAndPlays`, as are `MONTAGE_C1_FOOTAGE`,
-`MONTAGE_QA_PROJECT` (playback stress on a real project) and `MONTAGE_QA_VIDEO` (AI QA).
+Owner footage stays opt-in and uncommitted: `VALSE_REAL_FOOTAGE="/path/a.MOV@2|/path/b.MOV"`. These clips are added
+to the colour tests and `RealLikeFootageTests.ownerFootageProbesAndPlays`, as are `VALSE_C1_FOOTAGE`,
+`VALSE_QA_PROJECT` (playback stress on a real project) and `VALSE_QA_VIDEO` (AI QA).
 
 **Stage-1 UI selection.** `scripts/ui_select.py --explain [--files …]` prints what `check_fast.sh` would run and WHY
 (one line per script: the changed declaration → the test ID / l10n key / dump key that links it).
@@ -104,9 +104,9 @@ type's header line / one-line stored property changed along with other members o
 hogs; a quiet machine is never assumed. So:
 - **Budgets in CPU / GPU time, wall clock only in the perf gate.** A cost measurable as thread CPU time
   (`TimingBudget.threadCPUms`) or GPU command-buffer time keeps a gross bound in every run: `TimingBudget.cpuLimit(budget)`
-  (× 4, `MONTAGE_CPU_TIMING_FACTOR`). `TimingBudget.limit(budget, what)` (wall clock) returns nil — nothing asserted —
-  except in perf runs (`MONTAGE_PERF=1`: `scripts/perf.sh`, which holds every slot, or
-  `scripts/test.sh --perf`; `MONTAGE_TIMING_ASSERT=1` forces it). Emit the measurement with
+  (× 4, `VALSE_CPU_TIMING_FACTOR`). `TimingBudget.limit(budget, what)` (wall clock) returns nil — nothing asserted —
+  except in perf runs (`VALSE_PERF=1`: `scripts/perf.sh`, which holds every slot, or
+  `scripts/test.sh --perf`; `VALSE_TIMING_ASSERT=1` forces it). Emit the measurement with
   `TimingBudget.metric("unit_…", value, "ms")`, add the test to `UNIT_TIMING` in `scripts/perf.sh` (a failed timing test
   there is a perf violation; it runs even with `--no-smoke`) and the precise budget to `bench/perf_thresholds.json`.
   `scripts/check_clean.sh --ui` runs `perf.sh --no-smoke` with the exclusive slot, after its concurrent unit + UI phases
@@ -114,22 +114,22 @@ hogs; a quiet machine is never assumed. So:
 - **perf.sh load rule.** Taking every slot does not stop load from outside the slot system (VMs, other builds), so
   wall-clock and GPU-time metrics (`launch_ms`, timeline / asset `_wall_` / `_gpu_` numbers, the unit tests' wall-clock
   and strict GPU budgets) gate only when the 1-min load average stays ≤ the core count across the measurement (sampled
-  before / after each part, max taken; `MONTAGE_PERF_CORES` overrides the core count, also for TimingBudget). Above it,
+  before / after each part, max taken; `VALSE_PERF_CORES` overrides the core count, also for TimingBudget). Above it,
   perf.sh waits ≤ 5 min and measures once more; if still loaded it reports each as `UNRELIABLE (load X > cores Y)` with
   its value and does not gate on them; check_clean prints "perf: N metrics unverified due to load" and appends
   `perf-unverified=N` to `build/check_clean.ok`. Thread-CPU (`_cpu_`) metrics follow the same rule (owner decision
   2026-10-22), but load is not what inflates them: low load is (PERF-R1, 2026-10-23). The perf steps are bursty (one
   event, ≤ 16 ms idle), so on a quiet machine the cores clock down between events and the same binary measured 1.5-4×
   more main-thread CPU (assets_scroll p95 0.8 → 3.5 ms) than on a busy one. Every `perf` step therefore runs
-  `PerfClockWarmer` (MontageUI/Testing/PerfProbe.swift): a sibling thread spinning at user-interactive QoS while it
-  measures, never counted in the per-thread numbers; `MONTAGE_PERF_WARM=0` turns it off. Memory and the gross ×4 GPU-time bounds always gate. `launch_ms` is measured after one untimed warm-up launch (app launch, not the first launch after a build).
+  `PerfClockWarmer` (ValseUI/Testing/PerfProbe.swift): a sibling thread spinning at user-interactive QoS while it
+  measures, never counted in the per-thread numbers; `VALSE_PERF_WARM=0` turns it off. Memory and the gross ×4 GPU-time bounds always gate. `launch_ms` is measured after one untimed warm-up launch (app launch, not the first launch after a build).
 - **Waits are for state, timeouts only detect hangs.** Await the job / poll a condition (`waitUntil`, `job.value`); a
   timeout must be generous (≥ 30 s for anything that can queue behind other work) and never encode a speed budget.
   Freeze / deadlock checks measure *work*, not wall time: e.g. `PlaybackStressTests` calls a preview frozen when no new
   frame arrives while the video pipeline does no work (no composition request, nothing composed) for 4 s — a slow,
   loaded pipeline still works — or after 30 s without a frame at all. The exporter itself restarts a pass that read
   nothing and composed nothing for 30 s (an AVFoundation stall seen under load), once, then fails it ("export
-  stalled") — a stalled export never hangs a test (`MONTAGE_EXPORT_STALL_SECONDS`).
+  stalled") — a stalled export never hangs a test (`VALSE_EXPORT_STALL_SECONDS`).
 - **UI scripts** (§1): `expect` is re-checked until it holds (≤ 10 s), `waitFor` timeouts are at least 30 s and count
   from the last observed progress (job progress, the waited value), mouse
   targets are awaited (≤ 10 s), every input step waits for the UI to settle (below), animations are off, snapshots wait
@@ -157,23 +157,23 @@ Create `app/Tests/UIScripts/<name>.json` (`//` line comments allowed):
 
 Run `scripts/uitest.sh app/Tests/UIScripts/<name>.json`. Output goes to `build/uitest/<name>/`: `report.json` (steps,
 errors, metrics), `final.json` (state dump), every `snapshot` PNG, and on failure `failure.json` + `failure.png`.
-**Open the PNGs and look at them.** Exit code 0 = pass (3 = skipped; `uitest.sh` exits 1 if any script failed or timed out twice and is not quarantined). `MONTAGE_UITEST_DEBUG=1` logs every event and its hit view.
+**Open the PNGs and look at them.** Exit code 0 = pass (3 = skipped; `uitest.sh` exits 1 if any script failed or timed out twice and is not quarantined). `VALSE_UITEST_DEBUG=1` logs every event and its hit view.
 
 Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspector_field`, `zoom_slider`, `swiftui_taps`, `language_fr`; per area: `timeline_edit` (move, ⌫, W, magnet), `canvas_drag` (select + drag on the preview), `inspector_tabs` (Scale + Speed fields), `audio_volume`, `text_add`, `ai_tts`.
 
 ### Script keys
 
 - `project`: `"empty"` (default) · `"demo"` (synthetic demo project, playhead 0, nothing selected) · `"demo-bin"` (demo
-  media in the bin, empty timeline) · `"stress:500"` (500 clips on 3 tracks) · a path to a `.montage` (relative to the script, opened as a temp copy so the fixture is never modified; e.g. a fixture under `fixtures/`).
+  media in the bin, empty timeline) · `"stress:500"` (500 clips on 3 tracks) · a path to a `.valse` (relative to the script, opened as a temp copy so the fixture is never modified; e.g. a fixture under `fixtures/`).
 - `lang`: `"en"` (default) or `"fr"`. `size`: `[w, h]` window points (default 1687×983). `settle`: seconds to wait after
   loading (default 1.5).
 - `requires`: `{"models": ["coreml.lama-800"]}` — the script needs real AI models (ids from `ModelCatalog`). Without it
   every script sees an **empty, sandboxed models folder**, so AI features are "not installed" on every machine and AI
   scripts assert the Download UX (`model.download.<modelID>`, e.g. `ai_remove`). With it the user's models folder
-  (`MONTAGE_MODELS_DIR` or ~/Library/Application Support/Montage/Models) is used and the script is **SKIPPED** (exit
+  (`VALSE_MODELS_DIR` or ~/Library/Application Support/Valse/Models) is used and the script is **SKIPPED** (exit
   code 3, reported separately by `uitest.sh`) when a model is missing (e.g. `ai_remove_inference`).
   Sidecar runtimes (`whisper-cli`, `demucs`, `llama-completion`) are looked up in the user's real
-  `~/Library/Application Support/Montage/bin` even though UI tests sandbox the support folder.
+  `~/Library/Application Support/Valse/bin` even though UI tests sandbox the support folder.
   `"requires": {"minOS": 14}` SKIPS the whole script below that macOS major version (a feature that only exists there).
 - **OS / environment conditions on a step** (macOS 13 support): `"minOS": 14` runs the step only on macOS 14+, `"maxOS": 13`
   only up to 13, `"ffmpeg": true|false` only when the FFmpeg sidecar is / isn't installed (MP3 export). A skipped step is
@@ -181,20 +181,20 @@ Examples (copy one): `split_undo`, `trim_undo`, `drag_media_to_timeline`, `inspe
   system), asserting the older system's behaviour in a `maxOS` twin step, so the newer system's assertions stay intact —
   e.g. `ai_relight` (no depth model on 13), `f4_cl_smart_brush` (no instance segmentation on 13), `ai_enhance_quality`
   (VT super resolution is 26+).
-  `MONTAGE_UITEST_OS_MAJOR=13` fakes the version to check a script's 13 branch on a newer host.
+  `VALSE_UITEST_OS_MAJOR=13` fakes the version to check a script's 13 branch on a newer host.
 - Caption word timing: `CaptionOnsetTests` builds FR / EN speech with known word onsets, silences and noise
-  (`bench/speech_onsets.swift`, cached in ~/Library/Caches/MontageDev/fixtures; bump `fixtureVersion` when the script
-  changes) and asserts median onset error < 80 ms, max < 200 ms; `MONTAGE_U2_FOOTAGE=/copy/of/IMG_7251.mov` adds the
+  (`bench/speech_onsets.swift`, cached in ~/Library/Caches/ValseDev/fixtures; bump `fixtureVersion` when the script
+  changes) and asserts median onset error < 80 ms, max < 200 ms; `VALSE_U2_FOOTAGE=/copy/of/IMG_7251.mov` adds the
   owner clip. Changing word timing → bump `TranscriptStore.version` (stale cached transcripts are then ignored).
-- Opt-in AI tests: `MONTAGE_SLOW_TESTS=1 scripts/test.sh --filter MontageAITests` (demucs, LLM writer/clipper);
-  `MONTAGE_QA_VIDEO=/path/to/talking-person.mp4 scripts/test.sh --filter RealMediaQATests` runs every engine on real
+- Opt-in AI tests: `VALSE_SLOW_TESTS=1 scripts/test.sh --filter ValseAITests` (demucs, LLM writer/clipper);
+  `VALSE_QA_VIDEO=/path/to/talking-person.mp4 scripts/test.sh --filter RealMediaQATests` runs every engine on real
   footage and prints real-time factors + quality metrics (transcript, stems RMS, scenes, shorts, TTS round
   trip, super resolution). `--filter RealMediaQA` also runs `RealMediaQA2Tests`: captions on a 9:16 project, cutout,
   reframe, camera / motion tracking, AI movement, face mosaic, relight, AI remove, auto colour (SDR + HLG project), smart
-  search, AI writer, EditPilot, clipper / shorts (`MONTAGE_QA_LONG_VIDEO`, ≥ 60 s), audio clean-up levels through the export
-  mix, stabilize, slow-mo; rendered frames / WAVs go to `MONTAGE_QA_OUT` (default a temp folder) — look at them. Use COPIES
+  search, AI writer, EditPilot, clipper / shorts (`VALSE_QA_LONG_VIDEO`, ≥ 60 s), audio clean-up levels through the export
+  mix, stabilize, slow-mo; rendered frames / WAVs go to `VALSE_QA_OUT` (default a temp folder) — look at them. Use COPIES
   of real footage; results of the 2026-10-19 pass are in docs/STATUS.md ("AI QA results").
-  `MONTAGE_ENHANCE_LOG=1` (tests or the app) prints where an Enhance quality / denoise / deflicker pass spent its time
+  `VALSE_ENHANCE_LOG=1` (tests or the app) prints where an Enhance quality / denoise / deflicker pass spent its time
   (decode / filter / scale / encode, real-time factor).
 
 **Environment-independent results.** Settings/library are sandboxed; in UI tests the cache-size readouts are fixed
@@ -247,15 +247,15 @@ dispatch such as a tooltip's pending delay). In UI tests SwiftUI animations and 
 every hosting root), so nothing is caught mid-fade.
 
 **Load-independent waits** (a loaded machine only makes them take longer; the bounds only end a wait that never ends):
-`expect` is re-checked every 50 ms until it holds, ≤ 10 s (`MONTAGE_UITEST_EXPECT_LIMIT`) — so assert the end state;
+`expect` is re-checked every 50 ms until it holds, ≤ 10 s (`VALSE_UITEST_EXPECT_LIMIT`) — so assert the end state;
 `"now": true` checks once, immediately (asserts whose point is immediacy: "hidden at once"), and an expect right after a
 `"settle": 0` step is `now` by default. Each expect's wait is in report.json (`waitMs`, `expect_wait_ms_max`); uitest.sh
 warns "slow expect" when one waited > 2 s although the UI had settled (a latency regression); `waitFor` uses
-max(its `timeout`, 30 s) (`MONTAGE_UITEST_WAIT_FLOOR`) as a **no-progress** bound: it fails only when the condition
+max(its `timeout`, 30 s) (`VALSE_UITEST_WAIT_FLOOR`) as a **no-progress** bound: it fails only when the condition
 does not hold and none of the progress signals changed for that long — `ui.jobs` (progress / state), `ui.activeJobs`,
 `ui.audioStage` (incl. `progress`), `ui.export.jobs`, `ui.models.progress`, the waited path's own value, plus the step's
 `"progress": ["path", …]` — so an AI job a loaded machine makes 3× slower is waited for and a stuck one fails
-(`MONTAGE_UITEST_WAIT_CEILING`, 1800 s, ends a wait whose signals never stop changing); before a click / drag / hover the UI is quiesced (a `waitFor`
+(`VALSE_UITEST_WAIT_CEILING`, 1800 s, ends a wait whose signals never stop changing); before a click / drag / hover the UI is quiesced (a `waitFor`
 can return before the layout its state change causes: the target's frame would be stale) and the target (`id:`,
 `clip:`) is awaited until it resolves, ≤ 10 s; the quiescence check also renders the window (SwiftUI hit-tests
 against what it last drew); an `id:` click is delivered exactly (UITestDriver `ClickProbe`) — when NSWindow
@@ -275,8 +275,8 @@ dispatched (`SyntheticEvents.pinned`, FLAKY-SYS-UI; `mouse_event_relocated` + a 
 uitest.sh "click warning"). Before the first step the driver waits for the editor showing the loaded project to be usable
 (timeline laid out with finite geometry and rows, player sized; ≤ 10 s, else `load_barrier_timeouts` + a warning).
 `wait` sleeps, then lets the queued input be dispatched (no quiesce: it is for time-based behaviour). The `demo` media
-is encoded once per uitest.sh run (`MONTAGE_UITEST_SHARED_MEDIA`, shared by all its apps), not once per launch. A `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
-it matches it, ≤ 30 s (`MONTAGE_UITEST_SNAPSHOT_LIMIT`, a hang bound; a real difference fails with the last diff, and so does a match
+is encoded once per uitest.sh run (`VALSE_UITEST_SHARED_MEDIA`, shared by all its apps), not once per launch. A `snapshot` is re-rendered until two consecutive renders are identical and, with a baseline,
+it matches it, ≤ 30 s (`VALSE_UITEST_SNAPSHOT_LIMIT`, a hang bound; a real difference fails with the last diff, and so does a match
 that never renders the same twice). A script FAILS when an export pass stalled (`Exporter.stallRestarts` moved).
 
 `expect` operators: `equals`, `notEquals`, `approx` (+`tolerance`, default 0.001), `gt`/`gte`/`lt`/`lte`, `contains` /
@@ -291,7 +291,7 @@ sourceStart, speed, opacity, enabled, blend, effects, transition, scale, rotatio
 keyframes, selected, transitionDuration, animIn, animOut, animCombo, keyframeCounts.<key>, keyframeEasings.<key>}` (keys with
 `_` for `.`: `transform_position`; easings are preset ids: `linear`, `easeIn`, `quadOut`…) · `media` · `canvas.{width,height,aspect}` · `ui.{inspectorTab, inspectorTabs, assetTab,
 exportSheet, export, language, toast, pixelsPerSecond, scrollTime, scrollY, menu, anchors, selectedKeyframe.{key,time}, keyframePanel}` (`ui.export.dialog.{scope, duration, video, audio, gif, captions, codec, container, outputs, canExport, footer, burnCaptionsRow, coverReady, …}`, `ui.export.jobs` / `ui.export.shown` = `{title, state, progress, written, outputs}`) · `ui.jobs` (background jobs `{title, progress, state}`) and `ui.activeJobs` (queued + running count: `{"waitFor": {"path": "ui.activeJobs", "equals": 0, "timeout": 600}}` waits for AI jobs) · `ui.models.<model id with "." → "_">` (`notInstalled` / `downloading` / `verifying` / `installed` / `failed: …`, progress in `ui.models.progress.<id>`) · `project` (full project JSON).
-Path segments: keys, indices (negative from the end), `count`, `first`, `last`. Source: `MontageUI/Testing/StateDump.swift`.
+Path segments: keys, indices (negative from the end), `count`, `first`, `last`. Source: `ValseUI/Testing/StateDump.swift`.
 
 ### Test IDs (stable element lookup)
 
@@ -317,17 +317,17 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
 - project switcher (P1): `titlebar.projectSwitcher`, `switcher.popover`, `switcher.search`, `switcher.row.<i>` (+`.newWindow` on hover),
   `switcher.newProject`, `switcher.home`, `switcher.empty`; state `app.switcher.{isOpen, query, selected, rows[{name, status
   (current/normal/otherWindow/offline), current}]}`. Fixtures: `home:3:heldelsewhere` (newest project held by a registered
-  Montage-like pid), `home:N:offlinedrive` (also puts the oldest project on the disconnected drive)
+  Valse-like pid), `home:N:offlinedrive` (also puts the oldest project on the disconnected drive)
 - asset panel: `asset.tab.<tabID>`, `asset.tile.<itemID>`, `media.card.<index>` (grid tile or list filmstrip row; `"at": [fx, fy]` clicks at a source time, C6), `media.import`, `media.layout`; state `ui.assets.media.{layout, columns}`, `ui.assets.preview.{kind, time}`
 - tooltips (C6, custom: `Support/Tooltips.swift`): `{"hover": "id:toolbar.split", "settle": 0}` then `ui.tooltipPending` (waiting for the 0.2 s delay) / `ui.tooltip` (visible text, null when none) — see `c6_tooltips.json`. The driver resolves the hovered `.help()` element itself (tracking areas only fire for real moves)
 - U1: Settings sideways scroll `ui.settings.{overflow, innerOverflow, scrollX, innerScrollX, horizontallyElastic}` (Settings open only);
   playback follow `ui.followManual` (the user scrolled during playback: no auto follow, `u1_playhead_follow.json`); splitters
   `ui.layout.{left,right,top}` after a `drag` on the gutter (`u1_splitter_drag.json`). Record a real on-screen run (behind other
-  windows, never activated, in-process events only): `MONTAGE_UITEST_ORIGIN=0,40 MONTAGE_UITEST_VISIBLE=1 Montage --uitest …`
+  windows, never activated, in-process events only): `VALSE_UITEST_ORIGIN=0,40 VALSE_UITEST_VISIBLE=1 Valse --uitest …`
   + `screencapture -v -l <windowID>`
 - animation search field: `anim.search`
 - inspector sub-tabs: `inspector.sub.<subTabID>` (e.g. `inspector.sub.out`); asset sub-nav: `asset.nav.<itemID>`
-- transitions (W5): `transitions.search`, `transition.tile.<id>` / `transition.add.<id>` (id without `montage.transition.`),
+- transitions (W5): `transitions.search`, `transition.tile.<id>` / `transition.add.<id>` (id without `valse.transition.`),
   inspector `transition.duration(.field)`, `transition.param.<key>(.field)`, footer `transition.applyAll`; state `ui.transitionThumbsMissing` (on-screen tiles whose still
   is not rendered yet: `waitFor` 0 before a snapshot)
 - animations: `anim.none`, `anim.<phase>.<name>` (e.g. `anim.in.bounce`, `anim.combo.zoomInOut`); grid tiles are lazy, so
@@ -357,11 +357,11 @@ lists the IDs currently on screen. **Add IDs to the views you build** so tests c
   `settings.music.key.<provider>` / `.save.` / `.remove.` / `.status.`, `audio.license.copyCredit`. State: `ui.assets.online.{phase,
   results, count, keys, saved, mood, genre, sfxCategory, downloading, requests}`. UI-test mode ALWAYS uses `MockOnlineAudioHTTP`
   + an in-memory key store (no network, no Keychain); mock key `offline` = no connection, `bad` = rejected key. Live check:
-  `MONTAGE_LIVE_FREESOUND_KEY=… MONTAGE_LIVE_JAMENDO_KEY=… swift test --filter liveSearch` (skipped otherwise)
+  `VALSE_LIVE_FREESOUND_KEY=… VALSE_LIVE_JAMENDO_KEY=… swift test --filter liveSearch` (skipped otherwise)
 
 ### How it works / limits
 
-`Montage --uitest script.json` (see `MontageApp/main.swift`) builds the normal editor in a `UITestWindow` at
+`Valse --uitest script.json` (see `ValseApp/main.swift`) builds the normal editor in a `UITestWindow` at
 (−30000, −30000) with the accessory activation policy. Events are `NSEvent`s posted to the app's own queue
 (`NSApp.postEvent`), dispatched through the real `sendEvent` → hit-tested view path (SwiftUI via NSWindow, AppKit views
 directly, because AppKit ignores clicks on an inactive app's window). NSSlider drags become a press at the final
@@ -394,7 +394,7 @@ stored at 1 px per point (downscaled from Retina) to keep the repo small. Prefer
 - Standalone: `scripts/imgdiff.sh a.png b.png --diff d.png` prints `{"passed", "fraction", "differingPixels", …}`.
 - **Machine-independent pixels.** The test process pins what changes pixels but not behaviour (`UITestDriver.prepareProcess`):
   overlay scroll bars (a Mac with a mouse, or a VM, has legacy 15 pt scrollers that narrow every scroll view) and the
-  time zone `Europe/Paris` (`MONTAGE_UITEST_TZ`; the Home / switcher dates come from a fixed UTC clock). On a non-Retina
+  time zone `Europe/Paris` (`VALSE_UITEST_TZ`; the Home / switcher dates come from a fixed UTC clock). On a non-Retina
   display (the macOS 13 VM is 1x) an element crop gets the size the Retina path would give (no ±1 px size mismatch).
 - **Per-OS baselines (macOS 13).** `app/Tests/Baselines/macos<N>/<name>.png`, when it exists, replaces `<name>.png` on
   macOS N only, so the host gate never sees it. Use it for rendering-only differences of the older system (text
@@ -433,7 +433,7 @@ peak), `PerfMemoryTests` in its own process (typical 1080p project: play, scrub,
 (`{mode, machine, metrics, violations}`) and exits 1 when a metric breaks its threshold in `bench/perf_thresholds.json`.
 
 - `--air`: MacBook Air approximation — runs under `taskpolicy -c background` (efficiency cores only, throttled I/O;
-  pessimistic vs a real M1 Air) with `MONTAGE_SIMULATE_RAM_GB=8` (`MemoryBudget` 8 GB policies: 720p preview, forced
+  pessimistic vs a real M1 Air) with `VALSE_SIMULATE_RAM_GB=8` (`MemoryBudget` 8 GB policies: 720p preview, forced
   proxies, smaller caches). Compared against the `air` thresholds.
 - Add a metric: a `perf`/`metric` step in a perf script (or an `emit` line in `PerfSmokeTests`/`PerfAuditTests`, or
   `TimingBudget.metric` in a unit test listed in perf.sh's `--filter`), then a threshold entry for both modes.

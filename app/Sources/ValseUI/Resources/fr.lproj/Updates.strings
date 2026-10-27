@@ -1,0 +1,18 @@
+/* SE-015 mises à jour automatiques (Paramètres ▸ À propos, bandeau de mise à jour, menu de l'app) */
+"about.updates.auto" = "Mettre à jour Valse automatiquement";
+"about.updates.autoHint" = "Valse vérifie à l'ouverture et est prévenue des nouvelles versions pendant qu'elle tourne. Les mises à jour se téléchargent en arrière-plan et s'installent quand vous quittez Valse.";
+"about.updates.offHint" = "Les mises à jour automatiques sont désactivées. Utilisez Rechercher des mises à jour pour trouver une nouvelle version.";
+"about.updates.checking" = "Recherche de mises à jour…";
+"about.updates.upToDate" = "Valse est à jour.";
+"about.updates.lastChecked" = "dernière vérification %@";
+"about.updates.downloading" = "Téléchargement de Valse %@…";
+"about.updates.downloadingPct" = "Téléchargement de Valse %@… %d %%";
+"about.updates.ready" = "Valse %@ est prête et s'installera quand vous quitterez l'app.";
+"about.updates.failed" = "Impossible de rechercher des mises à jour. Vérifiez votre connexion Internet ; Valse réessaiera à sa prochaine ouverture.";
+"update.banner.title" = "Valse %@ est prête";
+"update.banner.hint" = "S'installe quand vous quittez, ou redémarrez maintenant.";
+"update.banner.exporting" = "Redémarrez une fois votre export terminé.";
+"update.later" = "Plus tard";
+"update.restart" = "Redémarrer pour mettre à jour";
+"menu.checkUpdates" = "Rechercher des mises à jour…";
+"about.use.sparkle" = "Mises à jour automatiques (téléchargement, vérification de signature, installation)";

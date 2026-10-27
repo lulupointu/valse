@@ -9,7 +9,7 @@
     {"wait": 1.0},
     {"click": "id:transition.tile.heart"},
     {"click": "id:transition.add.heart"},
-    {"expect": [{"path": "main.clips.0.transition", "equals": "montage.transition.heart"},
+    {"expect": [{"path": "main.clips.0.transition", "equals": "valse.transition.heart"},
                 {"path": "main.clips.0.transitionDuration", "approx": 0.5}]},
     // the tile pictures render in the background: snapshot once every visible tile has its still
     {"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0, "timeout": 30}},

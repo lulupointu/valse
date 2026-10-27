@@ -1,13 +1,13 @@
 # PB-LATENCY / PB-DROP: preview playback on the owner's Intel Mac (2026-10-24)
 
-Hand-off note for the session that finishes this on a machine that can build Montage. Branch `fix-pb-latency`
+Hand-off note for the session that finishes this on a machine that can build Valse. Branch `fix-pb-latency`
 (fix commit `917a088`, on top of main `8b6829d`). **The fix has never been compiled or tested**: the Mac where the bugs
 were seen (Intel i7-7920HQ, macOS 13.7.8) only has Command Line Tools / Swift 5.8.1 and the package needs Swift 6.2.
-Everything below comes from that Mac's unified log (`log show --predicate 'process == "Montage"'`) and the code.
+Everything below comes from that Mac's unified log (`log show --predicate 'process == "Valse"'`) and the code.
 
 ## Verification on the build Mac (2026-10-24, Apple Silicon, macOS 26.4) — read this first
 
-Commit `2cc98ba` supersedes the `917a088` fix. Harness: `PlaybackDeviceReproTests` (opt-in, `MONTAGE_PB_REPRO=1`, env
+Commit `2cc98ba` supersedes the `917a088` fix. Harness: `PlaybackDeviceReproTests` (opt-in, `VALSE_PB_REPRO=1`, env
 vars documented in the file): a real `PlaybackEngine` / AVPlayer routed to virtual outputs (nothing on the speakers),
 the 1023 layout with one sine pitch per track; output recorded from the device's loopback with a CoreAudio recorder
 (ffmpeg's avfoundation capture dropped ~20 % of the samples: useless) and analysed per clip (100 ms windows) and per
@@ -34,7 +34,7 @@ cut (20 ms windows). Outputs: "Steam Streaming Speakers" (44.1 kHz) with a 4096-
   buffer duration used); untimed tap buffers hold the last gain; export uses the same tap gains (gain > 1 applied in
   full, `LaneGainTests.exportAppliesGainsAboveOne`).
 - **To confirm on the owner's Intel Mac (macOS 13)**: play project 1023 on the built-in speakers at 44.1 kHz across the
-  cuts several times; `log stream --predicate 'process == "Montage" AND eventMessage CONTAINS "MCM ignoring"'` will
+  cuts several times; `log stream --predicate 'process == "Valse" AND eventMessage CONTAINS "MCM ignoring"'` will
   still show a few lines at cuts (values 1, harmless); no lane should drop.
 
 ## Symptoms (owner, project "1023")
@@ -53,7 +53,7 @@ Owner could NOT reproduce on the build Mac: see "Why it does not reproduce every
 
 ## Project 1023
 
-`~/Movies/Montage/1023.montage` on the Intel Mac. 1080×1920, 25 fps, ≈25.4 s. Media: three iPhone clips (HEVC 4K
+`~/Movies/Valse/1023.valse` on the Intel Mac. 1080×1920, 25 fps, ≈25.4 s. Media: three iPhone clips (HEVC 4K
 portrait, AAC stereo **48 kHz**), proxies ready (720p H.264). Times below in seconds (model ticks = 705 600 000/s).
 
 | track | clips (start s) | audio composition lanes |
@@ -96,7 +96,7 @@ the built-in speakers (0.17) stay under 0.3, hence "works on my other Mac / work
 
 ### Reproduce anywhere
 - Real way: an output whose lead exceeds 0.3 s (latency ≳ 0.2 s): a Bluetooth speaker, some AirPlay / HDMI outputs.
-  Check `log stream --predicate 'process == "Montage"' | grep "device latency"`.
+  Check `log stream --predicate 'process == "Valse"' | grep "device latency"`.
 - Any Mac: on **main**, temporarily set `PlaybackEngine.stallSpan` to `0.1` (below the ~0.17 s built-in lead), build,
   open any project, press play: the loop above appears (pause/seek/play every ~0.3 s, `stallRecoveries` climbing,
   playhead stuck). With `fix-pb-latency` + the same temporary `0.1`, playback must run normally. Revert the constant.
@@ -131,21 +131,21 @@ mix ramps (`CompositionBuilder.apply`). Expected result: no "MCM ignoring event"
 
 ### Reproduce anywhere
 1. Audio MIDI Setup → the output you listen on (built-in speakers or headphones) → Format **44 100 Hz** (Apple Silicon
-   built-in speakers usually default to 48 kHz: probably why the build Mac does not reproduce). Restart Montage.
+   built-in speakers usually default to 48 kHz: probably why the build Mac does not reproduce). Restart Valse.
 2. A project like 1023: **48 kHz** media (any iPhone .MOV; or ffmpeg sines, a different pitch per track so a missing
    lane is audible), main track with ≥ 4 cuts (A/B lanes), one or two overlay video tracks and an audio track with
-   audible clips crossing the same cuts. Copying `1023.montage` needs its media (IMG_9725–9727, ~460 MB).
-3. `log stream --predicate 'process == "Montage" AND eventMessage CONTAINS "MCM ignoring"'` while playing from 0 across
+   audible clips crossing the same cuts. Copying `1023.valse` needs its media (IMG_9725–9727, ~460 MB).
+3. `log stream --predicate 'process == "Valse" AND eventMessage CONTAINS "MCM ignoring"'` while playing from 0 across
    the cuts. On main: MCM lines at the cuts and lanes dropping; on `fix-pb-latency`: no MCM lines, nothing drops.
    If no MCM lines appear on main even at 44.1 kHz, try a 512-frame IO buffer and more lanes before concluding.
 
 ## What changed in `917a088`
-- `MontageEngine/Playback/PlaybackEngine.swift`: `seekTarget`, guard in `watchForStall`.
-- `MontageEngine/Composition/CompositionBuilder.swift`: `applyVolume` split into `volumeRamps` + `apply`; build collects
+- `ValseEngine/Playback/PlaybackEngine.swift`: `seekTarget`, guard in `watchForStall`.
+- `ValseEngine/Composition/CompositionBuilder.swift`: `applyVolume` split into `volumeRamps` + `apply`; build collects
   each lane's ramps and gives them to the tap (preview) or the mix (export / no tap).
-- `MontageEngine/Audio/AudioMix.swift`: `GainRamp`; `LaneProcessor(gains:)`, `applyGains` (linear per sample inside a
+- `ValseEngine/Audio/AudioMix.swift`: `GainRamp`; `LaneProcessor(gains:)`, `applyGains` (linear per sample inside a
   ramp, 0 outside), `routeLive` (old routing loop), `nextTime` when the tap gets no timestamp.
-- `Tests/MontageEngineTests/LaneGainTests.swift` (new): tap gains / silence / cut / no timestamp / seek back; preview
+- `Tests/ValseEngineTests/LaneGainTests.swift` (new): tap gains / silence / cut / no timestamp / seek back; preview
   build has no mix ramps, export and `audioTaps: false` do.
 
 ## To do on the build Mac

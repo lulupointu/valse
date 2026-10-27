@@ -27,7 +27,7 @@
     {"click": "id:asset.search"},
     {"type": "vignette"},
     {"wait": 0.6},
-    {"click": "id:asset.tile.montage.effect.vignette"},
+    {"click": "id:asset.tile.valse.effect.vignette"},
     {"expect": [{"path": "ui.assets.preview.kind", "equals": "effect"}, {"path": "ui.assets.preview.duration", "approx": 3, "tolerance": 0.05}, {"path": "playhead", "approx": 2.5}]},
     {"wait": 0.8},
     {"snapshot": "preview-effect", "element": "id:panel.player"},

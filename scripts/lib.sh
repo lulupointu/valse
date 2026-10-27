@@ -1,50 +1,50 @@
 # Shared helpers for the test / gate scripts (sourced, never run). bash 3.2 compatible (macOS /bin/bash).
 #   on_exit <cmd>            chain an EXIT hook (runs in reverse order, also on Ctrl-C / TERM / HUP)
-#   require_free_disk [GB]   fail fast when the data volume has less than GB free (default MONTAGE_MIN_FREE_GB or 5)
-#   use_private_tmpdir <tag> point TMPDIR at a fresh $TMPDIR/montage-run-<tag>.XXXX removed on exit, so test leftovers
+#   require_free_disk [GB]   fail fast when the data volume has less than GB free (default VALSE_MIN_FREE_GB or 5)
+#   use_private_tmpdir <tag> point TMPDIR at a fresh $TMPDIR/valse-run-<tag>.XXXX removed on exit, so test leftovers
 #                            (sandboxes, exports, mock downloads…) never pile up; persistent caches stay in the real TMPDIR
 #   run_watched <log> <cmd…> run cmd (stdout+stderr → log) under the hang watchdog; returns its exit code, 124 = HUNG
 #   tree_pids <pid> / tree_cpu <pid> / kill_tree <pid>   process-tree helpers
 #   ui_jobs_cap <K>          UI_JOBS = K capped at the machine's UI-app capacity next to a unit suite (+ UI_JOBS_CAP_NOTE)
 #   main_checkout            absolute path of the main checkout (shared build/ files such as ui-durations.tsv)
-[[ -n "${_MONTAGE_LIB_SH:-}" ]] && return 0
-_MONTAGE_LIB_SH=1
+[[ -n "${_VALSE_LIB_SH:-}" ]] && return 0
+_VALSE_LIB_SH=1
 
-_MONTAGE_EXIT_HOOKS=()
-_montage_run_exit_hooks() {
+_VALSE_EXIT_HOOKS=()
+_valse_run_exit_hooks() {
   local i
-  for ((i = ${#_MONTAGE_EXIT_HOOKS[@]} - 1; i >= 0; i--)); do eval "${_MONTAGE_EXIT_HOOKS[$i]}" || true; done
-  _MONTAGE_EXIT_HOOKS=()
+  for ((i = ${#_VALSE_EXIT_HOOKS[@]} - 1; i >= 0; i--)); do eval "${_VALSE_EXIT_HOOKS[$i]}" || true; done
+  _VALSE_EXIT_HOOKS=()
 }
 on_exit() {
-  _MONTAGE_EXIT_HOOKS+=("$1")
-  trap _montage_run_exit_hooks EXIT
+  _VALSE_EXIT_HOOKS+=("$1")
+  trap _valse_run_exit_hooks EXIT
   trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
 }
 
 require_free_disk() {
-  local need="${1:-${MONTAGE_MIN_FREE_GB:-5}}" path="${2:-.}" avail mount
+  local need="${1:-${VALSE_MIN_FREE_GB:-5}}" path="${2:-.}" avail mount
   avail="$(df -Pk "$path" | awk 'NR == 2 { printf "%d", $4 / 1048576 }')"
   mount="$(df -P "$path" | awk 'NR == 2 { print $6 }')"
   if (( avail < need )); then
     echo "✘ DISK FULL: only ${avail} GB free on ${mount} (the gate needs ≥ ${need} GB: build ≈ 1 GB per worktree, UI/export temp files)." >&2
-    echo "  Free space: scripts/cleanup.sh --dry-run, then scripts/cleanup.sh (merged worktrees' .build, \$TMPDIR/montage-* > 3 h)." >&2
+    echo "  Free space: scripts/cleanup.sh --dry-run, then scripts/cleanup.sh (merged worktrees' .build, \$TMPDIR/valse-* > 3 h)." >&2
     return 1
   fi
 }
 
 # Real (machine) temp dir, remembered across nested scripts so caches never land in a private run dir.
-export MONTAGE_REAL_TMPDIR="${MONTAGE_REAL_TMPDIR:-${TMPDIR:-/tmp}}"
-MONTAGE_REAL_TMPDIR="${MONTAGE_REAL_TMPDIR%/}"
-# Synthetic test media is content-addressed and reused across runs (MontageTestSupport.TestMedia).
+export VALSE_REAL_TMPDIR="${VALSE_REAL_TMPDIR:-${TMPDIR:-/tmp}}"
+VALSE_REAL_TMPDIR="${VALSE_REAL_TMPDIR%/}"
+# Synthetic test media is content-addressed and reused across runs (ValseTestSupport.TestMedia).
 # tests never make sound on the user's speakers (AudioOutput.isSilenced in the app; UI-test runs are silent anyway)
-export MONTAGE_MUTE_AUDIO=1
-export MONTAGE_TEST_MEDIA_DIR="${MONTAGE_TEST_MEDIA_DIR:-$MONTAGE_REAL_TMPDIR/montage-test-media-v1}"
+export VALSE_MUTE_AUDIO=1
+export VALSE_TEST_MEDIA_DIR="${VALSE_TEST_MEDIA_DIR:-$VALSE_REAL_TMPDIR/valse-test-media-v1}"
 
 use_private_tmpdir() {
-  [[ "${MONTAGE_KEEP_TMP:-0}" == 1 ]] && return 0
+  [[ "${VALSE_KEEP_TMP:-0}" == 1 ]] && return 0
   local d
-  d="$(mktemp -d "$MONTAGE_REAL_TMPDIR/montage-run-$1.XXXXXX")"
+  d="$(mktemp -d "$VALSE_REAL_TMPDIR/valse-run-$1.XXXXXX")"
   export TMPDIR="$d/"
   on_exit "rm -rf '$d'"
 }
@@ -86,14 +86,14 @@ kill_tree() { # root pid: TERM the whole tree, KILL what is left after 3 s
   kill -KILL $pids 2>/dev/null || true
 }
 
-# Hang watchdog. A run counts as HUNG when, for MONTAGE_HANG_MINUTES (default 10), its log did not grow AND its
+# Hang watchdog. A run counts as HUNG when, for VALSE_HANG_MINUTES (default 10), its log did not grow AND its
 # process tree used < 1 % of one core. It then appends `sample` stacks of the tree's processes to the log, kills the
 # tree and leaves "<log>.hung". A legitimately slow test keeps using CPU, so it is never killed.
 watchdog_start() { # log root-pid
   local log="$1" root="$2"
   (
     trap - EXIT INT TERM HUP
-    limit=$(( ${MONTAGE_HANG_MINUTES:-10} * 60 )); poll="${MONTAGE_WATCHDOG_POLL:-15}"
+    limit=$(( ${VALSE_HANG_MINUTES:-10} * 60 )); poll="${VALSE_WATCHDOG_POLL:-15}"
     size=-1; since=$(date +%s); base_cpu=0
     while kill -0 "$root" 2>/dev/null; do
       sleep "$poll"
@@ -138,7 +138,7 @@ run_watched() { # log cmd… → exit code of cmd; 124 + "HUNG" message when the
   kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
   (( errexit )) && set -e
   if [[ -f "$log.hung" ]]; then
-    echo "✘ HUNG: '$*' made no progress (no output, ~0 % CPU) for ${MONTAGE_HANG_MINUTES:-10} min — killed; stacks in $log" >&2
+    echo "✘ HUNG: '$*' made no progress (no output, ~0 % CPU) for ${VALSE_HANG_MINUTES:-10} min — killed; stacks in $log" >&2
     return 124
   fi
   return $code

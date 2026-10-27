@@ -1,0 +1,102 @@
+/* Commandes (libellés annuler/rétablir) */
+"cmd.edit" = "Modification";
+"cmd.editClip" = "Modifier le clip";
+"cmd.import" = "Importer des médias";
+"cmd.addClip" = "Ajouter un clip";
+"cmd.move" = "Déplacer";
+"cmd.trim" = "Rogner";
+"cmd.split" = "Fractionner";
+"cmd.quickCut" = "Coupe rapide";
+"cmd.delete" = "Supprimer";
+"cmd.speed" = "Vitesse";
+"cmd.transition" = "Transition";
+"cmd.timelineOption" = "Option de la timeline";
+"cmd.projectSettings" = "Paramètres du projet";
+"cmd.transform" = "Transformation";
+"cmd.opacity" = "Opacité";
+"cmd.volume" = "Volume";
+"cmd.blend" = "Mode de fusion";
+"cmd.effect" = "Effet";
+"cmd.filter" = "Filtre";
+"cmd.animation" = "Animation";
+"cmd.keyframe" = "Image clé";
+"cmd.text" = "Texte";
+
+/* Erreurs */
+"error.clipNotFound" = "Le clip n'existe plus.";
+"error.trackNotFound" = "La piste n'existe plus.";
+"error.mediaNotFound" = "Fichier média introuvable.";
+"error.trackLocked" = "La piste est verrouillée. Déverrouillez-la pour modifier ses clips.";
+"error.invalidTime" = "Valse ne peut pas faire cela à cette position. Déplacez la tête de lecture ou sélectionnez un autre clip.";
+"error.incompatibleTrack" = "Ce clip ne peut pas aller sur cette piste.";
+"error.nothingToDo" = "Il n'y a rien à modifier ici.";
+"error.cannotSplitHere" = "Placez la tête de lecture dans un clip, à distance de ses bords, pour le diviser.";
+"error.playheadOutsideClip" = "Placez d'abord la tête de lecture dans le clip.";
+"error.notAPackage" = "Ce n'est pas un projet Valse.";
+"error.unreadable" = "Impossible de lire le fichier du projet.";
+"error.newerSchema" = "Ce projet a été créé avec une version plus récente de Valse. Mettez Valse à jour pour l'ouvrir.";
+"error.migrationFailed" = "Valse n'a pas pu mettre ce projet à jour vers la version actuelle. Le fichier d'origine n'a pas été modifié.";
+
+/* Propriétés animables */
+"prop.position" = "Position";
+"prop.scale" = "Échelle";
+"prop.rotation" = "Rotation";
+"prop.opacity" = "Opacité";
+"prop.volume" = "Volume";
+"prop.maskCenter" = "Position du masque";
+"prop.maskSize" = "Taille du masque";
+"prop.maskFeather" = "Contour progressif";
+"prop.maskRotation" = "Rotation du masque";
+"prop.textColor" = "Couleur du texte";
+
+/* Modes de fusion */
+"blend.normal" = "Normal";
+"blend.darken" = "Obscurcir";
+"blend.multiply" = "Produit";
+"blend.colorBurn" = "Densité couleur +";
+"blend.lighten" = "Éclaircir";
+"blend.screen" = "Superposition claire";
+"blend.colorDodge" = "Densité couleur -";
+"blend.add" = "Addition";
+"blend.overlay" = "Incrustation";
+"blend.softLight" = "Lumière tamisée";
+"blend.hardLight" = "Lumière crue";
+"blend.difference" = "Différence";
+"blend.exclusion" = "Exclusion";
+
+/* Masques */
+"mask.linear" = "Linéaire";
+"mask.mirror" = "Miroir";
+"mask.circle" = "Cercle";
+"mask.rectangle" = "Rectangle";
+
+/* Modes de fusion et formes de masque (W6) */
+"blend.linearBurn" = "Densité linéaire +";
+"blend.linearDodge" = "Densité linéaire -";
+"blend.vividLight" = "Lumière vive";
+"blend.linearLight" = "Lumière linéaire";
+"blend.pinLight" = "Lumière ponctuelle";
+"blend.hardMix" = "Mélange maximal";
+"blend.subtract" = "Soustraction";
+"blend.divide" = "Division";
+"blend.hue" = "Teinte";
+"blend.saturation" = "Saturation";
+"blend.color" = "Couleur";
+"blend.luminosity" = "Luminosité";
+"blend.darkerColor" = "Couleur plus foncée";
+"blend.lighterColor" = "Couleur plus claire";
+"mask.heart" = "Cœur";
+"mask.star" = "Étoiles";
+/* Inspector properties (W3) */
+"prop.maskRoundness" = "Bords arrondis";
+"prop.cropLeft" = "Gauche";
+"prop.cropTop" = "Haut";
+"prop.cropRight" = "Droite";
+"prop.cropBottom" = "Bas";
+
+"mask.text" = "Texte";
+"mask.pen" = "Plume";
+"prop.shapeFill" = "Remplissage";
+"prop.shapeStroke" = "Couleur du contour";
+"prop.shapeStrokeWidth" = "Épaisseur du contour";
+"mask.brush" = "Pinceau";

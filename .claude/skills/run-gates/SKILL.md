@@ -1,9 +1,9 @@
 ---
 name: run-gates
-description: Which Montage test / gate command to run when (scripts/test.sh, uitest.sh, check_fast.sh, check_clean.sh), how to run it without polling, and how to read the result - flaky vs failed vs quarantined, "waiting for test slot", HUNG / TIMEOUT runs, DISK FULL. Use before running any test or gate, when a gate fails, or when a run seems stuck.
+description: Which Valse test / gate command to run when (scripts/test.sh, uitest.sh, check_fast.sh, check_clean.sh), how to run it without polling, and how to read the result - flaky vs failed vs quarantined, "waiting for test slot", HUNG / TIMEOUT runs, DISK FULL. Use before running any test or gate, when a gate fails, or when a run seems stuck.
 ---
 
-# Running Montage tests and gates
+# Running Valse tests and gates
 
 ## Which check when
 | Moment | Who | Command | Typical time |
@@ -23,13 +23,13 @@ Feature agents never run `check_clean.sh`: the orchestrator runs it once per bat
 checks the perf budgets (bench/perf_thresholds.json + perf.sh's `UNIT_TIMING` tests).
 
 ## Perf under load (docs/TESTING.md "perf.sh load rule")
-- Correctness tests never assert wall clock (`TimingBudget.limit` = nil outside `MONTAGE_PERF=1`); memory and the
+- Correctness tests never assert wall clock (`TimingBudget.limit` = nil outside `VALSE_PERF=1`); memory and the
   gross ×4 GPU-time bounds always gate; thread-CPU (`_cpu_`) follows the load rule below; it is measured with the clocks held up (PERF-R1 `PerfClockWarmer`: a quiet machine,
   not load, inflated it 1.5-4×).
 - In perf.sh, wall-clock, GPU-time and thread-CPU metrics (`launch_ms`, `_wall_`, `_gpu_`, `_cpu_`, unit wall-clock / strict GPU budgets) gate
   only while the 1-min load average stays ≤ the core count (sampled before / after each part). Above it perf.sh waits
-  ≤ 5 min (`MONTAGE_PERF_LOAD_WAIT`), measures again, then reports each as `UNRELIABLE (load X > cores Y)` without gating.
-  `MONTAGE_PERF_CORES` overrides the core count (also for TimingBudget).
+  ≤ 5 min (`VALSE_PERF_LOAD_WAIT`), measures again, then reports each as `UNRELIABLE (load X > cores Y)` without gating.
+  `VALSE_PERF_CORES` overrides the core count (also for TimingBudget).
 - check_clean then prints `perf: N metrics unverified due to load` and the stamp `build/check_clean.ok` gets
   `perf-unverified=N` (merge_agent.sh still accepts it and prints a note). Say so in the batch report; re-run
   `scripts/perf.sh` on a quieter machine if the batch touched perf-sensitive code.
@@ -74,18 +74,18 @@ smoke set; `app/Tests/ui_map.txt` is only smoke / `always` / directory-fallback 
 - `skipped` (UI exit code 3) = unmet `requires` (AI model / content pack / minOS). Not a failure.
 
 ## Waiting, hangs, disk
-- `waiting for test slot… (held by PIDs …)` = machine-wide semaphore (/tmp/montage-locks, 2+ slots, FIFO queue). Normal under load;
+- `waiting for test slot… (held by PIDs …)` = machine-wide semaphore (/tmp/valse-locks, 2+ slots, FIFO queue). Normal under load;
   keep waiting (the notification comes when your run finishes). `scripts/slots.sh status` shows holders, age, idle time.
   Dead holders and holders idle (< 2 CPU-s) for 20 min are reclaimed automatically; `scripts/slots.sh reclaim` forces a sweep.
 - `HUNG` (test.sh / build: no output and ~0 % CPU for 10 min) or `TIMEOUT (HUNG): no driver progress for 120s` (one UI
   script; the driver's heartbeat stopped: a hung main thread or an await that never returns — a slow, progressing
   script is never killed, `--timeout` is not a total limit): stacks are
   in the log / `build/uitest/<script>/hang-sample.txt`. Read them: a hang at 0 % CPU in AVFoundation reads inside async
-  tests is the cooperative-pool deadlock (montage-gotchas). A `waitFor` that never becomes true fails by itself
+  tests is the cooperative-pool deadlock (valse-gotchas). A `waitFor` that never becomes true fails by itself
   ("timed out: no progress for N s": its timeout counts from the last job-progress / value change).
 - UI scripts with `"requires": {"models": …}` (or `"heavy": true`) are heavy: `uitest.sh --jobs` starts them first and
   runs them one at a time.
 - Your own run stuck (e.g. you started the wrong thing): `scripts/kill_tests.sh --dry-run`, then `scripts/kill_tests.sh`
-  (only Montage test processes of your checkout). Never `kill`/`pkill` other PIDs.
+  (only Valse test processes of your checkout). Never `kill`/`pkill` other PIDs.
 - `DISK FULL` (< 5 GB): `scripts/cleanup.sh --dry-run`, then `scripts/cleanup.sh`.
 - No test summary / crash: `build/test.log` tail shows `◇ Test … started` for the last test; rerun that suite alone.

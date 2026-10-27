@@ -60,7 +60,7 @@ def unit_failures(path):
     for tc in cases(path):
         if tc.find("failure") is None and tc.find("error") is None:
             continue
-        cls = tc.get("classname", "")            # MontageUITests.AudioUITests (module.Suite[.Nested])
+        cls = tc.get("classname", "")            # ValseUITests.AudioUITests (module.Suite[.Nested])
         name = tc.get("name", "")                # autoBeatsWritesClipBeats() / paramFails(x:)
         func = name.split("(")[0]
         suite = cls.split(".", 1)[1] if "." in cls else cls

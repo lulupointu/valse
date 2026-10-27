@@ -1,0 +1,210 @@
+/* Panneaux et onglets */
+"panel.media" = "Médias";
+"panel.player" = "Lecteur";
+"tab.media" = "Médias";
+"tab.audio" = "Audio";
+"tab.text" = "Texte";
+"tab.stickers" = "Stickers";
+"tab.effects" = "Effets";
+"tab.transitions" = "Transitions";
+"tab.filters" = "Filtres";
+"tab.adjustment" = "Ajustement";
+"tab.templates" = "Modèles";
+
+/* Barre de titre */
+"titlebar.export" = "Exporter";
+"project.untitled" = "Projet sans titre";
+
+/* Médias */
+"media.import" = "Importer";
+"media.importMessage" = "Choisissez des vidéos, photos, fichiers audio ou dossiers à importer.";
+"media.dropHint" = "Faites glisser des vidéos, photos et fichiers audio et déposez-les ici";
+"media.nav.import" = "Importer";
+"media.nav.library" = "Bibliothèque";
+"media.library.empty" = "Votre bibliothèque de médias enregistrés apparaîtra ici.";
+"asset.addToTrack" = "Ajouter à la piste";
+"templates.empty" = "Les modèles arrivent bientôt.";
+"text.default" = "Texte par défaut";
+"text.group.presets" = "Préréglages";
+"captions.generate" = "Générer des sous-titres";
+"clip.solid" = "Couleur";
+
+/* Lecteur */
+"player.quality" = "Qualité de l'aperçu";
+"player.fullscreen" = "Plein écran";
+"player.playPause" = "Lecture/Pause (Espace)";
+"player.ratio" = "Format";
+"player.ratio.original" = "Original";
+
+/* Inspecteur */
+"inspector.tab.details" = "Détails";
+"inspector.tab.text" = "Texte";
+"inspector.tab.video" = "Vidéo";
+"inspector.tab.audio" = "Audio";
+"inspector.tab.speed" = "Vitesse";
+"inspector.tab.animation" = "Animation";
+"inspector.tab.adjust" = "Ajuster";
+"inspector.transform" = "Position et taille";
+"inspector.blend" = "Mélange";
+"inspector.blendMode" = "Mode";
+"inspector.mask" = "Masque";
+"inspector.mask.none" = "Aucun";
+"inspector.mask.invert" = "Inverser";
+"inspector.audio.basic" = "Basique";
+"inspector.speed.normal" = "Normal";
+"inspector.speed" = "Vitesse";
+"inspector.duration" = "Durée";
+"inspector.changePitch" = "Modifier la hauteur";
+"inspector.fadeIn" = "Fondu d'entrée";
+"inspector.fadeOut" = "Fondu de sortie";
+"inspector.flipH" = "Mettre en miroir horizontalement";
+"inspector.flipV" = "Retourner verticalement";
+"inspector.reset" = "Réinitialiser";
+"inspector.keyframe" = "Ajouter ou supprimer une image clé";
+"inspector.keyframePosition" = "Image clé de position";
+"inspector.noEffects" = "Aucun effet sur ce clip. Choisissez un filtre ou un effet dans le panneau de gauche.";
+"inspector.addAdjust" = "Ajouter des réglages";
+"inspector.removeEffect" = "Supprimer";
+"inspector.text.basic" = "Basique";
+"inspector.fontSize" = "Taille";
+"inspector.color" = "Couleur";
+"inspector.bold" = "Gras";
+"inspector.italic" = "Italique";
+"prop.positionX" = "X";
+"prop.positionY" = "Y";
+"anim.phase.in" = "Entrée";
+"anim.phase.out" = "Sortie";
+"anim.phase.combo" = "Combinée";
+"anim.none" = "Aucune";
+
+/* Détails */
+"details.name" = "Nom";
+"details.saved" = "Enregistré dans";
+"details.notSaved" = "Pas encore enregistré";
+"details.proxy" = "Proxy";
+"details.proxy.auto" = "Automatique";
+"details.proxy.always" = "Toujours";
+"details.proxy.never" = "Désactivé";
+"details.ratio" = "Format";
+"details.resolution" = "Résolution";
+"details.frameRate" = "Fréquence d'images";
+"settings.language" = "Langue";
+"settings.language.system" = "Système";
+"settings.language.en" = "English";
+"settings.language.fr" = "Français";
+
+/* Timeline */
+"timeline.cover" = "Couverture";
+"timeline.emptyHint" = "Faites glisser des ressources ici et commencez à créer";
+"toolbar.undo" = "Annuler (⌘Z)";
+"toolbar.redo" = "Rétablir (⇧⌘Z)";
+"toolbar.split" = "Diviser (⌘B)";
+"toolbar.deleteLeft" = "Supprimer à gauche (Q)";
+"toolbar.deleteRight" = "Supprimer à droite (W)";
+"toolbar.delete" = "Supprimer (⌫)";
+"toolbar.magnet.on" = "Activer l'aimant sur la piste principale (P)";
+"toolbar.magnet.off" = "Désactiver l'aimant sur la piste principale (P)";
+"toolbar.snapping.on" = "Activer l'alignement automatique (N)";
+"toolbar.snapping.off" = "Désactiver l'alignement automatique (N)";
+"toolbar.linkage.on" = "Activer l'association";
+"toolbar.linkage.off" = "Désactiver l'association";
+"toolbar.zoomFit" = "Ajuster la timeline à la fenêtre";
+"toolbar.zoomIn" = "Zoom avant (⌘+)";
+"toolbar.zoomOut" = "Zoom arrière (⌘−)";
+
+/* Notifications */
+"toast.undo" = "Annuler : %@";
+"toast.redo" = "Rétablir : %@";
+"toast.importFailed.one" = "Impossible d'importer « %@ » : Valse ne prend pas en charge ce format.";
+"toast.importFailed.other" = "Impossible d'importer %d fichiers : Valse ne prend pas en charge leur format.";
+"toast.needTwoClips" = "Ajoutez d'abord au moins deux clips sur la piste principale.";
+"toast.recovered" = "Valse s'est fermée de manière inattendue. Votre projet a été restauré depuis le dernier enregistrement automatique.";
+"toast.aiDone" = "%@ : terminé";
+
+/* Exportation */
+"export.title" = "Exporter";
+"export.name" = "Nom";
+"export.location" = "Exporter vers";
+"export.choose" = "Choisir…";
+"export.resolution" = "Résolution";
+"export.bitrate" = "Débit binaire";
+"export.mbps" = "Débit (Mbit/s)";
+"export.codec" = "Codec";
+"export.frameRate" = "Fréquence d'images";
+"export.audio" = "Exporter l'audio";
+"export.estimate" = "Taille estimée : %@";
+"export.export" = "Exporter";
+"export.exporting" = "Exportation en cours… %d %%";
+"export.done" = "Exportation effectuée";
+"export.openFolder" = "Ouvrir le dossier";
+"common.cancel" = "Annuler";
+"common.done" = "Terminé";
+
+/* Menus */
+"menu.app" = "Valse";
+"menu.about" = "À propos de Valse";
+"menu.hide" = "Masquer Valse";
+"menu.quit" = "Quitter Valse";
+"menu.file" = "Fichier";
+"menu.new" = "Nouveau projet";
+"menu.open" = "Ouvrir…";
+"menu.save" = "Enregistrer";
+"menu.saveAs" = "Enregistrer sous…";
+"menu.import" = "Importer des médias…";
+"menu.export" = "Exporter…";
+"menu.edit" = "Édition";
+"menu.undo" = "Annuler";
+"menu.redo" = "Rétablir";
+"menu.split" = "Diviser";
+"menu.delete" = "Supprimer";
+"menu.cut" = "Couper";
+"menu.copy" = "Copier";
+"menu.paste" = "Coller";
+"menu.toggleClip" = "Activer/Désactiver le clip";
+"menu.view" = "Présentation";
+"menu.zoomIn" = "Zoom avant";
+"menu.zoomOut" = "Zoom arrière";
+"menu.language.en" = "Langue : English";
+"menu.language.fr" = "Langue : Français";
+"menu.language.system" = "Langue : Système";
+"menu.window" = "Fenêtre";
+"menu.minimize" = "Réduire";
+"menu.fullscreen" = "Passer en plein écran";
+"menu.close" = "Fermer";
+
+/* Raccourcis */
+"shortcut.playPause" = "Lecture/Pause";
+"shortcut.shuttleBack" = "Lecture arrière";
+"shortcut.shuttleStop" = "Arrêt";
+"shortcut.shuttleForward" = "Lecture avant";
+"shortcut.split" = "Diviser";
+"shortcut.delete" = "Supprimer";
+"shortcut.deleteLeft" = "Supprimer à gauche";
+"shortcut.deleteRight" = "Supprimer à droite";
+"shortcut.prevFrame" = "Image précédente";
+"shortcut.nextFrame" = "Image suivante";
+"shortcut.prevFrames" = "Reculer de 10 images";
+"shortcut.nextFrames" = "Avancer de 10 images";
+"shortcut.home" = "Aller au début";
+"shortcut.end" = "Aller à la fin";
+"shortcut.zoomIn" = "Zoom avant";
+"shortcut.zoomOut" = "Zoom arrière";
+"shortcut.magnet" = "Aimant sur la piste principale";
+"shortcut.snapping" = "Alignement automatique";
+"shortcut.selectAll" = "Tout sélectionner";
+"shortcut.deselect" = "Désélectionner";
+
+/* Projet de démonstration */
+"demo.name" = "Démo";
+"demo.title" = "Voyage d'été";
+"demo.clip.ocean" = "Océan";
+"demo.clip.sunset" = "Coucher de soleil";
+"demo.clip.forest" = "Forêt";
+"demo.clip.overlay" = "Superposition";
+"demo.clip.music" = "Musique";
+
+/* LUT (Adjust ▸ Basic) */
+"inspector.lut" = "LUT";
+"inspector.lut.name" = "Nom";
+"inspector.lut.none" = "Aucun";
+"inspector.lut.import" = "Importer";

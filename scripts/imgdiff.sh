@@ -5,6 +5,6 @@
 set -euo pipefail
 if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,4p' "$0"; exit 0; fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BIN="$(cd "$ROOT" && swift build --show-bin-path)/Montage"
-[[ -x "$BIN" ]] || (cd "$ROOT" && swift build --product Montage >&2)
+BIN="$(cd "$ROOT" && swift build --show-bin-path)/Valse"
+[[ -x "$BIN" ]] || (cd "$ROOT" && swift build --product Valse >&2)
 exec "$BIN" --imgdiff "$@"

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Clean-checkout batch gate: the orchestrator runs it ONCE per batch HEAD (docs/AGENT_GUIDE.md); feature agents don't.
 # 1. Fails if any file under app/ or scripts/ is git-ignored. Such files build locally but are never committed
-#    (e.g. a `models/` rule silently hid app/Sources/MontageAI/Models on case-insensitive macOS).
+#    (e.g. a `models/` rule silently hid app/Sources/ValseAI/Models on case-insensitive macOS).
 # 2. Builds and tests a detached worktree that is exactly HEAD (no untracked / ignored file), so only committed files
 #    count. Default: a persistent clean worktree reset to HEAD keeps its .build (incremental build); --cold = a fresh
 #    temp worktree and a cold build. Uncommitted changes are NOT part of the check: commit first.
@@ -9,14 +9,14 @@
 #    --all, sharded over --ui-jobs apps) run AT THE SAME TIME: same tests, same retries, ~3x shorter. The gate holds
 #    one test slot; UI apps are capped at min(cores × 2/5, RAM GB / 4) (4 on a 10-core 16 GB Mac).
 # STAGE 2 of the gate. Feature agents run targeted tests + scripts/check_fast.sh; the orchestrator runs `--ui` per batch.
-# Fails fast when < 5 GB are free (MONTAGE_MIN_FREE_GB). Failed tests are retried once: a unit test alone after the
+# Fails fast when < 5 GB are free (VALSE_MIN_FREE_GB). Failed tests are retried once: a unit test alone after the
 # suite (test.sh), a UI script right after its failure (uitest.sh) — in the default schedule other UI apps and the unit
 # suite may still be running then; --serial retries with nothing else of the gate running.
 # Quarantined ones (app/Tests/quarantine.txt) are reported but don't fail. The temp worktree, its build and every UI
 # temp dir are deleted on exit, even on failure or Ctrl-C. On success writes build/check_clean.ok (commit, date, mode)
 # for scripts/merge_agent.sh.
-# Warm cache: cold anyway when the package graph / toolchain changed, after MONTAGE_WARM_MAX_GATES (20) gates or
-# MONTAGE_WARM_MAX_HOURS (24) h; the reason is printed ("cold: …").
+# Warm cache: cold anyway when the package graph / toolchain changed, after VALSE_WARM_MAX_GATES (20) gates or
+# VALSE_WARM_MAX_HOURS (24) h; the reason is printed ("cold: …").
 #
 # Usage: scripts/check_clean.sh [--build-only] [--ui] [--keep] [--cold] [--serial] [--ui-jobs K]
 #   --build-only  build (incl. tests) but don't run scripts/test.sh
@@ -25,11 +25,11 @@
 #   --keep        keep the temp worktree (its path is printed; --cold only, the warm one is always kept)
 #   --cold        fresh temp worktree + cold build instead of the warm clean worktree
 #   --serial      the pre-2026-10-21 schedule: unit tests, THEN the UI scripts one app at a time (slower, same tests)
-#   --ui-jobs K   UI apps at once (default MONTAGE_UI_JOBS or 4, capped as above; 1 = one at a time)
+#   --ui-jobs K   UI apps at once (default VALSE_UI_JOBS or 4, capped as above; 1 = one at a time)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-TEST=1; UI=0; KEEP=0; SERIAL=0; UI_JOBS="${MONTAGE_UI_JOBS:-4}"; COLD=0
+TEST=1; UI=0; KEEP=0; SERIAL=0; UI_JOBS="${VALSE_UI_JOBS:-4}"; COLD=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --cold) COLD=1; shift;;
@@ -72,7 +72,7 @@ if ! git diff --quiet HEAD -- app scripts Package.swift; then
   echo "⚠︎ uncommitted changes under app/ scripts/ Package.swift are not part of this check"
 fi
 
-TMP="$(mktemp -d -t montage-clean)"
+TMP="$(mktemp -d -t valse-clean)"
 WT="$TMP/wt"
 SHA="$(git rev-parse HEAD)"
 # Warm mode: a persistent clean worktree per repository (<main checkout>/build/check_clean-cache/wt<N>, one lock each)
@@ -101,7 +101,7 @@ LOCK_HOLDER=""
 lock_take() { # lock path → 0 if acquired (the helper's PID in LOCK_HOLDER)
   local L="$1" fifo line=""
   if [[ -d "$L" ]] && kill -0 "$(cat "$L/pid" 2>/dev/null || echo 0)" 2>/dev/null; then return 1; fi
-  fifo="$(mktemp -u "${TMPDIR:-/tmp}/montage-lockfifo.XXXXXX")"; mkfifo "$fifo"
+  fifo="$(mktemp -u "${TMPDIR:-/tmp}/valse-lockfifo.XXXXXX")"; mkfifo "$fifo"
   python3 -c "$LOCK_PY" "$L.flock" "$$" > "$fifo" 2>/dev/null &
   LOCK_HOLDER=$!
   read -r line < "$fifo" || true; rm -f "$fifo"
@@ -141,7 +141,7 @@ if [[ -n "$CACHE_LOCK" ]]; then
   pristine || { echo "✘ the clean worktree $WT is not exactly HEAD"; git -C "$WT" status --short --ignored | head; exit 1; }
   # Leftover build products can hide a broken HEAD: a removed target / dependency keeps its .swiftmodule, so a stale
   # `import A` still compiles. The warm .build is reused only while the package graph (manifest, resolved pins, target
-  # folders) and the toolchain are unchanged, and for at most MONTAGE_WARM_MAX_GATES gates / MONTAGE_WARM_MAX_HOURS h.
+  # folders) and the toolchain are unchanged, and for at most VALSE_WARM_MAX_GATES gates / VALSE_WARM_MAX_HOURS h.
   GATE_KEY="$( { git -C "$WT" show "$SHA:Package.swift"; git -C "$WT" show "$SHA:Package.resolved" 2>/dev/null || true
     git -C "$WT" ls-tree -d --name-only "$SHA" app/Sources/ app/Tests/; swift --version 2>&1; } | shasum -a 256 | cut -c1-64)"
   META="$WT/.build/.gate-meta"; OLD_KEY=""; BORN=0; USES=0
@@ -149,8 +149,8 @@ if [[ -n "$CACHE_LOCK" ]]; then
   NOW=$(date +%s); COLD_WHY=""
   if [[ ! -d "$WT/.build" ]]; then COLD_WHY="no warm build yet"
   elif [[ "$OLD_KEY" != "$GATE_KEY" ]]; then COLD_WHY="package graph or toolchain changed (Package.swift / Package.resolved / target folders / swift --version)"
-  elif (( NOW - ${BORN:-0} > ${MONTAGE_WARM_MAX_HOURS:-24} * 3600 )); then COLD_WHY="warm build older than ${MONTAGE_WARM_MAX_HOURS:-24} h"
-  elif (( ${USES:-0} >= ${MONTAGE_WARM_MAX_GATES:-20} )); then COLD_WHY="warm build served ${USES} gates (max ${MONTAGE_WARM_MAX_GATES:-20})"
+  elif (( NOW - ${BORN:-0} > ${VALSE_WARM_MAX_HOURS:-24} * 3600 )); then COLD_WHY="warm build older than ${VALSE_WARM_MAX_HOURS:-24} h"
+  elif (( ${USES:-0} >= ${VALSE_WARM_MAX_GATES:-20} )); then COLD_WHY="warm build served ${USES} gates (max ${VALSE_WARM_MAX_GATES:-20})"
   fi
   if [[ -n "$COLD_WHY" ]]; then echo "  cold: $COLD_WHY"; rm -rf "$WT/.build"; BORN=$NOW; USES=0; fi
   mkdir -p "$WT/.build"; echo "$GATE_KEY $BORN $(( ${USES:-0} + 1 ))" > "$META"
@@ -171,7 +171,7 @@ mkdir -p "$ROOT/build"
 python3 scripts/testlib.py check-quarantine || FAIL=1
 # the app binary too (`--build-tests` alone may not link executables): the UI apps then run with --no-build while
 # test.sh's own (no-op) build runs
-if ! run_watched "$TMP/build.log" bash -c 'swift build --build-tests && swift build --product Montage'; then
+if ! run_watched "$TMP/build.log" bash -c 'swift build --build-tests && swift build --product Valse'; then
   echo "✘ clean build failed:"; grep -E "error:|HUNG" "$TMP/build.log" | sort -u | head -30
   cp "$TMP/build.log" "$ROOT/build/check_clean-build.log" 2>/dev/null || true
   exit 1
@@ -235,7 +235,7 @@ if [[ $UI == 1 ]]; then
   # perf gate (DX-C): wall-clock budgets (unit timing tests, timeline 500 / asset 1000 UI perf) vs bench/perf_thresholds.json,
   # measured with EVERY slot (exclusive, so other teams' runs don't disturb it): release ours, perf.sh queues for all.
   # (the warm-worktree flock helper holds no slot: slots are mkdir dirs owned by this PID, gone after slots_release)
-  slots_release; unset MONTAGE_SLOT_HELD
+  slots_release; unset VALSE_SLOT_HELD
   if scripts/perf.sh --no-smoke --out "$TMP/perf.json" >"$TMP/perf.log" 2>&1; then echo "✔ clean perf gate (scripts/perf.sh --no-smoke)"
   else echo "✘ clean perf gate failed:"; python3 -c 'import json,sys; [print("    " + v) for v in json.load(open(sys.argv[1])).get("violations", [])]' "$TMP/perf.json" 2>/dev/null || tail -5 "$TMP/perf.log"
     cp "$TMP/perf.log" "$ROOT/build/check_clean-perf.log" 2>/dev/null || true; FAIL=1

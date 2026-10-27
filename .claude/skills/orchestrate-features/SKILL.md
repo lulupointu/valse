@@ -1,6 +1,6 @@
 ---
 name: orchestrate-features
-description: Orchestrator playbook for Montage feature work - splitting FEATURES.md rows into small agent tasks, how many feature agents to run at once, file-area ownership, briefing feature-dev agents, integrating ready branches on a batch branch with ONE scripts/check_clean.sh --ui per batch, merging with scripts/merge_agent.sh, docs-only changes, failed batches, resuming interrupted agents. Use when planning, launching, integrating or merging feature agents (main session only).
+description: Orchestrator playbook for Valse feature work - splitting FEATURES.md rows into small agent tasks, how many feature agents to run at once, file-area ownership, briefing feature-dev agents, integrating ready branches on a batch branch with ONE scripts/check_clean.sh --ui per batch, merging with scripts/merge_agent.sh, docs-only changes, failed batches, resuming interrupted agents. Use when planning, launching, integrating or merging feature agents (main session only).
 ---
 
 # Orchestrating feature agents
@@ -77,4 +77,4 @@ When 2-4 branches are ready (or 1 if nothing else is close), and no other batch 
   and `status`; do not redo committed work; run every command from that path." The worktree, not the agent, is the
   source of truth. Uncommitted changes there are the previous agent's work in progress: keep them.
 - A hung agent run: `scripts/slots.sh status`; idle holders are reclaimed after 20 min automatically;
-  `scripts/kill_tests.sh --dir <worktree>` stops only Montage test processes of that worktree.
+  `scripts/kill_tests.sh --dir <worktree>` stops only Valse test processes of that worktree.

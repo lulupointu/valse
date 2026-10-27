@@ -2,20 +2,25 @@
 # Owner, once per release machine: creates the two keys scripts/release.sh signs with (SE-015, docs/RELEASING.md).
 #   1. "Montage Release Signing": a self-signed code-signing certificate (20 years) in the login keychain, trusted for
 #      code signing. Same certificate for every release = same designated requirement, so Sparkle accepts the update
-#      and macOS keeps Montage's camera / microphone / speech permissions.
+#      and macOS keeps Valse's camera / microphone / speech permissions.
 #   2. Sparkle's EdDSA update key (login keychain item "https://sparkle-project.org"); its public half goes into
 #      app/Bundle/Info.plist SUPublicEDKey (printed at the end; commit it).
-# Both are backed up into <backup dir> (default ~/MontageReleaseKeys): keep that folder somewhere safe (password
+# The certificate keeps its pre-rename name "Montage Release Signing" (VALSE_SIGN_IDENTITY overrides): installed copies
+# check updates against a designated requirement naming that certificate, re-issuing it would break the chain.
+# Both are backed up into <backup dir> (default ~/ValseReleaseKeys, or ~/MontageReleaseKeys made before the rename):
+# keep that folder somewhere safe (password
 # manager / encrypted drive). Losing the EdDSA key means installed copies can never update again.
 # Existing keys are kept (re-running only re-exports the backups). Restore on a new Mac: --import <backup dir>.
 # Usage: scripts/release_setup.sh [<backup dir>] | --import <backup dir>
 set -euo pipefail
 if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then sed -n '2,11p' "$0"; exit 0; fi
 cd "$(dirname "$0")/.."
-NAME="Montage Release Signing"
+NAME="${VALSE_SIGN_IDENTITY:-Montage Release Signing}"
 KC="$HOME/Library/Keychains/login.keychain-db"
 IMPORT=""
-if [[ "${1:-}" == --import ]]; then IMPORT="$2"; BACKUP="$2"; else BACKUP="${1:-$HOME/MontageReleaseKeys}"; fi
+DEFAULT_BACKUP="$HOME/ValseReleaseKeys"
+[[ ! -d "$DEFAULT_BACKUP" && -d "$HOME/MontageReleaseKeys" ]] && DEFAULT_BACKUP="$HOME/MontageReleaseKeys"
+if [[ "${1:-}" == --import ]]; then IMPORT="$2"; BACKUP="$2"; else BACKUP="${1:-$DEFAULT_BACKUP}"; fi
 swift package resolve >/dev/null
 SPARKLE_BIN="$(cd .build/artifacts/sparkle/Sparkle/bin && pwd)"
 mkdir -p "$BACKUP"; chmod 700 "$BACKUP"
@@ -26,7 +31,9 @@ if security find-identity -v -p codesigning | grep -q "\"$NAME\""; then
 else
   TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
   if [[ -n "$IMPORT" ]]; then
-    cp "$IMPORT/montage-signing.p12" "$TMP/id.p12"; PASS="$(cat "$IMPORT/montage-signing.p12.password")"
+    P12=valse-signing.p12
+    [[ -f "$IMPORT/$P12" ]] || P12=montage-signing.p12   # backups made before the rename
+    cp "$IMPORT/$P12" "$TMP/id.p12"; PASS="$(cat "$IMPORT/$P12.password")"
     openssl pkcs12 -in "$TMP/id.p12" -passin "pass:$PASS" -nokeys -out "$TMP/cert.pem" 2>/dev/null \
       || openssl pkcs12 -legacy -in "$TMP/id.p12" -passin "pass:$PASS" -nokeys -out "$TMP/cert.pem"
   else
@@ -36,7 +43,7 @@ else
       -addext "basicConstraints=critical,CA:false" -addext "keyUsage=critical,digitalSignature" \
       -addext "extendedKeyUsage=critical,codeSigning" 2>/dev/null
     /usr/bin/openssl pkcs12 -export -inkey "$TMP/key.pem" -in "$TMP/cert.pem" -name "$NAME" -passout "pass:$PASS" -out "$TMP/id.p12"
-    cp "$TMP/id.p12" "$BACKUP/montage-signing.p12"; printf %s "$PASS" > "$BACKUP/montage-signing.p12.password"
+    cp "$TMP/id.p12" "$BACKUP/valse-signing.p12"; printf %s "$PASS" > "$BACKUP/valse-signing.p12.password"
   fi
   security import "$TMP/id.p12" -k "$KC" -P "$PASS" -T /usr/bin/codesign >/dev/null
   echo "▶ trusting the certificate for code signing (macOS asks for your login password)…"

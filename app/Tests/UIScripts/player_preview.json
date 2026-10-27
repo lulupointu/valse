@@ -7,7 +7,7 @@
     {"idle": 1},
     {"seek": 2},
     {"click": "id:asset.tab.effects"},
-    {"click": "id:asset.tile.montage.effect.shake"},
+    {"click": "id:asset.tile.valse.effect.shake"},
     {"expect": [{"path": "ui.preview.kind", "equals": "effect"}, {"path": "ui.preview.duration", "approx": 3},
                 {"path": "undo.depth", "equals": 0}, {"path": "playhead", "approx": 2}]},
     {"wait": 0.6},

@@ -4,16 +4,16 @@
 #   demucs       (demucs.cpp, MIT, Accelerate BLAS) → music stem separation (StemSeparator)
 #   llama-completion (llama.cpp, MIT)      → local LLM for AI writer / clipper (LlamaRuntime)
 # as universal (arm64 + x86_64) binaries for macOS 13.0+, and installs them into
-# ~/Library/Application Support/Montage/bin (found by WhisperRuntime / DemucsRuntime / LlamaRuntime).
+# ~/Library/Application Support/Valse/bin (found by WhisperRuntime / DemucsRuntime / LlamaRuntime).
 #   arm64 slice:  ggml Metal backend (unchanged Apple Silicon behaviour), host-tuned CPU code.
 #   x86_64 slice: ggml CPU backend only (its Metal backend doesn't support Intel / AMD GPUs well) with Accelerate BLAS
 #                 and AVX2 / FMA / F16C / BMI2 (Haswell+, i.e. every Kaby Lake Mac); demucs -march=haswell.
 # The runtimes take no GPU flag on the command line: macOS runs the slice matching the CPU.
-# `--bundle build/Montage.app` also copies them into Contents/Helpers for a self-contained app.
+# `--bundle build/Valse.app` also copies them into Contents/Helpers for a self-contained app.
 # `--sse42` additionally builds test-only x86_64 binaries without AVX (build/ai-runtimes/sse42/, not installed): Rosetta
 # can't run AVX2 code inside a macOS 13 VM, so VM smoke tests use these.
 # Models are downloaded separately from the app's AI models sheet.
-# Usage: scripts/build_ai_runtimes.sh [--bundle path/to/Montage.app] [--only whisper|demucs|llama] [--arch arm64|x86_64] [--sse42]
+# Usage: scripts/build_ai_runtimes.sh [--bundle path/to/Valse.app] [--only whisper|demucs|llama] [--arch arm64|x86_64] [--sse42]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 BUNDLE=""; ONLY=""; ARCHS="arm64 x86_64"; SSE42=0
@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 WORK="$PWD/build/ai-runtimes"; mkdir -p "$WORK"
-DEST="${MONTAGE_AI_BIN_DIR:-$HOME/Library/Application Support/Montage/bin}"; mkdir -p "$DEST"   # override: MONTAGE_AI_BIN_DIR
+DEST="${VALSE_AI_BIN_DIR:-$HOME/Library/Application Support/Valse/bin}"; mkdir -p "$DEST"   # override: VALSE_AI_BIN_DIR
 WHISPER_TAG=v1.8.2
 DEMUCS_REV=main
 LLAMA_TAG=b11700

@@ -1,0 +1,18 @@
+/* SE-015 automatic updates (Settings ▸ About, update banner, app menu) */
+"about.updates.auto" = "Keep Valse up to date automatically";
+"about.updates.autoHint" = "Valse checks when it opens and is told about new versions while it runs. Updates download in the background and install when you quit.";
+"about.updates.offHint" = "Automatic updates are off. Use Check for updates to look for a new version.";
+"about.updates.checking" = "Checking for updates…";
+"about.updates.upToDate" = "Valse is up to date.";
+"about.updates.lastChecked" = "last checked %@";
+"about.updates.downloading" = "Downloading Valse %@…";
+"about.updates.downloadingPct" = "Downloading Valse %@… %d %%";
+"about.updates.ready" = "Valse %@ is ready and will install when you quit.";
+"about.updates.failed" = "Couldn't check for updates. Check your internet connection; Valse will try again next time it opens.";
+"update.banner.title" = "Valse %@ is ready";
+"update.banner.hint" = "Installs when you quit, or restart now.";
+"update.banner.exporting" = "Restart once your export finishes.";
+"update.later" = "Later";
+"update.restart" = "Restart to update";
+"menu.checkUpdates" = "Check for Updates…";
+"about.use.sparkle" = "Automatic updates (download, signature check, install)";

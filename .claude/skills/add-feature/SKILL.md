@@ -1,9 +1,9 @@
 ---
 name: add-feature
-description: End-to-end checklist for implementing Montage feature rows from docs/FEATURES.md in a feature worktree - find the row and UX spec, locate the owning area in the ARCHITECTURE §17 work map, implement, unit test, UI script, l10n en+fr, targeted tests then check_fast, commit, report. Use when you are given feature IDs (e.g. "TL-012", "AI-031") or asked to build / finish a Montage feature.
+description: End-to-end checklist for implementing Valse feature rows from docs/FEATURES.md in a feature worktree - find the row and UX spec, locate the owning area in the ARCHITECTURE §17 work map, implement, unit test, UI script, l10n en+fr, targeted tests then check_fast, commit, report. Use when you are given feature IDs (e.g. "TL-012", "AI-031") or asked to build / finish a Valse feature.
 ---
 
-# Implement Montage feature rows (feature agent)
+# Implement Valse feature rows (feature agent)
 
 Gate policy: you run targeted tests + `scripts/check_fast.sh`; the orchestrator runs `check_clean.sh --ui` per batch.
 Commands below are exact; see CLAUDE.md "Shell in an isolated worktree" for the forms the guard accepts.
@@ -15,7 +15,7 @@ Commands below are exact; see CLAUDE.md "Shell in an isolated worktree" for the 
   `docs/ux/*.png` with Read. Parity with CapCut (placement, controls, defaults, feedback) is part of done.
 - Owner: docs/ARCHITECTURE.md §17 work map (`/usr/bin/grep -n "^## 17" docs/ARCHITECTURE.md`) → your directories and the
   area section (§17b-g). Recipes: §16 "How to add X"; registries §12; l10n §11.
-- Load `montage-gotchas` before touching media / playback / async / SwiftUI state / persistence.
+- Load `valse-gotchas` before touching media / playback / async / SwiftUI state / persistence.
 - Unclear? The brief's owner decisions win. Still open and it changes what the user sees or the data model → don't
   guess: keep working on your other rows, report that row `blocked: question for the owner: <question + options>`.
   Small details → decide (CapCut parity first) and list each decision in the report's NOTES.
@@ -34,8 +34,8 @@ Commands below are exact; see CLAUDE.md "Shell in an isolated worktree" for the 
   French "vous" + UX.md §10 glossary. `tr("key")` / `Text(loc:)` only. `python3 scripts/l10n_check.py` (test.sh runs it).
 
 ## 4. Tests
-- Unit: logic in MontageCore / Engine / Effects / AI unit tests (`app/Tests/Montage<Module>Tests/`); renders via a render
-  test; real media via `RealLikeMedia`. Async waits on the task / state, never on wall-clock (montage-gotchas).
+- Unit: logic in ValseCore / Engine / Effects / AI unit tests (`app/Tests/Valse<Module>Tests/`); renders via a render
+  test; real media via `RealLikeMedia`. Async waits on the task / state, never on wall-clock (valse-gotchas).
 - UI: one script per user flow (load the `write-ui-script` skill): drive the real UI, `waitFor` state, `expect` the
   model, element-scoped snapshot with a baseline you LOOK at. Give the UI `.testID`s the script uses (that is how check_fast selects it); check with
   `python3 scripts/ui_select.py --explain`.
@@ -44,7 +44,7 @@ Commands below are exact; see CLAUDE.md "Shell in an isolated worktree" for the 
 ## 5. Verify (Bash `run_in_background: true` for each, wait for the notification)
 1. `scripts/test.sh --filter <YourSuite>` until green.
 2. `scripts/uitest.sh app/Tests/UIScripts/<yours>.json …` until green (and `"lang": "fr"` variant if layout-sensitive).
-3. Commit (`/usr/bin/git add <paths>` then `/usr/bin/git -c user.name=Montage -c user.email=dev@montage.local commit -m "<ID>: …"`
+3. Commit (`/usr/bin/git add <paths>` then `/usr/bin/git -c user.name=Valse -c user.email=dev@valse.local commit -m "<ID>: …"`
    with the Co-Authored-By trailer). Untracked or git-ignored files under app/ or scripts/ break the clean gate: commit them.
 4. Update your base if it moved. Your base is what your worktree was made from: `main`, or the `batch-<n>` branch your
    brief names (check: the `diff base:` line of `python3 scripts/ui_select.py --explain`). Based on main:

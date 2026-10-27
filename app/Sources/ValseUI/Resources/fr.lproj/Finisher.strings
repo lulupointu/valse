@@ -1,0 +1,294 @@
+/* Finisher: timecode, timeline settings, track solo, audio, layouts, recording (TL/PB/SP/AU/SE/MI finisher rows) */
+"timecode.style.frames" = "HH:MM:SS+image";
+"timecode.style.seconds" = "HH:MM:SS.ms";
+"settings.timecode" = "Code temporel";
+"settings.dropFrame" = "Code temporel drop-frame (29,97 / 59,94 i/s)";
+"settings.scrubAudio" = "Lire l'audio pendant le défilement";
+"settings.scrubAudio.hint" = "Entendez l'audio sous la tête de lecture quand vous la faites glisser sur la chronologie.";
+"player.timecode.help" = "Cliquez pour saisir un code temporel";
+"player.timecode.invalid" = "Code temporel non valide";
+
+"track.solo" = "Piste en solo";
+"track.unsolo" = "Désactiver le solo";
+"cmd.trackSolo" = "Piste en solo";
+
+"details.importMaterial.copy" = "Copier dans le projet";
+"settings.importMaterial.hint" = "Par défaut pour les nouveaux projets. Chaque projet peut le modifier dans ses paramètres.";
+"projectSettings.customized" = "Personnalisé";
+"projectSettings.applyTo" = "Appliquer à";
+"projectSettings.applyToAll" = "Toutes les chronologies";
+
+"timelines.nameN" = "Chronologie %d";
+"timelines.copyOf" = "Copie de %@";
+"timelines.created" = "%@ créée";
+"timelines.new" = "Nouvelle chronologie";
+"timelines.newWithSelection" = "Nouvelle chronologie avec la sélection";
+"timelines.next" = "Chronologie suivante";
+"timelines.previous" = "Chronologie précédente";
+"timelines.rename" = "Renommer";
+"timelines.duplicate" = "Dupliquer";
+"timelines.delete" = "Supprimer la chronologie";
+"cmd.newTimeline" = "Nouvelle chronologie";
+"cmd.switchTimeline" = "Changer de chronologie";
+"cmd.renameTimeline" = "Renommer la chronologie";
+"cmd.duplicateTimeline" = "Dupliquer la chronologie";
+"cmd.deleteTimeline" = "Supprimer la chronologie";
+
+"tlmenu.splitScenes.scene" = "Diviser par scène (moins de clips)";
+"tlmenu.splitScenes.shot" = "Diviser par plan (plus de clips)";
+
+"settings.tab.audio" = "Audio";
+"settings.audio.output" = "Périphérique de sortie audio";
+"settings.audio.output.hint" = "Sortie de la lecture de l'aperçu. L'exportation n'est pas concernée.";
+"settings.audio.input" = "Périphérique d'entrée pour l'enregistrement";
+"settings.audio.systemDefault" = "Par défaut du système";
+"settings.audio.monitor" = "Volume de l'aperçu";
+"settings.audio.monitor.hint" = "Volume général du lecteur uniquement ; l'audio exporté garde ses niveaux.";
+"settings.audio.testSound" = "Écouter le son";
+
+"playback.dropping" = "Des images sont perdues";
+"playback.lagging" = "La vidéo saccade beaucoup";
+"playback.optimize" = "Optimiser";
+"playback.optimized" = "Lecture optimisée : aperçu réglé sur %@";
+"playback.nothingToOptimize" = "L'aperçu est déjà au réglage le plus léger";
+"settings.autoOptimization" = "Optimisation automatique";
+"settings.autoOptimization.hint" = "Quand la lecture perd des images, réduit automatiquement le coût de l'aperçu (peut baisser la qualité de l'aperçu, jamais celle de l'exportation).";
+"settings.autoOptimization.none" = "Aucune";
+"settings.autoOptimization.smart" = "Optimisation intelligente";
+"settings.autoOptimization.deep" = "Optimisation approfondie";
+"settings.priority" = "Priorité de lecture";
+"settings.priority.quality" = "Priorité à la qualité";
+"settings.priority.performance" = "Priorité aux performances";
+"settings.priority.quality.hint" = "Privilégie la résolution : l'aperçu automatique va jusqu'à 1080p.";
+"settings.priority.performance.hint" = "Privilégie la fluidité de lecture : l'aperçu automatique est limité à 720p.";
+
+"view.showKeystrokes" = "Afficher les touches";
+
+"settings.mouse.wheel" = "Molette de la souris sur la chronologie";
+"settings.mouse.wheel.vertical" = "Faire défiler les pistes (vertical)";
+"settings.mouse.wheel.horizontal" = "Faire défiler le temps (horizontal)";
+"settings.mouse.zoom" = "Zoomer la chronologie avec";
+"settings.mouse.zoom.command" = "⌘ + défilement";
+"settings.mouse.zoom.option" = "⌥ + défilement";
+"settings.mouse.zoom.none" = "Molette seule (⌘ fait défiler)";
+"settings.mouse.hint" = "⇧ + défilement fait toujours défiler horizontalement. Les trackpads défilent dans les deux sens ; pincez pour zoomer.";
+
+"about.checkUpdates" = "Rechercher des mises à jour";
+"about.updates.hint" = "Ouvre la page des versions dans votre navigateur. Valse ne vérifie jamais d'elle-même.";
+"about.updates.manual" = "Les mises à jour sont manuelles : aucune page de mise à jour n'est configurée pour cette version. Valse ne se connecte jamais à Internet d'elle-même.";
+"env.run" = "Test de l'environnement";
+"env.running" = "Test en cours…";
+"env.verdict.smooth" = "Votre ordinateur peut faire tourner Valse de façon fluide";
+"env.verdict.warnings" = "Valse fonctionnera, avec quelques limites";
+"env.gpu" = "Processeur graphique";
+"env.gpu.advice" = "Processeur graphique ancien : baissez la qualité d'aperçu ou activez les proxys.";
+"env.memory" = "Mémoire";
+"env.memory.advice" = "Peu de mémoire : gardez les proxys activés et fermez les autres apps pendant le montage 4K.";
+"env.os" = "Système";
+"env.os.advice" = "Valse nécessite macOS 13 ou une version ultérieure.";
+"env.os.advice13" = "Certaines fonctions d’IA nécessitent macOS 14 ou une version ultérieure (détourage de sujet, traduction, Apple Intelligence). Tout le reste fonctionne.";
+"env.decode" = "Décodage matériel";
+"env.decode.advice" = "Pas de décodage matériel HEVC : les vidéos HEVC utiliseront des proxys.";
+"env.encode" = "Encodage matériel";
+"env.encode.advice" = "Pas d'encodeur matériel : les exportations seront plus lentes.";
+"env.disk" = "Espace libre (cache)";
+"env.disk.advice" = "Moins de 10 Go libres : les proxys et le cache de rendu peuvent remplir le disque.";
+"env.ffmpeg" = "FFmpeg (formats supplémentaires)";
+"env.ffmpeg.advice" = "Facultatif : installez FFmpeg pour ouvrir MKV/AVI/WebM et exporter en MP3.";
+
+"framerate.prompt" = "Cette vidéo est en %@. Modifier la fréquence d'images du projet (actuellement %@) ?";
+"framerate.change" = "Passer à %@";
+"framerate.keep" = "Conserver";
+"framerate.changed" = "Fréquence d'images du projet : %@";
+"framerate.smooth" = "Lecture fluide";
+"framerate.smooth.label" = "Rendre la lecture plus fluide (flux optique pour les clips sous la fréquence du projet)";
+"cmd.projectFrameRate" = "Modifier la fréquence d'images";
+"cmd.smoothPlayback" = "Lecture fluide";
+
+"tlmenu.duplicateFrame" = "Dupliquer l'image";
+"cmd.duplicateFrame" = "Dupliquer l'image";
+
+"tlmenu.matchCut" = "Coupe sur le rythme (diviser sur les marqueurs)";
+"cmd.matchCut" = "Coupe sur le rythme";
+"matchCut.noBeats" = "Aucun rythme marqué : sélectionnez la musique et détectez d'abord son rythme";
+"matchCut.done" = "%d coupes sur le rythme";
+
+"tlmenu.splitAudioTrack" = "Séparer la piste audio (G / D)";
+"cmd.splitAudioTrack" = "Séparer la piste audio";
+/* TL-018 track volume */
+"track.volume" = "Volume de la piste";
+"track.volume.title" = "Volume de la piste (%@)";
+"track.volume.mute" = "Silence (0 %)";
+"cmd.trackVolume" = "Volume de la piste";
+/* TL-025 clip markers */
+"cmd.clipMarker" = "Ajouter un repère au clip";
+"tlmenu.deleteClipMarkers" = "Supprimer tous les repères du clip";
+/* TL-013 freeze link */
+"settings.linkFreeze" = "Arrêt sur image";
+"settings.linkFreeze.label" = "Lier les arrêts sur image à la vidéo d’origine";
+"settings.linkFreeze.hint" = "Les filtres, effets, ajustements, la position et le recadrage modifiés sur l’original s’appliquent aussi à ses arrêts sur image.";
+"tlmenu.unlinkFreeze" = "Délier de la vidéo d’origine";
+"cmd.unlinkFreeze" = "Délier l’arrêt sur image";
+/* SE-005 layouts */
+"layout.title" = "Disposition";
+"layout.standard" = "Par défaut";
+"layout.media" = "Médias d’abord";
+"layout.player" = "Lecteur d’abord";
+"layout.timeline" = "Chronologie d’abord";
+"layout.attributes" = "Attributs d’abord";
+"layout.vertical" = "Vertical";
+"layout.custom" = "Disposition personnalisée %d";
+"layout.custom.1" = "Disposition personnalisée 1";
+"layout.custom.2" = "Disposition personnalisée 2";
+"layout.custom.3" = "Disposition personnalisée 3";
+"layout.saveCustom" = "Enregistrer la disposition actuelle sous";
+"layout.reset" = "Réinitialiser la disposition actuelle";
+/* PB-011 guide position */
+"player.guide.edit" = "Modifier la position du repère…";
+"player.guide.vertical" = "Repère vertical";
+"player.guide.horizontal" = "Repère horizontal";
+/* TL-020 / TL-021 enter group / compound */
+"cmd.enterCompound" = "Modifier le clip composé";
+"cmd.exitCompound" = "Retour à la chronologie";
+"compound.back" = "Retour";
+"compound.root" = "Chronologie principale";
+"compound.editingHint" = "Modification dans un clip composé — Échap pour revenir";
+"group.entered" = "Modification d’un seul clip du groupe — cliquez ailleurs pour resélectionner le groupe";
+"tlmenu.editCompound" = "Modifier le clip composé";
+/* TL-031 preview axis audio */
+"previewAxis.audio" = "Axe de prévisualisation avec audio";
+/* SE-018 support package */
+"support.package" = "Regrouper les journaux et brouillons";
+"support.packaging" = "Création du paquet…";
+"support.saved" = "%@ enregistré (reste sur votre Mac tant que vous ne le partagez pas)";
+"support.reveal" = "Afficher dans le Finder";
+/* MI-009 playback lag */
+"lag.prompt" = "Vos médias risquent de ralentir la lecture : %d vidéo(s)";
+"lag.transcode" = "Transcoder";
+"lag.ignore" = "Ignorer";
+"lag.transcodeMenu" = "Transcoder pour une lecture fluide";
+"lag.transcoding" = "Transcodage de %d vidéo(s) pour une lecture fluide — l’export utilise toujours les originaux";
+"lag.reason.variableFrameRate" = "fréquence d’images variable";
+"lag.reason.highBitrate" = "débit très élevé";
+"lag.reason.highFrameRate" = "haute résolution à fréquence élevée";
+"lag.reason.hdr4K" = "10 bits / HDR au-delà de 1080p";
+/* SP-006 beat sync */
+"velocity.beatSync" = "Synchroniser sur les temps";
+"velocity.beatSync.every" = "Fréquence";
+"velocity.beatSync.every1" = "Chaque temps";
+"velocity.beatSync.every2" = "Un temps sur deux";
+"velocity.punch" = "Effet sur le temps";
+"velocity.punch.none" = "Aucun";
+"velocity.punch.shake" = "Secousse floue";
+"velocity.punch.flash" = "Flash";
+"velocity.punch.zoomBlur" = "Flou fondu";
+"velocity.punch.punchZoom" = "Zoom rétro";
+"velocity.beatSync.apply" = "Appliquer";
+"velocity.beatSync.hint" = "Utilise les temps marqués sur la musique (Audio ▸ Temps ou M sur le clip audio). Le clip garde sa durée.";
+"velocity.beatSync.noBeats" = "Aucun temps de musique sous ce clip — marquez d’abord les temps de la musique";
+"velocity.beatSync.done" = "Vitesse synchronisée sur %d temps";
+"cmd.beatSync" = "Synchroniser la vitesse sur les temps";
+/* PB-006 / SE-006 detachable panels */
+"panel.detachMenu" = "Fenêtres séparées";
+"panel.detach.player" = "Détacher le lecteur";
+"panel.detach.assets" = "Détacher le panneau Médias";
+"panel.detach.inspector" = "Détacher le panneau de modification";
+"panel.detach.timeline" = "Détacher la chronologie";
+"panel.detached.player" = "Valse — Lecteur";
+"panel.detached.assets" = "Valse — Médias";
+"panel.detached.inspector" = "Valse — Panneau de modification";
+"panel.detached.timeline" = "Valse — Chronologie";
+"panel.detached.placeholder" = "Ce panneau est dans une fenêtre séparée";
+"panel.attach" = "Rattacher";
+/* TL-022 / MI-019 subprojects */
+"subprojects.nav" = "Sous-projets";
+"subprojects.import" = "Importer un projet…";
+"subprojects.empty" = "Les clips composés (⌥G) et les projets importés apparaissent ici comme sous-projets réutilisables.";
+"subprojects.uses.one" = "Utilisé %d fois";
+"subprojects.uses.other" = "Utilisé %d fois";
+"subprojects.rename" = "Renommer";
+"subprojects.imported" = "« %@ » importé comme sous-projet";
+"subprojects.importFailed" = "Impossible d’importer ce projet";
+"cmd.addSubproject" = "Ajouter un sous-projet";
+"cmd.renameSubproject" = "Renommer le sous-projet";
+"cmd.importSubproject" = "Importer un sous-projet";
+"menu.importSubproject" = "Importer un projet comme sous-projet…";
+/* MI-018 import timeline */
+"menu.importTimeline" = "Importer une chronologie (FCPXML / XML)…";
+"importTimeline.failed" = "Ce fichier n’est pas une chronologie FCPXML / XML lisible par Valse";
+"importTimeline.done" = "« %@ » importée comme nouvelle chronologie";
+"importTimeline.missing" = "« %@ » importée — %d fichier(s) média introuvable(s) (affichés comme des espaces)";
+"cmd.importTimeline" = "Importer une chronologie";
+/* SE-010 subproject media */
+"settings.subprojectMedia" = "Sous-projets";
+"settings.subprojectMedia.label" = "Afficher les médias des sous-projets";
+"settings.subprojectMedia.hint" = "Désactivé, l’onglet Médias masque les fichiers utilisés uniquement dans des clips composés / projets importés.";
+/* PB-014 HDR display notice */
+"player.hdr.unsupported" = "Cet écran ne prend pas en charge le HDR — aperçu converti en SDR";
+/* TL-040 rename / hover */
+"tlmenu.rename" = "Renommer";
+"tlmenu.clip" = "Clip";
+"cmd.renameClip" = "Renommer le clip";
+/* PM-016 onboarding */
+"tips.menu" = "Afficher les astuces de l’éditeur";
+"tips.skip" = "Passer";
+"tips.next" = "Suivant";
+"tips.done" = "Compris";
+"tips.replay" = "Afficher les astuces de l’éditeur";
+"tips.importMedia.title" = "1. Importez vos médias";
+"tips.importMedia.body" = "Cliquez sur Importer ou déposez des fichiers ici. Glissez un clip sur la chronologie, ou cliquez sur ⊕ pour l’ajouter à la tête de lecture.";
+"tips.player.title" = "2. Prévisualisez";
+"tips.player.body" = "Espace lance et met en pause, ←/→ avance d’une image. Faites glisser sur l’aperçu pour déplacer, redimensionner ou faire pivoter l’élément sélectionné.";
+"tips.inspector.title" = "3. Modifiez la sélection";
+"tips.inspector.body" = "Sélectionnez un clip : ses réglages apparaissent ici (Vidéo, Audio, Vitesse, Animation, Ajuster…). ◇ ajoute une image clé.";
+"tips.timeline.title" = "4. Coupez sur la chronologie";
+"tips.timeline.body" = "⌘B divise à la tête de lecture, Q/W suppriment à gauche/droite, faites glisser les bords pour rogner. Effets, textes et autocollants vont sur leurs propres pistes.";
+"tips.export.title" = "5. Exportez";
+"tips.export.body" = "Quand vous avez fini, Exporter crée la vidéo sur votre Mac — rien n’est envoyé en ligne. Aide ▸ Afficher les astuces de l’éditeur relance cette visite.";
+"whatsnew.menu" = "Nouveautés";
+"whatsnew.title" = "Nouveautés de Valse";
+"whatsnew.layouts" = "Dispositions : Affichage ▸ Disposition (Médias d’abord, Lecteur d’abord, Vertical pour le 9:16…) et dispositions personnalisées.";
+"whatsnew.subprojects" = "Sous-projets : les clips composés sont listés dans Médias ▸ Sous-projets ; importez un autre projet comme sous-projet.";
+"whatsnew.beatSync" = "Vitesse ▸ Effets de vélocité ▸ Synchroniser sur les temps, avec un flash, une secousse ou un zoom à chaque temps.";
+"whatsnew.recorder" = "Fichier ▸ Enregistrer l’écran (⇧⌘R) et Enregistrer la caméra, directement sur la chronologie.";
+"whatsnew.detach" = "Affichage ▸ Fenêtres séparées : placez le lecteur ou n’importe quel panneau sur un second écran.";
+/* TL-021 compound presets / pre-process */
+"tlmenu.preprocess" = "Prétraiter le clip composé";
+"preset.section" = "Préréglages enregistrés";
+"preset.saved" = "Préréglage « %@ » enregistré — retrouvez-le dans Médias ▸ Sous-projets";
+"preset.full" = "Vous pouvez enregistrer jusqu’à %d préréglages — supprimez-en un d’abord";
+"preset.delete" = "Supprimer le préréglage";
+"cmd.addPreset" = "Ajouter un préréglage composé";
+/* SE-017 accessibility */
+"ax.timeline" = "Chronologie";
+"ax.timeline.value" = "%d clips, tête de lecture à %@";
+"ax.selected" = "sélectionné";
+"ax.disabled" = "désactivé";
+"ax.kind.video" = "vidéo";
+"ax.kind.audio" = "audio";
+"ax.kind.text" = "texte";
+"ax.kind.sticker" = "autocollant";
+"ax.kind.effect" = "effet";
+"ax.kind.filter" = "filtre";
+"ax.kind.adjustment" = "ajustement";
+"ax.player" = "Lecteur";
+/* TL-024 / PB-016 multicam */
+"multicam.syncAudio" = "Synchroniser par l’audio";
+"multicam.syncTimeline" = "Synchroniser par la position";
+"multicam.grid" = "Afficher les angles de caméra";
+"multicam.name" = "Clip multicaméra";
+"multicam.needTwo" = "Sélectionnez au moins deux clips vidéo";
+"multicam.tooMany" = "Un clip multicaméra a au plus %d angles";
+"multicam.created" = "Clip multicaméra à %d angles — cliquez sur un angle (ou 1–9) pendant la lecture pour couper";
+"cmd.multicam" = "Créer un clip multicaméra";
+"cmd.switchAngle" = "Changer d’angle de caméra";
+"multicam.angleShortcut.1" = "Multicaméra : angle 1";
+"multicam.angleShortcut.2" = "Multicaméra : angle 2";
+"multicam.angleShortcut.3" = "Multicaméra : angle 3";
+"multicam.angleShortcut.4" = "Multicaméra : angle 4";
+"multicam.angleShortcut.5" = "Multicaméra : angle 5";
+"multicam.angleShortcut.6" = "Multicaméra : angle 6";
+"multicam.angleShortcut.7" = "Multicaméra : angle 7";
+"multicam.angleShortcut.8" = "Multicaméra : angle 8";
+"multicam.angleShortcut.9" = "Multicaméra : angle 9";
+"multicam.menu" = "Créer un clip multicaméra";

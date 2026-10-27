@@ -9,12 +9,12 @@
 #   --no-build            don't rebuild
 #   --timeout <s>         per-script HANG bound (default 120): an app whose driver made no progress (heartbeat) for <s>
 #                         is `sample`d (<out>/<name>/hang-sample.txt) and killed; a slow but progressing script is not
-#                         (total ceiling MONTAGE_UITEST_MAX_SECONDS, default 1800)
+#                         (total ceiling VALSE_UITEST_MAX_SECONDS, default 1800)
 #   --out <dir>           output root (default build/uitest); each script writes <out>/<name>/{report.json,final.json,*.png}
 #   --no-retry            don't retry failed scripts (default: a failed script is re-run ONCE; the first attempt is kept
 #                         in <out>/<name>.attempt1)
-#   --jobs <K>            run K apps at once (default 1, or MONTAGE_UI_JOBS); each worker has its own TMPDIR, every app its
-#                         own settings domain / pasteboard / sandbox (MontageCore AppDefaults), so scripts can't interact
+#   --jobs <K>            run K apps at once (default 1, or VALSE_UI_JOBS); each worker has its own TMPDIR, every app its
+#                         own settings domain / pasteboard / sandbox (ValseCore AppDefaults), so scripts can't interact
 #   --order <tsv>         a previous <out>/durations.tsv: start the longest scripts first (better --jobs balance)
 #   With --jobs, HEAVY scripts (`"requires": {"models": …}` = real ML inference, or `"heavy": true`) start first and
 #   run mutually exclusive (at most one at a time; the other workers take light scripts meanwhile).
@@ -26,7 +26,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 CONFIG=debug; BUILD=1; TIMEOUT=120; OUT="$ROOT/build/uitest"; EXTRA=(); SCRIPTS=(); RETRY=1
-JOBS="${MONTAGE_UI_JOBS:-1}"; ORDER=""
+JOBS="${VALSE_UI_JOBS:-1}"; ORDER=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --all) for f in app/Tests/UIScripts/*.json; do SCRIPTS+=("$f"); done; shift;;
@@ -43,32 +43,32 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ ${#SCRIPTS[@]} -gt 0 ]] || { sed -n '2,24p' "$0"; exit 2; }
-MAX_SECONDS="${MONTAGE_UITEST_MAX_SECONDS:-1800}"
+MAX_SECONDS="${VALSE_UITEST_MAX_SECONDS:-1800}"
 [[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "--jobs needs a positive integer"; exit 2; }
 source scripts/lib.sh
 # machine-wide: at most N heavy runs at once across all checkouts (scripts/slots.sh)
 source scripts/slots.sh; slots_acquire
 mkdir -p "$OUT"; rm -f "$OUT/durations.tsv"
 if [[ $BUILD == 1 ]]; then
-  if ! run_watched "$OUT/build.log" swift build -c "$CONFIG" --product Montage; then
+  if ! run_watched "$OUT/build.log" swift build -c "$CONFIG" --product Valse; then
     grep -E "error:|HUNG" "$OUT/build.log" | sort -u | head -30 >&2 || true
     tail -5 "$OUT/build.log" >&2; echo "BUILD FAILED (see $OUT/build.log)"; exit 1
   fi
 fi
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/Montage"
+BIN="$(swift build -c "$CONFIG" --show-bin-path)/Valse"
 [[ -x "$BIN" ]] || { echo "no binary at $BIN (drop --no-build)"; exit 2; }
 use_private_tmpdir uitest
-# demo media (MontageUI DemoProject) encoded once per run and shared by every app of it, all workers included (FLAKY-SYS-UI:
+# demo media (ValseUI DemoProject) encoded once per run and shared by every app of it, all workers included (FLAKY-SYS-UI:
 # per-launch encoding under load was the demo setup failure class); removed with the run's TMPDIR
-export MONTAGE_UITEST_SHARED_MEDIA="${TMPDIR}shared-media"; mkdir -p "$MONTAGE_UITEST_SHARED_MEDIA"
+export VALSE_UITEST_SHARED_MEDIA="${TMPDIR}shared-media"; mkdir -p "$VALSE_UITEST_SHARED_MEDIA"
 RESULTS="$TMPDIR/results.tsv"; : > "$RESULTS"
 WARNINGS="$TMPDIR/warnings.tsv"; : > "$WARNINGS"   # "<slowexp|clickw>\t<name>\t<detail>" (not gating)
 PREFS="$HOME/Library/Preferences"
-# UI-test apps' private settings domains (MontageCore AppDefaults: [com.]montage.uitest.<name>.<pid>.plist): removed
+# UI-test apps' private settings domains (ValseCore AppDefaults: [com.]valse.uitest.<name>.<pid>.plist): removed
 # after each app, and swept for dead PIDs here and on exit (cfprefsd may flush a file just after the app exited)
 sweep_prefs() {
   local f p
-  for f in "$PREFS"/*montage.uitest.*.[0-9]*.plist; do
+  for f in "$PREFS"/*valse.uitest.*.[0-9]*.plist; do
     [[ -e "$f" ]] || continue
     p="${f%.plist}"; p="${p##*.}"
     kill -0 "$p" 2>/dev/null || rm -f "$f"
@@ -94,7 +94,7 @@ run_one() {
       now=$(date +%s); last=$start
       if [[ -f "$hb" ]]; then last=$(stat -f %m "$hb" 2>/dev/null || echo "$start"); (( last < start )) && last=$start; fi
       if (( now - last >= TIMEOUT )); then why="no driver progress for ${TIMEOUT}s (after $(( now - start ))s)"; break; fi
-      if (( now - start >= MAX_SECONDS )); then why="still running after ${MAX_SECONDS}s (MONTAGE_UITEST_MAX_SECONDS ceiling)"; break; fi
+      if (( now - start >= MAX_SECONDS )); then why="still running after ${MAX_SECONDS}s (VALSE_UITEST_MAX_SECONDS ceiling)"; break; fi
     done
     [[ -n "$why" ]] && kill -0 $pid 2>/dev/null || exit 0
     sample $pid 3 -file "$OUT/$name/hang-sample.txt" >/dev/null 2>&1 || true
@@ -105,8 +105,8 @@ run_one() {
   watch=$!
   set +e; wait $pid; code=$?; set -e
   kill $watch 2>/dev/null || true; wait $watch 2>/dev/null || true
-  # the app's private per-process settings domains (MontageCore AppDefaults: montage.uitest.*.<pid>)
-  rm -f "$PREFS"/*montage.uitest.*."$pid".plist 2>/dev/null || true
+  # the app's private per-process settings domains (ValseCore AppDefaults: valse.uitest.*.<pid>)
+  rm -f "$PREFS"/*valse.uitest.*."$pid".plist 2>/dev/null || true
   [[ -f "$OUT/$name/.timeout" ]] && code=124
   return $code
 }
@@ -125,8 +125,8 @@ run_script() {
   CODE=0; run_one "$ABS" "$NAME" || CODE=$?
   if [[ $CODE != 0 && $CODE != 3 && $RETRY == 1 ]]; then
     echo "↻ $NAME failed (exit $CODE) — retrying once"
-    # let a load spike from other checkouts pass first (≤ MONTAGE_RETRY_WAIT s, default 60): the retry must still pass
-    for ((w = 0; w < ${MONTAGE_RETRY_WAIT:-60}; w += 5)); do
+    # let a load spike from other checkouts pass first (≤ VALSE_RETRY_WAIT s, default 60): the retry must still pass
+    for ((w = 0; w < ${VALSE_RETRY_WAIT:-60}; w += 5)); do
       L="$(sysctl -n vm.loadavg | awk '{ printf "%d", $2 }')"
       (( L < $(sysctl -n hw.ncpu) )) && break
       sleep 5

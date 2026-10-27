@@ -8,7 +8,7 @@
     {"click": "id:asset.nav.effects"},
     {"wait": 1.5},
     {"snapshot": "text-effects-fr", "element": "id:panel.assets"},
-    {"drop": {"text": "montage.text.default"}, "on": "time:12@2"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:12@2"},
     {"click": "id:inspector.tab.animation"},
     {"wait": 2},
     {"snapshot": "anim-in-fr", "element": "id:panel.inspector", "baseline": "text_animation_tiles_fr", "threshold": 40, "tolerance": 0.03},

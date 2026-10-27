@@ -1,4 +1,4 @@
-# STACK.md — tech stack decision for Montage
+# STACK.md — tech stack decision for Valse
 
 Status: **recommendation, pending owner sign-off** · Benchmarks run 2026-10-18 by the neutral bench lead.
 Inputs: docs/BRIEF.md, docs/STACK_BENCH.md, FEATURES.md §23, the 4 prototype REPORT.md files, and the runs below.
@@ -11,7 +11,7 @@ Inputs: docs/BRIEF.md, docs/STACK_BENCH.md, FEATURES.md §23, the 4 prototype RE
   1. Swift: CPU% was the mean of `ps %cpu`, a decaying average that under-reports. It is now the delta of cumulative CPU time over wall time, like the other three. `preview_rss_mb` was the peak; it is now the mean, like the others, and the peak is reported separately.
   2. Electron: the VideoToolbox XPC decoder/encoder helpers were not counted in CPU/RSS, while the other three counted them. They are now counted.
   3. Qt: a flat 20 s phase watchdog killed the 20 s preview before it could report. Only smoke runs had been done before this fix.
-  4. Added the **8-layer stress test** (a–d twice) to all 4 stacks: `MONTAGE_LAYERS=8`, metrics `preview8_*`. Added preview-only and `BENCH_WRAP` hooks for the constrained runs.
+  4. Added the **8-layer stress test** (a–d twice) to all 4 stacks: `VALSE_LAYERS=8`, metrics `preview8_*`. Added preview-only and `BENCH_WRAP` hooks for the constrained runs.
   5. Added a supplementary **phys_footprint** measurement (`bench/footprint.sh`), because summed RSS double-counts shared pages (it inflates Electron) and misses GPU/IOSurface memory.
 - **Comparability caveats** (left as is and documented here):
   - CPU is % of one core in all 4 stacks, summed over the app, its helpers and the VT XPC services spawned for it.
@@ -88,7 +88,7 @@ Rationale:
 - Windows/Linux becoming a requirement within about 2 years: choose Rust + Tauri, or Qt if the team prefers one UI technology.
 - A real base-Air run showing Swift dropping frames where another stack does not. **Run `bench/run_all.sh` on an 8 GB Air before Phase 1 ends.**
 - macOS 26 as the minimum OS being unacceptable. This removes SpeechAnalyzer and some VT features, but not the stack choice itself.
-- Agents unable to verify SwiftUI UI reliably. Mitigation: keep the logic in a UI-free `MontageEngine` package and test it headlessly.
+- Agents unable to verify SwiftUI UI reliably. Mitigation: keep the logic in a UI-free `ValseEngine` package and test it headlessly.
 
 ## 5. Architecture lessons any stack must adopt
 1. **Scrub < 50 ms needs more than exact seeks.** Exact seeks on long-GOP 4K HEVC measured 48–85 ms p50 and 76–152 ms p95 in every stack. Needed:

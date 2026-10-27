@@ -1,4 +1,4 @@
-// F4 PM-014: File ▸ New Window starts another Montage window (recorded in UI tests); opening a project that is open in
+// F4 PM-014: File ▸ New Window starts another Valse window (recorded in UI tests); opening a project that is open in
 // another window brings that window forward (toast) instead of opening it twice.
 {
   "project": "home:3:heldelsewhere",

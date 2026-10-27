@@ -9,19 +9,19 @@ Source of truth (on the build host):
 
 Rules (exit 1 on any violation):
   * every Swift string literal under app/Sources that is a known symbol name (or alias) must exist on the floor, unless
-    every occurrence is wrapped as `compat("name")` (MontageCore SFSymbolCompat) AND the helper's fallback exists there;
+    every occurrence is wrapped as `compat("name")` (ValseCore SFSymbolCompat) AND the helper's fallback exists there;
   * names the code composes at runtime (DYNAMIC below) are checked too;
   * every literal passed to systemName: / systemImage: / systemSymbolName: must be a known name at all.
 NOT_SYMBOLS lists literals that collide with a symbol name but are ids / words, never drawn as symbols.
 
 Usage: scripts/check_sf_symbols.py [--floor 13.0] [--list]
-MontageUITests/SFSymbolAvailabilityTests runs this script and also checks the registries' symbols at runtime.
+ValseUITests/SFSymbolAvailabilityTests runs this script and also checks the registries' symbols at runtime.
 """
 import json, os, plistlib, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = "/System/Library/CoreServices/CoreGlyphs.bundle/Contents/Resources"
-COMPAT = os.path.join(ROOT, "app/Sources/MontageCore/Localization/SFSymbolCompat.swift")
+COMPAT = os.path.join(ROOT, "app/Sources/ValseCore/Localization/SFSymbolCompat.swift")
 # Names composed at runtime: base literal -> suffixes appended to it.
 #   Transitions.directions -> "\(sym).square", "\(sym).square.fill"; LibraryBrowser nav entries -> s + ".fill".
 DYNAMIC = {**{f"arrow.{d}": (".square", ".square.fill") for d in ("left", "right", "up", "down")},
@@ -30,21 +30,21 @@ DYNAMIC = {**{f"arrow.{d}": (".square", ".square.fill") for d in ("left", "right
 # Keep this per file: the same word can be a symbol elsewhere ("fireworks" is both a sticker id and an effect symbol).
 NOT_SYMBOLS = {
     "*": {"left", "right"},   # dictionary keys / edge names everywhere; never drawn as a symbol
-    "MontageEngine/Media/SupportPackage.swift": {"2h"},
-    "MontageUI/Text/TextInspector.swift": {"bubble"},
-    "MontageEffects/Builtin/Stickers.swift": {"cat", "dog", "fireworks", "rainbow", "microphone", "ring"},
-    "MontageEffects/Builtin/Effects.swift": {"fireworks"},
-    "MontageEffects/Builtin/TextStyles.swift": {"rainbow"},
-    "MontageEffects/Builtin/FX+Particles.swift": {"fireworks", "rainbow"},
-    "MontageEffects/Builtin/FX+Light.swift": {"rainbow"},
-    "MontageEffects/Builtin/FX+Art.swift": {"rainbow"},
-    "MontageUI/AssetPanel/Library/StockLibrary.swift": {"rainbow", "ring"},
-    "MontageAI/Vision/MediaIndex.swift": {"document", "dog", "cat"},
-    "MontageUI/Home/Keymap.swift": {"left", "right"},
-    "MontageUI/Recording/RecorderView.swift": {"microphone"},
+    "ValseEngine/Media/SupportPackage.swift": {"2h"},
+    "ValseUI/Text/TextInspector.swift": {"bubble"},
+    "ValseEffects/Builtin/Stickers.swift": {"cat", "dog", "fireworks", "rainbow", "microphone", "ring"},
+    "ValseEffects/Builtin/Effects.swift": {"fireworks"},
+    "ValseEffects/Builtin/TextStyles.swift": {"rainbow"},
+    "ValseEffects/Builtin/FX+Particles.swift": {"fireworks", "rainbow"},
+    "ValseEffects/Builtin/FX+Light.swift": {"rainbow"},
+    "ValseEffects/Builtin/FX+Art.swift": {"rainbow"},
+    "ValseUI/AssetPanel/Library/StockLibrary.swift": {"rainbow", "ring"},
+    "ValseAI/Vision/MediaIndex.swift": {"document", "dog", "cat"},
+    "ValseUI/Home/Keymap.swift": {"left", "right"},
+    "ValseUI/Recording/RecorderView.swift": {"microphone"},
 }
 LIT = re.compile(r'"((?:[^"\\]|\\.)*)"')
-# IconButton("name", …) (MontageUI Support/Controls) takes its symbol unlabelled: OB-08, "magnet" is no SF Symbol.
+# IconButton("name", …) (ValseUI Support/Controls) takes its symbol unlabelled: OB-08, "magnet" is no SF Symbol.
 API = re.compile(r'(systemName\s*:|systemImage\s*:|systemSymbolName\s*:|IconButton\()\s*"([^"\\]+)"')
 PAIR = re.compile(r'^\s*"([a-z0-9.]+)"\s*:\s*"([a-z0-9.]+)"\s*,')
 

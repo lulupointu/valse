@@ -150,7 +150,7 @@ class SyntheticTests(unittest.TestCase):
         self.assertEqual(set(sel.why), {"clips"})
 
     def test_strings_change_selects_language_scripts(self):
-        en, fr = "app/Sources/MontageUI/Resources/en.lproj/Home.strings", "app/Sources/MontageUI/Resources/fr.lproj/Home.strings"
+        en, fr = "app/Sources/ValseUI/Resources/en.lproj/Home.strings", "app/Sources/ValseUI/Resources/fr.lproj/Home.strings"
         old = {en: '"menu.export" = "Export…";\n"other.key" = "Other";\n', fr: '"menu.export" = "Exporter…";\n'}
         sel = selected(mem_scripts(old, {en: old[en], fr: '"menu.export" = "Exporter";\n'}))
         self.assertEqual(set(sel.why), {"menu_fr"})
@@ -164,15 +164,15 @@ class SyntheticTests(unittest.TestCase):
         self.assertIn("used literally", sel.why["clicker"][0])
 
     def test_rendered_key_selects_baseline_scripts_of_the_view(self):
-        en = "app/Sources/MontageUI/Resources/en.lproj/X.strings"
-        view = "app/Sources/MontageUI/Home/ExportMenu.swift"
+        en = "app/Sources/ValseUI/Resources/en.lproj/X.strings"
+        view = "app/Sources/ValseUI/Home/ExportMenu.swift"
         src = 'struct ExportMenu: View {\n    var body: some View {\n        Text(tr("export.title"))\n        Button("menu.export") {}\n    }\n}\n'
         sel = selected(mem_scripts({en: '"export.title" = "A";\n', view: src}, {en: '"export.title" = "B";\n', view: src}))
         self.assertEqual(set(sel.why), {"menu_en"})
 
     def test_swift_reach_direct_and_through_users(self):
-        view = "app/Sources/MontageUI/AssetPanel/Search.swift"
-        helper = "app/Sources/MontageUI/AssetPanel/SearchModel.swift"
+        view = "app/Sources/ValseUI/AssetPanel/Search.swift"
+        helper = "app/Sources/ValseUI/AssetPanel/SearchModel.swift"
         v = 'struct SearchBox: View {\n    var body: some View {\n        TextField("", text: $t)\n            .testID("asset.search")\n        let q = SearchModel.debounced(t)\n    }\n}\n'
         h = 'enum SearchModel {\n    static func debounced(_ s: String) -> String {\n        return s\n    }\n}\n'
         # direct: the changed view uses the test ID
@@ -184,22 +184,22 @@ class SyntheticTests(unittest.TestCase):
         self.assertIn("SearchModel.swift:debounced ← Search.swift:body", sel.why["clicker"][0])
 
     def test_derived_test_ids_match_their_base(self):
-        f = "app/Sources/MontageUI/Inspector/T.swift"
+        f = "app/Sources/ValseUI/Inspector/T.swift"
         a = 'struct T: View {\n    var body: some View {\n        SliderRow(value: v, testID: "transition.duration")\n    }\n}\n'
         sel = selected(mem_scripts({f: a}, {f: a.replace("value: v", "value: w")}))
         self.assertEqual(set(sel.why), {"durations"})
 
     def test_no_test_hook_falls_back_to_the_directory_rule(self):
-        f = "app/Sources/MontageEngine/Audio/Mixer.swift"
+        f = "app/Sources/ValseEngine/Audio/Mixer.swift"
         a = 'enum Mixer {\n    static func gainCurveForTests(_ x: Double) -> Double {\n        return x\n    }\n}\n'
-        m = "smoke: \napp/Sources/MontageEngine/Audio/*  clips\n"
+        m = "smoke: \napp/Sources/ValseEngine/Audio/*  clips\n"
         sel = selected(mem_scripts({f: a}, {f: a.replace("return x", "return x * 2")}, map_text=m))
         self.assertEqual(set(sel.why), {"clips"})
         self.assertIn("fallback rule", sel.why["clips"][0])
 
     def test_specificity_rule_prefix(self):
         # an interpolated-ID prefix shared by more than hub_limit scripts ("asset.tile.") links a change to no feature
-        view = "app/Sources/MontageUI/AssetPanel/Tiles.swift"
+        view = "app/Sources/ValseUI/AssetPanel/Tiles.swift"
         v = 'struct Tiles: View {\n    var body: some View {\n        Tile(x).testID("asset.tile.\\(x.id)")\n    }\n}\n'
         def tiles(n):
             return {f"{U.UI_DIR}/tile{i}.json": script([{"click": f"id:asset.tile.t{i}"}]) for i in range(n)}
@@ -212,7 +212,7 @@ class SyntheticTests(unittest.TestCase):
         # a changed identifier the state dump writes as a key read by more than hub_limit scripts (undo.name) selects none
         dump = U.TESTING + "StateDump.swift"
         d = 'public enum StateDump {\n    public static func make(_ s: EditorStore) -> [String: Any] {\n        var u: [String: Any] = [:]\n        u["name"] = s.undoNameKey\n        u["gain"] = s.mixerGain\n        return u\n    }\n}\n'
-        f = "app/Sources/MontageCore/Editing/Ops.swift"
+        f = "app/Sources/ValseCore/Editing/Ops.swift"
         a = 'enum Ops {\n    static func run(_ s: EditorStore) {\n        s.undoNameKey = "a"\n        s.mixerGain = 1\n    }\n}\n'
         readers = {f"{U.UI_DIR}/r{i}.json": script([{"expect": {"path": "undo.name", "equals": "x"}}]) for i in range(13)}
         readers[f"{U.UI_DIR}/g.json"] = script([{"expect": {"path": "ui.gain", "equals": 1}}])
@@ -225,9 +225,9 @@ class SyntheticTests(unittest.TestCase):
     def test_type_header_and_stored_property_are_covered_by_members(self):
         # a new file: its `struct … {` header and `let store` line reach no hook themselves, but the type's other
         # members do, so the directory fallback rule is not pulled in
-        f = "app/Sources/MontageUI/AssetPanel/Grid.swift"
+        f = "app/Sources/ValseUI/AssetPanel/Grid.swift"
         a = 'struct Grid: View {\n    let store: EditorStore\n    var body: some View {\n        Field().testID("asset.search")\n    }\n}\n'
-        m = "smoke: \napp/Sources/MontageUI/AssetPanel/*  clips\n"
+        m = "smoke: \napp/Sources/ValseUI/AssetPanel/*  clips\n"
         sel = selected(mem_scripts({}, {f: a}, map_text=m))
         self.assertEqual(set(sel.why), {"clicker"})
         # a header-only change (new conformance) is still checked against the whole type
@@ -238,8 +238,8 @@ class SyntheticTests(unittest.TestCase):
         self.assertIn("clips", selected(mem_scripts({f: c}, {f: c.replace("let store: EditorStore", "let store: Store")}, map_text=m)).why)
 
     def test_always_rule_and_smoke(self):
-        f = "app/Sources/MontageApp/main.swift"
-        m = "smoke: scroller\nalways app/Sources/MontageApp/*  ALL\n"
+        f = "app/Sources/ValseApp/main.swift"
+        m = "smoke: scroller\nalways app/Sources/ValseApp/*  ALL\n"
         sel = selected(mem_scripts({f: "let a = 1\n"}, {f: "let a = 2\n"}, map_text=m))
         self.assertEqual(set(sel.why), set(SCRIPTS))
         sel = selected(mem_scripts({}, {"docs/X.md": "x"}, map_text=m))

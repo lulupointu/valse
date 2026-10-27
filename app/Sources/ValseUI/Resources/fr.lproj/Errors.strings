@@ -1,0 +1,14 @@
+/* BUG-ERROR-COPY : actions et messages d'erreur partagés (guide de style : docs/UX.md « Error messages ») */
+"action.openStorageSettings" = "Ouvrir les réglages de stockage";
+"action.saveAs" = "Enregistrer sous…";
+"action.dismiss" = "Fermer";
+"action.copyDetails" = "Copier les détails";
+"action.download" = "Télécharger";
+"action.checkUpdates" = "Rechercher des mises à jour";
+"action.showInFinder" = "Afficher dans le Finder";
+"save.failed.diskFull" = "Valse ne peut pas enregistrer « %@ » : le disque est plein. Libérez de l'espace ; vos modifications sont conservées tant que Valse reste ouverte.";
+"save.failed.driveOffline" = "Valse ne peut pas enregistrer « %@ » : le disque « %@ » n'est pas connecté. Rebranchez-le ou choisissez Enregistrer sous…";
+"save.failed.other" = "Valse ne peut pas enregistrer « %@ ». Vos modifications sont conservées tant que Valse reste ouverte. Choisissez Enregistrer sous… pour en enregistrer une copie ailleurs.";
+"ai.error.toolFailed" = "Impossible d'appliquer %@ à cause d'un problème inattendu. Réessayez.";
+"ai.error.toolNeedsModel" = "%@ nécessite le modèle %@. Téléchargez-le pour continuer.";
+"highlights.noSpeech" = "Valse n'a entendu personne parler et ne peut donc pas choisir de moments forts. Essayez une vidéo avec de la parole.";

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local stand-in for GitHub + ntfy in scripts/updater_e2e.sh (SE-015).
 
-Serves the files of <dir> (appcast.xml, Montage.zip, deltas) and an ntfy-like stream at /push/json: an "open" event,
+Serves the files of <dir> (appcast.xml, Valse.zip, deltas) and an ntfy-like stream at /push/json: an "open" event,
 a keepalive every 2 s, and a "message" event each time <dir>/.push is created (the file is then removed).
 Usage: updater_e2e_server.py <port> <dir>
 """

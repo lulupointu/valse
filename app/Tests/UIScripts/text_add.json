@@ -3,7 +3,7 @@
   "project": "demo",
   "steps": [
     {"click": "id:asset.tab.text"},
-    {"drop": {"text": "montage.text.default"}, "on": "time:12@2"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:12@2"},
     {"expect": [{"path": "selectedClips.0.kind", "equals": "text"}, {"path": "selectedClips.0.start", "approx": 12, "tolerance": 0.1},
                 {"path": "ui.inspectorTab", "equals": "text"}, {"path": "undo.depth", "equals": 1}]},
     {"snapshot": "text-added"},

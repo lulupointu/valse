@@ -17,7 +17,7 @@
     {"click": "id:slider.Brightness.field"},
     {"type": "40", "replace": true},
     {"key": "return"},
-    {"expect": {"path": "selectedClips.0.effects", "contains": "montage.adjust.basic"}},
+    {"expect": {"path": "selectedClips.0.effects", "contains": "valse.adjust.basic"}},
     {"click": "id:inspector.sub.mask"},
     {"click": "id:mask.add"},
     {"expect": {"path": "selectedClips.0.adjustMask.shape", "equals": "rectangle"}},
