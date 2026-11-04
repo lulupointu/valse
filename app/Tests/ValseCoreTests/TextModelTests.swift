@@ -34,34 +34,127 @@ struct TextModelTests {
     @Test func neonRoundTripsAndOldFilesOpen() throws {
         var t = TextContent(string: "Open")
         #expect(t.neon == nil)
-        t.neon = TextNeonStyle(color: .red, intensity: 0.5, glowSize: 0.7, thickness: 0.08, flicker: .broken)
+        t.neon = TextNeonStyle(color: .red, intensity: 0.5, glowSize: 0.7, thickness: 0.08, flicker: .oneLetter)
         let back = try JSONDecoder().decode(TextContent.self, from: JSONEncoder().encode(t))
-        #expect(back == t && back.neon?.flicker == .broken)
+        #expect(back == t && back.neon?.flicker == .oneLetter)
         let old = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi"}"#.utf8))
         #expect(old.neon == nil)
         let partial = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi","neon":{"flicker":"subtle"}}"#.utf8))
-        #expect(partial.neon == TextNeonStyle(flicker: .subtle))
+        #expect(partial.neon == TextNeonStyle(flicker: .wholeText))
         // the encoded JSON has no neon key while off (old builds read new files unchanged)
         let json = String(decoding: try JSONEncoder().encode(TextContent(string: "x")), as: UTF8.self)
         #expect(!json.contains("neon"))
     }
 
-    /// TX-NEON: flicker is a pure function of (mode, time, glyph): Off = always lit, Subtle stays bright, Broken drops
-    /// some letters out completely for short bursts.
+    /// TX-BUBBLE2: v1 files (bubbleID + bubbleColor) open with no bubbleStyle; a full style round-trips; partial
+    /// styles decode with defaults; an older app reading a new file still finds bubbleID / bubbleColor.
+    @Test func bubbleStyleIsBackwardAndForwardCompatible() throws {
+        let v1 = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi","bubbleID":"valse.bubble.speechWhite","bubbleColor":{"r":1,"g":0,"b":0,"a":1}}"#.utf8))
+        #expect(v1.bubbleStyle == nil && v1.bubbleID == "valse.bubble.speechWhite" && v1.bubbleColor == RGBA(1, 0, 0, 1))
+        var t = TextContent(string: "Hi")
+        t.bubbleID = "valse.bubble.neonPinkPill"
+        t.bubbleStyle = TextBubbleStyle(family: .cloud, cornerRadius: 0.4, spikes: 18, depth: 0.32, bumps: 13, jitter: 0.5, fold: 0.4,
+                                        barHeight: 0.3, tail: TextBubbleTail(side: .topRight, kind: .dots, length: 1.2, width: 0.5, lean: 0.3, position: 0.25),
+                                        padding: Vec2(0.3, 0.2), fill: RGBA(0, 0, 0, 0.5),
+                                        outline: TextBubbleOutline(color: .red, width: 0.08, dash: .dotted, neon: TextBubbleOutline.neonStyle(glow: 0.5, flicker: .oneLetter)),
+                                        shadow: TextBubbleShadow(color: .blue, kind: .hard), containsText: true)
+        let data = try JSONEncoder().encode(t)
+        let back = try JSONDecoder().decode(TextContent.self, from: data)
+        #expect(back == t)
+        // older app: knows bubbleID / bubbleColor only, ignores bubbleStyle
+        struct V1Text: Decodable { var string: String; var bubbleID: String?; var bubbleColor: RGBA? }
+        let old = try JSONDecoder().decode(V1Text.self, from: data)
+        #expect(old.bubbleID == "valse.bubble.neonPinkPill" && old.bubbleColor == nil)
+        // partial style → defaults
+        let partial = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi","bubbleStyle":{"family":"oval","tail":{"side":"left"}}}"#.utf8))
+        #expect(partial.bubbleStyle?.family == .oval && partial.bubbleStyle?.tail == TextBubbleTail(side: .left)
+                && partial.bubbleStyle?.padding == Vec2(0.45, 0.3) && partial.bubbleStyle?.outline == nil)
+        // no bubbleStyle key while unset
+        #expect(!String(decoding: try JSONEncoder().encode(TextContent(string: "x")), as: UTF8.self).contains("bubbleStyle"))
+        // caption style sync copies the field
+        #expect(CaptionStyleSync.Diff.knownKeys.contains("bubbleStyle"))
+        var a = TextContent(string: "a"), b = TextContent(string: "b")
+        b.bubbleStyle = TextBubbleStyle(family: .burst, fill: .white)
+        CaptionStyleSync.Diff(TextContent(string: "a"), b).apply(to: &a)
+        #expect(a.bubbleStyle == b.bubbleStyle && a.string == "a")
+    }
+
+    @Test func bubbleEdgeAndFamilyHelpers() {
+        var s = TextBubbleStyle(family: .burst, fill: .white)
+        #expect(s.edge == .spiky)
+        s.setEdge(.wild); #expect(s.edge == .wild && s.spikes == 18 && s.jitter > 0)
+        s.setEdge(.calm); #expect(s.edge == .calm && s.spikes == 10 && s.jitter == 0)
+        s.tail = TextBubbleTail(side: .bottom)
+        s.setFamily(.banner); #expect(s.tail == nil)
+        s.setFamily(.oval); #expect(s.containsText)
+        s.scalePadding(to: 2, base: Vec2(0.4, 0.2)); #expect(s.padding == Vec2(0.8, 0.4))
+    }
+
+    /// TX-NEON: flicker is a pure function of (mode, time, unit, seed). Off = always lit; Whole text = one level for
+    /// every unit, steady most of the time with rare stutters; One letter = exactly one unit ever dims.
     @Test func neonFlickerIsDeterministic() {
-        let times = stride(from: 0.0, to: 20, by: 1.0 / 60).map { $0 }
-        for u in 0..<6 {
-            #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.off, t: $0, unit: u) == 1 })
-            let subtle = times.map { TextNeonStyle.flickerLevel(.subtle, t: $0, unit: u) }
-            #expect(subtle.allSatisfy { $0 > 0.6 && $0 <= 1 } && Set(subtle).count > 10)
-            #expect(times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: u) }
-                    == times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: u) })
+        let times = stride(from: 0.0, to: 120, by: 1.0 / 60).map { $0 }
+        let seed = TextNeonStyle.flickerSeed("NEON BAR")
+        let faulty = TextNeonStyle.faultyUnit(in: "NEON BAR")
+        for u in 0..<7 {
+            #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.off, t: $0, unit: u, faultyUnit: faulty) == 1 })
+            // same inputs → same output (preview = export)
+            #expect(times.map { TextNeonStyle.flickerLevel(.oneLetter, t: $0, unit: u, faultyUnit: faulty, seed: seed) }
+                    == times.map { TextNeonStyle.flickerLevel(.oneLetter, t: $0, unit: u, faultyUnit: faulty, seed: seed) })
         }
-        let broken1 = times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: 1) }
-        let off = broken1.filter { $0 == 0 }.count
-        #expect(off > 10 && off < times.count / 3, "letter 2 drops out sometimes, but is mostly lit")
-        // letters differ (per-glyph flicker)
-        #expect(broken1 != times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: 4) })
+        // Whole text: every unit shares one level
+        let whole = times.map { TextNeonStyle.flickerLevel(.wholeText, t: $0, unit: 0, faultyUnit: faulty, seed: seed) }
+        for u in 1..<7 {
+            #expect(times.map { TextNeonStyle.flickerLevel(.wholeText, t: $0, unit: u, faultyUnit: faulty, seed: seed) } == whole)
+        }
+        #expect(whole.prefix(60).allSatisfy { $0 == 1 }, "no event in the first second")
+        let wholeDim = whole.filter { $0 < 1 }.count
+        #expect(wholeDim > 0 && Double(wholeDim) / Double(whole.count) < 0.15, "mostly steady, with some stutters")
+        #expect(whole.allSatisfy { $0 >= 0 && $0 <= 1 })
+        // One letter: only the faulty unit ever dims; it dims more often than the whole sign
+        #expect(faulty == 4, "NEON BAR: the letter ~60 % through (B), spaces skipped")
+        for u in 0..<7 where u != faulty {
+            #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.oneLetter, t: $0, unit: u, faultyUnit: faulty, seed: seed) == 1 })
+        }
+        let bad = times.map { TextNeonStyle.flickerLevel(.oneLetter, t: $0, unit: 4, faultyUnit: faulty, seed: seed) }
+        let badDim = bad.filter { $0 < 1 }.count
+        #expect(badDim > wholeDim && Double(badDim) / Double(bad.count) < 0.4)
+        // it sometimes stays dead ≥ 0.6 s
+        #expect(longestRun(bad, fps: 60) { $0 < 0.2 } >= 0.55)
+        // another text flickers on its own schedule
+        #expect(times.map { TextNeonStyle.flickerLevel(.wholeText, t: $0, seed: TextNeonStyle.flickerSeed("OPEN")) } != whole)
+    }
+
+    /// TX-NEON: no dropout (level below half) is shorter than 2 frames at 30 fps, so no frame rate drops a whole
+    /// dropout or shows it as a 1-frame strobe; the level ramps (decay / relight), it is not binary.
+    @Test func neonFlickerDropoutsLastTwoFrames() {
+        let dt = 0.001
+        let times = stride(from: 0.0, to: 120, by: dt).map { $0 }
+        for (mode, text) in [(TextNeonFlicker.wholeText, "OPEN"), (.oneLetter, "OPEN"), (.wholeText, "NEON BAR"), (.oneLetter, "NEON BAR")] {
+            let l = times.map { TextNeonStyle.flickerLevel(mode, t: $0, faulty: true, seed: TextNeonStyle.flickerSeed(text)) }
+            var run = 0, runs: [Int] = []
+            for v in l { if v < 0.5 { run += 1 } else if run > 0 { runs.append(run); run = 0 } }
+            #expect(runs.count > 20, "\(mode) \(text): dropouts happen")
+            #expect(runs.allSatisfy { Double($0) * dt >= 2.0 / 30 }, "\(mode) \(text): shortest \(runs.min() ?? 0) ms")
+            #expect(Set(l.map { ($0 * 20).rounded() }).count > 10, "continuous ramps, not on/off")
+        }
+    }
+
+    /// Longest stretch (seconds) where `pred` holds in a curve sampled at `fps`.
+    func longestRun(_ l: [Double], fps: Double, _ pred: (Double) -> Bool) -> Double {
+        var best = 0, cur = 0
+        for v in l { cur = pred(v) ? cur + 1 : 0; best = max(best, cur) }
+        return Double(best) / fps
+    }
+
+    /// TX-NEON: the flicker modes keep their pre-rework raw values (old projects open with the same mode).
+    @Test func neonFlickerRawValuesAreBackCompatible() throws {
+        #expect(TextNeonFlicker.wholeText.rawValue == "subtle" && TextNeonFlicker.oneLetter.rawValue == "broken")
+        let a = try JSONDecoder().decode(TextNeonStyle.self, from: Data(#"{"flicker":"subtle"}"#.utf8))
+        let b = try JSONDecoder().decode(TextNeonStyle.self, from: Data(#"{"flicker":"broken"}"#.utf8))
+        #expect(a.flicker == .wholeText && b.flicker == .oneLetter)
+        #expect(TextNeonStyle.faultyUnit(in: "OPEN") == 2 && TextNeonStyle.faultyUnit(in: "!!") == nil
+                && TextNeonStyle.faultyUnit(in: "A, B") == 2)
     }
 
     /// FB-04: Spoken word off keeps its style (inactive, persisted); on restores it, defaults the first time.

@@ -132,11 +132,15 @@ public enum BubbleShape: Sendable, Equatable {
     case arrow
 }
 
-/// "Text ▸ Bubble" frame (TX-014): a shape auto-sized to the text box.
+/// "Text ▸ Bubble" frame (TX-014, TX-BUBBLE2): a shape auto-sized to the text box.
 public struct TextBubbleDescriptor: Sendable, Identifiable {
+    /// Tile background of the preview: dark (default) or light grey for presets with a dark outline / fill.
+    public enum PreviewBackdrop: String, Sendable { case dark, light }
+
     public let id: String
     public let nameKey: String
     public let groupKey: String
+    /// v1 shape (template shape layers use `BubbleShape`; for bubbles `style` is what is drawn).
     public let shape: BubbleShape
     /// Padding between the text and the shape, em.
     public let padding: Vec2
@@ -146,10 +150,100 @@ public struct TextBubbleDescriptor: Sendable, Identifiable {
     public let strokeWidth: Double
     /// Text colour that reads well on this bubble (applied when the bubble is picked).
     public let textColor: RGBA
+    /// The full look (what the engine draws and what Customize edits start from).
+    public let style: TextBubbleStyle
+    public let previewBackdrop: PreviewBackdrop
+
+    /// v1 initializer: the style is derived from the shape, so the 24 v1 presets render exactly as before.
     public init(id: String, nameKey: String, groupKey: String = "bubble.group.basic", shape: BubbleShape,
-                padding: Vec2 = Vec2(0.45, 0.3), fill: RGBA, stroke: RGBA? = nil, strokeWidth: Double = 0.06, textColor: RGBA = .black) {
+                padding: Vec2 = Vec2(0.45, 0.3), fill: RGBA, stroke: RGBA? = nil, strokeWidth: Double = 0.06, textColor: RGBA = .black,
+                previewBackdrop: PreviewBackdrop = .dark) {
         self.id = id; self.nameKey = nameKey; self.groupKey = groupKey; self.shape = shape; self.padding = padding
         self.fill = fill; self.stroke = stroke; self.strokeWidth = strokeWidth; self.textColor = textColor
+        self.style = Self.style(shape, padding: padding, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+        self.previewBackdrop = previewBackdrop
+    }
+
+    /// TX-BUBBLE2 initializer from a full style.
+    public init(id: String, nameKey: String, groupKey: String, style: TextBubbleStyle, textColor: RGBA = .white,
+                previewBackdrop: PreviewBackdrop = .dark) {
+        self.id = id; self.nameKey = nameKey; self.groupKey = groupKey
+        self.shape = Self.shape(of: style); self.padding = style.padding; self.fill = style.fill
+        self.stroke = style.outline?.color; self.strokeWidth = style.outline?.width ?? 0.06; self.textColor = textColor
+        self.style = style; self.previewBackdrop = previewBackdrop
+    }
+
+    /// v1 shape → style (`.speech` = box + classic tail, `.thought` = oval + dots tail, `.capsule` = pill…).
+    public static func style(_ shape: BubbleShape, padding: Vec2, fill: RGBA, stroke: RGBA?, strokeWidth: Double) -> TextBubbleStyle {
+        var s = TextBubbleStyle(family: .box, padding: padding, fill: fill,
+                                outline: stroke.map { TextBubbleOutline(color: $0, width: strokeWidth) })
+        switch shape {
+        case .roundedRect(let r): s.cornerRadius = r
+        case .capsule: s.family = .pill
+        case .ellipse: s.family = .oval
+        case .speech(let r, let tail):
+            s.cornerRadius = r
+            s.tail = TextBubbleTail.Side(rawValue: tail.rawValue).map { TextBubbleTail(side: $0) }
+        case .thought: s.family = .oval; s.tail = TextBubbleTail(side: .bottomLeft, kind: .dots)
+        case .cloud(let b): s.family = .cloud; s.bumps = b
+        case .burst(let n, let d): s.family = .burst; s.spikes = n; s.depth = d
+        case .banner(let f): s.family = .banner; s.fold = f
+        case .tag: s.family = .tag
+        case .ribbon: s.family = .ribbon
+        case .underlineBar(let h): s.family = .underline; s.barHeight = h
+        case .brackets: s.family = .brackets
+        case .hexagon: s.family = .hexagon
+        case .arrow: s.family = .arrow
+        }
+        return s
+    }
+
+    /// Closest v1 shape of a style (for code that only knows `BubbleShape`).
+    public static func shape(of s: TextBubbleStyle) -> BubbleShape {
+        switch s.family {
+        case .box:
+            if let t = s.tail, let v1 = BubbleTail(rawValue: t.side.rawValue) { return .speech(radius: s.cornerRadius, tail: v1) }
+            return .roundedRect(radius: s.cornerRadius)
+        case .pill: return .capsule
+        case .oval: return s.tail?.kind == .dots ? .thought : .ellipse
+        case .cloud: return .cloud(bumps: s.bumps)
+        case .burst: return .burst(spikes: s.spikes, depth: s.depth)
+        case .banner: return .banner(fold: s.fold)
+        case .ribbon: return .ribbon
+        case .tag: return .tag
+        case .hexagon: return .hexagon
+        case .arrow: return .arrow
+        case .brackets: return .brackets
+        case .underline: return .underlineBar(height: s.barHeight)
+        }
+    }
+}
+
+extension TextContent {
+    /// The bubble preset this clip's bubble comes from.
+    public var bubblePreset: TextBubbleDescriptor? { bubbleID.flatMap { Registries.textBubbles[$0] } }
+
+    /// What is drawn (TX-BUBBLE2): the clip's edited bubble, else its preset with the legacy `bubbleColor` fill.
+    public func resolvedBubble() -> TextBubbleStyle? {
+        if let s = bubbleStyle { return s }
+        guard var s = bubblePreset?.style else { return nil }
+        if let c = bubbleColor { s.fill = c }
+        return s
+    }
+
+    /// Customize edit: copies the resolved bubble into `bubbleStyle` (folding the legacy `bubbleColor` into it) and
+    /// applies `body`. No bubble = no-op.
+    public mutating func editBubble(_ body: (inout TextBubbleStyle) -> Void) {
+        guard var s = resolvedBubble() else { return }
+        body(&s)
+        bubbleStyle = s
+        bubbleColor = nil
+    }
+
+    /// The bubble differs from its preset (Customize header "Based on … · Edited").
+    public var isBubbleEdited: Bool {
+        guard let s = bubbleStyle else { return false }
+        return s != bubblePreset?.style
     }
 }
 

@@ -44,12 +44,8 @@ enum TextPainter {
         defer { ctx.restoreGState() }
         ctx.concatenate(item.transform)
         switch item.kind {
-        case .bubble(let shape, let fill, let stroke, let sw, let rect):
-            let p = BubblePaths.path(shape, rect: rect, em: b.em)
-            if fill.a > 0 { ctx.addPath(p); ctx.setFillColor(cg(fill)); ctx.fillPath() }
-            if let s = stroke, sw > 0 {
-                ctx.addPath(p); ctx.setStrokeColor(cg(s)); ctx.setLineWidth(sw); ctx.setLineJoin(.round); ctx.strokePath()
-            }
+        case .bubble(let style, let rect, let part):
+            BubblePainter.draw(style, rect: rect, em: b.em, part: part, itemTransform: item.transform, in: ctx)
         case .shape(let shape, let color, let rect):
             let p = BubblePaths.path(shape, rect: rect, em: b.em)
             ctx.addPath(p); ctx.setFillColor(cg(color))

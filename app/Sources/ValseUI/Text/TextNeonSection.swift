@@ -3,7 +3,7 @@ import Perception
 import ValseCore
 
 /// Text ▸ Basic ▸ Neon (TX-NEON): glass-tube neon look. Colour swatches (6 classic sign colours + custom), Intensity,
-/// Glow size, Tube thickness, Flicker (Off / Subtle / Broken). Defaults look right without tweaking.
+/// Glow size, Tube thickness, Flicker (Off / Whole text / One letter; l10n keys keep the stored raw values subtle / broken). Defaults look right without tweaking.
 struct TextNeonSection: View {
     let ctx: InspectorContext
 

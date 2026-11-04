@@ -331,6 +331,8 @@ public struct TextStyleDescriptor: Sendable, Identifiable {
         var n = TextContent(string: t.string, fontName: t.fontName, fontSize: t.fontSize, alignment: t.alignment)
         n.boxWidth = t.boxWidth; n.caption = t.caption; n.karaoke = t.karaoke; n.template = t.template
         n.orientation = t.orientation; n.lineSpacing = t.lineSpacing; n.letterSpacing = t.letterSpacing; n.textCase = t.textCase
+        // TX-BUBBLE2: a text effect never removes the bubble
+        n.bubbleID = t.bubbleID; n.bubbleStyle = t.bubbleStyle; n.bubbleColor = t.bubbleColor; n.bubblePriorLook = t.bubblePriorLook
         n.runs = t.runs.compactMap { r in
             var st = r.style; st.color = nil; st.strokeColor = nil; st.backgroundColor = nil
             return st.isEmpty ? nil : TextRun(r.range, st)

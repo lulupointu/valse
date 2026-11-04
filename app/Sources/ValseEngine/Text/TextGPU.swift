@@ -223,8 +223,12 @@ enum TextAnimator {
                 }
             }
             if it.flicker != .off {   // TX-NEON: halo goes out with the tube, the glass stays faintly visible
-                let l = TextNeonStyle.flickerLevel(it.flicker, t: input.localTime, unit: it.char)
-                if case .glyphFront = it.kind { opacity *= 0.3 + 0.7 * l } else { opacity *= l }
+                // Whole text: one shared level (glyphs + bubble). One letter: only the faulty letter / bubble tube.
+                let l = TextNeonStyle.flickerLevel(it.flicker, t: input.localTime, faulty: it.flickerFaulty, seed: scene.flickerSeed)
+                switch it.kind {
+                case .glyphFront, .bubble(_, _, .tube): opacity *= 0.3 + 0.7 * l
+                default: opacity *= l
+                }
             }
             guard opacity > 0.002 else { continue }
             let r = atlas.cells[i]

@@ -1,4 +1,4 @@
-// TX-NEON: Text ▸ Basic ▸ Neon — tick it (pink tube by default), pick the cyan swatch, set Flicker to Broken; each
+// TX-NEON: Text ▸ Basic ▸ Neon — tick it (pink tube by default), pick the cyan swatch, set Flicker to One letter (stored "broken"); each
 // change is one undo step; look at the section and the player.
 {
   "project": "demo",

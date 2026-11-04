@@ -69,6 +69,30 @@ import ValseTestSupport
         #expect(blue[0.5, 0.5].isClose(to: RGBA(0, 0, 1), tolerance: 0.02))
     }
 
+    /// TR-RETRO-REWIND: the midpoint is neither input nor a cross-dissolve, the render is deterministic per progress
+    /// (preview = export), and both parameters change the picture.
+    @Test func retroRewindIsDistinctAndDeterministic() throws {
+        let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: Self.w, height: Self.h))
+        let d = try #require(Registries.transitions["valse.transition.retroRewind"])
+        #expect(d.groupKey == "transition.group.glitch")
+        #expect(d.params.map(\.key) == ["intensity", "noise"])
+        let dissolve = try #require(Registries.transitions["valse.transition.dissolve"])
+        func frame(_ t: Double, _ tr: TransitionDescriptor? = nil, _ params: [String: ParamValue] = [:]) throws -> Bitmap {
+            Bitmap(try #require(PresetPreviewRenderer.transitionFrame(tr ?? d, from: ta, to: tb, progress: t, params: params, width: Self.w, height: Self.h)))
+        }
+        let a = try frame(0, dissolve), b = try frame(1, dissolve), mix = try frame(0.5, dissolve)
+        let mid = try frame(0.5)
+        #expect(Self.meanDiff(mid, a) > 0.03)
+        #expect(Self.meanDiff(mid, b) > 0.03)
+        #expect(Self.meanDiff(mid, mix) > 0.03)
+        #expect(Self.meanDiff(mid, try frame(0.5)) == 0)
+        let early = try frame(0.3)
+        #expect(Self.meanDiff(early, try frame(0.3)) == 0)
+        #expect(Self.meanDiff(early, a) > 0.02, "A is visibly rewinding before the cut")
+        #expect(Self.meanDiff(try frame(0.3, nil, ["intensity": .scalar(0)]), early) > 0.01)
+        #expect(Self.meanDiff(try frame(0.5, nil, ["noise": .scalar(0)]), mid) > 0.02)
+    }
+
     /// Real time at 1080p: each transition pass well under a frame (M1 Pro numbers; the Air is ~2× slower).
     @Test func everyTransitionIsRealTimeAt1080p() async throws {
         try await HeavyWorkGate.run {   // GPU-saturating loop: keep real-time probes (PlaybackTests) from starving

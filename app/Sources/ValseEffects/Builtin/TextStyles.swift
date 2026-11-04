@@ -105,12 +105,13 @@ public enum BuiltinTextStyles {
     }
 
     /// Neon tubes (TX-NEON): the dedicated neon style (glass tube + halo) in the six classic sign colours; the red one
-    /// is a failing sign (broken flicker), the orange one hums. Shown first in the Neon group.
+    /// has one faulty letter (One letter flicker), the orange sign stutters as a whole now and then (Whole text).
+    /// Shown first in the Neon group.
     static let neonTubes: [D] = TextNeonStyle.swatches.enumerated().map { i, s in
         let palIndex = palette.firstIndex { $0.name == s.name } ?? 0
         return fx("neon", 25 + i, name: "neon.2", [cn(palIndex)]) { t in
             t.color = .white
-            t.neon = TextNeonStyle(color: s.color, flicker: s.name == "red" ? .broken : (s.name == "orange" ? .subtle : .off))
+            t.neon = TextNeonStyle(color: s.color, flicker: s.name == "red" ? .oneLetter : (s.name == "orange" ? .wholeText : .off))
         }
     }
 

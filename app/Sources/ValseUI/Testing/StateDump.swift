@@ -47,6 +47,19 @@ public enum StateDump {
                     d["neon"] = ["color": hex, "flicker": n.flicker.rawValue, "intensity": (n.intensity * 100).rounded(),
                                  "glowSize": (n.glowSize * 100).rounded(), "thickness": (n.thickness / 0.15 * 100).rounded()]
                 }
+                if let b = t.bubbleID { d["bubbleID"] = b }   // TX-BUBBLE2
+                if let s = t.bubbleStyle {
+                    var bs: [String: Any] = ["family": s.family.rawValue, "fillAlpha": (s.fill.a * 100).rounded(),
+                                             "cornerRadius": (s.cornerRadius * 100).rounded(), "contains": s.containsText]
+                    if let tl = s.tail { bs["tail"] = ["side": tl.side.rawValue, "kind": tl.kind.rawValue, "length": (tl.length * 100).rounded()] }
+                    if let o = s.outline {
+                        var od: [String: Any] = ["width": (o.width * 1000).rounded(), "dash": o.dash.rawValue]
+                        if let n = o.neon { od["neon"] = ["glow": (n.glowSize * 100).rounded(), "flicker": n.flicker.rawValue] }
+                        bs["outline"] = od
+                    }
+                    if let sh = s.shadow { bs["shadow"] = sh.kind.rawValue }
+                    d["bubbleStyle"] = bs
+                }
                 func spoken(_ k: KaraokeStyle) -> [String: Any] {
                     ["mode": k.mode.rawValue, "scale": (k.highlightScale * 100).rounded(), "box": k.boxColor != nil,
                      "outline": k.highlightStroke != nil,

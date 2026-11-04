@@ -96,6 +96,7 @@
 "transition.signalLoss" = "Signal loss";
 "transition.chromaticZoom" = "Chromatic zoom";
 "transition.tvOff" = "TV off";
+"transition.retroRewind" = "Retro Rewind";
 "transition.ripple" = "Ripple";
 "transition.swirl" = "Swirl";
 "transition.wave" = "Wave";
@@ -127,3 +128,4 @@
 "tr.param.strength" = "Strength";
 "tr.param.count" = "Count";
 "tr.param.color" = "Color";
+"tr.param.noise" = "Noise";

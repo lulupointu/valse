@@ -102,8 +102,8 @@ public enum CaptionStyleSync {
             f("letterSpacing", \.letterSpacing), f("styleID", \.styleID), f("underline", \.underline), f("textCase", \.textCase),
             f("orientation", \.orientation), f("extraStrokes", \.extraStrokes), f("background", \.background), f("shadow", \.shadow),
             f("glow", \.glow), f("neon", \.neon), f("fill", \.fill), f("curve", \.curve), f("path", \.path), f("boxWidth", \.boxWidth),
-            f("bubbleID", \.bubbleID), f("bubbleColor", \.bubbleColor), f("karaoke", \.karaoke),
-            f("inactiveKaraoke", \.inactiveKaraoke),
+            f("bubbleID", \.bubbleID), f("bubbleColor", \.bubbleColor), f("bubbleStyle", \.bubbleStyle), f("karaoke", \.karaoke),
+            f("inactiveKaraoke", \.inactiveKaraoke), f("bubblePrior", \.bubblePrior),
         ]
         static let knownKeys = Set(fields.map(\.name))
     }
