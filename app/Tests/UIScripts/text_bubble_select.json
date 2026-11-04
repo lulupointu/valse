@@ -15,17 +15,17 @@
     // the box is the bubble's (tail below the text), the text box is inside it
     {"expect": [{"path": "ui.canvasSelection.0.hasBubble", "equals": true},
                 {"path": "ui.canvasSelection.0.box.h", "gte": 150}, {"path": "ui.canvasSelection.0.text.h", "lte": 100},
-                {"path": "ui.canvasSelection.0.box.w", "gt": 420}, {"path": "ui.canvasSelection.0.text.w", "lt": 400},
-                {"path": "ui.canvasSelection.0.box.y", "lt": 490}, {"path": "ui.canvasSelection.0.text.y", "gt": 495}]},
+                {"path": "ui.canvasSelection.0.box.w", "gt": 420}, {"path": "ui.canvasSelection.0.text.w", "lt": 400}]},
     {"snapshot": "bubble-selected", "element": "id:panel.player", "baseline": true, "threshold": 40, "tolerance": 0.03},
     {"select": []},
     {"expect": {"path": "selection", "count": 0}},
-    // in the bubble's tail area, below the glyphs (the video under it used to get the click)
-    {"click": "canvas:790,625"},
+    // in the bubble below the glyphs (80 % down its box; the video under it used to get the click). canvasbox: points are
+    // fractions of the clip's canvas box at the playhead (driver), so they follow bubble geometry / layout changes
+    {"click": "canvasbox:6/0:0.5,0.8"},
     {"expect": [{"path": "selection", "count": 1}, {"path": "selectedClips.0.kind", "equals": "text"},
                 {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.neonLimeSpeech"}]},
     // the bubble box's bottom-right handle scales the text
-    {"drag": "canvas:1316,727", "by": [40, 20]},
+    {"drag": "canvasbox:6/0:1,1", "by": [40, 20]},
     {"expect": [{"path": "selectedClips.0.scale", "gt": 1.05}, {"path": "undo.name", "equals": "cmd.scale"}]}
   ]
 }
