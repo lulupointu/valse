@@ -124,27 +124,18 @@ public enum StemSeparator {
         progress?(1)
     }
 
+    /// Media audio → 44.1 kHz stereo 16-bit WAV (demucs' input). Resampled by AudioFileIO.stream, not by the reader
+    /// (zeroed samples at random AAC packet boundaries, BUG-AUDIO-RESAMPLE-ALL); sample 0 = media time 0.
     static func writeWAV(_ url: URL, to out: URL) async throws {
         let asset = AVURLAsset(url: url)
-        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw AIToolError.noInput }
-        let reader = try AVAssetReader(asset: asset)
-        let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 44_100, AVNumberOfChannelsKey: 2,
-                                       AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false,
-                                       AVLinearPCMIsNonInterleaved: false]
-        let ro = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
-        reader.add(ro)
-        let w = try AVAssetWriter(outputURL: out, fileType: .wav)
-        let wi = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
-        w.add(wi)
-        guard reader.startReading() else { throw reader.error ?? AIToolError.noInput }
-        w.startWriting(); w.startSession(atSourceTime: .zero)
-        while let sb = await OffPool.next(ro) {
-            try Task.checkCancellation()
-            while !wi.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
-            wi.append(sb)
+        guard try await !asset.loadTracks(withMediaType: .audio).isEmpty else { throw AIToolError.noInput }
+        let w = try AudioFileIO.Writer(url: out, format: .wav16, sampleRate: 44_100, channels: 2)
+        do {
+            try await AudioFileIO.stream(url, sampleRate: 44_100, channels: 2) { try w.write($0) }
+        } catch {
+            w.close(); throw error
         }
-        wi.markAsFinished()
-        await w.finishWriting()
+        w.close()
     }
 
     /// demucs WAV → 48 kHz stereo float CAF (the stems' common format).

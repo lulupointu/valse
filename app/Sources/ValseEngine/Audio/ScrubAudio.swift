@@ -116,30 +116,30 @@ public final class ScrubAudio {
         return out
     }
 
-    /// Interleaved stereo float samples of one grain starting at the source time.
+    /// Interleaved stereo float samples of one grain starting at the source time. Decoded at the file's rate and
+    /// resampled by `AudioFileIO.decode` (the reader's own resampling zeroes samples at random AAC packet boundaries,
+    /// BUG-AUDIO-RESAMPLE-ALL). Blocking: runs on the scrub's own thread.
     nonisolated static func read(_ s: Source) -> [Float]? {
         let asset = AVURLAsset(url: s.url)
+        final class Loaded: @unchecked Sendable { var track: AVAssetTrack?; var rate: Double? }
+        let loaded = Loaded()
         let sem = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) var tracks: [AVAssetTrack] = []
-        asset.loadTracks(withMediaType: .audio) { t, _ in tracks = t ?? []; sem.signal() }
+        let stream = s.stream
+        Task.detached {
+            defer { sem.signal() }
+            guard let tracks = try? await asset.loadTracks(withMediaType: .audio), !tracks.isEmpty else { return }
+            let track = tracks[min(max(stream, 0), tracks.count - 1)]
+            loaded.track = track
+            loaded.rate = (try? await AudioFileIO.nativeSampleRate(track)) ?? nil
+        }
         sem.wait()
-        guard !tracks.isEmpty, let reader = try? AVAssetReader(asset: asset) else { return nil }
-        let track = tracks[min(max(s.stream, 0), tracks.count - 1)]
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true,
-            AVLinearPCMIsNonInterleaved: false, AVSampleRateKey: sampleRate, AVNumberOfChannelsKey: 2])
-        reader.add(output)
-        reader.timeRange = CMTimeRange(start: s.sourceTime.cmTime, duration: CMTime(seconds: grain + 0.02, preferredTimescale: 44_100))
-        guard reader.startReading() else { return nil }
-        defer { reader.cancelReading() }
+        guard let track = loaded.track else { return nil }
         var samples: [Float] = []
         let want = Int(grain * sampleRate) * 2
-        while samples.count < want, let sb = output.copyNextSampleBuffer(), let bb = CMSampleBufferGetDataBuffer(sb) {
-            var len = 0
-            var ptr: UnsafeMutablePointer<CChar>?
-            guard CMBlockBufferGetDataPointer(bb, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &len, dataPointerOut: &ptr) == noErr,
-                  let ptr else { continue }
-            ptr.withMemoryRebound(to: Float.self, capacity: len / 4) { f in samples.append(contentsOf: UnsafeBufferPointer(start: f, count: len / 4)) }
+        _ = try? AudioFileIO.decode(asset: asset, track: track, native: loaded.rate ?? sampleRate, sampleRate: sampleRate,
+                                    channels: 2, range: TimeRange(start: s.sourceTime, duration: Time(grain + 0.02)), chunk: 2048) { b in
+            let l = b[0], r = b[1]
+            for i in 0..<b.frames where samples.count < want { samples.append(l[i]); samples.append(r[i]) }
         }
         return samples.isEmpty ? nil : samples
     }

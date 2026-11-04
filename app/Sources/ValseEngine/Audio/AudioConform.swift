@@ -9,8 +9,11 @@ import ValseCore
 /// different place on each export of the same project: see `StreamResampler`). The file keeps the media timeline:
 /// sample 0 = media time 0, same length.
 ///
-/// ~/Library/Caches/Valse/audio/conform-<content hash>[~variant]-s<stream>-v1.caf. Preview (AVPlayer, resampling to the
-/// output device anyway) keeps reading the original.
+/// ~/Library/Caches/Valse/audio/conform-<content hash>[~variant]-s<stream>-v1.caf (cache category `audio`: purged /
+/// size-limited by CacheManager). Also read by the reversed render (ReverseManager). Preview keeps reading the original:
+/// AVPlayer decodes at the file's rate and converts to the device rate after the mix, and measured no dropout in 40
+/// plays while the pre-fix reader showed it in 9 % of reads under the same load (PreviewResampleProbeTests,
+/// BUG-AUDIO-RESAMPLE-ALL).
 public actor AudioConform {
     public static let shared = AudioConform()
     static let version = 1
@@ -25,15 +28,20 @@ public actor AudioConform {
     /// `source` itself when its stream `streamIndex` is already at `AudioFileIO.sampleRate` (or has no audio), else the
     /// conformed copy (rendered on first use; concurrent calls share one render).
     public func conformed(_ source: URL, asset: MediaAsset, streamIndex: Int?) async throws -> URL {
+        var key = asset.contentHash.isEmpty ? Self.hash(source.standardizedFileURL.path) : asset.contentHash
+        if source.standardizedFileURL != asset.url.standardizedFileURL { key += "~" + Self.hash(source.lastPathComponent) }
+        return try await conformed(source, key: key, streamIndex: streamIndex)
+    }
+
+    /// Same, cached under `key` (the source's content hash, or any key that changes with its content).
+    public func conformed(_ source: URL, key contentKey: String, streamIndex: Int?) async throws -> URL {
         let index = streamIndex ?? 0
         let file = AVURLAsset(url: source, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         let tracks = try await file.loadTracks(withMediaType: .audio)
         guard let track = tracks.indices.contains(index) ? tracks[index] : tracks.first,
               let rate = try await AudioFileIO.nativeSampleRate(track),
               abs(rate - AudioFileIO.sampleRate) > 0.01 else { return source }
-        var key = asset.contentHash.isEmpty ? Self.hash(source.standardizedFileURL.path) : asset.contentHash
-        if source.standardizedFileURL != asset.url.standardizedFileURL { key += "~" + Self.hash(source.lastPathComponent) }
-        key = "conform-\(key)-s\(index)-v\(Self.version)"
+        let key = "conform-\(contentKey.isEmpty ? Self.hash(source.standardizedFileURL.path) : contentKey)-s\(index)-v\(Self.version)"
         let dst = directory.appendingPathComponent("\(key).caf")
         if let size = try? FileManager.default.attributesOfItem(atPath: dst.path)[.size] as? Int, size > 0 { return dst }
         if let t = inflight[key] { return try await t.value }

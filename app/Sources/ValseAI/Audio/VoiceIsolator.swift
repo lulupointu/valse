@@ -43,35 +43,23 @@ public enum VoiceIsolator {
     static let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!
 
     /// Media audio → 48 kHz stereo float CAF (the AU's working format).
+    /// Decoded at the file's rate and resampled by AudioFileIO.stream (the reader's own 48 kHz conversion zeroed
+    /// samples at random AAC packet boundaries, BUG-AUDIO-RESAMPLE-ALL); sample 0 = media time 0.
     static func decode(_ url: URL, progress: (Double) -> Void) async throws -> URL {
         let asset = AVURLAsset(url: url)
-        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw AIToolError.noInput }
+        guard try await !asset.loadTracks(withMediaType: .audio).isEmpty else { throw AIToolError.noInput }
         let total = max(try await asset.load(.duration).seconds, 0.001)
-        let reader = try AVAssetReader(asset: asset)
-        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48_000, AVNumberOfChannelsKey: 2,
-            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsNonInterleaved: false, AVLinearPCMIsBigEndianKey: false])
-        reader.add(out)
-        guard reader.startReading() else { throw reader.error ?? AIToolError.noInput }
         let dst = FileManager.default.temporaryDirectory.appendingPathComponent("valse-iso-\(UUID().uuidString).caf")
         let file = try AVAudioFile(forWriting: dst, settings: format.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
-        let interleaved = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: true)!
-        // blocking read loop: off the cooperative pool (OffPool)
-        try await OffPool.run { ctx in
-            while let sb = out.copyNextSampleBuffer() {
-                try ctx.checkCancellation()
-                let n = AVAudioFrameCount(CMSampleBufferGetNumSamples(sb))
-                guard n > 0, let src = AVAudioPCMBuffer(pcmFormat: interleaved, frameCapacity: n),
-                      let dstBuf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: n) else { continue }
-                src.frameLength = n
-                try CMSampleBufferCopyPCMDataIntoAudioBufferList(sb, at: 0, frameCount: Int32(n), into: src.mutableAudioBufferList)
-                // de-interleave
-                let s = src.floatChannelData![0], l = dstBuf.floatChannelData![0], r = dstBuf.floatChannelData![1]
-                for i in 0..<Int(n) { l[i] = s[2 * i]; r[i] = s[2 * i + 1] }
-                dstBuf.frameLength = n
-                try file.write(from: dstBuf)
-                progress(CMSampleBufferGetPresentationTimeStamp(sb).seconds / total)
-            }
+        let chunk = 8192
+        guard let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(chunk)) else { throw AIToolError.noInput }
+        var written = 0
+        try await AudioFileIO.stream(url, sampleRate: 48_000, channels: 2, chunk: chunk) { b in
+            for c in 0..<2 { buf.floatChannelData![c].update(from: b[c], count: b.frames) }
+            buf.frameLength = AVAudioFrameCount(b.frames)
+            try file.write(from: buf)
+            written += b.frames
+            progress(Double(written) / 48_000 / total)
         }
         return dst
     }

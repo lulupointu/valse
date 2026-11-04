@@ -43,38 +43,24 @@ public final class ActivityAnalyzer: @unchecked Sendable {
     /// RMS level in dBFS per 50 ms window of the first audio track.
     static func levels(url: URL, progress: (@Sendable (Double) -> Void)? = nil) async throws -> [Float] {
         let asset = AVURLAsset(url: url)
-        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { return [] }
+        guard try await !asset.loadTracks(withMediaType: .audio).isEmpty else { return [] }
         let duration = try await asset.load(.duration).seconds
-        let reader = try AVAssetReader(asset: asset)
-        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsNonInterleaved: false])
-        reader.add(out)
-        guard reader.startReading() else { throw reader.error ?? AIToolError.noInput }
-        defer { reader.cancelReading() }
         let window = Int(16000 * ActivityProfile.audioStep)
         var pending: [Float] = []
         var levels: [Float] = []
-        // blocking read loop: off the cooperative pool (OffPool)
-        try await OffPool.run { ctx in
-            while let sb = out.copyNextSampleBuffer() {
-                try ctx.checkCancellation()
-                guard let block = CMSampleBufferGetDataBuffer(sb) else { continue }
-                let n = CMBlockBufferGetDataLength(block) / 4
-                var chunk = [Float](repeating: 0, count: n)
-                chunk.withUnsafeMutableBytes { _ = CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: n * 4, destination: $0.baseAddress!) }
-                pending += chunk
-                var i = 0
-                while pending.count - i >= window {
-                    var rms: Float = 0
-                    pending.withUnsafeBufferPointer { vDSP_rmsqv($0.baseAddress! + i, 1, &rms, vDSP_Length(window)) }
-                    levels.append(rms > 1e-5 ? 20 * log10(rms) : -100)
-                    i += window
-                }
-                pending.removeFirst(i)
-                if duration > 0 { progress?(min(1, Double(levels.count) * ActivityProfile.audioStep / duration)) }
+        // 16 kHz mono via AudioFileIO.stream (deterministic; the reader's own resampling zeroed samples at random AAC
+        // packet boundaries, BUG-AUDIO-RESAMPLE-ALL); the blocking read runs off the cooperative pool (OffPool)
+        try await AudioFileIO.stream(url, sampleRate: 16000, channels: 1) { b in
+            pending.append(contentsOf: UnsafeBufferPointer(start: b[0], count: b.frames))
+            var i = 0
+            while pending.count - i >= window {
+                var rms: Float = 0
+                pending.withUnsafeBufferPointer { vDSP_rmsqv($0.baseAddress! + i, 1, &rms, vDSP_Length(window)) }
+                levels.append(rms > 1e-5 ? 20 * log10(rms) : -100)
+                i += window
             }
+            pending.removeFirst(i)
+            if duration > 0 { progress?(min(1, Double(levels.count) * ActivityProfile.audioStep / duration)) }
         }
         return levels
     }
