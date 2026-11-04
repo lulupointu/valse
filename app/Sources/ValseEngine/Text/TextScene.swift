@@ -83,6 +83,8 @@ struct TextScene: @unchecked Sendable {
     var hasFlicker = false
     /// TX-NEON: flicker seed of the clip (its text), shared by every block so the whole sign moves as one.
     var flickerSeed: UInt64 = 0
+    /// TX-BUBBLE-SELECT: the bubble shapes (tail included, outline line included, no glow / shadow); null = no bubble.
+    var bubbleBounds: CGRect = .null
 }
 
 enum TextSceneBuilder {
@@ -251,6 +253,7 @@ enum TextSceneBuilder {
         var items: [TextScene.Item] = []
         var faultyTaken = false   // TX-NEON One letter: one faulty letter per clip (first block that flickers)
         var textBounds = CGRect.null
+        var bubbleBounds = CGRect.null
         for bi in blocks.indices {
             var b = blocks[bi]
             let T = b.transform
@@ -277,6 +280,10 @@ enum TextSceneBuilder {
                     rect = CGRect(x: lb.midX - w / 2, y: lb.midY - h / 2, width: w, height: h)
                 }
                 let r = BubblePainter.bounds(s, rect: rect, em: em).applying(T)
+                // TX-BUBBLE-SELECT: the shape the user sees (canvas selection box / hit-testing), not its glow
+                let line = s.outline.map { CGFloat($0.width) * em / 2 } ?? 0
+                bubbleBounds = bubbleBounds.union(BubblePainter.path(s, rect: rect, em: em).boundingBoxOfPath
+                    .insetBy(dx: -line, dy: -line).applying(T))
                 if let f = s.outline?.neon?.flicker, f != .off {
                     // flickering neon: glow and tube are their own cells, dimmed per frame on the GPU (TextAnimator)
                     for part in [BubblePainter.Part.glow, .body, .tube] {
@@ -420,7 +427,8 @@ enum TextSceneBuilder {
             items = kept.map { var it = $0; if let v = it.variantOf, v >= 0 { it.variantOf = remap[v] }; return it }
         }
         return TextScene(blocks: blocks, items: items, bounds: bounds, textBounds: textBounds.isNull ? bounds : textBounds,
-                         hasFlicker: items.contains { $0.flicker != .off }, flickerSeed: TextNeonStyle.flickerSeed(clip.string))
+                         hasFlicker: items.contains { $0.flicker != .off }, flickerSeed: TextNeonStyle.flickerSeed(clip.string),
+                         bubbleBounds: bubbleBounds)
     }
 }
 

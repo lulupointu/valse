@@ -97,6 +97,8 @@ public final class FrameRenderer: @unchecked Sendable {
         private var spareIDs = Set<ObjectIdentifier>()
 
         let recycles: Bool
+        /// BUG-BUBBLE-TEXT-LAG: interactive frame (paused preview re-render) — see `TextRasterizer.layerContent`.
+        var interactive = false
         init(recycles: Bool = true) { self.recycles = recycles }
 
         private static func key(_ w: Int, _ h: Int) -> Int { w << 20 | h }
@@ -129,9 +131,13 @@ public final class FrameRenderer: @unchecked Sendable {
     }
 
     /// Encodes the frame into `cmd`, writing `output` (bgra8Unorm, any size; canvas is scaled to fit exactly).
+    /// `interactive` (paused preview while editing): a text whose exact rasterization is slow may be drawn from its
+    /// raster at another font size, scaled, while the exact one is built off the calling thread
+    /// (`TextRasterizer.refinedNotification` asks for the redraw). Export and playback always render exactly.
     public func encode(_ frame: FrameDescription, media: [MediaID: MediaAsset], sources: any FrameSourceProvider,
-                       output: MTLTexture, commandBuffer cmd: MTLCommandBuffer) {
+                       output: MTLTexture, commandBuffer cmd: MTLCommandBuffer, interactive: Bool = false) {
         let scratch = FrameScratch(recycles: allowsTextureRecycling)
+        scratch.interactive = interactive
         let outW = output.width, outH = output.height
         let canvas = frame.canvasSize
         let outScale = Double(outH) / max(canvas.height, 1)
@@ -221,7 +227,8 @@ public final class FrameRenderer: @unchecked Sendable {
             for item in items {
                 switch item {
                 case .layer(let l):
-                    if let direct = directText(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, space: frame.colorSpace) {
+                    if let direct = directText(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, space: frame.colorSpace,
+                                               interactive: interactive) {
                         placements += direct
                     } else if let p = prepareLayer(l, canvas: canvas, outW: outW, outH: outH, outScale: outScale, media: media,
                                             sources: sources, cmd: cmd, scratch: scratch, acquire: acquire, space: frame.colorSpace) {
@@ -345,7 +352,7 @@ public final class FrameRenderer: @unchecked Sendable {
     /// captions cost N instanced draws in the shared placement pass. nil = not eligible (effects, mask, blend mode,
     /// crop/flip, HDR working space…): use `prepareLayer`. Empty = eligible but nothing to draw.
     private func directText(_ l0: LayerDescription, canvas: Size2, outW: Int, outH: Int, outScale: Double,
-                            space: ProjectColorSpace) -> [Placement]? {
+                            space: ProjectColorSpace, interactive: Bool = false) -> [Placement]? {
         guard allowsDirectText, case .text(let content) = l0.source, space == .sdr709, l0.effects.isEmpty, l0.mask == nil, l0.matte == nil,
               l0.blendMode == .normal else { return nil }
         let l = animated(l0, canvas: canvas)
@@ -353,7 +360,7 @@ public final class FrameRenderer: @unchecked Sendable {
         guard l.opacity > 0.001 else { return [] }
         let draw: TextRasterizer.GlyphDraw
         switch text.layerContent(content, canvas: canvas, outputScale: outScale, layerScale: l.transform.scale,
-                                 animations: l.animations, localTime: l.localTime, duration: l.duration) {
+                                 animations: l.animations, localTime: l.localTime, duration: l.duration, interactive: interactive) {
         case .none: return []
         case .glyphs(let g): draw = g
         case .texture(let r):
@@ -423,7 +430,7 @@ public final class FrameRenderer: @unchecked Sendable {
             // text engine (W7): static image, or per-glyph / karaoke / template composition for this frame
             guard let r = text.layerTexture(content, canvas: canvas, outputScale: outScale, layerScale: l.transform.scale,
                                             animations: l.animations, localTime: l.localTime, duration: l.duration,
-                                            commandBuffer: cmd, acquire: acquire) else { return nil }
+                                            interactive: scratch.interactive, commandBuffer: cmd, acquire: acquire) else { return nil }
             rgbaSource = r.texture; unpremultiply = true
             sourceSizeOverride = r.canvasSize
         case .sticker(let id):

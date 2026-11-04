@@ -56,6 +56,12 @@ nonisolated struct CanvasLayer: Equatable {
     var geometry: LayerGeometry
     var isText: Bool
     var isLocked: Bool
+    /// TX-BUBBLE-SELECT: a text with a bubble is selected, hit and framed by its bubble (`geometry`); this is its text
+    /// box, where the layer is anchored (scale / rotate pivot, wrap-width pills, inline editor). nil = `geometry`.
+    var textGeometry: LayerGeometry? = nil
+
+    /// Point the layer scales and rotates around (its position).
+    var pivot: Vec2 { (textGeometry ?? geometry).center }
 
     /// Axis-aligned bounds of the rotated layer.
     var bounds: (minX: Double, minY: Double, maxX: Double, maxY: Double) {
@@ -76,13 +82,21 @@ nonisolated enum CanvasLayers {
             guard !l.isCanvasBackground else { return }
             var size: Size2?
             var isText = false
+            var bubble: (offset: Vec2, size: Size2)?
             switch l.source {
-            case .text(let t): size = TextMetrics.size(of: t, canvasHeight: canvas.height, canvasWidth: canvas.width); isText = true
+            case .text(let t):
+                size = TextMetrics.size(of: t, canvasHeight: canvas.height, canvasWidth: canvas.width); isText = true
+                bubble = TextMetrics.bubbleBox(of: t, canvasHeight: canvas.height, canvasWidth: canvas.width)
             case .sticker(let id): size = TextMetrics.stickerSize(id, side: l.sourceSize.height)
             default: break
             }
-            out.append(CanvasLayer(clipID: l.clipID, geometry: l.geometry(canvasSize: canvas, sourceSizeOverride: size),
-                                   isText: isText, isLocked: locked.contains(l.trackID)))
+            let g = l.geometry(canvasSize: canvas, sourceSizeOverride: size)
+            var layer = CanvasLayer(clipID: l.clipID, geometry: g, isText: isText, isLocked: locked.contains(l.trackID))
+            if let bubble {
+                layer.geometry = bubbleGeometry(l, offset: bubble.offset, size: bubble.size, canvas: canvas)
+                layer.textGeometry = g
+            }
+            out.append(layer)
         }
         func walk(_ items: [RenderItem]) {
             for item in items {
@@ -98,6 +112,17 @@ nonisolated enum CanvasLayers {
         }
         walk(frame.items)
         return out
+    }
+
+    /// TX-BUBBLE-SELECT: the layer box around a text's bubble — `size` (canvas px at rest) centred `offset` away from
+    /// the layer centre, both following the layer's scale, flips and rotation like the rendered texture.
+    static func bubbleGeometry(_ l: LayerDescription, offset: Vec2, size: Size2, canvas: Size2) -> LayerGeometry {
+        var g = l.geometry(canvasSize: canvas, sourceSizeOverride: size)
+        let s = l.transform.scale
+        let o = Vec2(offset.x * s.x * (l.transform.flipH ? -1 : 1), offset.y * s.y * (l.transform.flipV ? -1 : 1))
+        let c = cos(g.rotation), sn = sin(g.rotation)
+        g.center = g.center + Vec2(o.x * c - o.y * sn, o.x * sn + o.y * c)
+        return g
     }
 
     /// Topmost unlocked layer containing `p`.
