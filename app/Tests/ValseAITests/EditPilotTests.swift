@@ -169,7 +169,8 @@ struct EditPilotTests {
         #expect(ex.changed)
         #expect(ex.results.count == 2 && ex.results.allSatisfy(\.changed))
         let rows = PilotDiff.rows(ex.before, ex.after).map(\.key)
-        #expect(rows.contains("pilot.diff.ratio") && rows.contains("pilot.diff.transitions") && rows.contains("pilot.diff.duration"))
+        #expect(rows.contains("pilot.diff.ratio") && rows.contains("pilot.diff.transitions"))
+        #expect(!rows.contains("pilot.diff.duration"))   // TR-MODEL-CAPCUT: transitions never change the length
     }
 
     // MARK: Activity analysis (real decode)

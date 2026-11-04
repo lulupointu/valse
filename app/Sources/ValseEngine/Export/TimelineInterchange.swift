@@ -156,16 +156,18 @@ public enum TimelineInterchange {
         for (i, c) in main.enumerated() {
             let prev = i > 0 ? main[i - 1] : nil
             let next = i + 1 < main.count ? main[i + 1] : nil
-            let inT = prev.flatMap { pv in pv.transitionOut.map { $0.duration } }.flatMap { d in c.start < prev!.end ? d / 2 : nil } ?? .zero
-            let outT = c.transitionOut.flatMap { t in next.map { $0.start < c.end ? t.duration / 2 : .zero } } ?? .zero
+            // TR-MODEL-CAPCUT: clips are butted and a transition is centred on the cut, as in FCPXML's spine
+            _ = next
+            let inT = Time.zero, outT = Time.zero
             let vStart = c.start + inT
             if vStart > cursor {
                 spine.append(SpineItem(offset: cursor, duration: vStart - cursor, localStart: cursor, rate: 1,
                                        open: #"<gap name="Gap" offset="\#(clock.fcp(cursor))" start="\#(clock.fcp(cursor))" duration="\#(clock.fcp(vStart - cursor))">"#, body: [], close: "</gap>"))
             }
-            if inT > .zero, let pv = prev, let tr = pv.transitionOut {
-                spine.append(SpineItem(offset: c.start, duration: tr.duration, localStart: .zero, rate: 1,
-                                       open: #"<transition name="Cross Dissolve" offset="\#(clock.fcp(c.start))" duration="\#(clock.fcp(tr.duration))">"#,
+            if let pv = prev, let tr = pv.transitionOut, Track.isJoined(pv, c) {
+                let at = c.start - tr.duration / 2.0
+                spine.append(SpineItem(offset: at, duration: tr.duration, localStart: .zero, rate: 1,
+                                       open: #"<transition name="Cross Dissolve" offset="\#(clock.fcp(at))" duration="\#(clock.fcp(tr.duration))">"#,
                                        body: [#"<filter-video ref="\#(dissolveRef)" name="Cross Dissolve"/>"#], close: "</transition>", isParent: false))
             }
             let dur = c.duration - inT - outT
@@ -253,7 +255,7 @@ public enum TimelineInterchange {
             let channels = a.hasAudio && a.kind == .video ? "AA/V " : (a.kind == .audio ? "AA   " : "V    ")
             let srcIn = c.sourceStart, srcOut = c.sourceStart + c.sourceDuration
             let prev = i > 0 ? main[i - 1] : nil
-            if let pv = prev, let tr = pv.transitionOut, c.start < pv.end {
+            if let pv = prev, let tr = pv.transitionOut, Track.isJoined(pv, c) {
                 // dissolve from the previous event
                 lines.append(String(format: "%03d  %@ %@ D    %03lld %@ %@ %@ %@", n, reel, channels, clock.frames(tr.duration),
                                     clock.timecode(srcIn), clock.timecode(srcOut), clock.timecode(c.start), clock.timecode(c.end)))
@@ -285,9 +287,11 @@ public enum TimelineInterchange {
             for (i, c) in t.clips.enumerated() {
                 let prev = i > 0 ? t.clips[i - 1] : nil
                 let next = i + 1 < t.clips.count ? t.clips[i + 1] : nil
-                let inT = (prev?.transitionOut).flatMap { tr in c.start < prev!.end ? tr.duration / 2 : nil } ?? .zero
-                let outT = c.transitionOut.flatMap { tr in next.map { $0.start < c.end ? tr.duration / 2 : .zero } } ?? .zero
-                let vStart = c.start + inT, vDur = c.duration - inT - outT
+                // TR-MODEL-CAPCUT: butted clips, the transition straddles the cut (in/out offsets d/2)
+                _ = prev
+                let inT = Time.zero
+                let outT = c.transitionOut.flatMap { tr in next.map { Track.isJoined(c, $0) ? tr.duration / 2 : .zero } } ?? .zero
+                let vStart = c.start, vDur = c.duration
                 if vStart > cursor { children.append(["OTIO_SCHEMA": "Gap.1", "name": "", "source_range": range(.zero, vStart - cursor)]) }
                 var item: [String: Any] = ["OTIO_SCHEMA": "Clip.2", "name": c.name ?? "", "source_range": range(c.sourceStart + inT * rate(c), vDur),
                                            "metadata": ["valse": ["clip_id": "\(c.id)"]]]

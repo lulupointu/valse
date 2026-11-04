@@ -81,10 +81,10 @@ import ValseTestSupport
         let a = try await p.addVideo(.solid(.red))
         try await p.addVideo(.solid(.blue), at: 5)
         try TimelineOps.setTransition(a, TransitionInstance(typeID: "valse.transition.dissolve", duration: 1), in: &p.project.timeline)
-        // transition spans [1, 2): midpoint is 50/50
-        let c = try await p.render(at: 1.5)[0.5, 0.5]
+        // TR-MODEL-CAPCUT: centred on the cut at 2 s, [1.5, 2.5): the cut is the 50/50 midpoint
+        let c = try await p.render(at: 2)[0.5, 0.5]
         #expect(c.isClose(to: RGBA(0.5, 0, 0.5), tolerance: 0.1))
-        #expect(try await p.render(at: 2.5)[0.5, 0.5].isClose(to: .blue))
+        #expect(try await p.render(at: 2.6)[0.5, 0.5].isClose(to: .blue))
     }
 
     @Test func adjustmentLayerAffectsLayersBelow() async throws {

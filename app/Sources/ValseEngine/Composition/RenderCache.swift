@@ -43,7 +43,13 @@ public final class RenderCache: @unchecked Sendable {
     public static func key(_ project: Project, range: TimeRange, size: CGSize) -> String {
         var tracks: [[Clip]] = [], flags: [String] = [], media = Set<String>()
         for t in project.timeline.tracks where t.kind.isVisual {
-            let clips = t.clips.filter { $0.range.overlaps(range) || ($0.transitionOut != nil && $0.end >= range.start) }
+            // a clip shows over its own range plus the transition windows at its cuts (TR-MODEL-CAPCUT)
+            let clips = t.clips.indices.filter { i in
+                var lo = t.clips[i].start, hi = t.clips[i].end
+                if let w = t.transitionWindow(after: i) { hi = max(hi, w.end) }
+                if let w = t.transitionWindow(after: i - 1) { lo = min(lo, w.start) }
+                return lo < range.end && range.start < hi
+            }.map { t.clips[$0] }
             guard !clips.isEmpty else { continue }
             tracks.append(clips); flags.append("\(t.kind.rawValue)-\(t.isHidden)-\(t.isMain)")
             for c in clips { if let id = c.mediaID, let a = project.asset(id) { media.insert(a.contentHash) } }

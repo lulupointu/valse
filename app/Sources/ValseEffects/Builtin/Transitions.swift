@@ -19,8 +19,14 @@ public enum BuiltinTransitions {
                   prelude: String = "", _ body: String) -> TransitionDescriptor {
         TransitionDescriptor(id: "valse.transition.\(name)", nameKey: "transition.\(name)",
                              groupKey: "transition.group.\(group)", params: params, defaultDuration: Time(duration),
-                             symbol: symbol, shader: TransitionShaderLib.wrap(body, prelude: prelude))
+                             symbol: symbol, shader: TransitionShaderLib.wrap(body, prelude: prelude),
+                             isOverlap: !nonOverlap.contains(name))
     }
+
+    /// TR-MODEL-CAPCUT: transitions whose shader shows only the outgoing clip in its first half and only the incoming
+    /// one in its second (a dip / flash / collapse that covers the frame at the midpoint). CapCut marks such packages
+    /// `isOverlap: false` (e.g. Cartoon Swirl): they need no handles and never duplicate frames. Same look either way.
+    static let nonOverlap: Set<String> = ["blackFade", "whiteFade", "colorFade", "flash", "tvOff"]
 
     // MARK: Parameter specs
 

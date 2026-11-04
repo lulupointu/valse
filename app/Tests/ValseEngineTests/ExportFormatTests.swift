@@ -430,12 +430,11 @@ import ValseTestSupport
         let spine = try #require(try doc.nodes(forXPath: "//spine").first as? XMLElement)
         let kids = spine.children?.compactMap { $0 as? XMLElement } ?? []
         #expect(kids.map(\.name) == ["asset-clip", "transition", "asset-clip"], "\(kids.map(\.name))")
-        // clip A trimmed by half the transition, B starts at the overlap start + 0.5 s
-        #expect(kids[0].attribute(forName: "duration")?.stringValue == "5/2s")
-        #expect(kids[1].attribute(forName: "offset")?.stringValue == "2s" && kids[1].attribute(forName: "duration")?.stringValue == "1s")
-        #expect(kids[2].attribute(forName: "offset")?.stringValue == "5/2s")
-        #expect(kids[2].attribute(forName: "start")?.stringValue == "1/2s")
-        #expect(try doc.nodes(forXPath: "//sequence/@duration").first?.stringValue == "5s")
+        // TR-MODEL-CAPCUT: butted clips, the transition centred on the cut at 3 s ([2.5, 3.5])
+        #expect(kids[0].attribute(forName: "duration")?.stringValue == "3s")
+        #expect(kids[1].attribute(forName: "offset")?.stringValue == "5/2s" && kids[1].attribute(forName: "duration")?.stringValue == "1s")
+        #expect(kids[2].attribute(forName: "offset")?.stringValue == "3s")
+        #expect(try doc.nodes(forXPath: "//sequence/@duration").first?.stringValue == "6s")
         #expect(try doc.nodes(forXPath: "//asset-clip/adjust-volume/@amount").first?.stringValue == "-6.0206dB")
         let title = try #require(try doc.nodes(forXPath: "//title").first as? XMLElement)
         #expect(title.attribute(forName: "lane")?.stringValue == "1")

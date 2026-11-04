@@ -141,17 +141,22 @@ public struct TransitionDescriptor: Sendable, Identifiable {
     public let defaultDuration: Time
     public let symbol: String
     public let shader: String
+    /// CapCut `isOverlap` (TR-MODEL-CAPCUT): true = both clips are visible over the whole window (they play their
+    /// handles, or hold their edge frame); false = the first half plays over the outgoing clip only and the second half
+    /// over the incoming clip only (the shader then gets that one side as both `from` and `to`).
+    public let isOverlap: Bool
 
     public init(id: String, nameKey: String, groupKey: String, params: [ParamSpec] = [], defaultDuration: Time = Time(0.5),
-                symbol: String = "rectangle.on.rectangle", shader: String) {
+                symbol: String = "rectangle.on.rectangle", shader: String, isOverlap: Bool = true) {
         self.id = id; self.nameKey = nameKey; self.groupKey = groupKey; self.params = params
-        self.defaultDuration = defaultDuration; self.symbol = symbol; self.shader = shader
+        self.defaultDuration = defaultDuration; self.symbol = symbol; self.shader = shader; self.isOverlap = isOverlap
     }
 
     /// New instance; its duration is Settings ▸ Edit ▸ Transition duration when set (`EditDefaults`), else `defaultDuration`.
     public func makeInstance() -> TransitionInstance {
         TransitionInstance(typeID: id, duration: EditDefaults.current.transitionDuration ?? defaultDuration,
-                           params: Dictionary(uniqueKeysWithValues: params.map { ($0.key, $0.defaultValue) }))
+                           params: Dictionary(uniqueKeysWithValues: params.map { ($0.key, $0.defaultValue) }),
+                           isOverlap: isOverlap ? nil : false)
     }
 
     public func packParams(_ values: [String: ParamValue]) -> [Float] {

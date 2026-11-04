@@ -180,7 +180,8 @@ public enum PilotOps {
         for c in main.clips.dropLast() {
             guard TimelineOps.transitionIssue(after: c.id, in: p.timeline) == nil else { continue }
             var inst = d.makeInstance()
-            inst.duration = Time(duration)
+            // centred on the cut, nothing moves; 0.1 s … half the shorter clip, whole frames (TR-MODEL-CAPCUT)
+            inst.duration = TimelineOps.quantizedTransitionDuration(Time(duration), after: c.id, in: p.timeline, frameRate: p.settings.frameRate)
             try TimelineOps.setTransition(c.id, inst, in: &p.timeline)
             n += 1
         }

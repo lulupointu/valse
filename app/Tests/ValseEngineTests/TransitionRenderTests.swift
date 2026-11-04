@@ -129,10 +129,62 @@ import ValseTestSupport
         try await p.addVideo(.solid(.blue), seconds: 2, at: 2, target: .track(tid))
         try TimelineOps.setTransition(a, TransitionInstance(typeID: "valse.transition.dissolve", duration: 1), in: &p.project.timeline)
         #expect(TimelineOps.validate(p.project.timeline).isEmpty)
+        // TR-MODEL-CAPCUT: nothing moved, window [1.5, 2.5] centred on the cut at 2
         #expect(try await p.render(at: 0.5)[0.5, 0.5].isClose(to: .red, tolerance: 0.1))
-        #expect(try await p.render(at: 1.5)[0.5, 0.5].isClose(to: RGBA(0.5, 0, 0.5), tolerance: 0.12))
-        #expect(try await p.render(at: 2.5)[0.5, 0.5].isClose(to: .blue, tolerance: 0.1))
-        #expect(try await p.render(at: 3.5)[0.5, 0.5].isClose(to: .green, tolerance: 0.1))
+        #expect(try await p.render(at: 2)[0.5, 0.5].isClose(to: RGBA(0.5, 0, 0.5), tolerance: 0.12))
+        #expect(try await p.render(at: 3)[0.5, 0.5].isClose(to: .blue, tolerance: 0.1))
+        #expect(try await p.render(at: 4.5)[0.5, 0.5].isClose(to: .green, tolerance: 0.1))
+    }
+
+    // MARK: TR-MODEL-CAPCUT frame mapping (through the real composition: handles, duplicate frames, halves)
+
+    /// Source frame of a `.frameIndex` picture (grey = frame · 4).
+    static func frameIndex(_ c: RGBA) -> Int { Int((c.r * 255 / 4).rounded()) }
+
+    /// Main track: A (`.frameIndex`, 3 s file, grey wraps every 64 frames) showing source `aSource`…+2 s, then B (solid
+    /// red, 2 s); a 1 s wipe at the cut t = 2 (window [1.5, 2.5]). Returns the frame index A shows at `t` (the grey side
+    /// of the wipe), nil when no grey is left.
+    static func outgoingFrame(aSource: Double, overlap: Bool = true, at t: Double) async throws -> Int? {
+        var p = TestProject()
+        let a = try await p.addVideo(.frameIndex, seconds: 3)
+        try await p.addVideo(.solid(.red), seconds: 2, at: 1000)
+        let ti = try #require(p.project.timeline.mainTrackIndex)
+        p.project.timeline.tracks[ti].clips[0].sourceStart = Time(aSource)
+        p.project.timeline.tracks[ti].clips[0].duration = Time(2)
+        TimelineOps.compactMain(&p.project.timeline)
+        var tr = try #require(Registries.transitions["valse.transition.wipeLeft"]).makeInstance()
+        tr.duration = Time(1)
+        if !overlap { tr.isOverlap = false }
+        try TimelineOps.setTransition(a, tr, in: &p.project.timeline)
+        #expect(p.project.timeline.mainTrack!.clips[1].start == Time(2))
+        #expect(p[a].transitionOut?.duration == Time(1))
+        let img = try await p.render(at: t)
+        for x in [0.04, 0.96] {
+            let c = img[x, 0.5]
+            if abs(c.r - c.g) < 0.06, abs(c.g - c.b) < 0.06 { return frameIndex(c) }   // grey = A, red = B
+        }
+        return nil
+    }
+
+    @Test func overlapPlaysTheOutgoingTailHandle() async throws {
+        // A shows source 0.2…2.2 s; at t = 2.3 (past the cut) it plays its handle: source 2.5 s = frame 75 → grey of 11
+        // (holding its last frame would show frame 65 → grey of 1)
+        let f = try #require(try await Self.outgoingFrame(aSource: 0.2, at: 2.3))
+        #expect(abs(f - 11) <= 1, "frame \(f)")
+    }
+
+    @Test func overlapWithoutHandleHoldsTheLastFrame() async throws {
+        // A shows source 1…3 s (the file's end): past the cut it holds its last frame (89 → grey of 25)
+        let f = try #require(try await Self.outgoingFrame(aSource: 1, at: 2.3))
+        #expect(abs(f - 25) <= 1, "frame \(f)")
+    }
+
+    @Test func nonOverlapShowsOnlyTheIncomingClipAfterTheCut() async throws {
+        // second half of a non-overlap wipe: B only on both shader inputs, no grey left anywhere
+        #expect(try await Self.outgoingFrame(aSource: 0.2, overlap: false, at: 2.3) == nil)
+        // first half: A only, and it is A's own frame at that instant (source 0.2 + 1.7 = frame 57)
+        let f = try #require(try await Self.outgoingFrame(aSource: 0.2, overlap: false, at: 1.7))
+        #expect(abs(f - 57) <= 1, "frame \(f)")
     }
 
     /// Through the real composition/compositor: a sample of categories on two video clips.
@@ -143,7 +195,8 @@ import ValseTestSupport
             try await p.addVideo(.solid(.blue), at: 5)
             try TimelineOps.setTransition(a, Registries.transitions["valse.transition.\(id)"]!.makeInstance(), in: &p.project.timeline)
             let d = p[a].transitionOut!.duration.seconds
-            let start = p.project.timeline.mainTrack!.clips[1].start.seconds
+            // TR-MODEL-CAPCUT: the window starts d/2 before the cut
+            let start = p.project.timeline.mainTrack!.clips[1].start.seconds - d / 2
             let early = try await p.render(at: start + 0.01)
             let mid = try await p.render(at: start + d / 2)
             #expect(early.average(x: 0.4, y: 0.4, w: 0.2, h: 0.2).r > 0.7, "\(id) starts on A")
