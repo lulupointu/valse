@@ -14,11 +14,12 @@ import ValseCore
 /// Ids are persisted in projects: never rename one; append new entries.
 public enum BuiltinTransitions {
     /// One transition. `params` are exposed in the inspector (direction/colour/softness…, TR-006) and packed into `p[]`.
+    /// `prelude` = extra program-scope MSL (constant tables, helper functions) placed before the transition function.
     static func t(_ name: String, _ group: String, _ symbol: String, params: [ParamSpec] = [], duration: Double = 0.5,
-                  _ body: String) -> TransitionDescriptor {
+                  prelude: String = "", _ body: String) -> TransitionDescriptor {
         TransitionDescriptor(id: "valse.transition.\(name)", nameKey: "transition.\(name)",
                              groupKey: "transition.group.\(group)", params: params, defaultDuration: Time(duration),
-                             symbol: symbol, shader: TransitionShaderLib.wrap(body))
+                             symbol: symbol, shader: TransitionShaderLib.wrap(body, prelude: prelude))
     }
 
     // MARK: Parameter specs
@@ -27,7 +28,6 @@ public enum BuiltinTransitions {
     static func intensity(_ d: Double = 0.6) -> ParamSpec { .scalar("intensity", "tr.param.intensity", 0, 1, d, display: 100) }
     static func strength(_ d: Double = 0.5) -> ParamSpec { .scalar("strength", "tr.param.strength", 0, 1, d, display: 100) }
     static func count(_ d: Double, _ lo: Double = 2, _ hi: Double = 40) -> ParamSpec { .scalar("count", "tr.param.count", lo, hi, d) }
-    static func noise(_ d: Double = 0.6) -> ParamSpec { .scalar("noise", "tr.param.noise", 0, 1, d, display: 100) }
     static func color(_ c: RGBA) -> ParamSpec { ParamSpec("color", nameKey: "tr.param.color", .color(defaultValue: c)) }
 
     // MARK: Direction helpers
@@ -549,62 +549,50 @@ public enum BuiltinTransitions {
             c.rgb = min(c.rgb * (1.0 + 2.0 * pow(tr_bump(t), 4.0)), 1.0);
             return c;
             """),
-        // TR-RETRO-REWIND: VHS tape rewind. A rolls upward faster and faster with tracking jitter and a backwards smear
-        // (the pipeline only has A/B at the current time, so the rewind is faked), a static burst covers the cut, B rolls
-        // into place and settles clean. Everything is driven by `t` and canvas-relative coordinates (preview = export).
-        // p: intensity, noise.
-        t("retroRewind", "glitch", "backward.fill", params: [intensity(0.7), noise(0.6)], duration: 0.8, """
-            float amp = p[0], nz = p[1];
-            bool useB = t >= 0.5;
-            float env = useB ? pow(saturate(2.0 - 2.0 * t), 1.5) : tr_smooth(t * 2.0);
-            if (t <= 0.0 || t >= 1.0) env = 0.0;
-            float fr = floor(t * 30.0);
-            // vertical roll: A accelerates upward (rewinding), B rolls in from below and decelerates
-            float roll = useB ? -0.35 * pow(saturate(2.0 - 2.0 * t), 2.0) : 1.4 * pow(t * 2.0, 2.0);
-            roll = roll * amp + (fx_hash(float2(fr, 7.7)) - 0.5) * 0.03 * env * amp;
-            float qy = fract(uv.y + roll);
-            // horizontal tracking jitter per line + rolling tracking bands
-            float line = floor(uv.y * 240.0);
-            float jit = (fx_hash(float2(line, fr)) - 0.5) * 0.012 + sin(uv.y * 9.0 + t * 40.0) * 0.006;
-            float band = 0.0;
-            for (int i = 0; i < 2; i++) {
-                float by = fract(t * (2.3 + float(i) * 1.1) + float(i) * 0.41);
-                band = max(band, 1.0 - smoothstep(0.0, 0.035 + 0.02 * float(i), abs(uv.y - by)));
-            }
-            float bandShift = band * (fx_hash(float2(line * 0.5, fr + 3.0)) - 0.3) * 0.09;
-            float2 q = float2(uv.x + (jit + bandShift) * env * amp, qy);
-            // backwards motion smear + chroma bleed
-            float sm = 0.012 * env * amp;
-            float4 c = float4(0.0);
-            for (int i = 0; i < 5; i++) c += AB(tr_mirror(q + float2(float(i) * sm, 0.0))) * (i == 0 ? 0.4 : 0.15);
-            float off = 0.014 * env * amp;
-            float3 v = float3(AB(tr_mirror(q + float2(off, 0.0))).r * 0.7 + c.r * 0.3, c.g, AB(tr_mirror(q - float2(off, 0.0))).b * 0.7 + c.b * 0.3);
-            // vertical-hold seam where the frame wraps
-            float seam = (1.0 - smoothstep(0.0, 0.03, min(qy, 1.0 - qy))) * step(1e-4, abs(roll));
-            v *= 1.0 - 0.8 * seam * env;
-            // desaturation + VHS tint, scanlines
-            v = mix(v, float3(fx_luma(v)), 0.4 * env * amp);
-            v = mix(v, v * float3(1.04, 0.93, 1.08) + float3(0.03, 0.0, 0.05), env * amp);
-            v *= 1.0 - 0.22 * env * amp * (0.5 + 0.5 * sin(uv.y * 240.0 * TR_PI));
-            // tape noise: grain, band snow, static burst at the cut
-            float2 cell = floor(uv * float2(240.0 * aspect, 240.0));
-            float g = fx_hash(cell + fr * 0.71);
-            float burst = exp(-pow((t - 0.5) / 0.07, 2.0));
-            float snow = saturate(0.12 * env + 0.6 * band * env + 0.9 * burst) * nz;
-            if (t <= 0.0 || t >= 1.0) snow = 0.0;
-            v = mix(v, float3(g), snow);
-            // ◀◀ glyph in the top-left corner (blinking) while A rewinds
-            if (!useB && t > 0.04 && fract(t * 4.0) < 0.65) {
-                float2 a = tr_asp(uv, aspect) - float2(-0.5 * aspect + 0.09, -0.41);
-                float h = 0.028;
-                float tri = 0.0;
-                for (int i = 0; i < 2; i++) {
-                    float2 l = a - float2(float(i) * 2.0 * h, 0.0);
-                    tri = max(tri, (l.x <= h && abs(l.y) <= (l.x + h) * 0.5) ? 1.0 : 0.0);
+        // TR-RETRO-REWIND: CapCut's "Retro Rewind" (2 s, overlapping), rebuilt from its pipeline (analysis in the
+        // branch report): both clips go grey (luma × 0.49), the picture pans right by two mirrored widths (the cut A → B
+        // falls at 29/30 of the first second, mid-pan, hidden by a horizontal blur that peaks there) and a white ◀◀
+        // overlay with film dust slides up, pulses left ("rewinds") and slides away. The overlay is procedural.
+        t("retroRewind", "glitch", "backward.fill", duration: 2.0, prelude: retroRewindLib, """
+            if (t <= 0.0) return FA(uv);
+            if (t >= 1.0) return FB(uv);
+            float T = t * 2.0;                       // authored timeline: 2 s (scales with the transition duration)
+            bool useB = T >= 0.966667;
+            float tone = T < 1.0 ? rr_key(T, 0.0, 0.333333, 0.73, 0.0, 0.27, 1.0)
+                                 : 1.0 - rr_key(T, 1.6, 1.933333, 0.73, 0.0, 0.27, 1.0);
+            // the layer position lags a quarter of a frame behind its keyframes (0.25 prev + 0.75 current)
+            float pan = 0.75 * rr_pan(T) + 0.25 * rr_pan(T - 1.0 / 30.0);
+            pan = fmod(pan, 2.0);                    // two mirrored widths = identity
+            float blurI = T < 0.966667 ? 20.0 * rr_key(T, 0.533333, 0.966667, 0.333333, 0.0, 0.0, 1.0)
+                                       : 20.0 * (1.0 - rr_key(T, 0.966667, 1.466667, 1.0, 0.0, 0.666667, 1.0));
+            float2 sz = ctx.size;
+            float mn = min(sz.x, sz.y);
+            // horizontal blur: half extent blurI/1000 of the blur base size, near-box gaussian weights
+            float xs = max(mn, max(sz.x, sz.y) * 0.5) / sz.x;
+            float r = blurI / 1000.0 * xs;
+            float4 c;
+            if (r * sz.x < 0.5) {
+                c = rr_src(from, to, s, uv, useB, pan, tone);
+            } else {
+                float4 acc = float4(0.0);
+                float w = 0.0;
+                for (int i = -12; i <= 12; i++) {
+                    float f = float(i) / 12.0;
+                    float x = uv.x + f * r;
+                    if (x < 0.0 || x > 1.0) continue;
+                    float k = exp(-4.5 * f * f * xs * xs);
+                    acc += rr_src(from, to, s, float2(x, uv.y), useB, pan, tone) * k;
+                    w += k;
                 }
-                v = mix(v, float3(0.95), tri * 0.9 * amp);
+                c = acc / max(w, 1e-5);
             }
-            return float4(saturate(v), c.a);
+            // overlay (normal blend, white): fades in over 4 frames, out over 4 frames before the end
+            float op = saturate(T / 0.133333) * saturate((1.966667 - T) / 0.133333);
+            float2 ext = sz / mn;
+            float2 q = (uv - 0.5) * ext;
+            float px = 1.0 / mn;
+            float a = max(rr_icon(q, T, ext.y, px), rr_dust(q, uv, floor(T * 30.0), px, sz.x, ext)) * op;
+            return c * (1.0 - a) + float4(a);
             """),
     ]
 
@@ -825,6 +813,133 @@ public enum BuiltinTransitions {
             """),
     ]
 
+    // MARK: Retro Rewind support (TR-RETRO-REWIND)
+
+    /// Program-scope MSL for `retroRewind`. Times are on the authored 2 s timeline `T`, lengths in units of the canvas's
+    /// short side (y down). The curves were measured from CapCut's transition (pan keyframes, ◀◀ overlay motion).
+    static let retroRewindLib = """
+    // Horizontal pan of both clips (in canvas widths), sampled every two frames and interpolated linearly.
+    constant float RR_PAN_T[16] = {0.533333, 0.6, 0.666667, 0.7, 0.766667, 0.833333, 0.9, 0.966667,
+                                   1.033333, 1.1, 1.166667, 1.233333, 1.3, 1.366667, 1.4, 1.466667};
+    constant float RR_PAN_X[16] = {0.0, 0.0203, 0.0469, 0.0693, 0.1859, 0.3688, 0.6193, 0.9375,
+                                   1.1286, 1.3141, 1.6047, 1.8589, 1.9630, 1.9672, 1.9906, 2.0};
+    // ◀◀ slide-in from below (fraction of the way out of frame); the slide-out mirrors it around T = 59/60.
+    constant float RR_IN_T[9] = {0.066667, 0.1, 0.133333, 0.166667, 0.2, 0.233333, 0.266667, 0.3, 0.333333};
+    constant float RR_IN_V[9] = {1.25, 1.0, 0.80, 0.515, 0.229, 0.099, 0.042, 0.015, 0.0};
+    // ◀◀ "rewind" pulse: x offset of the left triangle; the right one follows 4 frames later.
+    constant float RR_PULSE_T[20] = {0.466667, 0.5, 0.533333, 0.566667, 0.6, 0.666667, 0.766667, 0.833333, 0.9, 0.966667,
+                                     1.0, 1.033333, 1.066667, 1.1, 1.133333, 1.166667, 1.2, 1.266667, 1.333333, 1.366667};
+    constant float RR_PULSE_V[20] = {0.0, -0.028, -0.06, -0.077, -0.082, -0.093, -0.099, -0.093, -0.088, -0.082,
+                                     -0.071, -0.06, -0.038, -0.016, 0.0, 0.011, 0.017, 0.011, 0.006, 0.0};
+
+    inline float rr_table(constant float* k, constant float* v, int n, float x) {
+        if (x <= k[0]) return v[0];
+        for (int i = 1; i < n; i++) {
+            if (x < k[i]) return mix(v[i - 1], v[i], (x - k[i - 1]) / (k[i] - k[i - 1]));
+        }
+        return v[n - 1];
+    }
+    inline float rr_pan(float T) { return rr_table(RR_PAN_T, RR_PAN_X, 16, T); }
+
+    /// CSS-style cubic-bezier(x1, y1, x2, y2) easing of x ∈ [0,1] (bisection on the curve parameter).
+    inline float rr_bezier(float x, float x1, float y1, float x2, float y2) {
+        x = saturate(x);
+        float lo = 0.0, hi = 1.0, u = x;
+        for (int i = 0; i < 18; i++) {
+            u = 0.5 * (lo + hi);
+            float m = 1.0 - u;
+            float bx = 3.0 * m * m * u * x1 + 3.0 * m * u * u * x2 + u * u * u;
+            if (bx < x) lo = u; else hi = u;
+        }
+        float m = 1.0 - u;
+        return 3.0 * m * m * u * y1 + 3.0 * m * u * u * y2 + u * u * u;
+    }
+    /// 0 → 1 over [t0, t1] with a bezier ease.
+    inline float rr_key(float T, float t0, float t1, float x1, float y1, float x2, float y2) {
+        if (T <= t0) return 0.0;
+        if (T >= t1) return 1.0;
+        return rr_bezier((T - t0) / (t1 - t0), x1, y1, x2, y2);
+    }
+
+    /// One clip at uv after the grey tone (luma × 0.494, mixed by `tone`) and the mirrored horizontal pan.
+    inline float4 rr_src(texture2d<float> from, texture2d<float> to, sampler s, float2 uv, bool useB, float pan, float tone) {
+        float2 q = float2(uv.x - pan, uv.y);
+        if (pan != 0.0) q.x = tr_mirror(q).x;
+        float4 c = useB ? to.sample(s, q) : from.sample(s, q);
+        float l = dot(c.rgb, float3(0.299, 0.587, 0.114));
+        c.rgb = mix(c.rgb, float3(l * 0.494118), tone);
+        return c;
+    }
+
+    /// Signed distance to triangle p0 p1 p2 (negative inside).
+    inline float rr_sdTri(float2 p, float2 p0, float2 p1, float2 p2) {
+        float2 e0 = p1 - p0, e1 = p2 - p1, e2 = p0 - p2;
+        float2 v0 = p - p0, v1 = p - p1, v2 = p - p2;
+        float2 a = v0 - e0 * saturate(dot(v0, e0) / dot(e0, e0));
+        float2 b = v1 - e1 * saturate(dot(v1, e1) / dot(e1, e1));
+        float2 c = v2 - e2 * saturate(dot(v2, e2) / dot(e2, e2));
+        float sg = sign(e0.x * e2.y - e0.y * e2.x);
+        float2 d = min(min(float2(dot(a, a), sg * (v0.x * e0.y - v0.y * e0.x)),
+                           float2(dot(b, b), sg * (v1.x * e1.y - v1.y * e1.x))),
+                       float2(dot(c, c), sg * (v2.x * e2.y - v2.y * e2.x)));
+        return -sqrt(d.x) * sign(d.y);
+    }
+
+    /// Coverage of the ◀◀ glyph (two rounded triangles) at q, with a half-frame motion blur. hm = canvas height in
+    /// short-side units.
+    inline float rr_icon(float2 q, float T, float hm, float px) {
+        if (T < 0.05 || T > 1.95 || abs(q.x) > 0.5) return 0.0;
+        float cov = 0.0;
+        for (int k = 0; k < 16; k++) {
+            float tau = T + (float(k) / 15.0 - 0.5) / 60.0;
+            float vy = rr_table(RR_IN_T, RR_IN_V, 9, tau < 1.0 ? tau : 1.966667 - tau);
+            float dy = vy * (0.5 * hm + 0.2);
+            float xl = rr_table(RR_PULSE_T, RR_PULSE_V, 20, tau);
+            float xr = rr_table(RR_PULSE_T, RR_PULSE_V, 20, tau - 0.133333);
+            float2 a = q - float2(xl, dy), b = q - float2(xr, dy);
+            float sd = min(rr_sdTri(a, float2(-0.219, 0.0), float2(-0.019, -0.174), float2(-0.019, 0.174)),
+                           rr_sdTri(b, float2(0.016, 0.0), float2(0.216, -0.174), float2(0.216, 0.174))) - 0.025;
+            cov += saturate(0.5 - sd / px);
+        }
+        return cov / 16.0;
+    }
+
+    /// Film dirt, new every frame: specks, a couple of curly hairs and a faint vertical scratch.
+    inline float rr_dust(float2 q, float2 uv, float fr, float px, float widthPx, float2 ext) {
+        float a = 0.0;
+        float2 cell = floor(q / 0.03);
+        float h = fx_hash(cell + float2(fr * 7.13, fr * 3.71));
+        if (h > 0.992) {
+            float2 jit = float2(fx_hash(cell + h * 5.0), fx_hash(cell - h * 3.0)) - 0.5;
+            float2 c = (cell + 0.5 + jit * 0.5) * 0.03;
+            float rad = 0.001 + 0.0022 * fract(h * 97.0);
+            a = saturate(0.5 - (length(q - c) - rad) / px);
+        }
+        // short curly fibres (most of the dirt) and, now and then, one long thin scratch across the frame
+        for (int i = 0; i < 9; i++) {
+            float2 seed = float2(fr * 1.37, float(i) * 17.0 + 3.0);
+            bool longOne = i == 8;
+            if (fx_hash(seed) < (longOne ? 0.85 : 0.35)) continue;
+            float2 c = (float2(fx_hash(seed + 1.1), fx_hash(seed + 2.3)) - 0.5) * ext;
+            float len = longOne ? 0.3 + 0.3 * fx_hash(seed + 4.9) : 0.01 + 0.035 * fx_hash(seed + 4.9);
+            float2 l = tr_rot(q - c, -fx_hash(seed + 3.7) * 6.2832);
+            if (abs(l.x) > len) continue;
+            float amp = longOne ? 0.04 + 0.05 * fx_hash(seed + 5.3) : 0.003 + 0.008 * fx_hash(seed + 5.3);
+            float k = longOne ? 4.0 + 5.0 * fx_hash(seed + 6.1) : 50.0 + 90.0 * fx_hash(seed + 6.1);
+            float ph = l.x * k + fx_hash(seed + 7.7) * 6.2832;
+            float d = abs(l.y - amp * sin(ph)) / sqrt(1.0 + pow(amp * k * cos(ph), 2.0));
+            float fade = 1.0 - smoothstep(0.6 * len, len, abs(l.x));
+            a = max(a, saturate(1.0 - (d - 0.0005) / px) * fade * (longOne ? 0.75 : 0.9));
+        }
+        float seg = floor(fr / 3.0);
+        if (fx_hash(float2(seg, 41.0)) > 0.35) {
+            float d = abs(uv.x - fx_hash(float2(seg, 43.0))) * widthPx;
+            a = max(a, 0.22 * saturate(1.0 - d * 0.7));
+        }
+        return a;
+    }
+    """
+
     public static let all: [TransitionDescriptor] =
         basic + camera + blur + light + slide + wipe + shapes + split + glitch + distortion + threeD + overlay
 }
@@ -981,8 +1096,8 @@ public enum TransitionShaderLib {
     """
 
     /// Full transition source for a body (see `BuiltinTransitions`).
-    public static func wrap(_ body: String) -> String {
-        helpers + """
+    public static func wrap(_ body: String, prelude: String = "") -> String {
+        helpers + prelude + """
 
         float4 transition(float2 uv, texture2d<float> from, texture2d<float> to, sampler s, float progress,
                           constant float* p, FXContext ctx) {
