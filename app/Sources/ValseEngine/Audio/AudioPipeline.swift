@@ -13,9 +13,14 @@ import ValseCore
 public enum AudioPipeline {
     /// Audio file to insert for `clip`. Export waits for the rendered stage; preview uses it when ready and otherwise
     /// plays the original while the render runs (the engine rebuilds on `AudioRenderCache.onReady`).
-    static func audioSource(clip: Clip, asset: MediaAsset, original: URL, purpose: RenderPurpose) async throws -> URL {
+    /// `conforms`: the composition is read by an AVAssetReader at 48 kHz (export, mixdown): a stream at another rate is
+    /// replaced by its 48 kHz copy (`AudioConform`; rendered stages are 48 kHz already).
+    static func audioSource(clip: Clip, asset: MediaAsset, original: URL, purpose: RenderPurpose,
+                            conforms: Bool = false, streamIndex: Int? = nil) async throws -> URL {
         let spec = ClipAudioPlan.make(clip).render
-        guard !spec.isIdentity else { return original }
+        guard !spec.isIdentity else {
+            return conforms ? try await AudioConform.shared.conformed(original, asset: asset, streamIndex: streamIndex) : original
+        }
         // the input may be a variant of the media (reversed render, transcoded playable copy): cache it separately
         var asset = asset
         if original.standardizedFileURL != asset.url.standardizedFileURL {

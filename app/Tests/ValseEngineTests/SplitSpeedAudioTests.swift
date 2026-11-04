@@ -133,6 +133,9 @@ import ValseTestSupport
     }
 
     /// Same on real iPhone footage (HEVC + 44.1/48 kHz AAC: priming, packet boundaries): sample-identical at speed 1.
+    /// BUG-SPLIT-AUDIO-FLAKE: this failed ~1 run in 10 (maxd 0.0057 / 0.011 / 0.017) whether split or not: AVFoundation's
+    /// 44.1 → 48 kHz conversion in the reader sometimes zeroed ~15 samples at an AAC packet boundary. Export now reads
+    /// a 48 kHz copy converted by `StreamResampler` (`AudioConform`).
     @Test func splitOfIPhoneFootageIsSampleIdentical() async throws {
         var p = TestProject(frameRate: .fps30)
         let id = try await p.addMedia(RealLikeMedia.iPhoneHLGPortrait)
@@ -150,6 +153,55 @@ import ValseTestSupport
         // butted clips share one audio composition track (A/B audio lanes only where clips overlap)
         let built = try await CompositionBuilder.build(project: q.project, purpose: .export)
         #expect(try await built.composition.loadTracks(withMediaType: .audio).count == 1)
+    }
+
+    /// BUG-SPLIT-AUDIO-FLAKE: the export mix of 44.1 kHz footage is the conformed 48 kHz copy (sample for sample), the
+    /// same on every read, and a 48 kHz file is used as is.
+    @Test func exportReadsTheConformedCopyOf44kFootage() async throws {
+        let url = RealLikeMedia.iPhoneHLGPortrait
+        var p = TestProject(frameRate: .fps30)
+        let id = try await p.addMedia(url)
+        p[id].sourceStart = Time(0.37)
+        p[id].duration = Time(1.2)
+        let conformed = try await AudioConform.shared.conformed(url, asset: p.project.asset(p[id].mediaID!)!, streamIndex: nil)
+        #expect(conformed != url)
+        let file = AVURLAsset(url: conformed)
+        let track = try #require(try await file.loadTracks(withMediaType: .audio).first)
+        #expect(try await AudioFileIO.nativeSampleRate(track) == 48000)
+        let copy = try await AudioFileIO.read(conformed).channel(0)
+        let mix = try await p.mixdown().channel(0)
+        let at = Int((0.37 * 48000).rounded())
+        var maxd: Float = 0
+        for i in 0..<mix.count { maxd = max(maxd, abs(mix[i] - copy[at + i])) }
+        #expect(maxd < 1e-5, "export mix differs from the conformed copy by \(maxd)")
+        for _ in 0..<3 {
+            let again = try await p.mixdown().channel(0)
+            #expect(again == mix, "the export mix changed between reads")
+        }
+        let wav = try await TestMedia.audio(seconds: 1)
+        var q = TestProject(frameRate: .fps30)
+        let w = try await q.addMedia(wav)
+        #expect(try await AudioConform.shared.conformed(wav, asset: q.project.asset(q[w].mediaID!)!, streamIndex: nil) == wav)
+    }
+
+    /// `StreamResampler` keeps the timeline: a pulse at 1 s of a 44.1 kHz file lands at frame 48000 of the 48 kHz read
+    /// (AVFoundation's reader put it 1.09 frames late and dropped 17 frames at the end), and the length is exact.
+    @Test func resampledReadKeepsTimingAndLength() async throws {
+        let sr = 44100.0
+        var s = [Float](repeating: 0, count: Int(sr * 2))
+        for k in -30...30 { s[44100 + k] = Float(0.25 * (1 + cos(Double.pi * Double(k) / 30))) }
+        let url = TestMedia.directory.appendingPathComponent("pulse44-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try AudioFileIO.write(AudioBuffer([s, s], sampleRate: sr), to: url, format: .wav24)
+        let x = try await AudioFileIO.read(url).channel(0)
+        #expect(x.count == 96000)
+        let i = try #require(x.indices.max { x[$0] < x[$1] })
+        let a = Double(x[i - 1]), b = Double(x[i]), c = Double(x[i + 1])
+        let peak = Double(i) + 0.5 * (a - c) / (a - 2 * b + c)
+        #expect(abs(peak - 48000) < 0.05, "pulse at frame \(peak)")
+        #expect(abs(b - 0.5) < 0.01)
+        let again = try await AudioFileIO.read(url).channel(0)
+        #expect(again == x)
     }
 
     /// Video at the cut: the frames around an off-grid split show the same source frames as the unsplit clip.
