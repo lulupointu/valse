@@ -158,21 +158,28 @@ struct TextContentTests {
         #expect(legacy.bubbleID == "valse.bubble.speechWhite" && legacy.bubbleColor == .red)
     }
 
-    /// Every preset has a paired look; neon bubbles get neon text in the frame colour (duos excepted) with the dusk
-    /// guard; on karaoke captions the tube degrades to a glow neon.
+    /// Every preset has a paired look; neon bubbles hold plain white text with a dark dusk guard (TX-NEON rework, as in
+    /// the owner's reference sign), the sign-like ones neon text in the frame colour (duos excepted); on karaoke
+    /// captions the tube degrades to a glow neon.
     @Test func everyBubbleHasAPairedLook() throws {
+        let neonText: Set<String> = ["valse.bubble.neonOrangeBurst", "valse.bubble.neonDuo", "valse.bubble.neonNightSign", "valse.bubble.neonFlicker"]
         for d in Registries.textBubbles.all {
             let l = try #require(TextBubblePairing.look(d.id), "\(d.id)")
             if d.groupKey == "bubble.group.neon", d.id != "valse.bubble.neonMarquee" {
-                #expect(l.neon != nil, "\(d.id)")
-                if !TextBubblePairing.duos.contains(d.id) { #expect(l.neon?.color == d.style.outline?.color, "\(d.id)") }
+                if neonText.contains(d.id) {
+                    #expect(l.neon != nil, "\(d.id)")
+                    if !TextBubblePairing.duos.contains(d.id) { #expect(l.neon?.color == d.style.outline?.color, "\(d.id)") }
+                } else {
+                    #expect(l.neon == nil && l.color == .white && l.glow?.color == .black && l.glow?.mode == .outer, "\(d.id)")
+                }
             }
         }
         #expect(TextBubblePairing.looks.count == 63)
         let pink = try #require(TextBubblePairing.look("valse.bubble.neonPinkPill"))
         #expect(pink.glow?.color == .black && pink.fontName == "ArialRoundedMTBold")
-        let k = try #require(TextBubblePairing.look("valse.bubble.neonPinkPill", karaoke: true))
-        #expect(k.neon == nil && k.glow?.color == pink.neon?.color)
+        let duo = try #require(TextBubblePairing.look("valse.bubble.neonDuo"))
+        let k = try #require(TextBubblePairing.look("valse.bubble.neonDuo", karaoke: true))
+        #expect(k.neon == nil && k.glow?.color == duo.neon?.color)
         // Flickering neon: the text flickers in sync with the frame (same faulty envelope)
         let f = try #require(TextBubblePairing.look("valse.bubble.neonFlicker"))
         #expect(f.neon?.flicker == Registries.textBubbles["valse.bubble.neonFlicker"]?.style.outline?.neon?.flicker)
@@ -192,7 +199,7 @@ struct TextContentTests {
         #expect(t.neon == nil && t.glow == nil && t.italic && t.fontName == "ChalkboardSE-Bold")
         t.color = .red   // user recolour after the pick
         TextBubblePairing.pick(cyan, on: &t)
-        #expect(t.color == .red && t.neon != nil && t.fontName == "Futura-Medium")
+        #expect(t.color == .red && t.neon == nil && t.glow?.color == .black && t.fontName == "Futura-Medium")
         TextBubblePairing.pick(nil, on: &t)
         var expected = before.look; expected.color = .red
         #expect(t.look == expected && t.bubbleID == nil && t.bubblePriorLook == nil)

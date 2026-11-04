@@ -335,10 +335,22 @@ enum BubblePainter {
         }
     }
 
-    /// Filled silhouette of the outline (neon tube, shadows).
-    static func tube(_ path: CGPath, _ o: TextBubbleOutline, em: CGFloat) -> CGPath {
-        linePath(path, o, em: em).copy(strokingWithWidth: CGFloat(o.width) * em, lineCap: o.dash == .dashed ? .butt : .round,
-                                       lineJoin: .round, miterLimit: 4)
+    /// Filled silhouette of the outline (neon tube, shadows). `shape`: the shape rectangle, for the neon tube break.
+    static func tube(_ path: CGPath, _ o: TextBubbleOutline, em: CGFloat, breakIn shape: CGRect? = nil, tail: TextBubbleTail? = nil) -> CGPath {
+        var line = linePath(path, o, em: em)
+        if let r = shape, let x = tubeBreakX(o, r, tail: tail) {
+            line = NeonPainter.broken(line, x: x, gap: CGFloat(o.width) * em * 3.1)
+        }
+        return line.copy(strokingWithWidth: CGFloat(o.width) * em, lineCap: o.dash == .dashed ? .butt : .round,
+                         lineJoin: .round, miterLimit: 4)
+    }
+
+    /// TX-NEON tube break: where it goes (as in the reference sign, the top right, 78 % of the way from the centre to
+    /// the right edge; mirrored to the top left when a tail leaves from the top right). nil = no break.
+    static func tubeBreakX(_ o: TextBubbleOutline, _ r: CGRect, tail: TextBubbleTail?) -> CGFloat? {
+        guard o.neon != nil, o.tubeBreak, o.dash == .solid, o.width > 0 else { return nil }
+        let k: CGFloat = tail?.side == .topRight ? -0.78 : 0.78
+        return r.midX + k * r.width / 2
     }
 
     /// Scene-space AABB of everything the bubble paints (outline, glow, shadow, tail), before the item transform.
@@ -365,8 +377,10 @@ enum BubblePainter {
     static func draw(_ s: TextBubbleStyle, rect: CGRect, em: CGFloat, part: Part, itemTransform M: CGAffineTransform, in ctx: CGContext) {
         let path = path(s, rect: rect, em: em)
         let neon = s.outline.flatMap(neonStyle)
-        let params = neon.map { NeonPainter.Params($0, em: em) }
-        let tubePath = s.outline.flatMap { o in neon != nil ? tube(path, o, em: em) : nil }
+        let params = neon.map { n -> NeonPainter.Params in var p = NeonPainter.Params(n, em: em); p.stroked = true; return p }
+        let tubePath = s.outline.flatMap { o in
+            neon != nil ? tube(path, o, em: em, breakIn: isClassic(s) ? rect : shapeRect(s, rect), tail: s.family.hasTail ? s.tail : nil) : nil
+        }
         let body = part == .whole || part == .body
         // shadow
         if body, let sh = s.shadow { drawShadow(sh, path: path, s: s, tube: tubePath, params: params, em: em, M: M, in: ctx) }

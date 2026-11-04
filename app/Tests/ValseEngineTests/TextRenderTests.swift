@@ -234,7 +234,9 @@ import ValseTestSupport
         // a time where the faulty letter is dark (clip start is always lit)
         let times = stride(from: 0.0, to: 12, by: 1.0 / 30)
         let dark = try #require(times.first { TextNeonStyle.flickerLevel(.oneLetter, t: $0, faulty: true, seed: seed) < 0.1 })
-        let litCount = count(render(t, at: 0.2), Self.lit), darkCount = count(render(t, at: dark), Self.lit)
+        // lit = brighter than the dim glass of an unlit tube (30 % of the white core)
+        let on: (RGBA) -> Bool = { $0.luma > 0.4 }
+        let litCount = count(render(t, at: 0.2), on), darkCount = count(render(t, at: dark), on)
         #expect(darkCount < litCount * 9 / 10 && darkCount > litCount / 4, "I goes out, H stays lit")
         // determinism: a fresh renderer (export) gives the same frame as the shared one (preview)
         let p = project(t).0
@@ -242,7 +244,7 @@ import ValseTestSupport
         // Whole text: both letters dim together, deeper than one letter going out
         let w = text("HI", size: 0.3) { $0.neon = TextNeonStyle(flicker: .wholeText) }
         let wDark = try #require(times.first { TextNeonStyle.flickerLevel(.wholeText, t: $0, seed: seed) < 0.1 })
-        #expect(count(render(w, at: wDark), Self.lit) < darkCount)
+        #expect(count(render(w, at: wDark), on) < darkCount)
         // Off never flickers
         #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.off, t: $0) == 1 })
     }

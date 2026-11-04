@@ -9,7 +9,8 @@ public enum BuiltinTextBubbles {
     static let w = RGBA.white, k = RGBA(hex: 0x141414), y = RGBA(hex: 0xFFD400), r = RGBA(hex: 0xE53935)
     static let bl = RGBA(hex: 0x2F80FF), g = RGBA(hex: 0x34C759), p = RGBA(hex: 0xFF4FA3), pu = RGBA(hex: 0x7B2FF7)
     // TX-BUBBLE2 palette
-    static let pink = RGBA(hex: 0xFF2E88), cyan = RGBA(hex: 0x19E6FF), lime = RGBA(hex: 0xA6FF3D), violet = RGBA(hex: 0xB44BFF)
+    // pink: the owner's reference neon sign (soft rose tube light), TX-NEON rework
+    static let pink = RGBA(hex: 0xFF6FA8), cyan = RGBA(hex: 0x19E6FF), lime = RGBA(hex: 0xA6FF3D), violet = RGBA(hex: 0xB44BFF)
     static let orange = RGBA(hex: 0xFF8A1F), red = RGBA(hex: 0xFF3B3B), ice = RGBA(hex: 0xE8F6FF), amber = RGBA(hex: 0xFFE53D)
     static let none = RGBA.clear
 
@@ -36,7 +37,8 @@ public enum BuiltinTextBubbles {
         return s
     }
 
-    static func neon(_ c: RGBA, width: Double = 0.06, glow: Double = 0.35, dash: TextBubbleOutline.Dash = .solid,
+    /// Neon outline: by default the owner's reference sign (tube ~0.09 em, halo ~3.5 tube widths, one tube break).
+    static func neon(_ c: RGBA, width: Double = 0.095, glow: Double = 0.35, dash: TextBubbleOutline.Dash = .solid,
                      flicker: TextNeonFlicker = .off) -> TextBubbleOutline {
         TextBubbleOutline(color: c, width: width, dash: dash, neon: TextBubbleOutline.neonStyle(glow: glow, flicker: flicker))
     }
@@ -90,16 +92,17 @@ public enum BuiltinTextBubbles {
             // Neon: transparent fill + neon outline
             n("neonPinkPill", "neon", shape(.pill, fill: none, outline: neon(pink))),
             n("neonCyanBox", "neon", shape(.box, r: 0.2, fill: none, outline: neon(cyan))),
-            n("neonLimeSpeech", "neon", shape(.box, r: 0.5, tail: tail(.bottomLeft), fill: none, outline: neon(lime))),
+            // the reference sign's shape: an oval speech balloon, tail bottom left
+            n("neonLimeSpeech", "neon", shape(.oval, tail: tail(.bottomLeft), fill: none, outline: neon(lime))),
             n("neonVioletThought", "neon", shape(.cloud, edge: .calm, tail: tail(.bottomLeft, .dots), fill: none, outline: neon(violet))),
             n("neonOrangeBurst", "neon", shape(.burst, edge: .spiky, fill: none, outline: neon(orange))),
             n("neonRedOval", "neon", shape(.oval, fill: none, outline: neon(red))),
-            n("neonIceBrackets", "neon", shape(.brackets, fill: none, outline: neon(ice, width: 0.07))),
+            n("neonIceBrackets", "neon", shape(.brackets, fill: none, outline: neon(ice))),
             n("neonAmberArrow", "neon", shape(.arrow, fill: none, outline: neon(amber))),
             n("neonDuo", "neon", shape(.box, r: 0.3, fill: none, outline: neon(pink), shadow: TextBubbleShadow(color: cyan, kind: .hard))),
             n("neonNightSign", "neon", nightSign),
             n("neonFlicker", "neon", shape(.pill, fill: none, outline: neon(cyan, flicker: .oneLetter))),   // the tube is a faulty segment
-            n("neonMarquee", "neon", shape(.box, r: 0.15, fill: none, outline: neon(amber, width: 0.08, dash: .dotted))),
+            n("neonMarquee", "neon", shape(.box, r: 0.15, fill: none, outline: neon(amber, width: 0.1, dash: .dotted))),
             // Outline
             n("outlineSpeech", "outline", shape(.box, r: 0.5, tail: tail(.bottom), fill: none, outline: line(w, 0.07))),
             n("outlinePillDark", "outline", shape(.pill, fill: none, outline: line(k, 0.07)), text: k, backdrop: .light),
