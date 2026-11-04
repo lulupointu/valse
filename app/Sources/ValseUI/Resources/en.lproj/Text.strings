@@ -66,12 +66,10 @@
 /* TX-BUBBLE2: Text ▸ Bubble quick rows and Customize */
 "cmd.textBubbleEdit" = "Edit bubble";
 "text.bubble.group.all" = "All";
-"text.bubble.customize" = "Customize";
 "text.bubble.basedOn" = "Based on %@";
 "text.bubble.edited" = "Edited";
 "text.bubble.reset" = "Restore the bubble and its text style";
 "text.bubble.fill" = "Fill";
-"text.bubble.none" = "None";
 "text.bubble.opacity" = "Opacity";
 "text.bubble.outline" = "Outline";
 "text.bubble.width" = "Width";
@@ -106,6 +104,14 @@
 "text.bubble.shadow.soft" = "Soft";
 "text.bubble.shadow.hard" = "Hard";
 "text.bubble.padding" = "Padding";
+"text.bubble.all" = "All %d";
+"text.bubble.less" = "Show less";
+"text.bubble.shape.none" = "No bubble";
+"text.bubble.shapeHint" = "Pick a shape to build your own bubble.";
+"text.bubble.tail.side" = "Side";
+"text.bubble.flicker.off" = "Off";
+"text.bubble.flicker.subtle" = "Whole";
+"text.bubble.flicker.broken" = "One segment";
 "text.bubble.paddingH" = "Horizontal";
 "text.bubble.paddingV" = "Vertical";
 "text.bubble.link" = "Link horizontal and vertical (⌥-drag moves one)";
@@ -113,6 +119,7 @@
 "text.bubble.family.box" = "Box";
 "text.bubble.family.pill" = "Pill";
 "text.bubble.family.oval" = "Oval";
+"text.bubble.family.circle" = "Circle";
 "text.bubble.family.cloud" = "Cloud";
 "text.bubble.family.burst" = "Burst";
 "text.bubble.family.banner" = "Banner";

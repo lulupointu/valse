@@ -153,6 +153,9 @@
 "bubble.squareBlock" = "Bloc carré";
 "bubble.softCard" = "Carte douce";
 "bubble.highlighter" = "Surligneur";
+"bubble.roundSpeech" = "Bulle ronde";
+"bubble.roundBadge" = "Badge rond";
+"bubble.roundNeon" = "Néon rond";
 "captionTemplate.classic" = "Classique";
 "captionTemplate.label" = "Étiquette";
 "captionTemplate.bold" = "Gras";

@@ -32,6 +32,7 @@ public enum BuiltinTextBubbles {
                   fill: fill, outline: outline, shadow: shadow, containsText: true)
         if let edge { s.setEdge(edge) }
         if f == .underline { s.padding = Vec2(0.15, 0.08) }
+        if f == .circle { s.padding = Vec2(0.12, 0.12) }   // added to the text box's half diagonal
         return s
     }
 
@@ -130,6 +131,10 @@ public enum BuiltinTextBubbles {
             n("squareBlock", "minimal", shape(.box, r: 0, fill: k), backdrop: .light),
             n("softCard", "minimal", shape(.box, r: 0.35, fill: RGBA(hex: 0xF5F1E8), shadow: TextBubbleShadow(color: RGBA(hex: 0x141414, alpha: 0.3))), text: k),
             n("highlighter", "minimal", shape(.underline, fill: RGBA(hex: 0xFFE53D, alpha: 0.8), bar: 0.45), text: k, backdrop: .light),
+            // Round: a true circle around the text
+            n("roundSpeech", "speech", shape(.circle, tail: tail(.bottomLeft, .curve), fill: w, outline: line(k, 0.06)), text: k),
+            n("roundBadge", "outline", shape(.circle, fill: none, outline: line(w, 0.06))),
+            n("roundNeon", "neon", shape(.circle, fill: none, outline: neon(cyan))),
         ]
     }()
 

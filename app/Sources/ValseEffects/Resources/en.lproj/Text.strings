@@ -153,6 +153,9 @@
 "bubble.squareBlock" = "Square block";
 "bubble.softCard" = "Soft card";
 "bubble.highlighter" = "Highlighter";
+"bubble.roundSpeech" = "Round speech";
+"bubble.roundBadge" = "Round badge";
+"bubble.roundNeon" = "Round neon";
 "captionTemplate.classic" = "Classic";
 "captionTemplate.label" = "Label";
 "captionTemplate.bold" = "Bold";

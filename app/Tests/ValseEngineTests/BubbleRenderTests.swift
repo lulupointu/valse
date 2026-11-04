@@ -284,12 +284,51 @@ import ValseTestSupport
         #expect(wide.width > tall.width && wide.height < tall.height)
     }
 
+    // MARK: 10. circle: w == h, contains the text, obeys max(H, V) padding (negative too), carries a tail
+
+    @Test func circleIsRoundAndContainsTheText() throws {
+        func make(_ str: String, _ pad: Vec2, tail: Bool = false) throws -> (path: CGPath, shape: CGRect, scene: TextScene, block: Int) {
+            var s = TextBubbleStyle(family: .circle, fill: .white, containsText: true)
+            s.padding = pad
+            if tail { s.tail = TextBubbleTail(side: .bottomLeft, kind: .curve) }
+            let sc = scene(text(str) { $0.bubbleStyle = s })
+            let it = try #require(bubbleItems(sc).first)
+            guard case .bubble(let st, let rect, _) = it.kind else { throw CancellationError() }
+            let em = sc.blocks[it.block].em
+            return (BubblePainter.path(st, rect: rect, em: em), BubblePainter.shapeRect(st, rect, em: em), sc, it.block)
+        }
+        for str in ["Default text", "Hi", "One\ntwo\nthree lines"] {
+            let c = try make(str, Vec2(0.12, 0.12))
+            #expect(abs(c.shape.width - c.shape.height) < 0.01, "\(str): a circle")
+            let b = c.path.boundingBoxOfPath
+            #expect(abs(b.width - b.height) < 1, "\(str): drawn round \(b)")
+            var outside = 0
+            for cl in c.scene.blocks[c.block].layout.clusters where !cl.isWhitespace {
+                let r = cl.box.applying(cl.transform)
+                for q in [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY), CGPoint(x: r.minX, y: r.maxY), CGPoint(x: r.maxX, y: r.maxY)]
+                where !c.path.contains(q) { outside += 1 }
+            }
+            #expect(outside == 0, "\(str): \(outside) glyph corners outside the circle")
+            // padding 0: the circle passes through the text box corners
+            let z = try make(str, Vec2(0, 0))
+            let lb = z.scene.blocks[z.block].layout.bounds
+            #expect(abs(z.shape.width / 2 - hypot(lb.width / 2, lb.height / 2)) < 0.01)
+        }
+        let em = try make("Hi", Vec2(0, 0)).scene.blocks[0].em
+        let base = try make("Default text", Vec2(0, 0)).shape.width
+        #expect(abs(try make("Default text", Vec2(0.3, 0.1)).shape.width - (base + 0.6 * em)) < 0.01, "max(H, V) padding")
+        #expect(try make("Default text", Vec2(-0.2, -0.2)).shape.width < base - 0.3 * em, "negative padding tightens it")
+        // a tail reaches out of the circle
+        let plain = try make("Hi", Vec2(0.12, 0.12)).path.boundingBoxOfPath, tailed = try make("Hi", Vec2(0.12, 0.12), tail: true).path.boundingBoxOfPath
+        #expect(tailed.maxY > plain.maxY + 0.3 * em && tailed.minX < plain.minX + 1)
+    }
+
     // MARK: contact sheet (VALSE_SNAPSHOT_DIR=…): every TX-BUBBLE2 preset, then oval / cloud / burst at padding 0 and −0.3
 
     @Test func contactSheet() {
         guard let dir = ProcessInfo.processInfo.environment["VALSE_SNAPSHOT_DIR"] else { return }
         var cells: [TextContent] = BuiltinTextBubbles.added.map { d in text("Default text") { $0.bubbleID = d.id; $0.color = d.textColor } }
-        for f in [TextBubbleStyle.Family.oval, .cloud, .burst, .pill, .hexagon] {
+        for f in [TextBubbleStyle.Family.oval, .circle, .cloud, .burst, .pill, .hexagon] {
             for p in [Vec2(0, 0), Vec2(-0.3, -0.3)] {
                 var s = TextBubbleStyle(family: f, fill: RGBA(1, 1, 1, 0.25), outline: TextBubbleOutline(color: .white, width: 0.04), containsText: true)
                 s.padding = p

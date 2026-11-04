@@ -45,11 +45,13 @@ final class TextUIState {
     /// Bumped when imported fonts change.
     var fontsRevision = 0
     var presetsExpanded = false
-    /// TX-BUBBLE2: Bubble ▸ Customize disclosure (remembered app-wide) and the group filter pill (nil = All).
-    var bubbleCustomizeExpanded = false
+    /// TX-BUBBLE2: Bubble ▸ Presets group filter pill (nil = All).
     var bubbleGroup: String?
     /// Customize ▸ Padding chain: horizontal and vertical padding move together (default) or separately.
     var bubblePaddingLinked = true
+    /// Bubble ▸ Presets: "All" grid expanded (remembered app-wide) and the presets picked this session (newest first).
+    var bubblePresetsExpanded = false
+    var recentBubbles: [String] = []
     /// A Padding slider is held: the canvas draws the text box dashed (what padding is measured from).
     var bubblePaddingGuide = false
     /// C4 Text ▸ Basic "Apply to all main captions" (CapCut, on by default): style edits on a caption restyle its track.
@@ -174,15 +176,34 @@ extension EditorStore {
     /// the user chose kept, None restores the look from before the first bubble), one undo step.
     func applyBubble(_ d: TextBubbleDescriptor?) {
         guard let id = bubbleTargetClipID else { return }
-        updateText(id, nameKey: "cmd.textBubble") { t in TextBubblePairing.pick(d, on: &t) }
+        updateText(id, nameKey: "cmd.textBubble") { t in
+            // leaving a bubble built from scratch: its text look first goes back to before (it set no pairing)
+            if t.bubbleID == nil, t.bubbleStyle != nil, let prior = t.bubblePriorLook { t.look = prior; t.bubblePriorLook = nil }
+            TextBubblePairing.pick(d, on: &t)
+        }
+        if let d {   // Bubble ▸ Presets row: recents first
+            let ui = TextUIState.shared
+            ui.recentBubbles = [d.id] + ui.recentBubbles.filter { $0 != d.id }.prefix(12)
+        }
     }
 
     /// Customize edit of the selected texts' bubbles (each clip starts from its own resolved bubble), one undo step.
     /// An outline recolour carries the paired text colour along (linked colours).
-    func updateBubble(_ body: @escaping (inout TextBubbleStyle) -> Void) {
+    /// `blank`: a text without a bubble starts from it ("start from blank": a shape, a section checkbox), so the
+    /// first edit builds a bubble from scratch.
+    func updateBubble(blank: TextBubbleStyle? = nil, _ body: @escaping (inout TextBubbleStyle) -> Void) {
         guard let id = bubbleTargetClipID else { return }
         updateText(id, nameKey: "cmd.textBubbleEdit") { t in
             let before = t.resolvedBubble()
+            if before == nil, let blank {
+                t.bubbleStyle = blank; t.bubbleColor = nil
+                // white text on a new white bubble would vanish: it turns ink (undo brings it back)
+                let f = blank.fill, c = t.color
+                if f.a > 0.5, f.r + f.g + f.b > 2.4, c.r + c.g + c.b > 2.4, t.neon == nil {
+                    t.bubblePriorLook = t.look   // a preset pick or ⊘ brings the white text back
+                    t.color = RGBA(hex: 0x141414)
+                }
+            }
             t.editBubble(body)
             TextBubblePairing.followOutline(&t, before: before)
         }

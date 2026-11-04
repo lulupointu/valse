@@ -5,14 +5,15 @@ import Foundation
 /// Sizes in em of the clip font size. Every field decodes with a default, so older / newer files stay readable.
 public struct TextBubbleStyle: Hashable, Codable, Sendable {
     public enum Family: String, Codable, CaseIterable, Sendable {
-        case box, pill, oval, cloud, burst, banner, ribbon, tag, hexagon, arrow, brackets, underline
+        /// `circle`: a true circle around the text box (diameter = its diagonal + 2 × max(padding)).
+        case box, pill, oval, circle, cloud, burst, banner, ribbon, tag, hexagon, arrow, brackets, underline
 
         /// Families that can carry a tail.
-        public var hasTail: Bool { [.box, .pill, .oval, .cloud, .burst].contains(self) }
+        public var hasTail: Bool { [.box, .pill, .oval, .circle, .cloud, .burst].contains(self) }
         /// Families with an Edge (Calm / Spiky / Wild) control.
         public var hasEdge: Bool { self == .cloud || self == .burst }
         /// Families whose shape can be grown to contain the padded text rectangle.
-        public var canContain: Bool { self == .oval || self == .cloud || self == .burst }
+        public var canContain: Bool { self == .oval || self == .circle || self == .cloud || self == .burst }
     }
 
     /// The Edge control's three looks (burst spikes / depth, cloud bumps).
@@ -86,6 +87,10 @@ public struct TextBubbleStyle: Hashable, Codable, Sendable {
         bumps = Self.cloudBumps[e] ?? bumps
         jitter = e == .wild ? 0.5 : 0
     }
+
+    /// A bubble built from scratch (Bubble ▸ Shape with no bubble): that shape, white fill, no outline, default
+    /// padding, containing the text.
+    public static func blank(_ f: Family) -> TextBubbleStyle { TextBubbleStyle(family: f, fill: .white, containsText: true) }
 
     /// Changes the shape family (Customize ▸ Shape): the shape then contains the text; tails are dropped on families
     /// without one.

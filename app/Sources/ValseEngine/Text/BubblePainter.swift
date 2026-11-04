@@ -15,7 +15,7 @@ enum BubblePainter {
 
     /// The style is expressible by a v1 `BubbleShape` with v1 sizing (no containment, classic tail, no jitter).
     static func isClassic(_ s: TextBubbleStyle) -> Bool {
-        guard !s.containsText, s.jitter == 0 else { return false }
+        guard !s.containsText, s.jitter == 0, s.family != .circle else { return false }
         guard let t = s.tail else { return true }
         guard t.position == nil, t.lean == 0, t.length == TextBubbleTail.defaultLength, t.width == TextBubbleTail.defaultWidth else { return false }
         switch s.family {
@@ -28,7 +28,15 @@ enum BubblePainter {
     /// Rectangle of the shape: the padded text rect, grown for oval / cloud / burst into the ellipse through its
     /// corners (padding 0 = the shape just touches the text box): the same margin m on both axes
     /// (a²/(a+m)² + b²/(b+m)² = 1, tighter than the √2 minimum-area fit on wide text), aspect capped at 3:1.
-    static func shapeRect(_ s: TextBubbleStyle, _ r: CGRect) -> CGRect {
+    /// Circle: centred on the text box, radius = half its diagonal + max(H, V) padding (so negative padding tightens
+    /// it too), ≥ 0.2 em. `r` is the padded rect, the text box is recovered from it.
+    static func shapeRect(_ s: TextBubbleStyle, _ r: CGRect, em: CGFloat = 1) -> CGRect {
+        if s.family == .circle {
+            let px = CGFloat(s.padding.x) * em, py = CGFloat(s.padding.y) * em
+            let a = max(r.width / 2 - px, 0), b = max(r.height / 2 - py, 0)
+            let rad = max(hypot(a, b) + max(px, py), em * 0.2, 0.5)
+            return CGRect(x: r.midX - rad, y: r.midY - rad, width: rad * 2, height: rad * 2)
+        }
         guard s.containsText, s.family.canContain else { return r }
         let e = containingEllipse(a: max(r.width / 2, 0.5), b: max(r.height / 2, 0.5))
         return CGRect(x: r.midX - e.rx, y: r.midY - e.ry, width: e.rx * 2, height: e.ry * 2)
@@ -51,7 +59,7 @@ enum BubblePainter {
 
     static func path(_ s: TextBubbleStyle, rect r0: CGRect, em: CGFloat) -> CGPath {
         if isClassic(s) { return BubblePaths.path(TextBubbleDescriptor.shape(of: s), rect: r0, em: em) }
-        let r = shapeRect(s, r0)
+        let r = shapeRect(s, r0, em: em)
         let tail = s.family.hasTail ? s.tail : nil
         let joined = tail.flatMap { $0.kind == .dots ? nil : $0 }
         let p = CGMutablePath()
@@ -66,7 +74,7 @@ enum BubblePainter {
                 rr = min(rr, max((r.height - tailWidth(t, r, em, vertical: true)) / 2, 0))
             }
             box(p, r, max(rr, 0), joined, em)
-        case .oval:
+        case .oval, .circle:
             oval(p, r, joined, em)
         case .cloud:
             cloud(p, r, bumps: s.bumps, jitter: s.jitter, tail: joined, em: em)
@@ -438,6 +446,11 @@ public enum BubbleIcons {
         }
         var r = CGRect(origin: .zero, size: size).insetBy(dx: inset, dy: size.height * 0.24)
         if f == .burst { r = r.insetBy(dx: 0, dy: -size.height * 0.02) }
+        if f == .circle {   // circle through the corners of a small square: diameter 0.8 × the icon height
+            s.padding = Vec2(0, 0)
+            let side = size.height * 0.4 * sqrt(2)
+            r = CGRect(x: size.width / 2 - side / 2, y: size.height / 2 - side / 2, width: side, height: side)
+        }
         return BubblePainter.path(s, rect: r, em: em)
     }
 }

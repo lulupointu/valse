@@ -41,6 +41,7 @@ public enum StateDump {
             if tl.tracks.indices.contains(track) { d["lane"] = tl.tracks[track].kind.rawValue }
             if case .text(let t) = c.content {
                 d["text"] = t.string; if let w = t.boxWidth { d["boxWidth"] = w }
+                d["textColor"] = String(format: "%02X%02X%02X", Int((t.color.r * 255).rounded()), Int((t.color.g * 255).rounded()), Int((t.color.b * 255).rounded()))
                 d["strokeWidth"] = t.strokeWidth; d["strokePosition"] = t.strokePosition.rawValue   // F3 TX-005
                 if let n = t.neon {   // TX-NEON
                     let hex = String(format: "%02X%02X%02X", Int((n.color.r * 255).rounded()), Int((n.color.g * 255).rounded()), Int((n.color.b * 255).rounded()))

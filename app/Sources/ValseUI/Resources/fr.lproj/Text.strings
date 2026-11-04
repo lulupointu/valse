@@ -66,12 +66,10 @@
 /* TX-BUBBLE2: Texte ▸ Bulle, lignes rapides et Personnaliser */
 "cmd.textBubbleEdit" = "Modifier la bulle";
 "text.bubble.group.all" = "Tout";
-"text.bubble.customize" = "Personnaliser";
 "text.bubble.basedOn" = "Basé sur %@";
 "text.bubble.edited" = "Modifié";
 "text.bubble.reset" = "Rétablir la bulle et son style de texte";
 "text.bubble.fill" = "Remplissage";
-"text.bubble.none" = "Aucun";
 "text.bubble.opacity" = "Opacité";
 "text.bubble.outline" = "Contour";
 "text.bubble.width" = "Épaisseur";
@@ -106,6 +104,14 @@
 "text.bubble.shadow.soft" = "Douce";
 "text.bubble.shadow.hard" = "Nette";
 "text.bubble.padding" = "Marge";
+"text.bubble.all" = "Tout (%d)";
+"text.bubble.less" = "Réduire";
+"text.bubble.shape.none" = "Aucune bulle";
+"text.bubble.shapeHint" = "Choisissez une forme pour créer votre propre bulle.";
+"text.bubble.tail.side" = "Côté";
+"text.bubble.flicker.off" = "Désactivé";
+"text.bubble.flicker.subtle" = "Entier";
+"text.bubble.flicker.broken" = "Un segment";
 "text.bubble.paddingH" = "Horizontale";
 "text.bubble.paddingV" = "Verticale";
 "text.bubble.link" = "Lier horizontal et vertical (⌥ + glisser pour n'en changer qu'une)";
@@ -113,6 +119,7 @@
 "text.bubble.family.box" = "Boîte";
 "text.bubble.family.pill" = "Pilule";
 "text.bubble.family.oval" = "Ovale";
+"text.bubble.family.circle" = "Cercle";
 "text.bubble.family.cloud" = "Nuage";
 "text.bubble.family.burst" = "Explosion";
 "text.bubble.family.banner" = "Bannière";

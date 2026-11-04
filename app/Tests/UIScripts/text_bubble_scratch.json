@@ -1,0 +1,34 @@
+// TX-BUBBLE2 "start from blank": no bubble → Shape ▸ Circle builds a white circle around the text (the white text
+// turns ink), ☐ Tail gives it a tail, ⊘ removes the bubble; no bubble → ☐ Neon builds a transparent rounded box with
+// only the neon line, the pill shape makes it a neon pill (2 clicks); one undo step each.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"seek": 1.5},
+    {"click": "id:inspector.sub.bubble"},
+    {"expect": [{"path": "selectedClips.0.bubbleID", "exists": false}, {"path": "selectedClips.0.bubbleStyle", "exists": false}]},
+    {"click": "id:text.bubble.shape.circle"},
+    {"expect": [{"path": "selectedClips.0.bubbleStyle.family", "equals": "circle"}, {"path": "selectedClips.0.bubbleStyle.fillAlpha", "equals": 100},
+                {"path": "undo.name", "equals": "cmd.textBubbleEdit"}, {"path": "selectedClips.0.textColor", "equals": "141414"}]},
+    {"click": "id:inspector.check.text.bubble.tail"},
+    {"expect": {"path": "selectedClips.0.bubbleStyle.tail.side", "equals": "bottomLeft"}},
+    {"snapshot": "bubble-canvas-scratch-circle", "element": "id:panel.player", "baseline": true, "threshold": 40, "tolerance": 0.03},
+    {"click": "id:text.bubble.shape.none"},
+    {"expect": [{"path": "selectedClips.0.bubbleStyle", "exists": false}, {"path": "selectedClips.0.textColor", "equals": "FFFFFF"}]},
+    {"click": "id:inspector.check.text.bubble.neon"},
+    {"expect": [{"path": "selectedClips.0.bubbleStyle.family", "equals": "box"}, {"path": "selectedClips.0.bubbleStyle.fillAlpha", "equals": 0},
+                {"path": "selectedClips.0.bubbleStyle.outline.neon.glow", "equals": 35}, {"path": "selectedClips.0.bubbleStyle.contains", "equals": true},
+                {"path": "selectedClips.0.bubbleID", "exists": false}, {"path": "undo.name", "equals": "cmd.textBubbleEdit"}]},
+    {"click": "id:text.bubble.shape.pill"},
+    {"expect": [{"path": "selectedClips.0.bubbleStyle.family", "equals": "pill"}, {"path": "selectedClips.0.bubbleStyle.fillAlpha", "equals": 0},
+                {"path": "selectedClips.0.bubbleStyle.outline.neon.glow", "equals": 35}, {"path": "selectedClips.0.bubbleStyle.padX", "equals": 450},
+                {"path": "selectedClips.0.bubbleStyle.padY", "equals": 300}]},
+    {"snapshot": "bubble-canvas-scratch-neon", "element": "id:panel.player", "baseline": true, "threshold": 40, "tolerance": 0.03},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.bubbleStyle.family", "equals": "box"}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.bubbleStyle", "exists": false}}
+  ]
+}
