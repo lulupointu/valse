@@ -154,46 +154,26 @@ public final class QuickCutAnalyzer: @unchecked Sendable {
     public enum AnalysisError: Error { case unreadable }
 
     /// Decodes the first audio track of `url` at 16 kHz mono and runs the detector on the stream. A file without an
-    /// audio track gives `QuickCutMask.empty`.
+    /// audio track gives `QuickCutMask.empty`. Resampled by `AudioFileIO.stream` (deterministic; the reader's own
+    /// resampling zeroed samples at random AAC packet boundaries, BUG-AUDIO-RESAMPLE-ALL).
     public static func compute(url: URL, progress: (@Sendable (Double) -> Void)? = nil) async throws -> QuickCutMask {
         let asset = AVURLAsset(url: url)
-        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { return .empty }
+        guard try await !asset.loadTracks(withMediaType: .audio).isEmpty else { return .empty }
         let duration = try await asset.load(.duration).seconds
-        let reader = try AVAssetReader(asset: asset)
-        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: QuickCutDetector.sampleRate, AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsNonInterleaved: false])
-        out.alwaysCopiesSampleData = false
-        reader.add(out)
-        guard reader.startReading() else { throw reader.error ?? AnalysisError.unreadable }
-        let r = UncheckedSendable(reader), o = UncheckedSendable(out)
-        // blocking read loop + DSP: off the cooperative pool; the reader is cancelled only after the loop returned
-        let features = try await OffPool.run(qos: .utility) { ctx -> QuickCutDetector.Features in
-            defer { r.value.cancelReading() }
-            var det = QuickCutDetector()
-            var chunk: [Float] = []
-            var fed = 0
-            var lastReport = 0.0
-            while let sb = o.value.copyNextSampleBuffer() {
-                try ctx.checkCancellation()
-                guard let block = CMSampleBufferGetDataBuffer(sb) else { continue }
-                let n = CMBlockBufferGetDataLength(block) / 4
-                guard n > 0 else { continue }
-                if chunk.count < n { chunk = [Float](repeating: 0, count: n) }
-                chunk.withUnsafeMutableBytes { _ = CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: n * 4, destination: $0.baseAddress!) }
-                chunk.withUnsafeBufferPointer { det.feed(UnsafeBufferPointer(rebasing: $0[0..<n])) }
-                fed += n
-                if duration > 0 {
-                    let f = min(0.99, Double(fed) / Double(QuickCutDetector.sampleRate) / duration)
-                    if f - lastReport >= 0.02 { lastReport = f; progress?(f) }
-                }
+        var det = QuickCutDetector()
+        var fed = 0
+        var lastReport = 0.0
+        // (the blocking read loop + DSP run off the cooperative pool: AudioFileIO.stream → OffPool)
+        try await AudioFileIO.stream(url, sampleRate: Double(QuickCutDetector.sampleRate), channels: 1, qos: .utility) { b in
+            det.feed(UnsafeBufferPointer(start: b[0], count: b.frames))
+            fed += b.frames
+            if duration > 0 {
+                let f = min(0.99, Double(fed) / Double(QuickCutDetector.sampleRate) / duration)
+                if f - lastReport >= 0.02 { lastReport = f; progress?(f) }
             }
-            if r.value.status == .failed { throw r.value.error ?? AnalysisError.unreadable }
-            try ctx.checkCancellation()
-            return det.finishFeatures()
         }
-        let mask = QuickCutDetector.mask(features)
+        try Task.checkCancellation()
+        let mask = QuickCutDetector.mask(det.finishFeatures())
         progress?(1)
         return mask
     }

@@ -335,32 +335,19 @@ public enum AudioExtractor {
         guard FileManager.default.fileExists(atPath: url.path) else { throw SpeechFailure.mediaOffline(name: url.lastPathComponent, media: nil) }
         let asset = AVURLAsset(url: url)
         let tracks = try await asset.loadTracks(withMediaType: .audio)
-        guard let track = tracks[safe: audioStream ?? 0] ?? tracks.first else { throw SpeechFailure.noSoundInFile(name: url.lastPathComponent) }
+        guard !tracks.isEmpty else { throw SpeechFailure.noSoundInFile(name: url.lastPathComponent) }
         let out = FileManager.default.temporaryDirectory.appendingPathComponent("valse-stt-\(UUID().uuidString).wav")
-        let reader = try AVAssetReader(asset: asset)
-        if let range { reader.timeRange = range.cmTimeRange }
-        let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1,
-                                       AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false,
-                                       AVLinearPCMIsNonInterleaved: false]
-        let ro = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
-        reader.add(ro)
-        let writer = try AVAssetWriter(outputURL: out, fileType: .wav)
-        let wi = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
-        writer.add(wi)
-        guard reader.startReading() else { throw reader.error ?? AIToolError.noInput }
-        writer.startWriting(); writer.startSession(atSourceTime: (range?.start ?? .zero).cmTime)
+        // decoded at the file's rate and resampled by AudioFileIO.stream: the reader's own 16 kHz conversion zeroed
+        // samples at random AAC packet boundaries, so the same clip transcribed differently (BUG-AUDIO-RESAMPLE-ALL).
+        // (a missing stream index falls back to the first track, like before)
+        let w = try AudioFileIO.Writer(url: out, format: .wav16, sampleRate: 16000, channels: 1)
         do {
-            while let sb = await OffPool.next(ro) {
-                try Task.checkCancellation()
-                while !wi.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 1_000_000) }
-                wi.append(sb)
-            }
+            try await AudioFileIO.stream(url, sampleRate: 16000, channels: 1, range: range, trackIndex: audioStream ?? 0) { try w.write($0) }
+            try Task.checkCancellation()
         } catch {
-            reader.cancelReading(); writer.cancelWriting(); try? FileManager.default.removeItem(at: out); throw error
+            w.close(); try? FileManager.default.removeItem(at: out); throw error
         }
-        wi.markAsFinished()
-        await writer.finishWriting()
-        guard writer.status == .completed else { throw writer.error ?? AIToolError.noInput }
+        w.close()
         return out
     }
 

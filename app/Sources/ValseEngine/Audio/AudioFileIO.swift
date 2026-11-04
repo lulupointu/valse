@@ -9,74 +9,90 @@ public enum AudioFileIO {
     /// Streams the first audio track of `url` (or track `trackIndex`) as Float32 non-interleaved blocks (`channels`,
     /// resampled to `sampleRate`). The stream starts at media time 0 (leading gaps are filled with silence) unless
     /// `range` is given. Returns the number of frames delivered.
+    ///
+    /// Every audio read that needs a rate other than the file's goes through here (or `decode`, its blocking core):
+    /// never let an AVAssetReader output resample (BUG-SPLIT-AUDIO-FLAKE, BUG-AUDIO-RESAMPLE-ALL).
     @discardableResult
     public static func stream(_ url: URL, sampleRate: Double = AudioFileIO.sampleRate, channels: Int = 2,
                               range: TimeRange? = nil, trackIndex: Int = 0, chunk: Int = 8192,
+                              qos: DispatchQoS.QoSClass = .userInitiated,
                               _ body: (AudioBlock) throws -> Void) async throws -> Int {
         let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         let tracks = try await asset.loadTracks(withMediaType: .audio)
         guard let track = tracks.indices.contains(trackIndex) ? tracks[trackIndex] : tracks.first else { return 0 }
-        // Decode at the file's own rate and resample here (`StreamResampler`): AVFoundation's converter drops ~15
-        // samples at random AAC packet boundaries (BUG-SPLIT-AUDIO-FLAKE).
         let native = try await nativeSampleRate(track) ?? sampleRate
-        let resamples = abs(native - sampleRate) > 0.01
         // the read loop blocks in copyNextSampleBuffer: keep it off the cooperative pool (OffPool)
-        return try await OffPool.run { ctx in
-            let reader = try AVAssetReader(asset: asset)
-            if let range { reader.timeRange = range.cmTimeRange }
-            let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: native, AVNumberOfChannelsKey: channels,
-                AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false])
-            out.alwaysCopiesSampleData = false
-            reader.add(out)
-            guard reader.startReading() else { throw reader.error ?? NSError(domain: "Valse.audio", code: 1) }
-            defer { if reader.status == .reading { reader.cancelReading() } }
-
-            let pending = AudioBuffer(channels: channels, frames: chunk, sampleRate: sampleRate)
-            let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: channels)
-            defer { table.deallocate() }
-            var fill = 0, total = 0
-            func flush(_ n: Int) throws {
-                guard n > 0 else { return }
-                for c in 0..<channels { table[c] = pending.pointer(c) }
-                try body(AudioBlock(channels: channels, frames: n, pointers: table))
-                total += n
-            }
-            func emit(_ value: (Int) -> Float) throws {
-                for c in 0..<channels { pending[c, fill] = value(c) }
-                fill += 1
-                if fill == chunk { try flush(fill); fill = 0 }
-            }
-            let resampler = resamples ? try StreamResampler(from: native, to: sampleRate, channels: channels) : nil
-            func converted(_ p: UnsafePointer<UnsafeMutablePointer<Float>>, _ n: Int) throws {
-                for i in 0..<n { try emit { p[$0][i] } }
-            }
-            /// One frame at the native rate.
-            func push(_ value: (Int) -> Float) throws {
-                if let resampler { try resampler.push(value, converted) } else { try emit(value) }
-            }
-            let origin = range?.start ?? .zero
-            var expected = 0
-            var scratch: [Float] = []
-            while let sb = out.copyNextSampleBuffer() {
-                try ctx.checkCancellation()
-                guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
-                let pts = Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb))
-                let at = Int(((pts - origin).seconds * native).rounded())
-                while expected < at { try push { _ in 0 }; expected += 1 }   // leading / gap silence
-                let len = CMBlockBufferGetDataLength(bb)
-                let count = len / 4
-                if scratch.count < count { scratch = [Float](repeating: 0, count: count) }
-                _ = scratch.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(bb, atOffset: 0, dataLength: len, destination: $0.baseAddress!) }
-                let frames = count / channels
-                for i in 0..<frames { try push { scratch[i * channels + $0] } }
-                expected += frames
-            }
-            if reader.status == .failed { throw reader.error ?? NSError(domain: "Valse.audio", code: 2) }
-            try resampler?.finish(converted)
-            try flush(fill)
-            return total
+        return try await OffPool.run(qos: qos) { ctx in
+            try decode(asset: asset, track: track, native: native, sampleRate: sampleRate, channels: channels, range: range,
+                       chunk: chunk, checkCancellation: ctx.checkCancellation, body)
         }
+    }
+
+    /// Blocking core of `stream` (call it off the cooperative pool: `OffPool`, or a thread of your own). Decodes `track`
+    /// at its own rate `native` and resamples with `StreamResampler`: AVFoundation's converter drops ~15 samples at
+    /// random AAC packet boundaries (BUG-SPLIT-AUDIO-FLAKE). Frame 0 = media time `range.start` (0 without a range).
+    @discardableResult
+    static func decode(asset: AVAsset, track: AVAssetTrack, native: Double, sampleRate: Double, channels: Int,
+                       range: TimeRange?, chunk: Int = 8192, checkCancellation: () throws -> Void = {},
+                       _ body: (AudioBlock) throws -> Void) throws -> Int {
+        let resamples = abs(native - sampleRate) > 0.01
+        let reader = try AVAssetReader(asset: asset)
+        if let range { reader.timeRange = range.cmTimeRange }
+        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: native, AVNumberOfChannelsKey: channels,
+            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false])
+        out.alwaysCopiesSampleData = false
+        reader.add(out)
+        guard reader.startReading() else { throw reader.error ?? NSError(domain: "Valse.audio", code: 1) }
+        // (the loop below returns before this runs: never cancelReading under a running copy)
+        defer { if reader.status == .reading { reader.cancelReading() } }
+
+        let pending = AudioBuffer(channels: channels, frames: chunk, sampleRate: sampleRate)
+        let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: channels)
+        defer { table.deallocate() }
+        var fill = 0, total = 0
+        func flush(_ n: Int) throws {
+            guard n > 0 else { return }
+            for c in 0..<channels { table[c] = pending.pointer(c) }
+            try body(AudioBlock(channels: channels, frames: n, pointers: table))
+            total += n
+        }
+        func emit(_ value: (Int) -> Float) throws {
+            for c in 0..<channels { pending[c, fill] = value(c) }
+            fill += 1
+            if fill == chunk { try flush(fill); fill = 0 }
+        }
+        let resampler = resamples ? try StreamResampler(from: native, to: sampleRate, channels: channels) : nil
+        func converted(_ p: UnsafePointer<UnsafeMutablePointer<Float>>, _ n: Int) throws {
+            for i in 0..<n { try emit { p[$0][i] } }
+        }
+        /// One frame at the native rate.
+        func push(_ value: (Int) -> Float) throws {
+            if let resampler { try resampler.push(value, converted) } else { try emit(value) }
+        }
+        let origin = range?.start ?? .zero
+        var expected = 0
+        var scratch: [Float] = []
+        while let sb = out.copyNextSampleBuffer() {
+            try checkCancellation()
+            guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
+            let pts = Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb))
+            let at = Int(((pts - origin).seconds * native).rounded())
+            while expected < at { try push { _ in 0 }; expected += 1 }   // leading / gap silence
+            let len = CMBlockBufferGetDataLength(bb)
+            let count = len / 4
+            if scratch.count < count { scratch = [Float](repeating: 0, count: count) }
+            _ = scratch.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(bb, atOffset: 0, dataLength: len, destination: $0.baseAddress!) }
+            let frames = count / channels
+            // a buffer starting before the range (should the reader not trim it) keeps the range's timeline
+            let skip = min(frames, max(0, -at))
+            for i in skip..<frames { try push { scratch[i * channels + $0] } }
+            expected += frames - skip
+        }
+        if reader.status == .failed { throw reader.error ?? NSError(domain: "Valse.audio", code: 2) }
+        try resampler?.finish(converted)
+        try flush(fill)
+        return total
     }
 
     /// Sample rate of an audio track's (first) format, nil if unknown.

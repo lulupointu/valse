@@ -64,39 +64,28 @@ public final class WaveformCache: @unchecked Sendable {
         return w
     }
 
+    /// Levels of the first audio track (8 kHz mono; also the ducking envelopes of export, `Ducking.waveforms`). Decoded
+    /// at the file's rate and resampled by `AudioFileIO.stream`: the reader's own resampling zeroed samples at random
+    /// AAC packet boundaries, so the same file gave different levels (BUG-AUDIO-RESAMPLE-ALL).
     public static func compute(_ url: URL) async throws -> Waveform {
-        let asset = AVURLAsset(url: url)
-        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { return Waveform(peaks: []) }
-        // the read loop blocks in copyNextSampleBuffer: keep it off the cooperative pool (OffPool)
-        return try await OffPool.run { ctx in
-            let reader = try AVAssetReader(asset: asset)
-            let sr = 8000
-            let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: sr, AVNumberOfChannelsKey: 1,
-                AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false])
-            reader.add(out)
-            reader.startReading()
-            let per = sr / Waveform.peaksPerSecond
-            var peaks: [UInt8] = [], rms: [UInt8] = []
-            var cur: Int32 = 0, n = 0, sq: Double = 0
-            func flush() {
-                peaks.append(UInt8(min(255, cur * 255 / 32767)))
-                rms.append(UInt8(min(255, (sq / Double(max(n, 1))).squareRoot() * 255 / 32767)))
-            }
-            while let sb = out.copyNextSampleBuffer(), let bb = CMSampleBufferGetDataBuffer(sb) {
-                try ctx.checkCancellation()
-                let len = CMBlockBufferGetDataLength(bb)
-                var chunk = [Int16](repeating: 0, count: len / 2)
-                _ = chunk.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(bb, atOffset: 0, dataLength: len, destination: $0.baseAddress!) }
-                for s in chunk {
-                    let v = abs(Int32(s)); if v > cur { cur = v }
-                    sq += Double(v) * Double(v)
-                    n += 1
-                    if n == per { flush(); cur = 0; n = 0; sq = 0 }
-                }
-            }
-            if n > 0 { flush() }
-            return Waveform(peaks: peaks, rms: rms)
+        let sr = 8000
+        let per = sr / Waveform.peaksPerSecond
+        var peaks: [UInt8] = [], rms: [UInt8] = []
+        var cur: Int32 = 0, n = 0, sq: Double = 0
+        func flush() {
+            peaks.append(UInt8(min(255, cur * 255 / 32767)))
+            rms.append(UInt8(min(255, (sq / Double(max(n, 1))).squareRoot() * 255 / 32767)))
         }
+        try await AudioFileIO.stream(url, sampleRate: Double(sr), channels: 1) { b in
+            let x = b[0]
+            for i in 0..<b.frames {
+                let v = Int32(min(32767, (abs(x[i]) * 32767).rounded())); if v > cur { cur = v }
+                sq += Double(v) * Double(v)
+                n += 1
+                if n == per { flush(); cur = 0; n = 0; sq = 0 }
+            }
+        }
+        if n > 0 { flush() }
+        return Waveform(peaks: peaks, rms: rms)
     }
 }

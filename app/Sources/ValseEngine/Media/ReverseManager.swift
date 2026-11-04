@@ -149,7 +149,15 @@ public final class ReverseManager: @unchecked Sendable {
             video = VideoReverser(asset: asset, track: vTrack, duration: duration, input: input, adaptor: adaptor,
                                   chunk: CMTime(seconds: Double(chunkFrames) / fps, preferredTimescale: 600))
         }
-        if let aTrack {
+        if var aTrack {
+            // AudioReverser reads 48 kHz chunks: a stream at another rate is read from its 48 kHz copy (AudioConform), never
+            // resampled by the reader (zeroed samples at random AAC packet boundaries, BUG-AUDIO-RESAMPLE-ALL)
+            var audioAsset: AVAsset = asset
+            let conformed = try await AudioConform.shared.conformed(source, key: dst.deletingPathExtension().lastPathComponent, streamIndex: 0)
+            if conformed != source {
+                let c = AVURLAsset(url: conformed, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+                if let t = try await c.loadTracks(withMediaType: .audio).first { audioAsset = c; aTrack = t }
+            }
             var layout = AudioChannelLayout(); layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo
             let input = AVAssetWriterInput(mediaType: .audio, outputSettings: [
                 AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2,
@@ -158,7 +166,7 @@ public final class ReverseManager: @unchecked Sendable {
                 AVChannelLayoutKey: Data(bytes: &layout, count: MemoryLayout<AudioChannelLayout>.size)])
             input.expectsMediaDataInRealTime = false
             writer.add(input)
-            audio = AudioReverser(asset: asset, track: aTrack, duration: duration, input: input)
+            audio = AudioReverser(asset: audioAsset, track: aTrack, duration: duration, input: input)
         }
         guard writer.startWriting() else { throw writer.error ?? NSError(domain: "Valse", code: 80) }
         writer.startSession(atSourceTime: .zero)
@@ -253,7 +261,8 @@ private final class VideoReverser {
     }
 }
 
-/// Streams 48 kHz stereo 16-bit PCM in reverse, chunk by chunk.
+/// Streams 48 kHz stereo 16-bit PCM in reverse, chunk by chunk. `track` must be at 48 kHz already (`generatePass` hands
+/// it the AudioConform copy otherwise), so the reader only decodes and never resamples.
 private final class AudioReverser {
     let asset: AVAsset, track: AVAssetTrack, duration: CMTime
     let input: AVAssetWriterInput
