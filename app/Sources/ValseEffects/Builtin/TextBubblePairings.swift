@@ -167,7 +167,7 @@ public enum TextBubblePairing {
             // Round (circle family)
             ("roundSpeech", { inkL(chalk, caps: true, spacing: 0.02) }),
             ("roundBadge", { onVideo(.white, "AvenirNext-DemiBold", caps: true, spacing: 0.08) }),
-            ("roundNeon", { neon(Bub.cyan, AR, tube: 26) }),
+            ("roundNeon", { signWhite(AR) }),   // neon frame + plain white letters, like the other neon frames
         ]
         return Dictionary(uniqueKeysWithValues: m.map { ("valse.bubble.\($0.0)", $0.1()) })
     }()
