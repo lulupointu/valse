@@ -97,6 +97,85 @@ import ValseTestSupport
         }
     }
 
+    // MARK: 5b. TX-NEON: tube cross-section = the owner's reference sign, for every hue
+
+    /// A straight neon tube (default bubble neon, tube T = 0.098 em at 97 px, as in the reference) sampled across:
+    /// near-white core, halo in the tube colour ≈ 0.55 at half a tube width beyond the edge, fading smoothly to nothing
+    /// ~3.5 T out (reference values, normalised to the colour's brightest channel, ± 0.09), for each swatch colour.
+    @Test func neonTubeMatchesTheReferenceProfile() {
+        let em: CGFloat = 97, T: CGFloat = 0.098 * em
+        // (distance beyond the tube edge in tube widths, reference level)
+        let ref: [(CGFloat, Double)] = [(0.5, 0.55), (1.25, 0.37), (1.75, 0.25), (2.25, 0.14), (2.75, 0.06), (3.6, 0)]
+        for s in TextNeonStyle.swatches {
+            var o = TextBubbleOutline(color: s.color, width: 0.098, neon: TextBubbleOutline.neonStyle())
+            o.tubeBreak = false
+            let n = BubblePainter.neonStyle(o)!
+            var pr = NeonPainter.Params(n, em: em); pr.stroked = true
+            let line = CGMutablePath(); line.move(to: CGPoint(x: 0, y: 100)); line.addLine(to: CGPoint(x: 200, y: 100))
+            let tube = BubblePainter.tube(line, o, em: em)
+            let b = bitmap(CGRect(x: 0, y: 0, width: 200, height: 200)) { ctx in
+                NeonPainter.drawHalo(tube, pr, in: ctx); NeonPainter.drawTube(tube, pr, in: ctx)
+            }
+            func px(_ y: Int) -> [Double] { let o = (y * b.w + 100) * 4; return (0..<3).map { Double(b.px[o + $0]) / 255 } }
+            let core = px(100)
+            #expect(core.min()! > 0.9, "\(s.name): core not near-white \(core)")
+            let ch = [s.color.r, s.color.g, s.color.b].enumerated().max { $0.element < $1.element }!.offset
+            for (e, want) in ref {
+                for y in [Int((100 + T / 2 + e * T).rounded()), Int((100 - T / 2 - e * T).rounded())] {
+                    let got = px(y)[ch]
+                    #expect(abs(got - want) <= 0.09, "\(s.name): halo at \(e) T = \(got), reference \(want)")
+                }
+            }
+        }
+    }
+
+    /// TX-NEON tube break: one gap with round ends near the top right of a neon outline (none with Tube break off, on a
+    /// dashed outline or a plain line); the thought dots are kept.
+    @Test func neonTubeBreak() throws {
+        let r = CGRect(x: 0, y: 0, width: 400, height: 200)
+        let ellipse = CGPath(ellipseIn: r, transform: nil)
+        let x = r.midX + 0.78 * r.width / 2
+        let broken = NeonPainter.broken(ellipse, x: x, gap: 30)
+        var moves = 0, closes = 0, first: CGPoint?, last = CGPoint.zero
+        broken.applyWithBlock { el in
+            switch el.pointee.type {
+            case .moveToPoint: moves += 1; if first == nil { first = el.pointee.points[0] }; last = el.pointee.points[0]
+            case .closeSubpath: closes += 1
+            default: last = el.pointee.points[0]
+            }
+        }
+        #expect(moves == 1 && closes == 0, "the outline becomes one open tube")
+        let a = try #require(first)
+        #expect(abs(hypot(a.x - last.x, a.y - last.y) - 30) < 1.5, "gap between the cap centres")
+        let mid = CGPoint(x: (a.x + last.x) / 2, y: (a.y + last.y) / 2)
+        #expect(abs(mid.x - x) < 4 && mid.y < r.midY, "gap at the top right (\(mid))")
+        // presets: on for neon outlines, off when unticked / dashed / not neon
+        let d = try #require(Registries.textBubbles["valse.bubble.neonLimeSpeech"])
+        let o = try #require(d.style.outline)
+        #expect(o.tubeBreak && BubblePainter.tubeBreakX(o, r, tail: d.style.tail) != nil)
+        var off = o; off.tubeBreak = false
+        #expect(BubblePainter.tubeBreakX(off, r, tail: nil) == nil)
+        var dashed = o; dashed.dash = .dashed
+        #expect(BubblePainter.tubeBreakX(dashed, r, tail: nil) == nil)
+        #expect(BubblePainter.tubeBreakX(TextBubbleOutline(color: .white), r, tail: nil) == nil)
+        #expect(BubblePainter.tubeBreakX(o, r, tail: TextBubbleTail(side: .topRight))! < r.midX, "mirrored away from a top-right tail")
+        // thought dots survive the break (cloud + 3 dots = 4 subpaths)
+        let sc = scene(text("Hi") { $0.bubbleID = "valse.bubble.neonVioletThought" })
+        let it = try #require(bubbleItems(sc).first)
+        guard case .bubble(let st, let rect, _) = it.kind else { return }
+        let p = BubblePainter.path(st, rect: rect, em: sc.blocks[it.block].em)
+        var subs = 0
+        NeonPainter.broken(p, x: BubblePainter.tubeBreakX(st.outline!, BubblePainter.shapeRect(st, rect), tail: st.tail)!, gap: 20)
+            .applyWithBlock { if $0.pointee.type == .moveToPoint { subs += 1 } }
+        #expect(subs == 4)
+        // rendered: the tube is dark in the gap, lit either side of it
+        let tubeOn = NeonPainter.broken(ellipse, x: x, gap: 40)
+        let bmp = bitmap(r.insetBy(dx: -40, dy: -40)) { ctx in
+            ctx.addPath(tubeOn.copy(strokingWithWidth: 8, lineCap: .round, lineJoin: .round, miterLimit: 4)); ctx.setFillColor(CGColor(gray: 1, alpha: 1)); ctx.fillPath()
+        }
+        #expect(alpha(bmp, Int(mid.x) + 40, Int(mid.y) + 40) < 10)
+    }
+
     // MARK: 6. dashed / dotted outlines alternate along the edge
 
     @Test func dashedAndDottedOutlinesAlternate() throws {

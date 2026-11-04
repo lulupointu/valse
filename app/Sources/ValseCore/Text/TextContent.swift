@@ -132,8 +132,8 @@ public struct TextNeonStyle: Hashable, Codable, Sendable {
         ("green", RGBA(hex: 0x3BFF5C)), ("orange", RGBA(hex: 0xFF8A1F)), ("red", RGBA(hex: 0xFF2A2A)),
     ]
 
-    /// How far the neon paints outside the glyph edge, em (halo + spill + tube edge).
-    public var extentEm: Double { glowSize * 3.2 + thickness * 2 }
+    /// How far the neon paints outside the glyph edge, em (halo + glass band; `NeonPainter.reach`).
+    public var extentEm: Double { glowSize * 0.9 * 1.75 + thickness * 0.3 + 0.02 }
 
 }
 

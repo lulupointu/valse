@@ -102,7 +102,7 @@ public struct TextBubbleStyle: Hashable, Codable, Sendable {
     /// How far the bubble's light and shadow reach beyond the outline, em (render bounds).
     public var effectExtentEm: Double {
         var e = (outline?.width ?? 0)
-        if let n = outline?.neon { e += n.glowSize * 3.2 + (outline?.width ?? 0) }
+        if let n = outline?.neon { e += n.glowSize * 1.6 + (outline?.width ?? 0) }
         if let s = shadow { e += s.offsetEm + s.blurEm * 1.5 }
         return e
     }
@@ -149,9 +149,12 @@ public struct TextBubbleOutline: Hashable, Codable, Sendable {
     public var dash: Dash
     /// Neon tube along the outline; its colour and thickness come from `color` / `width` when drawn.
     public var neon: TextNeonStyle?
+    /// TX-NEON "Tube break": a solid neon outline has one small gap with round ends near its top right, like the bent
+    /// glass segments of a real sign. Ignored without `neon` or with dashes.
+    public var tubeBreak: Bool
 
-    public init(color: RGBA, width: Double = 0.06, dash: Dash = .solid, neon: TextNeonStyle? = nil) {
-        self.color = color; self.width = width; self.dash = dash; self.neon = neon
+    public init(color: RGBA, width: Double = 0.06, dash: Dash = .solid, neon: TextNeonStyle? = nil, tubeBreak: Bool = true) {
+        self.color = color; self.width = width; self.dash = dash; self.neon = neon; self.tubeBreak = tubeBreak
     }
 
     public init(from decoder: any Decoder) throws {
@@ -160,11 +163,12 @@ public struct TextBubbleOutline: Hashable, Codable, Sendable {
         width = try c.decodeIfPresent(Double.self, forKey: .width) ?? width
         dash = try c.decodeIfPresent(Dash.self, forKey: .dash) ?? dash
         neon = try c.decodeIfPresent(TextNeonStyle.self, forKey: .neon)
+        tubeBreak = try c.decodeIfPresent(Bool.self, forKey: .tubeBreak) ?? tubeBreak
     }
 
-    /// Neon defaults of the bubble presets: glow 0.35 em, intensity 0.9, no flicker.
+    /// Neon defaults of the bubble presets (= the owner's reference sign): glow 0.35 em, intensity 0.8, no flicker.
     public static func neonStyle(glow: Double = 0.35, flicker: TextNeonFlicker = .off) -> TextNeonStyle {
-        TextNeonStyle(color: .white, intensity: 0.9, glowSize: glow, thickness: 0.05, flicker: flicker)
+        TextNeonStyle(color: .white, intensity: 0.8, glowSize: glow, thickness: 0.05, flicker: flicker)
     }
 }
 

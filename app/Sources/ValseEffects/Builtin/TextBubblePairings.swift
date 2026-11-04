@@ -30,14 +30,25 @@ public enum TextBubblePairing {
         t.styleID = d.id
     }
 
-    /// NEON(c): a thinner, brighter tube than the frame + a faint black "dusk guard" glow behind it (readable on light
-    /// video), letters spaced so the tubes don't fuse.
+    /// SIGN WHITE: what the owner's reference neon sign does inside its tube, plain white letters (no neon of their
+    /// own), with a faint black "dusk guard" glow behind them so they stay readable on light video.
+    static func signWhite(_ fontName: String, caps: Bool = false, spacing: Double = 0.02) -> TextLook {
+        L { t in
+            t.color = .white
+            t.glow = TextGlowStyle(color: .black, intensity: 0.5, radius: 0.22, mode: .outer)
+            t.bold = true
+            font(&t, fontName, caps: caps, spacing: spacing)
+        }
+    }
+
+    /// NEON(c): neon tube letters (same tube profile as the frame, a slightly shorter halo so the word stays crisp) + a
+    /// faint black "dusk guard" glow behind it (readable on light video), letters spaced so the tubes don't fuse.
     static func neon(_ c: RGBA, _ fontName: String = "ArialRoundedMTBold", caps: Bool = false, spacing: Double = 0.03,
-                     tube: Int? = nil, glowSize: Double = 0.24, duskGuard: Bool = true, flicker: TextNeonFlicker = .off,
+                     tube: Int? = nil, glowSize: Double = 0.3, duskGuard: Bool = true, flicker: TextNeonFlicker = .off,
                      fx extra: (inout TextContent) -> Void = { _ in }) -> TextLook {
         L { t in
             t.color = .white
-            t.neon = TextNeonStyle(color: c, intensity: 1, glowSize: glowSize, thickness: 0.04, flicker: flicker)
+            t.neon = TextNeonStyle(color: c, intensity: 0.8, glowSize: glowSize, thickness: 0.05, flicker: flicker)
             if duskGuard { t.glow = TextGlowStyle(color: .black, intensity: 0.35, radius: 0.3, mode: .outer) }
             t.bold = true
             font(&t, fontName, caps: caps, spacing: spacing)
@@ -92,15 +103,16 @@ public enum TextBubblePairing {
         // one closure per entry: each look is built in its own small frame (a single literal of 60 built
         // looks overflowed the 512 KB test-thread stack in debug builds)
         let m: [(String, () -> TextLook)] = [
-            // Neon
-            ("neonPinkPill", { neon(Bub.pink, tube: 25) }),
-            ("neonCyanBox", { neon(Bub.cyan, "Futura-Medium", caps: true, spacing: 0.08, tube: 26) }),
-            ("neonLimeSpeech", { neon(Bub.lime, tube: 28) }),
-            ("neonVioletThought", { neon(Bub.violet, "Noteworthy-Bold", tube: 27) }),
+            // Neon (TX-NEON rework: like the owner's reference sign, a neon frame holds plain white letters; the sign-like
+            // presets - burst, duo, night sign, flicker - keep neon letters)
+            ("neonPinkPill", { signWhite(AR) }),
+            ("neonCyanBox", { signWhite("Futura-Medium", caps: true, spacing: 0.08) }),
+            ("neonLimeSpeech", { signWhite("AvenirNext-Medium") }),
+            ("neonVioletThought", { signWhite("Noteworthy-Bold") }),
             ("neonOrangeBurst", { neon(Bub.amber, condHeavy, caps: true) }),
-            ("neonRedOval", { neon(Bub.red, din, caps: true, spacing: 0.1, tube: 30) }),
-            ("neonIceBrackets", { neon(Bub.ice, "Menlo-Bold", caps: true, spacing: 0.06) }),
-            ("neonAmberArrow", { neon(Bub.amber, din, caps: true, spacing: 0.06) }),
+            ("neonRedOval", { signWhite(din, caps: true, spacing: 0.1) }),
+            ("neonIceBrackets", { signWhite("Menlo-Bold", caps: true, spacing: 0.06) }),
+            ("neonAmberArrow", { signWhite(din, caps: true, spacing: 0.06) }),
             ("neonDuo", { neon(Bub.pink, tube: 25, fx: hardShadow(Bub.cyan, distance: 0.06)) }),
             ("neonNightSign", { neon(Bub.cyan, "SnellRoundhand-Bold", spacing: 0, tube: 26, glowSize: 0.28, duskGuard: false) }),
             // the faulty tube and the faulty letter share one envelope: frame and letter fail together

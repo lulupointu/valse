@@ -163,9 +163,11 @@ import ValseTestSupport
         func text() -> TextContent { s.selectedTextClip!.text }
         let before = text().look
         let depth = s.session.undoStack.count
-        s.applyBubble(Registries.textBubbles["valse.bubble.neonCyanBox"])
-        #expect(text().neon?.color == RGBA(hex: 0x19E6FF) && text().fontName == "Futura-Medium" && text().textCase == .upper)
-        #expect(s.session.undoStack.count == depth + 1 && s.session.undoStack.last?.nameKey == "cmd.textBubble")
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonCyanBox"])   // TX-NEON: plain white letters in the tube
+        #expect(text().neon == nil && text().color == .white && text().fontName == "Futura-Medium" && text().textCase == .upper)
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonFlicker"])   // a sign preset: neon letters
+        #expect(text().neon?.color == RGBA(hex: 0x19E6FF) && text().fontName == "ArialRoundedMTBold")
+        #expect(s.session.undoStack.count == depth + 2 && s.session.undoStack.last?.nameKey == "cmd.textBubble")
         // switch: no neon leaks into the comic balloon
         s.applyBubble(Registries.textBubbles["valse.bubble.comicClassic"])
         #expect(text().neon == nil && text().glow == nil && text().fontName == "ChalkboardSE-Bold" && text().color == RGBA(hex: 0x141414))
@@ -175,11 +177,11 @@ import ValseTestSupport
         // undo = one step per pick
         s.undo()
         #expect(text().bubbleID == "valse.bubble.comicClassic" && text().fontName == "ChalkboardSE-Bold")
-        s.undo(); s.undo()
+        s.undo(); s.undo(); s.undo()
         #expect(text().bubbleID == nil && text().look == before)
         // a font the user picked survives picks and switches
         s.updateText(id) { $0.fontName = "Georgia" }
-        s.applyBubble(Registries.textBubbles["valse.bubble.neonPinkPill"])
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonFlicker"])
         #expect(text().fontName == "Georgia" && text().neon != nil)
         s.applyBubble(Registries.textBubbles["valse.bubble.burstYellow"])
         #expect(text().fontName == "Georgia" && text().neon == nil && text().textCase == .upper)
@@ -187,13 +189,13 @@ import ValseTestSupport
         s.applyTextStyle(Registries.textStyles["valse.textfx.shadow.1"]!)
         #expect(text().bubbleID == "valse.bubble.burstYellow")
         // linked colours: recolouring a neon outline recolours the neon text
-        s.applyBubble(Registries.textBubbles["valse.bubble.neonPinkPill"])
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonFlicker"])
         s.updateBubble { $0.outline?.color = RGBA(hex: 0x3BFF5C) }
         #expect(text().neon?.color == RGBA(hex: 0x3BFF5C))
         // Reset: the preset bubble and its text look again
         s.updateText(id) { $0.neon?.color = .white }
         s.resetBubble()
-        #expect(text().bubbleStyle == nil && text().neon?.color == RGBA(hex: 0xFF2E88) && text().fontName == "Georgia")
+        #expect(text().bubbleStyle == nil && text().neon?.color == RGBA(hex: 0x19E6FF) && text().fontName == "Georgia")
     }
 
     @Test func templatesAddAndSwitchKeepingText() throws {
