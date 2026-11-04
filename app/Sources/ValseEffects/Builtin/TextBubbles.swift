@@ -97,7 +97,7 @@ public enum BuiltinTextBubbles {
             n("neonAmberArrow", "neon", shape(.arrow, fill: none, outline: neon(amber))),
             n("neonDuo", "neon", shape(.box, r: 0.3, fill: none, outline: neon(pink), shadow: TextBubbleShadow(color: cyan, kind: .hard))),
             n("neonNightSign", "neon", nightSign),
-            n("neonFlicker", "neon", shape(.pill, fill: none, outline: neon(cyan, flicker: .broken))),
+            n("neonFlicker", "neon", shape(.pill, fill: none, outline: neon(cyan, flicker: .oneLetter))),   // the tube is a faulty segment
             n("neonMarquee", "neon", shape(.box, r: 0.15, fill: none, outline: neon(amber, width: 0.08, dash: .dotted))),
             // Outline
             n("outlineSpeech", "outline", shape(.box, r: 0.5, tail: tail(.bottom), fill: none, outline: line(w, 0.07))),

@@ -313,7 +313,7 @@ struct BubbleCustomize: View {
             BubbleRows.row(ctx, tr("text.bubble.glow"), "text.bubble.glow",
                            get: { ($0.outline?.neon?.glowSize ?? 0) * 100 }, set: { s, v in s.outline?.neon?.glowSize = max(v, 1) / 100 })
             ToggleLine(label: tr("text.bubble.flicker"), isOn: Binding.perceived(get: { n.flicker != .off }, set: { on in
-                ctx.store.updateBubble { $0.outline?.neon?.flicker = on ? .broken : .off }
+                ctx.store.updateBubble { $0.outline?.neon?.flicker = on ? .oneLetter : .off }   // the tube stutters as one faulty segment
             }))
             .testID("text.bubble.flicker")
         }

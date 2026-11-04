@@ -159,9 +159,9 @@
 "text.neon.glowSize" = "Taille du halo";
 "text.neon.thickness" = "Épaisseur du tube";
 "text.neon.flicker" = "Scintillement";
-"text.neon.flicker.off" = "Aucun";
-"text.neon.flicker.subtle" = "Léger";
-"text.neon.flicker.broken" = "En panne";
+"text.neon.flicker.off" = "Désactivé";
+"text.neon.flicker.subtle" = "Tout le texte";
+"text.neon.flicker.broken" = "Une lettre";
 "text.neon.color.pink" = "Rose";
 "text.neon.color.cyan" = "Cyan";
 "text.neon.color.purple" = "Violet";

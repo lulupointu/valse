@@ -177,7 +177,8 @@ import ValseTestSupport
         let f = scene(text("Open") { $0.bubbleID = "valse.bubble.neonFlicker" }, dynamic: true)
         let items = bubbleItems(f)
         #expect(items.count == 3 && f.hasFlicker)
-        #expect(items.map(\.flicker) == [.broken, .off, .broken])
+        #expect(items.map(\.flicker) == [.oneLetter, .off, .oneLetter])
+        #expect(items.map(\.flickerFaulty) == [true, false, true], "a neon bubble alone stutters as one faulty tube")
         let st = scene(text("Open") { $0.bubbleID = "valse.bubble.neonPinkPill" }, dynamic: true)
         #expect(bubbleItems(st).count == 1 && !st.hasFlicker)
         // lit tube at rest: the static image of the flickering preset matches a non-flickering copy
@@ -186,6 +187,28 @@ import ValseTestSupport
         let a = TextRasterizer.image(text("Open") { $0.bubbleID = "valse.bubble.neonFlicker" }, fontPx: 60)
         let b = TextRasterizer.image(text("Open") { $0.bubbleStyle = edited }, fontPx: 60)
         #expect(a != nil && a?.width == b?.width && a?.height == b?.height)
+    }
+
+    /// TX-NEON: One letter marks exactly one glyph (both its halo and tube items) faulty, spaces skipped; Whole text
+    /// flickers every glyph and the neon bubble from one shared level.
+    @Test func neonFlickerUnitsInTheScene() throws {
+        let one = scene(text("NEON BAR") { $0.neon = TextNeonStyle(flicker: .oneLetter) }, dynamic: true)
+        let faulty = one.items.filter(\.flickerFaulty)
+        #expect(one.hasFlicker && faulty.count == 2 && faulty.allSatisfy { $0.char == 4 })
+        var s = try #require(Registries.textBubbles["valse.bubble.neonPinkPill"]).style
+        s.outline?.neon?.flicker = .wholeText
+        let whole = scene(text("NEON BAR") {
+            $0.neon = TextNeonStyle(flicker: .wholeText)
+            $0.bubbleID = "valse.bubble.neonPinkPill"
+            $0.bubbleStyle = s
+        }, dynamic: true)
+        let lit = whole.items.filter { $0.flicker == .wholeText }
+        #expect(lit.count == 7 * 2 + 2)
+        // one level for all of them at any time
+        for t in stride(from: 0.0, to: 30, by: 1.0 / 30) {
+            let ls = Set(lit.map { TextNeonStyle.flickerLevel($0.flicker, t: t, faulty: $0.flickerFaulty, seed: whole.flickerSeed) })
+            #expect(ls.count == 1)
+        }
     }
 
     // MARK: perf: static bubbles rasterize once; a flickering one stays within the text-layer budget

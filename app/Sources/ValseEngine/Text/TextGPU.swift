@@ -223,8 +223,8 @@ enum TextAnimator {
                 }
             }
             if it.flicker != .off {   // TX-NEON: halo goes out with the tube, the glass stays faintly visible
-                // TX-BUBBLE2: a bubble outline flickers as unit 1 (always a "faulty" tube in Broken mode)
-                let l = TextNeonStyle.flickerLevel(it.flicker, t: input.localTime, unit: it.char >= 0 ? it.char : 1)
+                // Whole text: one shared level (glyphs + bubble). One letter: only the faulty letter / bubble tube.
+                let l = TextNeonStyle.flickerLevel(it.flicker, t: input.localTime, faulty: it.flickerFaulty, seed: scene.flickerSeed)
                 switch it.kind {
                 case .glyphFront, .bubble(_, _, .tube): opacity *= 0.3 + 0.7 * l
                 default: opacity *= l

@@ -87,13 +87,16 @@ public struct TextGlowStyle: Hashable, Codable, Sendable {
     }
 }
 
-/// Neon flicker (TX-NEON): deterministic in time (preview = export), per glyph.
+/// Neon flicker (TX-NEON): deterministic in clip-local time (preview = export), see `NeonFlicker.swift`.
+/// Stored raw values predate the rework ("subtle" / "broken") and are kept so older projects open unchanged.
 public enum TextNeonFlicker: String, Codable, Sendable, CaseIterable {
     case off
-    /// Gentle hum: a few % of brightness, rare short dips.
-    case subtle
-    /// Failing sign: some letters drop out in short bursts (others hum).
-    case broken
+    /// "Whole text": the whole sign (every glyph and a neon bubble) shares one level — steady for seconds, then an
+    /// ignition stutter (or, more rarely, a soft brownout).
+    case wholeText = "subtle"
+    /// "One letter": one faulty letter (or a neon bubble's tube) stutters and sometimes dies for a moment; the rest
+    /// stays perfectly steady.
+    case oneLetter = "broken"
 }
 
 /// "Neon" (TX-NEON): the glyphs become a glowing glass tube — near-white core tinted toward `color`, a thin coloured
@@ -132,43 +135,6 @@ public struct TextNeonStyle: Hashable, Codable, Sendable {
     /// How far the neon paints outside the glyph edge, em (halo + spill + tube edge).
     public var extentEm: Double { glowSize * 3.2 + thickness * 2 }
 
-    /// Tube brightness 0…1 of glyph `unit` at clip-local time `t` (seconds). Pure function of its inputs, so a
-    /// preview frame and the exported frame at the same time are identical.
-    public static func flickerLevel(_ mode: TextNeonFlicker, t: Double, unit: Int) -> Double {
-        func hash(_ a: Int, _ b: Int) -> Double {
-            var x = UInt64(bitPattern: Int64(a &* 0x2545F491 &+ b &* 0x9E3779B1 &+ 0x632BE5AB))
-            x ^= x >> 33; x = x &* 0xFF51AFD7ED558CCD; x ^= x >> 33; x = x &* 0xC4CEB9FE1A85EC53; x ^= x >> 33
-            return Double(x >> 11) / Double(1 << 53)
-        }
-        let u = max(unit, 0)
-        func hum() -> Double {
-            // mains hum + a rare short dip (one 1/12 s slot in ~20)
-            let phase = hash(u, 1) * 2 * .pi
-            var l = 0.95 + 0.05 * sin(t * 2 * .pi * 7.3 + phase)
-            let slot = Int((t * 12).rounded(.down))
-            if hash(slot, u &+ 101) < 0.05 { l *= 0.72 }
-            return l
-        }
-        switch mode {
-        case .off: return 1
-        case .subtle: return hum()
-        case .broken:
-            // ~40 % of letters are faulty (at least the second one, so short words always show it)
-            let faulty = hash(u, 7) < 0.4 || u == 1
-            guard faulty else { return hum() }
-            let period = 2.2 + hash(u, 11) * 1.6
-            let x = t / period + hash(u, 13)
-            let cycle = Int(x.rounded(.down))
-            let within = (x - Double(cycle)) * period            // seconds into this cycle
-            let burstStart = hash(cycle, u &+ 17) * period * 0.5
-            let dead = hash(cycle, u &+ 19) < 0.3                  // sometimes the letter dies for a while
-            let burstLen = dead ? 1.1 : 0.5
-            guard within >= burstStart, within < burstStart + burstLen else { return hum() }
-            if dead, within > burstStart + 0.25 { return 0 }
-            let slot = Int((t * 24).rounded(.down))
-            return hash(slot, u &+ 23) < 0.55 ? 0 : hum()
-        }
-    }
 }
 
 /// Gradient fill ("Line" gradient in CapCut). Stops are spread evenly across the text box along `angle`.

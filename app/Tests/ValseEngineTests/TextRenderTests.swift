@@ -225,20 +225,26 @@ import ValseTestSupport
         #expect(count(light) { $0.r > 0.85 && $0.g < 0.45 && $0.b > 0.4 } > 300)
     }
 
-    /// TX-NEON: "Broken" flicker drops letters out at deterministic times (same frame whatever renders it).
-    @Test func neonBrokenFlickerIsDeterministic() throws {
-        let t = text("HI", size: 0.3) { $0.neon = TextNeonStyle(flicker: .broken) }
-        // a time where letter 1 is dark, and one where both letters are fully lit
-        let times = stride(from: 0.0, to: 4, by: 1.0 / 30)
-        let dark = try #require(times.first { TextNeonStyle.flickerLevel(.broken, t: $0, unit: 1) == 0 })
-        let lit = try #require(times.first { t in (0..<2).allSatisfy { TextNeonStyle.flickerLevel(.broken, t: t, unit: $0) > 0.9 } })
-        let litCount = count(render(t, at: lit), Self.lit), darkCount = count(render(t, at: dark), Self.lit)
-        #expect(darkCount < litCount * 9 / 10)
+    /// TX-NEON: "One letter" flicker dims the faulty letter (I of HI) at deterministic times (same frame whatever
+    /// renders it); "Whole text" dims the whole sign together.
+    @Test func neonOneLetterFlickerIsDeterministic() throws {
+        let t = text("HI", size: 0.3) { $0.neon = TextNeonStyle(flicker: .oneLetter) }
+        let seed = TextNeonStyle.flickerSeed("HI")
+        #expect(TextNeonStyle.faultyUnit(in: "HI") == 1)
+        // a time where the faulty letter is dark (clip start is always lit)
+        let times = stride(from: 0.0, to: 12, by: 1.0 / 30)
+        let dark = try #require(times.first { TextNeonStyle.flickerLevel(.oneLetter, t: $0, faulty: true, seed: seed) < 0.1 })
+        let litCount = count(render(t, at: 0.2), Self.lit), darkCount = count(render(t, at: dark), Self.lit)
+        #expect(darkCount < litCount * 9 / 10 && darkCount > litCount / 4, "I goes out, H stays lit")
         // determinism: a fresh renderer (export) gives the same frame as the shared one (preview)
         let p = project(t).0
         #expect(count(render(p, at: dark), Self.lit) == count(render(p, at: dark, renderer: FrameRenderer()), Self.lit))
+        // Whole text: both letters dim together, deeper than one letter going out
+        let w = text("HI", size: 0.3) { $0.neon = TextNeonStyle(flicker: .wholeText) }
+        let wDark = try #require(times.first { TextNeonStyle.flickerLevel(.wholeText, t: $0, seed: seed) < 0.1 })
+        #expect(count(render(w, at: wDark), Self.lit) < darkCount)
         // Off never flickers
-        #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.off, t: $0, unit: 3) == 1 })
+        #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.off, t: $0) == 1 })
     }
 
     @Test func gradientAndTextureFills() {

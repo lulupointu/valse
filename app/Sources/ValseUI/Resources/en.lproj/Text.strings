@@ -160,8 +160,8 @@
 "text.neon.thickness" = "Tube thickness";
 "text.neon.flicker" = "Flicker";
 "text.neon.flicker.off" = "Off";
-"text.neon.flicker.subtle" = "Subtle";
-"text.neon.flicker.broken" = "Broken";
+"text.neon.flicker.subtle" = "Whole text";
+"text.neon.flicker.broken" = "One letter";
 "text.neon.color.pink" = "Pink";
 "text.neon.color.cyan" = "Cyan";
 "text.neon.color.purple" = "Purple";

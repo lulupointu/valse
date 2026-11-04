@@ -29,12 +29,12 @@ enum NeonPainter {
         }
     }
 
-    /// Paints a whole neon tube along `path` at clip-local time `time` (flicker of `style.flicker`, unit = glyph /
-    /// segment index for per-unit flicker). `stroked`: the path is a line / outline (bubble border) rather than a
-    /// filled shape (glyph).
-    static func draw(_ path: CGPath, style: TextNeonStyle, em: CGFloat, time: Double, unit: Int = 0, stroked: Bool = false,
-                     in ctx: CGContext) {
-        let level = TextNeonStyle.flickerLevel(style.flicker, t: time, unit: unit)
+    /// Paints a whole neon tube along `path` at clip-local time `time` (flicker of `style.flicker`; `faulty` = this
+    /// tube is the faulty unit in One letter mode). `stroked`: the path is a line / outline (bubble border) rather
+    /// than a filled shape (glyph).
+    static func draw(_ path: CGPath, style: TextNeonStyle, em: CGFloat, time: Double, faulty: Bool = true, seed: UInt64 = 0,
+                     stroked: Bool = false, in ctx: CGContext) {
+        let level = TextNeonStyle.flickerLevel(style.flicker, t: time, faulty: faulty, seed: seed)
         let p = Params(style, em: em, level: level)
         let shape = stroked ? tube(path, p) : path
         drawHalo(shape, p, in: ctx)

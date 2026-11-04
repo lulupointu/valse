@@ -33,6 +33,8 @@ struct TextScene: @unchecked Sendable {
         var variantOf: Int?
         /// TX-NEON: neon flicker of the glyph this item paints (its brightness is modulated per frame).
         var flicker: TextNeonFlicker = .off
+        /// TX-NEON One letter: this item is (part of) the faulty letter / bubble tube; other items stay lit.
+        var flickerFaulty = false
     }
 
     struct Block {
@@ -79,6 +81,8 @@ struct TextScene: @unchecked Sendable {
     var textBounds: CGRect
     /// TX-NEON: some glyph flickers, so the layer must be recomposed per frame (atlas path).
     var hasFlicker = false
+    /// TX-NEON: flicker seed of the clip (its text), shared by every block so the whole sign moves as one.
+    var flickerSeed: UInt64 = 0
 }
 
 enum TextSceneBuilder {
@@ -245,6 +249,7 @@ enum TextSceneBuilder {
     static func assemble(_ blocksIn: [TextScene.Block], clip: TextContent, dynamic: Bool, hidden: Set<Int> = []) -> TextScene {
         var blocks = blocksIn
         var items: [TextScene.Item] = []
+        var faultyTaken = false   // TX-NEON One letter: one faulty letter per clip (first block that flickers)
         var textBounds = CGRect.null
         for bi in blocks.indices {
             var b = blocks[bi]
@@ -271,7 +276,7 @@ enum TextSceneBuilder {
                     // flickering neon: glow and tube are their own cells, dimmed per frame on the GPU (TextAnimator)
                     for part in [BubblePainter.Part.glow, .body, .tube] {
                         var it = TextScene.Item(kind: .bubble(s, rect: rect, part: part), block: bi, transform: T, rect: r)
-                        if part != .body { it.flicker = f }
+                        if part != .body { it.flicker = f; it.flickerFaulty = true }   // the tube is one faulty segment
                         items.append(it)
                     }
                 } else {
@@ -334,6 +339,19 @@ enum TextSceneBuilder {
                 c.box.union(c.ink).insetBy(dx: -p, dy: -p).applying(M)
             }
             var fronts: [TextScene.Item] = []
+            // TX-NEON One letter: a single faulty letter per block (a letter / digit ~60 % through the text)
+            let faulty: Int? = {
+                let flick = Set(b.layout.clusters.filter { !$0.isWhitespace && b.style(for: $0, highlight: false).neon?.flicker == .oneLetter }
+                    .map(\.charIndex))
+                guard !flick.isEmpty, !faultyTaken else { return nil }
+                faultyTaken = true
+                var vis = 0, letters: [Int] = []
+                for ch in b.style.displayString where !ch.isWhitespace {
+                    if (ch.isLetter || ch.isNumber), flick.contains(vis) { letters.append(vis) }
+                    vis += 1
+                }
+                return TextNeonStyle.faultyUnit(candidates: letters.isEmpty ? flick.sorted() : letters)
+            }()
             for (ci, c) in b.layout.clusters.enumerated() where !c.isWhitespace {
                 let M = c.transform.concatenating(T)
                 let unit = (char: c.charIndex, word: c.wordIndex, line: c.lineIndex)
@@ -344,6 +362,7 @@ enum TextSceneBuilder {
                     var back = TextScene.Item(kind: .glyphBack(cluster: ci, variant: .base), block: bi, transform: M, rect: r,
                                               char: unit.char, word: unit.word, line: unit.line)
                     back.flicker = flicker
+                    back.flickerFaulty = c.charIndex == faulty
                     items.append(back)
                     if hiStyle != nil {
                         let base = items.count - 1
@@ -356,6 +375,7 @@ enum TextSceneBuilder {
                 var front = TextScene.Item(kind: .glyphFront(cluster: ci, variant: .base), block: bi, transform: M, rect: fr,
                                            char: unit.char, word: unit.word, line: unit.line)
                 front.flicker = flicker
+                front.flickerFaulty = c.charIndex == faulty
                 fronts.append(front)
                 if hiStyle != nil {
                     fronts.append(.init(kind: .glyphFront(cluster: ci, variant: .highlight), block: bi, transform: M, rect: fr,
@@ -395,7 +415,7 @@ enum TextSceneBuilder {
             items = kept.map { var it = $0; if let v = it.variantOf, v >= 0 { it.variantOf = remap[v] }; return it }
         }
         return TextScene(blocks: blocks, items: items, bounds: bounds, textBounds: textBounds.isNull ? bounds : textBounds,
-                         hasFlicker: items.contains { $0.flicker != .off })
+                         hasFlicker: items.contains { $0.flicker != .off }, flickerSeed: TextNeonStyle.flickerSeed(clip.string))
     }
 }
 

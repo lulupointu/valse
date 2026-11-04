@@ -1,4 +1,4 @@
-// TX-NEON: the Neon section in French (labels fit: Intensité, Taille du halo, Épaisseur du tube, Scintillement).
+// TX-NEON: the Neon section in French (labels fit: Intensité, Taille du halo, Épaisseur du tube, Scintillement: Désactivé / Tout le texte / Une lettre; Tout le texte is stored "subtle").
 {
   "project": "demo",
   "lang": "fr",
