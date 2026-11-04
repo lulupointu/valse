@@ -8,6 +8,7 @@
     {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
     {"seek": 1.5},
     {"click": "id:inspector.sub.bubble"},
+    {"click": "id:text.bubble.all"},
     {"click": "id:text.bubble.group.neon"},
     {"click": "id:text.bubble.tile.neonLimeSpeech"},
     {"expect": {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.neonLimeSpeech"}},
@@ -24,7 +25,7 @@
     {"expect": [{"path": "selection", "count": 1}, {"path": "selectedClips.0.kind", "equals": "text"},
                 {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.neonLimeSpeech"}]},
     // the bubble box's bottom-right handle scales the text
-    {"drag": "canvas:1183,651", "by": [40, 20]},
+    {"drag": "canvas:1316,727", "by": [40, 20]},
     {"expect": [{"path": "selectedClips.0.scale", "gt": 1.05}, {"path": "undo.name", "equals": "cmd.scale"}]}
   ]
 }
