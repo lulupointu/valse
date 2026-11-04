@@ -140,6 +140,8 @@ public final class TextRasterizer: @unchecked Sendable {
             return (spec, phase, a.progress)
         }
         let isDynamic = t.template != nil || !glyphAnims.isEmpty || (t.karaoke != nil && !t.string.isEmpty)
+            || ((t.neon != nil || t.runs.contains { $0.style.effectID != nil })   // TX-NEON flicker (clip or range effect)
+                && scene(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds).hasFlicker)
         guard isDynamic else { return still() }
         let input = TextFrameInput(anims: glyphAnims, localTime: localTime.seconds, duration: duration.seconds)
         guard let dyn = dynamic(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds) else { return still() }

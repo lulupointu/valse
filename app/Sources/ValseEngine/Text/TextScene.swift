@@ -30,6 +30,8 @@ struct TextScene: @unchecked Sendable {
         var char = -1, word = -1, line = -1
         /// For highlight variants: index of the base item they replace when highlighted.
         var variantOf: Int?
+        /// TX-NEON: neon flicker of the glyph this item paints (its brightness is modulated per frame).
+        var flicker: TextNeonFlicker = .off
     }
 
     struct Block {
@@ -74,6 +76,8 @@ struct TextScene: @unchecked Sendable {
     var bounds: CGRect
     /// Rest bounds without effect padding (selection box / measuring).
     var textBounds: CGRect
+    /// TX-NEON: some glyph flickers, so the layer must be recomposed per frame (atlas path).
+    var hasFlicker = false
 }
 
 enum TextSceneBuilder {
@@ -82,6 +86,7 @@ enum TextSceneBuilder {
         var p: Double = 0.06
         p += t.strokeExtentEm
         if let g = t.glow { p += g.radius * 1.6 }
+        if let n = t.neon { p += n.extentEm }
         if t.shadowColor.a > 0 { p += t.shadow.distance + t.shadow.blur * 1.5 }
         return CGFloat(p)
     }
@@ -309,10 +314,10 @@ enum TextSceneBuilder {
                 }
             }
             // glyphs: all backs, then all fronts (like Core Text drawing strokes under fills)
-            func backOf(_ s: TextContent) -> Bool { s.strokeWidth > 0 || !s.extraStrokes.isEmpty || s.shadowColor.a > 0 || (s.glow.map { $0.mode != .inner } ?? false) }
+            func backOf(_ s: TextContent) -> Bool { s.strokeWidth > 0 || !s.extraStrokes.isEmpty || s.shadowColor.a > 0 || (s.glow.map { $0.mode != .inner } ?? false) || s.neon != nil }
             let hasBack = backOf(st) || b.effectStyles.values.contains(where: backOf)   // TX-040: range effects
             let hiStyle = b.highlightStyle
-            let hiBack = hiStyle.map { $0.strokeWidth > 0 || !$0.extraStrokes.isEmpty || $0.shadowColor.a > 0 || $0.glow != nil } ?? false
+            let hiBack = hiStyle.map { $0.strokeWidth > 0 || !$0.extraStrokes.isEmpty || $0.shadowColor.a > 0 || $0.glow != nil || $0.neon != nil } ?? false
             let pad = ([padEm(st)] + b.effectStyles.values.map(padEm)).max()! * em
             let hiPad = hiStyle.map { padEm($0) * em } ?? 0
             func clusterRect(_ c: TextLayoutResult.Element, _ p: CGFloat, _ M: CGAffineTransform) -> CGRect {
@@ -322,20 +327,26 @@ enum TextSceneBuilder {
             for (ci, c) in b.layout.clusters.enumerated() where !c.isWhitespace {
                 let M = c.transform.concatenating(T)
                 let unit = (char: c.charIndex, word: c.wordIndex, line: c.lineIndex)
+                let cs = b.style(for: c, highlight: false)
+                let flicker = cs.neon?.flicker ?? .off   // TX-NEON: per-glyph flicker applied per frame
                 if hasBack || hiBack {
                     let r = clusterRect(c, max(pad, hiPad), M)
-                    items.append(.init(kind: .glyphBack(cluster: ci, variant: .base), block: bi, transform: M, rect: r,
-                                       char: unit.char, word: unit.word, line: unit.line))
+                    var back = TextScene.Item(kind: .glyphBack(cluster: ci, variant: .base), block: bi, transform: M, rect: r,
+                                              char: unit.char, word: unit.word, line: unit.line)
+                    back.flicker = flicker
+                    items.append(back)
                     if hiStyle != nil {
                         let base = items.count - 1
                         items.append(.init(kind: .glyphBack(cluster: ci, variant: .highlight), block: bi, transform: M, rect: r,
                                            char: unit.char, word: unit.word, line: unit.line, variantOf: base))
                     }
                 }
-                let cs = b.style(for: c, highlight: false)
-                let fr = clusterRect(c, em * 0.08 + (cs.strokePosition == .center ? CGFloat(cs.strokeWidth) * em / 2 : 0) + (cs.glow?.mode != .outer && cs.glow != nil ? CGFloat(cs.glow!.radius) * em : 0), M)
-                fronts.append(.init(kind: .glyphFront(cluster: ci, variant: .base), block: bi, transform: M, rect: fr,
-                                    char: unit.char, word: unit.word, line: unit.line))
+                let neonPad = cs.neon.map { CGFloat($0.thickness) * em } ?? 0
+                let fr = clusterRect(c, em * 0.08 + neonPad + (cs.strokePosition == .center ? CGFloat(cs.strokeWidth) * em / 2 : 0) + (cs.glow?.mode != .outer && cs.glow != nil ? CGFloat(cs.glow!.radius) * em : 0), M)
+                var front = TextScene.Item(kind: .glyphFront(cluster: ci, variant: .base), block: bi, transform: M, rect: fr,
+                                           char: unit.char, word: unit.word, line: unit.line)
+                front.flicker = flicker
+                fronts.append(front)
                 if hiStyle != nil {
                     fronts.append(.init(kind: .glyphFront(cluster: ci, variant: .highlight), block: bi, transform: M, rect: fr,
                                         char: unit.char, word: unit.word, line: unit.line, variantOf: -1))
@@ -373,7 +384,8 @@ enum TextSceneBuilder {
             for (i, it) in items.enumerated() where !hidden.contains(it.block) { remap[i] = kept.count; kept.append(it) }
             items = kept.map { var it = $0; if let v = it.variantOf, v >= 0 { it.variantOf = remap[v] }; return it }
         }
-        return TextScene(blocks: blocks, items: items, bounds: bounds, textBounds: textBounds.isNull ? bounds : textBounds)
+        return TextScene(blocks: blocks, items: items, bounds: bounds, textBounds: textBounds.isNull ? bounds : textBounds,
+                         hasFlicker: items.contains { $0.flicker != .off })
     }
 }
 

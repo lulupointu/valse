@@ -203,6 +203,7 @@
 "textStyle.fxname.outline.2" = "Cartoon %@";
 "textStyle.fxname.neon.0" = "Néon %@";
 "textStyle.fxname.neon.1" = "Halo %@";
+"textStyle.fxname.neon.2" = "Tube néon %@";
 "textStyle.fxname.shadow.0" = "Ombrage %@";
 "textStyle.fxname.shadow.1" = "Pop %@";
 "textStyle.fxname.shadow.2" = "3D %@";

@@ -42,6 +42,11 @@ public enum StateDump {
             if case .text(let t) = c.content {
                 d["text"] = t.string; if let w = t.boxWidth { d["boxWidth"] = w }
                 d["strokeWidth"] = t.strokeWidth; d["strokePosition"] = t.strokePosition.rawValue   // F3 TX-005
+                if let n = t.neon {   // TX-NEON
+                    let hex = String(format: "%02X%02X%02X", Int((n.color.r * 255).rounded()), Int((n.color.g * 255).rounded()), Int((n.color.b * 255).rounded()))
+                    d["neon"] = ["color": hex, "flicker": n.flicker.rawValue, "intensity": (n.intensity * 100).rounded(),
+                                 "glowSize": (n.glowSize * 100).rounded(), "thickness": (n.thickness / 0.15 * 100).rounded()]
+                }
                 func spoken(_ k: KaraokeStyle) -> [String: Any] {
                     ["mode": k.mode.rawValue, "scale": (k.highlightScale * 100).rounded(), "box": k.boxColor != nil,
                      "outline": k.highlightStroke != nil,
