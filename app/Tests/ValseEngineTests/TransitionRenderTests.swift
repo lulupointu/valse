@@ -70,7 +70,8 @@ import ValseTestSupport
     }
 
     /// TR-RETRO-REWIND (CapCut "Retro Rewind", 2 s): both clips turn grey, a white ◀◀ sits in the middle, the cut A → B
-    /// is a hard switch at 29/60 of the progress, and the render is deterministic per progress (preview = export).
+    /// is a hard switch at frame 30 of 60 (mid-pan, under the blur), and the render is deterministic per progress
+    /// (preview = export). The pixel match against CapCut's export is measured offline (branch report).
     @Test func retroRewindMatchesCapCutStructure() throws {
         let w = 160, h = 90
         let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: w, height: h))
@@ -92,9 +93,12 @@ import ValseTestSupport
         let corner = hold.average(x: 0.02, y: 0.7, w: 0.1, h: 0.25)
         #expect(abs(corner.r - corner.g) < 0.03 && abs(corner.g - corner.b) < 0.03, "grey tone: \(corner)")
         #expect(corner.luma < 0.5)
-        // the switch to B happens mid-pan, one frame (of a 2 s transition) apart
-        let beforeCut = try frame(0.475), afterCut = try frame(0.49)
-        #expect(Self.meanDiff(beforeCut, afterCut) > 0.03)
+        // the switch to B happens mid-pan at frame 30: frames 28 / 29 are A at the same held pan, frame 30 is B
+        let f28 = try frame(28.0 / 60), f29 = try frame(29.0 / 60), f30 = try frame(30.0 / 60)
+        #expect(Self.meanDiff(f29, f30) > 0.03)
+        #expect(Self.meanDiff(f28, f30) > Self.meanDiff(f28, f29))
+        // the pan is a hold-key step: 27 and 28 show the same picture position (only the blur and dust change)
+        #expect(Self.meanDiff(try frame(27.0 / 60), f28) < Self.meanDiff(f28, f30))
         // the midpoint is not a dissolve; near the end the picture is B again but the ◀◀ is gone
         #expect(Self.meanDiff(try frame(0.5), try frame(0.5, dissolve)) > 0.03)
         let late = try frame(0.985)
