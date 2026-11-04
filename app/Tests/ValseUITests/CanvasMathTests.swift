@@ -115,6 +115,31 @@ struct CanvasMathTests {
         #expect(size.width > 100 && size.height > 50)
     }
 
+    /// TX-BUBBLE-SELECT: a bubble text is framed / hit by its bubble (tail included), anchored on its text box, and
+    /// the box follows the layer's scale and rotation.
+    @Test func bubbleTextIsFramedByItsBubble() {
+        var t = TextContent(string: "Hello"); t.bubbleID = "valse.bubble.neonLimeSpeech"   // tail bottom-left
+        var p = Project(settings: ProjectSettings(canvasSize: canvas))
+        var c = Clip(content: .text(t), start: .zero, duration: Time(3))
+        try! TimelineOps.insert(c, into: &p)
+        let l = CanvasLayers.at(Time(1), project: p)[0]
+        let tg = try! #require(l.textGeometry)
+        #expect(abs(l.geometry.halfSize.x) > abs(tg.halfSize.x) && abs(l.geometry.halfSize.y) > abs(tg.halfSize.y))
+        #expect(l.geometry.center.y > tg.center.y, "the tail below the text moves the box centre down")
+        #expect(l.pivot == tg.center)
+        let below = Vec2(tg.center.x, tg.center.y + abs(tg.halfSize.y) + 5)   // padding / tail, outside the glyphs
+        #expect(!tg.contains(below) && CanvasLayers.hit([l], at: below) != nil)
+        // rotated 90° and scaled 2×: the box offset turns and scales with the layer
+        c.transform.rotation = 90; c.transform.scale = Vec2(2, 2)
+        p.timeline[clip: c.id] = c
+        let r = CanvasLayers.at(Time(1), project: p)[0]
+        let rt = try! #require(r.textGeometry)
+        let d0 = l.geometry.center - tg.center, d1 = r.geometry.center - rt.center
+        #expect(abs(d1.x - (-d0.y * 2)) < 1e-6 && abs(d1.y - d0.x * 2) < 1e-6)
+        // no bubble: no separate text box
+        #expect(CanvasLayers.at(Time(1), project: { var q = p; q.timeline[clip: c.id]?.content = .text(TextContent(string: "Hello")); return q }())[0].textGeometry == nil)
+    }
+
     @Test func fillScaleTurnsFitIntoFill() {
         #expect(LayerGeometry.fillScale(sourceSize: Size2(100, 100), canvasSize: Size2(200, 100)) == 2)
         #expect(LayerGeometry.fillScale(sourceSize: Size2(200, 100), canvasSize: Size2(200, 100)) == 1)

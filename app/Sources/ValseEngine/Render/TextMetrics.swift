@@ -24,6 +24,18 @@ public enum TextMetrics {
         return Size2(ceil(box.size.width), ceil(box.size.height))
     }
 
+    /// TX-BUBBLE-SELECT: the box the canvas selects and frames for a text with a bubble — the bubble shape (tail
+    /// included, no glow) around the glyphs — as an offset of its centre from the layer centre and a size, canvas
+    /// pixels at rest. nil = no bubble (the text box `size(of:)` is the box).
+    public static func bubbleBox(of t: TextContent, canvasHeight: Double, canvasWidth: Double? = nil) -> (offset: Vec2, size: Size2)? {
+        guard t.fontSize * canvasHeight >= 1, t.resolvedBubble() != nil else { return nil }
+        var c = t
+        if c.string.isEmpty && c.template == nil { c.string = " " }
+        guard let box = FrameRenderer.shared.text.bubbleBox(c, canvasSize: Size2(canvasWidth ?? canvasHeight * 16 / 9, canvasHeight))
+        else { return nil }
+        return (box.center, Size2(ceil(box.size.width), ceil(box.size.height)))
+    }
+
     /// Canvas-pixel size of a sticker layer whose nominal side is `side` (see `FrameEvaluator.layer`).
     public static func stickerSize(_ id: String, side: Double) -> Size2 {
         guard let d = Registries.stickers[id] else { return Size2(side, side) }

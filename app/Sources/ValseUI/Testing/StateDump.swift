@@ -153,6 +153,16 @@ public enum StateDump {
         ui["guides"] = store.playerUI.guides.map { ["axis": $0.axis == .vertical ? "v" : "h", "position": $0.position] }   // PB-011
         ui["editingGuide"] = store.playerUI.editingGuide != nil
         ui["rulers"] = store.playerUI.showRulers
+        // TX-BUBBLE-SELECT: the canvas selection boxes (canvas px, axis-aligned; `text` = a bubble text's glyph box)
+        ui["canvasSelection"] = CanvasLayers.at(store.playhead, project: store.project).filter { store.selection.contains($0.clipID) }.map { l in
+            func box(_ g: LayerGeometry) -> [String: Double] {
+                let xs = g.corners.map(\.x), ys = g.corners.map(\.y)
+                return ["x": xs.min()!.rounded(), "y": ys.min()!.rounded(), "w": (xs.max()! - xs.min()!).rounded(), "h": (ys.max()! - ys.min()!).rounded()]
+            }
+            var d: [String: Any] = ["box": box(l.geometry), "hasBubble": l.textGeometry != nil]
+            if let t = l.textGeometry { d["text"] = box(t) }
+            return d
+        }
         ui["tooltipDelayMs"] = Tooltips.currentDelayMilliseconds()   // C3: hover tooltip delay app-wide
         ui["tooltip"] = TooltipCenter.shared.shownText ?? NSNull()          // C6: visible tooltip text
         ui["tooltipPending"] = TooltipCenter.shared.pendingText ?? NSNull()

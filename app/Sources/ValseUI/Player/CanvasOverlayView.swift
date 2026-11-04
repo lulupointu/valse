@@ -698,12 +698,12 @@ final class CanvasOverlayView: NSView {
                 apply(id) { $0.setValue(.position, .vec2(np), at: local) }
             case .corner:
                 let s0 = base.value(.scale, at: local)?.vec2 ?? .one
-                var s = CanvasDrag.scaled(s0, center: layer.geometry.center, start: start, current: p)
+                var s = CanvasDrag.scaled(s0, center: layer.pivot, start: start, current: p)
                 if snapping, s0.x == s0.y, abs(s.x - 1) < 0.015 { s = .one }
                 apply(id) { $0.setValue(.scale, .vec2(s), at: local) }
             case .rotate:
                 let r0 = base.value(.rotation, at: local)?.scalar ?? 0
-                let r = CanvasDrag.rotated(r0, center: layer.geometry.center, start: start, current: p, snapping: snapping)
+                let r = CanvasDrag.rotated(r0, center: layer.pivot, start: start, current: p, snapping: snapping)
                 angleLabel = r
                 apply(id) { $0.setValue(.rotation, .scalar(r), at: local) }
             case .edge(let edge):
@@ -714,7 +714,11 @@ final class CanvasOverlayView: NSView {
                     var t = t0; t.boxWidth = w
                     return TextMetrics.size(of: t, canvasHeight: canvas.height, canvasWidth: canvas.width).width * sx / 2
                 } }
-                let r = CanvasHandles.textBoxResize(layer.geometry, edge: edge, dragTo: p, fromCenter: !e.modifierFlags.contains(.option),
+                // TX-BUBBLE-SELECT: the pill sits on the bubble's edge, the wrap width is the text box's
+                let tg = layer.textGeometry ?? layer.geometry
+                let pill = { (g: LayerGeometry) in CanvasHandles.edgePills(g).first { $0.0 == edge }?.1 ?? g.center }
+                let pt = p - (pill(layer.geometry) - pill(tg))
+                let r = CanvasHandles.textBoxResize(tg, edge: edge, dragTo: pt, fromCenter: !e.modifierFlags.contains(.option),
                                                     layerScale: sx, canvasWidth: canvas.width, halfWidth: halfWidth)
                 let pos = base.value(.position, at: local)?.vec2 ?? .zero
                 let np = CanvasDrag.moved(pos, by: r.shift, canvas: canvas)
@@ -961,7 +965,7 @@ final class CanvasOverlayView: NSView {
         guard let clip = store.project.timeline.clip(ed.clipID), case .text(let t) = clip.content,
               let l = layers.first(where: { $0.clipID == ed.clipID }) else { return }
         let vp = viewport
-        let g = l.geometry
+        let g = l.textGeometry ?? l.geometry
         let c = vp.toView(g.center)
         let w = abs(g.halfSize.x) * 2 * vp.scale, h = abs(g.halfSize.y) * 2 * vp.scale
         let scale = clip.resolved(at: localTime(clip)).transform.scale.y

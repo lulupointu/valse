@@ -178,6 +178,15 @@ public final class TextRasterizer: @unchecked Sendable {
         return (Vec2(Double(tb.midX - b.midX), Double(tb.midY - b.midY)), Size2(Double(tb.width), Double(tb.height)))
     }
 
+    /// TX-BUBBLE-SELECT: what the canvas selects and frames — the glyphs and, with a bubble, the bubble shape (tail
+    /// included, glow excluded) — relative to the layer centre, canvas pixels at rest. nil = no bubble (`textBox`).
+    public func bubbleBox(_ t: TextContent, canvasSize: Size2) -> (center: Vec2, size: Size2)? {
+        let s = scene(t, fontPx: CGFloat(t.fontSize * canvasSize.height), canvasWidthPx: CGFloat(canvasSize.width), duration: 0)
+        guard !s.bubbleBounds.isNull else { return nil }
+        let b = s.bounds.integral, r = s.bubbleBounds.union(s.textBounds)
+        return (Vec2(Double(r.midX - b.midX), Double(r.midY - b.midY)), Size2(Double(r.width), Double(r.height)))
+    }
+
     public func sticker(_ id: String, canvasSide: Double, outputScale: Double, time: Double = 0, style: ShapeStickerStyle? = nil) -> Result? {
         guard let d = Registries.stickers[id] else { return nil }
         switch d.source {

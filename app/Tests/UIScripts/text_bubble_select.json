@@ -1,0 +1,30 @@
+// TX-BUBBLE-SELECT: a text with a bubble is selected by a click inside the bubble (its padding / tail, outside the
+// glyphs) and the canvas selection box frames the bubble shape (tail included), not only the text; the corner handle of
+// that box scales the whole text as before.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"seek": 1.5},
+    {"click": "id:inspector.sub.bubble"},
+    {"click": "id:text.bubble.group.neon"},
+    {"click": "id:text.bubble.tile.neonLimeSpeech"},
+    {"expect": {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.neonLimeSpeech"}},
+    // the box is the bubble's (tail below the text), the text box is inside it
+    {"expect": [{"path": "ui.canvasSelection.0.hasBubble", "equals": true},
+                {"path": "ui.canvasSelection.0.box.h", "gte": 150}, {"path": "ui.canvasSelection.0.text.h", "lte": 100},
+                {"path": "ui.canvasSelection.0.box.w", "gt": 420}, {"path": "ui.canvasSelection.0.text.w", "lt": 400},
+                {"path": "ui.canvasSelection.0.box.y", "lt": 490}, {"path": "ui.canvasSelection.0.text.y", "gt": 495}]},
+    {"snapshot": "bubble-selected", "element": "id:panel.player", "baseline": true, "threshold": 40, "tolerance": 0.03},
+    {"select": []},
+    {"expect": {"path": "selection", "count": 0}},
+    // in the bubble's tail area, below the glyphs (the video under it used to get the click)
+    {"click": "canvas:790,625"},
+    {"expect": [{"path": "selection", "count": 1}, {"path": "selectedClips.0.kind", "equals": "text"},
+                {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.neonLimeSpeech"}]},
+    // the bubble box's bottom-right handle scales the text
+    {"drag": "canvas:1183,651", "by": [40, 20]},
+    {"expect": [{"path": "selectedClips.0.scale", "gt": 1.05}, {"path": "undo.name", "equals": "cmd.scale"}]}
+  ]
+}
