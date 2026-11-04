@@ -580,7 +580,7 @@ public final class UITestDriver {
             // layout moved): the probe locates element + offset again at dispatch, like any other exact click
             // `player:` points too: located again from the player view at dispatch (a player resized under the click)
             let targetID = (t as? String).flatMap {
-                $0.hasPrefix("id:") ? String($0.dropFirst(3)) : (timelineTarget || $0.hasPrefix("player:") ? $0 : nil)
+                $0.hasPrefix("id:") ? String($0.dropFirst(3)) : (timelineTarget || $0.hasPrefix("player:") || $0.hasPrefix("canvas:") ? $0 : nil)
             }
             let onView: NSView? = timelineTarget ? timelineView : nil
             var point = p
@@ -936,6 +936,8 @@ public final class UITestDriver {
         parts.append("rev=\(store.session.revision) sel=\(store.selection.map(\.description).sorted()) "
                      + "tab=\(store.inspectorTab ?? "-")/\(store.activeAssetTab) toast=\(store.toast?.message ?? "-")")
         parts.append("first=\(window.firstResponder.map { String(describing: type(of: $0)) } ?? "-")")
+        // BUG-BUBBLE-TEXT-LAG: a scaled stand-in text raster is still being replaced by the exact one
+        if FrameRenderer.shared.text.isRefining { parts.append("textRefine=\(UUID())") }
         // the AppKit timeline (clip: / time: / header: targets are resolved from its layout): zoom, scroll, size —
         // not while playing (follow scrolling moves it continuously; playback steps must not wait for it)
         if let tl = timelineView, !store.transport.isPlaying {
@@ -977,6 +979,7 @@ public final class UITestDriver {
     /// - `"clip:<track>/<index>[:leading|:trailing|:body|:<0…1>]"` — track = model index or `main`
     /// - `"time:<seconds>[@<track>|@ruler]"` — a time on the timeline (default: ruler)
     /// - `"player:<fx>,<fy>"` — a point in the preview (0…1, top-left)
+    /// - `"canvas:<x>,<y>"` — a point of the project canvas in canvas pixels (follows the player size / zoom / pan)
     /// - `"point:<x>,<y>"` — window content coordinates (points, top-left)
     /// Optional `"offset": [dx, dy]` (points, +y down) is added.
     /// In-process accessibility element with this identifier (SwiftUI exposes `.testID` views as AX elements).
@@ -1104,6 +1107,13 @@ public final class UITestDriver {
 
             let f = rest.split(separator: ",").compactMap { Double($0) }
             return point(in: pv, unit: f.count == 2 ? CGPoint(x: f[0], y: f[1]) : at)
+        case "canvas":
+            // `canvas:<x>,<y>` — a point of the project canvas in canvas pixels (TX-BUBBLE-SELECT: hit a layer's region
+            // whatever the player's size / zoom)
+            guard let ov = SnapshotRegistry.shared.playerOverlay as? CanvasOverlayView else { throw Failure("no player overlay") }
+            let f = rest.split(separator: ",").compactMap { Double($0) }
+            guard f.count == 2 else { throw Failure("bad canvas point \(rest)") }
+            return ov.convert(ov.viewport.toView(Vec2(f[0], f[1])), to: nil)
         case "point":
             let f = rest.split(separator: ",").compactMap { Double($0) }
             guard f.count == 2, let host = window.contentView else { throw Failure("bad point \(rest)") }

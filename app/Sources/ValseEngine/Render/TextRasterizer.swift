@@ -104,6 +104,7 @@ public final class TextRasterizer: @unchecked Sendable {
     /// `acquire`, valid for this command buffer only). Both are premultiplied.
     public func layerTexture(_ t: TextContent, canvas: Size2, outputScale: Double, layerScale: Vec2 = .one,
                              animations: [ActiveAnimation] = [], localTime: Time = .zero, duration: Time = .zero,
+                             interactive: Bool = false,
                              commandBuffer cmd: MTLCommandBuffer?, acquire: (Int, Int) -> MTLTexture) -> Result? {
         guard let cmd else {
             let k = outputScale * Self.scaleBucket(layerScale, fontPx: t.fontSize * canvas.height * outputScale)
@@ -111,7 +112,7 @@ public final class TextRasterizer: @unchecked Sendable {
                                 duration: duration.seconds, pxPerCanvas: k)
         }
         switch layerContent(t, canvas: canvas, outputScale: outputScale, layerScale: layerScale, animations: animations,
-                            localTime: localTime, duration: duration) {
+                            localTime: localTime, duration: duration, interactive: interactive) {
         case .none: return nil
         case .texture(let r): return r
         case .glyphs(let g):
@@ -125,14 +126,16 @@ public final class TextRasterizer: @unchecked Sendable {
 
     /// What a text layer draws at one frame, without encoding anything: the static image, or the animated glyph quads
     /// (cached atlas; only the per-glyph transforms are computed per frame — layout and rasterization are cached).
+    /// `interactive`: see `FrameRenderer.encode` / `standIn`.
     func layerContent(_ t: TextContent, canvas: Size2, outputScale: Double, layerScale: Vec2,
-                      animations: [ActiveAnimation], localTime: Time, duration: Time) -> LayerContent {
+                      animations: [ActiveAnimation], localTime: Time, duration: Time, interactive: Bool = false) -> LayerContent {
         let bucket = Self.scaleBucket(layerScale, fontPx: t.fontSize * canvas.height * outputScale)
         let k = outputScale * bucket
         let fontPx = CGFloat(t.fontSize * canvas.height * k)
         let canvasW = CGFloat(canvas.width * k)
         func still() -> LayerContent {
-            staticResult(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds, pxPerCanvas: k).map { .texture($0) } ?? .none
+            staticResult(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds, pxPerCanvas: k,
+                         interactive: interactive).map { .texture($0) } ?? .none
         }
         let glyphAnims: [(spec: GlyphAnimationSpec, phase: AnimationPhaseKind, progress: Double)] = animations.compactMap { a in
             guard let spec = Registries.animations[a.typeID]?.glyph else { return nil }
@@ -145,7 +148,8 @@ public final class TextRasterizer: @unchecked Sendable {
                 && scene(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds).hasFlicker)
         guard isDynamic else { return still() }
         let input = TextFrameInput(anims: glyphAnims, localTime: localTime.seconds, duration: duration.seconds)
-        guard let dyn = dynamic(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds) else { return still() }
+        guard let (dyn, ratio) = dynamic(t, fontPx: fontPx, canvasWidthPx: canvasW, duration: duration.seconds,
+                                         interactive: interactive) else { return still() }
         let scene = dyn.scene
         // symmetric margin around the rest bounds so the layer centre (and thus placement) never moves
         // Integer margin in multiples of 8 around the same 16-px-padded box as the static image: cells stay pixel
@@ -156,7 +160,7 @@ public final class TextRasterizer: @unchecked Sendable {
         guard w > 0, h > 0, w <= 8192, h <= 8192 else { return .none }
         let inst = TextAnimator.instances(scene, dyn.atlas, input, origin: rb.origin)
         return .glyphs(GlyphDraw(instances: inst, atlas: dyn.atlas.texture, width: w, height: h,
-                                 canvasSize: Size2(Double(w) / k, Double(h) / k)))
+                                 canvasSize: Size2(Double(w) / k * ratio, Double(h) / k * ratio)))
     }
 
     /// Size of the text layer in canvas pixels at rest (incl. outlines / shadows / glows) — what placement and the
@@ -298,29 +302,141 @@ public final class TextRasterizer: @unchecked Sendable {
         return s
     }
 
-    private func staticResult(_ t: TextContent, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double, pxPerCanvas: Double) -> Result? {
+    private func staticResult(_ t: TextContent, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double, pxPerCanvas: Double,
+                              interactive: Bool = false) -> Result? {
         guard fontPx >= 1, !(t.string.isEmpty && t.template == nil) else { return nil }
         let k = key(t, fontPx, canvasWidthPx, duration)
         if let s = statics.get(k) {
             return Result(texture: s.texture, canvasSize: Size2(Double(s.size.width) / pxPerCanvas, Double(s.size.height) / pxPerCanvas))
         }
+        if interactive, let r = standIn(k, dynamic: false), let s = statics.get(r.key) {
+            refine(k) { [weak self] in _ = self?.rasterizeStatic(t, k, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration) }
+            // the same look at another size, scaled to this one (exact raster on its way)
+            let f = Double(fontPx / r.fontPx) / pxPerCanvas
+            return Result(texture: s.texture, canvasSize: Size2(Double(s.size.width) * f, Double(s.size.height) * f))
+        }
+        guard let s = rasterizeStatic(t, k, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration) else { return nil }
+        return Result(texture: s.texture, canvasSize: Size2(Double(s.size.width) / pxPerCanvas, Double(s.size.height) / pxPerCanvas))
+    }
+
+    private func rasterizeStatic(_ t: TextContent, _ k: Key, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double) -> StaticImage? {
+        let t0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         let sc = scene(t, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration)
         guard let r = Self.render(sc), let tex = TextGPU.upload(r.ctx, r.w, r.h) else { return nil }
         statsLock.withLock { _rasterizations += 1 }
-        statics.put(k, StaticImage(texture: tex, size: CGSize(width: r.w, height: r.h)), bytes: r.w * r.h * 4)
-        return Result(texture: tex, canvasSize: Size2(Double(r.w) / pxPerCanvas, Double(r.h) / pxPerCanvas))
+        let img = StaticImage(texture: tex, size: CGSize(width: r.w, height: r.h))
+        statics.put(k, img, bytes: r.w * r.h * 4)
+        recordRaster(k, fontPx: fontPx, dynamic: false, since: t0)
+        return img
     }
 
-    private func dynamic(_ t: TextContent, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double) -> Dynamic? {
+    /// Dynamic layer content and the scale to draw it at (1, or a stand-in's size ratio in interactive frames).
+    private func dynamic(_ t: TextContent, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double,
+                         interactive: Bool = false) -> (Dynamic, Double)? {
         guard fontPx >= 1 else { return nil }
         let k = key(t, fontPx, canvasWidthPx, duration)
-        if let d = dynamics.get(k) { return d }
+        if let d = dynamics.get(k) { return (d, 1) }
+        if interactive, let r = standIn(k, dynamic: true), let d = dynamics.get(r.key) {
+            refine(k) { [weak self] in _ = self?.buildDynamic(t, k, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration) }
+            return (d, Double(fontPx / r.fontPx))
+        }
+        return buildDynamic(t, k, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration).map { ($0, 1) }
+    }
+
+    private func buildDynamic(_ t: TextContent, _ k: Key, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double) -> Dynamic? {
+        let t0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         let sc = TextSceneBuilder.build(t, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration, dynamic: true)
         guard let atlas = TextAtlas.build(sc) else { return nil }
         statsLock.withLock { _rasterizations += 1 }
         let d = Dynamic(scene: sc, atlas: atlas)
         dynamics.put(k, d, bytes: atlas.bytes)
+        recordRaster(k, fontPx: fontPx, dynamic: true, since: t0)
         return d
+    }
+
+    // MARK: Interactive size edits (BUG-BUBBLE-TEXT-LAG)
+    //
+    // A neon bubble / neon text costs 50–170 ms of Core Graphics blurs to rasterize at 1080p, and the font size is part
+    // of the raster's key: every tick of a Size drag re-rasterized the whole look on the main thread (paused preview
+    // re-render). In an interactive frame, a cache miss whose look was slow to rasterize draws the look's latest raster
+    // at another size, scaled on the GPU, and the exact raster is built on `refineQueue` (latest request wins); when it
+    // lands, `refinedNotification` makes the preview redraw, so preview and export are identical once editing stops.
+
+    /// A text's key without its font size: rasters of the same look at other sizes.
+    private struct LookKey: Hashable { let content: TextContent; let canvasW: Int; let duration: Int; let dynamic: Bool }
+    private struct Raster { let key: Key; let fontPx: CGFloat; let costly: Bool }
+    /// A look whose raster takes many ms (Core Graphics blurs): neon text / bubble outline, glow, soft shadows, range
+    /// effects. Others stand in only when their raster took this much CPU (huge text); cheap text stays synchronous.
+    /// Decided from the content (plus thread CPU time, not wall-clock), so a loaded machine changes nothing.
+    static let standInMinCPUms: Double = 16
+    static func isCostly(_ t: TextContent) -> Bool {
+        if t.neon != nil || t.glow != nil || (t.shadowColor.a > 0 && t.shadow.blur > 0) { return true }
+        if t.runs.contains(where: { $0.style.effectID != nil }) { return true }
+        if let b = t.resolvedBubble(), b.outline?.neon != nil || b.shadow != nil { return true }
+        return false
+    }
+    /// Posted on the main queue after an exact raster replaced a stand-in (the paused preview redraws).
+    public static let refinedNotification = Notification.Name("ValseTextRasterRefined")
+    private let refineLock = NSLock()
+    private var lastRaster: [LookKey: Raster] = [:]
+    private var refineNext: (key: Key, job: @Sendable () -> Void)?
+    private var refineCurrent: Key?
+    private let refineQueue = DispatchQueue(label: "valse.text.refine", qos: .userInitiated)
+    /// Stand-ins drawn so far (tests: a size drag on a neon bubble never rasterizes on the calling thread).
+    public var standInCount: Int { refineLock.withLock { _standIns } }
+    private var _standIns = 0
+    /// An exact raster is queued or being built.
+    public var isRefining: Bool { refineLock.withLock { refineNext != nil || refineCurrent != nil } }
+
+    private func lookKey(_ k: Key, dynamic: Bool) -> LookKey {
+        var c = k.content; c.fontSize = 0
+        return LookKey(content: c, canvasW: k.canvasW, duration: k.duration, dynamic: dynamic)
+    }
+
+    private func recordRaster(_ k: Key, fontPx: CGFloat, dynamic: Bool, since t0: UInt64) {
+        let cpuMs = Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) &- t0) / 1e6
+        let costly = Self.isCostly(k.content) || cpuMs >= Self.standInMinCPUms
+        let lk = lookKey(k, dynamic: dynamic)
+        refineLock.withLock {
+            if lastRaster.count >= 256, lastRaster[lk] == nil { lastRaster.removeAll(keepingCapacity: true) }
+            lastRaster[lk] = Raster(key: k, fontPx: fontPx, costly: costly)
+        }
+    }
+
+    /// Latest slow raster of the same look at another size.
+    private func standIn(_ k: Key, dynamic: Bool) -> Raster? {
+        let lk = lookKey(k, dynamic: dynamic)
+        return refineLock.withLock {
+            guard let r = lastRaster[lk], r.key != k, r.costly, r.fontPx > 0 else { return nil }
+            _standIns += 1
+            return r
+        }
+    }
+
+    /// Builds the exact raster for `k` off the calling thread; a newer request replaces a queued one.
+    private func refine(_ k: Key, _ job: @escaping @Sendable () -> Void) {
+        let start: Bool = refineLock.withLock {
+            guard refineCurrent != k, refineNext?.key != k else { return false }
+            let idle = refineNext == nil && refineCurrent == nil
+            refineNext = (k, job)
+            return idle
+        }
+        if start { refineQueue.async { [weak self] in self?.drainRefines() } }
+    }
+
+    private func drainRefines() {
+        while true {
+            let next: (key: Key, job: @Sendable () -> Void)? = refineLock.withLock {
+                let n = refineNext
+                refineNext = nil
+                refineCurrent = n?.key
+                return n
+            }
+            guard let next else { return }
+            next.job()
+            refineLock.withLock { refineCurrent = nil }
+            DispatchQueue.main.async { [weak self] in NotificationCenter.default.post(name: Self.refinedNotification, object: self) }
+        }
     }
 
     /// Integral bounds grown to multiples of 16 px (the compositor's layer-texture quantum, so it draws text 1:1).

@@ -115,6 +115,7 @@ public final class PlaybackEngine {
     private var itemDuration: Time { itemSkip.item(project.duration) }
     private var endObserver: (any NSObjectProtocol)?
     private var proxyObserver: (any NSObjectProtocol)?
+    private var textRefineObserver: (any NSObjectProtocol)?
     /// Emulated reverse shuttle (when the item can't play backwards): negative rate, driven by a timer.
     public private(set) var reverseShuttleRate: Float = 0
     private var reverseTimer: Timer?
@@ -164,6 +165,11 @@ public final class PlaybackEngine {
                 guard let self, self.requestsProxies, let hash, self.project.media.contains(where: { $0.contentHash == hash }) else { return }
                 self.forceRebuild()
             }
+        }
+        // BUG-BUBBLE-TEXT-LAG: an exact text raster replaced a scaled stand-in drawn while editing → redraw
+        textRefineObserver = NotificationCenter.default.addObserver(forName: TextRasterizer.refinedNotification, object: nil,
+                                                                    queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { if let self, !self.isPlaying { self.onRedrawNeeded?() } }
         }
         ReverseManager.shared.onReady = { [weak self] _ in self?.forceRebuild() }
         StabilizationStore.shared.onReady = { [weak self] _ in self?.onRedrawNeeded?() }
@@ -729,6 +735,8 @@ public final class PlaybackEngine {
 
     /// Re-renders the frame at the playhead from the last decoded sources with the LATEST project (paused edits).
     /// Encodes into `output` (bgra8Unorm render target). Returns false if no decoded sources are available yet.
+    /// An interactive frame (BUG-BUBBLE-TEXT-LAG): a slow text raster at a new size is drawn from its raster at the
+    /// previous size, scaled, while the exact one is built off the main thread (then `onRedrawNeeded`).
     public func renderCurrentFrame(into output: MTLTexture, commandBuffer: MTLCommandBuffer) -> Bool {
         let t = hoverTime ?? requestedTime
         let frame = FrameEvaluator.evaluate(project, at: t)
@@ -736,7 +744,7 @@ public final class PlaybackEngine {
         if sources.buffers.isEmpty && !frame.mediaLayers.isEmpty { return false }
         let media = Dictionary(uniqueKeysWithValues: project.media.map { ($0.id, $0) })
         FrameRenderer.shared.encode(frame, media: media, sources: sources, output: output,
-                                    commandBuffer: commandBuffer)
+                                    commandBuffer: commandBuffer, interactive: true)
         return true
     }
 
