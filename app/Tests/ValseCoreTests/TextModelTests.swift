@@ -90,6 +90,33 @@ struct TextModelTests {
         s.scalePadding(to: 2, base: Vec2(0.4, 0.2)); #expect(s.padding == Vec2(0.8, 0.4))
     }
 
+    /// TX-BUBBLE2 padding follow-up: horizontal and vertical padding scale separately, down to `minPadding`; files
+    /// written before keep their padding, negative paddings round-trip.
+    @Test func bubblePaddingAxesAndCodable() throws {
+        var s = TextBubbleStyle(family: .oval, fill: .white, containsText: true)
+        #expect(s.padding == Vec2(0.45, 0.3))
+        // linked: the other axis keeps the ratio
+        s.setPadding(axis: 0, to: 0.9, linked: true); #expect(s.padding.x == 0.9 && abs(s.padding.y - 0.6) < 1e-9)
+        s.setPadding(axis: 1, to: 0.3, linked: true); #expect(abs(s.padding.x - 0.45) < 1e-9 && s.padding.y == 0.3)
+        // unlinked: one axis only
+        s.setPadding(axis: 1, to: 0, linked: false); #expect(abs(s.padding.x - 0.45) < 1e-9 && s.padding.y == 0)
+        // linked with the other at 0: same amount, never stuck at 0
+        s.setPadding(axis: 0, to: 0.25, linked: true); #expect(s.padding.x == 0.25 && abs(s.padding.y + 0.2) < 1e-9)
+        // clamped to minPadding
+        s.setPadding(axis: 0, to: -5, linked: true); #expect(s.padding == Vec2(TextBubbleStyle.minPadding, TextBubbleStyle.minPadding))
+        s.scalePadding(to: -10, base: Vec2(0.25, 0.12)); #expect(s.padding == Vec2(TextBubbleStyle.minPadding, TextBubbleStyle.minPadding))
+        s.padding = Vec2(-0.2, 0.12)
+        // round trip of a negative padding
+        let data = try JSONEncoder().encode(s)
+        #expect(try JSONDecoder().decode(TextBubbleStyle.self, from: data) == s)
+        // a 0.6 file (Vec2 padding) and an older one without padding open identically
+        var old = TextBubbleStyle(family: .burst, fill: .white, containsText: true); old.padding = Vec2(0.9, 0.8)
+        let oldJSON = try JSONEncoder().encode(old)
+        #expect(try JSONDecoder().decode(TextBubbleStyle.self, from: oldJSON).padding == Vec2(0.9, 0.8))
+        let bare = try JSONDecoder().decode(TextBubbleStyle.self, from: Data(#"{"family":"box"}"#.utf8))
+        #expect(bare.padding == Vec2(0.45, 0.3))
+    }
+
     /// TX-NEON: flicker is a pure function of (mode, time, unit, seed). Off = always lit; Whole text = one level for
     /// every unit, steady most of the time with rare stutters; One letter = exactly one unit ever dims.
     @Test func neonFlickerIsDeterministic() {

@@ -117,9 +117,9 @@ struct TextBubbleSection: View {
 @MainActor
 enum BubbleRows {
     static func row(_ ctx: InspectorContext, _ label: String, _ testID: String, range: ClosedRange<Double> = 0...100,
-                    format: @escaping (Double) -> String = { String(Int($0.rounded())) },
+                    format: @escaping (Double) -> String = { String(Int($0.rounded())) }, spec: RowSpec? = nil,
                     get: @escaping (TextBubbleStyle) -> Double, set: @escaping (inout TextBubbleStyle, Double) -> Void) -> ClipParamRow {
-        ClipParamRow(ctx: ctx, label: label, spec: RowSpec(range: range, step: 1, format: format),
+        ClipParamRow(ctx: ctx, label: label, spec: spec ?? RowSpec(range: range, step: 1, format: format),
                      get: { c, _ in if case .text(let t) = c.content, let s = t.resolvedBubble() { return get(s) }; return range.lowerBound },
                      set: { c, v, _ in if case .text(var t) = c.content { t.editBubble { set(&$0, v) }; c.content = .text(t) } },
                      gestureName: "cmd.textBubbleEdit", testID: testID)
@@ -335,9 +335,8 @@ struct BubbleCustomize: View {
                 }
             }
         }
-        let base = text.bubblePreset?.style.padding ?? TextBubbleStyle(family: .box, fill: .white).padding
-        BubbleRows.row(ctx, tr("text.bubble.padding"), "text.bubble.padding", range: 0...200, format: Fmt.percentValue,
-                       get: { $0.padding.x / max(base.x, 1e-6) * 100 }, set: { s, v in s.scalePadding(to: v / 100, base: base) })
+        InlineRow(label: tr("text.bubble.padding")) { EmptyView() }
+        BubblePaddingRows(ctx: ctx, style: s)
     }
 
     private func shapeButton(_ f: TextBubbleStyle.Family, selected: Bool) -> some View {

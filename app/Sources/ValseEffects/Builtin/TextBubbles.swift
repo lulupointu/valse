@@ -28,7 +28,7 @@ public enum BuiltinTextBubbles {
     /// Shape helper: oval / cloud / burst contain the text (TX-BUBBLE2 sizing), with a tighter padding.
     static func shape(_ f: S.Family, r: Double = 0.3, edge: S.Edge? = nil, tail: TextBubbleTail? = nil, fill: RGBA,
                       outline: TextBubbleOutline? = nil, shadow: TextBubbleShadow? = nil, bar: Double = 0.18) -> S {
-        var s = S(family: f, cornerRadius: r, barHeight: bar, tail: tail, padding: f.canContain ? Vec2(0.25, 0.12) : Vec2(0.45, 0.3),
+        var s = S(family: f, cornerRadius: r, barHeight: bar, tail: tail, padding: f.canContain ? Vec2(0.4, 0.2) : Vec2(0.45, 0.3),
                   fill: fill, outline: outline, shadow: shadow, containsText: true)
         if let edge { s.setEdge(edge) }
         if f == .underline { s.padding = Vec2(0.15, 0.08) }

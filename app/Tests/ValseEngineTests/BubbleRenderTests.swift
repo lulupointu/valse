@@ -243,4 +243,75 @@ import ValseTestSupport
             #expect(median < TimingBudget.cpuLimit(16), "\(name) neon bubble costs \(median) ms CPU+GPU per frame")
         }
     }
+
+    // MARK: 9. padding: 0 = the oval touches the text box; negative padding = a smaller shape, never collapsed
+
+    @Test func ovalAtZeroPaddingTouchesTheTextBox() throws {
+        for (str, f) in [("Default text", TextBubbleStyle.Family.oval), ("Hi", .oval), ("A\nB\nC\nD", .oval), ("Default text", .cloud)] {
+            var s = TextBubbleStyle(family: f, fill: .white, containsText: true)
+            s.padding = Vec2(0, 0)
+            let sc = scene(text(str) { $0.bubbleStyle = s })
+            let it = try #require(bubbleItems(sc).first)
+            guard case .bubble(_, let rect, _) = it.kind else { Issue.record("no bubble"); continue }
+            #expect(rect == sc.blocks[it.block].layout.bounds, "padding 0 = the text box")
+            let e = BubblePainter.shapeRect(s, rect)
+            let a = rect.width / 2, b = rect.height / 2, rx = e.width / 2, ry = e.height / 2
+            #expect(abs(a * a / (rx * rx) + b * b / (ry * ry) - 1) < 1e-3, "\(str): the ellipse passes through the text box corners")
+            #expect(max(rx / ry, ry / rx) <= 3 + 1e-6)
+            // wide text: tighter than the v0.6 fit (rx = a·√2, ry = max(b·√2, rx/3)), on both axes
+            let oldRx = a * sqrt(2), oldRy = max(b * sqrt(2), oldRx / 3)
+            if str == "Default text" { #expect(rx < oldRx * 0.9 && ry < oldRy * 0.9, "\(str): \(rx)×\(ry) vs \(oldRx)×\(oldRy)") }
+        }
+    }
+
+    @Test func negativePaddingShrinksTheShape() throws {
+        func bounds(_ str: String, _ pad: Vec2, _ f: TextBubbleStyle.Family) throws -> (rect: CGRect, em: CGFloat) {
+            var s = TextBubbleStyle(family: f, fill: .white, containsText: true)
+            s.padding = pad
+            let sc = scene(text(str) { $0.bubbleStyle = s })
+            let it = try #require(bubbleItems(sc).first)
+            guard case .bubble(let st, let rect, _) = it.kind else { throw CancellationError() }
+            return (BubblePainter.path(st, rect: rect, em: sc.blocks[it.block].em).boundingBoxOfPath, sc.blocks[it.block].em)
+        }
+        for f in [TextBubbleStyle.Family.box, .pill, .oval, .cloud, .burst, .hexagon] {
+            let zero = try bounds("Default text", Vec2(0, 0), f).rect, neg = try bounds("Default text", Vec2(-0.2, -0.2), f).rect
+            #expect(neg.width < zero.width - 1 && neg.height < zero.height - 1, "\(f): \(neg) vs \(zero)")
+            let tiny = try bounds("i", Vec2(TextBubbleStyle.minPadding, TextBubbleStyle.minPadding), f)
+            #expect(tiny.rect.width >= tiny.em * 0.4 - 0.5 && tiny.rect.height >= tiny.em * 0.4 - 0.5, "\(f) never collapses: \(tiny.rect)")
+        }
+        // H and V are independent
+        let wide = try bounds("Default text", Vec2(0.5, 0), .box).rect, tall = try bounds("Default text", Vec2(0, 0.5), .box).rect
+        #expect(wide.width > tall.width && wide.height < tall.height)
+    }
+
+    // MARK: contact sheet (VALSE_SNAPSHOT_DIR=…): every TX-BUBBLE2 preset, then oval / cloud / burst at padding 0 and −0.3
+
+    @Test func contactSheet() {
+        guard let dir = ProcessInfo.processInfo.environment["VALSE_SNAPSHOT_DIR"] else { return }
+        var cells: [TextContent] = BuiltinTextBubbles.added.map { d in text("Default text") { $0.bubbleID = d.id; $0.color = d.textColor } }
+        for f in [TextBubbleStyle.Family.oval, .cloud, .burst, .pill, .hexagon] {
+            for p in [Vec2(0, 0), Vec2(-0.3, -0.3)] {
+                var s = TextBubbleStyle(family: f, fill: RGBA(1, 1, 1, 0.25), outline: TextBubbleOutline(color: .white, width: 0.04), containsText: true)
+                s.padding = p
+                cells.append(text("Default text") { $0.bubbleStyle = s })
+            }
+        }
+        let cw = 640, ch = 260, cols = 5, rows = (cells.count + cols - 1) / cols
+        let ctx = CGContext(data: nil, width: cw * cols, height: ch * rows, bitsPerComponent: 8, bytesPerRow: cw * cols * 4,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.setFillColor(CGColor(gray: 0.18, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: cw * cols, height: ch * rows))
+        for (i, t) in cells.enumerated() {
+            let sc = scene(t)
+            let lb = sc.blocks[0].layout.bounds.applying(sc.blocks[0].transform)
+            ctx.saveGState()
+            // y-down scene, cell i at column i % cols, row i / cols (from the top)
+            ctx.translateBy(x: CGFloat(i % cols * cw), y: CGFloat(ch * rows - i / cols * ch))
+            ctx.scaleBy(x: 1, y: -1)
+            ctx.translateBy(x: CGFloat(cw) / 2 - lb.midX, y: CGFloat(ch) / 2 - lb.midY)
+            TextPainter.drawStatic(sc, in: ctx)
+            ctx.setStrokeColor(CGColor(red: 1, green: 0, blue: 0, alpha: 0.6)); ctx.setLineWidth(1); ctx.stroke(lb)
+            ctx.restoreGState()
+        }
+        Bitmap(ctx.makeImage()!).writePNG(URL(fileURLWithPath: dir).appendingPathComponent("bubble-contact-sheet.png"))
+    }
 }

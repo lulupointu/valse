@@ -48,6 +48,10 @@ final class TextUIState {
     /// TX-BUBBLE2: Bubble ▸ Customize disclosure (remembered app-wide) and the group filter pill (nil = All).
     var bubbleCustomizeExpanded = false
     var bubbleGroup: String?
+    /// Customize ▸ Padding chain: horizontal and vertical padding move together (default) or separately.
+    var bubblePaddingLinked = true
+    /// A Padding slider is held: the canvas draws the text box dashed (what padding is measured from).
+    var bubblePaddingGuide = false
     /// C4 Text ▸ Basic "Apply to all main captions" (CapCut, on by default): style edits on a caption restyle its track.
     var applyToAllCaptions: Bool = TestAnchors.isEnabled ? true : (AppDefaults.store.object(forKey: "ValseApplyToAllCaptions") as? Bool ?? true) {
         didSet { if !TestAnchors.isEnabled { AppDefaults.store.set(applyToAllCaptions, forKey: "ValseApplyToAllCaptions") } }

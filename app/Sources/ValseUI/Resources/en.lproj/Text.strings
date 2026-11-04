@@ -106,6 +106,10 @@
 "text.bubble.shadow.soft" = "Soft";
 "text.bubble.shadow.hard" = "Hard";
 "text.bubble.padding" = "Padding";
+"text.bubble.paddingH" = "Horizontal";
+"text.bubble.paddingV" = "Vertical";
+"text.bubble.link" = "Link horizontal and vertical (⌥-drag moves one)";
+"text.bubble.unlink" = "Unlink (⌥-drag moves one only)";
 "text.bubble.family.box" = "Box";
 "text.bubble.family.pill" = "Pill";
 "text.bubble.family.oval" = "Oval";

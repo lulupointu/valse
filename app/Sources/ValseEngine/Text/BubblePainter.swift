@@ -25,12 +25,28 @@ enum BubblePainter {
         }
     }
 
-    /// Rectangle of the shape: the padded text rect, grown for oval / cloud / burst so they contain it
-    /// (rx = w/2·√2, ry = h/2·√2, ry ≥ rx/3).
+    /// Rectangle of the shape: the padded text rect, grown for oval / cloud / burst into the ellipse through its
+    /// corners (padding 0 = the shape just touches the text box): the same margin m on both axes
+    /// (a²/(a+m)² + b²/(b+m)² = 1, tighter than the √2 minimum-area fit on wide text), aspect capped at 3:1.
     static func shapeRect(_ s: TextBubbleStyle, _ r: CGRect) -> CGRect {
-        guard s.containsText, [.oval, .cloud, .burst].contains(s.family) else { return r }
-        let rx = r.width / 2 * sqrt(2), ry = max(r.height / 2 * sqrt(2), rx / 3)
-        return CGRect(x: r.midX - rx, y: r.midY - ry, width: rx * 2, height: ry * 2)
+        guard s.containsText, s.family.canContain else { return r }
+        let e = containingEllipse(a: max(r.width / 2, 0.5), b: max(r.height / 2, 0.5))
+        return CGRect(x: r.midX - e.rx, y: r.midY - e.ry, width: e.rx * 2, height: e.ry * 2)
+    }
+
+    /// Radii of the ellipse through the corners (±a, ±b) with equal margins, aspect ≤ 3:1.
+    static func containingEllipse(a: CGFloat, b: CGFloat) -> (rx: CGFloat, ry: CGFloat) {
+        var lo: CGFloat = 0, hi = max(a, b)   // f(0) = 2 > 1, f(max(a, b)) ≤ 1/4 + 1/4 < 1
+        for _ in 0..<40 {
+            let m = (lo + hi) / 2
+            if a * a / ((a + m) * (a + m)) + b * b / ((b + m) * (b + m)) > 1 { lo = m } else { hi = m }
+        }
+        var rx = a + hi, ry = b + hi
+        let cap: CGFloat = 3
+        // still through the corners: rx = cap·ry ⇒ a²/(cap·ry)² + b²/ry² = 1
+        if rx > cap * ry { ry = sqrt(a * a / (cap * cap) + b * b); rx = cap * ry }
+        else if ry > cap * rx { rx = sqrt(b * b / (cap * cap) + a * a); ry = cap * rx }
+        return (rx, ry)
     }
 
     static func path(_ s: TextBubbleStyle, rect r0: CGRect, em: CGFloat) -> CGPath {
@@ -44,7 +60,8 @@ enum BubblePainter {
             var rr = s.family == .pill ? min(r.height, r.width) / 2 : min(CGFloat(s.cornerRadius) * em, r.height / 2, r.width / 2)
             // the corners never cut into the text: a radius r cuts r·(1 − 1/√2) into the corner, keep that ≤ padding
             // (a 6-line pill becomes a rounded box instead of a capsule that clips the first and last lines)
-            rr = min(rr, CGFloat(min(s.padding.x, s.padding.y)) * em / (1 - 1 / sqrt(2)))
+            // (floor 0.12 em: at padding ≤ 0 a pill stays rounded instead of turning into a sharp box)
+            rr = min(rr, CGFloat(max(min(s.padding.x, s.padding.y), 0.12)) * em / (1 - 1 / sqrt(2)))
             if let t = joined, t.side == .left || t.side == .right {   // room for the tail base between the corners
                 rr = min(rr, max((r.height - tailWidth(t, r, em, vertical: true)) / 2, 0))
             }

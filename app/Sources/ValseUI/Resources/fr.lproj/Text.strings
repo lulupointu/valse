@@ -106,6 +106,10 @@
 "text.bubble.shadow.soft" = "Douce";
 "text.bubble.shadow.hard" = "Nette";
 "text.bubble.padding" = "Marge";
+"text.bubble.paddingH" = "Horizontale";
+"text.bubble.paddingV" = "Verticale";
+"text.bubble.link" = "Lier horizontal et vertical (⌥ + glisser pour n'en changer qu'une)";
+"text.bubble.unlink" = "Délier (⌥ + glisser pour n'en changer qu'une)";
 "text.bubble.family.box" = "Boîte";
 "text.bubble.family.pill" = "Pilule";
 "text.bubble.family.oval" = "Ovale";

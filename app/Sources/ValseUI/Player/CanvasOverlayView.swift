@@ -86,6 +86,7 @@ final class CanvasOverlayView: NSView {
         _ = ui.canvasTool?.revision
         _ = store.project.settings.canvasSize
         _ = (store.inspectorTab, InspectorUIState.shared.subTab, ui.preview, store.project.duration, ui.scope)
+        _ = TextUIState.shared.bubblePaddingGuide
         updateScopeTimer()
         if !store.selection.isEmpty {
             _ = store.project.timeline
@@ -230,7 +231,11 @@ final class CanvasOverlayView: NSView {
             path.addLines(between: [pts[0], pts[1], pts[3], pts[2], pts[0]])
             ctx.setStrokeColor((snapLines.isEmpty ? NSColor.white : Self.accent).cgColor)
             ctx.setLineWidth(1)
+            // TX-BUBBLE2: while a bubble Padding slider is held, the text box (what padding is measured from) is dashed
+            let paddingGuide = l.isText && TextUIState.shared.bubblePaddingGuide
+            if paddingGuide { ctx.setStrokeColor(Self.accent.cgColor); ctx.setLineDash(phase: 0, lengths: [4, 3]) }
             ctx.addPath(path); ctx.strokePath()
+            if paddingGuide { ctx.setLineDash(phase: 0, lengths: []); continue }
             guard single, textEditor == nil, !l.isLocked else { continue }
             // corner handles
             ctx.setFillColor(NSColor.white.cgColor)
