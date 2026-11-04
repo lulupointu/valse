@@ -46,6 +46,50 @@ struct TextModelTests {
         #expect(!json.contains("neon"))
     }
 
+    /// TX-BUBBLE2: v1 files (bubbleID + bubbleColor) open with no bubbleStyle; a full style round-trips; partial
+    /// styles decode with defaults; an older app reading a new file still finds bubbleID / bubbleColor.
+    @Test func bubbleStyleIsBackwardAndForwardCompatible() throws {
+        let v1 = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi","bubbleID":"valse.bubble.speechWhite","bubbleColor":{"r":1,"g":0,"b":0,"a":1}}"#.utf8))
+        #expect(v1.bubbleStyle == nil && v1.bubbleID == "valse.bubble.speechWhite" && v1.bubbleColor == RGBA(1, 0, 0, 1))
+        var t = TextContent(string: "Hi")
+        t.bubbleID = "valse.bubble.neonPinkPill"
+        t.bubbleStyle = TextBubbleStyle(family: .cloud, cornerRadius: 0.4, spikes: 18, depth: 0.32, bumps: 13, jitter: 0.5, fold: 0.4,
+                                        barHeight: 0.3, tail: TextBubbleTail(side: .topRight, kind: .dots, length: 1.2, width: 0.5, lean: 0.3, position: 0.25),
+                                        padding: Vec2(0.3, 0.2), fill: RGBA(0, 0, 0, 0.5),
+                                        outline: TextBubbleOutline(color: .red, width: 0.08, dash: .dotted, neon: TextBubbleOutline.neonStyle(glow: 0.5, flicker: .broken)),
+                                        shadow: TextBubbleShadow(color: .blue, kind: .hard), containsText: true)
+        let data = try JSONEncoder().encode(t)
+        let back = try JSONDecoder().decode(TextContent.self, from: data)
+        #expect(back == t)
+        // older app: knows bubbleID / bubbleColor only, ignores bubbleStyle
+        struct V1Text: Decodable { var string: String; var bubbleID: String?; var bubbleColor: RGBA? }
+        let old = try JSONDecoder().decode(V1Text.self, from: data)
+        #expect(old.bubbleID == "valse.bubble.neonPinkPill" && old.bubbleColor == nil)
+        // partial style → defaults
+        let partial = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi","bubbleStyle":{"family":"oval","tail":{"side":"left"}}}"#.utf8))
+        #expect(partial.bubbleStyle?.family == .oval && partial.bubbleStyle?.tail == TextBubbleTail(side: .left)
+                && partial.bubbleStyle?.padding == Vec2(0.45, 0.3) && partial.bubbleStyle?.outline == nil)
+        // no bubbleStyle key while unset
+        #expect(!String(decoding: try JSONEncoder().encode(TextContent(string: "x")), as: UTF8.self).contains("bubbleStyle"))
+        // caption style sync copies the field
+        #expect(CaptionStyleSync.Diff.knownKeys.contains("bubbleStyle"))
+        var a = TextContent(string: "a"), b = TextContent(string: "b")
+        b.bubbleStyle = TextBubbleStyle(family: .burst, fill: .white)
+        CaptionStyleSync.Diff(TextContent(string: "a"), b).apply(to: &a)
+        #expect(a.bubbleStyle == b.bubbleStyle && a.string == "a")
+    }
+
+    @Test func bubbleEdgeAndFamilyHelpers() {
+        var s = TextBubbleStyle(family: .burst, fill: .white)
+        #expect(s.edge == .spiky)
+        s.setEdge(.wild); #expect(s.edge == .wild && s.spikes == 18 && s.jitter > 0)
+        s.setEdge(.calm); #expect(s.edge == .calm && s.spikes == 10 && s.jitter == 0)
+        s.tail = TextBubbleTail(side: .bottom)
+        s.setFamily(.banner); #expect(s.tail == nil)
+        s.setFamily(.oval); #expect(s.containsText)
+        s.scalePadding(to: 2, base: Vec2(0.4, 0.2)); #expect(s.padding == Vec2(0.8, 0.4))
+    }
+
     /// TX-NEON: flicker is a pure function of (mode, time, glyph): Off = always lit, Subtle stays bright, Broken drops
     /// some letters out completely for short bursts.
     @Test func neonFlickerIsDeterministic() {

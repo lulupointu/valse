@@ -417,6 +417,15 @@ struct TextBackgroundSection: View {
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 4) {
+                // TX-BUBBLE2: Background and Bubble both on → say so, one click removes the bubble
+                if let t = TextInspector.text(ctx), t.backgroundColor.a > 0, t.resolvedBubble() != nil {
+                    HStack(spacing: 8) {
+                        HintText(text: tr("text.background.bubbleOn"))
+                        Spacer(minLength: 4)
+                        PillButton(title: tr("text.background.removeBubble")) { ctx.store.applyBubble(nil) }
+                            .testID("text.background.removeBubble")
+                    }
+                }
                 TextInspector.colorRow(ctx, tr("inspector.color"), get: { RGBA($0.backgroundColor.r, $0.backgroundColor.g, $0.backgroundColor.b) },
                                        set: { t, c in t.backgroundColor = RGBA(c.r, c.g, c.b, max(t.backgroundColor.a, 0.01)) })
                 InlineRow(label: tr("text.background.mode")) {
@@ -528,33 +537,6 @@ struct TextCurveSection: View {
 }
 
 // MARK: - Bubble / Effects sub-tabs
-
-struct TextBubbleSection: View {
-    let ctx: InspectorContext
-    var body: some View {
-        WithPerceptionTracking {
-            let cur = TextInspector.text(ctx)?.bubbleID
-            VStack(alignment: .leading, spacing: 10) {
-                TileGrid {
-                    Tile(title: tr("anim.none"), selected: cur == nil) { ctx.store.applyBubble(nil) } content: {
-                        Image(systemName: "nosign").font(.system(size: 26, weight: .light)).foregroundStyle(Color(white: 0.75))
-                    }
-                    ForEach(Registries.textBubbles.all) { d in
-                        WithPerceptionTracking {
-                            Tile(title: tr(d.nameKey), selected: cur == d.id) { ctx.store.applyBubble(d) } content: {
-                                TextPreviewImage(key: "bubble:\(d.id)", content: TextPreviewImage.bubble(d), fontPx: 30, padding: 6)
-                            }
-                        }
-                    }
-                }
-                if cur != nil {
-                    TextInspector.colorRow(ctx, tr("text.bubble.color"), get: { t in t.bubbleColor ?? Registries.textBubbles[t.bubbleID ?? ""]?.fill ?? .white },
-                                           set: { $0.bubbleColor = $1 })
-                }
-            }
-        }
-    }
-}
 
 /// Text ▸ Templates (OB-10, was "Effects"): the word-art library (same as the asset panel's Text effects), searchable,
 /// grouped; for captions the first category is "Caption" (the caption templates, C4).

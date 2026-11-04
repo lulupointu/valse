@@ -45,6 +45,9 @@ final class TextUIState {
     /// Bumped when imported fonts change.
     var fontsRevision = 0
     var presetsExpanded = false
+    /// TX-BUBBLE2: Bubble ▸ Customize disclosure (remembered app-wide) and the group filter pill (nil = All).
+    var bubbleCustomizeExpanded = false
+    var bubbleGroup: String?
     /// C4 Text ▸ Basic "Apply to all main captions" (CapCut, on by default): style edits on a caption restyle its track.
     var applyToAllCaptions: Bool = TestAnchors.isEnabled ? true : (AppDefaults.store.object(forKey: "ValseApplyToAllCaptions") as? Bool ?? true) {
         didSet { if !TestAnchors.isEnabled { AppDefaults.store.set(applyToAllCaptions, forKey: "ValseApplyToAllCaptions") } }
@@ -156,13 +159,37 @@ extension EditorStore {
         })
     }
 
+    /// First selected text clip (inspector edits fan out from it to the whole same-kind selection, C2).
+    var bubbleTargetClipID: ClipID? {
+        if let c = selectedTextClip?.clip { return c.id }
+        return selectedClipsSlice.first { if case .text = $0.content { return true }; return false }?.id
+    }
+
+    /// Bubble tile pick (TX-BUBBLE2): every selected text clip gets the preset (edits dropped, text colour set, run
+    /// colours cleared, the flat text Background turned off), one undo step.
     func applyBubble(_ d: TextBubbleDescriptor?) {
-        guard let (c, _) = selectedTextClip else { return }
-        updateText(c.id, nameKey: "cmd.textBubble") { t in
+        guard let id = bubbleTargetClipID else { return }
+        updateText(id, nameKey: "cmd.textBubble") { t in
             t.bubbleID = d?.id
             t.bubbleColor = nil
-            if let d { t.color = d.textColor; t.runs = t.runs.map { var r = $0; r.style.color = nil; return r } }
+            t.bubbleStyle = nil
+            if let d {
+                t.color = d.textColor; t.runs = t.runs.map { var r = $0; r.style.color = nil; return r }
+                t.backgroundColor.a = 0
+            }
         }
+    }
+
+    /// Customize edit of the selected texts' bubbles (each clip starts from its own resolved bubble), one undo step.
+    func updateBubble(_ body: @escaping (inout TextBubbleStyle) -> Void) {
+        guard let id = bubbleTargetClipID else { return }
+        updateText(id, nameKey: "cmd.textBubbleEdit") { $0.editBubble(body) }
+    }
+
+    /// Customize ▸ Reset: back to the preset as is.
+    func resetBubble() {
+        guard let id = bubbleTargetClipID else { return }
+        updateText(id, nameKey: "cmd.textBubbleEdit") { t in t.bubbleStyle = nil; t.bubbleColor = nil }
     }
 
     /// Switches a template clip to another template, keeping its texts (TX-041).

@@ -311,7 +311,10 @@ public struct TextContent: Hashable, Codable, Sendable {
     public var runs: [TextRun]
     /// Speech-bubble / banner shape behind the text (`Registries.textBubbles`).
     public var bubbleID: String?
+    /// Legacy (TX-014) fill override, read only: folded into `bubbleStyle` on the first bubble edit.
     public var bubbleColor: RGBA?
+    /// TX-BUBBLE2: the clip's edited bubble (nil = the `bubbleID` preset as is). Older apps ignore it and show the preset.
+    public var bubbleStyle: TextBubbleStyle?
     /// Present on caption clips (word timings, translation…).
     public var caption: CaptionData?
     /// Word-highlight (karaoke) styling; needs `caption.words` (or spreads words evenly over the clip).
@@ -357,6 +360,7 @@ public struct TextContent: Hashable, Codable, Sendable {
         boxWidth = try c.decodeIfPresent(Double.self, forKey: .boxWidth); runs = try v(.runs, runs)
         bubbleID = try c.decodeIfPresent(String.self, forKey: .bubbleID)
         bubbleColor = try c.decodeIfPresent(RGBA.self, forKey: .bubbleColor)
+        bubbleStyle = try c.decodeIfPresent(TextBubbleStyle.self, forKey: .bubbleStyle)
         caption = try c.decodeIfPresent(CaptionData.self, forKey: .caption)
         karaoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .karaoke)
         inactiveKaraoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .inactiveKaraoke)

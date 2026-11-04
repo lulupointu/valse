@@ -5,6 +5,47 @@ import ValseCore
 
 /// Text engine content: registries are populated, ids unique, every key translated, glyph animation maths.
 struct TextContentTests {
+    /// TX-BUBBLE2: 60 presets (24 v1 + 36), unique ids, groups in the pill list, neon presets see-through with a neon
+    /// outline, v1 shapes map onto styles (classic tails), grid order follows the groups.
+    @Test func bubblePresetsV2() {
+        let all = Registries.textBubbles.all
+        #expect(all.count == 60 && BuiltinTextBubbles.legacy.count == 24 && BuiltinTextBubbles.added.count == 36)
+        #expect(Set(all.map(\.id)).count == 60)
+        #expect(all.allSatisfy { BuiltinTextBubbles.groups.contains($0.groupKey) })
+        let order = all.map { BuiltinTextBubbles.groups.firstIndex(of: $0.groupKey)! }
+        #expect(order == order.sorted())
+        for d in all where d.groupKey == "bubble.group.neon" {
+            #expect(d.style.outline?.neon != nil, "\(d.id) neon")
+            if d.id != "valse.bubble.neonNightSign" { #expect(d.style.fill.a == 0, "\(d.id) transparent") }
+        }
+        let speech = Registries.textBubbles["valse.bubble.speechWhite"]!.style
+        #expect(speech.family == .box && speech.cornerRadius == 0.5 && speech.tail == TextBubbleTail(side: .bottomLeft)
+                && speech.outline == TextBubbleOutline(color: RGBA(hex: 0x141414), width: 0.07) && !speech.containsText)
+        #expect(Registries.textBubbles["valse.bubble.thought"]!.style.tail?.kind == .dots)
+        #expect(Registries.textBubbles["valse.bubble.cloud"]!.style.family == .cloud)
+        #expect(Registries.textBubbles["valse.bubble.outlinePillDark"]!.previewBackdrop == .light)
+        #expect(Registries.textBubbles["valse.bubble.comicShout"]!.style.containsText)
+        // v1 ids and shapes unchanged
+        for d in BuiltinTextBubbles.legacy { #expect(TextBubbleDescriptor.shape(of: d.style) == d.shape, "\(d.id)") }
+    }
+
+    /// Resolution and Customize edits: bubbleStyle ?? preset (with the legacy bubbleColor fill); an edit copies the
+    /// style and clears bubbleColor; Edited = differs from the preset; Reset = bubbleStyle nil.
+    @Test func bubbleResolutionAndEdits() {
+        var t = TextContent(string: "Hi")
+        #expect(t.resolvedBubble() == nil)
+        t.editBubble { $0.fill = .red }
+        #expect(t.bubbleStyle == nil)   // no bubble: no-op
+        t.bubbleID = "valse.bubble.speechYellow"; t.bubbleColor = RGBA(0, 1, 0, 1)
+        #expect(t.resolvedBubble()?.fill == RGBA(0, 1, 0, 1) && !t.isBubbleEdited)
+        t.editBubble { $0.cornerRadius = 0.8 }
+        #expect(t.bubbleColor == nil && t.bubbleStyle?.fill == RGBA(0, 1, 0, 1) && t.bubbleStyle?.cornerRadius == 0.8 && t.isBubbleEdited)
+        t.bubbleStyle = Registries.textBubbles["valse.bubble.speechYellow"]!.style
+        #expect(!t.isBubbleEdited)
+        t.bubbleStyle = nil
+        #expect(t.resolvedBubble() == Registries.textBubbles["valse.bubble.speechYellow"]!.style)
+    }
+
     @Test func registriesHoldTheCapCutSizedLibraries() {
         #expect(Registries.textStyles.all.count >= 200)
         #expect(Registries.textStyles(.preset).count >= 20)

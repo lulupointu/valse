@@ -1,0 +1,22 @@
+// TX-BUBBLE2: the Bubble tab in French — filter pills, tile names, and the Customize rows of a burst with a tail and
+// a shadow (Forme, Bord, Queue, Style du contour, Néon, Ombre, Marge) fit the inspector.
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"click": "id:inspector.sub.bubble"},
+    {"click": "id:text.bubble.group.comic"},
+    {"click": "id:text.bubble.tile.comicShout"},
+    {"expect": {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.comicShout"}},
+    {"snapshot": "bubble-grid-comic-fr", "element": "id:text.bubble.presets", "baseline": true},
+    {"click": "id:text.bubble.customize"},
+    {"click": "id:text.bubble.shadow", "at": [0.93, 0.5]},
+    {"expect": {"path": "selectedClips.0.bubbleStyle.shadow", "equals": "soft"}},
+    {"hover": "id:text.bubble.shapeRows"},
+    {"snapshot": "bubble-customize-shape-fr", "element": "id:text.bubble.shapeRows", "baseline": true},
+    {"hover": "id:text.bubble.styleRows"},
+    {"snapshot": "bubble-customize-style-fr", "element": "id:text.bubble.styleRows", "baseline": true}
+  ]
+}

@@ -12,7 +12,8 @@ struct TextScene: @unchecked Sendable {
     enum Variant { case base, highlight }
 
     enum Kind {
-        case bubble(BubbleShape, fill: RGBA, stroke: RGBA?, strokeWidth: CGFloat, rect: CGRect)
+        /// TX-BUBBLE2: the clip's bubble (`rect` = padded text box), or one layer of a flickering neon bubble.
+        case bubble(TextBubbleStyle, rect: CGRect, part: BubblePainter.Part)
         case shape(BubbleShape, color: RGBA, rect: CGRect)
         case background(rect: CGRect, color: RGBA, radius: CGFloat)
         case wordBox(rect: CGRect, color: RGBA, radius: CGFloat)
@@ -193,7 +194,7 @@ enum TextSceneBuilder {
                 var main = textBlock(t, px: fontPx)
                 let sub = cap.subStyle ?? CaptionSubStyle()
                 var st = t
-                st.karaoke = nil; st.caption = nil; st.bubbleID = nil
+                st.karaoke = nil; st.caption = nil; st.bubbleID = nil; st.bubbleStyle = nil
                 st.color = sub.color; st.fontSize = t.fontSize * sub.fontScale
                 if let f = sub.fontName { st.fontName = f }
                 if let s = sub.strokeColor { st.strokeColor = s }
@@ -261,12 +262,21 @@ enum TextSceneBuilder {
                 continue
             }
             // bubble
-            if let id = st.bubbleID, let d = Registries.textBubbles[id] {
-                let rect = lb.insetBy(dx: -CGFloat(d.padding.x) * em, dy: -CGFloat(d.padding.y) * em)
-                let sw = CGFloat(d.strokeWidth) * em
-                let r = BubblePaths.bounds(d.shape, rect: rect, em: em, strokeWidth: d.stroke == nil ? 0 : sw).applying(T)
-                items.append(.init(kind: .bubble(d.shape, fill: st.bubbleColor ?? d.fill, stroke: d.stroke, strokeWidth: sw, rect: rect),
-                                   block: bi, transform: T, rect: r))
+            if var s = st.resolvedBubble() {
+                // path text: no tail (UX spec §5); v1 presets keep theirs (rendered exactly as before)
+                if st.path != nil, !BubblePainter.isClassic(s) { s.tail = nil }
+                let rect = lb.insetBy(dx: -CGFloat(s.padding.x) * em, dy: -CGFloat(s.padding.y) * em)
+                let r = BubblePainter.bounds(s, rect: rect, em: em).applying(T)
+                if let f = s.outline?.neon?.flicker, f != .off {
+                    // flickering neon: glow and tube are their own cells, dimmed per frame on the GPU (TextAnimator)
+                    for part in [BubblePainter.Part.glow, .body, .tube] {
+                        var it = TextScene.Item(kind: .bubble(s, rect: rect, part: part), block: bi, transform: T, rect: r)
+                        if part != .body { it.flicker = f }
+                        items.append(it)
+                    }
+                } else {
+                    items.append(.init(kind: .bubble(s, rect: rect, part: .whole), block: bi, transform: T, rect: r))
+                }
             }
             // backgrounds
             let bg = st.background

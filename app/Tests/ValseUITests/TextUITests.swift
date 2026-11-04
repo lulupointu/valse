@@ -124,6 +124,35 @@ import ValseTestSupport
         #expect(s.selectedTextClip?.text.bubbleID == nil)
     }
 
+    /// TX-BUBBLE2: a preset pick / Customize edit / Reset applies to every selected text clip, one undo step each;
+    /// picking a preset turns the flat text Background off in the same step.
+    @Test func bubbleEditsApplyToTheWholeSelection() throws {
+        let s = store()
+        s.addDefaultText()
+        let a = try #require(s.singleSelectedClip?.id)
+        s.seek(to: Time(5))
+        s.addDefaultText()
+        let b = try #require(s.singleSelectedClip?.id)
+        func text(_ id: ClipID) -> TextContent? { if case .text(let t) = s.project.timeline.clip(id)?.content { return t }; return nil }
+        s.selection = [a]
+        s.updateText(a) { $0.backgroundColor = RGBA(0, 0, 0, 1) }
+        s.selection = [a, b]
+        let depth = s.session.undoStack.count
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonPinkPill"])
+        #expect(text(a)?.bubbleID == "valse.bubble.neonPinkPill" && text(b)?.bubbleID == "valse.bubble.neonPinkPill")
+        #expect(text(a)?.backgroundColor.a == 0)
+        #expect(s.session.undoStack.count == depth + 1)
+        s.updateBubble { $0.setFamily(.oval); $0.tail = TextBubbleTail(side: .bottomRight, kind: .curve) }
+        #expect(text(a)?.bubbleStyle?.family == .oval && text(b)?.bubbleStyle?.tail?.side == .bottomRight)
+        #expect(text(a)?.isBubbleEdited == true && s.session.undoStack.count == depth + 2)
+        s.resetBubble()
+        #expect(text(a)?.bubbleStyle == nil && text(b)?.bubbleStyle == nil && text(b)?.bubbleID == "valse.bubble.neonPinkPill")
+        s.undo()
+        #expect(text(b)?.bubbleStyle?.family == .oval)
+        s.undo(); s.undo()
+        #expect(text(a)?.bubbleID == nil && text(b)?.bubbleID == nil && text(a)?.backgroundColor.a == 1)
+    }
+
     @Test func templatesAddAndSwitchKeepingText() throws {
         let s = store()
         let d = Registries.textTemplates["valse.template.titleSubtitle"]!
