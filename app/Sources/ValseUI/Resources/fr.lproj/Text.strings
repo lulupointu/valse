@@ -69,7 +69,7 @@
 "text.bubble.customize" = "Personnaliser";
 "text.bubble.basedOn" = "Basé sur %@";
 "text.bubble.edited" = "Modifié";
-"text.bubble.reset" = "Réinitialiser";
+"text.bubble.reset" = "Rétablir la bulle et son style de texte";
 "text.bubble.fill" = "Remplissage";
 "text.bubble.none" = "Aucun";
 "text.bubble.opacity" = "Opacité";

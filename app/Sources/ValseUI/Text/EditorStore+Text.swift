@@ -165,31 +165,29 @@ extension EditorStore {
         return selectedClipsSlice.first { if case .text = $0.content { return true }; return false }?.id
     }
 
-    /// Bubble tile pick (TX-BUBBLE2): every selected text clip gets the preset (edits dropped, text colour set, run
-    /// colours cleared, the flat text Background turned off), one undo step.
+    /// Bubble tile pick (TX-BUBBLE2): every selected text clip gets the preset (edits dropped, run colours cleared, the
+    /// flat text Background turned off) and its paired text look (`TextBubblePairing.pick`: merged per clip, a font
+    /// the user chose kept, None restores the look from before the first bubble), one undo step.
     func applyBubble(_ d: TextBubbleDescriptor?) {
         guard let id = bubbleTargetClipID else { return }
-        updateText(id, nameKey: "cmd.textBubble") { t in
-            t.bubbleID = d?.id
-            t.bubbleColor = nil
-            t.bubbleStyle = nil
-            if let d {
-                t.color = d.textColor; t.runs = t.runs.map { var r = $0; r.style.color = nil; return r }
-                t.backgroundColor.a = 0
-            }
-        }
+        updateText(id, nameKey: "cmd.textBubble") { t in TextBubblePairing.pick(d, on: &t) }
     }
 
     /// Customize edit of the selected texts' bubbles (each clip starts from its own resolved bubble), one undo step.
+    /// An outline recolour carries the paired text colour along (linked colours).
     func updateBubble(_ body: @escaping (inout TextBubbleStyle) -> Void) {
         guard let id = bubbleTargetClipID else { return }
-        updateText(id, nameKey: "cmd.textBubbleEdit") { $0.editBubble(body) }
+        updateText(id, nameKey: "cmd.textBubbleEdit") { t in
+            let before = t.resolvedBubble()
+            t.editBubble(body)
+            TextBubblePairing.followOutline(&t, before: before)
+        }
     }
 
-    /// Customize ▸ Reset: back to the preset as is.
+    /// Customize ▸ Reset: back to the preset as is, with its paired text look.
     func resetBubble() {
         guard let id = bubbleTargetClipID else { return }
-        updateText(id, nameKey: "cmd.textBubbleEdit") { t in t.bubbleStyle = nil; t.bubbleColor = nil }
+        updateText(id, nameKey: "cmd.textBubbleEdit") { t in TextBubblePairing.reset(&t) }
     }
 
     /// Switches a template clip to another template, keeping its texts (TX-041).

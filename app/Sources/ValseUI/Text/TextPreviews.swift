@@ -62,7 +62,11 @@ struct TextPreviewImage: View {
     }
 
     static func bubble(_ d: TextBubbleDescriptor) -> TextContent {
-        var t = TextContent(string: "Aa", fontSize: 0.1); t.bold = true; t.bubbleID = d.id; t.color = d.textColor
+        // TX-BUBBLE2: "Aa" in the paired text look (CAPS presets show "AA"), static neon
+        var t = TextContent(string: "Aa", fontSize: 0.1); t.bold = true; t.color = d.textColor
+        TextBubblePairing.pick(d, on: &t)
+        t.neon?.flicker = .off
+        t.bubblePriorLook = nil
         return t
     }
 }

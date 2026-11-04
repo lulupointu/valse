@@ -153,6 +153,49 @@ import ValseTestSupport
         #expect(text(a)?.bubbleID == nil && text(b)?.bubbleID == nil && text(a)?.backgroundColor.a == 1)
     }
 
+    /// TX-BUBBLE2 pairing in the store: a pick brings the paired text look in the same undo step as the bubble; a font
+    /// the user chose is kept; switching never stacks looks; None restores the look from before; a text effect keeps
+    /// the bubble; an outline recolour carries the neon text colour along.
+    @Test func bubblePickPairsTheTextLook() throws {
+        let s = store()
+        s.addDefaultText()
+        let id = try #require(s.singleSelectedClip?.id)
+        func text() -> TextContent { s.selectedTextClip!.text }
+        let before = text().look
+        let depth = s.session.undoStack.count
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonCyanBox"])
+        #expect(text().neon?.color == RGBA(hex: 0x19E6FF) && text().fontName == "Futura-Medium" && text().textCase == .upper)
+        #expect(s.session.undoStack.count == depth + 1 && s.session.undoStack.last?.nameKey == "cmd.textBubble")
+        // switch: no neon leaks into the comic balloon
+        s.applyBubble(Registries.textBubbles["valse.bubble.comicClassic"])
+        #expect(text().neon == nil && text().glow == nil && text().fontName == "ChalkboardSE-Bold" && text().color == RGBA(hex: 0x141414))
+        // None: back to the look from before the first bubble
+        s.applyBubble(nil)
+        #expect(text().look == before && text().bubblePriorLook == nil)
+        // undo = one step per pick
+        s.undo()
+        #expect(text().bubbleID == "valse.bubble.comicClassic" && text().fontName == "ChalkboardSE-Bold")
+        s.undo(); s.undo()
+        #expect(text().bubbleID == nil && text().look == before)
+        // a font the user picked survives picks and switches
+        s.updateText(id) { $0.fontName = "Georgia" }
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonPinkPill"])
+        #expect(text().fontName == "Georgia" && text().neon != nil)
+        s.applyBubble(Registries.textBubbles["valse.bubble.burstYellow"])
+        #expect(text().fontName == "Georgia" && text().neon == nil && text().textCase == .upper)
+        // a text effect keeps the bubble
+        s.applyTextStyle(Registries.textStyles["valse.textfx.shadow.1"]!)
+        #expect(text().bubbleID == "valse.bubble.burstYellow")
+        // linked colours: recolouring a neon outline recolours the neon text
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonPinkPill"])
+        s.updateBubble { $0.outline?.color = RGBA(hex: 0x3BFF5C) }
+        #expect(text().neon?.color == RGBA(hex: 0x3BFF5C))
+        // Reset: the preset bubble and its text look again
+        s.updateText(id) { $0.neon?.color = .white }
+        s.resetBubble()
+        #expect(text().bubbleStyle == nil && text().neon?.color == RGBA(hex: 0xFF2E88) && text().fontName == "Georgia")
+    }
+
     @Test func templatesAddAndSwitchKeepingText() throws {
         let s = store()
         let d = Registries.textTemplates["valse.template.titleSubtitle"]!

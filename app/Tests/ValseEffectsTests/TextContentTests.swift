@@ -141,4 +141,70 @@ struct TextContentTests {
             }
         }
     }
+
+    // MARK: TX-BUBBLE2 bubble ↔ text pairing
+
+    /// A text effect (word art) keeps the clip's bubble (it used to rebuild the text without it).
+    @Test func restyleKeepsTheBubble() {
+        var t = TextContent(string: "Hi")
+        TextBubblePairing.pick(Registries.textBubbles["valse.bubble.neonPinkPill"], on: &t)
+        t.editBubble { $0.fill = .white }
+        let bubble = (t.bubbleID, t.bubbleStyle, t.bubblePriorLook)
+        BuiltinTextStyles.shadows[0].restyle(&t)
+        #expect(t.bubbleID == bubble.0 && t.bubbleStyle == bubble.1 && t.bubblePriorLook == bubble.2 && t.bubbleStyle != nil)
+        var legacy = TextContent(string: "Hi"); legacy.bubbleID = "valse.bubble.speechWhite"; legacy.bubbleColor = .red
+        BuiltinTextStyles.outlines[0].restyle(&legacy)
+        #expect(legacy.bubbleID == "valse.bubble.speechWhite" && legacy.bubbleColor == .red)
+    }
+
+    /// Every preset has a paired look; neon bubbles get neon text in the frame colour (duos excepted) with the dusk
+    /// guard; on karaoke captions the tube degrades to a glow neon.
+    @Test func everyBubbleHasAPairedLook() throws {
+        for d in Registries.textBubbles.all {
+            let l = try #require(TextBubblePairing.look(d.id), "\(d.id)")
+            if d.groupKey == "bubble.group.neon", d.id != "valse.bubble.neonMarquee" {
+                #expect(l.neon != nil, "\(d.id)")
+                if !TextBubblePairing.duos.contains(d.id) { #expect(l.neon?.color == d.style.outline?.color, "\(d.id)") }
+            }
+        }
+        #expect(TextBubblePairing.looks.count == 60)
+        let pink = try #require(TextBubblePairing.look("valse.bubble.neonPinkPill"))
+        #expect(pink.glow?.color == .black && pink.fontName == "ArialRoundedMTBold")
+        let k = try #require(TextBubblePairing.look("valse.bubble.neonPinkPill", karaoke: true))
+        #expect(k.neon == nil && k.glow?.color == pink.neon?.color)
+        // Flickering neon: the text flickers in sync with the frame (same faulty envelope)
+        let f = try #require(TextBubblePairing.look("valse.bubble.neonFlicker"))
+        #expect(f.neon?.flicker == Registries.textBubbles["valse.bubble.neonFlicker"]?.style.outline?.neon?.flicker)
+    }
+
+    /// Pick / switch / None merge: the pairing applies on a pick, switching never stacks looks, a colour edited after
+    /// the pick survives a switch, None restores the look from before, words / size / alignment are never touched.
+    @Test func pairingMergeRules() throws {
+        var t = TextContent(string: "Hello", fontSize: 0.08, color: RGBA(hex: 0x00FF00), alignment: .left)
+        t.backgroundColor = RGBA(0, 0, 1, 1)
+        let before = t
+        let cyan = Registries.textBubbles["valse.bubble.neonCyanBox"], comic = Registries.textBubbles["valse.bubble.comicShout"]
+        TextBubblePairing.pick(cyan, on: &t)
+        #expect(t.look == TextBubblePairing.look(cyan!.id))
+        #expect(t.string == "Hello" && t.fontSize == 0.08 && t.alignment == .left && t.backgroundColor.a == 0)
+        TextBubblePairing.pick(comic, on: &t)
+        #expect(t.neon == nil && t.glow == nil && t.italic && t.fontName == "ChalkboardSE-Bold")
+        t.color = .red   // user recolour after the pick
+        TextBubblePairing.pick(cyan, on: &t)
+        #expect(t.color == .red && t.neon != nil && t.fontName == "Futura-Medium")
+        TextBubblePairing.pick(nil, on: &t)
+        var expected = before.look; expected.color = .red
+        #expect(t.look == expected && t.bubbleID == nil && t.bubblePriorLook == nil)
+        // a user font is kept on the first pick; None without a snapshot (older project) only resets pairing fields
+        var u = TextContent(string: "x"); u.fontName = "Georgia"
+        TextBubblePairing.pick(comic, on: &u)
+        #expect(u.fontName == "Georgia" && u.textCase == .upper)
+        u.bubblePriorLook = nil
+        TextBubblePairing.pick(nil, on: &u)
+        #expect(u.fontName == "Georgia" && u.color == .white && u.neon == nil && u.shadowColor.a == 0)
+        // the tile preview content: paired look, CAPS presets show AA
+        var tile = TextContent(string: "Aa")
+        TextBubblePairing.pick(cyan, on: &tile)
+        #expect(tile.displayString == "AA")
+    }
 }
