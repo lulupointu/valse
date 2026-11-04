@@ -94,11 +94,11 @@ import Testing
         #expect(TimelineOps.validate(p.timeline).isEmpty)
     }
 
-    @Test func transitionsOverlapNeighbours() throws {
+    @Test func transitionsAreCentredOnTheCut() throws {
         var (p, ids) = Fx.project(mainClips: 2)
         try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: 1), in: &p.timeline)
-        #expect(p.timeline.clip(ids[1])!.start == Time(3))
-        let f = FrameEvaluator.evaluate(p, at: 3.5)
+        #expect(p.timeline.clip(ids[1])!.start == Time(4))   // TR-MODEL-CAPCUT: nothing moves
+        let f = FrameEvaluator.evaluate(p, at: 4)
         guard case .transition(_, _, _, let progress, _) = f.items.first else { Issue.record("no transition"); return }
         #expect(abs(progress - 0.5) < 1e-9)
         // clamped to half the shorter neighbour

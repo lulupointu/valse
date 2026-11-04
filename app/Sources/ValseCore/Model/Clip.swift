@@ -314,8 +314,10 @@ public struct TransitionInstance: Hashable, Codable, Sendable {
     public var typeID: String
     public var duration: Time
     public var params: [String: ParamValue]
-    public init(typeID: String, duration: Time = Time(0.5), params: [String: ParamValue] = [:]) {
-        self.typeID = typeID; self.duration = duration; self.params = params
+    /// CapCut `is_overlap` (TR-MODEL-CAPCUT, see `overlaps`): nil = true (most transitions, and every older file).
+    public var isOverlap: Bool?
+    public init(typeID: String, duration: Time = Time(0.5), params: [String: ParamValue] = [:], isOverlap: Bool? = nil) {
+        self.typeID = typeID; self.duration = duration; self.params = params; self.isOverlap = isOverlap
     }
 }
 
