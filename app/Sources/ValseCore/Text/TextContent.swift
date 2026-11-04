@@ -281,8 +281,8 @@ public struct TextContent: Hashable, Codable, Sendable {
     public var bubbleColor: RGBA?
     /// TX-BUBBLE2: the clip's edited bubble (nil = the `bubbleID` preset as is). Older apps ignore it and show the preset.
     public var bubbleStyle: TextBubbleStyle?
-    /// TX-BUBBLE2 pairing: storage of `bubblePriorLook` (boxed). Older apps ignore it.
-    public var bubblePrior: TextLookBox?
+    // (0.6 / 0.7 saved a "bubblePrior" text look for the removed bubble ↔ text pairing: no longer a field, the key is
+    // simply ignored when decoding.)
     /// Present on caption clips (word timings, translation…).
     public var caption: CaptionData?
     /// Word-highlight (karaoke) styling; needs `caption.words` (or spreads words evenly over the clip).
@@ -329,7 +329,6 @@ public struct TextContent: Hashable, Codable, Sendable {
         bubbleID = try c.decodeIfPresent(String.self, forKey: .bubbleID)
         bubbleColor = try c.decodeIfPresent(RGBA.self, forKey: .bubbleColor)
         bubbleStyle = try c.decodeIfPresent(TextBubbleStyle.self, forKey: .bubbleStyle)
-        bubblePrior = try c.decodeIfPresent(TextLookBox.self, forKey: .bubblePrior)
         caption = try c.decodeIfPresent(CaptionData.self, forKey: .caption)
         karaoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .karaoke)
         inactiveKaraoke = try c.decodeIfPresent(KaraokeStyle.self, forKey: .inactiveKaraoke)

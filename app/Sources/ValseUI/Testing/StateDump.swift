@@ -195,6 +195,9 @@ public enum StateDump {
         if let s = SettingsScrollProbe.dump() { ui["settings"] = s }   // U1-2 {overflow, scrollX}
         ui["crop"] = CropDialogState.shared.dump   // CV-006 (F3)
         ui["fontbook"] = ["imported": FontCatalog.importedFamilies, "favorites": TextUIState.shared.favoriteFonts]   // MI-021 / MI-024 (F3)
+        // TX-BUBBLE2 round 3: padding both Padding rows show while a slider is held (×1000 like bubbleStyle.padX), saved bubbles
+        if let l = TextUIState.shared.bubblePaddingLive { ui["bubblePaddingLive"] = ["x": (l.x * 1000).rounded(), "y": (l.y * 1000).rounded()] }
+        ui["savedBubbles"] = BubblePresetStore.shared.presets.map(\.name)
         // AU-009 (F3): offline audio stage of the selected clip (isolate voice / noise reduction …)
         if let c = store.singleSelectedClip, let a = c.mediaID.flatMap(p.asset) {
             let spec = ClipAudioPlan.make(c.audio).render

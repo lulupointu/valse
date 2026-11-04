@@ -54,6 +54,10 @@ final class TextUIState {
     var recentBubbles: [String] = []
     /// A Padding slider is held: the canvas draws the text box dashed (what padding is measured from).
     var bubblePaddingGuide = false
+    /// The dragged clip's padding while a Padding slider is held (both rows show it live; nil when not dragging).
+    var bubblePaddingLive: Vec2?
+    /// Saved bubble whose name field is open (Bubble ▸ right-click ▸ Rename…).
+    var renamingBubble: UUID?
     /// C4 Text ▸ Basic "Apply to all main captions" (CapCut, on by default): style edits on a caption restyle its track.
     var applyToAllCaptions: Bool = TestAnchors.isEnabled ? true : (AppDefaults.store.object(forKey: "ValseApplyToAllCaptions") as? Bool ?? true) {
         didSet { if !TestAnchors.isEnabled { AppDefaults.store.set(applyToAllCaptions, forKey: "ValseApplyToAllCaptions") } }
@@ -171,16 +175,11 @@ extension EditorStore {
         return selectedClipsSlice.first { if case .text = $0.content { return true }; return false }?.id
     }
 
-    /// Bubble tile pick (TX-BUBBLE2): every selected text clip gets the preset (edits dropped, run colours cleared, the
-    /// flat text Background turned off) and its paired text look (`TextBubblePairing.pick`: merged per clip, a font
-    /// the user chose kept, None restores the look from before the first bubble), one undo step.
+    /// Bubble tile pick (TX-BUBBLE2): every selected text clip gets the preset (edits dropped, the flat text
+    /// Background turned off), one undo step. The text keeps its look (`TextContent.pickBubble`).
     func applyBubble(_ d: TextBubbleDescriptor?) {
         guard let id = bubbleTargetClipID else { return }
-        updateText(id, nameKey: "cmd.textBubble") { t in
-            // leaving a bubble built from scratch: its text look first goes back to before (it set no pairing)
-            if t.bubbleID == nil, t.bubbleStyle != nil, let prior = t.bubblePriorLook { t.look = prior; t.bubblePriorLook = nil }
-            TextBubblePairing.pick(d, on: &t)
-        }
+        updateText(id, nameKey: "cmd.textBubble") { t in t.pickBubble(d) }
         if let d {   // Bubble ▸ Presets row: recents first
             let ui = TextUIState.shared
             ui.recentBubbles = [d.id] + ui.recentBubbles.filter { $0 != d.id }.prefix(12)
@@ -188,31 +187,37 @@ extension EditorStore {
     }
 
     /// Customize edit of the selected texts' bubbles (each clip starts from its own resolved bubble), one undo step.
-    /// An outline recolour carries the paired text colour along (linked colours).
     /// `blank`: a text without a bubble starts from it ("start from blank": a shape, a section checkbox), so the
-    /// first edit builds a bubble from scratch.
+    /// first edit builds a bubble from scratch. The text look is never touched.
     func updateBubble(blank: TextBubbleStyle? = nil, _ body: @escaping (inout TextBubbleStyle) -> Void) {
         guard let id = bubbleTargetClipID else { return }
         updateText(id, nameKey: "cmd.textBubbleEdit") { t in
-            let before = t.resolvedBubble()
-            if before == nil, let blank {
-                t.bubbleStyle = blank; t.bubbleColor = nil
-                // white text on a new white bubble would vanish: it turns ink (undo brings it back)
-                let f = blank.fill, c = t.color
-                if f.a > 0.5, f.r + f.g + f.b > 2.4, c.r + c.g + c.b > 2.4, t.neon == nil {
-                    t.bubblePriorLook = t.look   // a preset pick or ⊘ brings the white text back
-                    t.color = RGBA(hex: 0x141414)
-                }
-            }
+            if t.resolvedBubble() == nil, let blank { t.bubbleStyle = blank; t.bubbleColor = nil }
             t.editBubble(body)
-            TextBubblePairing.followOutline(&t, before: before)
         }
     }
 
-    /// Customize ▸ Reset: back to the preset as is, with its paired text look.
+    /// Customize ▸ Reset: back to the preset as is.
     func resetBubble() {
         guard let id = bubbleTargetClipID else { return }
-        updateText(id, nameKey: "cmd.textBubbleEdit") { t in TextBubblePairing.reset(&t) }
+        updateText(id, nameKey: "cmd.textBubbleEdit") { t in t.resetBubbleToPreset() }
+    }
+
+    // MARK: Saved bubbles ("Yours", TX-BUBBLE2 round 3)
+
+    /// Bubble ▸ Save bubble: the selected text's current bubble (shape, fill, outline, neon, shadow, tail, padding;
+    /// never the text style) becomes a user preset, app-wide.
+    func saveBubblePreset(into presets: BubblePresetStore = .shared) {
+        guard let id = bubbleTargetClipID, let c = project.timeline.clip(id), case .text(let t) = c.content,
+              let s = t.resolvedBubble() else { return }
+        presets.add(style: s, name: presets.nextName())
+        showToast(tr("text.bubble.saved"))
+    }
+
+    /// A saved bubble tile: every selected text gets it (one undo step), its text look untouched.
+    func applySavedBubble(_ p: BubblePresetStore.Preset) {
+        guard let id = bubbleTargetClipID else { return }
+        updateText(id, nameKey: "cmd.textBubble") { t in t.applySavedBubble(p.style) }
     }
 
     /// Switches a template clip to another template, keeping its texts (TX-041).

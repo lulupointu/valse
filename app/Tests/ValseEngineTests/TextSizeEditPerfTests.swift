@@ -17,8 +17,17 @@ import ValseTestSupport
     func neonCaption() -> TextContent {
         var t = TextContent(string: "pour qu'elle\nne vienne pas.", fontSize: 0.03375)
         t.bold = true
-        TextBubblePairing.pick(Registries.textBubbles["valse.bubble.neonOrangeBurst"], on: &t)
+        // the owner's caption: neon letters (set by hand since bubbles no longer restyle the text) in a neon burst
+        t.pickBubble(Registries.textBubbles["valse.bubble.neonOrangeBurst"])
+        Self.neonLetters(&t, RGBA(hex: 0xFFB020))
         return t
+    }
+
+    static func neonLetters(_ t: inout TextContent, _ c: RGBA, flicker: TextNeonFlicker = .off) {
+        t.color = .white
+        t.neon = TextNeonStyle(color: c, intensity: 0.8, glowSize: 0.3, thickness: 0.05, flicker: flicker)
+        t.glow = TextGlowStyle(color: .black, intensity: 0.35, radius: 0.3, mode: .outer)
+        t.fontName = "AvenirNextCondensed-Heavy"; t.textCase = .upper; t.letterSpacing = 0.03; t.bold = false
     }
 
     func project(_ t: TextContent, space: ProjectColorSpace) -> (Project, ClipID) {
@@ -117,7 +126,8 @@ import ValseTestSupport
 
     @Test func flickeringNeonBubbleSizeDragUsesTheAtlasStandIn() {
         var base = neonCaption()
-        TextBubblePairing.pick(Registries.textBubbles["valse.bubble.neonFlicker"], on: &base)
+        base.pickBubble(Registries.textBubbles["valse.bubble.neonFlicker"])
+        Self.neonLetters(&base, RGBA(hex: 0x19E6FF), flicker: .oneLetter)
         var (p, id) = project(base, space: .sdr709)
         let r = FrameRenderer()
         let out = target(shared: false)

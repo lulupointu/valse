@@ -27,14 +27,31 @@ struct BubblePaddingRows: View {
         }
     }
 
+    /// Root cause of "linked padding only syncs on release" (owner, round 3): during a slider drag the inspector's clip
+    /// slice is frozen (perf, `beginInspectorGesture`), so the other row kept showing the committed value. The drag now
+    /// publishes the target clip's live padding (`TextUIState.bubblePaddingLive`) and both rows read it.
     private func row(_ axis: Int, _ label: String, _ testID: String) -> ClipParamRow {
-        var r = BubbleRows.row(ctx, label, testID, spec: Self.spec,
-                               get: { (axis == 0 ? $0.padding.x : $0.padding.y) * 100 },
-                               set: { s, v in
-                                   let linked = TextUIState.shared.bubblePaddingLinked && !NSEvent.modifierFlags.contains(.option)
-                                   s.setPadding(axis: axis, to: v / 100, linked: linked)
-                               })
-        r.onDrag = { TextUIState.shared.bubblePaddingGuide = $0 }
+        let primary = ctx.clip?.id
+        var r = ClipParamRow(ctx: ctx, label: label, spec: Self.spec,
+                             get: { c, _ in
+                                 guard case .text(let t) = c.content, let s = t.resolvedBubble() else { return 0 }
+                                 return (axis == 0 ? s.padding.x : s.padding.y) * 100
+                             },
+                             set: { c, v, _ in
+                                 guard case .text(var t) = c.content else { return }
+                                 let ui = TextUIState.shared
+                                 let linked = ui.bubblePaddingLinked && !NSEvent.modifierFlags.contains(.option)
+                                 t.editBubble { $0.setPadding(axis: axis, to: v / 100, linked: linked) }
+                                 if ui.bubblePaddingGuide, c.id == primary, let s = t.bubbleStyle { ui.bubblePaddingLive = s.padding }
+                                 c.content = .text(t)
+                             },
+                             gestureName: "cmd.textBubbleEdit", testID: testID)
+        r.onDrag = { on in
+            let ui = TextUIState.shared
+            ui.bubblePaddingGuide = on
+            if !on { ui.bubblePaddingLive = nil }
+        }
+        r.linkedLive = { TextUIState.shared.bubblePaddingLive.map { (axis == 0 ? $0.x : $0.y) * 100 } }
         return r
     }
 

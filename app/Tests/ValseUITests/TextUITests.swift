@@ -153,49 +153,77 @@ import ValseTestSupport
         #expect(text(a)?.bubbleID == nil && text(b)?.bubbleID == nil && text(a)?.backgroundColor.a == 1)
     }
 
-    /// TX-BUBBLE2 pairing in the store: a pick brings the paired text look in the same undo step as the bubble; a font
-    /// the user chose is kept; switching never stacks looks; None restores the look from before; a text effect keeps
-    /// the bubble; an outline recolour carries the neon text colour along.
-    @Test func bubblePickPairsTheTextLook() throws {
+    /// TX-BUBBLE2 round 3 (owner: "keep the style the text already has"): picks, switches, None, Reset, start from
+    /// blank and an outline recolour never touch the text look; one undo step per pick; a text effect keeps the bubble.
+    @Test func bubbleEditsNeverRestyleTheText() throws {
         let s = store()
         s.addDefaultText()
         let id = try #require(s.singleSelectedClip?.id)
         func text() -> TextContent { s.selectedTextClip!.text }
-        let before = text().look
+        func look(_ x: TextContent) -> TextContent {
+            var y = x; y.bubbleID = nil; y.bubbleStyle = nil; y.bubbleColor = nil; return y
+        }
+        s.updateText(id) { $0.fontName = "Georgia"; $0.neon = TextNeonStyle(color: .green); $0.textCase = .upper }
+        let before = look(text())
         let depth = s.session.undoStack.count
-        s.applyBubble(Registries.textBubbles["valse.bubble.neonCyanBox"])   // TX-NEON: plain white letters in the tube
-        #expect(text().neon == nil && text().color == .white && text().fontName == "Futura-Medium" && text().textCase == .upper)
-        s.applyBubble(Registries.textBubbles["valse.bubble.neonFlicker"])   // a sign preset: neon letters
-        #expect(text().neon?.color == RGBA(hex: 0x19E6FF) && text().fontName == "ArialRoundedMTBold")
-        #expect(s.session.undoStack.count == depth + 2 && s.session.undoStack.last?.nameKey == "cmd.textBubble")
-        // switch: no neon leaks into the comic balloon
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonCyanBox"])
         s.applyBubble(Registries.textBubbles["valse.bubble.comicClassic"])
-        #expect(text().neon == nil && text().glow == nil && text().fontName == "ChalkboardSE-Bold" && text().color == RGBA(hex: 0x141414))
-        // None: back to the look from before the first bubble
-        s.applyBubble(nil)
-        #expect(text().look == before && text().bubblePriorLook == nil)
-        // undo = one step per pick
-        s.undo()
-        #expect(text().bubbleID == "valse.bubble.comicClassic" && text().fontName == "ChalkboardSE-Bold")
-        s.undo(); s.undo(); s.undo()
-        #expect(text().bubbleID == nil && text().look == before)
-        // a font the user picked survives picks and switches
-        s.updateText(id) { $0.fontName = "Georgia" }
-        s.applyBubble(Registries.textBubbles["valse.bubble.neonFlicker"])
-        #expect(text().fontName == "Georgia" && text().neon != nil)
-        s.applyBubble(Registries.textBubbles["valse.bubble.burstYellow"])
-        #expect(text().fontName == "Georgia" && text().neon == nil && text().textCase == .upper)
-        // a text effect keeps the bubble
-        s.applyTextStyle(Registries.textStyles["valse.textfx.shadow.1"]!)
-        #expect(text().bubbleID == "valse.bubble.burstYellow")
-        // linked colours: recolouring a neon outline recolours the neon text
+        #expect(look(text()) == before && text().bubbleID == "valse.bubble.comicClassic")
+        #expect(s.session.undoStack.count == depth + 2 && s.session.undoStack.last?.nameKey == "cmd.textBubble")
         s.applyBubble(Registries.textBubbles["valse.bubble.neonFlicker"])
         s.updateBubble { $0.outline?.color = RGBA(hex: 0x3BFF5C) }
-        #expect(text().neon?.color == RGBA(hex: 0x3BFF5C))
-        // Reset: the preset bubble and its text look again
-        s.updateText(id) { $0.neon?.color = .white }
+        #expect(look(text()) == before && text().isBubbleEdited)
         s.resetBubble()
-        #expect(text().bubbleStyle == nil && text().neon?.color == RGBA(hex: 0x19E6FF) && text().fontName == "Georgia")
+        #expect(look(text()) == before && text().bubbleStyle == nil)
+        s.applyTextStyle(Registries.textStyles["valse.textfx.shadow.1"]!)
+        #expect(text().bubbleID == "valse.bubble.neonFlicker")
+        s.undo()
+        s.applyBubble(nil)
+        #expect(look(text()) == before && text().resolvedBubble() == nil)
+        // start from blank (a white pill under white text): the text stays white
+        s.updateText(id) { $0.neon = nil; $0.color = .white }
+        s.updateBubble(blank: .blank(.pill)) { $0.setFamily(.pill) }
+        #expect(text().resolvedBubble()?.family == .pill && text().color == .white)
+    }
+
+    /// TX-BUBBLE2 round 3 "Save bubble": the bubble only (no text style) becomes a user preset, persisted app-wide
+    /// (newest first, rename / delete), and applying it gives every selected text that bubble, text look untouched.
+    @Test func savedBubblesPersistAndApply() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("bubble-presets-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let presets = BubblePresetStore(url: url)
+        let s = store()
+        s.addDefaultText()
+        let a = try #require(s.singleSelectedClip?.id)
+        s.saveBubblePreset(into: presets)
+        #expect(presets.presets.isEmpty)   // no bubble: nothing to save
+        s.applyBubble(Registries.textBubbles["valse.bubble.neonPinkPill"])
+        s.updateBubble { $0.padding = Vec2(0.7, 0.2); $0.tail = TextBubbleTail(side: .bottomRight) }
+        s.updateText(a) { $0.color = .red; $0.fontName = "Georgia" }
+        s.saveBubblePreset(into: presets)
+        let saved = try #require(presets.presets.first)
+        #expect(saved.style.padding == Vec2(0.7, 0.2) && saved.style.tail?.side == .bottomRight && saved.name == tr("text.bubble.savedName", 1))
+        s.applyBubble(Registries.textBubbles["valse.bubble.speechWhite"])
+        s.saveBubblePreset(into: presets)
+        #expect(presets.presets.count == 2 && presets.nextName() == tr("text.bubble.savedName", 3))
+        // persisted across launches (a new store reads the file), rename / delete
+        presets.rename(saved.id, to: "  Mine ")
+        let reloaded = BubblePresetStore(url: url)
+        #expect(reloaded.presets.map(\.name) == [tr("text.bubble.savedName", 2), "Mine"] && reloaded.presets[1].style == saved.style)
+        // apply to a second, differently styled text (and the first): one undo step, text look kept
+        s.seek(to: Time(5))
+        s.addDefaultText()
+        let b = try #require(s.singleSelectedClip?.id)
+        s.updateText(b) { $0.color = .blue }
+        s.selection = [a, b]
+        let depth = s.session.undoStack.count
+        s.applySavedBubble(reloaded.presets[1])
+        func text(_ id: ClipID) -> TextContent? { if case .text(let t) = s.project.timeline.clip(id)?.content { return t }; return nil }
+        #expect(text(a)?.resolvedBubble() == saved.style && text(b)?.resolvedBubble() == saved.style && text(b)?.bubbleID == nil)
+        #expect(text(a)?.color == .red && text(a)?.fontName == "Georgia" && text(b)?.color == .blue)
+        #expect(s.session.undoStack.count == depth + 1)
+        reloaded.remove(reloaded.presets[0].id)
+        #expect(BubblePresetStore(url: url).presets.map(\.name) == ["Mine"])
     }
 
     @Test func templatesAddAndSwitchKeepingText() throws {

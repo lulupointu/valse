@@ -1,5 +1,5 @@
-// TX-BUBBLE2 "start from blank": no bubble → Shape ▸ Circle builds a white circle around the text (the white text
-// turns ink), ☐ Tail gives it a tail, ⊘ removes the bubble; no bubble → ☐ Neon builds a transparent rounded box with
+// TX-BUBBLE2 "start from blank": no bubble → Shape ▸ Circle builds a white circle around the text (round 3: the
+// text keeps its style, white stays white), ☐ Tail gives it a tail, ⊘ removes the bubble; no bubble → ☐ Neon builds a transparent rounded box with
 // only the neon line, the pill shape makes it a neon pill (2 clicks); one undo step each.
 {
   "project": "demo",
@@ -11,7 +11,7 @@
     {"expect": [{"path": "selectedClips.0.bubbleID", "exists": false}, {"path": "selectedClips.0.bubbleStyle", "exists": false}]},
     {"click": "id:text.bubble.shape.circle"},
     {"expect": [{"path": "selectedClips.0.bubbleStyle.family", "equals": "circle"}, {"path": "selectedClips.0.bubbleStyle.fillAlpha", "equals": 100},
-                {"path": "undo.name", "equals": "cmd.textBubbleEdit"}, {"path": "selectedClips.0.textColor", "equals": "141414"}]},
+                {"path": "undo.name", "equals": "cmd.textBubbleEdit"}, {"path": "selectedClips.0.textColor", "equals": "FFFFFF"}]},
     {"click": "id:inspector.check.text.bubble.tail"},
     {"expect": {"path": "selectedClips.0.bubbleStyle.tail.side", "equals": "bottomLeft"}},
     {"snapshot": "bubble-canvas-scratch-circle", "element": "id:panel.player", "baseline": true, "threshold": 40, "tolerance": 0.03},

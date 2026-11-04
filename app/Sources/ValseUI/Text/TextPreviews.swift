@@ -62,11 +62,20 @@ struct TextPreviewImage: View {
     }
 
     static func bubble(_ d: TextBubbleDescriptor) -> TextContent {
-        // TX-BUBBLE2: "Aa" in the paired text look (CAPS presets show "AA"), static neon
+        // TX-BUBBLE2 round 3: a neutral "Aa" (default text style, in the preset's legible ink): a pick never restyles
+        // the text, so the tile shows the bubble, not a paired look
         var t = TextContent(string: "Aa", fontSize: 0.1); t.bold = true; t.color = d.textColor
-        TextBubblePairing.pick(d, on: &t)
-        t.neon?.flicker = .off
-        t.bubblePriorLook = nil
+        t.pickBubble(d)
+        return t
+    }
+
+    /// A saved bubble's tile: the same neutral "Aa", dark on a light opaque fill, else white.
+    static func savedBubble(_ s: TextBubbleStyle) -> TextContent {
+        var t = TextContent(string: "Aa", fontSize: 0.1); t.bold = true
+        let f = s.fill
+        let light = f.a > 0.5 && 0.299 * f.r + 0.587 * f.g + 0.114 * f.b > 0.6
+        t.color = light ? RGBA(hex: 0x141414) : .white
+        t.applySavedBubble(s)
         return t
     }
 }
