@@ -32,6 +32,7 @@ NOT_SYMBOLS = {
     "*": {"left", "right"},   # dictionary keys / edge names everywhere; never drawn as a symbol
     "ValseEngine/Media/SupportPackage.swift": {"2h"},
     "ValseUI/Text/TextInspector.swift": {"bubble"},
+    "ValseUI/Text/TextBubbleSection.swift": {"bubble"},   # the Bubble sub-tab id of its inspector sections
     "ValseEffects/Builtin/Stickers.swift": {"cat", "dog", "fireworks", "rainbow", "microphone", "ring"},
     "ValseEffects/Builtin/Effects.swift": {"fireworks"},
     "ValseEffects/Builtin/TextStyles.swift": {"rainbow"},

@@ -206,6 +206,7 @@ public struct TextBubbleDescriptor: Sendable, Identifiable {
             return .roundedRect(radius: s.cornerRadius)
         case .pill: return .capsule
         case .oval: return s.tail?.kind == .dots ? .thought : .ellipse
+        case .circle: return .ellipse
         case .cloud: return .cloud(bumps: s.bumps)
         case .burst: return .burst(spikes: s.spikes, depth: s.depth)
         case .banner: return .banner(fold: s.fold)

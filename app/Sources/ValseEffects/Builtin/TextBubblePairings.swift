@@ -152,6 +152,10 @@ public enum TextBubblePairing {
             ("burstYellow", { inkL("Impact", caps: true) }),
             ("burstRed", { paperL("Impact", caps: true) }),
             ("burstPink", { paperL("Impact", caps: true, fx: { t in t.strokeColor = RGBA(hex: 0xB0236A); t.strokeWidth = 0.06; t.strokePosition = .outside }) }),
+            // Round (circle family)
+            ("roundSpeech", { inkL(chalk, caps: true, spacing: 0.02) }),
+            ("roundBadge", { onVideo(.white, "AvenirNext-DemiBold", caps: true, spacing: 0.08) }),
+            ("roundNeon", { neon(Bub.cyan, AR, tube: 26) }),
         ]
         return Dictionary(uniqueKeysWithValues: m.map { ("valse.bubble.\($0.0)", $0.1()) })
     }()

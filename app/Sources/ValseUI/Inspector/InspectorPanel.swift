@@ -300,6 +300,8 @@ struct ClipParamRow: View {
     var enabled = true
     var labelAccessory: AnyView? = nil
     var testID: String? = nil
+    /// Slider held (true) / released (false): e.g. the canvas guide of Bubble ▸ Padding.
+    var onDrag: ((Bool) -> Void)? = nil
     /// Value shown while this row's slider is dragged: the inspector's clip slice is frozen during the drag
     /// (`EditorStore.beginInspectorGesture`), so only this row re-renders per tick.
     @State private var live: Double?
@@ -316,7 +318,7 @@ struct ClipParamRow: View {
             let liveBox = $live
             let scale = spec.sliderScale
             let id = clip?.id
-            let spec = self.spec, set = self.set, name = gestureName
+            let spec = self.spec, set = self.set, name = gestureName, onDrag = self.onDrag
             @MainActor func write(_ v: Double) {
                 guard let id else { return }
                 Bind.apply(store, id, name) { c in set(&c, v, Bind.local(store, c)) }
@@ -326,9 +328,9 @@ struct ClipParamRow: View {
                 originUnit: spec.origin.map { scale.toUnit($0) } ?? 0, gradient: spec.gradient, ticks: spec.ticks,
                 display: mixed ? InspectorMultiEdit.mixedText : spec.format(value), enabled: enabled && clip != nil,
                 labelAccessory: labelAccessory, parse: spec.parse,
-                onBegin: { store.beginInspectorGesture(name) },
+                onBegin: { store.beginInspectorGesture(name); onDrag?(true) },
                 onChange: { u in let v = spec.clampSlider(scale.fromUnit(u)); liveBox.wrappedValue = v; write(v) },
-                onEnd: { liveBox.wrappedValue = nil; store.endGesture() },
+                onEnd: { liveBox.wrappedValue = nil; store.endGesture(); onDrag?(false) },
                 commit: { v in write(spec.clampField(v)) },
                 step: { d in write(spec.clampField(value + Double(d) * spec.step)) },
                 triplet: keyframeKeys.map { AnyView(KeyframeTriplet(ctx: ctx, keys: $0, enabled: !$0.isEmpty)) }, testID: testID)

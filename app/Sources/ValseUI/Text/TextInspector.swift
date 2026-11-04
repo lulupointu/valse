@@ -70,7 +70,6 @@ enum TextInspector {
                          chrome: TextShadowSection.chrome) { AnyView(TextShadowSection(ctx: $0)) },
         InspectorSection(id: "text.curve", tab: "text", subTab: "basic", order: 70, titleKey: "text.curve",
                          chrome: TextCurveSection.chrome) { AnyView(TextCurveSection(ctx: $0)) },
-        InspectorSection(id: "text.bubble", tab: "text", subTab: "bubble", order: 0, titleKey: nil) { AnyView(TextBubbleSection(ctx: $0)) },
         InspectorSection(id: "text.templates", tab: "text", subTab: "templates", order: 0, titleKey: nil) { AnyView(TextEffectsSection(ctx: $0)) },
         {
             var s = InspectorSection(id: "captions.list", tab: "captions", order: 0, titleKey: nil) { AnyView(CaptionEditorSection(ctx: $0)) }
@@ -79,7 +78,7 @@ enum TextInspector {
         }(),
         InspectorSection(id: "captions.spokenWord", tab: "text", subTab: "spokenWord", order: 0, titleKey: "spokenWord.section",
                          appliesTo: isCaption, chrome: CaptionSpokenWordSection.chrome) { AnyView(CaptionSpokenWordSection(ctx: $0)) },
-    ]
+    ] + BubbleSections.all   // TX-BUBBLE2: Presets, Shape, Fill, Outline, Neon, Shadow, Tail, Padding
 
     // MARK: Row helpers
 

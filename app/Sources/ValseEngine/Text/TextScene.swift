@@ -270,7 +270,12 @@ enum TextSceneBuilder {
             if var s = st.resolvedBubble() {
                 // path text: no tail (UX spec §5); v1 presets keep theirs (rendered exactly as before)
                 if st.path != nil, !BubblePainter.isClassic(s) { s.tail = nil }
-                let rect = lb.insetBy(dx: -CGFloat(s.padding.x) * em, dy: -CGFloat(s.padding.y) * em)
+                var rect = lb.insetBy(dx: -CGFloat(s.padding.x) * em, dy: -CGFloat(s.padding.y) * em)
+                if s.padding.x < 0 || s.padding.y < 0 {   // negative padding: the shape never collapses (≥ 0.4 em)
+                    let w = max(lb.width + 2 * CGFloat(s.padding.x) * em, em * 0.4)
+                    let h = max(lb.height + 2 * CGFloat(s.padding.y) * em, em * 0.4)
+                    rect = CGRect(x: lb.midX - w / 2, y: lb.midY - h / 2, width: w, height: h)
+                }
                 let r = BubblePainter.bounds(s, rect: rect, em: em).applying(T)
                 if let f = s.outline?.neon?.flicker, f != .off {
                     // flickering neon: glow and tube are their own cells, dimmed per frame on the GPU (TextAnimator)

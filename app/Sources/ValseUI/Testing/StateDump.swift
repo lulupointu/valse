@@ -41,6 +41,7 @@ public enum StateDump {
             if tl.tracks.indices.contains(track) { d["lane"] = tl.tracks[track].kind.rawValue }
             if case .text(let t) = c.content {
                 d["text"] = t.string; if let w = t.boxWidth { d["boxWidth"] = w }
+                d["textColor"] = String(format: "%02X%02X%02X", Int((t.color.r * 255).rounded()), Int((t.color.g * 255).rounded()), Int((t.color.b * 255).rounded()))
                 d["strokeWidth"] = t.strokeWidth; d["strokePosition"] = t.strokePosition.rawValue   // F3 TX-005
                 if let n = t.neon {   // TX-NEON
                     let hex = String(format: "%02X%02X%02X", Int((n.color.r * 255).rounded()), Int((n.color.g * 255).rounded()), Int((n.color.b * 255).rounded()))
@@ -50,7 +51,8 @@ public enum StateDump {
                 if let b = t.bubbleID { d["bubbleID"] = b }   // TX-BUBBLE2
                 if let s = t.bubbleStyle {
                     var bs: [String: Any] = ["family": s.family.rawValue, "fillAlpha": (s.fill.a * 100).rounded(),
-                                             "cornerRadius": (s.cornerRadius * 100).rounded(), "contains": s.containsText]
+                                             "cornerRadius": (s.cornerRadius * 100).rounded(), "contains": s.containsText,
+                                             "padX": (s.padding.x * 1000).rounded(), "padY": (s.padding.y * 1000).rounded()]
                     if let tl = s.tail { bs["tail"] = ["side": tl.side.rawValue, "kind": tl.kind.rawValue, "length": (tl.length * 100).rounded()] }
                     if let o = s.outline {
                         var od: [String: Any] = ["width": (o.width * 1000).rounded(), "dash": o.dash.rawValue]

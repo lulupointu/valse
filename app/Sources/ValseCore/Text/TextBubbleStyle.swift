@@ -5,14 +5,15 @@ import Foundation
 /// Sizes in em of the clip font size. Every field decodes with a default, so older / newer files stay readable.
 public struct TextBubbleStyle: Hashable, Codable, Sendable {
     public enum Family: String, Codable, CaseIterable, Sendable {
-        case box, pill, oval, cloud, burst, banner, ribbon, tag, hexagon, arrow, brackets, underline
+        /// `circle`: a true circle around the text box (diameter = its diagonal + 2 × max(padding)).
+        case box, pill, oval, circle, cloud, burst, banner, ribbon, tag, hexagon, arrow, brackets, underline
 
         /// Families that can carry a tail.
-        public var hasTail: Bool { [.box, .pill, .oval, .cloud, .burst].contains(self) }
+        public var hasTail: Bool { [.box, .pill, .oval, .circle, .cloud, .burst].contains(self) }
         /// Families with an Edge (Calm / Spiky / Wild) control.
         public var hasEdge: Bool { self == .cloud || self == .burst }
         /// Families whose shape can be grown to contain the padded text rectangle.
-        public var canContain: Bool { self == .oval || self == .cloud || self == .burst }
+        public var canContain: Bool { self == .oval || self == .circle || self == .cloud || self == .burst }
     }
 
     /// The Edge control's three looks (burst spikes / depth, cloud bumps).
@@ -31,7 +32,8 @@ public struct TextBubbleStyle: Hashable, Codable, Sendable {
     public var fold: Double
     public var barHeight: Double
     public var tail: TextBubbleTail?
-    /// Padding between the text and the shape, em.
+    /// Padding between the text and the shape, em, horizontal (x) and vertical (y); ≥ `minPadding` (negative = the
+    /// shape hugs the text box). 0 = the shape touches the text box.
     public var padding: Vec2
     /// Fill colour; alpha 0 = transparent.
     public var fill: RGBA
@@ -43,7 +45,7 @@ public struct TextBubbleStyle: Hashable, Codable, Sendable {
 
     public init(family: Family, cornerRadius: Double = 0.3, spikes: Int = 14, depth: Double = 0.25, bumps: Int = 9,
                 jitter: Double = 0, fold: Double = 0.5, barHeight: Double = 0.18, tail: TextBubbleTail? = nil,
-                padding: Vec2 = Vec2(0.45, 0.3), fill: RGBA, outline: TextBubbleOutline? = nil, shadow: TextBubbleShadow? = nil,
+                padding: Vec2 = TextBubbleStyle.defaultPadding, fill: RGBA, outline: TextBubbleOutline? = nil, shadow: TextBubbleShadow? = nil,
                 containsText: Bool = false) {
         self.family = family; self.cornerRadius = cornerRadius; self.spikes = spikes; self.depth = depth; self.bumps = bumps
         self.jitter = jitter; self.fold = fold; self.barHeight = barHeight; self.tail = tail; self.padding = padding
@@ -86,6 +88,10 @@ public struct TextBubbleStyle: Hashable, Codable, Sendable {
         jitter = e == .wild ? 0.5 : 0
     }
 
+    /// A bubble built from scratch (Bubble ▸ Shape with no bubble): that shape, white fill, no outline, default
+    /// padding, containing the text.
+    public static func blank(_ f: Family) -> TextBubbleStyle { TextBubbleStyle(family: f, fill: .white, containsText: true) }
+
     /// Changes the shape family (Customize ▸ Shape): the shape then contains the text; tails are dropped on families
     /// without one.
     public mutating func setFamily(_ f: Family) {
@@ -94,9 +100,27 @@ public struct TextBubbleStyle: Hashable, Codable, Sendable {
         if !f.hasTail { tail = nil }
     }
 
-    /// Padding scale relative to `base` (the Padding slider keeps the preset's x:y ratio).
+    /// Smallest padding, em: below 0 the shape hugs / overlaps the text box (the engine keeps a minimum shape size).
+    public static let minPadding = -1.0
+    /// Padding of a bubble built from scratch (and of the box family), em.
+    public static let defaultPadding = Vec2(0.45, 0.3)
+
+    /// Padding scale relative to `base` (keeps the x:y ratio), clamped to `minPadding`.
     public mutating func scalePadding(to k: Double, base: Vec2) {
-        padding = Vec2(max(base.x * k, 0), max(base.y * k, 0))
+        padding = Vec2(max(base.x * k, Self.minPadding), max(base.y * k, Self.minPadding))
+    }
+
+    /// Sets one axis (0 = horizontal, 1 = vertical) to `v` em, clamped to `minPadding`. Linked, the other axis follows
+    /// by the same ratio (keeps the x:y shape), or by the same amount when either value is ≤ 0 (never stuck at 0).
+    public mutating func setPadding(axis: Int, to v0: Double, linked: Bool) {
+        let v = max(v0, Self.minPadding)
+        let old = axis == 0 ? padding.x : padding.y
+        var other = axis == 0 ? padding.y : padding.x
+        if linked {
+            other = old > 1e-9 && other > 1e-9 ? other * v / old : other + (v - old)
+            other = max(other, Self.minPadding)
+        }
+        padding = axis == 0 ? Vec2(v, other) : Vec2(other, v)
     }
 
     /// How far the bubble's light and shadow reach beyond the outline, em (render bounds).

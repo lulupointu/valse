@@ -1,5 +1,6 @@
-// TX-BUBBLE2: the Bubble tab in French — filter pills, tile names, and the Customize rows of a burst with a tail and
-// a shadow (Forme, Bord, Queue, Style du contour, Néon, Ombre, Marge) fit the inspector.
+// TX-BUBBLE2: the Bubble tab in French — no-bubble panel (Forme + hint, ☐ Remplissage / Contour / Néon / Ombre,
+// Marge), "Tout (63)" grid with filter pills and tile names, then a burst with a tail and a shadow: the sections
+// (Forme, Bord, Queue, Ombre, Marge) fit the inspector.
 {
   "project": "demo",
   "lang": "fr",
@@ -7,16 +8,20 @@
     {"click": "id:asset.tab.text"},
     {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
     {"click": "id:inspector.sub.bubble"},
+    {"expect": {"path": "selectedClips.0.bubbleID", "exists": false}},
+    {"snapshot": "bubble-panel-none-fr", "element": "id:panel.inspector", "baseline": true},
+    {"click": "id:text.bubble.all"},
     {"click": "id:text.bubble.group.comic"},
     {"click": "id:text.bubble.tile.comicShout"},
     {"expect": {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.comicShout"}},
     {"snapshot": "bubble-grid-comic-fr", "element": "id:text.bubble.presets", "baseline": true},
-    {"click": "id:text.bubble.customize"},
-    {"click": "id:text.bubble.shadow", "at": [0.93, 0.5]},
+    {"click": "id:text.bubble.all"},
+    {"click": "id:inspector.check.text.bubble.shadow"},
     {"expect": {"path": "selectedClips.0.bubbleStyle.shadow", "equals": "soft"}},
-    {"hover": "id:text.bubble.shapeRows"},
-    {"snapshot": "bubble-customize-shape-fr", "element": "id:text.bubble.shapeRows", "baseline": true},
-    {"hover": "id:text.bubble.styleRows"},
-    {"snapshot": "bubble-customize-style-fr", "element": "id:text.bubble.styleRows", "baseline": true}
+    {"snapshot": "bubble-panel-applied-fr", "element": "id:panel.inspector", "baseline": true},
+    {"hover": "id:inspector.section.text.bubble.shape.body"},
+    {"snapshot": "bubble-customize-shape-fr", "element": "id:inspector.section.text.bubble.shape.body", "baseline": true},
+    {"hover": "id:inspector.section.text.bubble.padding.body"},
+    {"snapshot": "bubble-customize-style-fr", "element": "id:inspector.section.text.bubble.tail.body", "baseline": true}
   ]
 }

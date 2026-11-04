@@ -5,12 +5,13 @@ import ValseCore
 
 /// Text engine content: registries are populated, ids unique, every key translated, glyph animation maths.
 struct TextContentTests {
-    /// TX-BUBBLE2: 60 presets (24 v1 + 36), unique ids, groups in the pill list, neon presets see-through with a neon
+    /// TX-BUBBLE2: 63 presets (24 v1 + 39, 3 of them circles), unique ids, groups in the pill list, neon presets see-through with a neon
     /// outline, v1 shapes map onto styles (classic tails), grid order follows the groups.
     @Test func bubblePresetsV2() {
         let all = Registries.textBubbles.all
-        #expect(all.count == 60 && BuiltinTextBubbles.legacy.count == 24 && BuiltinTextBubbles.added.count == 36)
-        #expect(Set(all.map(\.id)).count == 60)
+        #expect(all.count == 63 && BuiltinTextBubbles.legacy.count == 24 && BuiltinTextBubbles.added.count == 39)
+        #expect(Set(all.map(\.id)).count == 63)
+        #expect(all.filter { $0.style.family == .circle }.count == 3)
         #expect(all.allSatisfy { BuiltinTextBubbles.groups.contains($0.groupKey) })
         let order = all.map { BuiltinTextBubbles.groups.firstIndex(of: $0.groupKey)! }
         #expect(order == order.sorted())
@@ -167,7 +168,7 @@ struct TextContentTests {
                 if !TextBubblePairing.duos.contains(d.id) { #expect(l.neon?.color == d.style.outline?.color, "\(d.id)") }
             }
         }
-        #expect(TextBubblePairing.looks.count == 60)
+        #expect(TextBubblePairing.looks.count == 63)
         let pink = try #require(TextBubblePairing.look("valse.bubble.neonPinkPill"))
         #expect(pink.glow?.color == .black && pink.fontName == "ArialRoundedMTBold")
         let k = try #require(TextBubblePairing.look("valse.bubble.neonPinkPill", karaoke: true))
