@@ -104,6 +104,16 @@ public enum BuiltinTextStyles {
         }
     }
 
+    /// Neon tubes (TX-NEON): the dedicated neon style (glass tube + halo) in the six classic sign colours; the red one
+    /// is a failing sign (broken flicker), the orange one hums. Shown first in the Neon group.
+    static let neonTubes: [D] = TextNeonStyle.swatches.enumerated().map { i, s in
+        let palIndex = palette.firstIndex { $0.name == s.name } ?? 0
+        return fx("neon", 25 + i, name: "neon.2", [cn(palIndex)]) { t in
+            t.color = .white
+            t.neon = TextNeonStyle(color: s.color, flicker: s.name == "red" ? .broken : (s.name == "orange" ? .subtle : .off))
+        }
+    }
+
     /// Shadows: soft drop, hard offset, long 3D extrusion.
     static let shadows: [D] = (0..<24).map { i in
         let col = c(i % 12), variant = i / 8
@@ -190,7 +200,7 @@ public enum BuiltinTextStyles {
         }
     }
 
-    public static let effects: [D] = outlines + neons + shadows + gradientStyles + labels + retros + multiLayer + textured + shaped
+    public static let effects: [D] = outlines + neonTubes + neons + shadows + gradientStyles + labels + retros + multiLayer + textured + shaped
     public static let all: [D] = basics + effects
 
     /// Group keys of the word-art library, in display order.

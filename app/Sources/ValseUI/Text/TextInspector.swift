@@ -64,6 +64,8 @@ enum TextInspector {
                          chrome: TextBackgroundSection.chrome) { AnyView(TextBackgroundSection(ctx: $0)) },
         InspectorSection(id: "text.glow", tab: "text", subTab: "basic", order: 50, titleKey: "text.glow",
                          chrome: TextGlowSection.chrome) { AnyView(TextGlowSection(ctx: $0)) },
+        InspectorSection(id: "text.neon", tab: "text", subTab: "basic", order: 55, titleKey: "text.neon",
+                         chrome: TextNeonSection.chrome) { AnyView(TextNeonSection(ctx: $0)) },
         InspectorSection(id: "text.shadow", tab: "text", subTab: "basic", order: 60, titleKey: "text.shadow",
                          chrome: TextShadowSection.chrome) { AnyView(TextShadowSection(ctx: $0)) },
         InspectorSection(id: "text.curve", tab: "text", subTab: "basic", order: 70, titleKey: "text.curve",

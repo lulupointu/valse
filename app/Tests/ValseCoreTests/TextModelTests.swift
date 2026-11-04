@@ -30,6 +30,40 @@ struct TextModelTests {
         #expect(back == t)
     }
 
+    /// TX-NEON: the neon style round-trips; files without it (or with only some of its fields) still open.
+    @Test func neonRoundTripsAndOldFilesOpen() throws {
+        var t = TextContent(string: "Open")
+        #expect(t.neon == nil)
+        t.neon = TextNeonStyle(color: .red, intensity: 0.5, glowSize: 0.7, thickness: 0.08, flicker: .broken)
+        let back = try JSONDecoder().decode(TextContent.self, from: JSONEncoder().encode(t))
+        #expect(back == t && back.neon?.flicker == .broken)
+        let old = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi"}"#.utf8))
+        #expect(old.neon == nil)
+        let partial = try JSONDecoder().decode(TextContent.self, from: Data(#"{"string":"Hi","neon":{"flicker":"subtle"}}"#.utf8))
+        #expect(partial.neon == TextNeonStyle(flicker: .subtle))
+        // the encoded JSON has no neon key while off (old builds read new files unchanged)
+        let json = String(decoding: try JSONEncoder().encode(TextContent(string: "x")), as: UTF8.self)
+        #expect(!json.contains("neon"))
+    }
+
+    /// TX-NEON: flicker is a pure function of (mode, time, glyph): Off = always lit, Subtle stays bright, Broken drops
+    /// some letters out completely for short bursts.
+    @Test func neonFlickerIsDeterministic() {
+        let times = stride(from: 0.0, to: 20, by: 1.0 / 60).map { $0 }
+        for u in 0..<6 {
+            #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.off, t: $0, unit: u) == 1 })
+            let subtle = times.map { TextNeonStyle.flickerLevel(.subtle, t: $0, unit: u) }
+            #expect(subtle.allSatisfy { $0 > 0.6 && $0 <= 1 } && Set(subtle).count > 10)
+            #expect(times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: u) }
+                    == times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: u) })
+        }
+        let broken1 = times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: 1) }
+        let off = broken1.filter { $0 == 0 }.count
+        #expect(off > 10 && off < times.count / 3, "letter 2 drops out sometimes, but is mostly lit")
+        // letters differ (per-glyph flicker)
+        #expect(broken1 != times.map { TextNeonStyle.flickerLevel(.broken, t: $0, unit: 4) })
+    }
+
     /// FB-04: Spoken word off keeps its style (inactive, persisted); on restores it, defaults the first time.
     @Test func spokenWordToggleRemembersItsStyle() throws {
         var t = TextContent(string: "Hello")

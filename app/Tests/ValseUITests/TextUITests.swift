@@ -38,7 +38,7 @@ import ValseTestSupport
         let textTab = InspectorRegistry.allTabs.first { $0.id == "text" }!
         #expect(InspectorRegistry.subTabs(of: textTab, ctx: ctx).map(\.id) == ["basic", "templates", "bubble"])   // OB-10: Effects → Templates, Bubble rightmost
         let basic = InspectorRegistry.sections(tab: textTab, subTab: "basic", ctx: ctx).map(\.id)
-        #expect(basic == ["text.content", "text.counter", "text.transform", "text.opacity", "text.stroke", "text.background", "text.glow", "text.shadow", "text.curve"])
+        #expect(basic == ["text.content", "text.counter", "text.transform", "text.opacity", "text.stroke", "text.background", "text.glow", "text.neon", "text.shadow", "text.curve"])
         let (c, ids) = captionStore()
         c.selection = [ids[0]]
         #expect(tabs(c) == ["captions", "text", "animation", "tts"])   // C4: Captions first, like CapCut
@@ -85,12 +85,26 @@ import ValseTestSupport
         #expect(CaptionTextMeasure.height("", width: 80, font: font) == CaptionTextMeasure.height("x", width: 80, font: font))
     }
 
+    /// TX-NEON: the Neon group opens with the six neon tube presets (dedicated neon style, one per classic colour).
+    @Test func neonTubePresetsUseTheNeonStyle() {
+        let group = Registries.textStyles.all.filter { $0.groupKey == "textStyle.group.neon" }
+        let tubes = group.prefix(6)
+        #expect(tubes.map(\.id) == (25...30).map { "valse.textfx.neon.\($0)" })
+        for d in tubes {
+            var t = TextContent(string: "Open")
+            d.restyle(&t)
+            #expect(t.neon != nil && t.glow == nil)
+        }
+        #expect(Set(tubes.compactMap { d -> RGBA? in var t = TextContent(string: "x"); d.restyle(&t); return t.neon?.color }).count == 6)
+        #expect(group.count == 30)   // the 24 glow neons are kept
+    }
+
     @Test func addTextAndStyles() throws {
         let s = store()
         s.addDefaultText()
         let id = try #require(s.singleSelectedClip?.id)
         #expect(s.selectedTextClip?.text.string == tr("text.default") && s.inspectorTab == "text")
-        let neon = Registries.textStyles.all.first { $0.groupKey == "textStyle.group.neon" }!
+        let neon = Registries.textStyles.all.first { $0.groupKey == "textStyle.group.neon" && $0.id == "valse.textfx.neon.1" }!
         s.applyTextStyle(neon)
         #expect(s.selectedTextClip?.text.glow != nil && s.selectedTextClip?.text.styleID == neon.id)
         #expect(s.selectedTextClip?.text.string == tr("text.default"))

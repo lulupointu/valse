@@ -1,0 +1,28 @@
+// TX-NEON: Text ▸ Basic ▸ Neon — tick it (pink tube by default), pick the cyan swatch, set Flicker to Broken; each
+// change is one undo step; look at the section and the player.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"seek": 1.5},
+    {"click": "id:inspector.check.text.neon"},
+    {"expect": [{"path": "selectedClips.0.neon.color", "equals": "FF2E9A"}, {"path": "selectedClips.0.neon.flicker", "equals": "off"},
+                {"path": "undo.name", "equals": "cmd.text"}]},
+    {"click": "id:text.neon.swatch.cyan"},
+    {"expect": {"path": "selectedClips.0.neon.color", "equals": "19E6FF"}},
+    {"click": "id:text.neon.flicker", "at": [0.83, 0.5]},
+    {"expect": {"path": "selectedClips.0.neon.flicker", "equals": "broken"}},
+    {"click": "id:text.neon.flicker", "at": [0.17, 0.5]},
+    {"expect": {"path": "selectedClips.0.neon.flicker", "equals": "off"}},
+    {"snapshot": "neon-inspector", "element": "id:inspector.section.text.neon", "baseline": true},
+    {"snapshot": "neon-player", "element": "id:panel.player"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.neon.flicker", "equals": "broken"}},
+    {"key": "cmd+z"},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.neon.color", "equals": "FF2E9A"}},
+    {"key": "cmd+z"},
+    {"expect": {"path": "selectedClips.0.neon", "exists": false}}
+  ]
+}

@@ -222,6 +222,10 @@ enum TextAnimator {
                     highlight = max(highlight, s.highlight)
                 }
             }
+            if it.flicker != .off {   // TX-NEON: halo goes out with the tube, the glass stays faintly visible
+                let l = TextNeonStyle.flickerLevel(it.flicker, t: input.localTime, unit: it.char)
+                if case .glyphFront = it.kind { opacity *= 0.3 + 0.7 * l } else { opacity *= l }
+            }
             guard opacity > 0.002 else { continue }
             let r = atlas.cells[i]
             func p(_ x: CGFloat, _ y: CGFloat) -> SIMD2<Float> {

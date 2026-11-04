@@ -1,0 +1,15 @@
+// TX-NEON: the Neon section in French (labels fit: Intensité, Taille du halo, Épaisseur du tube, Scintillement).
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"click": "id:inspector.check.text.neon"},
+    {"click": "id:text.neon.swatch.green"},
+    {"expect": {"path": "selectedClips.0.neon.color", "equals": "3BFF5C"}},
+    {"click": "id:text.neon.flicker", "at": [0.5, 0.5]},
+    {"expect": {"path": "selectedClips.0.neon.flicker", "equals": "subtle"}},
+    {"snapshot": "neon-inspector-fr", "element": "id:inspector.section.text.neon", "baseline": true}
+  ]
+}
