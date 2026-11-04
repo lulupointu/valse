@@ -59,6 +59,8 @@ nonisolated struct CanvasLayer: Equatable {
     /// TX-BUBBLE-SELECT: a text with a bubble is selected, hit and framed by its bubble (`geometry`); this is its text
     /// box, where the layer is anchored (scale / rotate pivot, wrap-width pills, inline editor). nil = `geometry`.
     var textGeometry: LayerGeometry? = nil
+    /// TX-BUBBLE-TAIL: the bubble's tail (tip handle); nil = no tail.
+    var tail: CanvasTail? = nil
 
     /// Point the layer scales and rotates around (its position).
     var pivot: Vec2 { (textGeometry ?? geometry).center }
@@ -95,6 +97,9 @@ nonisolated enum CanvasLayers {
             if let bubble {
                 layer.geometry = bubbleGeometry(l, offset: bubble.offset, size: bubble.size, canvas: canvas)
                 layer.textGeometry = g
+                if case .text(let t) = l.source, let tip = TextMetrics.bubbleTailTip(of: t, canvasHeight: canvas.height, canvasWidth: canvas.width) {
+                    layer.tail = CanvasTail(center: g.center, rotation: g.rotation, scale: tailScale(l), localTip: tip, text: t)
+                }
             }
             out.append(layer)
         }
@@ -125,6 +130,12 @@ nonisolated enum CanvasLayers {
         return g
     }
 
+    /// Layer scale with flips as signs (rest px → canvas px before rotation).
+    static func tailScale(_ l: LayerDescription) -> Vec2 {
+        let s = l.transform.scale
+        return Vec2(s.x * (l.transform.flipH ? -1 : 1), s.y * (l.transform.flipV ? -1 : 1))
+    }
+
     /// Topmost unlocked layer containing `p`.
     static func hit(_ layers: [CanvasLayer], at p: Vec2) -> CanvasLayer? {
         layers.last { !$0.isLocked && $0.geometry.contains(p) }
@@ -139,6 +150,39 @@ nonisolated enum CanvasLayers {
     }
 }
 
+/// TX-BUBBLE-TAIL: a bubble tail on the canvas — maps the layer's rest pixels (offset from its centre, as the text
+/// engine measures them) to canvas pixels and back, through the layer's scale, flips and rotation.
+nonisolated struct CanvasTail: Equatable {
+    var center: Vec2
+    var rotation: Double
+    /// Signed scale (flips = negative).
+    var scale: Vec2
+    /// Tip, rest pixels from the layer centre.
+    var localTip: Vec2
+    /// The text as the canvas measured it (resolved at the playhead).
+    var text: TextContent
+
+    /// Handle radius (view points).
+    static let radius: Double = 5
+
+    func toCanvas(_ o: Vec2) -> Vec2 {
+        let v = Vec2(o.x * scale.x, o.y * scale.y)
+        let c = cos(rotation), s = sin(rotation)
+        return center + Vec2(v.x * c - v.y * s, v.x * s + v.y * c)
+    }
+
+    func toLocal(_ p: Vec2) -> Vec2 {
+        let d = p - center
+        let c = cos(-rotation), s = sin(-rotation)
+        let v = Vec2(d.x * c - d.y * s, d.x * s + d.y * c)
+        func div(_ a: Double, _ b: Double) -> Double { a / (abs(b) < 1e-6 ? (b < 0 ? -1e-6 : 1e-6) : b) }
+        return Vec2(div(v.x, scale.x), div(v.y, scale.y))
+    }
+
+    /// Tip in canvas pixels.
+    var tip: Vec2 { toCanvas(localTip) }
+}
+
 /// What a mouse-down on the selection box grabbed.
 nonisolated enum CanvasHandle: Equatable {
     case corner(Int)   // 0 TL, 1 TR, 2 BL, 3 BR
@@ -147,6 +191,8 @@ nonisolated enum CanvasHandle: Equatable {
     /// Text box edge pill (1 right, 3 left): changes the wrap width (`TextContent.boxWidth`, W2-7).
     case edge(Int)
     case body
+    /// TX-BUBBLE-TAIL: the bubble tail's tip handle (moves the tip).
+    case tail
 }
 
 nonisolated enum CanvasHandles {
@@ -164,8 +210,10 @@ nonisolated enum CanvasHandles {
         return Vec2(g.center.x - sin(g.rotation) * d, g.center.y + cos(g.rotation) * d)
     }
 
-    static func hit(_ g: LayerGeometry, isText: Bool, at p: Vec2, viewScale: Double) -> CanvasHandle? {
+    /// `tail`: the bubble tail's tip (canvas px), which beats every other handle and the body.
+    static func hit(_ g: LayerGeometry, isText: Bool, at p: Vec2, viewScale: Double, tail: Vec2? = nil) -> CanvasHandle? {
         func near(_ q: Vec2, _ r: Double) -> Bool { (p - q).length * viewScale <= r + slop }
+        if let t = tail, near(t, CanvasTail.radius) { return .tail }
         if near(rotatePosition(g, viewScale: viewScale), rotateRadius) { return .rotate }
         let corners = g.corners
         if isText, near(corners[0], deleteRadius) { return .delete }

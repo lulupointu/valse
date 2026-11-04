@@ -85,6 +85,10 @@ struct TextScene: @unchecked Sendable {
     var flickerSeed: UInt64 = 0
     /// TX-BUBBLE-SELECT: the bubble shapes (tail included, outline line included, no glow / shadow); null = no bubble.
     var bubbleBounds: CGRect = .null
+    /// TX-BUBBLE-TAIL: the first bubble that draws a tail (canvas tail handle / drag): its style, padded text rect and
+    /// em, and the block transform to scene space.
+    struct BubbleTail { let style: TextBubbleStyle; let rect: CGRect; let em: CGFloat; let transform: CGAffineTransform }
+    var bubbleTail: BubbleTail?
 }
 
 enum TextSceneBuilder {
@@ -254,6 +258,7 @@ enum TextSceneBuilder {
         var faultyTaken = false   // TX-NEON One letter: one faulty letter per clip (first block that flickers)
         var textBounds = CGRect.null
         var bubbleBounds = CGRect.null
+        var bubbleTail: TextScene.BubbleTail?
         for bi in blocks.indices {
             var b = blocks[bi]
             let T = b.transform
@@ -284,6 +289,9 @@ enum TextSceneBuilder {
                 let line = s.outline.map { CGFloat($0.width) * em / 2 } ?? 0
                 bubbleBounds = bubbleBounds.union(BubblePainter.path(s, rect: rect, em: em).boundingBoxOfPath
                     .insetBy(dx: -line, dy: -line).applying(T))
+                if bubbleTail == nil, s.family.hasTail, s.tail != nil {
+                    bubbleTail = TextScene.BubbleTail(style: s, rect: rect, em: em, transform: T)
+                }
                 if let f = s.outline?.neon?.flicker, f != .off {
                     // flickering neon: glow and tube are their own cells, dimmed per frame on the GPU (TextAnimator)
                     for part in [BubblePainter.Part.glow, .body, .tube] {
@@ -428,7 +436,7 @@ enum TextSceneBuilder {
         }
         return TextScene(blocks: blocks, items: items, bounds: bounds, textBounds: textBounds.isNull ? bounds : textBounds,
                          hasFlicker: items.contains { $0.flicker != .off }, flickerSeed: TextNeonStyle.flickerSeed(clip.string),
-                         bubbleBounds: bubbleBounds)
+                         bubbleBounds: bubbleBounds, bubbleTail: bubbleTail)
     }
 }
 

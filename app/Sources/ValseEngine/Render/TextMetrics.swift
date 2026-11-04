@@ -36,6 +36,22 @@ public enum TextMetrics {
         return (box.center, Size2(ceil(box.size.width), ceil(box.size.height)))
     }
 
+    /// TX-BUBBLE-TAIL: the bubble tail's tip as an offset from the layer centre, canvas pixels at rest. nil = no tail.
+    public static func bubbleTailTip(of t: TextContent, canvasHeight: Double, canvasWidth: Double? = nil) -> Vec2? {
+        guard t.fontSize * canvasHeight >= 1, t.resolvedBubble()?.tail != nil else { return nil }
+        var c = t
+        if c.string.isEmpty && c.template == nil { c.string = " " }
+        return FrameRenderer.shared.text.bubbleTailTip(c, canvasSize: Size2(canvasWidth ?? canvasHeight * 16 / 9, canvasHeight))
+    }
+
+    /// TX-BUBBLE-TAIL: the tail once its tip is dragged to `point` (offset from the layer centre, canvas px at rest).
+    public static func draggedBubbleTail(of t: TextContent, to point: Vec2, canvasHeight: Double, canvasWidth: Double? = nil) -> TextBubbleTail? {
+        guard t.fontSize * canvasHeight >= 1, t.resolvedBubble()?.tail != nil else { return nil }
+        var c = t
+        if c.string.isEmpty && c.template == nil { c.string = " " }
+        return FrameRenderer.shared.text.draggedBubbleTail(c, canvasSize: Size2(canvasWidth ?? canvasHeight * 16 / 9, canvasHeight), to: point)
+    }
+
     /// Canvas-pixel size of a sticker layer whose nominal side is `side` (see `FrameEvaluator.layer`).
     public static func stickerSize(_ id: String, side: Double) -> Size2 {
         guard let d = Registries.stickers[id] else { return Size2(side, side) }

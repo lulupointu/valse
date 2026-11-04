@@ -53,7 +53,12 @@ public enum StateDump {
                     var bs: [String: Any] = ["family": s.family.rawValue, "fillAlpha": (s.fill.a * 100).rounded(),
                                              "cornerRadius": (s.cornerRadius * 100).rounded(), "contains": s.containsText,
                                              "padX": (s.padding.x * 1000).rounded(), "padY": (s.padding.y * 1000).rounded()]
-                    if let tl = s.tail { bs["tail"] = ["side": tl.side.rawValue, "kind": tl.kind.rawValue, "length": (tl.length * 100).rounded()] }
+                    if let tl = s.tail {
+                        var td: [String: Any] = ["side": tl.side.rawValue, "kind": tl.kind.rawValue, "length": (tl.length * 100).rounded()]
+                        // TX-BUBBLE-TAIL: free tip dragged on the canvas, em × 100 from the text box centre (absent = none)
+                        if let o = tl.tipOffset { td["tip"] = ["x": (o.x * 100).rounded(), "y": (o.y * 100).rounded()] }
+                        bs["tail"] = td
+                    }
                     if let o = s.outline {
                         var od: [String: Any] = ["width": (o.width * 1000).rounded(), "dash": o.dash.rawValue]
                         if let n = o.neon { od["neon"] = ["glow": (n.glowSize * 100).rounded(), "flicker": n.flicker.rawValue] }
@@ -163,6 +168,7 @@ public enum StateDump {
             }
             var d: [String: Any] = ["box": box(l.geometry), "hasBubble": l.textGeometry != nil]
             if let t = l.textGeometry { d["text"] = box(t) }
+            if let tl = l.tail { d["tail"] = ["x": tl.tip.x.rounded(), "y": tl.tip.y.rounded()] }   // TX-BUBBLE-TAIL: tip handle, canvas px
             return d
         }
         ui["tooltipDelayMs"] = Tooltips.currentDelayMilliseconds()   // C3: hover tooltip delay app-wide

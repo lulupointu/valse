@@ -981,6 +981,7 @@ public final class UITestDriver {
     /// - `"player:<fx>,<fy>"` — a point in the preview (0…1, top-left)
     /// - `"canvas:<x>,<y>"` — a point of the project canvas in canvas pixels (follows the player size / zoom / pan)
     /// - `"canvasbox:<track>/<index>:<fx>,<fy>[:text]"` — a point of a clip's canvas box (1,1 = bottom-right handle)
+    /// - `"canvastail:<track>/<index>"` — the tip handle of a bubble text's tail
     /// - `"point:<x>,<y>"` — window content coordinates (points, top-left)
     /// Optional `"offset": [dx, dy]` (points, +y down) is added.
     /// In-process accessibility element with this identifier (SwiftUI exposes `.testID` views as AX elements).
@@ -1131,6 +1132,16 @@ public final class UITestDriver {
             let q = (parts.count > 2 && parts[2] == "text" ? (l.textGeometry ?? l.geometry) : l.geometry).corners   // TL TR BL BR
             let p = q[0] + (q[1] - q[0]) * f[0] + (q[2] - q[0]) * f[1]
             return ov.convert(ov.viewport.toView(p), to: nil)
+        case "canvastail":
+            // `canvastail:<track>/<index>` — the tip handle of a bubble text's tail at the playhead (TX-BUBBLE-TAIL;
+            // follows the layer's rotation / scale and every tail edit)
+            guard let ov = SnapshotRegistry.shared.playerOverlay as? CanvasOverlayView else { throw Failure("no player overlay") }
+            let c = try clip(from: "clip:" + rest)
+            guard let l = CanvasLayers.at(store.transport.playhead, project: store.project).first(where: { $0.clipID == c.id }) else {
+                throw Failure("clip \(rest) has no canvas layer at the playhead")
+            }
+            guard let tail = l.tail else { throw Failure("clip \(rest) has no bubble tail") }
+            return ov.convert(ov.viewport.toView(tail.tip), to: nil)
         case "point":
             let f = rest.split(separator: ",").compactMap { Double($0) }
             guard f.count == 2, let host = window.contentView else { throw Failure("bad point \(rest)") }

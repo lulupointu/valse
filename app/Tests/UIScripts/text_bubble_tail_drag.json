@@ -1,0 +1,39 @@
+// TX-BUBBLE-TAIL: a selected bubble text shows a round handle on its tail tip; dragging it moves the tip freely (the
+// base re-anchors on the outline, the length follows), one undo step per drag, undo / redo, and picking a side on the
+// inspector's tail pad clears the free tip. canvastail: targets resolve the handle from the canvas layer (driver).
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"seek": 1.5},
+    {"click": "id:inspector.sub.bubble"},
+    {"click": "id:text.bubble.all"},
+    {"click": "id:text.bubble.group.neon"},
+    {"click": "id:text.bubble.tile.neonLimeSpeech"},
+    {"expect": [{"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.neonLimeSpeech"},
+                {"path": "ui.canvasSelection.0.tail.y", "exists": true}]},
+    {"click": "id:text.bubble.all"},
+    // the tip handle wins over the bubble body and the box corners next to it
+    {"drag": "canvastail:6/0", "by": [90, 60], "steps": 8},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.tail.tip.y", "gt": 0}},
+    {"expect": [{"path": "undo.name", "equals": "cmd.textBubbleEdit"}, {"path": "selectedClips.0.bubbleStyle.tail.length", "gt": 80},
+                {"path": "selectedClips.0.scale", "approx": 1, "tolerance": 0.001}, {"path": "selection", "count": 1}]},
+    {"snapshot": "bubble-tail-dragged", "element": "id:panel.player", "baseline": true, "threshold": 40, "tolerance": 0.03},
+    // a second drag from the moved handle: up and to the left of the text
+    {"drag": "canvastail:6/0", "by": [-150, -170], "steps": 10},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.tail.tip.y", "lt": 0}},
+    {"expect": {"path": "selectedClips.0.bubbleStyle.tail.tip.x", "lt": 0}},
+    // one undo step per drag
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.tail.tip.y", "gt": 0}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle", "exists": false}},
+    {"key": "cmd+shift+z"},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.tail.tip.y", "gt": 0}},
+    // a pad side clears the free tip
+    {"click": "id:text.bubble.tail.top"},
+    {"expect": [{"path": "selectedClips.0.bubbleStyle.tail.side", "equals": "top"},
+                {"path": "selectedClips.0.bubbleStyle.tail.tip", "exists": false}]}
+  ]
+}
