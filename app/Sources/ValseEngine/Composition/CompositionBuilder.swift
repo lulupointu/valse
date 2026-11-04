@@ -90,11 +90,13 @@ public enum CompositionBuilder {
     private nonisolated(unsafe) static var finished = 0
     private static let finishedLock = NSLock()
 
+    /// `conformsAudio`: the audio will be read by an AVAssetReader at 48 kHz (export, mixdown): audio streams at another
+    /// rate are inserted from their 48 kHz copy (`AudioConform`, BUG-SPLIT-AUDIO-FLAKE).
     public static func build(project: Project, purpose: RenderPurpose, renderSize: CGSize? = nil,
                              frameRate: FrameRate? = nil, state existingState: RenderState? = nil,
                              audioState existingAudioState: AudioMixState? = nil,
                              highPrecision: Bool = false, mixesAudioFormats: Bool = false, audioTaps: Bool = true,
-                             skipping skipRanges: [TimeRange] = [],
+                             skipping skipRanges: [TimeRange] = [], conformsAudio: Bool = false,
                              sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
@@ -202,10 +204,12 @@ public enum CompositionBuilder {
                 }
                 let audible = asset.hasAudio && clip.audio.isAudible && !track.isMuted
                     && (clip.audio.volume > 0 || clip.keyframes[ParamKey.volume.raw] != nil)
-                let processedURL = audible ? try await AudioPipeline.audioSource(clip: clip, asset: asset, original: audioURL, purpose: purpose) : nil
+                let streamIndex = clip.reversed && reversedURL != nil ? 0 : clip.audioStreamIndex
+                // (a conformed copy holds the one stream: `audioStream(streamIndex)` falls back to it)
+                let processedURL = audible ? try await AudioPipeline.audioSource(clip: clip, asset: asset, original: audioURL, purpose: purpose,
+                                                                               conforms: conformsAudio, streamIndex: streamIndex) : nil
                 var audioEntry: AssetCache.Entry?
                 if let processedURL { audioEntry = try await AssetCache.shared.entry(processedURL) }
-                let streamIndex = clip.reversed && reversedURL != nil ? 0 : clip.audioStreamIndex
                 if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(streamIndex) {
                     let key = AudioLaneKey(lane: audioLane, format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex))
                     if aLanes[key] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {

@@ -81,7 +81,7 @@ public enum Exporter {
             ? FrameRate(settings.frameRate.numerator * Int32(blurSamples), settings.frameRate.denominator) : settings.frameRate
         let built = try await CompositionBuilder.build(project: project, purpose: .export,
                                                        renderSize: CGSize(width: w, height: h), frameRate: renderRate,
-                                                       highPrecision: tenBitHEVC)
+                                                       highPrecision: tenBitHEVC, conformsAudio: settings.includeAudio)
         let fullRange = TimeRange(start: .zero, duration: project.duration)
         let exportRange = range.flatMap { $0.intersection(fullRange) } ?? fullRange
         guard exportRange.duration > .zero else { throw ExportError.emptyProject }

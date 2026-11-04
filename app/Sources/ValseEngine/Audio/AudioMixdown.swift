@@ -9,7 +9,7 @@ public enum AudioMixdown {
     @discardableResult
     public static func stream(_ project: Project, range: TimeRange? = nil, chunk: Int = 8192,
                               _ body: (AudioBlock) throws -> Void) async throws -> Int {
-        let built = try await CompositionBuilder.build(project: project, purpose: .export)
+        let built = try await CompositionBuilder.build(project: project, purpose: .export, conformsAudio: true)
         let tracks = try await built.composition.loadTracks(withMediaType: .audio)
         // the read loop blocks in copyNextSampleBuffer: keep it off the cooperative pool (OffPool)
         return try await OffPool.run { ctx in
