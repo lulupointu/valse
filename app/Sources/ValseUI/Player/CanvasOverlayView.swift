@@ -18,6 +18,8 @@ final class CanvasOverlayView: NSView {
         case guide(id: UUID)
         case newGuide(CanvasGuide.Axis)
         case mask(handle: MaskHandle, clipID: ClipID, target: MaskTarget, base: Mask, frame: MaskFrame, start: Vec2, startView: CGPoint, started: Bool)
+        /// TX-BUBBLE-TAIL: the bubble tail's tip.
+        case tail(clipID: ClipID, base: Clip, frame: CanvasTail, startView: CGPoint, started: Bool)
     }
     private var drag: Drag = .none
     private var snapLines: [SnapLine] = []
@@ -265,6 +267,16 @@ final class CanvasOverlayView: NSView {
                 ctx.fillEllipse(in: CGRect(x: pts[0].x - 8, y: pts[0].y - 8, width: 16, height: 16))
                 ctx.setShadow(offset: .zero, blur: 0, color: nil)
                 drawSymbol("xmark", at: pts[0], size: 8)
+            }
+            // TX-BUBBLE-TAIL: round handle on the bubble tail's tip (drawn last: it wins the hit-test too)
+            if let tail = l.tail {
+                let tv = vp.toView(tail.tip), r = CGFloat(CanvasTail.radius)
+                ctx.setShadow(offset: .zero, blur: 2, color: NSColor.black.withAlphaComponent(0.5).cgColor)
+                ctx.setFillColor(NSColor.white.cgColor)
+                ctx.fillEllipse(in: CGRect(x: tv.x - r, y: tv.y - r, width: r * 2, height: r * 2))
+                ctx.setShadow(offset: .zero, blur: 0, color: nil)
+                ctx.setFillColor(Self.accent.cgColor)
+                ctx.fillEllipse(in: CGRect(x: tv.x - 2, y: tv.y - 2, width: 4, height: 4))
             }
             if let a = angleLabel { drawPill(String(format: "%.0f°", CanvasDrag.displayAngle(a)), at: CGPoint(x: rp.x, y: rp.y + 24), ctx) }
         }
@@ -586,9 +598,13 @@ final class CanvasOverlayView: NSView {
         let all = layers
         // OB-12: the selection's handles win, but a click on its body selects the topmost layer under the pointer
         if let sel = selectedLayers.first, store.selection.count == 1, !sel.isLocked,
-           let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale),
+           let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale, tail: sel.tail?.tip),
            h != .body || CanvasLayers.bodyPressTarget(all, selected: sel.clipID, at: p) == nil {
             if h == .delete { store.deleteSelection(); return }
+            if h == .tail, let tf = sel.tail, let clip = store.project.timeline.clip(sel.clipID) {
+                drag = .tail(clipID: sel.clipID, base: clip, frame: tf, startView: v, started: false)
+                return
+            }
             if h == .body, e.clickCount == 2, sel.isText { store.playerUI.editingTextClip = sel.clipID; return }
             startTransform(h, sel, all, p, v)
             return
@@ -669,6 +685,23 @@ final class CanvasOverlayView: NSView {
                 apply(id) { $0[keyPath: t.mask]?.points = pts }
             }
             needsDisplay = true
+        case .tail(let id, let base, let frame, let startView, var started):
+            // TX-BUBBLE-TAIL: the tip follows the pointer (in the layer's own frame: rotation / scale / flips undone);
+            // one undo step per drag, the preview re-renders on every tick
+            if !started {
+                guard hypot(v.x - startView.x, v.y - startView.y) >= 2 else { return }
+                store.beginGesture("cmd.textBubbleEdit")
+                started = true
+                drag = .tail(clipID: id, base: base, frame: frame, startView: startView, started: true)
+            }
+            guard let nt = TextMetrics.draggedBubbleTail(of: frame.text, to: frame.toLocal(p), canvasHeight: canvas.height,
+                                                         canvasWidth: canvas.width) else { return }
+            apply(id) { c in
+                guard case .text(var t) = base.content else { return }
+                t.editBubble { $0.tail = nt }
+                c.content = .text(t)
+            }
+            needsDisplay = true
         case .transform(let h, let id, let base, let layer, let others, let start, let startView, var started):
             if !started {
                 guard hypot(v.x - startView.x, v.y - startView.y) >= 2 else { return }
@@ -733,7 +766,7 @@ final class CanvasOverlayView: NSView {
                     c.content = .text(t)
                     c.setValue(.position, .vec2(np), at: local)
                 }
-            case .delete:
+            case .delete, .tail:
                 break
             }
             needsDisplay = true
@@ -747,7 +780,7 @@ final class CanvasOverlayView: NSView {
             return
         }
         switch drag {
-        case .transform(_, _, _, _, _, _, _, let started), .mask(_, _, _, _, _, _, _, let started):
+        case .transform(_, _, _, _, _, _, _, let started), .mask(_, _, _, _, _, _, _, let started), .tail(_, _, _, _, let started):
             if started { store.endGesture() }
         case .pan:
             NSCursor.pop()
@@ -809,10 +842,10 @@ final class CanvasOverlayView: NSView {
             return
         }
         if let sel = selectedLayers.first, store.selection.count == 1,
-           let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale) {
+           let h = CanvasHandles.hit(sel.geometry, isText: sel.isText, at: p, viewScale: vp.scale, tail: sel.tail?.tip) {
             switch h {
             case .body: NSCursor.openHand.set()
-            case .corner: NSCursor.crosshair.set()
+            case .corner, .tail: NSCursor.crosshair.set()
             case .edge: NSCursor.resizeLeftRight.set()
             case .rotate, .delete: NSCursor.pointingHand.set()
             }

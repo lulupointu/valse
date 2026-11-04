@@ -136,15 +136,20 @@ public struct TextBubbleStyle: Hashable, Codable, Sendable {
 public struct TextBubbleTail: Hashable, Codable, Sendable {
     public enum Side: String, Codable, CaseIterable, Sendable { case top, right, bottom, left, topLeft, topRight, bottomLeft, bottomRight }
     public enum Kind: String, Codable, CaseIterable, Sendable { case point, curve, dots }
-    public var side: Side
+    /// Picking a side (the inspector's 3×3 pad) clears the free tip (`tipOffset`).
+    public var side: Side { didSet { tipOffset = nil } }
     public var kind: Kind
-    /// Tail length and base width, em (maxima).
+    /// Tail length and base width, em (maxima). With `tipOffset`: the distance from the tail's base to its tip.
     public var length: Double
     public var width: Double
     /// −1…1 tip offset along the side.
     public var lean: Double
     /// 0…1 along the side; nil = classic placement.
     public var position: Double?
+    /// TX-BUBBLE-TAIL: tip dragged on the canvas, em of the font size from the centre of the text box (y down). The
+    /// tail's base anchors on the shape outline nearest to this point and the tail points at it, `length` em long (a
+    /// drag sets `length` so the tip is exactly here). nil = placed by `side` / `position` / `length` (as before).
+    public var tipOffset: Vec2?
 
     public static let defaultLength = 0.8, defaultWidth = 0.9
 
@@ -161,6 +166,7 @@ public struct TextBubbleTail: Hashable, Codable, Sendable {
         width = try c.decodeIfPresent(Double.self, forKey: .width) ?? width
         lean = try c.decodeIfPresent(Double.self, forKey: .lean) ?? lean
         position = try c.decodeIfPresent(Double.self, forKey: .position)
+        tipOffset = try c.decodeIfPresent(Vec2.self, forKey: .tipOffset)
     }
 }
 

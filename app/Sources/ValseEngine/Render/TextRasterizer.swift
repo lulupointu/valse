@@ -187,6 +187,24 @@ public final class TextRasterizer: @unchecked Sendable {
         return (Vec2(Double(r.midX - b.midX), Double(r.midY - b.midY)), Size2(Double(r.width), Double(r.height)))
     }
 
+    /// TX-BUBBLE-TAIL: tip of the bubble's tail relative to the layer centre, canvas pixels at rest. nil = no tail drawn.
+    public func bubbleTailTip(_ t: TextContent, canvasSize: Size2) -> Vec2? {
+        let s = scene(t, fontPx: CGFloat(t.fontSize * canvasSize.height), canvasWidthPx: CGFloat(canvasSize.width), duration: 0)
+        guard let bt = s.bubbleTail, let a = BubblePainter.tailAnchor(bt.style, rect: bt.rect, em: bt.em) else { return nil }
+        let b = s.bounds.integral, p = a.tip.applying(bt.transform)
+        return Vec2(Double(p.x - b.midX), Double(p.y - b.midY))
+    }
+
+    /// TX-BUBBLE-TAIL: the tail once its tip is dragged to `point` (relative to the layer centre, canvas pixels at rest).
+    /// nil = no tail drawn.
+    public func draggedBubbleTail(_ t: TextContent, canvasSize: Size2, to point: Vec2) -> TextBubbleTail? {
+        let s = scene(t, fontPx: CGFloat(t.fontSize * canvasSize.height), canvasWidthPx: CGFloat(canvasSize.width), duration: 0)
+        guard let bt = s.bubbleTail else { return nil }
+        let b = s.bounds.integral
+        let q = CGPoint(x: b.midX + CGFloat(point.x), y: b.midY + CGFloat(point.y)).applying(bt.transform.inverted())
+        return BubblePainter.draggedTail(bt.style, rect: bt.rect, em: bt.em, to: q)
+    }
+
     public func sticker(_ id: String, canvasSide: Double, outputScale: Double, time: Double = 0, style: ShapeStickerStyle? = nil) -> Result? {
         guard let d = Registries.stickers[id] else { return nil }
         switch d.source {
@@ -399,6 +417,8 @@ public final class TextRasterizer: @unchecked Sendable {
 
     private func lookKey(_ k: Key, dynamic: Bool) -> LookKey {
         var c = k.content; c.fontSize = 0
+        // TX-BUBBLE-TAIL: a tail drag changes only the tail; the raster with the previous tail stands in meanwhile
+        if var b = c.bubbleStyle, let tl = b.tail { b.tail = TextBubbleTail(side: .bottom, kind: tl.kind); c.bubbleStyle = b }
         return LookKey(content: c, canvasW: k.canvasW, duration: k.duration, dynamic: dynamic)
     }
 
