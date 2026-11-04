@@ -69,28 +69,37 @@ import ValseTestSupport
         #expect(blue[0.5, 0.5].isClose(to: RGBA(0, 0, 1), tolerance: 0.02))
     }
 
-    /// TR-RETRO-REWIND: the midpoint is neither input nor a cross-dissolve, the render is deterministic per progress
-    /// (preview = export), and both parameters change the picture.
-    @Test func retroRewindIsDistinctAndDeterministic() throws {
-        let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: Self.w, height: Self.h))
+    /// TR-RETRO-REWIND (CapCut "Retro Rewind", 2 s): both clips turn grey, a white ◀◀ sits in the middle, the cut A → B
+    /// is a hard switch at 29/60 of the progress, and the render is deterministic per progress (preview = export).
+    @Test func retroRewindMatchesCapCutStructure() throws {
+        let w = 160, h = 90
+        let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: w, height: h))
         let d = try #require(Registries.transitions["valse.transition.retroRewind"])
         #expect(d.groupKey == "transition.group.glitch")
-        #expect(d.params.map(\.key) == ["intensity", "noise"])
+        #expect(d.params.isEmpty, "CapCut's version has no settings")
+        #expect(d.defaultDuration == Time(2))
         let dissolve = try #require(Registries.transitions["valse.transition.dissolve"])
-        func frame(_ t: Double, _ tr: TransitionDescriptor? = nil, _ params: [String: ParamValue] = [:]) throws -> Bitmap {
-            Bitmap(try #require(PresetPreviewRenderer.transitionFrame(tr ?? d, from: ta, to: tb, progress: t, params: params, width: Self.w, height: Self.h)))
+        func frame(_ t: Double, _ tr: TransitionDescriptor? = nil) throws -> Bitmap {
+            Bitmap(try #require(PresetPreviewRenderer.transitionFrame(tr ?? d, from: ta, to: tb, progress: t, width: w, height: h)))
         }
-        let a = try frame(0, dissolve), b = try frame(1, dissolve), mix = try frame(0.5, dissolve)
-        let mid = try frame(0.5)
-        #expect(Self.meanDiff(mid, a) > 0.03)
-        #expect(Self.meanDiff(mid, b) > 0.03)
-        #expect(Self.meanDiff(mid, mix) > 0.03)
-        #expect(Self.meanDiff(mid, try frame(0.5)) == 0)
-        let early = try frame(0.3)
-        #expect(Self.meanDiff(early, try frame(0.3)) == 0)
-        #expect(Self.meanDiff(early, a) > 0.02, "A is visibly rewinding before the cut")
-        #expect(Self.meanDiff(try frame(0.3, nil, ["intensity": .scalar(0)]), early) > 0.01)
-        #expect(Self.meanDiff(try frame(0.5, nil, ["noise": .scalar(0)]), mid) > 0.02)
+        let a = try frame(0, dissolve), b = try frame(1, dissolve)
+        // T = 0.5 s: full grey tone, ◀◀ at rest in the middle (inside the left triangle), corners grey and dark
+        let hold = try frame(0.25)
+        #expect(Self.meanDiff(hold, try frame(0.25)) == 0)
+        #expect(Self.meanDiff(hold, a) > 0.05)
+        let glyph = hold[0.455, 0.5]
+        #expect(glyph.r > 0.9 && glyph.g > 0.9 && glyph.b > 0.9, "white ◀◀: \(glyph)")
+        let corner = hold.average(x: 0.02, y: 0.7, w: 0.1, h: 0.25)
+        #expect(abs(corner.r - corner.g) < 0.03 && abs(corner.g - corner.b) < 0.03, "grey tone: \(corner)")
+        #expect(corner.luma < 0.5)
+        // the switch to B happens mid-pan, one frame (of a 2 s transition) apart
+        let beforeCut = try frame(0.475), afterCut = try frame(0.49)
+        #expect(Self.meanDiff(beforeCut, afterCut) > 0.03)
+        // the midpoint is not a dissolve; near the end the picture is B again but the ◀◀ is gone
+        #expect(Self.meanDiff(try frame(0.5), try frame(0.5, dissolve)) > 0.03)
+        let late = try frame(0.985)
+        #expect(Self.meanDiff(late, b) < 0.03)
+        #expect(Self.meanDiff(late, a) > 0.05)
     }
 
     /// Real time at 1080p: each transition pass well under a frame (M1 Pro numbers; the Air is ~2× slower).
