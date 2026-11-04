@@ -27,6 +27,7 @@ public enum BuiltinTransitions {
     static func intensity(_ d: Double = 0.6) -> ParamSpec { .scalar("intensity", "tr.param.intensity", 0, 1, d, display: 100) }
     static func strength(_ d: Double = 0.5) -> ParamSpec { .scalar("strength", "tr.param.strength", 0, 1, d, display: 100) }
     static func count(_ d: Double, _ lo: Double = 2, _ hi: Double = 40) -> ParamSpec { .scalar("count", "tr.param.count", lo, hi, d) }
+    static func noise(_ d: Double = 0.6) -> ParamSpec { .scalar("noise", "tr.param.noise", 0, 1, d, display: 100) }
     static func color(_ c: RGBA) -> ParamSpec { ParamSpec("color", nameKey: "tr.param.color", .color(defaultValue: c)) }
 
     // MARK: Direction helpers
@@ -547,6 +548,63 @@ public enum BuiltinTransitions {
             float4 c = t < 0.5 ? FA(q) : FB(q);
             c.rgb = min(c.rgb * (1.0 + 2.0 * pow(tr_bump(t), 4.0)), 1.0);
             return c;
+            """),
+        // TR-RETRO-REWIND: VHS tape rewind. A rolls upward faster and faster with tracking jitter and a backwards smear
+        // (the pipeline only has A/B at the current time, so the rewind is faked), a static burst covers the cut, B rolls
+        // into place and settles clean. Everything is driven by `t` and canvas-relative coordinates (preview = export).
+        // p: intensity, noise.
+        t("retroRewind", "glitch", "backward.fill", params: [intensity(0.7), noise(0.6)], duration: 0.8, """
+            float amp = p[0], nz = p[1];
+            bool useB = t >= 0.5;
+            float env = useB ? pow(saturate(2.0 - 2.0 * t), 1.5) : tr_smooth(t * 2.0);
+            if (t <= 0.0 || t >= 1.0) env = 0.0;
+            float fr = floor(t * 30.0);
+            // vertical roll: A accelerates upward (rewinding), B rolls in from below and decelerates
+            float roll = useB ? -0.35 * pow(saturate(2.0 - 2.0 * t), 2.0) : 1.4 * pow(t * 2.0, 2.0);
+            roll = roll * amp + (fx_hash(float2(fr, 7.7)) - 0.5) * 0.03 * env * amp;
+            float qy = fract(uv.y + roll);
+            // horizontal tracking jitter per line + rolling tracking bands
+            float line = floor(uv.y * 240.0);
+            float jit = (fx_hash(float2(line, fr)) - 0.5) * 0.012 + sin(uv.y * 9.0 + t * 40.0) * 0.006;
+            float band = 0.0;
+            for (int i = 0; i < 2; i++) {
+                float by = fract(t * (2.3 + float(i) * 1.1) + float(i) * 0.41);
+                band = max(band, 1.0 - smoothstep(0.0, 0.035 + 0.02 * float(i), abs(uv.y - by)));
+            }
+            float bandShift = band * (fx_hash(float2(line * 0.5, fr + 3.0)) - 0.3) * 0.09;
+            float2 q = float2(uv.x + (jit + bandShift) * env * amp, qy);
+            // backwards motion smear + chroma bleed
+            float sm = 0.012 * env * amp;
+            float4 c = float4(0.0);
+            for (int i = 0; i < 5; i++) c += AB(tr_mirror(q + float2(float(i) * sm, 0.0))) * (i == 0 ? 0.4 : 0.15);
+            float off = 0.014 * env * amp;
+            float3 v = float3(AB(tr_mirror(q + float2(off, 0.0))).r * 0.7 + c.r * 0.3, c.g, AB(tr_mirror(q - float2(off, 0.0))).b * 0.7 + c.b * 0.3);
+            // vertical-hold seam where the frame wraps
+            float seam = (1.0 - smoothstep(0.0, 0.03, min(qy, 1.0 - qy))) * step(1e-4, abs(roll));
+            v *= 1.0 - 0.8 * seam * env;
+            // desaturation + VHS tint, scanlines
+            v = mix(v, float3(fx_luma(v)), 0.4 * env * amp);
+            v = mix(v, v * float3(1.04, 0.93, 1.08) + float3(0.03, 0.0, 0.05), env * amp);
+            v *= 1.0 - 0.22 * env * amp * (0.5 + 0.5 * sin(uv.y * 240.0 * TR_PI));
+            // tape noise: grain, band snow, static burst at the cut
+            float2 cell = floor(uv * float2(240.0 * aspect, 240.0));
+            float g = fx_hash(cell + fr * 0.71);
+            float burst = exp(-pow((t - 0.5) / 0.07, 2.0));
+            float snow = saturate(0.12 * env + 0.6 * band * env + 0.9 * burst) * nz;
+            if (t <= 0.0 || t >= 1.0) snow = 0.0;
+            v = mix(v, float3(g), snow);
+            // ◀◀ glyph in the top-left corner (blinking) while A rewinds
+            if (!useB && t > 0.04 && fract(t * 4.0) < 0.65) {
+                float2 a = tr_asp(uv, aspect) - float2(-0.5 * aspect + 0.09, -0.41);
+                float h = 0.028;
+                float tri = 0.0;
+                for (int i = 0; i < 2; i++) {
+                    float2 l = a - float2(float(i) * 2.0 * h, 0.0);
+                    tri = max(tri, (l.x <= h && abs(l.y) <= (l.x + h) * 0.5) ? 1.0 : 0.0);
+                }
+                v = mix(v, float3(0.95), tri * 0.9 * amp);
+            }
+            return float4(saturate(v), c.a);
             """),
     ]
 
