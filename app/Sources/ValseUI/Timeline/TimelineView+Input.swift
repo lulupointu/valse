@@ -225,10 +225,11 @@ extension TimelineView {
             }
         case .transition(let left, let edge, let startX, let original):
             let dx = l.duration(points: pt.x - startX)
-            let d = max(Time(0.1), original + (edge == .tail ? dx : -dx) * 2)
+            // the block is centred on the cut: an edge moving by dx changes the duration by 2·dx (TR-MODEL-CAPCUT)
+            let d = original + (edge == .tail ? dx : -dx) * 2
             store.updateGesture { p in
                 guard var tr = p.timeline.clip(left)?.transitionOut else { return }
-                tr.duration = d
+                tr.duration = TimelineOps.quantizedTransitionDuration(d, after: left, in: p.timeline, frameRate: p.settings.frameRate)
                 try TimelineOps.setTransition(left, tr, in: &p.timeline)
             }
             if let c = store.project.timeline.clip(left), let tr = c.transitionOut {
@@ -408,7 +409,10 @@ extension TimelineView {
         case .move(let m):
             store.endGesture()
             if m.duplicate, !duplicatedIDs.isEmpty { store.selection = Set(duplicatedIDs) }
-        case .trim, .roll, .slip, .transition, .keyframe, .marker, .fade, .volume:
+        case .transition(let left, _, _, let original):
+            store.endGesture()
+            if let d = store.project.timeline.clip(left)?.transitionOut?.duration, d > original { store.noteTransitionHandles(after: left) }
+        case .trim, .roll, .slip, .keyframe, .marker, .fade, .volume:
             store.endGesture()
         case .trackReorder(let id, let y):
             guard let ri = l.rowIndex(atY: y) else { break }
@@ -586,7 +590,7 @@ extension TimelineView {
         var t = l.time(atX: pt.x)
         if let s = sender.draggingPasteboard.string(forType: .string), case .transition = DragPayload.parse(s) {
             let (cut, row) = transitionDropCut(at: pt, l)
-            if let cut { t = cut.end - (cut.transitionOut?.duration ?? .zero) / 2.0 }
+            if let cut { t = cut.end }   // the cut itself: transitions are centred on it (TR-MODEL-CAPCUT)
             dropIndicator = (t, row ?? l.mainRowIndex)
         } else {
             if snappingOn { t = l.snap(t, timeline: store.project.timeline, playhead: store.transport.playhead).0 }

@@ -1,0 +1,20 @@
+// TR-MODEL-CAPCUT: a transition dropped on the Sunset|Forest cut moves nothing (centred on the cut, the timeline keeps
+// its length); Sunset has no tail handle, so CapCut's "duplicate frames" notice shows; "Don't remind me again"
+// silences it for the session (the next drop on a handle-less cut applies without it); the block straddles the cut.
+{
+  "project": "demo",
+  "steps": [
+    {"expect": [{"path": "main.clips.2.start", "approx": 10.5}, {"path": "ui.duplicateFramesNoticeOff", "equals": false}]},
+    {"drop": {"transition": "valse.transition.slideLeft"}, "on": "time:10.5@main"},
+    {"waitFor": {"path": "main.clips.1.transition", "equals": "valse.transition.slideLeft"}},
+    {"expect": [{"path": "main.clips.2.start", "approx": 10.5}, {"path": "main.clips.1.transitionDuration", "approx": 0.5},
+                {"path": "ui.toast", "contains": "duplicated"}]},
+    {"click": "id:toast.action"},
+    {"waitFor": {"path": "ui.duplicateFramesNoticeOff", "equals": true}},
+    {"expect": {"path": "ui.toast", "exists": false}},
+    {"snapshot": "transition-centred", "element": "id:timeline", "baseline": true, "threshold": 32, "tolerance": 0.01},
+    {"drop": {"transition": "valse.transition.wipeLeft"}, "on": "time:5.5@main"},
+    {"waitFor": {"path": "main.clips.0.transition", "equals": "valse.transition.wipeLeft"}},
+    {"expect": [{"path": "ui.toast", "exists": false}, {"path": "main.clips.1.start", "approx": 5.5}]}
+  ]
+}

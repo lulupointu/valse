@@ -3,4 +3,7 @@
 "transitions.results" = "Results";
 "transitions.noResults" = "No transitions found";
 "transition.issue.noContinuousClips" = "No continuous clips at current position";
-"transition.issue.clipTooShort" = "Video too short for a transition";
+"transition.issue.clipTooShort" = "Video too short for a transition: both clips need at least 0.2 s";
+/* TR-MODEL-CAPCUT — CapCut's "Create duplicate frames for transition" notice (informational: the transition applies). */
+"transition.duplicateFrames" = "Clips are too short for this transition: their edge frames are duplicated to keep the clips' original length.";
+"transition.duplicateFrames.dontRemind" = "Don't remind me again";

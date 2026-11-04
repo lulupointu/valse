@@ -3,4 +3,7 @@
 "transitions.results" = "Résultats";
 "transitions.noResults" = "Aucune transition trouvée";
 "transition.issue.noContinuousClips" = "Aucun clip continu à cette position";
-"transition.issue.clipTooShort" = "Vidéo trop courte pour une transition";
+"transition.issue.clipTooShort" = "Vidéo trop courte pour une transition : les deux clips doivent durer au moins 0,2 s";
+/* TR-MODEL-CAPCUT — CapCut's "Create duplicate frames for transition" notice (informational: the transition applies). */
+"transition.duplicateFrames" = "Les clips sont trop courts pour cette transition : leurs images de bord sont dupliquées pour garder la durée d'origine des clips.";
+"transition.duplicateFrames.dontRemind" = "Ne plus me le rappeler";

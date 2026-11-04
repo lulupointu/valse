@@ -106,6 +106,8 @@ public final class EditorStore {
         get { timelineUI.selectedTransition }
         set { timelineUI.selectedTransition = newValue }
     }
+    /// "Don't remind me again" on the duplicate-frames notice (TR-MODEL-CAPCUT): for this editing session only.
+    public var duplicateFramesNoticeOff = false
     public let transport = TransportState()
     /// Timeline view state: tool mode, scroll, clipboard, selected transition/marker (W1, ValseUI/Timeline).
     public let timelineUI = TimelineUIState()
@@ -448,10 +450,12 @@ public final class EditorStore {
         if let issue = TimelineOps.transitionIssue(after: target.id, in: tl) { showToast(tr(issue.messageKey), error: true); return }
         var inst = d.makeInstance()
         if let old = target.transitionOut { inst.duration = old.duration }
+        inst.duration = TimelineOps.quantizedTransitionDuration(inst.duration, after: target.id, in: tl, frameRate: project.settings.frameRate)
         if perform(SetTransition(target.id, inst)) {
             selection = []
             selectedTransition = target.id
             EffectPipelines.shared.prewarm(project)
+            noteTransitionHandles(after: target.id)
         }
     }
 

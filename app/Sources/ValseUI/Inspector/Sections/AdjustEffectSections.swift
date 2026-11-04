@@ -206,15 +206,15 @@ struct EffectClipSection: View {
 
 // MARK: - Transition
 
-/// Transition ▸ Transition parameters ↺: Name, Duration 0.1 s … min(clip lengths, 5 s); footer Apply to all (§5.7).
+/// Transition ▸ Transition parameters ↺: Name, Duration 0.1 s … half of the shorter neighbour, frame-quantised
+/// (CapCut, TR-MODEL-CAPCUT); footer Apply to all (§5.7).
 struct TransitionSection: View {
     let ctx: InspectorContext
 
     static func maxDuration(_ ctx: InspectorContext) -> Double {
-        guard let a = ctx.transitionClip, let loc = ctx.store.project.timeline.locate(a.id) else { return 5 }
-        let clips = ctx.store.project.timeline.tracks[loc.track].clips
-        let b = loc.clip + 1 < clips.count ? clips[loc.clip + 1] : nil
-        return max(0.1, min(5, a.duration.seconds, b?.duration.seconds ?? 5))
+        guard let a = ctx.transitionClip else { return 5 }
+        let p = ctx.store.project
+        return TimelineOps.maxTransitionDuration(after: a.id, in: p.timeline, frameRate: p.settings.frameRate).seconds
     }
 
     static func chrome(_ ctx: InspectorContext) -> InspectorSectionChrome {
@@ -229,7 +229,12 @@ struct TransitionSection: View {
         ctx.store.perform(Edit("cmd.transition.applyAll") { p in
             guard let mi = p.timeline.mainTrackIndex else { return }
             let ids = p.timeline.tracks[mi].clips.dropLast().map(\.id)
-            for id in ids { try TimelineOps.setTransition(id, t, in: &p.timeline) }
+            // every continuous cut that takes one (gaps / too-short clips are skipped); each clamped to its own max
+            for id in ids where TimelineOps.transitionIssue(after: id, in: p.timeline) == nil {
+                var x = t
+                x.duration = TimelineOps.quantizedTransitionDuration(t.duration, after: id, in: p.timeline, frameRate: p.settings.frameRate)
+                try TimelineOps.setTransition(id, x, in: &p.timeline)
+            }
         })
         ctx.store.showToast(tr("toast.appliedToAll"))
     }
@@ -245,10 +250,14 @@ struct TransitionSection: View {
             @MainActor func write(_ v: Double, live: Bool) {
                 // the current transition (not the captured one: see TransitionParamRows — stale closures on macOS 13)
                 guard let a, var nt = store.project.timeline.clip(a.id)?.transitionOut ?? a.transitionOut else { return }
-                nt.duration = Time(min(max(v, 0.1), maxD))
+                let p = store.project
+                nt.duration = TimelineOps.quantizedTransitionDuration(Time(v), after: a.id, in: p.timeline, frameRate: p.settings.frameRate)
                 let id = a.id, inst = nt
                 if live { store.updateGesture { p in try TimelineOps.setTransition(id, inst, in: &p.timeline) } }
-                else { store.perform(SetTransition(id, inst)) }
+                else {
+                    store.perform(SetTransition(id, inst))
+                    if inst.duration.seconds > value { store.noteTransitionHandles(after: id) }
+                }
             }
             return VStack(alignment: .leading, spacing: 8) {
                 InlineRow(label: tr("inspector.name")) {
@@ -259,7 +268,12 @@ struct TransitionSection: View {
                               enabled: t != nil, parse: NumberParse.number,
                               onBegin: { store.beginGesture("cmd.transition") },
                               onChange: { u in write(scale.fromUnit(u), live: true) },
-                              onEnd: { store.endGesture() },
+                              onEnd: {
+                                  store.endGesture()
+                                  if let a, let d = store.project.timeline.clip(a.id)?.transitionOut?.duration, d.seconds > value {
+                                      store.noteTransitionHandles(after: a.id)
+                                  }
+                              },
                               commit: { write($0, live: false) },
                               step: { write(value + Double($0) * 0.1, live: false) }, testID: "transition.duration")
                 TransitionParamRows(ctx: ctx)   // W5: direction / colour / softness… (ValseUI/Transitions)

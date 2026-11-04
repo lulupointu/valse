@@ -77,8 +77,12 @@ public enum DemoProject {
         var p = Project(name: tr("demo.name"))
         let (assets, _) = await MediaProbe.probeAll(urls + [musicURL])
         p.media = assets
-        for a in assets.prefix(3) {
-            try TimelineOps.insert(TimelineOps.makeClip(for: a, at: Time(1000)), into: &p)
+        for (i, a) in assets.prefix(3).enumerated() {
+            var c = TimelineOps.makeClip(for: a, at: Time(1000))
+            // TR-MODEL-CAPCUT: Ocean ends 0.5 s before its media does (a tail handle for its transition), which keeps
+            // the demo's layout of the overlapping-transition era: Sunset at 5.5 s, Forest at 10.5 s, 16.5 s long
+            if i == 0 { c.duration = c.duration - Time(0.5) }
+            try TimelineOps.insert(c, into: &p)
         }
         let main = p.timeline.mainTrack!.clips
         try TimelineOps.setTransition(main[0].id, Registries.transitions["valse.transition.dissolve"]!.makeInstance(), in: &p.timeline)

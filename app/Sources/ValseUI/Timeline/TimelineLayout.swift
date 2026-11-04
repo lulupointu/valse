@@ -159,10 +159,11 @@ public struct TimelineLayout {
         CGRect(x: x(c.start), y: row.y, width: max(1, CGFloat(c.duration.seconds * pixelsPerSecond)), height: row.height)
     }
 
-    /// Transition block of `clip` (straddling the cut; width = duration, at least 14 pt so it stays grabbable).
+    /// Transition block of `clip` (centred on the cut over both clips, [cut − d/2, cut + d/2] like CapCut,
+    /// TR-MODEL-CAPCUT; width = duration, at least 14 pt so it stays grabbable).
     public func transitionRect(_ clip: Clip, row: Row) -> CGRect? {
         guard let tr = clip.transitionOut else { return nil }
-        let x0 = x(clip.end - tr.duration), x1 = x(clip.end)
+        let x0 = x(clip.end - tr.duration / 2.0), x1 = x(clip.end + tr.duration / 2.0)
         let w = max(14, x1 - x0), mid = (x0 + x1) / 2
         return CGRect(x: mid - w / 2, y: row.y + 4, width: w, height: row.height - 8)
     }
@@ -200,8 +201,10 @@ public struct TimelineLayout {
             }
             if let best { return .keyframe(c.id, key: best.0, time: best.1, row: ri) }
         }
-        // transitions next (they sit on top of the cut)
-        for c in cands where c.transitionOut != nil {
+        // transitions next (they sit on top of the cut; the block reaches d/2 into the next clip, whose owner may lie
+        // just left of the candidates)
+        let owners = cands.startIndex > 0 ? [track.clips[cands.startIndex - 1]] + Array(cands) : Array(cands)
+        for c in owners where c.transitionOut != nil {
             guard let r = transitionRect(c, row: row), r.insetBy(dx: -2, dy: 0).contains(p) else { continue }
             if p.x <= r.minX + 4 { return .transition(c.id, edge: .head, row: ri) }
             if p.x >= r.maxX - 4 { return .transition(c.id, edge: .tail, row: ri) }
