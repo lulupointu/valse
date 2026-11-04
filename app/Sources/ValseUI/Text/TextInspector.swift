@@ -24,8 +24,12 @@ enum TextInspector {
         InspectorSubTab(id: "spokenWord", titleKey: "text.sub.spokenWord", order: 2, appliesTo: isCaption),
         // OB-10 (owner): Bubble is the rightmost sub-tab
         InspectorSubTab(id: "bubble", titleKey: "text.sub.bubble", order: 3),
-    ], footer: { ctx, _ in
-        AnyView(PillButton(title: tr("inspector.saveAsPreset"), accent: true) { ctx.store.saveTextPreset() })
+    ], footer: { ctx, sub in
+        // TX-BUBBLE2 round 3: on Bubble, [Save as preset] (the whole text) + [Save bubble] (the bubble only, "Yours")
+        if sub == "bubble" {
+            return AnyView(SaveBubbleFooter(ctx: ctx))
+        }
+        return AnyView(PillButton(title: tr("inspector.saveAsPreset"), accent: true) { ctx.store.saveTextPreset() })
     }, appliesTo: { $0.kind == .text })
 
     /// Captions comes first for caption clips (CapCut: Captions | Text | Animation | …). CAP-UX2-TAB (owner, overrides

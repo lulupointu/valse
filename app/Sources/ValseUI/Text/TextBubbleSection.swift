@@ -151,6 +151,9 @@ struct TextBubbleSection: View {
                     } else {
                         compact(ui, cur: cur, edited: t?.isBubbleEdited ?? false, noBubble: style == nil)
                     }
+                    if let rid = ui.renamingBubble, let p = BubblePresetStore.shared.presets.first(where: { $0.id == rid }) {
+                        SavedBubbleRenameField(preset: p).id(rid)
+                    }
                     expandButton(ui)
                 }
                 .testID("text.bubble.presets")
@@ -164,31 +167,58 @@ struct TextBubbleSection: View {
         ctx.store.updateText(id, nameKey: name, edit)
     }
 
-    /// Recents first, then round-robin over the groups (each group's first preset, then its second…).
-    static func compactPresets(recents: [String]) -> [TextBubbleDescriptor] {
+    /// Recents first, then round-robin over the groups (each group's first preset, then its second…); `reserved` slots
+    /// of the strip go to saved bubbles (shown after the recents).
+    static func compactPresets(recents: [String], reserved: Int = 0) -> [TextBubbleDescriptor] {
         let all = Registries.textBubbles.all
+        let count = max(compactCount - reserved, 0)
         var out: [TextBubbleDescriptor] = recents.compactMap { Registries.textBubbles[$0] }
         let byGroup = BuiltinTextBubbles.groups.map { g in all.filter { $0.groupKey == g } }
         var i = 0
-        while out.count < compactCount, byGroup.contains(where: { $0.count > i }) {
+        while out.count < count, byGroup.contains(where: { $0.count > i }) {
             for g in byGroup where g.count > i && !out.contains(where: { $0.id == g[i].id }) { out.append(g[i]) }
             i += 1
         }
-        return Array(out.prefix(compactCount))
+        return Array(out.prefix(count))
     }
 
+    /// Saved bubbles shown in the compact strip (the rest is under "All" ▸ Yours).
+    static let compactSavedMax = 6
+
     private func compact(_ ui: TextUIState, cur: String?, edited: Bool, noBubble: Bool) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 40, maximum: 48), spacing: 6)], spacing: 6) {
+        let saved = Array(BubblePresetStore.shared.presets.prefix(Self.compactSavedMax))
+        let list = Self.compactPresets(recents: ui.recentBubbles, reserved: saved.count)
+        let nRecent = min(ui.recentBubbles.filter { Registries.textBubbles[$0] != nil }.count, list.count)
+        let style = TextInspector.text(ctx).flatMap { $0.bubbleID == nil ? $0.bubbleStyle : nil }
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 40, maximum: 48), spacing: 6)], spacing: 6) {
             smallTile(selected: noBubble, testID: "text.bubble.tile.none", help: tr("anim.none")) {
                 Image(systemName: "nosign").font(.system(size: 18, weight: .light)).foregroundStyle(Color(white: 0.75))
             } action: { ctx.store.applyBubble(nil) }
-            ForEach(Self.compactPresets(recents: ui.recentBubbles)) { d in
+            ForEach(list.prefix(nRecent)) { d in WithPerceptionTracking { compactTile(d, cur: cur, edited: edited) } }
+            ForEach(saved) { p in
                 WithPerceptionTracking {
-                    smallTile(selected: cur == d.id, testID: Self.tileID(d), help: tr(d.nameKey)) { preview(d) } action: { ctx.store.applyBubble(d) }
-                        .overlay(alignment: .topTrailing) { if cur == d.id && edited { editedDot } }
+                    smallTile(selected: style == p.style, testID: Self.savedTileID(p), help: p.name) { savedPreview(p) } action: {
+                        ctx.store.applySavedBubble(p)
+                    }
+                    .modifier(SavedBubbleMenu(preset: p))
                 }
             }
+            ForEach(list.dropFirst(nRecent)) { d in WithPerceptionTracking { compactTile(d, cur: cur, edited: edited) } }
         }
+    }
+
+    private func compactTile(_ d: TextBubbleDescriptor, cur: String?, edited: Bool) -> some View {
+        smallTile(selected: cur == d.id, testID: Self.tileID(d), help: tr(d.nameKey)) { preview(d) } action: { ctx.store.applyBubble(d) }
+            .overlay(alignment: .topTrailing) { if cur == d.id && edited { editedDot } }
+    }
+
+    /// Test ID of a saved bubble tile: its position in "Yours" (ids are random).
+    static func savedTileID(_ p: BubblePresetStore.Preset) -> String {
+        "text.bubble.saved.\(BubblePresetStore.shared.presets.firstIndex(of: p) ?? 0)"
+    }
+
+    private func savedPreview(_ p: BubblePresetStore.Preset) -> some View {
+        TextPreviewImage(key: "bubble.saved:\(p.id)", content: TextPreviewImage.savedBubble(p.style), fontPx: 30, padding: 4)
     }
 
     private func expandButton(_ ui: TextUIState) -> some View {
@@ -204,7 +234,7 @@ struct TextBubbleSection: View {
         .testID("text.bubble.all")
     }
 
-    /// "Based on <preset> · Edited" + ↺ (the whole preset back with its paired text look).
+    /// "Based on <preset> · Edited" + ↺ (the whole preset back; the text look is untouched).
     @ViewBuilder private func basedOn(_ t: TextContent) -> some View {
         if let d = t.bubblePreset {
             HStack(spacing: 6) {
@@ -252,6 +282,7 @@ struct TextBubbleSection: View {
 
     private func groupPills(_ ui: TextUIState) -> some View {
         FlowLayout(spacing: 6) {
+            if !BubblePresetStore.shared.presets.isEmpty { pill(BubblePresetStore.group, tr(BubblePresetStore.group), ui) }
             pill(nil, tr("text.bubble.group.all"), ui)
             ForEach(BuiltinTextBubbles.groups, id: \.self) { g in
                 WithPerceptionTracking { pill(g, tr(g), ui) }
@@ -279,13 +310,25 @@ struct TextBubbleSection: View {
         }
         // A flow of equal-width tiles (columns line up) rather than a lazy grid: every tile exists, so a group's tiles
         // are reachable right after its pill is picked even when the section is scrolled (cached previews).
-        if let g = ui.bubbleGroup {
+        let saved = BubblePresetStore.shared.presets
+        if ui.bubbleGroup == BubblePresetStore.group {
+            FlowLayout(spacing: 6, lineSpacing: 10) {
+                none
+                ForEach(saved) { p in WithPerceptionTracking { savedTile(p) } }
+            }
+        } else if let g = ui.bubbleGroup {
             FlowLayout(spacing: 6, lineSpacing: 10) {
                 none
                 ForEach(Registries.textBubbles.all.filter { $0.groupKey == g }) { d in WithPerceptionTracking { tile(d, cur: cur, edited: edited) } }
             }
         } else {
             FlowLayout(spacing: 6, lineSpacing: 10) { none }
+            if !saved.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(verbatim: tr(BubblePresetStore.group)).font(.system(size: 12, weight: .medium)).foregroundStyle(IStyle.caption)
+                    FlowLayout(spacing: 6, lineSpacing: 10) { ForEach(saved) { p in WithPerceptionTracking { savedTile(p) } } }
+                }
+            }
             ForEach(BuiltinTextBubbles.groups, id: \.self) { g in
                 WithPerceptionTracking {
                     VStack(alignment: .leading, spacing: 6) {
@@ -309,6 +352,90 @@ struct TextBubbleSection: View {
             }
         }
         .overlay(alignment: .topTrailing) { if cur == d.id && edited { editedDot.padding(1) } }
+    }
+
+    private func savedTile(_ p: BubblePresetStore.Preset) -> some View {
+        let t = TextInspector.text(ctx)
+        let selected = t?.bubbleID == nil && t?.bubbleStyle == p.style
+        return Tile(title: p.name, selected: selected, testID: Self.savedTileID(p), titleLines: 2) {
+            ctx.store.applySavedBubble(p)
+        } content: {
+            TextPreviewImage(key: "bubble.saved:\(p.id)", content: TextPreviewImage.savedBubble(p.style), fontPx: 30, padding: 6)
+        }
+        .modifier(SavedBubbleMenu(preset: p))
+    }
+}
+
+/// Sticky footer of Text ▸ Bubble: [Save as preset] (the whole text, as on the other sub-tabs) + [Save bubble] (the
+/// bubble only → Bubble ▸ Yours; needs a bubble).
+struct SaveBubbleFooter: View {
+    let ctx: InspectorContext
+    var body: some View {
+        WithPerceptionTracking {
+            let has = BubbleSections.bubble(ctx) != nil
+            // French titles are long: side by side when they fit, else stacked
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { buttons(has) }
+                VStack(spacing: 6) { buttons(has) }
+            }
+        }
+    }
+
+    @ViewBuilder private func buttons(_ has: Bool) -> some View {
+        PillButton(title: tr("inspector.saveAsPreset")) { ctx.store.saveTextPreset() }
+        PillButton(title: tr("text.bubble.save"), accent: true, enabled: has) { ctx.store.saveBubblePreset() }
+            .testID("text.bubble.save")
+    }
+}
+
+/// Right-click menu of a saved bubble (Rename… / Delete, like the other user presets); Rename opens a name field under
+/// the tiles (`SavedBubbleRenameField`).
+struct SavedBubbleMenu: ViewModifier {
+    let preset: BubblePresetStore.Preset
+
+    func body(content: Content) -> some View {
+        content
+            .contextMenu {
+                Button(tr("text.bubble.rename")) { TextUIState.shared.renamingBubble = preset.id }
+                Button(tr("text.bubble.delete")) {
+                    let store = BubblePresetStore.shared, ui = TextUIState.shared
+                    store.remove(preset.id)
+                    if ui.renamingBubble == preset.id { ui.renamingBubble = nil }
+                    if store.presets.isEmpty, ui.bubbleGroup == BubblePresetStore.group { ui.bubbleGroup = nil }
+                }
+            }
+    }
+}
+
+/// Name field of the saved bubble being renamed: Return / focus loss commits, Esc cancels.
+struct SavedBubbleRenameField: View {
+    let preset: BubblePresetStore.Preset
+    @State private var name = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        WithPerceptionTracking {
+            HStack(spacing: 6) {
+                Image(systemName: "pencil").font(.system(size: 11)).foregroundStyle(IStyle.caption)
+                TextField("", text: $name)
+                    .textFieldStyle(.plain).font(.system(size: 12))
+                    .padding(.horizontal, 6).frame(height: 22)
+                    .background(IStyle.field, in: RoundedRectangle(cornerRadius: 4))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.accent))
+                    .focused($focused)
+                    .onSubmit(commit)
+                    .onExitCommand { TextUIState.shared.renamingBubble = nil }
+                    .onAppear { name = preset.name; focused = true }
+                    .onValueChange(of: focused) { _, f in if !f { commit() } }
+                    .testID("text.bubble.rename.field")
+            }
+        }
+    }
+
+    private func commit() {
+        guard TextUIState.shared.renamingBubble == preset.id else { return }
+        BubblePresetStore.shared.rename(preset.id, to: name)
+        TextUIState.shared.renamingBubble = nil
     }
 }
 

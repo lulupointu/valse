@@ -302,6 +302,9 @@ struct ClipParamRow: View {
     var testID: String? = nil
     /// Slider held (true) / released (false): e.g. the canvas guide of Bubble ▸ Padding.
     var onDrag: ((Bool) -> Void)? = nil
+    /// Live value pushed by ANOTHER row's drag (linked rows, e.g. Bubble ▸ Padding H ⛓ V): the clip slice is frozen
+    /// while any row is dragged, so a linked row reads this (observable) value instead; nil = the clip's value.
+    var linkedLive: (() -> Double?)? = nil
     /// Value shown while this row's slider is dragged: the inspector's clip slice is frozen during the drag
     /// (`EditorStore.beginInspectorGesture`), so only this row re-renders per tick.
     @State private var live: Double?
@@ -311,9 +314,9 @@ struct ClipParamRow: View {
             let store = ctx.store
             let clip = ctx.clip
             let local = clip.map { dependsOnTime($0) ? ctx.localTime : .zero } ?? .zero
-            let value = live ?? (clip.map { get($0, local) } ?? spec.range.lowerBound)
+            let value = live ?? linkedLive?() ?? (clip.map { get($0, local) } ?? spec.range.lowerBound)
             // C2: several clips edited together → "-" when they disagree
-            let mixed = live == nil && ctx.isMulti
+            let mixed = live == nil && linkedLive?() == nil && ctx.isMulti
                 && InspectorMultiEdit.isMixed(ctx.clips.map { get($0, dependsOnTime($0) ? Bind.local(store, $0) : .zero) })
             let liveBox = $live
             let scale = spec.sliderScale

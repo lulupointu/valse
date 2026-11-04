@@ -143,76 +143,60 @@ struct TextContentTests {
         }
     }
 
-    // MARK: TX-BUBBLE2 bubble ↔ text pairing
+    // MARK: TX-BUBBLE2 round 3: a bubble never restyles the text
 
     /// A text effect (word art) keeps the clip's bubble (it used to rebuild the text without it).
     @Test func restyleKeepsTheBubble() {
         var t = TextContent(string: "Hi")
-        TextBubblePairing.pick(Registries.textBubbles["valse.bubble.neonPinkPill"], on: &t)
+        t.pickBubble(Registries.textBubbles["valse.bubble.neonPinkPill"])
         t.editBubble { $0.fill = .white }
-        let bubble = (t.bubbleID, t.bubbleStyle, t.bubblePriorLook)
+        let bubble = (t.bubbleID, t.bubbleStyle)
         BuiltinTextStyles.shadows[0].restyle(&t)
-        #expect(t.bubbleID == bubble.0 && t.bubbleStyle == bubble.1 && t.bubblePriorLook == bubble.2 && t.bubbleStyle != nil)
+        #expect(t.bubbleID == bubble.0 && t.bubbleStyle == bubble.1 && t.bubbleStyle != nil)
         var legacy = TextContent(string: "Hi"); legacy.bubbleID = "valse.bubble.speechWhite"; legacy.bubbleColor = .red
         BuiltinTextStyles.outlines[0].restyle(&legacy)
         #expect(legacy.bubbleID == "valse.bubble.speechWhite" && legacy.bubbleColor == .red)
     }
 
-    /// Every preset has a paired look; neon bubbles hold plain white text with a dark dusk guard (TX-NEON rework, as in
-    /// the owner's reference sign), the sign-like ones neon text in the frame colour (duos excepted); on karaoke
-    /// captions the tube degrades to a glow neon.
-    @Test func everyBubbleHasAPairedLook() throws {
-        let neonText: Set<String> = ["valse.bubble.neonOrangeBurst", "valse.bubble.neonDuo", "valse.bubble.neonNightSign", "valse.bubble.neonFlicker"]
-        for d in Registries.textBubbles.all {
-            let l = try #require(TextBubblePairing.look(d.id), "\(d.id)")
-            if d.groupKey == "bubble.group.neon", d.id != "valse.bubble.neonMarquee" {
-                if neonText.contains(d.id) {
-                    #expect(l.neon != nil, "\(d.id)")
-                    if !TextBubblePairing.duos.contains(d.id) { #expect(l.neon?.color == d.style.outline?.color, "\(d.id)") }
-                } else {
-                    #expect(l.neon == nil && l.color == .white && l.glow?.color == .black && l.glow?.mode == .outer, "\(d.id)")
-                }
-            }
+    /// Owner (round 3): picking, switching, resetting or removing a bubble never changes the text's look (font, colour,
+    /// effects, neon, case, run colours); only the bubble fields and the flat Background (turned off under a bubble).
+    @Test func bubblePickNeverChangesTheTextLook() throws {
+        var t = TextContent(string: "Hello", fontSize: 0.08, color: RGBA(hex: 0x00FF00), alignment: .left)
+        t.fontName = "Georgia"; t.textCase = .upper; t.italic = true
+        t.neon = TextNeonStyle(color: .red, intensity: 0.8, glowSize: 0.3, thickness: 0.05)
+        t.runs = [TextRun(TextSpan(0, 2), TextRunStyle(color: .blue))]
+        t.backgroundColor = RGBA(0, 0, 1, 1)
+        func look(_ x: TextContent) -> TextContent {
+            var y = x; y.bubbleID = nil; y.bubbleStyle = nil; y.bubbleColor = nil; y.backgroundColor = .clear; return y
         }
-        #expect(TextBubblePairing.looks.count == 63)
-        let pink = try #require(TextBubblePairing.look("valse.bubble.neonPinkPill"))
-        #expect(pink.glow?.color == .black && pink.fontName == "ArialRoundedMTBold")
-        let duo = try #require(TextBubblePairing.look("valse.bubble.neonDuo"))
-        let k = try #require(TextBubblePairing.look("valse.bubble.neonDuo", karaoke: true))
-        #expect(k.neon == nil && k.glow?.color == duo.neon?.color)
-        // Flickering neon: the text flickers in sync with the frame (same faulty envelope)
-        let f = try #require(TextBubblePairing.look("valse.bubble.neonFlicker"))
-        #expect(f.neon?.flicker == Registries.textBubbles["valse.bubble.neonFlicker"]?.style.outline?.neon?.flicker)
+        let before = look(t)
+        for id in ["valse.bubble.neonCyanBox", "valse.bubble.comicShout", "valse.bubble.speechWhite", "valse.bubble.neonFlicker"] {
+            let d = try #require(Registries.textBubbles[id])
+            t.pickBubble(d)
+            #expect(t.bubbleID == id && t.bubbleStyle == nil && t.backgroundColor.a == 0)
+            #expect(look(t) == before, "\(id)")
+            t.editBubble { $0.padding = Vec2(0.5, 0.5) }
+            t.resetBubbleToPreset()
+            #expect(t.bubbleStyle == nil && look(t) == before, "\(id) reset")
+        }
+        t.pickBubble(nil)
+        #expect(t.bubbleID == nil && t.resolvedBubble() == nil && look(t) == before)
+        // a saved bubble: drawn as is, not based on a preset, text untouched
+        var saved = TextBubbleStyle.blank(.cloud); saved.fill = .red
+        t.applySavedBubble(saved)
+        #expect(t.bubbleID == nil && t.resolvedBubble() == saved && look(t) == before)
     }
 
-    /// Pick / switch / None merge: the pairing applies on a pick, switching never stacks looks, a colour edited after
-    /// the pick survives a switch, None restores the look from before, words / size / alignment are never touched.
-    @Test func pairingMergeRules() throws {
-        var t = TextContent(string: "Hello", fontSize: 0.08, color: RGBA(hex: 0x00FF00), alignment: .left)
-        t.backgroundColor = RGBA(0, 0, 1, 1)
-        let before = t
-        let cyan = Registries.textBubbles["valse.bubble.neonCyanBox"], comic = Registries.textBubbles["valse.bubble.comicShout"]
-        TextBubblePairing.pick(cyan, on: &t)
-        #expect(t.look == TextBubblePairing.look(cyan!.id))
-        #expect(t.string == "Hello" && t.fontSize == 0.08 && t.alignment == .left && t.backgroundColor.a == 0)
-        TextBubblePairing.pick(comic, on: &t)
-        #expect(t.neon == nil && t.glow == nil && t.italic && t.fontName == "ChalkboardSE-Bold")
-        t.color = .red   // user recolour after the pick
-        TextBubblePairing.pick(cyan, on: &t)
-        #expect(t.color == .red && t.neon == nil && t.glow?.color == .black && t.fontName == "Futura-Medium")
-        TextBubblePairing.pick(nil, on: &t)
-        var expected = before.look; expected.color = .red
-        #expect(t.look == expected && t.bubbleID == nil && t.bubblePriorLook == nil)
-        // a user font is kept on the first pick; None without a snapshot (older project) only resets pairing fields
-        var u = TextContent(string: "x"); u.fontName = "Georgia"
-        TextBubblePairing.pick(comic, on: &u)
-        #expect(u.fontName == "Georgia" && u.textCase == .upper)
-        u.bubblePriorLook = nil
-        TextBubblePairing.pick(nil, on: &u)
-        #expect(u.fontName == "Georgia" && u.color == .white && u.neon == nil && u.shadowColor.a == 0)
-        // the tile preview content: paired look, CAPS presets show AA
-        var tile = TextContent(string: "Aa")
-        TextBubblePairing.pick(cyan, on: &tile)
-        #expect(tile.displayString == "AA")
+    /// Projects saved by 0.6 / 0.7 carry a "bubblePrior" text look (removed pairing): decoded and ignored.
+    @Test func oldBubblePriorDecodesAndIsIgnored() throws {
+        var t = TextContent(string: "Old"); t.color = .red; t.bubbleID = "valse.bubble.neonPinkPill"
+        var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(t)) as? [String: Any])
+        var prior = json; prior.removeValue(forKey: "bubbleID"); prior["color"] = json["color"]
+        json["bubblePrior"] = prior
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let back = try JSONDecoder().decode(TextContent.self, from: data)
+        #expect(back == t)
+        let again = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(back)) as? [String: Any])
+        #expect(again["bubblePrior"] == nil)
     }
 }

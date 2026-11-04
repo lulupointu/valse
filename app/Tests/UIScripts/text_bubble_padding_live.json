@@ -1,0 +1,41 @@
+// TX-BUBBLE2 round 3 bug (owner: "when the padding is supposed to be synced, it only syncs when I release the
+// slider"): while Horizontal is dragged with the chain on, Vertical (slider + field) and the canvas follow on every
+// tick, before the release; the drag is one undo step. The inspector slice is frozen during a row drag, so the rows
+// read the live padding (ui.bubblePaddingLive) instead.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"seek": 1.5},
+    {"click": "id:inspector.sub.bubble"},
+    {"click": "id:text.bubble.all"},
+    {"click": "id:text.bubble.group.neon"},
+    {"click": "id:text.bubble.tile.neonRedOval"},
+    {"expect": {"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.neonRedOval"}},
+    {"click": "id:text.bubble.all"},
+    {"click": "id:text.bubble.paddingH.field"},
+    {"type": "40", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.padX", "equals": 400}},
+    {"expect": {"path": "selectedClips.0.bubbleStyle.padY", "equals": 200}},
+    {"expect": {"path": "undo.depth", "gt": 0}},
+    // whole Padding section on screen before the drag (the held drag can't scroll)
+    {"hover": "id:inspector.section.text.bubble.padding.body"},
+    {"drag": "id:text.bubble.paddingH", "at": [0.45, 0.5], "to": "id:text.bubble.paddingH", "toAt": [0.85, 0.5], "hold": true},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.padX", "gt": 900}},
+    {"waitFor": {"path": "ui.bubblePaddingLive.y", "gt": 450}},
+    {"expect": {"path": "ui.bubblePaddingLive.x", "gt": 900}},
+    {"snapshot": "bubble-padding-live-drag", "element": "id:inspector.section.text.bubble.padding.body", "baseline": true},
+    {"snapshot": "bubble-canvas-padding-live", "element": "id:panel.player", "baseline": true, "threshold": 40, "tolerance": 0.03},
+    {"release": true},
+    {"waitFor": {"path": "ui.bubblePaddingLive", "exists": false}},
+    {"expect": [{"path": "selectedClips.0.bubbleStyle.padY", "gt": 450}, {"path": "undo.name", "equals": "cmd.textBubbleEdit"}]},
+    {"snapshot": "bubble-padding-live-released", "element": "id:inspector.section.text.bubble.padding.body", "baseline": true},
+    // the canvas drawn mid-drag is the released one (same pixels as the mid-drag baseline, minus the dashed guide)
+    {"snapshot": "bubble-canvas-padding-released", "element": "id:panel.player", "threshold": 40, "tolerance": 0.03},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.padX", "equals": 400}},
+    {"expect": {"path": "selectedClips.0.bubbleStyle.padY", "equals": 200}}
+  ]
+}

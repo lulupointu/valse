@@ -221,6 +221,30 @@ public struct TextBubbleDescriptor: Sendable, Identifiable {
 }
 
 extension TextContent {
+    /// Bubble tile pick (`d` nil = None, TX-BUBBLE2 round 3): only the bubble changes (preset as is, edits dropped) and
+    /// a flat text Background is turned off (it would draw a second box under the bubble). The text keeps its look —
+    /// font, colour, effects, neon, case, runs — on a pick, a switch and None alike (owner: no paired text styles).
+    public mutating func pickBubble(_ d: TextBubbleDescriptor?) {
+        bubbleID = d?.id
+        bubbleColor = nil
+        bubbleStyle = nil
+        if d != nil { backgroundColor.a = 0 }
+    }
+
+    /// A saved bubble ("Yours") on the text: drawn as is, not based on a preset; the text look is untouched.
+    public mutating func applySavedBubble(_ s: TextBubbleStyle) {
+        bubbleID = nil
+        bubbleColor = nil
+        bubbleStyle = s
+        backgroundColor.a = 0
+    }
+
+    /// Customize ▸ Reset: back to the preset as is (the text look is untouched).
+    public mutating func resetBubbleToPreset() {
+        bubbleStyle = nil
+        bubbleColor = nil
+    }
+
     /// The bubble preset this clip's bubble comes from.
     public var bubblePreset: TextBubbleDescriptor? { bubbleID.flatMap { Registries.textBubbles[$0] } }
 

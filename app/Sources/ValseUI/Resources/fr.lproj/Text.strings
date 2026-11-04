@@ -68,7 +68,13 @@
 "text.bubble.group.all" = "Tout";
 "text.bubble.basedOn" = "Basé sur %@";
 "text.bubble.edited" = "Modifié";
-"text.bubble.reset" = "Rétablir la bulle et son style de texte";
+"text.bubble.reset" = "Rétablir la bulle";
+"text.bubble.group.yours" = "Vos bulles";
+"text.bubble.save" = "Enregistrer la bulle";
+"text.bubble.saved" = "Bulle enregistrée dans Vos bulles";
+"text.bubble.savedName" = "Ma bulle %d";
+"text.bubble.rename" = "Renommer…";
+"text.bubble.delete" = "Supprimer";
 "text.bubble.fill" = "Remplissage";
 "text.bubble.opacity" = "Opacité";
 "text.bubble.outline" = "Contour";

@@ -68,7 +68,13 @@
 "text.bubble.group.all" = "All";
 "text.bubble.basedOn" = "Based on %@";
 "text.bubble.edited" = "Edited";
-"text.bubble.reset" = "Restore the bubble and its text style";
+"text.bubble.reset" = "Restore the bubble";
+"text.bubble.group.yours" = "Yours";
+"text.bubble.save" = "Save bubble";
+"text.bubble.saved" = "Bubble saved to Yours";
+"text.bubble.savedName" = "My bubble %d";
+"text.bubble.rename" = "Rename…";
+"text.bubble.delete" = "Delete";
 "text.bubble.fill" = "Fill";
 "text.bubble.opacity" = "Opacity";
 "text.bubble.outline" = "Outline";

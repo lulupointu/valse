@@ -1,0 +1,48 @@
+// TX-BUBBLE2 round 3 "Save bubble": the Bubble footer saves the current bubble (no text style) as "My bubble 1"; it
+// heads the preset strip after None, gets a "Yours" pill (first) under All, applies as is to a text (its look kept,
+// not based on a preset), renames and deletes from its right-click menu. A pick never changes the text colour.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.text"},
+    {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
+    {"seek": 1.5},
+    {"click": "id:inspector.sub.bubble"},
+    {"expect": {"path": "ui.savedBubbles", "count": 0}},
+    {"click": "id:text.bubble.all"},
+    {"click": "id:text.bubble.group.speech"},
+    {"click": "id:text.bubble.tile.speechWhite"},
+    {"expect": [{"path": "selectedClips.0.bubbleID", "equals": "valse.bubble.speechWhite"}, {"path": "selectedClips.0.textColor", "equals": "FFFFFF"}]},
+    {"click": "id:text.bubble.all"},
+    {"click": "id:inspector.check.text.bubble.shadow"},
+    {"click": "id:text.bubble.paddingH.field"},
+    {"type": "80", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "selectedClips.0.bubbleStyle.padX", "equals": 800}},
+    {"click": "id:text.bubble.save"},
+    {"waitFor": {"path": "ui.savedBubbles", "count": 1}},
+    {"expect": {"path": "ui.savedBubbles.0", "equals": "My bubble 1"}},
+    // the strip is a lazy grid: scroll the inspector back up to it first
+    {"hover": "id:text.bubble.presets"},
+    {"click": "id:text.bubble.tile.none"},
+    {"expect": {"path": "selectedClips.0.bubbleStyle", "exists": false}},
+    {"hover": "id:text.bubble.presets"},
+    {"snapshot": "bubble-strip-saved", "element": "id:text.bubble.presets", "baseline": true},
+    {"click": "id:text.bubble.saved.0"},
+    {"expect": [{"path": "selectedClips.0.bubbleStyle.padX", "equals": 800}, {"path": "selectedClips.0.bubbleStyle.shadow", "equals": "soft"},
+                {"path": "selectedClips.0.bubbleID", "exists": false}, {"path": "selectedClips.0.textColor", "equals": "FFFFFF"},
+                {"path": "undo.name", "equals": "cmd.textBubble"}]},
+    {"click": "id:text.bubble.all"},
+    {"click": "id:text.bubble.group.yours"},
+    {"hover": "id:text.bubble.presets"},
+    {"snapshot": "bubble-grid-yours", "element": "id:text.bubble.presets", "baseline": true},
+    {"contextMenu": "id:text.bubble.saved.0", "item": "text.bubble.rename"},
+    {"click": "id:text.bubble.rename.field"},
+    {"type": "Cloud card", "replace": true},
+    {"key": "return"},
+    {"waitFor": {"path": "ui.savedBubbles.0", "equals": "Cloud card"}},
+    {"contextMenu": "id:text.bubble.saved.0", "item": "text.bubble.delete"},
+    {"waitFor": {"path": "ui.savedBubbles", "count": 0}},
+    {"expect": {"path": "ui.anchors", "notContains": "text.bubble.group.yours"}}
+  ]
+}
