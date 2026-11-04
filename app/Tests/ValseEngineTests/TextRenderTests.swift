@@ -197,6 +197,50 @@ import ValseTestSupport
         #expect(count(inner) { $0.r > 0.8 && $0.g < 0.75 && $0.g > 0.05 } > 50)   // pink-ish rim inside the white glyph
     }
 
+    /// TX-NEON: near-white core on the glyph, coloured tube edge and a wide halo in the tube colour.
+    @Test func neonHasAWhiteCoreAndAColouredHalo() throws {
+        let cyan = TextNeonStyle.swatches[1].color
+        let img = render(text("I", size: 0.3) { $0.neon = TextNeonStyle(color: cyan) })
+        let core: (RGBA) -> Bool = { $0.r > 0.75 && $0.g > 0.85 && $0.b > 0.85 }
+        let halo: (RGBA) -> Bool = { $0.b > 0.1 && $0.g > 0.08 && $0.r < $0.b * 0.6 }
+        let coreBox = try #require(box(img, core))
+        #expect(count(img, core) > 150)
+        let haloBox = try #require(box(img, halo))
+        #expect(haloBox.width > coreBox.width + 30 && haloBox.height > coreBox.height + 20)
+        #expect(count(img) { $0.b > 0.7 && $0.r < 0.5 } > 40)   // saturated tube edge / tight glow
+        // bigger glow → wider halo; no neon → no halo
+        let wide = render(text("I", size: 0.3) { $0.neon = TextNeonStyle(color: cyan, glowSize: 0.9) })
+        #expect(box(wide, halo)!.width > haloBox.width + 10)
+        #expect(box(render(text("I", size: 0.3)), halo) == nil)
+        // colour follows the style
+        let pink = render(text("I", size: 0.3) { $0.neon = TextNeonStyle(color: TextNeonStyle.swatches[0].color) })
+        #expect(count(pink) { $0.r > 0.3 && $0.g < 0.15 && $0.b > 0.1 } > 300)
+        // a word: every letter glows (pink by default)
+        let word = render(text("NEON", size: 0.25) { $0.neon = TextNeonStyle() })
+        #expect(box(word) { $0.r > 0.3 && $0.g < 0.15 }!.width > 250)
+        // on a light background the tube still reads: a saturated coloured glow around the glyph
+        var (lp, _) = project(text("NEON", size: 0.25) { $0.neon = TextNeonStyle() })
+        lp.settings.backgroundColor = RGBA(0.92, 0.9, 0.86)
+        let light = render(lp, at: 1)
+        #expect(count(light) { $0.r > 0.85 && $0.g < 0.45 && $0.b > 0.4 } > 300)
+    }
+
+    /// TX-NEON: "Broken" flicker drops letters out at deterministic times (same frame whatever renders it).
+    @Test func neonBrokenFlickerIsDeterministic() throws {
+        let t = text("HI", size: 0.3) { $0.neon = TextNeonStyle(flicker: .broken) }
+        // a time where letter 1 is dark, and one where both letters are fully lit
+        let times = stride(from: 0.0, to: 4, by: 1.0 / 30)
+        let dark = try #require(times.first { TextNeonStyle.flickerLevel(.broken, t: $0, unit: 1) == 0 })
+        let lit = try #require(times.first { t in (0..<2).allSatisfy { TextNeonStyle.flickerLevel(.broken, t: t, unit: $0) > 0.9 } })
+        let litCount = count(render(t, at: lit), Self.lit), darkCount = count(render(t, at: dark), Self.lit)
+        #expect(darkCount < litCount * 9 / 10)
+        // determinism: a fresh renderer (export) gives the same frame as the shared one (preview)
+        let p = project(t).0
+        #expect(count(render(p, at: dark), Self.lit) == count(render(p, at: dark, renderer: FrameRenderer()), Self.lit))
+        // Off never flickers
+        #expect(times.allSatisfy { TextNeonStyle.flickerLevel(.off, t: $0, unit: 3) == 1 })
+    }
+
     @Test func gradientAndTextureFills() {
         let img = render(text("█████", size: 0.25) { $0.fill = .gradient(TextGradient([RGBA(1, 0, 0), RGBA(0, 0, 1)], angle: 0)) })
         let b = box(img) { $0.luma > 0.03 }!

@@ -127,6 +127,8 @@ enum TextPainter {
             ctx.endTransparencyLayer()
             ctx.restoreGState()
         }
+        // neon halo (TX-NEON): painted lit; flicker modulates the item's opacity per frame (TextAnimator)
+        if let n = st.neon { NeonPainter.drawHalo(path, NeonPainter.Params(n, em: em), in: ctx) }
         // outlines, outermost first
         ctx.setLineJoin(.round)
         for s in st.extraStrokes.sorted(by: { $0.width > $1.width }) where s.width > 0 {
@@ -186,6 +188,15 @@ enum TextPainter {
         let color = highlight ? st.color : (c.style.color ?? st.color)
         guard let path = clusterPath(c) else {
             if c.isColorGlyph { drawColorGlyphs(c, ctx) }
+            return
+        }
+        if let n = st.neon {
+            NeonPainter.drawTube(path, NeonPainter.Params(n, em: em), in: ctx)
+            drawInnerStroke(path, c, style: st, em: em, in: ctx)
+            if c.style.underline ?? st.underline {
+                let u = CGPath(rect: CGRect(x: 0, y: c.underlinePosition - c.underlineThickness / 2, width: c.advance, height: c.underlineThickness), transform: nil)
+                NeonPainter.drawTube(u, NeonPainter.Params(n, em: em), in: ctx)
+            }
             return
         }
         switch st.fill {

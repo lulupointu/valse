@@ -101,7 +101,7 @@ public enum CaptionStyleSync {
             f("backgroundColor", \.backgroundColor), f("shadowColor", \.shadowColor), f("lineSpacing", \.lineSpacing),
             f("letterSpacing", \.letterSpacing), f("styleID", \.styleID), f("underline", \.underline), f("textCase", \.textCase),
             f("orientation", \.orientation), f("extraStrokes", \.extraStrokes), f("background", \.background), f("shadow", \.shadow),
-            f("glow", \.glow), f("fill", \.fill), f("curve", \.curve), f("path", \.path), f("boxWidth", \.boxWidth),
+            f("glow", \.glow), f("neon", \.neon), f("fill", \.fill), f("curve", \.curve), f("path", \.path), f("boxWidth", \.boxWidth),
             f("bubbleID", \.bubbleID), f("bubbleColor", \.bubbleColor), f("karaoke", \.karaoke),
             f("inactiveKaraoke", \.inactiveKaraoke),
         ]

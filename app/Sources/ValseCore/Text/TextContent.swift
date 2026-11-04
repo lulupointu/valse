@@ -87,6 +87,90 @@ public struct TextGlowStyle: Hashable, Codable, Sendable {
     }
 }
 
+/// Neon flicker (TX-NEON): deterministic in time (preview = export), per glyph.
+public enum TextNeonFlicker: String, Codable, Sendable, CaseIterable {
+    case off
+    /// Gentle hum: a few % of brightness, rare short dips.
+    case subtle
+    /// Failing sign: some letters drop out in short bursts (others hum).
+    case broken
+}
+
+/// "Neon" (TX-NEON): the glyphs become a glowing glass tube — near-white core tinted toward `color`, a thin coloured
+/// tube edge, a tight inner glow, a wide soft halo and a faint light spill in `color`. Distances in em.
+public struct TextNeonStyle: Hashable, Codable, Sendable {
+    public var color: RGBA
+    /// Brightness of the core and halo, 0…1.
+    public var intensity: Double
+    /// Halo radius, em.
+    public var glowSize: Double
+    /// Coloured tube edge width, em.
+    public var thickness: Double
+    public var flicker: TextNeonFlicker
+
+    public init(color: RGBA = TextNeonStyle.swatches[0].color, intensity: Double = 0.8, glowSize: Double = 0.4,
+                thickness: Double = 0.05, flicker: TextNeonFlicker = .off) {
+        self.color = color; self.intensity = intensity; self.glowSize = glowSize; self.thickness = thickness; self.flicker = flicker
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init()
+        color = try c.decodeIfPresent(RGBA.self, forKey: .color) ?? color
+        intensity = try c.decodeIfPresent(Double.self, forKey: .intensity) ?? intensity
+        glowSize = try c.decodeIfPresent(Double.self, forKey: .glowSize) ?? glowSize
+        thickness = try c.decodeIfPresent(Double.self, forKey: .thickness) ?? thickness
+        flicker = try c.decodeIfPresent(TextNeonFlicker.self, forKey: .flicker) ?? flicker
+    }
+
+    /// The classic neon tube colours of the inspector swatch row (name = l10n suffix `text.neon.color.<name>`).
+    public static let swatches: [(name: String, color: RGBA)] = [
+        ("pink", RGBA(hex: 0xFF2E9A)), ("cyan", RGBA(hex: 0x19E6FF)), ("purple", RGBA(hex: 0xA44BFF)),
+        ("green", RGBA(hex: 0x3BFF5C)), ("orange", RGBA(hex: 0xFF8A1F)), ("red", RGBA(hex: 0xFF2A2A)),
+    ]
+
+    /// How far the neon paints outside the glyph edge, em (halo + spill + tube edge).
+    public var extentEm: Double { glowSize * 3.2 + thickness * 2 }
+
+    /// Tube brightness 0…1 of glyph `unit` at clip-local time `t` (seconds). Pure function of its inputs, so a
+    /// preview frame and the exported frame at the same time are identical.
+    public static func flickerLevel(_ mode: TextNeonFlicker, t: Double, unit: Int) -> Double {
+        func hash(_ a: Int, _ b: Int) -> Double {
+            var x = UInt64(bitPattern: Int64(a &* 0x2545F491 &+ b &* 0x9E3779B1 &+ 0x632BE5AB))
+            x ^= x >> 33; x = x &* 0xFF51AFD7ED558CCD; x ^= x >> 33; x = x &* 0xC4CEB9FE1A85EC53; x ^= x >> 33
+            return Double(x >> 11) / Double(1 << 53)
+        }
+        let u = max(unit, 0)
+        func hum() -> Double {
+            // mains hum + a rare short dip (one 1/12 s slot in ~20)
+            let phase = hash(u, 1) * 2 * .pi
+            var l = 0.95 + 0.05 * sin(t * 2 * .pi * 7.3 + phase)
+            let slot = Int((t * 12).rounded(.down))
+            if hash(slot, u &+ 101) < 0.05 { l *= 0.72 }
+            return l
+        }
+        switch mode {
+        case .off: return 1
+        case .subtle: return hum()
+        case .broken:
+            // ~40 % of letters are faulty (at least the second one, so short words always show it)
+            let faulty = hash(u, 7) < 0.4 || u == 1
+            guard faulty else { return hum() }
+            let period = 2.2 + hash(u, 11) * 1.6
+            let x = t / period + hash(u, 13)
+            let cycle = Int(x.rounded(.down))
+            let within = (x - Double(cycle)) * period            // seconds into this cycle
+            let burstStart = hash(cycle, u &+ 17) * period * 0.5
+            let dead = hash(cycle, u &+ 19) < 0.3                  // sometimes the letter dies for a while
+            let burstLen = dead ? 1.1 : 0.5
+            guard within >= burstStart, within < burstStart + burstLen else { return hum() }
+            if dead, within > burstStart + 0.25 { return 0 }
+            let slot = Int((t * 24).rounded(.down))
+            return hash(slot, u &+ 23) < 0.55 ? 0 : hum()
+        }
+    }
+}
+
 /// Gradient fill ("Line" gradient in CapCut). Stops are spread evenly across the text box along `angle`.
 public struct TextGradient: Hashable, Codable, Sendable {
     public var colors: [RGBA]
@@ -215,6 +299,8 @@ public struct TextContent: Hashable, Codable, Sendable {
     public var background: TextBackgroundStyle
     public var shadow: TextShadowStyle
     public var glow: TextGlowStyle?
+    /// Neon tube look (TX-NEON); nil = off. Replaces the solid / gradient fill while on.
+    public var neon: TextNeonStyle?
     public var fill: TextFill?
     /// "Curve": bend along an arc, −1…1 (positive = arch ∩).
     public var curve: Double
@@ -265,6 +351,7 @@ public struct TextContent: Hashable, Codable, Sendable {
         orientation = try v(.orientation, orientation); extraStrokes = try v(.extraStrokes, extraStrokes)
         background = try v(.background, background); shadow = try v(.shadow, shadow)
         glow = try c.decodeIfPresent(TextGlowStyle.self, forKey: .glow)
+        neon = try c.decodeIfPresent(TextNeonStyle.self, forKey: .neon)
         fill = try c.decodeIfPresent(TextFill.self, forKey: .fill)
         curve = try v(.curve, curve); path = try c.decodeIfPresent(TextPathShape.self, forKey: .path)
         boxWidth = try c.decodeIfPresent(Double.self, forKey: .boxWidth); runs = try v(.runs, runs)
