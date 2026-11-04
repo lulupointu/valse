@@ -96,6 +96,7 @@
 "transition.signalLoss" = "Perte de signal";
 "transition.chromaticZoom" = "Zoom chromatique";
 "transition.tvOff" = "Extinction TV";
+"transition.retroRewind" = "Rembobinage rétro";
 "transition.ripple" = "Ondulation";
 "transition.swirl" = "Tourbillon";
 "transition.wave" = "Vague";
@@ -127,3 +128,4 @@
 "tr.param.strength" = "Force";
 "tr.param.count" = "Nombre";
 "tr.param.color" = "Couleur";
+"tr.param.noise" = "Bruit";

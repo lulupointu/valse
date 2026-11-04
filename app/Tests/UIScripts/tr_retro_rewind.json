@@ -1,0 +1,15 @@
+// TR-RETRO-REWIND: "Retro Rewind" is found by search in the Transitions tab, shows its real-render still and ⊕ puts it
+// on the nearest cut.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.transitions"},
+    {"click": "id:transitions.search"},
+    {"type": "rewind"},
+    {"click": "id:transition.tile.retroRewind"},
+    {"click": "id:transition.add.retroRewind"},
+    {"waitFor": {"path": "main.clips.0.transition", "equals": "valse.transition.retroRewind", "timeout": 30}},
+    {"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0, "timeout": 30}},
+    {"snapshot": "retro-rewind-tile", "element": "id:transition.tile.retroRewind", "baseline": "tr_retro_rewind_tile", "threshold": 40, "tolerance": 0.03}
+  ]
+}
