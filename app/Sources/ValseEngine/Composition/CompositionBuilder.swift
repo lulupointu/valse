@@ -142,12 +142,14 @@ public enum CompositionBuilder {
             // a split — stay on one composition track, so contiguous source ranges decode and resample as one stream
             // (on alternating lanes the second half restarted the 44.1 → 48 kHz resampler at the cut: a different
             // sub-sample phase for the whole second clip and a transient at the cut).
+            // TR-MODEL-CAPCUT: transitions never overlap clips, so their audio is butted too (a plain cut, like CapCut).
             var audioLane = 0
             var previous: Clip?
+            let clipIndex = Dictionary(track.clips.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = lanes == 2 ? i % 2 : 0
-                if lanes == 2, let p = previous, p.transitionOut != nil || clip.start < p.end { audioLane = 1 - audioLane }
+                if lanes == 2, let p = previous, clip.start < p.end { audioLane = 1 - audioLane }
                 previous = clip
                 let choice = sources(asset)
                 // Reverse: play the reversed render forwards from the mirrored in-point (same remap, frame exact).
@@ -173,10 +175,24 @@ public enum CompositionBuilder {
                     if let src = entry.video {
                         if vLanes[lane] == nil { vLanes[lane] = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) }
                         if let vt = vLanes[lane] {
-                            let (variants, run) = decodeVariants(clip: mapped, segments: segments, url: videoURL, after: decodeRuns[vt.trackID],
+                            // TR-MODEL-CAPCUT: overlap transitions decode the clip's handles past its cuts
+                            var videoSegments = segments
+                            if let ci = clipIndex[clip.id] {
+                                let ext = track.transitionExtension(of: ci)
+                                if ext.head > .zero || ext.tail > .zero {
+                                    var edges = mapped
+                                    edges.start = .zero
+                                    let hs = handleSegments(edges, head: ext.head, tail: ext.tail,
+                                                            media: (Time(cmTime: entry.videoRange.start), Time(cmTime: entry.videoRange.end)),
+                                                            sourceFrame: sourceFrame)
+                                    videoSegments = place(hs.head, clipStart: clip.start, skip: skip) + segments
+                                        + place(hs.tail, clipStart: clip.start, skip: skip)
+                                }
+                            }
+                            let (variants, run) = decodeVariants(clip: mapped, segments: videoSegments, url: videoURL, after: decodeRuns[vt.trackID],
                                                                  tolerance: sourceFrame * 0.5)
                             let alias = variants.contains(1) ? try await AssetCache.shared.entry(decodeAlias(videoURL)).video : nil
-                            try insert(clip: mapped, segments: segments, from: src, alias: alias, variants: variants,
+                            try insert(clip: mapped, segments: videoSegments, from: src, alias: alias, variants: variants,
                                        sourceRange: entry.videoRange, into: vt)
                             decodeRuns[vt.trackID] = run
                             trackMap[clip.id] = vt.trackID
@@ -411,6 +427,42 @@ public enum CompositionBuilder {
 
     /// Frame-accurate speed segments for a clip (see `Speed.frameAccurateSegments`): boundaries on the output frame
     /// grid of this build; every composed frame lands in the same source frame as the exact remap.
+    /// Video segments (clip-relative, like `remapSegments`) decoded beyond a clip's own range for the overlap
+    /// transitions at its cuts (TR-MODEL-CAPCUT): `head` before its start, `tail` after its end. Each side plays its
+    /// handle at the edge speed while the media lasts, then holds the media's edge frame for the rest ("duplicate
+    /// frames": one source frame scaled over the remaining time, CapCut's freeze). `media` = the file's video range.
+    static func handleSegments(_ clip: Clip, head: Time, tail: Time, media: (lo: Time, hi: Time), sourceFrame: Time)
+    -> (head: [(output: TimeRange, source: TimeRange)], tail: [(output: TimeRange, source: TimeRange)]) {
+        var h: [(output: TimeRange, source: TimeRange)] = [], t: [(output: TimeRange, source: TimeRange)] = []
+        let minPiece = Time(ticks: Time.ticksPerSecond / 2000)
+        if head > minPiece {
+            let r = clip.edgeRate(head: true)
+            let avail = max(.zero, clip.sourceStart - media.lo) / r
+            let real = min(head, avail), freeze = head - real
+            if freeze > minPiece {
+                h.append((TimeRange(start: .zero - head, duration: freeze),
+                          TimeRange(start: media.lo - clip.sourceStart, duration: sourceFrame)))
+            }
+            if real > minPiece {
+                h.append((TimeRange(start: .zero - real, duration: real), TimeRange(start: .zero - real * r, duration: real * r)))
+            }
+        }
+        if tail > minPiece {
+            let r = clip.edgeRate(head: false)
+            let srcEnd = clip.sourceStart + clip.sourceDuration
+            let avail = max(.zero, media.hi - srcEnd) / r
+            let real = min(tail, avail), freeze = tail - real
+            if real > minPiece {
+                t.append((TimeRange(start: clip.duration, duration: real), TimeRange(start: clip.sourceDuration, duration: real * r)))
+            }
+            if freeze > minPiece {
+                t.append((TimeRange(start: clip.duration + real, duration: freeze),
+                          TimeRange(start: max(media.lo, media.hi - sourceFrame) - clip.sourceStart, duration: sourceFrame)))
+            }
+        }
+        return (h, t)
+    }
+
     static func remapSegments(_ clip: Clip, asset: MediaAsset, frameRate: FrameRate) -> [(output: TimeRange, source: TimeRange)] {
         let fd = frameRate.frameDuration
         let phase = Time(ticks: (fd.ticks - clip.start.ticks % fd.ticks) % fd.ticks)

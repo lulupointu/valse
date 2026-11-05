@@ -61,7 +61,7 @@ import ValseTestSupport
         s.selection = [ids[2]]
         s.applyTransition(Registries.transitions["valse.transition.slideLeft"]!)
         #expect(s.project.timeline.clip(ids[2])?.transitionOut?.typeID == "valse.transition.slideLeft")
-        #expect(s.project.timeline.clip(ids[3])?.start == Time(1.5))
+        #expect(s.project.timeline.clip(ids[3])?.start == Time(2))   // TR-MODEL-CAPCUT: nothing moves
         #expect(TimelineOps.validate(s.project.timeline).isEmpty)
     }
 

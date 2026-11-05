@@ -304,7 +304,10 @@ extension TimelineView {
                 guard let tr = s.project.timeline.clip(left)?.transitionOut else { return }
                 s.edit("cmd.transition") { p in
                     guard let main = p.timeline.mainTrack else { return }
-                    for c in main.clips.dropLast() { try TimelineOps.setTransition(c.id, tr, in: &p.timeline) }
+                    // every continuous cut that takes one (gaps / too-short clips are skipped, TR-MODEL-CAPCUT)
+                    for c in main.clips.dropLast() where TimelineOps.transitionIssue(after: c.id, in: p.timeline) == nil {
+                        try TimelineOps.setTransition(c.id, tr, in: &p.timeline)
+                    }
                 }
             },
             item("tlmenu.delete", "\u{8}", []) { s.perform(SetTransition(left, nil)); s.timelineUI.selectedTransition = nil },

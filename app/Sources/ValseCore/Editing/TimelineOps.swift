@@ -65,7 +65,7 @@ public enum InsertTarget: Equatable, Sendable {
 
 /// Pure timeline editing operations on `Timeline` (and `Project` where media is needed).
 /// All functions are deterministic, never touch I/O, and keep these invariants (checked by `validate()`):
-/// - clips sorted by start, no overlap on a track except transitions (clip i overlaps i+1 by its `transitionOut`);
+/// - clips sorted by start, never overlapping (a transition is centred on a cut between butted clips, TR-MODEL-CAPCUT);
 /// - with `mainTrackMagnet`, main-track clips are contiguous from 0;
 /// - exactly one main track; no empty non-main tracks after an edit.
 /// Commands (Commands.swift) wrap these for undo.
@@ -293,6 +293,7 @@ public enum TimelineOps {
         if let combo = c.animations.combo { left.animations.combo = combo; right.animations.combo = combo }
         tl.tracks[loc.track].clips[loc.clip] = left
         tl.tracks[loc.track].clips.insert(right, at: loc.clip + 1)
+        clampTransitions(&tl.tracks[loc.track])   // the halves are shorter neighbours: max = half the shorter one
         // linked clips that start after the cut now follow the right half
         if tl.tracks[loc.track].isMain {
             for ti in tl.tracks.indices where !tl.tracks[ti].isMain {
@@ -380,6 +381,7 @@ public enum TimelineOps {
             }
         }
         if tl.mainTrackMagnet { compactMain(&tl, previousStarts: oldMainStarts) }
+        for ti in tl.tracks.indices { clampTransitions(&tl.tracks[ti]) }   // new neighbours (TR-MODEL-CAPCUT)
         removeEmptyTracks(&tl)
     }
 
@@ -417,18 +419,20 @@ public enum TimelineOps {
     public static func setTransition(_ id: ClipID, _ transition: TransitionInstance?, in tl: inout Timeline) throws {
         guard let loc = tl.locate(id) else { throw EditError.clipNotFound }
         guard loc.clip + 1 < tl.tracks[loc.track].clips.count || transition == nil else { throw EditError.invalidTime }
-        if !tl.tracks[loc.track].isMain {   // PiP transitions (TimelineOps+Transitions.swift)
-            try setOverlayTransition(track: loc.track, clip: loc.clip, transition, in: &tl); return
+        // CapCut model (TimelineOps+Transitions.swift): nothing moves, the transition is centred on the cut.
+        if transition != nil {
+            let track = tl.tracks[loc.track]
+            guard track.kind == .video else { throw EditError.incompatibleTrack }
+            guard isJoined(track.clips[loc.clip], track.clips[loc.clip + 1]) else { throw EditError.invalidTime }
         }
-        let oldMainStarts = mainStarts(tl)
         tl.tracks[loc.track].clips[loc.clip].transitionOut = transition
         clampTransitions(&tl.tracks[loc.track])
-        if tl.mainTrackMagnet { compactMain(&tl, previousStarts: oldMainStarts) }
     }
 
     // MARK: Main track magnet & linkage
 
-    /// Packs main-track clips from 0 (transitions overlap neighbours) and moves linked clips by the same delta.
+    /// Packs main-track clips from 0 (butted: transitions never overlap clips, TR-MODEL-CAPCUT) and moves linked clips
+    /// by the same delta.
     public static func compactMain(_ tl: inout Timeline, previousStarts: [ClipID: Time]? = nil, except: Set<ClipID> = []) {
         guard tl.mainTrackMagnet, let mi = tl.mainTrackIndex else { return }
         let before = previousStarts ?? mainStarts(tl)
@@ -436,10 +440,8 @@ public enum TimelineOps {
         let n = tl.tracks[mi].clips.count
         for i in 0..<n {
             tl.tracks[mi].clips[i].start = t
-            let c = tl.tracks[mi].clips[i]
-            let overlap = (i + 1 < n) ? (c.transitionOut?.duration ?? .zero) : .zero
             if i + 1 == n { tl.tracks[mi].clips[i].transitionOut = nil }
-            t = c.end - overlap
+            t = tl.tracks[mi].clips[i].end
         }
         guard tl.linkage else { return }
         for c in tl.tracks[mi].clips {
@@ -489,7 +491,7 @@ public enum TimelineOps {
             let maxD = min(track.clips[i].duration, track.clips[i + 1].duration) / 2.0
             if tr.duration > maxD { tr.duration = maxD; track.clips[i].transitionOut = tr }
         }
-        normalizeOverlayTransitions(&track)
+        dropUnjoinedTransitions(&track)
     }
 
     // MARK: Tracks
@@ -529,15 +531,15 @@ public enum TimelineOps {
                 if i > 0 {
                     let p = t.clips[i - 1]
                     if p.start > c.start { problems.append("track \(t.id.short) not sorted") }
-                    let allowed = p.transitionOut?.duration ?? .zero   // main and overlay (PiP) transitions
-                    if p.end - c.start > allowed { problems.append("overlap \(p.id.short)/\(c.id.short)") }
+                    // transitions never overlap clips (TR-MODEL-CAPCUT)
+                    if p.end > c.start { problems.append("overlap \(p.id.short)/\(c.id.short)") }
                 }
             }
             if t.isMain && tl.mainTrackMagnet {
                 if let f = t.clips.first, f.start != .zero { problems.append("main track does not start at 0") }
                 for i in t.clips.indices.dropFirst() {
                     let p = t.clips[i - 1], c = t.clips[i]
-                    if c.start != p.end - (p.transitionOut?.duration ?? .zero) { problems.append("gap on main track before \(c.id.short)") }
+                    if c.start != p.end { problems.append("gap on main track before \(c.id.short)") }
                 }
             }
         }

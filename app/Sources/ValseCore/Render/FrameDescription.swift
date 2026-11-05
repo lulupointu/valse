@@ -141,23 +141,15 @@ public enum FrameEvaluator {
         // FX-004: index in `items` just after the main track's items (main-scoped effects go there).
         var mainEnd: Int?
         for track in project.timeline.tracks where track.kind.isVisual && !track.isHidden {
+            // main or overlay (PiP) transition, centred on the cut (TR-MODEL-CAPCUT, Model/TransitionModel.swift)
+            if let tx = transitionItems(track, project: project, at: t, canvas: canvas, background: &background) {
+                items += tx
+                if track.isMain { mainEnd = items.count }
+                continue
+            }
             let active = track.clips(at: t).filter(\.isEnabled)
             guard !active.isEmpty else { continue }
             defer { if track.isMain { mainEnd = items.count } }
-            if active.count >= 2,   // main or overlay (PiP) transition
-               let a = active.first, let b = active.dropFirst().first, let tr = a.transitionOut {
-                // a ends inside b's head: transition region is [b.start, a.end)
-                guard let la = layer(a, track: track, project: project, at: t),
-                      let lb = layer(b, track: track, project: project, at: t) else { continue }
-                let d = max(tr.duration.ticks, 1)
-                let p = min(max(Double((t - b.start).ticks) / Double(d), 0), 1)
-                let dominant = p < 0.5 ? (a, la) : (b, lb)
-                if let cv = dominant.0.canvas {
-                    items += canvasItems(cv, for: dominant.1, canvasSize: canvas, background: &background)
-                }
-                items.append(.transition(from: la, to: lb, typeID: tr.typeID, progress: p, params: tr.params))
-                continue
-            }
             for c in active {
                 if case .adjustment = c.content {
                     let local = c.localTime(t)
@@ -191,6 +183,46 @@ public enum FrameEvaluator {
             }
         }
         return items
+    }
+
+    /// The transition item (with the dominant side's canvas fill) when `t` is inside a transition window of `track`.
+    /// Window [cut − d/2, cut + d/2], progress p = (t − window start) / d (linear; CapCut's Mix is a linear mix of the
+    /// encoded values, measured). Overlap: both sides, each continuing past its edge (`transitionLayer`). Non-overlap:
+    /// first half over the outgoing clip only, second half over the incoming clip only (both shader inputs = that side).
+    static func transitionItems(_ track: Track, project: Project, at t: Time, canvas: Size2,
+                                background: inout RGBA) -> [RenderItem]? {
+        guard let (ai, tr, window) = track.activeTransition(at: t) else { return nil }
+        let a = track.clips[ai], b = track.clips[ai + 1]
+        guard a.isEnabled, b.isEnabled else { return nil }
+        let p = min(max(Double((t - window.start).ticks) / Double(max(window.duration.ticks, 1)), 0), 1)
+        let from: LayerDescription, to: LayerDescription
+        if tr.overlaps {
+            guard let la = transitionLayer(a, track: track, project: project, at: t),
+                  let lb = transitionLayer(b, track: track, project: project, at: t) else { return nil }
+            from = la; to = lb
+        } else {
+            guard let l = transitionLayer(t < b.start ? a : b, track: track, project: project, at: t) else { return nil }
+            from = l; to = l
+        }
+        var out: [RenderItem] = []
+        let dominant = p < 0.5 ? (a, from) : (b, to)
+        if let cv = dominant.0.canvas { out += canvasItems(cv, for: dominant.1, canvasSize: canvas, background: &background) }
+        out.append(.transition(from: from, to: to, typeID: tr.typeID, progress: p, params: tr.params))
+        return out
+    }
+
+    /// A transition side at `t`, which may lie past the clip's edge: everything is evaluated at the clip's nearest
+    /// instant (keyframes, animations held) and a video shows its handle, or its edge frame where the media ends
+    /// ("duplicate frames", `Clip.handleSourceTime`).
+    static func transitionLayer(_ c: Clip, track: Track, project: Project, at t: Time) -> LayerDescription? {
+        let inside = t.clamped(c.start, max(c.start, c.end - Time(ticks: 1)))
+        guard var l = layer(c, track: track, project: project, at: inside) else { return nil }
+        if t != inside, case .media(let id, _) = l.source, let asset = project.asset(id), asset.kind == .video {
+            let s = c.handleSourceTime(at: t, mediaDuration: asset.duration, frame: (asset.frameRate ?? .fps30).frameDuration)
+            l.source = .media(id, sourceTime: s)
+            l.frameBlend = nil; l.slowMoMethod = nil
+        }
+        return l
     }
 
     /// Full-canvas, identity placement of an "Apply to ▸ PiP" effect group (FX-004).

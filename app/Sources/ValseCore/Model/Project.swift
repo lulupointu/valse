@@ -4,7 +4,8 @@ import Foundation
 /// snapshot-based undo cheap (see `EditSession`). Persisted as `project.json` inside a `.valse` package.
 public struct Project: Codable, Sendable, Equatable {
     /// Bump when the JSON shape changes and add a step to `ProjectMigrator`.
-    public static let currentSchemaVersion = 1
+    /// 2 (TR-MODEL-CAPCUT): transitions are centred on cuts between butted clips (`TransitionModelMigration`).
+    public static let currentSchemaVersion = 2
 
     public var schemaVersion: Int
     public var id: ProjectID

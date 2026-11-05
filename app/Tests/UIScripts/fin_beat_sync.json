@@ -10,7 +10,7 @@
     {"expect": {"path": "ui.anchors", "contains": "velocity.beatSync"}},
     {"snapshot": "beat-sync", "element": "id:panel.inspector"},
     {"click": "id:velocity.beatSync.apply"},
-    {"expect": [{"path": "undo.name", "equals": "cmd.beatSync"}, {"path": "selectedClips.0.duration", "approx": 6, "tolerance": 0.1}]},
+    {"expect": [{"path": "undo.name", "equals": "cmd.beatSync"}, {"path": "selectedClips.0.duration", "approx": 5.5, "tolerance": 0.1}]},
     {"key": "cmd+z"},
     {"expect": {"path": "undo.depth", "equals": 0}}
   ]

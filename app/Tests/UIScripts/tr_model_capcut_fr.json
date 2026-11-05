@@ -1,0 +1,12 @@
+// TR-MODEL-CAPCUT (fr): the duplicate-frames notice in French, and its "Ne plus me le rappeler" button.
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"drop": {"transition": "valse.transition.slideLeft"}, "on": "time:10.5@main"},
+    {"waitFor": {"path": "main.clips.1.transition", "equals": "valse.transition.slideLeft"}},
+    {"expect": {"path": "ui.toast", "contains": "dupliquées"}},
+    {"click": "id:toast.action"},
+    {"waitFor": {"path": "ui.duplicateFramesNoticeOff", "equals": true}}
+  ]
+}

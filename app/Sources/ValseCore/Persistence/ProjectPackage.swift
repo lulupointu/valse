@@ -123,7 +123,10 @@ public enum ProjectMigrator {
     public typealias Step = @Sendable (inout [String: Any]) throws -> Void
     /// steps[n] migrates schemaVersion n → n+1.
     /// Example when v2 ships: `[1: { obj in obj["newField"] = 0 }]`.
-    public static let steps: [Int: Step] = [:]
+    public static let steps: [Int: Step] = [
+        // 1 → 2 (TR-MODEL-CAPCUT): overlapping transitions become cut-centred ones on butted clips
+        1: { obj in try TransitionModelMigration.migrateJSON(&obj) },
+    ]
 
     public static func migrate(_ data: Data) throws -> Data {
         // projects saved before the Montage → Valse rename name built-in content "montage.…" (any schema version)

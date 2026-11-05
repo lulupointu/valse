@@ -115,7 +115,7 @@ extension QuickCut {
             while let ti = tl.trackIndex(id) {
                 let clips = tl.tracks[ti].clips
                 guard let i = clips.indices.dropFirst().first(where: {
-                    clips[$0].start < clips[$0 - 1].end - (clips[$0 - 1].transitionOut?.duration ?? .zero)
+                    clips[$0].start < clips[$0 - 1].end   // transitions never overlap clips (TR-MODEL-CAPCUT)
                 }) else { break }
                 place(clips[i].id, at: clips[i].start, in: &tl)
             }

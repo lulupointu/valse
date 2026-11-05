@@ -37,11 +37,12 @@ import ValseCore
         _ = try TimelineOps.addMarker(at: 2, in: &p.timeline)
         let l = layout(p.timeline)
         let row = l.rows[l.mainRowIndex!]
-        // transition straddles the cut at 3.5 (clip 0 ends at 4, clip 1 starts at 3)
-        #expect(l.hitTest(CGPoint(x: l.x(Time(3.5)), y: row.y + 30), timeline: p.timeline) == .transition(ids[0], edge: nil, row: l.mainRowIndex!))
-        #expect(l.hitTest(CGPoint(x: l.x(Time(3)) + 1, y: row.y + 30), timeline: p.timeline) == .transition(ids[0], edge: .head, row: l.mainRowIndex!))
-        // keyframe only for selected clips (clip 1 starts at 3 → keyframe at 4)
-        let kp = CGPoint(x: l.x(Time(4.0)) + 1, y: row.y + row.height / 2 + 3)
+        // transition centred on the cut at 4 over both clips: [3.5, 4.5] (TR-MODEL-CAPCUT: clip 1 still starts at 4)
+        #expect(l.hitTest(CGPoint(x: l.x(Time(4)), y: row.y + 30), timeline: p.timeline) == .transition(ids[0], edge: nil, row: l.mainRowIndex!))
+        #expect(l.hitTest(CGPoint(x: l.x(Time(3.5)) + 1, y: row.y + 30), timeline: p.timeline) == .transition(ids[0], edge: .head, row: l.mainRowIndex!))
+        #expect(l.hitTest(CGPoint(x: l.x(Time(4.5)) - 1, y: row.y + 30), timeline: p.timeline) == .transition(ids[0], edge: .tail, row: l.mainRowIndex!))
+        // keyframe only for selected clips (clip 1 starts at 4 → keyframe at 5)
+        let kp = CGPoint(x: l.x(Time(5.0)) + 1, y: row.y + row.height / 2 + 3)
         if case .keyframe(let id, _, let t, _) = l.hitTest(kp, timeline: p.timeline, selection: [ids[1]]) {
             #expect(id == ids[1] && t == Time(1))
         } else { Issue.record("no keyframe hit") }

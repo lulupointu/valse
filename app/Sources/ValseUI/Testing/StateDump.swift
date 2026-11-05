@@ -148,6 +148,7 @@ public enum StateDump {
             }),
         ]
         if let t = store.toast { ui["toast"] = t.message }
+        ui["duplicateFramesNoticeOff"] = store.duplicateFramesNoticeOff   // TR-MODEL-CAPCUT
         if let f = store.saveFailure { ui["saveFailure"] = f.dumpName }
         if let pv = store.playerUI.preview {
             ui["preview"] = ["kind": pv.kind.rawValue, "item": pv.itemID, "duration": pv.range.duration.seconds,
