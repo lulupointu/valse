@@ -129,6 +129,8 @@ import Foundation
         p.timeline[clip: c.id]?.audio.volume = 0.02          // −34 dB
         p.timeline[clip: c.id]?.audio.fadeOut = Time(4)      // under −40 dB for the last 2 s
         p.timeline[clip: c.id]?.audio.fadeIn = Time(1)       // under −40 dB for the first 0.5 s
+        p.timeline[clip: c.id]?.audio.fadeInShape = .linear
+        p.timeline[clip: c.id]?.audio.fadeOutShape = .linear
         let masks = [c.mediaID!: Self.mask(10, [(0, 10)])]
         let s = plan(p, 0.3, masks).slices(for: c.id)
         #expect(Self.near(s, [(0, 0.45), (8.05, 10)], tol: 0.02), "\(s)")

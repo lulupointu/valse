@@ -1,0 +1,19 @@
+// Audio fade handles (FCP): drag the top-left handle of a selected audio clip = fade-in length (one undo step, equal-power
+// default curve); right-click a handle picks the curve.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:5/0:0.5"},
+    {"expect": {"path": "tracks.5.clips.0.fadeInShape", "equals": "plus3dB"}},
+    {"drag": "clip:5/0:0.0", "offset": [6, -22], "by": [60, 0]},
+    {"waitFor": {"path": "tracks.5.clips.0.fadeIn", "gt": 0.2}},
+    {"expect": {"path": "undo.name", "equals": "cmd.fade"}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "tracks.5.clips.0.fadeIn", "equals": 0}},
+    {"key": "cmd+shift+z"},
+    {"waitFor": {"path": "tracks.5.clips.0.fadeIn", "gt": 0.2}},
+    {"rightClick": "clip:5/0:0.0", "offset": [66, -22], "menuItem": "fade.shape.sCurve"},
+    {"waitFor": {"path": "tracks.5.clips.0.fadeInShape", "equals": "sCurve"}},
+    {"expect": [{"path": "tracks.5.clips.0.fadeOutShape", "equals": "plus3dB"}, {"path": "undo.name", "equals": "cmd.fadeShape"}]}
+  ]
+}

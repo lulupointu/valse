@@ -41,7 +41,7 @@ public enum AudioPipeline {
     /// the taps pick them up through `AudioMixState`).
     static func combineStructure(_ c: Clip, asset: MediaAsset, into h: inout Hasher) {
         let a = c.audio
-        h.combine(a.volume); h.combine(a.fadeIn); h.combine(a.fadeOut); h.combine(a.isMuted); h.combine(a.preservePitch)
+        h.combine(a.volume); h.combine(a.fadeIn); h.combine(a.fadeOut); h.combine(a.fadeInShape); h.combine(a.fadeOutShape); h.combine(a.isMuted); h.combine(a.preservePitch)
         h.combine(a.loudness); h.combine(a.ducking)
         let spec = ClipAudioPlan.make(c).render
         h.combine(spec)

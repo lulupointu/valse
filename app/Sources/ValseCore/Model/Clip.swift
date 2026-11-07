@@ -336,11 +336,54 @@ public struct ClipAnimations: Hashable, Codable, Sendable {
     public init() {}
 }
 
+/// Audio fade curve (Final Cut Pro): `plus3dB` = equal power (default for new fades), `linear`, `sCurve`, `minus3dB`.
+/// `gain(_:)` is the fade-IN curve over progress 0…1 (silence → full level); fade-outs mirror it (`gain(1 - t)`).
+public enum FadeShape: String, Hashable, Codable, Sendable, CaseIterable {
+    case plus3dB, linear, sCurve, minus3dB
+
+    public func gain(_ t: Double) -> Double {
+        let t = min(1, max(0, t))
+        switch self {
+        case .linear: return t
+        case .plus3dB: return sin(t * .pi / 2)
+        case .sCurve: return 0.5 - 0.5 * cos(.pi * t)
+        case .minus3dB: return 1 - cos(t * .pi / 2)
+        }
+    }
+
+    /// Smallest progress at which the fade-in gain exceeds `threshold` (all four curves are increasing).
+    public func progress(reaching threshold: Double) -> Double {
+        if threshold <= 0 { return 0 }
+        if threshold >= 1 { return 1 }
+        var lo = 0.0, hi = 1.0
+        for _ in 0..<40 { let mid = (lo + hi) / 2; if gain(mid) < threshold { lo = mid } else { hi = mid } }
+        return hi
+    }
+}
+
 public struct AudioProps: Hashable, Codable, Sendable {
     /// Linear gain (1 = 100 %, CapCut range 0…10 i.e. up to +20 dB).
     public var volume: Double
     public var fadeIn: Time
     public var fadeOut: Time
+    /// Fade curves. New fades are equal power; files written before shapes existed decode as `.linear` (their sound).
+    public var fadeInShape: FadeShape = .plus3dB
+    public var fadeOutShape: FadeShape = .plus3dB
+
+    /// Fade lengths clamped so they fit the clip and never overlap (fade-in wins).
+    public func effectiveFades(clipDuration d: Time) -> (fadeIn: Time, fadeOut: Time) {
+        let fi = min(max(fadeIn, .zero), d)
+        return (fi, min(max(fadeOut, .zero), d - fi))
+    }
+
+    /// Fade multiplier (0…1) at clip-local time `local` of a clip lasting `d`.
+    public func fadeGain(at local: Time, clipDuration d: Time) -> Double {
+        let f = effectiveFades(clipDuration: d)
+        var g = 1.0
+        if f.fadeIn > .zero, local < f.fadeIn { g *= fadeInShape.gain(local / f.fadeIn) }
+        if f.fadeOut > .zero, local > d - f.fadeOut { g *= fadeOutShape.gain(max(0, (d - local) / f.fadeOut)) }
+        return g
+    }
     public var isMuted: Bool
     /// Keep pitch when speed ≠ 1 (CapCut "Pitch" toggle off = chipmunk).
     public var preservePitch: Bool
@@ -376,6 +419,8 @@ public struct AudioProps: Hashable, Codable, Sendable {
         volume = try c.decodeIfPresent(Double.self, forKey: .volume) ?? 1
         fadeIn = try c.decodeIfPresent(Time.self, forKey: .fadeIn) ?? .zero
         fadeOut = try c.decodeIfPresent(Time.self, forKey: .fadeOut) ?? .zero
+        fadeInShape = try c.decodeIfPresent(FadeShape.self, forKey: .fadeInShape) ?? .linear
+        fadeOutShape = try c.decodeIfPresent(FadeShape.self, forKey: .fadeOutShape) ?? .linear
         isMuted = try c.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
         preservePitch = try c.decodeIfPresent(Bool.self, forKey: .preservePitch) ?? true
         pitch = try c.decodeIfPresent(Double.self, forKey: .pitch) ?? 0

@@ -611,6 +611,9 @@ public enum CompositionBuilder {
     /// Linear ramp pieces per eased volume-keyframe span.
     static let volumeCurveSteps = 16
 
+    /// Linear pieces per shaped fade: one per ~15 ms, at least 16, at most 256.
+    static func fadeSampleCount(_ length: Time) -> Int { min(256, max(16, Int((length.seconds / 0.015).rounded(.up)))) }
+
     /// Clip gain, fades and volume keyframes as linear ramps on the lane. `floor` = where the lane's previous clip ended:
     /// ramps never start before it (AVFoundation throws on overlapping ramps, e.g. clips overlapping on a track).
     /// Returns the new floor.
@@ -638,16 +641,22 @@ public enum CompositionBuilder {
         func v(_ local: Time) -> Float {
             var g = (clip.value(.volume, at: local)?.scalar ?? clip.audio.volume) * gain
             if let duck { g *= Double(duck.gain(at: start + local)) }
-            if clip.audio.fadeIn > .zero, local < clip.audio.fadeIn { g *= local / clip.audio.fadeIn }
-            if clip.audio.fadeOut > .zero, local > clip.duration - clip.audio.fadeOut {
-                g *= max(0, (clip.duration - local) / clip.audio.fadeOut)
-            }
+            g *= clip.audio.fadeGain(at: local, clipDuration: clip.duration)
             return Float(max(0, g))
         }
         // breakpoints: start, fade ends, keyframes, end
         var points: Set<Int64> = [0, clip.duration.ticks]
-        if clip.audio.fadeIn > .zero { points.insert(min(clip.audio.fadeIn, clip.duration).ticks) }
-        if clip.audio.fadeOut > .zero { points.insert(max(.zero, clip.duration - clip.audio.fadeOut).ticks) }
+        let fades = clip.audio.effectiveFades(clipDuration: clip.duration)
+        if fades.fadeIn > .zero { points.insert(fades.fadeIn.ticks) }
+        if fades.fadeOut > .zero { points.insert((clip.duration - fades.fadeOut).ticks) }
+        // shaped fades: sample the curve as short linear ramps (the mix only knows linear ramps)
+        func sampleFade(from t0: Time, length: Time, shape: FadeShape) {
+            guard length > .zero, shape != .linear else { return }
+            let n = fadeSampleCount(length)
+            for i in 1..<n { points.insert((t0 + length * (Double(i) / Double(n))).ticks) }
+        }
+        sampleFade(from: .zero, length: fades.fadeIn, shape: clip.audio.fadeInShape)
+        sampleFade(from: clip.duration - fades.fadeOut, length: fades.fadeOut, shape: clip.audio.fadeOutShape)
         let vks = clip.keyframes[ParamKey.volume.raw]?.keyframes ?? []
         for k in vks where k.time > .zero && k.time < clip.duration {
             points.insert(k.time.ticks)
@@ -787,7 +796,7 @@ public final class StructureKeyCache: @unchecked Sendable {
             h.combine(c.id); h.combine(id); h.combine(c.start); h.combine(c.duration); h.combine(c.sourceStart)
             h.combine(c.speed); h.combine(c.reversed); h.combine(c.isEnabled); h.combine(c.audioStreamIndex)
             let au = c.audio
-            h.combine(au.volume); h.combine(au.fadeIn); h.combine(au.fadeOut); h.combine(au.isMuted); h.combine(au.preservePitch)
+            h.combine(au.volume); h.combine(au.fadeIn); h.combine(au.fadeOut); h.combine(au.fadeInShape); h.combine(au.fadeOutShape); h.combine(au.isMuted); h.combine(au.preservePitch)
             h.combine(au.loudness); h.combine(au.ducking)
             let spec = ClipAudioPlan.make(c).render
             h.combine(spec)

@@ -28,6 +28,12 @@ extension TimelineView {
         let l = layoutNow
         let tl = store.project.timeline
         var m: NSMenu?
+        if ui.quickCut == nil, let (id, fadeIn) = fadeHandleHit(pt, layout: l), let clip = tl.clip(id) {
+            m = fadeShapeMenu(id, fadeIn: fadeIn, current: fadeIn ? clip.audio.fadeInShape : clip.audio.fadeOutShape)
+            dirty = true
+            if let sink = Self.uitestMenuSink { sink(m!) } else { NSMenu.popUpContextMenu(m!, with: e, for: self) }
+            return
+        }
         switch l.hitTest(pt, timeline: tl, selection: store.selection) {
         case .clip(let id, _, _):
             if !store.selection.contains(id) { store.select([id]) }
@@ -59,6 +65,17 @@ extension TimelineView {
     /// UI tests (`{"rightClick": …, "menuItem": "a/b"}`): receives the context menu instead of popping it up (a real
     /// popup runs a modal tracking loop the driver can't reach).
     @MainActor static var uitestMenuSink: ((NSMenu) -> Void)?
+
+    // MARK: Fade handle
+
+    /// Right-click on a fade handle: the four fade curves (Final Cut Pro order), current one checked.
+    func fadeShapeMenu(_ id: ClipID, fadeIn: Bool, current: FadeShape) -> NSMenu {
+        let keys: [(FadeShape, String)] = [(.plus3dB, "fade.shape.plus3dB"), (.linear, "fade.shape.linear"),
+                                           (.sCurve, "fade.shape.sCurve"), (.minus3dB, "fade.shape.minus3dB")]
+        return menu(keys.map { shape, key in
+            item(key, checked: current == shape) { [store] in store.setFadeShape(id, fadeIn: fadeIn, shape) }
+        })
+    }
 
     // MARK: Clip
 

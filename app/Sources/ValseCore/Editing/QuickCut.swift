@@ -215,8 +215,7 @@ public enum QuickCut {
             for k in 0..<n {
                 let local = (Double(k) + 0.5) * f
                 var g = (c.value(.volume, at: Time(local))?.scalar ?? c.audio.volume) * trackGain
-                if fi > 0, local < fi { g *= local / fi }
-                if fo > 0, local > dur - fo { g *= max(0, (dur - local) / fo) }
+                g *= c.audio.fadeGain(at: Time(local), clipDuration: c.duration)
                 let off = g <= inaudibleGain
                 if off, runStart == nil { runStart = t0 + Double(k) * f }
                 if !off, let r = runStart { quiet.append(Span(r, t0 + Double(k) * f)); runStart = nil }
@@ -224,9 +223,9 @@ public enum QuickCut {
             if let r = runStart { quiet.append(Span(r, t0 + dur)) }
         } else {
             if vol <= inaudibleGain { spans.removeAll(); return }
-            // linear fades: gain(local) = vol · local / fadeIn reaches −40 dB at local = fadeIn · 0.01 / vol
-            if fi > 0 { quiet.append(Span(t0, t0 + min(dur, fi * inaudibleGain / vol))) }
-            if fo > 0 { quiet.append(Span(t0 + max(0, dur - fo * inaudibleGain / vol), t0 + dur)) }
+            // shaped fades: vol · shape(local / fadeIn) reaches −40 dB at local = fadeIn · shape⁻¹(0.01 / vol)
+            if fi > 0 { quiet.append(Span(t0, t0 + min(dur, fi * c.audio.fadeInShape.progress(reaching: inaudibleGain / vol)))) }
+            if fo > 0 { quiet.append(Span(t0 + max(0, dur - fo * c.audio.fadeOutShape.progress(reaching: inaudibleGain / vol)), t0 + dur)) }
         }
         guard !quiet.isEmpty else { return }
         var out: [Span] = []

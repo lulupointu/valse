@@ -32,7 +32,8 @@ public enum StateDump {
                 "effects": c.effects.map(\.typeID), "selected": store.selection.contains(c.id),
                 "scale": c.transform.scale.x, "rotation": c.transform.rotation, "tiltX": c.transform.tilt.x, "tiltY": c.transform.tilt.y,
                 "positionX": c.transform.position.x, "positionY": c.transform.position.y,
-                "volume": c.audio.volume, "keyframes": Array(c.keyframes.keys).sorted(), "markers": (c.markers ?? []).map(\.time.seconds),
+                "volume": c.audio.volume, "fadeIn": c.audio.fadeIn.seconds, "fadeOut": c.audio.fadeOut.seconds,
+                "fadeInShape": c.audio.fadeInShape.rawValue, "fadeOutShape": c.audio.fadeOutShape.rawValue, "keyframes": Array(c.keyframes.keys).sorted(), "markers": (c.markers ?? []).map(\.time.seconds),
             ]
             if let n = c.name { d["name"] = n }
             if !c.crop.isIdentity { d["crop"] = ["left": c.crop.left, "top": c.crop.top, "right": c.crop.right, "bottom": c.crop.bottom,
