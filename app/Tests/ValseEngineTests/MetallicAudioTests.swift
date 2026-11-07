@@ -156,10 +156,12 @@ import ValseTestSupport
             // the lane's output stream from the play start: the first non-silent sample is where the clip became audible
             let stream = cap.snapshot.flatMap(\.samples)
             let k = try #require(stream.firstIndex { abs($0) > 1e-5 }, "no audio reached the mixer")
-            #expect(k + 1024 <= stream.count)
-            let found = Self.locate(stream[k ..< min(stream.count, k + 1024)], in: ref, window: 24000)
+            #expect(k + 1280 <= stream.count)
+            // (the first 3 ms carry the automatic anti-click ramp, BUG-CLIP-EDGE-CLICK: compare after it)
+            let skipped = 256
+            let found = Self.locate(stream[(k + skipped) ..< min(stream.count, k + skipped + 1024)], in: ref, window: 24000)
             #expect(found.corr > 0.99, "lane output does not match the source (corr \(found.corr))")
-            #expect(found.at < 0.002, "the clip became audible \(String(format: "%.1f", found.at * 1000)) ms into its source: its start was muted")
+            #expect(found.at - Double(skipped) / 48000 < 0.002, "the clip became audible \(String(format: "%.1f", found.at * 1000)) ms into its source: its start was muted")
         }
     }
 
