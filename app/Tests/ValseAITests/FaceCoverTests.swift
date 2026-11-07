@@ -64,7 +64,10 @@ import ValseTestSupport
             #expect(hits >= 2, "face matte follows the face")
             try FaceCover.apply(.mosaic, to: id, in: &p.project)
             let cover = try #require(FaceCover.cover(of: id, in: p.project.timeline))
-            #expect(cover.effects.first?.typeID == "valse.effect.pixelate" && cover.audio.isMuted)
+            // two expectations: in one `&&` the macro read `cover.audio.isMuted` as false although the clip was muted
+            // (reproducible once AudioProps grew the fade shapes; the value itself was true when printed)
+            #expect(cover.effects.first?.typeID == "valse.effect.pixelate")
+            #expect(cover.audio.isMuted)
             #expect(TimelineOps.validate(p.project.timeline).isEmpty)
             _ = try await p.render(at: 0.5)
             FaceCover.remove(from: id, in: &p.project)
