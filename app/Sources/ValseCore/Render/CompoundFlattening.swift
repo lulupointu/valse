@@ -31,6 +31,45 @@ public enum CompoundFlattening {
         return out
     }
 
+    /// What compound clip `c` shows, on the parent clock: one track per nested track (nested order, bottom → top as
+    /// `FrameEvaluator` layers them), clips re-timed into parent time (`retime`). A nested compound clip is expanded in
+    /// place: its own nested tracks follow (= sit just above) the track holding it. Nested solo / track volume are
+    /// applied like `decodeTracks` (muted flags, gains); `isHidden` is the nested track's. Empty for a non-compound clip.
+    /// Used by the timeline to draw a compound's filmstrip and waveform (BUG-COMPOUND-FILMSTRIP).
+    public static func nestedTracks(of c: Clip, in project: Project, depth: Int = 0) -> [Track] {
+        guard case .compound(let cid) = c.content, depth < Project.maxCompoundDepth, let comp = project.compound(cid) else { return [] }
+        let inner = comp.timeline
+        var out: [Track] = []
+        for nt in inner.tracks {
+            var vt = nt
+            vt.id = TrackID(nestedClipID(c.id, ClipID(nt.id.raw)).raw)
+            vt.isMuted = !inner.isAudible(nt) || c.audio.isMuted
+            if abs(nt.gain - 1) > 1e-9 { applyGain(nt.gain, to: &vt) }
+            vt.clips = nt.clips.compactMap { retime($0, in: c) }
+            guard !vt.clips.isEmpty else { continue }
+            out.append(vt)
+            for x in vt.clips {
+                guard case .compound = x.content else { continue }
+                for var deep in nestedTracks(of: x, in: project, depth: depth + 1) {
+                    deep.isMuted = deep.isMuted || vt.isMuted
+                    deep.isHidden = deep.isHidden || vt.isHidden
+                    out.append(deep)
+                }
+            }
+        }
+        return out
+    }
+
+    /// The media clip (video / image, re-timed to the parent clock) a compound's `nestedTracks` show at parent time
+    /// `t`: the enabled media clip of the topmost visible visual track covering `t`; nil in a gap. Its
+    /// `sourceTime(at: t)` is the frame shown.
+    public static func visualClip(at t: Time, in tracks: [Track], isVisualMedia: (Clip) -> Bool = { _ in true }) -> Clip? {
+        for tr in tracks.reversed() where tr.kind.isVisual && !tr.isHidden {
+            if let x = tr.clips.last(where: { $0.isEnabled && $0.range.contains(t) && $0.mediaID != nil && isVisualMedia($0) }) { return x }
+        }
+        return nil
+    }
+
     /// Multiplies every clip's volume (and volume keyframes) of a track by `g`.
     static func applyGain(_ g: Double, to t: inout Track) {
         for ci in t.clips.indices {

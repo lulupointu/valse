@@ -55,6 +55,8 @@ final class TimelineDrawCache {
         duration = p.duration.seconds
         labels.removeAll(keepingCapacity: true)
         spans.removeAll(keepingCapacity: true)
+        // Rebuilt lazily per revision too (a deeper nested compound or the media bin may have changed).
+        compoundViews.removeAll(keepingCapacity: true)
         key = k
     }
 
@@ -72,6 +74,44 @@ final class TimelineDrawCache {
         }
         spans[track.id] = out
         return out
+    }
+
+    /// What a compound clip shows (BUG-COMPOUND-FILMSTRIP): its nested media re-timed into parent time
+    /// (`CompoundFlattening.nestedTracks`), resolved once per (clip value, compound timeline) — not per frame.
+    final class CompoundView {
+        let clip: Clip
+        let timeline: Timeline?
+        let tracks: [Track]
+        /// Some visible nested video / image clip: draw a filmstrip.
+        let hasVisual: Bool
+        /// Some nested clip carries audio: draw the audio band.
+        let hasAudio: Bool
+        /// Audio-bearing nested clips (parent clock), with whether they are muted (clip, nested track or compound).
+        let audio: [(clip: Clip, asset: AssetRef, muted: Bool)]
+        init(clip: Clip, timeline: Timeline?, tracks: [Track], assets: (MediaID?) -> AssetRef?) {
+            self.clip = clip; self.timeline = timeline; self.tracks = tracks
+            var vis = false, aud: [(clip: Clip, asset: AssetRef, muted: Bool)] = []
+            for t in tracks {
+                for c in t.clips {
+                    guard let a = assets(c.mediaID) else { continue }
+                    if t.kind.isVisual, !t.isHidden, c.isEnabled, a.asset.kind != .audio { vis = true }
+                    if a.asset.hasAudio, c.isEnabled { aud.append((c, a, t.isMuted || c.audio.isMuted)) }
+                }
+            }
+            hasVisual = vis; hasAudio = !aud.isEmpty; audio = aud
+        }
+    }
+    private var compoundViews: [ClipID: CompoundView] = [:]
+
+    /// The resolved nested content of compound clip `clip` (nil for other clips).
+    func compound(_ clip: Clip, project: Project) -> CompoundView? {
+        guard case .compound(let cid) = clip.content else { return nil }
+        let tl = project.compound(cid)?.timeline
+        if let v = compoundViews[clip.id], v.clip == clip, v.timeline == tl { return v }
+        let v = CompoundView(clip: clip, timeline: tl, tracks: CompoundFlattening.nestedTracks(of: clip, in: project),
+                             assets: { [unowned self] in self.asset($0) })
+        compoundViews[clip.id] = v
+        return v
     }
 
     /// (name, "name  1.0s") for the clip's label chip.

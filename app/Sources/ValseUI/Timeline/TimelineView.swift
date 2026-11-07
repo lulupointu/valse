@@ -629,9 +629,17 @@ final class TimelineView: NSView {
         c.rect(r, bg, radius: 4)
         let visL = max(r.minX, TimelineLayout.headerWidth)
 
+        // Compound clip: filmstrip / waveform of the nested content it shows (BUG-COMPOUND-FILMSTRIP)
+        let compound = drawCache.compound(clip, project: ctx.project)
         // Filmstrip (OB-09: same bands on every visual track, scaled by the lane height)
-        let filmstrip = asset.map { $0.kind != .audio && track.kind != .audio && r.height >= 30 } ?? false
-        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: asset?.hasAudio == true, sizing: .preset(track.heightPreset))
+        let filmstrip = track.kind != .audio && r.height >= 30
+            && (asset.map { $0.kind != .audio } ?? compound?.hasVisual ?? false)
+        let bands = TimelineLayout.videoBands(height: r.height, hasAudio: asset?.hasAudio == true || compound?.hasAudio == true,
+                                              sizing: .preset(track.heightPreset))
+        if let compound, filmstrip {
+            drawCompoundStrip(&c, clip, compound, r: r, bands: bands, track: track, layout: l, alpha: alpha,
+                              canvas: ctx.project.settings.canvasSize)
+        }
         if let asset, filmstrip {
             let audioStrip = bands.audioStrip
             let stripTop = r.minY + bands.nameBand
@@ -728,7 +736,7 @@ final class TimelineView: NSView {
                 else { badge(SFSymbolCompat.compat("gauge.with.needle"), String(format: "%.1fx", clip.speed.averageRate), color: RGBA(hex: 0xF2C230)) }
             }
             if clip.reversed { badge("arrow.uturn.backward") }
-            if clip.audio.isMuted && asset?.hasAudio == true && !clip.isFreezeFrame { badge("speaker.slash") }
+            if clip.audio.isMuted && (asset?.hasAudio == true || compound?.hasAudio == true) && !clip.isFreezeFrame { badge("speaker.slash") }
             if clip.groupID != nil { badge("square.on.square") }
             if !clip.isEnabled { badge("eye.slash") }
         }
@@ -831,6 +839,47 @@ final class TimelineView: NSView {
             // one-sided, from the bottom up (CapCut [23], C3b)
             c.rect(CGRect(x: x, y: wr.maxY - h, width: step - 0.5, height: h), a > 0.95 ? RGBA(hex: 0xE5934A) : color)
             x += step
+        }
+    }
+
+    /// Filmstrip + audio band of a compound clip: each tile shows the nested video / image frame the compound shows at
+    /// that parent time; each audio-bearing nested clip draws its waveform over its own x-range.
+    func drawCompoundStrip(_ c: inout Canvas2D, _ clip: Clip, _ cv: TimelineDrawCache.CompoundView, r: CGRect,
+                           bands: TimelineLayout.VideoClipBands, track: Track, layout l: TimelineLayout,
+                           alpha: Double, canvas: Size2) {
+        let audioStrip = bands.audioStrip
+        let stripTop = r.minY + bands.nameBand
+        let stripH = r.maxY - audioStrip - stripTop
+        let th = Int(stripH * 2)
+        let aspect = canvas.height > 0 ? CGFloat(canvas.width / canvas.height) : 16 / 9
+        let tileW = max(24, stripH * aspect)
+        let startIndex = max(0, Int((TimelineLayout.headerWidth - r.minX) / tileW))
+        var i = startIndex
+        while r.minX + CGFloat(i) * tileW < min(r.maxX, bounds.width) {
+            let x0 = r.minX + CGFloat(i) * tileW
+            let tileRect = CGRect(x: x0, y: stripTop, width: min(tileW, r.maxX - x0), height: stripH)
+            let tl = min(clip.start + Time(Double(CGFloat(i) * tileW + tileW / 2) / l.pixelsPerSecond), clip.end - Time(ticks: 1))
+            if let n = CompoundFlattening.visualClip(at: tl, in: cv.tracks, isVisualMedia: { drawCache.asset($0.mediaID)?.asset.kind != .audio }),
+               let a = drawCache.asset(n.mediaID)?.asset {
+                let st = a.kind == .image ? Time.zero : n.sourceTime(at: tl)
+                if let img = ThumbnailCache.shared.cached(a, at: st, height: th) {
+                    c.image(img, in: tileRect, alpha: alpha)
+                } else {
+                    requestThumb(a, at: st, height: th)
+                }
+            }
+            i += 1
+            if i - startIndex > 200 { break }
+        }
+        guard audioStrip > 0 else { return }
+        let sr = CGRect(x: r.minX, y: r.maxY - audioStrip, width: r.width, height: audioStrip)
+        c.rect(sr, RGBA(hex: 0x163A3F, alpha: alpha), radius: 0)
+        guard !clip.audio.isMuted, store.project.timeline.isAudible(track) else { return }
+        for e in cv.audio where !e.muted {
+            let x0 = max(sr.minX, l.x(e.clip.start)), x1 = min(sr.maxX, l.x(e.clip.end))
+            guard x1 > x0 else { continue }
+            let wr = CGRect(x: x0, y: sr.minY, width: x1 - x0, height: sr.height).insetBy(dx: 0, dy: 1)
+            drawWaveform(&c, e.clip, asset: e.asset.asset, in: wr, layout: l, color: Theme.waveformOnVideo, scale: 1)
         }
     }
 
