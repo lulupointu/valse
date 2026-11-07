@@ -141,6 +141,7 @@ import ValseTestSupport
         var c = Clip(content: .solid(RGBA(1, 1, 1)), start: .zero, duration: Time(4))
         c.audio.fadeIn = Time(1); c.audio.fadeInShape = .linear
         c.audio.fadeOutShape = .linear
-        #expect(CompositionBuilder.volumeRamps(c).0.count == 2)
+        // (without the automatic 3 ms clip-edge ramps, BUG-CLIP-EDGE-CLICK)
+        #expect(CompositionBuilder.volumeRamps(c, softIn: false, softOut: false).0.count == 2)
     }
 }
