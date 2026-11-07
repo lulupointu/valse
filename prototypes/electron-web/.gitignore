@@ -1,7 +1,0 @@
-node_modules/
-dist/
-out/
-models/
-.bench-out/
-.smoke/
-results.smoke.jsonl

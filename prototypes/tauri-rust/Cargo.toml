@@ -1,9 +1,0 @@
-[workspace]
-resolver = "2"
-members = ["engine", "app/src-tauri", "tools/procstat", "ai"]
-
-[profile.release]
-opt-level = 3
-debug = false
-lto = "thin"
-codegen-units = 16
