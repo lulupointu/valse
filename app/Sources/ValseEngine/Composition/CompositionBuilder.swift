@@ -233,7 +233,9 @@ public enum CompositionBuilder {
             for p in lane.placements {
                 let (ramps, last) = volumeRamps(p.clip, gain: ClipAudioPlan.make(p.clip).staticGain,
                                                 duck: Ducking.envelope(for: p.clip, in: project, waveforms: waveforms), skip: skip,
-                                                after: floor)
+                                                after: floor,
+                                                softIn: !pendingAudio.contains { seamless($0.clip, p.clip) },
+                                                softOut: !pendingAudio.contains { seamless(p.clip, $0.clip) })
                 floor = last
                 volumes.append((ramps, last))
             }
@@ -635,17 +637,42 @@ public enum CompositionBuilder {
     }
 
     /// `applyVolume`'s ramps (item time, sorted, disjoint, all after `floor`) and the new floor.
+    /// BUG-CLIP-EDGE-CLICK: length of the automatic anti-click ramp at a clip's start / end. A clip that starts or stops
+    /// on a non-zero sample (a cut inside speech, a trim) jumped between 0 and its level in one sample: a click, whatever
+    /// fades the user set elsewhere on the clip.
+    static let edgeRamp = Time(0.003)
+
+    /// Two clips of one lane that continue each other sample for sample (a split, not a cut): no ramp between them.
+    static func seamless(_ a: Clip, _ b: Clip) -> Bool {
+        guard a.id != b.id, a.mediaID != nil, a.mediaID == b.mediaID, !a.reversed, !b.reversed,
+              case .constant(let sa) = a.speed, case .constant(let sb) = b.speed, sa == sb,
+              abs((a.end - b.start).ticks) <= 1, a.audio.volume == b.audio.volume,
+              a.audio.fadeOut == .zero, b.audio.fadeIn == .zero, a.keyframes[ParamKey.volume.raw] == nil,
+              b.keyframes[ParamKey.volume.raw] == nil else { return false }
+        return abs((b.sourceStart - (a.sourceStart + a.duration * sa)).seconds) < 0.0005
+    }
+
     static func volumeRamps(_ clip: Clip, gain: Double = 1, duck: Ducking.Envelope? = nil,
-                            skip: SkipTimeMap = .identity, after floor: Time = .zero) -> ([GainRamp], Time) {
+                            skip: SkipTimeMap = .identity, after floor: Time = .zero,
+                            softIn: Bool = true, softOut: Bool = true) -> ([GainRamp], Time) {
         let start = clip.start, end = clip.end
+        let edge = min(edgeRamp, clip.duration * 0.5)
         func v(_ local: Time) -> Float {
             var g = (clip.value(.volume, at: local)?.scalar ?? clip.audio.volume) * gain
+            if edge > .zero {
+                if softIn, local < edge { g *= max(0, local / edge) }
+                if softOut, local > clip.duration - edge { g *= max(0, (clip.duration - local) / edge) }
+            }
             if let duck { g *= Double(duck.gain(at: start + local)) }
             g *= clip.audio.fadeGain(at: local, clipDuration: clip.duration)
             return Float(max(0, g))
         }
         // breakpoints: start, fade ends, keyframes, end
         var points: Set<Int64> = [0, clip.duration.ticks]
+        if edge > .zero {
+            if softIn { points.insert(edge.ticks) }
+            if softOut { points.insert((clip.duration - edge).ticks) }
+        }
         let fades = clip.audio.effectiveFades(clipDuration: clip.duration)
         if fades.fadeIn > .zero { points.insert(fades.fadeIn.ticks) }
         if fades.fadeOut > .zero { points.insert((clip.duration - fades.fadeOut).ticks) }
