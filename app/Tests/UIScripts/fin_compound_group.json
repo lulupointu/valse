@@ -8,6 +8,8 @@
     {"click": "clip:main/1", "modifiers": ["shift"]},
     {"key": "opt+g"},
     {"expect": [{"path": "main.clips.count", "equals": 2}, {"path": "main.clips.0.kind", "equals": "compound"}]},
+    // BUG-COMPOUND-FILMSTRIP: the compound shows its nested filmstrip + audio waveform (not a flat teal block)
+    {"snapshot": "compound-filmstrip", "element": "id:panel.timeline", "baseline": true, "threshold": 40, "tolerance": 0.002},
     {"doubleClick": "clip:main/0"},
     {"expect": [{"path": "project.compoundEdit.count", "equals": 1}, {"path": "ui.anchors", "contains": "compound.breadcrumb"},
                 {"path": "main.clips.count", "equals": 2}, {"path": "undo.name", "equals": "cmd.enterCompound"}]},
