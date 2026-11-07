@@ -97,6 +97,7 @@ public enum CompositionBuilder {
                              audioState existingAudioState: AudioMixState? = nil,
                              highPrecision: Bool = false, mixesAudioFormats: Bool = false, audioTaps: Bool = true,
                              skipping skipRanges: [TimeRange] = [], conformsAudio: Bool = false,
+                             separatesTrackAudio: Bool = false,
                              sources: @Sendable (MediaAsset) -> MediaSourceChoice = { let u = PlayableMediaCache.shared.resolvedURL(for: $0); return MediaSourceChoice(video: u, audio: u) })
     async throws -> BuiltComposition {
         await buildLock.wait()
@@ -124,33 +125,21 @@ public enum CompositionBuilder {
 
         let fr = frameRate ?? project.settings.frameRate
         var auxMap: [ClipID: [AuxRole: CMPersistentTrackID]] = [:]
-        for track in CompoundFlattening.decodeTracks(project) {
+        // Audio of every decode track (compounds' virtual tracks included), packed onto shared composition audio tracks
+        // after the track loop (`packAudio`, BUG-PLAY-SILENT).
+        var pendingAudio: [PendingAudio] = []
+        for (group, track) in CompoundFlattening.decodeTracks(project).enumerated() {
             let mediaClips = track.clips.filter { $0.isEnabled && $0.mediaID.flatMap(project.asset) != nil }
             guard !mediaClips.isEmpty else { continue }
             // A/B lanes where neighbours overlap: the main track and overlay tracks with transitions (PiP, TR-004)
             let lanes = track.isMain || track.clips.contains(where: { $0.transitionOut != nil }) ? 2 : 1
             var vLanes: [AVMutableCompositionTrack?] = Array(repeating: nil, count: lanes)
-            // Audio lanes: one composition track per (A/B lane, encoded format) — see `AudioLaneKey`.
-            var aLanes: [AudioLaneKey: (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)] = [:]
-            var aOrder: [AudioLaneKey] = []
             var auxLanes: [String: AVMutableCompositionTrack] = [:]
             var auxOrder: [CMPersistentTrackID] = []
-            var laneClips: [AudioLaneKey: [Clip]] = [:]
-            var rampFloor: [AudioLaneKey: Time] = [:]
-            var laneVolumes: [AudioLaneKey: [(ramps: [GainRamp], end: Time)]] = [:]
-            // BUG-CUT-AUDIO-ARTEFACT: audio changes A/B lane only where neighbours overlap (transition): butted clips —
-            // a split — stay on one composition track, so contiguous source ranges decode and resample as one stream
-            // (on alternating lanes the second half restarted the 44.1 → 48 kHz resampler at the cut: a different
-            // sub-sample phase for the whole second clip and a transient at the cut).
-            // TR-MODEL-CAPCUT: transitions never overlap clips, so their audio is butted too (a plain cut, like CapCut).
-            var audioLane = 0
-            var previous: Clip?
             let clipIndex = Dictionary(track.clips.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
             for (i, clip) in mediaClips.enumerated() {
                 guard let asset = clip.mediaID.flatMap(project.asset) else { continue }
                 let lane = lanes == 2 ? i % 2 : 0
-                if lanes == 2, let p = previous, clip.start < p.end { audioLane = 1 - audioLane }
-                previous = clip
                 let choice = sources(asset)
                 // Reverse: play the reversed render forwards from the mirrored in-point (same remap, frame exact).
                 var videoURL = choice.video, audioURL = choice.audio
@@ -226,55 +215,51 @@ public enum CompositionBuilder {
                                                                                conforms: conformsAudio, streamIndex: streamIndex) : nil
                 var audioEntry: AssetCache.Entry?
                 if let processedURL { audioEntry = try await AssetCache.shared.entry(processedURL) }
-                if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(streamIndex) {
-                    let key = AudioLaneKey(lane: audioLane, format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex))
-                    if aLanes[key] == nil, let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
-                        let p = AVMutableAudioMixInputParameters(track: at)
-                        p.trackID = at.trackID
-                        p.audioTimePitchAlgorithm = .spectral
-                        aLanes[key] = (at, p)
-                        aOrder.append(key)
-                    }
-                    if let (at, _) = aLanes[key] {
-                        try insert(clip: mapped, segments: segments, from: src, sourceRange: srcAudioRange, into: at)
-                        let (ramps, last) = volumeRamps(clip, gain: ClipAudioPlan.make(clip).staticGain,
-                                                        duck: Ducking.envelope(for: clip, in: project, waveforms: waveforms), skip: skip,
-                                                        after: rampFloor[key] ?? .zero)
-                        rampFloor[key] = last
-                        laneVolumes[key, default: []].append((ramps, last))
-                        laneClips[key, default: []].append(clip)
-                    }
+                if let audioEntry, let (src, srcAudioRange) = audioEntry.audioStream(streamIndex),
+                   let first = segments.first, let last = segments.last {
+                    pendingAudio.append(PendingAudio(clip: clip, mapped: mapped, segments: segments, source: src,
+                                                     sourceRange: srcAudioRange,
+                                                     format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex),
+                                                     group: group, start: first.output.start, end: last.output.end))
                 }
             }
             for v in vLanes.compactMap({ $0 }) { videoTrackIDs.append(v.trackID) }
             videoTrackIDs += auxOrder
-            for key in aOrder {
-                guard let a = aLanes[key] else { continue }
-                let volumes = laneVolumes[key] ?? []
-                // The clip volumes are applied by the lane tap, not by audio-mix ramps (PB-DROP, see `LaneProcessor.gains`);
-                // preview and export run the same gains. The mix keeps one ramp per clip, at a constant 1: AVPlayer sends
-                // ramp values to its mixer at every edit and drops some of them on a resampling output — harmless when
-                // every value is 1. Measured on a 44.1 kHz output (PlaybackDeviceReproTests), other mixes left a lane's
-                // mixer input muted for whole plays: no volume at all (8 plays in 12), one step or one ramp over the item
-                // (1 in ~20); one 1→1 ramp per clip, the shape the old per-clip ramps had, never did. Without a tap
-                // (frozen-clock recovery, tap creation failed) the mix carries the real ramps, as before.
-                if audioTaps {
-                    a.1.audioTapProcessor = AudioTap.make(LaneProcessor(clips: laneClips[key] ?? [], state: audioState, skip: skip,
-                                                                        gains: volumes.flatMap { $0.ramps },
-                                                                        labelsLeadOneBuffer: purpose == .preview))   // AVPlayer only
-                }
-                if a.1.audioTapProcessor == nil {
-                    a.1.setVolume(0, at: .zero)
-                    for v in volumes { apply(v.ramps, end: v.end, to: a.1) }
-                } else {
-                    for v in volumes {
-                        guard let first = v.ramps.first, let last = v.ramps.last else { continue }
-                        a.1.setVolumeRamp(fromStartVolume: 1, toEndVolume: 1,
-                                          timeRange: CMTimeRange(start: first.start.cmTime, duration: (last.end - first.start).cmTime))
-                    }
-                }
-                audioParams.append(a.1)
+        }
+        for lane in try packAudio(pendingAudio, into: comp, sharesAcrossTracks: !separatesTrackAudio) {
+            let a = lane.params
+            var volumes: [(ramps: [GainRamp], end: Time)] = []
+            var floor = Time.zero
+            for p in lane.placements {
+                let (ramps, last) = volumeRamps(p.clip, gain: ClipAudioPlan.make(p.clip).staticGain,
+                                                duck: Ducking.envelope(for: p.clip, in: project, waveforms: waveforms), skip: skip,
+                                                after: floor)
+                floor = last
+                volumes.append((ramps, last))
             }
+            // The clip volumes are applied by the lane tap, not by audio-mix ramps (PB-DROP, see `LaneProcessor.gains`);
+            // preview and export run the same gains. The mix keeps one ramp per clip, at a constant 1: AVPlayer sends
+            // ramp values to its mixer at every edit and drops some of them on a resampling output — harmless when
+            // every value is 1. Measured on a 44.1 kHz output (PlaybackDeviceReproTests), other mixes left a lane's
+            // mixer input muted for whole plays: no volume at all (8 plays in 12), one step or one ramp over the item
+            // (1 in ~20); one 1→1 ramp per clip, the shape the old per-clip ramps had, never did. Without a tap
+            // (frozen-clock recovery, tap creation failed) the mix carries the real ramps, as before.
+            if audioTaps {
+                a.audioTapProcessor = AudioTap.make(LaneProcessor(clips: lane.placements.map(\.clip), state: audioState, skip: skip,
+                                                                  gains: volumes.flatMap { $0.ramps },
+                                                                  labelsLeadOneBuffer: purpose == .preview))   // AVPlayer only
+            }
+            if a.audioTapProcessor == nil {
+                a.setVolume(0, at: .zero)
+                for v in volumes { apply(v.ramps, end: v.end, to: a) }
+            } else {
+                for v in volumes {
+                    guard let first = v.ramps.first, let last = v.ramps.last else { continue }
+                    a.setVolumeRamp(fromStartVolume: 1, toEndVolume: 1,
+                                    timeRange: CMTimeRange(start: first.start.cmTime, duration: (last.end - first.start).cmTime))
+                }
+            }
+            audioParams.append(a)
         }
 
         // Preview render cache: valid pre-rendered segments as passthrough lanes (see RenderCache).
@@ -337,14 +322,94 @@ public enum CompositionBuilder {
         return out
     }
 
-    /// Composition audio track of a timeline track: its A/B lane AND the encoded format of the files inserted into it.
-    /// PB-QC: a lane holding segments of different formats (a clip's rendered audio stage, ALAC/LPCM CAF, next to the
-    /// iPhone AAC of the neighbouring clips — what quick cut produces: many short clips alternating lanes) made AVPlayer
-    /// rebuild that lane's audio chain on a seek across the formats; with an MTAudioProcessingTap on the lane the chain
-    /// was left unprepared for good (tap `unprepare` with no `prepare` after it), the mixer waited for it forever and the
-    /// audio-driven clock stopped: sound gone, then play did nothing (rate 1, "playing", time frozen) until the item was
-    /// replaced. One format per composition track never reconfigures.
-    struct AudioLaneKey: Hashable { let lane: Int; let format: String }
+    /// One clip's audio waiting for a composition audio track: segments in item time (`place`), its source stream and
+    /// encoded format, the decode track it comes from (`group`) and the item range it covers.
+    struct PendingAudio {
+        let clip: Clip
+        let mapped: Clip
+        let segments: [(output: TimeRange, source: TimeRange)]
+        let source: AVAssetTrack
+        let sourceRange: CMTimeRange
+        let format: String
+        let group: Int
+        let start: Time
+        let end: Time
+    }
+
+    /// A composition audio track and the clips packed onto it, in time order.
+    struct PackedAudioLane {
+        let track: AVMutableCompositionTrack
+        let params: AVMutableAudioMixInputParameters
+        var placements: [PendingAudio]
+    }
+
+    /// Item range, format and decode track of a clip's audio (`audioLanePlan`'s input).
+    struct AudioSpan: Equatable { let start: Time; let end: Time; let format: String; let group: Int }
+
+    /// BUG-PLAY-SILENT: which composition audio track each clip's audio goes on (lane index per span, in `spans` order).
+    /// AVPlayer starts one AudioQueue per composition audio track at every play, one after the other (~10 ms each),
+    /// all synchronized to one host start time ~100 ms ahead. With many tracks the last queues start after that time
+    /// ("AppendRateChange: scheduling rate change at unscaled t=0, but we previously did a conversion for t=…") and stay
+    /// silent for the whole play, a different random set each time: owner project "Episode 5", 13 audio tracks (one or
+    /// more per compound clip, each compound's nested tracks being decode tracks of their own) = silent output in 5–7
+    /// plays of 25 while the lanes carried sound, back after pause / play, a seek, or the next clip on another track
+    /// (PlaybackSilenceTests). So the audio of every decode track shares composition tracks: a clip goes on a track
+    /// of its format that is free from its start — first the one its own decode track used last (butted clips, a
+    /// split, stay on one track: BUG-CUT-AUDIO-ARTEFACT, contiguous source decodes and resamples as one stream), else
+    /// the free one that ended latest — and a new track only when every one is busy (overlapping clips: overlays,
+    /// audio tracks, music under the main track). The track count is the most audio clips (per format) at any instant.
+    /// PB-QC: one format per composition track. A lane holding segments of different formats (a clip's rendered audio
+    /// stage, ALAC/LPCM CAF, next to the iPhone AAC of the neighbouring clips) made AVPlayer rebuild that lane's audio
+    /// chain on a seek across the formats; with an MTAudioProcessingTap on the lane the chain was left unprepared for
+    /// good, the mixer waited for it forever and the audio-driven clock stopped. One format per track never reconfigures.
+    /// `sharesAcrossTracks` false (tests only): the layout before BUG-PLAY-SILENT, composition tracks per decode track.
+    static func audioLanePlan(_ spans: [AudioSpan], sharesAcrossTracks: Bool = true) -> [Int] {
+        var lanes: [(format: String, group: Int, end: Time)] = []
+        var lastOfGroup: [Int: Int] = [:]
+        var out = Array(repeating: 0, count: spans.count)
+        let order = spans.indices.sorted { a, b in
+            spans[a].start != spans[b].start ? spans[a].start < spans[b].start : (spans[a].group, a) < (spans[b].group, b)
+        }
+        for i in order {
+            let s = spans[i]
+            func free(_ l: Int) -> Bool {
+                lanes[l].format == s.format && lanes[l].end <= s.start && (sharesAcrossTracks || lanes[l].group == s.group)
+            }
+            var lane: Int
+            if let g = lastOfGroup[s.group], free(g) {
+                lane = g
+            } else if let l = lanes.indices.filter(free).max(by: { lanes[$0].end < lanes[$1].end }) {
+                lane = l
+            } else {
+                lanes.append((s.format, s.group, .zero))
+                lane = lanes.count - 1
+            }
+            lanes[lane].end = max(lanes[lane].end, s.end)
+            lastOfGroup[s.group] = lane
+            out[i] = lane
+        }
+        return out
+    }
+
+    /// Inserts every clip's audio on shared composition audio tracks (`audioLanePlan`), in time order on each track
+    /// (`insert` appends: a segment placed before a track's end would shift what follows).
+    static func packAudio(_ pending: [PendingAudio], into comp: AVMutableComposition, sharesAcrossTracks: Bool = true) throws -> [PackedAudioLane] {
+        let plan = audioLanePlan(pending.map { AudioSpan(start: $0.start, end: $0.end, format: $0.format, group: $0.group) },
+                                 sharesAcrossTracks: sharesAcrossTracks)
+        var byLane: [Int: [PendingAudio]] = [:]
+        for (p, l) in zip(pending, plan) { byLane[l, default: []].append(p) }
+        var out: [PackedAudioLane] = []
+        for l in byLane.keys.sorted() {
+            guard let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
+            let params = AVMutableAudioMixInputParameters(track: at)
+            params.trackID = at.trackID
+            params.audioTimePitchAlgorithm = .spectral
+            let placements = (byLane[l] ?? []).sorted { $0.start < $1.start }
+            for p in placements { try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at) }
+            out.append(PackedAudioLane(track: at, params: params, placements: placements))
+        }
+        return out
+    }
 
     /// Format identity of an audio stream: codec, sample rate, channels, channel layout.
     static func audioFormatKey(_ descriptions: [CMFormatDescription]) -> String {

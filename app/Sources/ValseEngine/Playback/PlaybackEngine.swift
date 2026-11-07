@@ -283,13 +283,15 @@ public final class PlaybackEngine {
         buildTask?.cancel()
         let size = renderSize, chooser = sourceChooser, state = self.state, audioState = self.audioState
         let mixes = mixesAudioFormatsForTesting, taps = !audioTapsDisabled, skips = skipRanges
+        let separates = separatesTrackAudioForTesting
         isBuilding = true
         buildTask = Task { [weak self] in
             do {
                 if debounce { try await Task.sleep(for: .milliseconds(40)) }
                 let built = try await CompositionBuilder.build(project: project, purpose: .preview, renderSize: size,
                                                                state: state, audioState: audioState, mixesAudioFormats: mixes,
-                                                               audioTaps: taps, skipping: skips, sources: chooser)
+                                                               audioTaps: taps, skipping: skips,
+                                                               separatesTrackAudio: separates, sources: chooser)
                 guard !Task.isCancelled else { return }
                 self?.isBuilding = false
                 self?.lastBuildError = nil
@@ -704,6 +706,8 @@ public final class PlaybackEngine {
     static let frozenClockSeconds = 1.5
     /// Tests only: build with the pre-PB-QC audio lane layout (formats mixed on a lane) to exercise the recovery.
     var mixesAudioFormatsForTesting = false
+    /// Tests only: build with the pre-BUG-PLAY-SILENT audio layout (composition audio tracks per decode track).
+    var separatesTrackAudioForTesting = false
     /// Tests only: the view gets no new frame (a lagging / stalled video pipeline, as the watchdogs see it).
     var withholdsFramesForTesting = false
     /// Tests / UI scripts (`playerState: "lag=N"`): the view gets one display poll in N (a lagging preview: frames
