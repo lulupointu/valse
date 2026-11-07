@@ -25,7 +25,7 @@ struct AudioBasicSection: View {
 
     var body: some View {
         WithPerceptionTracking {
-            let half = max((ctx.clip?.duration.seconds ?? 2) / 2, 0.1)
+            let half = max(ctx.clip?.duration.seconds ?? 2, 0.1)
             VStack(alignment: .leading, spacing: 4) {
                 Bind.row(ctx, tr("prop.volume"), key: .volume, spec: Self.volumeSpec,
                          toUI: { max(0, $0) * 100 }, fromUI: { VolumePercent.gain(percent: $0.rounded()) },

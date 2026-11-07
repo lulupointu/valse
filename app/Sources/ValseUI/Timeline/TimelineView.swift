@@ -667,7 +667,10 @@ final class TimelineView: NSView {
                 if !clip.audio.isMuted && store.project.timeline.isAudible(track) {
                     drawWaveform(&c, clip, asset: asset, in: sr.insetBy(dx: 0, dy: 1), layout: l, color: Theme.waveformOnVideo, scale: 1)
                 }
-                if let va = volumeArea(clip, row: row, track: track, layout: l) { drawVolumeLine(&c, clip, area: va, layout: l, dim: dim) }   // C3-2
+                if let va = volumeArea(clip, row: row, track: track, layout: l) {
+                    drawFades(&c, clip, area: va, layout: l)
+                    drawVolumeLine(&c, clip, area: va, layout: l, dim: dim)   // C3-2
+                }
             }
         }
         // Waveform (audio clips)
@@ -676,15 +679,7 @@ final class TimelineView: NSView {
             drawWaveform(&c, clip, asset: asset, in: TimelineLayout.audioWaveRect(r), layout: l, color: Theme.waveform, scale: 1)
             // volume line (draggable, C3-2)
             if let va = volumeArea(clip, row: row, track: track, layout: l) { drawVolumeLine(&c, clip, area: va, layout: l, dim: dim) }
-            // fades
-            if clip.audio.fadeIn > .zero {
-                let w = CGFloat(clip.audio.fadeIn.seconds * l.pixelsPerSecond)
-                c.rect(CGRect(x: r.minX, y: r.minY, width: min(w, r.width), height: r.height), RGBA(0, 0, 0, 0.28), radius: 4)
-            }
-            if clip.audio.fadeOut > .zero {
-                let w = min(CGFloat(clip.audio.fadeOut.seconds * l.pixelsPerSecond), r.width)
-                c.rect(CGRect(x: r.maxX - w, y: r.minY, width: w, height: r.height), RGBA(0, 0, 0, 0.28), radius: 4)
-            }
+            if let va = volumeArea(clip, row: row, track: track, layout: l) { drawFades(&c, clip, area: va, layout: l) }
         }
         // Label chip: icon + name + duration
         let chip = filmstrip ? (top: bands.chipTop, height: bands.chipHeight, font: bands.chipFont) : TimelineLayout.defaultChip
@@ -800,11 +795,12 @@ final class TimelineView: NSView {
                     }
                 }
             }
-            if track.kind == .audio {
-                for fadeIn in [true, false] {
-                    let fr = fadeHandleRect(clip, rect: r, fadeIn: fadeIn, layout: l)
-                    c.rect(fr, .white, radius: fr.width / 2)
-                }
+        }
+        // audio fade handles (selected or hovered; FCP-style, at the waveform's top corners)
+        if (hoverClip == clip.id || selected), !track.isLocked, let va = volumeArea(clip, row: row, track: track, layout: l) {
+            for fadeIn in [true, false] {
+                let fr = fadeHandleRect(clip, area: va, fadeIn: fadeIn, layout: l)
+                c.rect(fr, .white, radius: fr.width / 2)
             }
         }
         // Background processing on this clip (reverse render, stabilization, AI…): CapCut shows progress on the clip.
@@ -818,10 +814,57 @@ final class TimelineView: NSView {
         }
     }
 
-    func fadeHandleRect(_ clip: Clip, rect r: CGRect, fadeIn: Bool, layout l: TimelineLayout) -> CGRect {
-        let off = CGFloat((fadeIn ? clip.audio.fadeIn : clip.audio.fadeOut).seconds * l.pixelsPerSecond)
-        let x = fadeIn ? r.minX + 6 + off : r.maxX - 6 - off
-        return CGRect(x: x - 4, y: r.minY + 2, width: 8, height: 8)
+    /// Fade handle at the top corner of the clip's waveform area (`area` = `volumeArea`).
+    func fadeHandleRect(_ clip: Clip, area: CGRect, fadeIn: Bool, layout l: TimelineLayout) -> CGRect {
+        let f = clip.audio.effectiveFades(clipDuration: clip.duration)
+        let off = CGFloat((fadeIn ? f.fadeIn : f.fadeOut).seconds * l.pixelsPerSecond)
+        let x = fadeIn ? area.minX + 6 + off : area.maxX - 6 - off
+        return CGRect(x: x - 4, y: area.minY + 2, width: 8, height: 8)
+    }
+
+    /// Clips whose fade handles show: selected or hovered, with an audio waveform area, not locked.
+    func fadeHandleClips(_ tl: Timeline) -> [ClipID] {
+        var ids = Array(store.selection)
+        if let h = hoverClip, !ids.contains(h) { ids.append(h) }
+        return ids.filter { id in
+            guard let loc = tl.locate(id) else { return false }
+            return !tl.tracks[loc.track].isLocked && tl.tracks[loc.track].kind != .text
+        }
+    }
+
+    func fadeHandleHit(_ pt: CGPoint, layout l: TimelineLayout) -> (ClipID, Bool)? {
+        let tl = store.project.timeline
+        for id in fadeHandleClips(tl) {
+            guard let loc = tl.locate(id), let row = l.row(for: tl.tracks[loc.track].id) else { continue }
+            let clip = tl.tracks[loc.track].clips[loc.clip]
+            guard let va = volumeArea(clip, row: row, track: tl.tracks[loc.track], layout: l) else { continue }
+            for fadeIn in [true, false] where fadeHandleRect(clip, area: va, fadeIn: fadeIn, layout: l).insetBy(dx: -3, dy: -3).contains(pt) {
+                return (id, fadeIn)
+            }
+        }
+        return nil
+    }
+
+    /// Fade curve: translucent shaded area above the curve plus its outline, inside the waveform area.
+    func drawFades(_ c: inout Canvas2D, _ clip: Clip, area va: CGRect, layout l: TimelineLayout) {
+        let f = clip.audio.effectiveFades(clipDuration: clip.duration)
+        func curve(_ len: Time, _ shape: FadeShape, fadeIn: Bool) {
+            guard len > .zero else { return }
+            let w = CGFloat(len.seconds * l.pixelsPerSecond)
+            let n = max(2, min(48, Int(w / 3)))
+            func y(_ u: Double) -> CGFloat { va.maxY - va.height * CGFloat(shape.gain(fadeIn ? u : 1 - u)) }
+            func x(_ u: Double) -> CGFloat { (fadeIn ? va.minX : va.maxX - w) + w * CGFloat(u) }
+            for i in 0..<n {
+                let u0 = Double(i) / Double(n), u1 = Double(i + 1) / Double(n)
+                let y0 = y(u0), y1 = y(u1), x0 = x(u0), cw = x(u1) - x0 + 0.5
+                // shade what the fade takes away (above the curve) and stroke the curve itself
+                c.rect(CGRect(x: x0, y: va.minY, width: cw, height: max(0, min(y0, y1) - va.minY)), RGBA(0, 0, 0, 0.30), radius: 0)
+                let top = min(y0, y1)
+                c.rect(CGRect(x: x0, y: top - 0.75, width: cw, height: abs(y1 - y0) + 1.5), RGBA(1, 1, 1, 0.85), radius: 0)
+            }
+        }
+        curve(f.fadeIn, clip.audio.fadeInShape, fadeIn: true)
+        curve(f.fadeOut, clip.audio.fadeOutShape, fadeIn: false)
     }
 
     func drawWaveform(_ c: inout Canvas2D, _ clip: Clip, asset: MediaAsset, in wr: CGRect, layout l: TimelineLayout, color: RGBA, scale: Double) {

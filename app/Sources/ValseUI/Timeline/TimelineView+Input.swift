@@ -38,16 +38,10 @@ extension TimelineView {
         // TL-048: while Quick cut is open a click only moves the playhead (no selection change, popover stays open)
         if ui.quickCut != nil { quickCutMouseDown(pt, layout: l); return }
         // audio fade handles of selected clips
-        for id in store.selection {
-            guard let loc = tl.locate(id), tl.tracks[loc.track].kind == .audio, !tl.tracks[loc.track].isLocked,
-                  let row = l.row(for: tl.tracks[loc.track].id) else { continue }
-            let clip = tl.tracks[loc.track].clips[loc.clip]
-            let r = l.clipRect(clip, row: row)
-            for fadeIn in [true, false] where fadeHandleRect(clip, rect: r, fadeIn: fadeIn, layout: l).insetBy(dx: -3, dy: -3).contains(pt) {
-                drag = .fade(id, fadeIn: fadeIn)
-                store.beginGesture("cmd.fade")
-                return
-            }
+        if let (id, fadeIn) = fadeHandleHit(pt, layout: l) {
+            drag = .fade(id, fadeIn: fadeIn)
+            store.beginGesture("cmd.fade")
+            return
         }
 
         // clip volume line (C3-2), split tool excluded
@@ -262,8 +256,15 @@ extension TimelineView {
             store.updateGesture { p in try TimelineOps.updateMarker(id, in: &p.timeline) { $0.time = t } }
         case .fade(let id, let fadeIn):
             guard let c = tl.clip(id), let loc = tl.locate(id), let row = l.row(for: tl.tracks[loc.track].id) else { return }
-            let r = l.clipRect(c, row: row)
-            let v = l.duration(points: fadeIn ? pt.x - r.minX - 6 : r.maxX - 6 - pt.x).clamped(.zero, c.duration / 2.0)
+            _ = row
+            var t = l.unclampedTime(atX: fadeIn ? pt.x - 6 : pt.x + 6)   // the handle sits 6 pt inside the clip edge at fade 0
+            snapLine = nil
+            if freeSnap, let s = snapIndex?.snap(t, playhead: store.transport.playhead, pixelsPerSecond: l.pixelsPerSecond), s.snapped {
+                t = s.0; snapLine = t
+            }
+            // the two fades never overlap: this one stops where the other begins
+            let other = fadeIn ? c.audio.fadeOut : c.audio.fadeIn
+            let v = (fadeIn ? t - c.start : c.end - t).clamped(.zero, max(.zero, c.duration - other))
             store.updateGesture { p in
                 if fadeIn { p.timeline[clip: id]?.audio.fadeIn = v } else { p.timeline[clip: id]?.audio.fadeOut = v }
             }

@@ -108,3 +108,39 @@ import ValseTestSupport
         #expect(Self.run(p, at: 3.2, frames: 480)[10] == 0)
     }
 }
+
+@Suite struct FadeRampTests {
+    /// Gain of the ramps at item time `t` (linear interpolation inside the piece).
+    static func gain(_ ramps: [GainRamp], at t: Double) -> Float {
+        for r in ramps where t >= r.start.seconds && t <= r.end.seconds {
+            let u = Float((t - r.start.seconds) / max(1e-9, (r.end - r.start).seconds))
+            return r.from + (r.to - r.from) * u
+        }
+        return -1
+    }
+
+    @Test func shapedFadeIsSampledAsManyShortRamps() {
+        var c = Clip(content: .solid(RGBA(1, 1, 1)), start: .zero, duration: Time(4))
+        c.audio.volume = 0.5
+        c.audio.fadeIn = Time(1)
+        c.audio.fadeInShape = .plus3dB
+        c.audio.fadeOut = Time(2)
+        c.audio.fadeOutShape = .minus3dB
+        let (ramps, end) = CompositionBuilder.volumeRamps(c)
+        #expect(end == Time(4))
+        #expect(ramps.count >= 32)
+        for i in 1..<ramps.count { #expect(ramps[i].start == ramps[i - 1].end) }
+        #expect(Self.gain(ramps, at: 0) == 0)
+        #expect(abs(Self.gain(ramps, at: 0.5) - 0.5 * Float(sin(Double.pi / 4))) < 0.005)   // stacks with the volume
+        #expect(abs(Self.gain(ramps, at: 1.5) - 0.5) < 1e-6)
+        #expect(abs(Self.gain(ramps, at: 3) - 0.5 * Float(1 - cos(Double.pi / 4))) < 0.005)  // mirrored −3 dB out
+        #expect(abs(Self.gain(ramps, at: 4)) < 1e-6)
+    }
+
+    @Test func linearFadeKeepsSingleRamps() {
+        var c = Clip(content: .solid(RGBA(1, 1, 1)), start: .zero, duration: Time(4))
+        c.audio.fadeIn = Time(1); c.audio.fadeInShape = .linear
+        c.audio.fadeOutShape = .linear
+        #expect(CompositionBuilder.volumeRamps(c).0.count == 2)
+    }
+}

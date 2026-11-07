@@ -40,9 +40,9 @@ import ValseCore
     /// (quick cut crash, 1023 project). The later clip's ramps start where the earlier one ends.
     @Test func overlappingClipsOnALaneGiveDisjointRamps() {
         var a = Clip(content: .solid(RGBA(1, 1, 1)), start: Time(0), duration: Time(4))
-        a.audio.fadeOut = Time(2)
+        a.audio.fadeOut = Time(2); a.audio.fadeOutShape = .linear
         var b = Clip(content: .solid(RGBA(1, 1, 1)), start: Time(3), duration: Time(4))
-        b.audio.fadeIn = Time(2)
+        b.audio.fadeIn = Time(2); b.audio.fadeInShape = .linear
         let p = AVMutableAudioMixInputParameters()
         let floor = CompositionBuilder.applyVolume(a, to: p)
         #expect(floor == Time(4))
