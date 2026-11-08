@@ -57,8 +57,12 @@ public final class PlayerUIState {
     public var isFullscreen = false
     /// Native window full screen bookkeeping for the player full screen (BUG-PLAYER-FULLSCREEN-EXIT).
     @PerceptionIgnored public let fullscreenCoordinator = PlayerFullscreenCoordinator()
+    /// Full-screen transport overlay (PB-006b): visibility, hover, scrubbing.
+    public let fullscreenControls = FullscreenControlsModel()
     /// Player in its own window (PB-006 "Detach player").
     public var isDetached = false
+    /// The detached player window is in native full screen: it shows the full-screen overlay (PB-006b, owner Q8 = A).
+    public var isDetachedFullscreen = false
     /// Multi-camera angle grid over the preview while a multicam clip is selected (PB-016).
     public var multicamGrid = true
     /// Clip whose text is being edited in place on the canvas.
@@ -167,11 +171,22 @@ extension EditorStore {
         // Only undo the native (Spaces) full screen this mode entered itself: a window already full screen stays so.
         let c = playerUI.fullscreenCoordinator
         if on {
+            playerUI.fullscreenControls.enter()
             c.onNativeFullscreenLeftByUser = { [weak self] in self?.setPlayerFullscreen(false) }
             c.enter()
         } else {
+            playerUI.fullscreenControls.exit()
             c.exit()
+            revealPlayheadAfterFullscreen()
         }
+    }
+
+    /// Leaving full screen (PB-006b §8): a playhead outside the visible timeline is brought to 1/3 of its width.
+    func revealPlayheadAfterFullscreen() {
+        let width = timelineUI.viewWidth - Double(TimelineLayout.headerWidth)
+        guard width > 0, pixelsPerSecond > 0 else { return }
+        let span = width / pixelsPerSecond, t = transport.playhead.seconds, s = timelineUI.scrollTime
+        if t < s || t > s + span { timelineUI.scrollTime = max(0, t - span / 3) }
     }
 
     // MARK: Canvas nudge (CV-011: arrows, ⇧ = 10 px)
@@ -193,7 +208,8 @@ extension EditorStore {
     }
 
     /// Arrow keys nudge the selection (instead of stepping frames) after a click on the canvas.
-    var canvasNudgeEnabled: Bool { playerUI.canvasHasFocus && !selection.isEmpty }
+    /// Never in full screen (PB-006b): arrows always move in time there.
+    var canvasNudgeEnabled: Bool { playerUI.canvasHasFocus && !selection.isEmpty && !playerUI.isViewingFullscreen }
 
     /// Arrow keys: nudge when the canvas has focus and something is selected, else step frames.
     func arrow(dx: Int, dy: Int, big: Bool) {

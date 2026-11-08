@@ -69,12 +69,14 @@ public enum ShortcutRegistry {
         Shortcut("nudgeUpMany", "shortcut.nudgeUp", .up, .shift, isEnabled: { $0.canvasNudgeEnabled }) { $0.arrow(dx: 0, dy: -1, big: true) },
         Shortcut("nudgeDownMany", "shortcut.nudgeDown", .down, .shift, isEnabled: { $0.canvasNudgeEnabled }) { $0.arrow(dx: 0, dy: 1, big: true) },
         // Player (UX.md §8.2 "Player")
-        Shortcut("playerFullscreen", "shortcut.playerFullscreen", .char("f"), [.shift, .command]) { $0.togglePlayerFullscreen() },
-        Shortcut("exitPlayerFullscreen", "shortcut.exitFullscreen", .escape, isEnabled: { $0.playerUI.isFullscreen }) { $0.setPlayerFullscreen(false) },
+        Shortcut("playerFullscreen", "shortcut.playerFullscreen", .char("f"), [.shift, .command]) { s in
+            if s.playerUI.isDetachedFullscreen { s.exitViewingFullscreen() } else { s.togglePlayerFullscreen() }
+        },
+        Shortcut("exitPlayerFullscreen", "shortcut.exitFullscreen", .escape, isEnabled: { $0.playerUI.isViewingFullscreen }) { $0.fullscreenEscape() },
         Shortcut("cancelEyedropper", "shortcut.cancelEyedropper", .escape, isEnabled: { $0.canvasEyedropper != nil }) { $0.endCanvasColorPick() },
         Shortcut("exitCompound", "compound.back", .escape,
-                 isEnabled: { $0.project.isInsideCompound && !$0.isPreviewing && !$0.playerUI.isFullscreen }) { $0.exitCompound() },
-        Shortcut("exitPreview", "shortcut.exitPreview", .escape, isEnabled: { $0.isPreviewing && !$0.playerUI.isFullscreen }) { $0.exitPreview() },
+                 isEnabled: { $0.project.isInsideCompound && !$0.isPreviewing && !$0.playerUI.isViewingFullscreen }) { $0.exitCompound() },
+        Shortcut("exitPreview", "shortcut.exitPreview", .escape, isEnabled: { $0.isPreviewing && !$0.playerUI.isViewingFullscreen }) { $0.exitPreview() },
         Shortcut("playerZoomIn", "shortcut.playerZoomIn", .char("+"), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
         Shortcut("playerZoomInEq", "shortcut.playerZoomIn", .char("="), [.option, .shift]) { $0.zoomPlayer(by: 1.25) },
         Shortcut("playerZoomOut", "shortcut.playerZoomOut", .char("_"), [.option, .shift]) { $0.zoomPlayer(by: 0.8) },
@@ -124,8 +126,15 @@ public enum ShortcutRegistry {
         if AssetPanelState.shared.handleKey(k, modifiers: mods) { return true }   // asset grid keyboard navigation (W13)
         // effective bindings come from the user keymap (Settings ▸ Shortcuts; defaults = the entries below)
         let b = KeyBinding(k, mods)
-        guard let s = all.first(where: { Keymap.shared.matches($0, b) && $0.isEnabled(store) }) else { return false }
+        // PB-006b: full screen is a viewing mode; editing keys (and ⌘Z / ⇧⌘Z) are swallowed there
+        let fullscreen = store.playerUI.isViewingFullscreen
+        guard let s = all.first(where: { Keymap.shared.matches($0, b) && $0.isEnabled(store)
+                                         && (!fullscreen || FullscreenKeys.allowed.contains($0.id)) }) else {
+            return fullscreen && (all.contains { Keymap.shared.matches($0, b) }
+                                  || FullscreenKeys.blockedMenuCommands.contains { Keymap.shared.binding(for: $0) == b })
+        }
         s.action(store)
+        if fullscreen, FullscreenKeys.flashes.contains(s.id) { store.playerUI.fullscreenControls.keyActed() }
         return true
     }
 }

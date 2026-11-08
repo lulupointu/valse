@@ -111,3 +111,16 @@
 "player.eyedropper.hint" = "Cliquez sur la vidéo pour prélever une couleur · échap pour annuler";
 "player.scope.vectorscope" = "Vectorscope";
 "player.scope.histogram" = "Histogramme RVB";
+
+/* Full-screen overlay transport (PB-006b) */
+"fullscreen.controls" = "Commandes de lecture";
+"fullscreen.scrubber" = "Tête de lecture";
+"fullscreen.play" = "Lire (Espace)";
+"fullscreen.pause" = "Pause (Espace)";
+"fullscreen.loop" = "Lecture en boucle";
+"fullscreen.markerHover" = "%1$@ · %2$@";
+"fullscreen.fineScrub" = "Défilement précis";
+"fullscreen.fineScrub.half" = "demi-vitesse";
+"fullscreen.fineScrub.quarter" = "quart de vitesse";
+"fullscreen.fineScrub.frame" = "image par image";
+"fullscreen.fineScrub.option" = "10× plus lent";

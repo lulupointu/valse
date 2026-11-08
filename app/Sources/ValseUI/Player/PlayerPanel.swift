@@ -40,10 +40,12 @@ public struct PlayerPanel: View {
 /// Preview + overlay + floating zoom bar.
 struct PlayerCanvasArea: View {
     @Perception.Bindable var store: EditorStore
+    /// Full screen: the dropped-frames banner moves above the overlay bar while it shows (PB-006b §9).
+    var bannerInset: CGFloat = 0
     var body: some View {
         WithPerceptionTracking {
             ZStack(alignment: .bottom) {
-                PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
+                PlayerHost(store: store, fullscreen: store.playerUI.isViewingFullscreen).frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay(alignment: .bottomLeading) { KeystrokeOverlay() }
                     .overlay(alignment: .top) { GuidePositionPopover(store: store, ui: store.playerUI).padding(.top, 40) }
                     .overlay(alignment: .topTrailing) { HDRDisplayNotice(store: store) }
@@ -51,7 +53,7 @@ struct PlayerCanvasArea: View {
                 if store.playerUI.isZoomBarVisible {
                     ZoomBar(ui: store.playerUI, store: store).padding(.bottom, 10)
                 } else {
-                    DroppedFramesBanner(store: store, health: store.playerUI.health)
+                    DroppedFramesBanner(store: store, health: store.playerUI.health).padding(.bottom, bannerInset)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -137,6 +139,11 @@ struct TimecodeEntry: View {
     let time: Time
     let rate: FrameRate
     var editable = true
+    /// Full-screen overlay (PB-006b): 13 pt mint, its own test IDs, editing pins the bar.
+    var fontSize: CGFloat = 11
+    var color: Color = Theme.accent
+    var idPrefix = "player"
+    var onEditing: ((Bool) -> Void)? = nil
     @State private var editing = false
     @State private var text = ""
     @FocusState private var focused: Bool
@@ -147,9 +154,9 @@ struct TimecodeEntry: View {
             if editing {
                 TextField("", text: $text)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11).monospacedDigit())
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: CGFloat(label.count) * 7 + 8)
+                    .font(.system(size: fontSize).monospacedDigit())
+                    .foregroundStyle(color)
+                    .frame(width: CGFloat(label.count) * (fontSize == 11 ? 7 : fontSize * 0.64) + 8)
                     .padding(.horizontal, 2)
                     .background(Theme.inset, in: RoundedRectangle(cornerRadius: 3))
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accent.opacity(0.8), lineWidth: 1))
@@ -158,16 +165,19 @@ struct TimecodeEntry: View {
                     .onExitCommand { editing = false }
                     .onValueChange(of: focused) { _, f in if !f { editing = false } }
                     .onAppear { text = label; focused = true }
-                    .testID("player.timecode.field")
+                    .testID(fullscreen ? "fullscreen.timecode.field" : "player.timecode.field")
             } else {
-                Text(verbatim: label).foregroundStyle(Theme.accent)
+                Text(verbatim: label).foregroundStyle(color)
                     .contentShape(Rectangle())
                     .onTapGesture { if editable && !store.isPlayerEmpty { store.engine.pause(); editing = true } }
                     .help(tr("player.timecode.help"))
-                    .testID("player.timecode")
+                    .testID(fullscreen ? "fullscreen.timecode" : "player.timecode")
             }
         }
+        .onValueChange(of: editing) { _, e in onEditing?(e) }
     }
+
+    private var fullscreen: Bool { idPrefix == "fullscreen" }
 
     func commit() {
         let d = TimecodeDisplay.current
@@ -354,6 +364,8 @@ enum CustomCanvasPanel {
 /// Bridges the AppKit/Metal player (preview + canvas overlay) into SwiftUI.
 struct PlayerHost: NSViewRepresentable {
     let store: EditorStore
+    /// Read by the (tracked) parent body: representables are not perception-tracked.
+    var fullscreen = false
     func makeNSView(context: Context) -> PlayerContainerView {
         let v = PlayerContainerView(store: store)
         v.player.setAccessibilityIdentifier("player")
@@ -361,9 +373,15 @@ struct PlayerHost: NSViewRepresentable {
         v.player.setAccessibilityRole(.image)
         SnapshotRegistry.shared.player = v.player
         SnapshotRegistry.shared.playerOverlay = v.overlay
+        v.player.letterbox = letterbox
         return v
     }
-    func updateNSView(_ v: PlayerContainerView, context: Context) { v.player.requestRedraw() }
+    func updateNSView(_ v: PlayerContainerView, context: Context) {
+        if v.player.letterbox != letterbox { v.player.letterbox = letterbox }
+        v.player.requestRedraw()
+    }
+    /// Full screen letterboxes in pure black (PB-006b, a viewer), the docked player in the panel colour.
+    private var letterbox: RGBA { fullscreen ? .black : RGBA(hex: 0x1B1B1C) }
     /// Fills the proposal (perf: without this SwiftUI measures the AppKit view with Auto Layout `fittingSize` on every pass).
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: PlayerContainerView, context: Context) -> CGSize? {
         proposal.replacingUnspecifiedDimensions(by: CGSize(width: 10, height: 10))

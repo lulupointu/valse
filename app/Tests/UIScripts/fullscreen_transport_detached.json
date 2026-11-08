@@ -1,0 +1,22 @@
+// PB-006b (owner Q8 = A): the detached player window in native full screen shows the same overlay transport (hosted in
+// the test window: no real full screen); editing keys are off there too, esc returns to the windowed detached player.
+{
+  "project": "demo",
+  "lang": "en",
+  "playerState": "fsDetached",
+  "steps": [
+    {"waitFor": {"path": "ui.playerFullscreen.detached", "equals": true}},
+    {"expect": [{"path": "ui.playerDetached", "equals": true}, {"path": "ui.playerFullscreen.controls", "equals": "visible"},
+                {"path": "ui.anchors", "contains": "fullscreen.controls"}]},
+    {"click": "id:fullscreen.scrubber", "at": [0.25, 0.56]},
+    {"waitFor": {"path": "playhead", "approx": 4.125, "tolerance": 0.1}},
+    {"key": "q"},
+    {"expect": {"path": "main.clips.count", "equals": 3}},
+    {"key": "right"},
+    {"waitFor": {"path": "playhead", "approx": 4.1667, "tolerance": 0.02}},
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.playerFullscreen.detached", "equals": false}},
+    {"expect": [{"path": "ui.playerDetached", "equals": true}, {"path": "ui.anchors", "notContains": "fullscreen.controls"},
+                {"path": "ui.anchors", "contains": "player.play"}]}
+  ]
+}

@@ -111,3 +111,16 @@
 "player.eyedropper.hint" = "Click the video to pick a colour · esc to cancel";
 "player.scope.vectorscope" = "Vectorscope";
 "player.scope.histogram" = "RGB histogram";
+
+/* Full-screen overlay transport (PB-006b) */
+"fullscreen.controls" = "Playback controls";
+"fullscreen.scrubber" = "Playhead";
+"fullscreen.play" = "Play (Space)";
+"fullscreen.pause" = "Pause (Space)";
+"fullscreen.loop" = "Loop playback";
+"fullscreen.markerHover" = "%1$@ · %2$@";
+"fullscreen.fineScrub" = "Fine scrubbing";
+"fullscreen.fineScrub.half" = "half speed";
+"fullscreen.fineScrub.quarter" = "quarter speed";
+"fullscreen.fineScrub.frame" = "frame by frame";
+"fullscreen.fineScrub.option" = "10× slower";
