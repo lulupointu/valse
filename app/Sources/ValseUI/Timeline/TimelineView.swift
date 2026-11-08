@@ -885,47 +885,6 @@ final class TimelineView: NSView {
         }
     }
 
-    /// Filmstrip + audio band of a compound clip: each tile shows the nested video / image frame the compound shows at
-    /// that parent time; each audio-bearing nested clip draws its waveform over its own x-range.
-    func drawCompoundStrip(_ c: inout Canvas2D, _ clip: Clip, _ cv: TimelineDrawCache.CompoundView, r: CGRect,
-                           bands: TimelineLayout.VideoClipBands, track: Track, layout l: TimelineLayout,
-                           alpha: Double, canvas: Size2) {
-        let audioStrip = bands.audioStrip
-        let stripTop = r.minY + bands.nameBand
-        let stripH = r.maxY - audioStrip - stripTop
-        let th = Int(stripH * 2)
-        let aspect = canvas.height > 0 ? CGFloat(canvas.width / canvas.height) : 16 / 9
-        let tileW = max(24, stripH * aspect)
-        let startIndex = max(0, Int((TimelineLayout.headerWidth - r.minX) / tileW))
-        var i = startIndex
-        while r.minX + CGFloat(i) * tileW < min(r.maxX, bounds.width) {
-            let x0 = r.minX + CGFloat(i) * tileW
-            let tileRect = CGRect(x: x0, y: stripTop, width: min(tileW, r.maxX - x0), height: stripH)
-            let tl = min(clip.start + Time(Double(CGFloat(i) * tileW + tileW / 2) / l.pixelsPerSecond), clip.end - Time(ticks: 1))
-            if let n = CompoundFlattening.visualClip(at: tl, in: cv.tracks, isVisualMedia: { drawCache.asset($0.mediaID)?.asset.kind != .audio }),
-               let a = drawCache.asset(n.mediaID)?.asset {
-                let st = a.kind == .image ? Time.zero : n.sourceTime(at: tl)
-                if let img = ThumbnailCache.shared.cached(a, at: st, height: th) {
-                    c.image(img, in: tileRect, alpha: alpha)
-                } else {
-                    requestThumb(a, at: st, height: th)
-                }
-            }
-            i += 1
-            if i - startIndex > 200 { break }
-        }
-        guard audioStrip > 0 else { return }
-        let sr = CGRect(x: r.minX, y: r.maxY - audioStrip, width: r.width, height: audioStrip)
-        c.rect(sr, RGBA(hex: 0x163A3F, alpha: alpha), radius: 0)
-        guard !clip.audio.isMuted, store.project.timeline.isAudible(track) else { return }
-        for e in cv.audio where !e.muted {
-            let x0 = max(sr.minX, l.x(e.clip.start)), x1 = min(sr.maxX, l.x(e.clip.end))
-            guard x1 > x0 else { continue }
-            let wr = CGRect(x: x0, y: sr.minY, width: x1 - x0, height: sr.height).insetBy(dx: 0, dy: 1)
-            drawWaveform(&c, e.clip, asset: e.asset.asset, in: wr, layout: l, color: Theme.waveformOnVideo, scale: 1)
-        }
-    }
-
     static let labelColors: [RGBA] = [RGBA(hex: 0x8E3B46), RGBA(hex: 0x9C6B30), RGBA(hex: 0x3F7D4E), RGBA(hex: 0x2F6690), RGBA(hex: 0x6B4E9B)]
 
     func clipName(_ clip: Clip, asset: MediaAsset?) -> String {
