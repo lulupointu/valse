@@ -48,6 +48,24 @@ public final class TimelineUIState {
     /// Window frame (SwiftUI global space) of the toolbar's Quick cut button: the popover hangs from it.
     @PerceptionIgnored var quickCutButtonFrame: CGRect = .zero
 
+    /// BUG-COMPOUND-SCROLL: each timeline level (main = nil, else the compound being edited) keeps its own
+    /// scroll for the session: entering a compound restores where it was left (0, 0 the first time), leaving it
+    /// restores the parent's scroll. Not saved, not undoable.
+    struct ScrollPosition: Equatable { var time: Double; var y: Double }
+    @PerceptionIgnored private(set) var scrollLevel: CompoundID?
+    @PerceptionIgnored private(set) var scrollByLevel: [CompoundID?: ScrollPosition] = [:]
+
+    /// Called after every project change (`EditorStore.didChangeProject`): when the edited level changed (enter / exit
+    /// / breadcrumb jump / undo of those / timeline switch), stores the old level's scroll and restores the new one's.
+    func syncScrollLevel(_ level: CompoundID?) {
+        guard level != scrollLevel else { return }
+        scrollByLevel[scrollLevel] = ScrollPosition(time: scrollTime, y: scrollY)
+        scrollLevel = level
+        let s = scrollByLevel[level] ?? ScrollPosition(time: 0, y: 0)
+        if scrollTime != s.time { scrollTime = s.time }
+        if scrollY != s.y { scrollY = s.y }
+    }
+
 
     public init() {}
 }

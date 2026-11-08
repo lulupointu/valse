@@ -274,6 +274,7 @@ public final class EditorStore {
         }
         if let t = selectedTransition, session.project.timeline.clip(t)?.transitionOut == nil { selectedTransition = nil }
         if playerUI.loopEnabled { updateLoopRange() }
+        timelineUI.syncScrollLevel(session.project.compoundEdit?.last?.compoundID)   // BUG-COMPOUND-SCROLL
         aiProjectDidChange()
         scheduleAutosave()
     }
