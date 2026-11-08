@@ -83,6 +83,9 @@ final class TimelineView: NSView {
     var hoverClip: ClipID?
     /// Clip whose volume line is hovered (↕ cursor, brighter line).
     var hoverVolumeClip: ClipID?
+    /// Fade pin under the pointer (AU-FADE-UI: highlighted, ↔ cursor).
+    var hoverFade: (id: ClipID, fadeIn: Bool)?
+    static let anchorToken = UUID()
     var hoverTime: Time?
     /// Preview axis: playhead to restore when the mouse leaves.
     var previewAnchor: Time?
@@ -678,8 +681,10 @@ final class TimelineView: NSView {
             // TL-IMOVIE-HEIGHT: the waveform fills the clip at full scale (iMovie); the name chip sits over it.
             drawWaveform(&c, clip, asset: asset, in: TimelineLayout.audioWaveRect(r), layout: l, color: Theme.waveform, scale: 1)
             // volume line (draggable, C3-2)
-            if let va = volumeArea(clip, row: row, track: track, layout: l) { drawVolumeLine(&c, clip, area: va, layout: l, dim: dim) }
-            if let va = volumeArea(clip, row: row, track: track, layout: l) { drawFades(&c, clip, area: va, layout: l) }
+            if let va = volumeArea(clip, row: row, track: track, layout: l) {
+                drawFades(&c, clip, area: va, layout: l)
+                drawVolumeLine(&c, clip, area: va, layout: l, dim: dim)
+            }
         }
         // Label chip: icon + name + duration
         let chip = filmstrip ? (top: bands.chipTop, height: bands.chipHeight, font: bands.chipFont) : TimelineLayout.defaultChip
@@ -774,6 +779,12 @@ final class TimelineView: NSView {
         }
         // Selection + keyframes + fade handles
         if selected {
+            if TestAnchors.isEnabled, ctx.selection.count == 1, let host = window?.contentView {
+                // UI tests: element-scoped snapshots of the selected clip (`"element": "id:timeline.selectedClip"`)
+                let w = convert(r.insetBy(dx: -8, dy: -8), to: host)
+                let f = host.isFlipped ? w : CGRect(x: w.minX, y: host.bounds.height - w.maxY, width: w.width, height: w.height)
+                TestAnchors.shared.set("timeline.selectedClip", f, token: Self.anchorToken)
+            }
             c.rect(r, Theme.TL.selection, radius: 4, border: 1.5)
             if r.width > 24 {
                 c.rect(CGRect(x: r.minX + 1, y: r.midY - 8, width: 3, height: 16), Theme.TL.selection, radius: 1.5)
@@ -796,11 +807,14 @@ final class TimelineView: NSView {
                 }
             }
         }
-        // audio fade handles (selected or hovered; FCP-style, at the waveform's top corners)
+        // audio fade pins (selected or hovered; FCP-style, on the volume line at the end of each fade)
         if (hoverClip == clip.id || selected), !track.isLocked, let va = volumeArea(clip, row: row, track: track, layout: l) {
+            let scale = max(1, metalLayer.contentsScale)
             for fadeIn in [true, false] {
                 let fr = fadeHandleRect(clip, area: va, fadeIn: fadeIn, layout: l)
-                c.rect(fr, .white, radius: fr.width / 2)
+                let aligned = CGRect(x: (fr.minX * scale).rounded() / scale, y: (fr.minY * scale).rounded() / scale,
+                                     width: fr.width, height: fr.height)
+                if let img = FadeArt.pin(fadePinState(clip.id, fadeIn: fadeIn), scale: scale) { c.image(img, in: aligned, fill: false) }
             }
         }
         // Background processing on this clip (reverse render, stabilization, AI…): CapCut shows progress on the clip.
@@ -814,12 +828,20 @@ final class TimelineView: NSView {
         }
     }
 
-    /// Fade handle at the top corner of the clip's waveform area (`area` = `volumeArea`).
+    /// Fade pin (AU-FADE-UI): on the volume line at the inner end of the fade, at least `FadeArt.pinEdgeInset` from the
+    /// clip edge so it never covers the trim handle (`area` = `volumeArea`). Image rect; hit-testing pads it.
     func fadeHandleRect(_ clip: Clip, area: CGRect, fadeIn: Bool, layout l: TimelineLayout) -> CGRect {
         let f = clip.audio.effectiveFades(clipDuration: clip.duration)
-        let off = CGFloat((fadeIn ? f.fadeIn : f.fadeOut).seconds * l.pixelsPerSecond)
-        let x = fadeIn ? area.minX + 6 + off : area.maxX - 6 - off
-        return CGRect(x: x - 4, y: area.minY + 2, width: 8, height: 8)
+        let off = max(FadeArt.pinEdgeInset, CGFloat((fadeIn ? f.fadeIn : f.fadeOut).seconds * l.pixelsPerSecond))
+        let x = fadeIn ? area.minX + off : area.maxX - off
+        return FadeArt.pinRect(x: x, lineY: fadeLineY(clip, area: area, fadeIn: fadeIn), area: area)
+    }
+
+    /// Pin look: dragged, hovered or plain.
+    func fadePinState(_ id: ClipID, fadeIn: Bool) -> FadeArt.PinState {
+        if case .fade(let d, let din) = drag, d == id, din == fadeIn { return .active }
+        if let h = hoverFade, h.id == id, h.fadeIn == fadeIn { return .hover }
+        return .normal
     }
 
     /// Clips whose fade handles show: selected or hovered, with an audio waveform area, not locked.
@@ -845,23 +867,30 @@ final class TimelineView: NSView {
         return nil
     }
 
-    /// Fade curve: translucent shaded area above the curve plus its outline, inside the waveform area.
+    /// Volume line height at the inner end of a fade (where its pin sits), keyframed volume included.
+    func fadeLineY(_ clip: Clip, area va: CGRect, fadeIn: Bool) -> CGFloat {
+        let f = clip.audio.effectiveFades(clipDuration: clip.duration)
+        let t = fadeIn ? f.fadeIn : clip.duration - f.fadeOut
+        let keyed = clip.keyframes[ParamKey.volume.raw]?.keyframes.isEmpty == false
+        return ClipVolumeLine.y(gain: keyed ? ClipVolumeLine.gain(of: clip, at: t.clamped(.zero, clip.duration)) : clip.audio.volume, in: va)
+    }
+
+    /// AU-FADE-UI (Final Cut Pro): smooth anti-aliased fade curve from the clip's bottom corner up to the volume line,
+    /// following the fade shape, with what the fade takes away darkened over the waveform (`FadeArt.overlay`).
     func drawFades(_ c: inout Canvas2D, _ clip: Clip, area va: CGRect, layout l: TimelineLayout) {
         let f = clip.audio.effectiveFades(clipDuration: clip.duration)
+        let scale = max(1, metalLayer.contentsScale)
         func curve(_ len: Time, _ shape: FadeShape, fadeIn: Bool) {
             guard len > .zero else { return }
             let w = CGFloat(len.seconds * l.pixelsPerSecond)
-            let n = max(2, min(48, Int(w / 3)))
-            func y(_ u: Double) -> CGFloat { va.maxY - va.height * CGFloat(shape.gain(fadeIn ? u : 1 - u)) }
-            func x(_ u: Double) -> CGFloat { (fadeIn ? va.minX : va.maxX - w) + w * CGFloat(u) }
-            for i in 0..<n {
-                let u0 = Double(i) / Double(n), u1 = Double(i + 1) / Double(n)
-                let y0 = y(u0), y1 = y(u1), x0 = x(u0), cw = x(u1) - x0 + 0.5
-                // shade what the fade takes away (above the curve) and stroke the curve itself
-                c.rect(CGRect(x: x0, y: va.minY, width: cw, height: max(0, min(y0, y1) - va.minY)), RGBA(0, 0, 0, 0.30), radius: 0)
-                let top = min(y0, y1)
-                c.rect(CGRect(x: x0, y: top - 0.75, width: cw, height: abs(y1 - y0) + 1.5), RGBA(1, 1, 1, 0.85), radius: 0)
-            }
+            guard w >= 0.5 else { return }
+            // pixel-aligned rect so the bitmap maps 1:1 onto the drawable (crisp on Retina)
+            let x0 = ((fadeIn ? va.minX : va.maxX - w) * scale).rounded() / scale
+            let y0 = (va.minY * scale).rounded() / scale
+            let size = CGSize(width: (w * scale).rounded() / scale, height: (va.maxY * scale).rounded() / scale - y0)
+            let lineY = fadeLineY(clip, area: va, fadeIn: fadeIn) - y0
+            guard let img = FadeArt.overlay(shape, fadeIn: fadeIn, size: size, lineY: lineY, scale: scale) else { return }
+            c.image(img, in: CGRect(origin: CGPoint(x: x0, y: y0), size: size), fill: false)
         }
         curve(f.fadeIn, clip.audio.fadeInShape, fadeIn: true)
         curve(f.fadeOut, clip.audio.fadeOutShape, fadeIn: false)

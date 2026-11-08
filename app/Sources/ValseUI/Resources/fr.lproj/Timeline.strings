@@ -228,8 +228,8 @@
 "shortcut.duplicate" = "Dupliquer";
 "shortcut.copyAttributes" = "Copier les attributs";
 "shortcut.pasteAttributes" = "Coller les attributs";
-"fade.shape.plus3dB" = "+3 dB (puissance égale)";
 "fade.shape.linear" = "Linéaire";
 "fade.shape.sCurve" = "Courbe en S";
-"fade.shape.minus3dB" = "-3 dB";
+"fade.shape.plus3dB" = "+3 dB";
+"fade.shape.minus3dB" = "−3 dB";
 "cmd.fadeShape" = "Courbe du fondu";

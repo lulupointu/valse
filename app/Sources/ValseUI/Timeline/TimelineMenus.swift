@@ -68,12 +68,16 @@ extension TimelineView {
 
     // MARK: Fade handle
 
-    /// Right-click on a fade handle: the four fade curves (Final Cut Pro order), current one checked.
+    /// Right-click on a fade handle: the four fade curves (Final Cut Pro order and look: a thumbnail of each curve next
+    /// to its name, `FadeShapeMenuItemView`), current one checked.
     func fadeShapeMenu(_ id: ClipID, fadeIn: Bool, current: FadeShape) -> NSMenu {
-        let keys: [(FadeShape, String)] = [(.plus3dB, "fade.shape.plus3dB"), (.linear, "fade.shape.linear"),
-                                           (.sCurve, "fade.shape.sCurve"), (.minus3dB, "fade.shape.minus3dB")]
-        return menu(keys.map { shape, key in
-            item(key, checked: current == shape) { [store] in store.setFadeShape(id, fadeIn: fadeIn, shape) }
+        menu(FadeArt.menuShapes.map { shape, key in
+            let i = item(key, checked: current == shape) { [store] in store.setFadeShape(id, fadeIn: fadeIn, shape) }
+            i.identifier = NSUserInterfaceItemIdentifier(key)
+            let v = FadeShapeMenuItemView(shape: shape, fadeIn: fadeIn)
+            v.menuItem = i
+            i.view = v
+            return i
         })
     }
 
