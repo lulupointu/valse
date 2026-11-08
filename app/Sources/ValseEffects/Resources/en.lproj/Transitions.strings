@@ -97,6 +97,7 @@
 "transition.chromaticZoom" = "Chromatic zoom";
 "transition.tvOff" = "TV off";
 "transition.retroRewind" = "Retro Rewind";
+"transition.retroFastForward" = "Retro Fast-Forward";
 "transition.ripple" = "Ripple";
 "transition.swirl" = "Swirl";
 "transition.wave" = "Wave";

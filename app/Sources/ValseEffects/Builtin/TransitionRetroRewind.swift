@@ -13,8 +13,13 @@
 ///    measured from it (icon offsets, dot phases, scratch line) plus hashed dust with the same size/density statistics.
 extension BuiltinTransitions {
     /// Program-scope MSL for `retroRewind`. Overlay lengths are in pixels of CapCut's 512-px-high overlay video.
-    static let retroRewindLib = """
+    static let retroRewindLib = retroLib(forward: false)
+    /// TR-RETRO-FF: the same pipeline mirrored (▶▶, pan and scratch line running the other way).
+    static let retroFastForwardLib = retroLib(forward: true)
+
+    static func retroLib(forward: Bool) -> String { """
     \(retroRewindTables)
+    constant float RR_FLIP = \(forward ? "-1.0" : "1.0");
     constant float RR_P = 11.2;                // halftone lattice pitch (16:9 video px)
     // halftone dot alpha by distance from its centre, 0.125 + 0.25 i video px (measured)
     constant float RR_DOT[14] = {0.201, 0.202, 0.205, 0.204, 0.197, 0.182, 0.151, 0.113, 0.076, 0.044, 0.018, 0.005, 0.002, 0.0};
@@ -148,7 +153,7 @@ extension BuiltinTransitions {
     /// Per-frame overlay state (which video, icon offsets and motion-blur vectors).
     struct RRFrame {
         int j; int ns;
-        float vw, sci, kd, icx;
+        float vw, sci, kd, icx, flip;   // flip = -1: fast-forward (overlay mirrored left-right)
         float2 ol, orr, vl, vr;
     };
     inline float rr_dotProfile(float r) {
@@ -160,6 +165,7 @@ extension BuiltinTransitions {
     /// (alpha, premultiplied white).
     inline float2 rr_overlayTexel(float2 o, thread const RRFrame& F) {
         int j = F.j;
+        if (F.flip < 0.0) o.x = F.vw - 1.0 - o.x;
         // halftone dots (alpha only, black)
         float P = RR_P * F.kd;
         float u = (o.x + o.y) / P + RR_DP1[j], v = (o.x - o.y) / P + RR_DP2[j];
@@ -174,6 +180,7 @@ extension BuiltinTransitions {
     /// ◀◀ coverage and drop shadow at video position o, motion-blurred over half a frame: (coverage, shadow alpha).
     inline float2 rr_icon(float2 o, thread const RRFrame& F) {
         float2 p = (o - float2(F.icx, 256.0)) / F.sci;
+        p.x *= F.flip;   // ▶▶: the same ◀◀ animation seen in a mirror
         // bounding box of both triangles + shadow over the shutter
         float2 lo = min(F.ol - abs(F.vl) * 0.5, F.orr - abs(F.vr) * 0.5) - float2(170.0, 135.0);
         float2 hi = max(F.ol + abs(F.vl) * 0.5, F.orr + abs(F.vr) * 0.5) + float2(190.0, 175.0);
@@ -194,10 +201,11 @@ extension BuiltinTransitions {
 
     /// Overlay (alpha, premultiplied white) at canvas uv for overlay frame position jt (continuous frame index):
     /// four texels of the 512-px-high video, bilinearly upscaled like CapCut's texture sampling.
-    inline float2 rr_overlay(float2 uv, float2 size, float jt) {
+    inline float2 rr_overlay(float2 uv, float2 size, float jt, float flip) {
         float ra = size.x / size.y;
         float d16 = abs(ra - 1.777778), d11 = abs(ra - 1.0), d916 = abs(ra - 0.5625);
         RRFrame F;
+        F.flip = flip;
         // CapCut picks the overlay video whose aspect is nearest: 910×512 (16:9), 512×512, 288×512 (9:16)
         // (icon centre x and scale measured in each video)
         F.vw = 910.0; F.sci = 1.0; F.kd = 1.0; F.icx = 455.0;
@@ -229,5 +237,5 @@ extension BuiltinTransitions {
         float C = 1.0 - (1.0 - fine.y) * (1.0 - ic.x) * (1.0 - dd);
         return float2(A, min(C, A));
     }
-    """
+    """ }
 }

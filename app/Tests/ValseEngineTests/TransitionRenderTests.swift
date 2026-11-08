@@ -106,6 +106,26 @@ import ValseTestSupport
         #expect(Self.meanDiff(late, a) > 0.05)
     }
 
+    /// TR-RETRO-FF: Retro Rewind mirrored: at rest the ▶▶ is the left-right mirror of the ◀◀ (the glyph pixel mirrors),
+    /// the picture still turns grey, and the cut A → B / end state match the rewind's.
+    @Test func retroFastForwardMirrorsRewind() throws {
+        let w = 160, h = 90
+        let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: w, height: h))
+        let rw = try #require(Registries.transitions["valse.transition.retroRewind"])
+        let ff = try #require(Registries.transitions["valse.transition.retroFastForward"])
+        #expect(ff.groupKey == rw.groupKey && ff.defaultDuration == rw.defaultDuration && ff.params.isEmpty)
+        func frame(_ d: TransitionDescriptor, _ t: Double) throws -> Bitmap {
+            Bitmap(try #require(PresetPreviewRenderer.transitionFrame(d, from: ta, to: tb, progress: t, width: w, height: h)))
+        }
+        let hold = try frame(ff, 0.25)
+        let glyph = hold[1 - 0.455, 0.5]
+        #expect(glyph.r > 0.9 && glyph.g > 0.9 && glyph.b > 0.9, "white ▶▶: \(glyph)")
+        let corner = hold.average(x: 0.02, y: 0.7, w: 0.1, h: 0.25)
+        #expect(abs(corner.r - corner.g) < 0.03 && abs(corner.g - corner.b) < 0.03, "grey tone: \(corner)")
+        #expect(Self.meanDiff(hold, try frame(rw, 0.25)) > 0.01, "not the rewind")
+        #expect(Self.meanDiff(try frame(ff, 0.985), try frame(rw, 0.985)) < 0.03)
+    }
+
     /// Real time at 1080p: each transition pass well under a frame (M1 Pro numbers; the Air is ~2× slower).
     @Test func everyTransitionIsRealTimeAt1080p() async throws {
         try await HeavyWorkGate.run {   // GPU-saturating loop: keep real-time probes (PlaybackTests) from starving

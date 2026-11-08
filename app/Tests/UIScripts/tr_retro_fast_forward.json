@@ -1,0 +1,15 @@
+// TR-RETRO-FF: "Retro Fast-Forward" (Retro Rewind mirrored) is found by search, shows its real-render still and ⊕ puts
+// it on the nearest cut.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "id:asset.tab.transitions"},
+    {"click": "id:transitions.search"},
+    {"type": "fast-forward"},
+    {"click": "id:transition.tile.retroFastForward"},
+    {"click": "id:transition.add.retroFastForward"},
+    {"waitFor": {"path": "main.clips.0.transition", "equals": "valse.transition.retroFastForward", "timeout": 30}},
+    {"waitFor": {"path": "ui.transitionThumbsMissing", "equals": 0, "timeout": 30}},
+    {"snapshot": "retro-ff-tile", "element": "id:transition.tile.retroFastForward", "baseline": "tr_retro_ff_tile", "threshold": 40, "tolerance": 0.03}
+  ]
+}
