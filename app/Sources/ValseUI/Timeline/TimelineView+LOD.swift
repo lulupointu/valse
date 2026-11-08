@@ -57,6 +57,7 @@ final class TimelineDrawCache {
         spans.removeAll(keepingCapacity: true)
         // Rebuilt lazily per revision too (a deeper nested compound or the media bin may have changed).
         compoundViews.removeAll(keepingCapacity: true)
+        previewKeys.removeAll(keepingCapacity: true)
         key = k
     }
 
@@ -88,13 +89,17 @@ final class TimelineDrawCache {
         let hasAudio: Bool
         /// Audio-bearing nested clips (parent clock), with whether they are muted (clip, nested track or compound).
         let audio: [(clip: Clip, asset: AssetRef, muted: Bool)]
+        /// BUG-COMPOUND-PREVIEW: the project seen from inside the compound and its content key
+        /// (`CompoundPreviewCache`): the filmstrip / waveform are the compound's rendered result.
+        var preview: (id: CompoundID, nested: Project, key: String)?
         init(clip: Clip, timeline: Timeline?, tracks: [Track], assets: (MediaID?) -> AssetRef?) {
             self.clip = clip; self.timeline = timeline; self.tracks = tracks
             var vis = false, aud: [(clip: Clip, asset: AssetRef, muted: Bool)] = []
             for t in tracks {
                 for c in t.clips {
+                    // anything visible draws a filmstrip: it shows the compound's rendered frames (text, stickers…)
+                    if t.kind.isVisual, !t.isHidden, c.isEnabled, assets(c.mediaID).map({ $0.asset.kind != .audio }) ?? true { vis = true }
                     guard let a = assets(c.mediaID) else { continue }
-                    if t.kind.isVisual, !t.isHidden, c.isEnabled, a.asset.kind != .audio { vis = true }
                     if a.asset.hasAudio, c.isEnabled { aud.append((c, a, t.isMuted || c.audio.isMuted)) }
                 }
             }
@@ -102,6 +107,7 @@ final class TimelineDrawCache {
         }
     }
     private var compoundViews: [ClipID: CompoundView] = [:]
+    private var previewKeys: [CompoundID: String] = [:]
 
     /// The resolved nested content of compound clip `clip` (nil for other clips).
     func compound(_ clip: Clip, project: Project) -> CompoundView? {
@@ -110,6 +116,13 @@ final class TimelineDrawCache {
         if let v = compoundViews[clip.id], v.clip == clip, v.timeline == tl { return v }
         let v = CompoundView(clip: clip, timeline: tl, tracks: CompoundFlattening.nestedTracks(of: clip, in: project),
                              assets: { [unowned self] in self.asset($0) })
+        if let comp = project.compound(cid) {
+            // per revision (compounds / media / settings only change with it): a move preview redraws without rehashing
+            let key = previewKeys[cid] ?? CompoundPreviewCache.key(of: comp, in: project)
+            previewKeys[cid] = key
+            CompoundPreviewCache.shared.noteKey(key, for: cid)
+            v.preview = (cid, project.nested(comp), key)
+        }
         compoundViews[clip.id] = v
         return v
     }

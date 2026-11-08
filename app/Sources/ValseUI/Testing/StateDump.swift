@@ -193,6 +193,8 @@ public enum StateDump {
         }
         ui["keystrokes"] = ["enabled": KeystrokeFeed.shared.enabled, "items": KeystrokeFeed.shared.items.map(\.text)]   // PB-015
         ui["previewAxis"] = ["on": store.timelineUI.previewAxis, "audio": store.timelineUI.previewAxisAudio]   // TL-031
+        let cps = CompoundPreviewCache.shared.stats   // BUG-COMPOUND-PREVIEW: compound filmstrip / waveform renders
+        ui["compoundPreview"] = ["pending": cps.pending, "made": cps.made]
         ui["playback"] = ["framesSinceSeek": store.engine.framesSinceSeek, "lastFrameTime": store.engine.lastFrameTime.seconds,
                           "rate": Double(store.engine.player.rate)] as [String: Any]   // C3-5 freeze checks
         ui["focusedPanel"] = PanelFocus.shared.current?.rawValue ?? ""   // SE-017
