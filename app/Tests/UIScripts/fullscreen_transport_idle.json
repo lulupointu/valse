@@ -1,0 +1,21 @@
+// PB-006b: the overlay bar fades out without mouse movement (idle shortened to 1 s through playerState); a transport
+// key while it is hidden flashes the thin progress line (owner Q3 = B) instead of the bar; a mouse move shows the bar
+// again. Waits on monotonic counters (showCount / flashCount), never on timing.
+{
+  "project": "demo",
+  "lang": "en",
+  "playerState": "fullscreen,fsIdle=1",
+  "steps": [
+    {"waitFor": {"path": "ui.playerFullscreen.on", "equals": true}},
+    {"waitFor": {"path": "ui.playerFullscreen.controls", "equals": "hidden", "timeout": 30}},
+    {"expect": {"path": "ui.playerFullscreen.showCount", "equals": 1}},
+    {"key": "right"},
+    {"waitFor": {"path": "ui.playerFullscreen.flashCount", "equals": 1}},
+    {"expect": {"path": "playhead", "gt": 0}},
+    {"waitFor": {"path": "ui.playerFullscreen.flashing", "equals": false, "timeout": 30}},
+    {"hover": "player:0.3,0.3"},
+    {"hover": "player:0.6,0.4"},
+    {"waitFor": {"path": "ui.playerFullscreen.showCount", "equals": 2}},
+    {"waitFor": {"path": "ui.playerFullscreen.controls", "equals": "hidden", "timeout": 30}}
+  ]
+}

@@ -84,7 +84,7 @@ final class CanvasOverlayView: NSView {
     /// Reads everything the overlay draws (Observation tracks it) and schedules a redraw.
     private func observeState() {
         let ui = store.playerUI
-        _ = (ui.zoom, ui.pan, ui.showRulers, ui.showGuides, ui.guides, ui.safeZone, ui.editingTextClip)
+        _ = (ui.zoom, ui.pan, ui.showRulers, ui.showGuides, ui.guides, ui.safeZone, ui.editingTextClip, ui.isViewingFullscreen)
         _ = ui.canvasTool?.revision
         _ = store.project.settings.canvasSize
         _ = (store.inspectorTab, InspectorUIState.shared.subTab, ui.preview, store.project.duration, ui.scope)
@@ -179,6 +179,8 @@ final class CanvasOverlayView: NSView {
 
         drawSafeZone(ui.safeZone, in: r, ctx)
         if ui.scope != .off { drawScope(ctx) }
+        // PB-006b (owner Q1 = A): full screen is a viewing mode, no guides / handles / snap lines on the picture
+        if ui.isViewingFullscreen { return }
 
         if ui.showGuides {
             ctx.setLineWidth(1)
@@ -1013,7 +1015,7 @@ final class CanvasOverlayView: NSView {
     }
 
     override func keyDown(with e: NSEvent) {
-        if e.keyCode == 53, store.playerUI.isFullscreen { store.setPlayerFullscreen(false); return }
+        if e.keyCode == 53, store.playerUI.isViewingFullscreen { store.fullscreenEscape(); return }
         super.keyDown(with: e)
     }
 }

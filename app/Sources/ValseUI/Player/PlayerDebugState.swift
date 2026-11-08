@@ -6,7 +6,7 @@ import ValseEffects
 /// `--player-state <spec>`: puts the player in a given state for screenshots / visual checks, without input events.
 /// Comma-separated: `seek=<s>`, `select=text|sticker|overlay|main`, `rulers`, `guide=h:<0…1>` / `guide=v:<0…1>`,
 /// `safe=<SafeZone raw>`, `zoom=<k>`, `zoombar`, `loop`, `canvas=blur|color`, `ratio=<id>`, `edit` (inline text editing),
-/// `fullscreen`, `quality=<PreviewQuality raw>`.
+/// `fullscreen`, `fsIdle=<s>` (full-screen bar idle timeout), `quality=<PreviewQuality raw>`.
 public enum PlayerDebugState {
     public static func apply(_ spec: String, to store: EditorStore) {
         let ui = store.playerUI
@@ -42,7 +42,13 @@ public enum PlayerDebugState {
             case "ratio": store.setRatio(value)
             case "lag": store.engine.presentsOneFrameInForTesting = Int(value) ?? 4   // PB-SEEK-LAG: lagging preview
             case "quality": store.previewQuality = PreviewQuality(rawValue: value) ?? store.previewQuality
-            case "fullscreen": ui.isFullscreen = true
+            case "fullscreen": store.setPlayerFullscreen(true)
+            // PB-006b: the overlay bar's idle timeout in seconds (UI tests default to never hiding)
+            case "fsIdle": ui.fullscreenControls.idleTimeout = Double(value) ?? FullscreenControlsModel.defaultIdle
+            // detached player window in native full screen (UI tests host it in the test window, no real full screen)
+            case "fsDetached":
+                store.setPlayerDetached(true)
+                DetachedPanelsController.shared.setDetachedFullscreen(true)
             case "edit": if let id = store.selection.first { ui.editingTextClip = id }
             case "canvas":
                 guard let main = store.project.timeline.mainTrack else { break }

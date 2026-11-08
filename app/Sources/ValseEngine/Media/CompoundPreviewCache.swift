@@ -48,14 +48,18 @@ public final class CompoundPreviewCache: @unchecked Sendable {
 
     /// Content key of what compound `c` renders inside `project`: its nested timeline, the project settings, the nested
     /// compounds and the content of every media they use. Not the compound clip's own placement / look on the parent.
-    public static func key(of c: CompoundClip, in project: Project) -> String {
+    public static func key(of c: CompoundClip, in project: Project) -> String { key(timeline: c.timeline, in: project) }
+
+    /// Content key of `timeline` rendered with `project`'s settings, compounds and media. Also keys whole-timeline
+    /// frames (full-screen seek-bar hover thumbnails, PB-006b: `key(timeline: p.timeline, in: p)` + `thumbnail(p, …)`).
+    public static func key(timeline: Timeline, in project: Project) -> String {
         var ids = Set<MediaID>()
         func collect(_ tl: Timeline) { for t in tl.tracks { for x in t.clips { if let m = x.mediaID { ids.insert(m) } } } }
-        collect(c.timeline)
+        collect(timeline)
         let nestedCompounds = project.compounds.flatMap { $0.isEmpty ? nil : $0 }
         for n in nestedCompounds ?? [] { collect(n.timeline) }
         let media = ids.compactMap { id in project.asset(id).map { "\(id.raw.uuidString):\($0.contentHash):\($0.url.path)" } }.sorted()
-        let input = KeyInput(settings: project.settings, timeline: c.timeline, compounds: nestedCompounds, media: media)
+        let input = KeyInput(settings: project.settings, timeline: timeline, compounds: nestedCompounds, media: media)
         let enc = JSONEncoder(); enc.outputFormatting = .sortedKeys
         let data = (try? enc.encode(input)) ?? Data()
         return SHA256.hash(data: data).prefix(16).map { String(format: "%02x", $0) }.joined()

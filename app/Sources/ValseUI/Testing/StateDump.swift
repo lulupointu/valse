@@ -200,8 +200,14 @@ public enum StateDump {
         ui["focusedPanel"] = PanelFocus.shared.current?.rawValue ?? ""   // SE-017
         ui["numericFieldKeys"] = NumericFieldKeys.isActive   // OB-11: a focused numeric field takes ↑ / ↓
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
+        let fsc = store.playerUI.fullscreenControls   // PB-006b overlay transport
         ui["playerFullscreen"] = ["on": store.playerUI.isFullscreen,   // BUG-PLAYER-FULLSCREEN-EXIT
-                                  "ownsNative": store.playerUI.fullscreenCoordinator.ownsNativeFullscreen]
+                                  "ownsNative": store.playerUI.fullscreenCoordinator.ownsNativeFullscreen,
+                                  "detached": store.playerUI.isDetachedFullscreen,
+                                  "controls": fsc.visibility.rawValue, "pins": fsc.pins.map(\.rawValue).sorted(),
+                                  "showCount": fsc.showCount, "flashCount": fsc.flashCount, "flashing": fsc.isFlashing,
+                                  "scrubbing": fsc.isScrubbing, "hoverTime": fsc.hoverTime?.seconds ?? -1,
+                                  "fineScrub": fsc.fineScrub.map { "\($0)" } ?? "", "thumb": fsc.thumbnails.state] as [String: Any]
         ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
         if let s = SettingsScrollProbe.dump() { ui["settings"] = s }   // U1-2 {overflow, scrollX}

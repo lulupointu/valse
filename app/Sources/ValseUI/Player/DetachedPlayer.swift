@@ -44,7 +44,7 @@ final class DetachedPanelsController: NSObject, NSWindowDelegate {
 
     @ViewBuilder static func content(_ p: DetachablePanel, _ store: EditorStore) -> some View {
         switch p {
-        case .player: PlayerPanel(store: store)
+        case .player: DetachedPlayerContent(store: store)
         case .assets: AssetPanel(store: store)
         case .inspector: InspectorPanel(store: store)
         case .timeline: TimelinePanel(store: store)
@@ -77,7 +77,44 @@ final class DetachedPanelsController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let w = notification.object as? NSWindow, let id = w.identifier?.rawValue, let p = DetachablePanel(rawValue: id) else { return }
         windows[p] = nil
+        if p == .player { setDetachedFullscreen(false) }
         store?.setPanel(p, detached: false)
+    }
+
+    // MARK: Detached player in native full screen (PB-006b, owner Q8 = A): same overlay as the editor's full screen
+
+    private var keyMonitor: Any?
+
+    func windowWillEnterFullScreen(_ notification: Notification) {
+        guard (notification.object as? NSWindow)?.identifier?.rawValue == DetachablePanel.player.rawValue else { return }
+        setDetachedFullscreen(true)
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        guard (notification.object as? NSWindow)?.identifier?.rawValue == DetachablePanel.player.rawValue else { return }
+        setDetachedFullscreen(false)
+    }
+
+    func setDetachedFullscreen(_ on: Bool) {
+        guard let store, store.playerUI.isDetachedFullscreen != on else { return }
+        store.playerUI.isDetachedFullscreen = on
+        if on {
+            store.playerUI.fullscreenControls.enter()
+            // the editor's key monitor only serves the editor window: playback keys in the full-screen player window
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+                guard let self, let store = self.store, let w = self.windows[.player], e.window === w,
+                      store.playerUI.isDetachedFullscreen else { return e }
+                return ShortcutRegistry.handle(e, store: store) ? nil : e
+            }
+        } else {
+            store.playerUI.fullscreenControls.exit()
+            if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+        }
+    }
+
+    /// esc / ⤡ / double-click in the detached player's full screen: back to a window.
+    func leaveFullscreen(_ p: DetachablePanel) {
+        if let w = windows[p], w.styleMask.contains(.fullScreen) { w.toggleFullScreen(nil) } else { setDetachedFullscreen(false) }
     }
 }
 
@@ -104,6 +141,17 @@ extension EditorStore {
 
     /// Attaches every panel (closing the project).
     func attachAllPanels() { for p in detachedPanels { setPanel(p, detached: false) } }
+}
+
+/// The detached player window: the docked player, or the full-screen overlay player while the window is in native
+/// full screen (owner Q8 = A).
+struct DetachedPlayerContent: View {
+    @Perception.Bindable var store: EditorStore
+    var body: some View {
+        WithPerceptionTracking {
+            if store.playerUI.isDetachedFullscreen { FullscreenPlayer(store: store) } else { PlayerPanel(store: store) }
+        }
+    }
 }
 
 /// What the editor shows in a panel's slot while it is detached.

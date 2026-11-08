@@ -1,0 +1,26 @@
+// PB-006b (owner Q5 = A / Q6 = A): inside a compound clip full screen plays the compound's own timeline: the seek bar
+// spans the compound (0 → its duration), the context label reads "Timeline principale › Compound…" (not clickable).
+// French layout + element baseline of the bar.
+{
+  "project": "demo",
+  "lang": "fr",
+  "steps": [
+    {"click": "clip:main/1"},
+    {"key": "opt+g"},
+    {"waitFor": {"path": "main.clips.1.kind", "equals": "compound"}},
+    {"doubleClick": "clip:main/1"},
+    {"waitFor": {"path": "project.compoundEdit.count", "equals": 1}},
+    {"dump": "inside"},
+    {"key": "shift+cmd+f"},
+    {"waitFor": {"path": "ui.playerFullscreen.on", "equals": true}},
+    {"expect": {"path": "ui.anchors", "contains": "fullscreen.context"}},
+    {"click": "id:fullscreen.scrubber", "at": [0.5, 0.56]},
+    {"waitFor": {"path": "playhead", "approx": 2.5, "tolerance": 0.1}},
+    {"click": "id:fullscreen.context"},
+    {"expect": [{"path": "project.compoundEdit.count", "equals": 1}, {"path": "ui.playerFullscreen.on", "equals": true}]},
+    {"snapshot": "fullscreen-controls-compound", "element": "id:fullscreen.controls", "baseline": true, "threshold": 32, "tolerance": 0.02},
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.playerFullscreen.on", "equals": false}},
+    {"expect": {"path": "project.compoundEdit.count", "equals": 1}}
+  ]
+}
