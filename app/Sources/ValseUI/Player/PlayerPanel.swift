@@ -45,7 +45,7 @@ struct PlayerCanvasArea: View {
     var body: some View {
         WithPerceptionTracking {
             ZStack(alignment: .bottom) {
-                PlayerHost(store: store).frame(maxWidth: .infinity, maxHeight: .infinity)
+                PlayerHost(store: store, fullscreen: store.playerUI.isViewingFullscreen).frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay(alignment: .bottomLeading) { KeystrokeOverlay() }
                     .overlay(alignment: .top) { GuidePositionPopover(store: store, ui: store.playerUI).padding(.top, 40) }
                     .overlay(alignment: .topTrailing) { HDRDisplayNotice(store: store) }
@@ -364,6 +364,8 @@ enum CustomCanvasPanel {
 /// Bridges the AppKit/Metal player (preview + canvas overlay) into SwiftUI.
 struct PlayerHost: NSViewRepresentable {
     let store: EditorStore
+    /// Read by the (tracked) parent body: representables are not perception-tracked.
+    var fullscreen = false
     func makeNSView(context: Context) -> PlayerContainerView {
         let v = PlayerContainerView(store: store)
         v.player.setAccessibilityIdentifier("player")
@@ -379,7 +381,7 @@ struct PlayerHost: NSViewRepresentable {
         v.player.requestRedraw()
     }
     /// Full screen letterboxes in pure black (PB-006b, a viewer), the docked player in the panel colour.
-    private var letterbox: RGBA { store.playerUI.isViewingFullscreen ? .black : RGBA(hex: 0x1B1B1C) }
+    private var letterbox: RGBA { fullscreen ? .black : RGBA(hex: 0x1B1B1C) }
     /// Fills the proposal (perf: without this SwiftUI measures the AppKit view with Auto Layout `fittingSize` on every pass).
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: PlayerContainerView, context: Context) -> CGSize? {
         proposal.replacingUnspecifiedDimensions(by: CGSize(width: 10, height: 10))
