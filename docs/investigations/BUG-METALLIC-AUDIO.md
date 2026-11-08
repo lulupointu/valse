@@ -90,7 +90,43 @@ macOS 13 + 44.1 kHz output is the configuration where AVFoundation already misbe
    = duplicated/missing audio inside our lanes; none = AVFoundation's chain after the tap (then: test the
    48 kHz-output workaround, and a "re-prime" on a TimePitch/route event).
 
+## BUG-CUT-AUDIO-HOLE (2026-11-08)
+Owner's 2017 Intel MacBook Pro, macOS 13.7.8: PREVIEW has an audio hole at a cut (export fine everywhere; the Apple
+Silicon / macOS 26 Mac has none), built-in speakers and USB earphones alike. Setup: main track A | B (B fades in at its
+start); on an audio track a 0.2 s clip over the cut, fading out just after it.
+- Screen recording: exactly 85 ms of all-zero samples between the 0.2 s clip's fade-out and B's fade-in. 85 ms = 4096
+  frames at 48 kHz = one tap buffer; exact zeros = our lane gains (0 outside the ramps), not an IO overload.
+- Unified log, same item times at every replay (deterministic, not load): `lane audio jumped 1× while sounding (largest
+  +85.4 ms at item 54.889 s, rate 1.00)` and `(largest +42.7 ms at item 57.497 s …)` (2048 frames).
+- Hypothesis (unproven): the one-buffer lead above (`LaneProcessor` adds one buffer span to every preview stamp) was
+  measured on macOS 26 only; on macOS 13 the post-effects tap may stamp exactly (or variably), so preview gains, fades
+  and clip edges are shifted by one buffer there → a hole at cuts.
+
+Diagnostic build (default behaviour unchanged):
+- Switch, read at each composition build: `defaults write fr.valse.Valse ValseTapLabelLead -int 0` = preview uses the
+  stamps as is (like export); `1` = one buffer (the automatic value); `2` = two buffers;
+  `defaults delete fr.valse.Valse ValseTapLabelLead` = automatic. Env `VALSE_TAP_LABEL_LEAD` wins (tests).
+  Code: `TapLabelLead` (Audio/TapDiagnostics.swift), `LaneProcessor.leadBuffers`.
+- Log line per lane per seek / play start (subsystem `fr.valse`, error, public; checked ≤ 1/s, nothing in steady
+  playback, silent captures while paused skipped):
+  `tap stamps lane 0 tap lead 1: #0 54.1173 4096f d85.33ms 48000Hz snd | #1 54.2027 4096f d85.33ms Δ+4096f 48000Hz snd | … (rate 1.00, from item 54.100 s, preview lead 1 (auto), macOS 13.7.8, out 44100 Hz / 512 f): BUG-CUT-AUDIO-HOLE probe`
+  = the first 6 raw buffers after the tap's prepare / reset: stamp (s), frames, reported duration, Δ stamp in frames vs
+  the previous buffer, sample rate, sound before our gains; then player rate, seek target, active lead mode, macOS
+  version, default output device nominal rate / IO buffer size. What to read: whether the first stamp sits one buffer
+  before the seek target (lead) or on it (exact), and whether Δ follows the previous or the current buffer's frames.
+  The `lane audio jumped` line now ends with the active lead mode too.
+
+Recipe for the owner (Intel Mac):
+1. Install the diagnostic build; open the project; play across the cut from ~2 s before it with the default setting →
+   note whether the hole is there.
+2. `defaults write fr.valse.Valse ValseTapLabelLead -int 0` in Terminal, quit and relaunch Valse.
+3. Replay across the cut the same way → hole gone, still there, or moved / doubled? (Optionally repeat with `-int 2`.)
+4. `log show --last 10m --predicate 'subsystem == "fr.valse"' > ~/Desktop/valse-log.txt` and send that file
+   (`defaults delete fr.valse.Valse ValseTapLabelLead` restores the default).
+
 ## Files
+- `app/Sources/ValseEngine/Audio/TapDiagnostics.swift` (`TapLabelLead` switch, `TapDiagnostics` stamp capture,
+  default output format), `app/Tests/ValseEngineTests/TapLabelLeadTests.swift` (BUG-CUT-AUDIO-HOLE).
 - `app/Sources/ValseEngine/Audio/AudioMix.swift` (`LaneProcessor.labelsLeadOneBuffer`, jump probe, `tapCapture`),
   `Audio/AudioTap.swift` (doc), `Composition/CompositionBuilder.swift` (preview → labels lead),
   `Playback/PlaybackEngine.swift` (`reportLaneAudio`, `laneAudioJumps`).

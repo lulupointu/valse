@@ -226,7 +226,9 @@ public enum CompositionBuilder {
             for v in vLanes.compactMap({ $0 }) { videoTrackIDs.append(v.trackID) }
             videoTrackIDs += auxOrder
         }
-        for lane in try packAudio(pendingAudio, into: comp, sharesAcrossTracks: !separatesTrackAudio) {
+        // BUG-CUT-AUDIO-HOLE: preview tap label lead (default 1 buffer; `defaults write fr.valse.Valse ValseTapLabelLead`)
+        let previewLead = purpose == .preview ? TapLabelLead.preview().buffers : nil
+        for (laneIndex, lane) in try packAudio(pendingAudio, into: comp, sharesAcrossTracks: !separatesTrackAudio).enumerated() {
             let a = lane.params
             var volumes: [(ramps: [GainRamp], end: Time)] = []
             var floor = Time.zero
@@ -249,7 +251,7 @@ public enum CompositionBuilder {
             if audioTaps {
                 a.audioTapProcessor = AudioTap.make(LaneProcessor(clips: lane.placements.map(\.clip), state: audioState, skip: skip,
                                                                   gains: volumes.flatMap { $0.ramps },
-                                                                  labelsLeadOneBuffer: purpose == .preview))   // AVPlayer only
+                                                                  leadBuffers: previewLead, lane: laneIndex))   // lead: AVPlayer only
             }
             if a.audioTapProcessor == nil {
                 a.setVolume(0, at: .zero)
