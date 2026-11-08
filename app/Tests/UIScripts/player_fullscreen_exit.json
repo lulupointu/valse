@@ -1,0 +1,17 @@
+// BUG-PLAYER-FULLSCREEN-EXIT: the player full screen button and esc only leave the player full screen (the offscreen app never touches native full screen)
+{
+  "project": "demo",
+  "lang": "en",
+  "steps": [
+    {"click": "id:player.fullscreen"},
+    {"waitFor": {"path": "ui.playerFullscreen.on", "equals": true, "timeout": 10}},
+    {"expect": {"path": "ui.playerFullscreen.ownsNative", "equals": false}},
+    {"key": "escape"},
+    {"waitFor": {"path": "ui.playerFullscreen.on", "equals": false, "timeout": 10}},
+    {"key": "shift+cmd+f"},
+    {"waitFor": {"path": "ui.playerFullscreen.on", "equals": true, "timeout": 10}},
+    {"click": "id:player.fullscreen"},
+    {"waitFor": {"path": "ui.playerFullscreen.on", "equals": false, "timeout": 10}},
+    {"expect": {"path": "ui.playerFullscreen.ownsNative", "equals": false}}
+  ]
+}

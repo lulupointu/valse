@@ -198,6 +198,8 @@ public enum StateDump {
         ui["focusedPanel"] = PanelFocus.shared.current?.rawValue ?? ""   // SE-017
         ui["numericFieldKeys"] = NumericFieldKeys.isActive   // OB-11: a focused numeric field takes ↑ / ↓
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
+        ui["playerFullscreen"] = ["on": store.playerUI.isFullscreen,   // BUG-PLAYER-FULLSCREEN-EXIT
+                                  "ownsNative": store.playerUI.fullscreenCoordinator.ownsNativeFullscreen]
         ui["tips"] = Onboarding.shared.dump   // PM-016 {step, whatsNew}
         ui["layout"] = EditorLayout.shared.dump   // SE-005 {preset, top, left, right, custom, activeCustom}
         if let s = SettingsScrollProbe.dump() { ui["settings"] = s }   // U1-2 {overflow, scrollX}

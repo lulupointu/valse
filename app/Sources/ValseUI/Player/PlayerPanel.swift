@@ -112,7 +112,7 @@ struct TransportBar: View {
                     IconButton(ui.isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                help: tr(ui.isFullscreen ? "player.exitFullscreen" : "player.fullscreen")) {
                         store.togglePlayerFullscreen()
-                    }
+                    }.testID("player.fullscreen")
                 }
                 .font(.system(size: 11).monospacedDigit())
                 HStack(spacing: 2) {

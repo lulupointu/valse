@@ -55,6 +55,8 @@ public final class PlayerUIState {
     public var loopEnabled = false
     /// Player-only full screen (PB-006).
     public var isFullscreen = false
+    /// Native window full screen bookkeeping for the player full screen (BUG-PLAYER-FULLSCREEN-EXIT).
+    @PerceptionIgnored public let fullscreenCoordinator = PlayerFullscreenCoordinator()
     /// Player in its own window (PB-006 "Detach player").
     public var isDetached = false
     /// Multi-camera angle grid over the preview while a multicam clip is selected (PB-016).
@@ -162,9 +164,13 @@ extension EditorStore {
     public func setPlayerFullscreen(_ on: Bool) {
         guard playerUI.isFullscreen != on else { return }
         playerUI.isFullscreen = on
-        if let w = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }),
-           w.styleMask.contains(.fullScreen) != on, w.isVisible, NSApp.activationPolicy() == .regular {
-            w.toggleFullScreen(nil)
+        // Only undo the native (Spaces) full screen this mode entered itself: a window already full screen stays so.
+        let c = playerUI.fullscreenCoordinator
+        if on {
+            c.onNativeFullscreenLeftByUser = { [weak self] in self?.setPlayerFullscreen(false) }
+            c.enter()
+        } else {
+            c.exit()
         }
     }
 
