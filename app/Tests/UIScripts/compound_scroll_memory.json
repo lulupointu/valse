@@ -1,0 +1,29 @@
+// BUG-COMPOUND-SCROLL: the main timeline and each compound keep their own scroll: enter = where the compound was left
+// (0 the first time), exit = where the main timeline was left; enter → scroll → exit → re-enter. (Vertical scroll and
+// nested compounds: CompoundScrollTests.)
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"click": "clip:main/1", "modifiers": ["shift"]},
+    {"key": "opt+g"},
+    {"waitFor": {"path": "main.clips.0.kind", "equals": "compound"}},
+    {"scroll": "id:timeline", "dx": -60},
+    {"waitFor": {"path": "ui.scrollTime", "approx": 1.5, "tolerance": 0.01}},
+    {"doubleClick": "clip:main/0"},
+    {"waitFor": {"path": "project.compoundEdit.count", "equals": 1}},
+    {"expect": [{"path": "ui.scrollTime", "equals": 0}, {"path": "ui.scrollY", "equals": 0},
+                {"path": "ui.anchors", "contains": "compound.breadcrumb"}]},
+    {"scroll": "id:timeline", "dx": -40},
+    {"waitFor": {"path": "ui.scrollTime", "approx": 1.0, "tolerance": 0.01}},
+    {"click": "id:compound.back"},
+    {"waitFor": {"path": "project.compoundEdit", "exists": false}},
+    {"expect": {"path": "ui.scrollTime", "approx": 1.5, "tolerance": 0.01}},
+    {"doubleClick": "clip:main/0"},
+    {"waitFor": {"path": "project.compoundEdit.count", "equals": 1}},
+    {"expect": {"path": "ui.scrollTime", "approx": 1.0, "tolerance": 0.01}},
+    {"key": "escape"},
+    {"waitFor": {"path": "project.compoundEdit", "exists": false}},
+    {"expect": {"path": "ui.scrollTime", "approx": 1.5, "tolerance": 0.01}}
+  ]
+}
