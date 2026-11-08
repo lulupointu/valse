@@ -1,19 +1,27 @@
-// Audio fade handles (FCP): drag the top-left handle of a selected audio clip = fade-in length (one undo step, equal-power
-// default curve); right-click a handle picks the curve.
+// Audio fade handles (FCP): drag the pin on the volume line at the start of a selected audio clip = fade-in length (one
+// undo step, equal-power default curve); right-click a pin picks the curve (menu with curve thumbnails, AU-FADE-UI);
+// the smooth curves + pins are checked on an element-scoped baseline of the clip.
 {
   "project": "demo",
   "steps": [
     {"click": "clip:5/0:0.5"},
     {"expect": {"path": "tracks.5.clips.0.fadeInShape", "equals": "plus3dB"}},
-    {"drag": "clip:5/0:0.0", "offset": [6, -22], "by": [60, 0]},
+    {"drag": "clip:5/0:0.0", "offset": [6, -4], "by": [60, 0]},
     {"waitFor": {"path": "tracks.5.clips.0.fadeIn", "gt": 0.2}},
     {"expect": {"path": "undo.name", "equals": "cmd.fade"}},
     {"key": "cmd+z"},
     {"waitFor": {"path": "tracks.5.clips.0.fadeIn", "equals": 0}},
     {"key": "cmd+shift+z"},
     {"waitFor": {"path": "tracks.5.clips.0.fadeIn", "gt": 0.2}},
-    {"rightClick": "clip:5/0:0.0", "offset": [66, -22], "menuItem": "fade.shape.sCurve"},
+    {"rightClick": "clip:5/0:0.0", "offset": [66, -4], "menuItem": "fade.shape.sCurve"},
     {"waitFor": {"path": "tracks.5.clips.0.fadeInShape", "equals": "sCurve"}},
-    {"expect": [{"path": "tracks.5.clips.0.fadeOutShape", "equals": "plus3dB"}, {"path": "undo.name", "equals": "cmd.fadeShape"}]}
+    {"expect": [{"path": "tracks.5.clips.0.fadeOutShape", "equals": "plus3dB"}, {"path": "undo.name", "equals": "cmd.fadeShape"}]},
+    {"expect": {"path": "tracks.5.clips.0.fadeOut", "approx": 1.0}},
+    {"drag": "clip:5/0:0.9048", "offset": [0, -4], "by": [-50, 0]},
+    {"waitFor": {"path": "tracks.5.clips.0.fadeOut", "gt": 1.3}},
+    {"hover": "clip:5/0:0.5", "offset": [0, 20]},
+    {"snapshot": "audio-fade-curves", "element": "id:timeline.selectedClip", "baseline": true, "threshold": 32, "tolerance": 0.02},
+    {"hover": "clip:5/0:0.0", "offset": [66, -4]},
+    {"snapshot": "audio-fade-curves-retina", "element": "id:timeline.selectedClip"}
   ]
 }

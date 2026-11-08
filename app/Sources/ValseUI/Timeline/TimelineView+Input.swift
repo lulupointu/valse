@@ -257,7 +257,7 @@ extension TimelineView {
         case .fade(let id, let fadeIn):
             guard let c = tl.clip(id), let loc = tl.locate(id), let row = l.row(for: tl.tracks[loc.track].id) else { return }
             _ = row
-            var t = l.unclampedTime(atX: fadeIn ? pt.x - 6 : pt.x + 6)   // the handle sits 6 pt inside the clip edge at fade 0
+            var t = l.unclampedTime(atX: pt.x)   // the pin sits at the fade end (never closer than 6 pt to the edge)
             snapLine = nil
             if freeSnap, let s = snapIndex?.snap(t, playhead: store.transport.playhead, pixelsPerSecond: l.pixelsPerSecond), s.snapped {
                 t = s.0; snapLine = t
@@ -445,10 +445,14 @@ extension TimelineView {
         let hit = l.hitTest(pt, timeline: store.project.timeline, selection: store.selection)
         hoverClip = nil
         hoverVolumeClip = ui.tool == .split ? nil : volumeLineHit(pt, layout: l)?.id
+        if case .clip(let id, _, _) = hit { hoverClip = id }
+        hoverFade = ui.tool == .split || ui.quickCut != nil ? nil : fadeHandleHit(pt, layout: l).map { (id: $0.0, fadeIn: $0.1) }
+        if hoverFade != nil { hoverVolumeClip = nil }
         switch hit {
         case .clip(let id, let region, _):
             hoverClip = id
             if ui.tool == .split { Self.bladeCursor.set() }
+            else if hoverFade != nil { NSCursor.resizeLeftRight.set() }
             else if hoverVolumeClip != nil { NSCursor.resizeUpDown.set() }
             else if region != .body { NSCursor.resizeLeftRight.set() }
             else { NSCursor.arrow.set() }
@@ -468,7 +472,7 @@ extension TimelineView {
     }
 
     override func mouseExited(with event: NSEvent) {
-        hoverTime = nil; hoverPoint = nil; hoverClip = nil; hoverVolumeClip = nil
+        hoverTime = nil; hoverPoint = nil; hoverClip = nil; hoverVolumeClip = nil; hoverFade = nil
         // preview axis: back to the playhead — unless playback started meanwhile (it would jump mid-play, C3-5)
         if let a = previewAnchor { previewAnchor = nil; if !store.transport.isPlaying { store.seek(to: a) } }
         dirty = true
