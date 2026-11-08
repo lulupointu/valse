@@ -564,7 +564,7 @@ public enum BuiltinTransitions {
             float kf = T * 30.0;                     // position on CapCut's 30 fps key grid
             int fi = clamp(int(floor(kf + 1e-3)), 0, 60);
             bool useB = fi >= 30;                    // A for frames 0…29, B from frame 30 (mid-pan)
-            float pan = RR_PAN[fi];                  // hold keys
+            float pan = RR_PAN[fi] * RR_FLIP;                  // hold keys
             float I = rr_blurIntensity(T);
             float n = rr_samples(I);
             float2 sz = ctx.size;
@@ -590,7 +590,46 @@ public enum BuiltinTransitions {
             c = mix(c, float3(dot(c, float3(0.299, 0.587, 0.114)) * 0.49411764740944), am) + RR_TINT * am;
             float op = rr_opacity(T);
             if (op > 0.0) {
-                float2 ov = rr_overlay(uv, sz, kf - 1.0);     // the overlay video lags one frame
+                float2 ov = rr_overlay(uv, sz, kf - 1.0, RR_FLIP);     // the overlay video lags one frame
+                c = c * (1.0 - ov.x * op) + ov.y * op;
+            }
+            return float4(c, 1.0);
+            """),
+        // TR-RETRO-FF: Retro Rewind mirrored (▶▶ icon, pan and scratch line run the other way).
+        t("retroFastForward", "glitch", "forward.fill", duration: 2.0, prelude: retroFastForwardLib, """
+            if (t <= 0.0) return FA(uv);
+            if (t >= 1.0) return FB(uv);
+            float T = t * 2.0;                       // authored timeline: 2 s (scales with the transition duration)
+            float kf = T * 30.0;                     // position on CapCut's 30 fps key grid
+            int fi = clamp(int(floor(kf + 1e-3)), 0, 60);
+            bool useB = fi >= 30;                    // A for frames 0…29, B from frame 30 (mid-pan)
+            float pan = RR_PAN[fi] * RR_FLIP;                  // hold keys
+            float I = rr_blurIntensity(T);
+            float n = rr_samples(I);
+            float2 sz = ctx.size;
+            float2 dsz = floor(sz * (I <= 10.0 ? 0.8 : 0.7));     // the blur's downscaled render target
+            float3 c = rr_tapD(from, to, s, useB, uv.x, uv.y, pan, dsz);
+            if (n >= 1.0) {
+                // CapCut's directional blur, angle 90: gaussian taps radius/n apart, out-of-frame taps dropped
+                float xs = max(min(sz.x, sz.y), max(sz.x, sz.y) * 0.5) / sz.x;
+                float radius = I / 1000.0, sigma = radius / 3.0, st = radius / n * xs;
+                float3 acc = c;
+                float w = 1.0;
+                for (int i = 1; i <= 64; i++) {
+                    if (float(i) > n) break;
+                    float d = st * float(i);
+                    float k = exp(-0.5 * d * d / (sigma * sigma));
+                    if (uv.x - d >= 0.0) { acc += k * rr_tapD(from, to, s, useB, uv.x - d, uv.y, pan, dsz); w += k; }
+                    if (uv.x + d <= 1.0) { acc += k * rr_tapD(from, to, s, useB, uv.x + d, uv.y, pan, dsz); w += k; }
+                }
+                c = acc / w;
+            }
+            // Tone (linear, so applied after the blur): towards luma601 × 0.494 grey
+            float am = rr_tone(T);
+            c = mix(c, float3(dot(c, float3(0.299, 0.587, 0.114)) * 0.49411764740944), am) + RR_TINT * am;
+            float op = rr_opacity(T);
+            if (op > 0.0) {
+                float2 ov = rr_overlay(uv, sz, kf - 1.0, RR_FLIP);     // the overlay video lags one frame
                 c = c * (1.0 - ov.x * op) + ov.y * op;
             }
             return float4(c, 1.0);
