@@ -628,13 +628,38 @@ public final class PlaybackEngine {
     public private(set) var laneAudioJumps = 0
 
     private func reportLaneAudio(_ host: CFTimeInterval) {
+        reportTapStamps(host)
         guard host - laneAudioReportedAt >= 2 else { return }
         laneAudioReportedAt = host
         let j = audioState.takeLaneJumps()
         guard j.count > 0 else { return }
         laneAudioJumps += j.count
-        EngineLog.error(String(format: "lane audio jumped %d× while sounding (largest %+.1f ms at item %.3f s, rate %.2f): BUG-METALLIC-AUDIO probe",
-                               j.count, j.worst * 1000, j.at, player.rate))
+        EngineLog.error(String(format: "lane audio jumped %d× while sounding (largest %+.1f ms at item %.3f s, rate %.2f, %@): BUG-METALLIC-AUDIO probe",
+                               j.count, j.worst * 1000, j.at, player.rate, TapLabelLead.describePreview()))
+    }
+
+    /// BUG-CUT-AUDIO-HOLE probe: the first buffers each lane tap got after each seek / play start, one line per lane
+    /// (checked at most once a second; steady playback publishes nothing; silent captures while paused are skipped).
+    private var tapStampsReportedAt: CFTimeInterval = 0
+    /// Tap-stamp lines logged so far (diagnostics / tests).
+    public private(set) var tapStampLines = 0
+
+    private func reportTapStamps(_ host: CFTimeInterval) {
+        guard host - tapStampsReportedAt >= 1 else { return }
+        tapStampsReportedAt = host
+        let captures = audioState.tapDiagnostics.take()
+        let rate = player.rate
+        let logged = captures.filter { c in rate != 0 || c.buffers.contains { $0.sounding } }
+        guard !logged.isEmpty else { return }
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        let out = AudioDevices.defaultOutputFormat().map { String(format: "out %.0f Hz / %u f", $0.sampleRate, $0.bufferFrames) } ?? "out ?"
+        let from = seekTarget.isNumeric ? String(format: "%.3f s", seekTarget.seconds) : "?"
+        let context = String(format: "rate %.2f, from item %@, preview %@, macOS %d.%d.%d, %@", rate, from,
+                             TapLabelLead.describePreview(), v.majorVersion, v.minorVersion, v.patchVersion, out)
+        for c in logged {
+            tapStampLines += 1
+            EngineLog.error("tap stamps " + TapDiagnostics.describe(c) + " (" + context + "): BUG-CUT-AUDIO-HOLE probe")
+        }
     }
 
     // MARK: Stalled video pipeline (C3 round 2)
