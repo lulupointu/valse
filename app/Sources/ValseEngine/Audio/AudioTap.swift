@@ -54,7 +54,10 @@ enum AudioTap {
                                       time: range.start, duration: range.duration)
             })
         var tap: MTAudioProcessingTap?
-        let err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap)
+        // BUG-CUT-AUDIO-HOLE investigation: `VALSE_TAP_PRE=1` (tests / probes only) installs the lane taps pre-effects
+        // (`TapProbeTests`, docs/investigations/BUG-METALLIC-AUDIO.md). Shipping behaviour: post-effects.
+        let flag = ProcessInfo.processInfo.environment["VALSE_TAP_PRE"] != nil ? kMTAudioProcessingTapCreationFlag_PreEffects : kMTAudioProcessingTapCreationFlag_PostEffects
+        let err = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, flag, &tap)
         if err != noErr { Unmanaged<Box>.fromOpaque(box).release(); return nil }
         return tap
     }

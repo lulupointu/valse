@@ -124,11 +124,59 @@ Recipe for the owner (Intel Mac):
 4. `log show --last 10m --predicate 'subsystem == "fr.valse"' > ~/Desktop/valse-log.txt` and send that file
    (`defaults delete fr.valse.Valse ValseTapLabelLead` restores the default).
 
+### Part 2: pre-effects lane taps, measured (2026-11-08, Apple Silicon / macOS 26, 48 kHz output). NOT shipped
+Proposed general fix: install the lane taps pre-effects (before AVFoundation's time-pitch stage) so preview and export
+label alike and the lead disappears. Measured with `TapProbeTests` (opt-in: `VALSE_TAP_PROBE=1`; `VALSE_TAP_PRE=1`
+switches `AudioTap.make` to pre-effects, test/probe only; preview probes run with `VALSE_TAP_LABEL_LEAD=0`). Each tap
+buffer is compared with the source decoded offline at the source time the composition's own remap
+(`CompositionBuilder.remapSegments`) gives for the buffer's stamp: normalised correlation, best lag ±4800 samples, on the
+first and the last 256 samples of the buffer (the last assuming contiguous source samples from the first).
+
+Timing: pre-effects stamps are EXACT everywhere tried, preview and export (lag in samples, corr 1.000):
+
+| layout (clip at 1 s, 3 s of 48 kHz noise) | preview head / tail lag | export head / tail lag |
+|---|---|---|
+| speed 1 after a gap | 0 / 0 | 0 / 0 |
+| constant speed 2 / 0.5 / 1.5 | 0 / 0 · 0 / 0 · ±1 / ±1 | 0 / 0 · 0 / 0 · 0..1 / 0..1 |
+| split: speed 1 then speed 2 on one lane | 0 / 0 | 0 / 0 |
+| player rate 2 / 0.5 (J/K/L) | 0 / 0 · 0 / 0 | — |
+| 44.1 kHz source (preview tap at 44.1 kHz, export conformed) | 0 / 0 | 0 / 0 |
+| curve speed 0.5 → 2 | −5..0 / −5..0 | −5..0 (one 2-frame buffer: meaningless) |
+
+What a pre-effects buffer is: SOURCE samples at the track's rate, contiguous (tail lag = head lag), so one frame covers
+`1 / (sampleRate × segment speed)` of composition time (Δstamp / frames = 0.5 / sr at speed 2), independent of the
+player rate. A buffer can straddle a speed change: at the end of a 2× clip followed by a gap, a 24592-frame buffer held
+6800 frames at 2× then 17792 at 1× (Δ / frames = 0.8617 / sr), so the lane processor would need a per-segment frame →
+time map (the clip's speed segments), not one step per buffer. Preview buffers were 4096 frames in quiet runs and 24592
+(512 ms) in a run on a loaded machine; the first buffer after a play has no stamp; export buffers 1–4096 frames.
+
+Why it was stopped (the brief's stop conditions, for the owner):
+1. **Live effects change sound at clip speed ≠ 1, in export too.** Pre-effects, the live chain (EQ, voice-filter
+   colour, echo, chorus, reverb, tremolo, ring mod, bitcrush…) runs on source samples BEFORE the time stretch, so every
+   time constant scales with the clip speed. Measured, export of micEcho (0.16 s echo) on a burst: clip speed 2 →
+   echo 76 ms after the burst, speed 0.5 → 320 ms (post-effects the chain runs at output rate: 160 ms by construction).
+   Same for tremolo / chorus rates and reverb tails, and in preview also with the J/K/L rate. Filters, gains and fades
+   are unaffected (pitch-preserving stretch keeps frequencies; a slowly varying gain commutes with the stretch).
+2. **Live-effect edits are heard later in preview.** The pre-effects tap processes a buffer ~454 ms before the playhead
+   reaches it (median, 41 buffers; post-effects: ~110 ms), so an EQ / voice-strength change while playing lands
+   ~0.45 s late (more with 512 ms buffers).
+Options (owner decision): (a) accept 1 and 2 (CapCut parity unknown); (b) pre-effects + compensate time-based effects by
+the segment speed (a patch, and J/K/L stays rate-dependent); (c) keep post-effects and find a general labelling fix
+there (e.g. derive the label from consecutive stamps vs the frames of the previous / current buffer, which the macOS 13
+log can discriminate since its buffer sizes vary: 4474 / 4096 frames).
+
+Side finding (pre-existing, also post-effects = main): export of a mono WAV clip with the micEcho voice effect at speed
+1 is silent or nearly so: the tap stamps jump from 0 to 2.2187 s after the first 512-frame buffer (also +93.9 s at speed
+2 post-effects) and the reader's output timestamps jump with them (`echoDelay` probe). Without the effect the same clip
+exports fine. Not investigated further (out of scope).
+
 ## Files
 - `app/Sources/ValseEngine/Audio/TapDiagnostics.swift` (`TapLabelLead` switch, `TapDiagnostics` stamp capture,
   default output format), `app/Tests/ValseEngineTests/TapLabelLeadTests.swift` (BUG-CUT-AUDIO-HOLE).
 - `app/Sources/ValseEngine/Audio/AudioMix.swift` (`LaneProcessor.labelsLeadOneBuffer`, jump probe, `tapCapture`),
   `Audio/AudioTap.swift` (doc), `Composition/CompositionBuilder.swift` (preview → labels lead),
   `Playback/PlaybackEngine.swift` (`reportLaneAudio`, `laneAudioJumps`).
+- `app/Tests/ValseEngineTests/TapProbeTests.swift`: part 2 probes (opt-in `VALSE_TAP_PROBE=1`, `VALSE_TAP_PRE=1`);
+  `AudioMixdown.render(…, audioState:)` lets a test read the export lanes' taps.
 - `app/Tests/ValseEngineTests/MetallicAudioTests.swift`: two regression tests (preview / export clip start) and the
   opt-in owner-session replay + tap timeline probe (`VALSE_METALLIC_REPRO=1`, `VALSE_METALLIC_MEDIA=wav`).
