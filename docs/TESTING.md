@@ -447,3 +447,23 @@ peak), `PerfMemoryTests` in its own process (typical 1080p project: play, scrub,
 - Engine memory: frame textures come from `FrameScratch` (dead ones are reused within the frame — call
   `scratch.recycle` when you add a pass whose input is not needed afterwards); caches take their size from
   `MemoryBudget` and shrink in `MemoryPressure.apply`.
+
+## 4. macOS 13 VM for engine probes
+
+AVFoundation behaviour differs between macOS 13 and 26 (BUG-CUT-AUDIO-HOLE, docs/investigations/BUG-METALLIC-AUDIO.md
+part 5). The Tart VM `ventura13` (macOS 13.7.4 arm64, admin/admin, Command Line Tools with Swift 5.8 only, no
+Testing.framework / xctest) runs host-built binaries that target macOS 13:
+- Cheapest route: a single-file probe with no Valse module (`scripts/audio_probe/AudioTimingProbe.swift`), built with
+  `xcrun swiftc -swift-version 5 -target arm64-apple-macos13.0`, copied with scp, run over ssh.
+  `scripts/audio_probe.sh --vm -- <command>` does all of it (starts the VM headless with `--no-graphics` if stopped, waits
+  for ssh, stops it afterwards unless `--keep-vm`; `--host --vm` runs both; `--logs` adds the probe's unified-log
+  lines; output in build/audio_probe/). Full app UI runs: STATUS.md "VM how-to" (build_app.sh + `--uitest`).
+- ssh key, once: `ssh-copy-id -i ~/.ssh/id_ed25519.pub admin@$(~/bin/tart ip ventura13)` (password admin; from an agent,
+  through `expect`). The VM's IP is `~/bin/tart ip ventura13` (192.168.64.2 so far).
+- Audio in the VM: one output, "AVIODevice" (Apple Virtual Sound Device), 48 kHz / 512 frames, rates 48 / 96 kHz only
+  (no 44.1 kHz output in the VM); AVPlayer, AudioQueue and AVSampleBufferAudioRenderer all run against it headless.
+  Core Audio process taps (output capture) need macOS 14.2: not in this VM.
+- Remote shell is zsh: call `/usr/bin/log` (zsh has a `log` builtin). More AudioQueue / FigAudioQueue logging:
+  `echo admin | sudo -S /usr/bin/log config --subsystem com.apple.coreaudio --mode level:debug` (reset with
+  `log config --reset`).
+- Never start the VM without `--no-graphics`; stop it when done (`~/bin/tart stop ventura13`).

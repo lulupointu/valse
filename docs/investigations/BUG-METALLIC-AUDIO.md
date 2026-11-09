@@ -258,6 +258,113 @@ Two checks of whether anything the tap or the engine sees (besides content) pred
      stretcher (no public API found).
   Until then preview keeps lead 1 buffer (+ the `ValseTapLabelLead` override: `-int 0` fixes the Intel hole).
 
+### Part 5: macOS 13 reproduced in a VM, root cause, replacement study (2026-11-09). Nothing shipped
+Tool: `scripts/audio_probe.sh` builds `scripts/audio_probe/AudioTimingProbe.swift` (one file, no Valse module, no test
+framework, target macOS 13) and runs the SAME binary on this Mac (macOS 26.4.1, arm64) and in the Tart VM `ventura13`
+(macOS 13.7.4, arm64, output "AVIODevice" 48 kHz / 512 f; it has an output device even headless). It rebuilds the
+preview audio shape (composition audio track, clip at 1 s, 6 s of the burst source, optional `scaleTimeRange`, audio
+mix input with an algorithm + POST-EFFECTS tap, AVPlayer, exact seek to 1.3 s, `playImmediately`) and measures on the
+content like `TapProbeTests.previewLead` (lead = content − stamp, positive = stamps early). Audio-only compositions
+reproduce the host's known numbers exactly (+85.33 ms), so the video track / compositor are not involved.
+
+**1. macOS 13 reproduces the owner's Mac: stamps are exact.** Lead in ms (envelope / burst onsets), 48 kHz media,
+4096-frame tap buffers on both:
+
+| lane algorithm | system | r1 s1 | r2 s1 | r0.5 s1 | r1 s2 | r2 s2 | r1 s0.5 | r2 s0.5 |
+|---|---|---|---|---|---|---|---|---|
+| `.spectral` (ships) | macOS 13 VM | **0.00** | ≈ 5 (smeared) | ≈ 2 | ≈ −1 | ≈ 0 | ≈ 0 | 0.00 |
+| | macOS 26 host | **+85.33** | ≈ +56..100 | ≈ +135 | ≈ −1 | ≈ +1 | ≈ −3 | 0.00 |
+| `.timeDomain` | macOS 13 | 0.00 | −8.6 | +5.1 | −10.8 | −37.9 | +30.1 | 0.00 |
+| | macOS 26 | −9.1 | −24.2 | +7.2 | −10.2 | −33.6 | +31.7 | 0.04 |
+| `.varispeed` | macOS 13 | +85.33 | 0.0 | ≈ 0 | +0.5 | +0.5 | ≈ 2 | +2.0 |
+| | macOS 26 | +86.33 | +0.5 | ≈ 2 | +0.5 | +0.5 | ≈ 2 | +2.0 |
+| export (reader), any | both | 0.00 | — | — | ≈ 0 | — | — | — |
+
+44.1 kHz media (3779-frame tap buffers): macOS 13 0.00, macOS 26 +92.88 ms (= 4096 frames at 44.1 kHz). The owner's
+85 ms hole at a cut is the one-buffer lead main adds on top of exact stamps.
+
+**2. Root cause: on macOS 26 the stamps break the API contract by the stretcher's latency.**
+- Contract (MediaToolbox/MTAudioProcessingTap.h): `MTAudioProcessingTapGetSourceAudio`'s `timeRangeOut` is "the asset
+  time range corresponding to the provided source audio frames", and "the caller is responsible for absorbing any
+  processing delays" (an AU's reported latency must not reach the tap). We call it as documented (in-place, flags
+  propagated, range from the same call): no misuse, and nothing else to read (the tap has no latency / stretcher
+  property; `CMTimeRange.duration` and the flags are the only other outputs).
+- AUNewTimePitch (`nutp`, what `.spectral` runs; logged on 26 as "Enabled the time-stretcher as (nutp)") reports
+  kAudioUnitProperty_Latency **2048 / 1536 / 3072 frames at 1× / 2× / 0.5× on macOS 13 and 4096 / 3072 / 6144 on 26**
+  (doubled). Other units unchanged (`tmpt` 2519, `vari` 48, `ipto` 1115-1116).
+- AVPlayer stamp structure after a seek (unscaled, r1): first stamped buffer at target − **2048 frames** on 13
+  (−42.65 ms: the owner's own log said −42.6 ms) with exact content; at target − **8192 = 2 × 4096** on 26 with content
+  late by 4096. I.e. first stamp − target = −(L + lead) with L the unit's latency on that OS: 13 subtracts L once and
+  is right; 26 subtracts it twice. Same for 44.1 kHz media (−2047 / −8191 frames). Scaled segments start at the target
+  with exact stamps on both systems (and on 13 their first buffer carries StartOfStream 0x100).
+- macOS 26 logs show AVFoundation enabling the stretcher bypass at rate 1 (`TimePitchProperty set qtpb: 1`,
+  `kAudioQueueProperty_TimePitchBypass`) on the unscaled lane. So the bypassed stretcher delays nothing, yet the stamps
+  are moved back by its (new, doubled) latency. macOS 13 logs none of these lines (even with
+  `log config --mode level:debug` on com.apple.coreaudio / coremedia); its queues are created 'tido' like 26's.
+- Below AVFoundation, a bare AudioQueue + post-effects AudioQueueProcessingTap (`AudioTimingProbe aq`) behaves the same
+  on both: source frame 0 arrives 4096 + L frames after the tap's first stamp (13: 6144, 26: 8192; varispeed 4144 on
+  both), bypass 0 or 1 alike; StartOfStream is set on buffer #3 on 26, never on 13. So the queue's own timeline is
+  self-consistent; the error is in AVFoundation's conversion of that timeline to asset time (FigAudioQueue, private),
+  which on 26 over-compensates by L while bypassed.
+- The flags cannot be used to detect it: on 26 StartOfStream lands on the buffer stamped AT the target (whose content
+  is target + L), on 13 it is absent in the unscaled case.
+- Verdict: **tool broken** (AVFoundation regression between macOS 13 and 26, contradicting its header contract), not
+  API misuse. Unscaled spectral lanes, i.e. the common case, are wrong on 26; the size of the error depends on the OS's
+  stretcher latency and on the player rate, which is why no stamp-only rule exists (Part 4). Worth a Feedback Assistant
+  report (probe binary + this table as the reproducer).
+
+**3. Replacement study: export pipeline → AVSampleBufferAudioRenderer (prototype `AudioTimingProbe renderer`).**
+Preview audio read by `AVAssetReaderAudioMixOutput` (the export path: exact stamps everywhere measured) and enqueued to an
+`AVSampleBufferAudioRenderer` (`audioTimePitchAlgorithm = .spectral`) under an `AVSampleBufferRenderSynchronizer`
+(seek = flush + new reader at the target; play = `setRate(r, time: target)`). Two variants:
+- tap INSIDE the reader (today's LaneProcessor as is): labels exact, but the reader decodes and mixes ahead on its own:
+  the tap runs **3.4 s** ahead of the clock unpaced and still **1.8 s** with enqueue pacing → a live-effect edit would
+  be heard 2-3.5 s late. Rejected.
+- **no tap; lane processing at enqueue time** (`--notap --ahead 0.15`: the feeder copies a buffer only while it is less
+  than 150 ms past the clock, and would run each lane's LaneProcessor on it, labelled by the sample buffer's PTS):
+
+| measured (spectral, 48 kHz media) | AVPlayer + tap today | renderer, enqueue-time processing |
+|---|---|---|
+| label lead r1 s1 (host 26 / VM 13) | +85.33 / 0.00 ms | **0.00 / 0.00 ms** |
+| label lead r2, r0.5, s2, s0.5, 44.1 kHz media | OS- and rate-dependent (table above) | 0.00 (envelope corr 1.000 at r ≠ 1; scaled ≈ 0 like export) |
+| 44.1 kHz output (Steam virtual speakers, host) | +85.33 ms, 4474-frame buffers | 0.00 ms |
+| seek / play → moving clock, host | 215-333 ms (play after a landed seek) | 188-263 ms (first PCM 49-104 ms) |
+| seek / play → moving clock, VM | 214-345 ms | 156-232 ms (first PCM 56-141 ms) |
+| seek storm (12 seeks 80 ms apart while playing), host | median 355 ms, max 386 | median 185-247 ms, max 260 |
+| same, VM | median 309 ms, max 321 | median 143-185 ms, max 240 |
+| processing ahead of the clock (= live-edit latency) | 28 ms (26) / ~100 ms (13) | 148 ms at r1 (pacing; 75 at 2×, 300 at 0.5× in wall time) |
+| output vs its clock (muted process tap, host, 14.2+) | −7 ms r1, −34 ms r2 | −7 ms r1, −38 ms r2, +2 ms r0.5 |
+| CPU (one 1-lane stream, % of a core) | 2.4-4 % host, 3-5 % VM | 5-9 % host, 11-16 % VM |
+| J/K/L rates | stretcher in the queue | synchronizer rate + renderer spectral stretch: clock exact at 2 / 0.5 |
+| reverse | not supported (video-only emulation) | same |
+
+- Video stays on AVPlayer (custom compositor, `AVPlayerItemVideoOutput`): `player.sourceClock` = a
+  `CMAudioDeviceClock` of the output, both started with `setRate(_:time:atHostTime:)` at one host time after each seek
+  (`AudioTimingProbe clocks`): audio − video clock **0.00 ms median, ≤ 0.42 ms (host) / ≤ 0.82 ms (VM)** over 2.5 s
+  after each of 4 seeks.
+- What PlaybackEngine would change (estimate 3-5 agent-days + a stress round): a new `PreviewAudio` engine
+  (synchronizer, renderer, one AVAssetReader with one `AVAssetReaderTrackOutput` per composition audio lane, paced
+  feeder, per-lane LaneProcessor + gains + live chains at enqueue, a summing mixer to one stereo stream, seamless
+  rebuild via `renderer.flush(fromSourceTime:)`, output-device / route-change handling, ReaderCancel rules) ≈ 600-800
+  lines; preview compositions without audio tracks (CompositionBuilder: small); PlaybackEngine transport
+  (play / pause / seek / setRate / loop boundary / currentTime from the synchronizer; start both clocks at one host
+  time; stall and clock watches re-based) ≈ 250 changed lines; removal of TapLabelLead / tap diagnostics / lead logic;
+  tests: PlaybackTests, PlaybackStressTests, PlaybackSilenceTests, MetallicAudioTests, CutAudioTimingTests (become the
+  acceptance tests) ported. Export can keep its tap (exact) or share the new per-lane code.
+- Gains / risks: one output stream instead of one AudioQueue per lane (BUG-PLAY-SILENT disappears by construction), no
+  audio-mix ramps (PB-DROP), no tap re-preparation on format changes (PB-QC), labels exact on every OS / rate / speed /
+  output, edits while playing without `replaceCurrentItem` gaps. Risks: A/V start sync through two pipelines (measured
+  locked here, but not with the custom video compositor; preroll with it never completes, STATUS C3b), a new seek
+  path to stress (seek storms, stuck seeks: PB-SEEK-LAG), reader cost per seek (49-150 ms to first PCM, more under
+  load and with many lanes), CPU ~2× today for the stream, output latency handling on Bluetooth / high-latency
+  devices (PB-LATENCY: to verify with AirPods), AVSampleBufferAudioRenderer on Intel macOS 13 untested on hardware.
+  AVAudioEngine with source nodes (the other option) gives the same exact labels but would need our own time-stretch
+  for J/K/L and our own A/V clock; the renderer + synchronizer does both.
+- Recommendation: replace the preview audio path (renderer + synchronizer, lane processing at enqueue) rather than
+  patching the tap timing: it is the only option measured exact on both systems without an OS switch or a pilot lane.
+
+VM how-to for engine probes: docs/TESTING.md "macOS 13 VM for engine probes".
+
 ## Files
 - `app/Sources/ValseEngine/Audio/TapDiagnostics.swift` (`TapLabelLead` switch, `TapDiagnostics` stamp capture,
   default output format), `app/Tests/ValseEngineTests/TapLabelLeadTests.swift` (BUG-CUT-AUDIO-HOLE).
@@ -268,5 +375,7 @@ Two checks of whether anything the tap or the engine sees (besides content) pred
   `VALSE_PROBE_DEVICE=<output UID>`, `VALSE_PROBE_ALGOS=none,x/S,x/T,x/V`, `VALSE_PROBE_SPEEDS=1`, `VALSE_PROBE_SRC=44100|aac`);
   `CutAudioTimingTests.swift`: acceptance tests for the future fix (opt-in, fail on main as described in part 3);
   `AudioMixdown.render(…, audioState:)` lets a test read the export lanes' taps; `CompositionBuilder.laneTimePitch` hook.
+- `scripts/audio_probe/AudioTimingProbe.swift` + `scripts/audio_probe.sh` (part 5): standalone probe (player / export /
+  aq / renderer / clocks / au / devices / matrix / replacement), host and macOS 13 VM; logs in build/audio_probe/.
 - `app/Tests/ValseEngineTests/MetallicAudioTests.swift`: two regression tests (preview / export clip start) and the
   opt-in owner-session replay + tap timeline probe (`VALSE_METALLIC_REPRO=1`, `VALSE_METALLIC_MEDIA=wav`).
