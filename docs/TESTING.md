@@ -458,6 +458,9 @@ Testing.framework / xctest) runs host-built binaries that target macOS 13:
   `scripts/audio_probe.sh --vm -- <command>` does all of it (starts the VM headless with `--no-graphics` if stopped, waits
   for ssh, stops it afterwards unless `--keep-vm`; `--host --vm` runs both; `--logs` adds the probe's unified-log
   lines; output in build/audio_probe/). Full app UI runs: STATUS.md "VM how-to" (build_app.sh + `--uitest`).
+- Real ValseEngine code on 13 without xctest: a CLI mode of the release app. `scripts/audio_probe.sh --host --vm --app`
+  builds `build/Valse.app` (`--host-only --no-content`), copies it to the VM and runs `Valse --preview-audio-check <dir>`
+  (`PreviewAudioCheck.runAll`: the PreviewAudioTests scenarios with their thresholds, one PASS / FAIL line each).
 - ssh key, once: `ssh-copy-id -i ~/.ssh/id_ed25519.pub admin@$(~/bin/tart ip ventura13)` (password admin; from an agent,
   through `expect`). The VM's IP is `~/bin/tart ip ventura13` (192.168.64.2 so far).
 - Audio in the VM: one output, "AVIODevice" (Apple Virtual Sound Device), 48 kHz / 512 frames, rates 48 / 96 kHz only

@@ -14,6 +14,17 @@ public struct BuiltComposition: @unchecked Sendable {
     public let audioState: AudioMixState
     /// Timeline ranges left out of this composition (quick cut preview); `duration` is the composition's.
     public var skip: SkipTimeMap = .identity
+    /// The composition audio lanes with what their taps get (clips, gain ramps): `PreviewAudio` runs the same
+    /// `LaneProcessor`s on the reader's buffers instead of taps (BUG-CUT-AUDIO-HOLE). Same order as the audio mix inputs.
+    public var audioLanes: [AudioLane] = []
+}
+
+/// One composition audio track and the clips packed onto it (`CompositionBuilder.packAudio`), with its gain ramps.
+public struct AudioLane: @unchecked Sendable {
+    public let track: AVAssetTrack
+    let clips: [Clip]
+    let gains: [GainRamp]
+    let skip: SkipTimeMap
 }
 
 /// Which files back a media item in this build (preview uses proxies when ready; export uses originals).
@@ -228,6 +239,7 @@ public enum CompositionBuilder {
         }
         // BUG-CUT-AUDIO-HOLE: preview tap label lead (default 1 buffer; `defaults write fr.valse.Valse ValseTapLabelLead`)
         let previewLead = purpose == .preview ? TapLabelLead.preview().buffers : nil
+        var audioLanes: [AudioLane] = []
         for (laneIndex, lane) in try packAudio(pendingAudio, into: comp, sharesAcrossTracks: !separatesTrackAudio).enumerated() {
             let a = lane.params
             var volumes: [(ramps: [GainRamp], end: Time)] = []
@@ -241,6 +253,7 @@ public enum CompositionBuilder {
                 floor = last
                 volumes.append((ramps, last))
             }
+            audioLanes.append(AudioLane(track: lane.track, clips: lane.placements.map(\.clip), gains: volumes.flatMap { $0.ramps }, skip: skip))
             // The clip volumes are applied by the lane tap, not by audio-mix ramps (PB-DROP, see `LaneProcessor.gains`);
             // preview and export run the same gains. The mix keeps one ramp per clip, at a constant 1: AVPlayer sends
             // ramp values to its mixer at every edit and drops some of them on a resampling output — harmless when
@@ -306,6 +319,7 @@ public enum CompositionBuilder {
         var built = BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, trackMap: trackMap,
                                      duration: duration, state: state, audioState: audioState)
         built.skip = skip
+        built.audioLanes = audioLanes
         return built
     }
 

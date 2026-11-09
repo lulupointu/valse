@@ -365,6 +365,24 @@ Preview audio read by `AVAssetReaderAudioMixOutput` (the export path: exact stam
 
 VM how-to for engine probes: docs/TESTING.md "macOS 13 VM for engine probes".
 
+### Part 6: phase A, `PreviewAudio` built and measured (2026-11-09). Not wired into PlaybackEngine yet
+`ValseEngine/Audio/PreviewAudio.swift` (+ `PreviewAudioLanes.swift`, `PreviewAudioCheck.swift`): one AVAssetReader on the
+preview composition (built with `audioTaps: false`), one `AVAssetReaderAudioMixOutput` per lane (`BuiltComposition.audioLanes`:
+the lane's track, clips, gain ramps), `LaneProcessor` on each reader buffer at its PTS (no lead), lanes summed into
+1024-frame stereo chunks → `AVSampleBufferAudioRenderer` (spectral) under an `AVSampleBufferRenderSynchronizer`; feeder on
+a private serial queue, paced 150 ms ahead of the clock. Measured on the ENQUEUED chunks (no output capture on 13), the
+same numbers on macOS 26.4.1 (host) and 13.7.4 (VM, `scripts/audio_probe.sh --vm --app`):
+- burst onsets vs labels: 0 frames at rate 1 / 2 / 0.5; 44.1 kHz media −0.8..−1.1 frames (reader resampler); speed 2 /
+  0.5 segments: envelope −1..−2 ms (spectral smear; export measured the same way gives ≈ 0..2.5 ms).
+- the owner's cut (A fading out | B fading in) + a clip after a gap: = the export mixdown (max |diff| 4e-6, lag 0).
+- seek → first chunk 92-177 ms, seek → moving clock 178-228 ms (host) / 215-219 ms (VM); 12 seeks 80 ms apart: no
+  deadlock, one reader open, engine released, clock running 300-430 ms after the last seek, labels exact.
+- live EQ edit heard 180 ms after the clock at the edit (150 ms queue + a chunk); pause / resume: clock still, no flush,
+  labels continuous, resume 13-23 ms; `replace` while playing: no discontinuity, new gains heard 185 ms after.
+- `renderer.flush(fromSourceTime:)` was refused even 80 ms ahead of the clock with 40 ms queued past it (the renderer has
+  consumed the paced queue): a swap continues where the queue ends instead.
+- Reverse shuttle: rates ≤ 0 pause the audio (silent, as with AVPlayer today; the prototype has no reverse either).
+
 ## Files
 - `app/Sources/ValseEngine/Audio/TapDiagnostics.swift` (`TapLabelLead` switch, `TapDiagnostics` stamp capture,
   default output format), `app/Tests/ValseEngineTests/TapLabelLeadTests.swift` (BUG-CUT-AUDIO-HOLE).
