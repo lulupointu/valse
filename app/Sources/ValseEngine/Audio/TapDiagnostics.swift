@@ -45,6 +45,10 @@ public struct TapBufferRecord: Sendable, Equatable {
     public var sampleRate: Double
     /// The buffer had a non-zero sample BEFORE the lane gains (the source was sounding).
     public var sounding: Bool
+    /// Index of its first non-zero sample before the lane gains (-1: silent).
+    public var firstSound: Int = -1
+    /// Composition time the lane gave its first frame (stamp + lead: what the gains used; NaN = none).
+    public var label: Double = .nan
     static let empty = TapBufferRecord(stamp: .nan, frames: 0, duration: .nan, sampleRate: 0, sounding: false)
 }
 
@@ -108,9 +112,26 @@ public final class TapDiagnostics: @unchecked Sendable {
         }
     }
 
+    /// Self-check of a capture against the seek target `target` (item time) at player rate `rate`
+    /// (BUG-CUT-AUDIO-HOLE part 2, docs/investigations/BUG-METALLIC-AUDIO.md):
+    /// - `firstStamp`: first raw stamp − target (s);
+    /// - `rawOnset` / `onset`: composition time of the first sounding frame (before the gains) − target, from the raw
+    ///   stamp / from the label the lane used. After a seek AVPlayer hands the taps preroll silence, then the item's
+    ///   audio from exactly the target (measured on the content), so when the media sounds at the target `onset` ≈ 0
+    ///   means the labels are right and `rawOnset` = −(the stamps' lead): −85.3 ms on Apple Silicon / macOS 26 (spectral
+    ///   lanes, unscaled clip, rate 1). A NEGATIVE value means labels early; positive, labels late or media quiet at
+    ///   the target (a quiet start only reads later). nil when the first sounding buffer had no stamp.
+    public static func selfCheck(_ c: Capture, target: Double, rate: Double)
+    -> (firstStamp: Double?, rawOnset: Double?, onset: Double?) {
+        let first = c.buffers.first { !$0.stamp.isNaN }.map { $0.stamp - target }
+        guard let b = c.buffers.first(where: \.sounding), !b.stamp.isNaN, b.sampleRate > 0, b.firstSound >= 0 else { return (first, nil, nil) }
+        let offset = Double(b.firstSound) * max(rate, 1e-3) / b.sampleRate
+        return (first, b.stamp + offset - target, b.label.isNaN ? nil : b.label + offset - target)
+    }
+
     /// One log line (stamps to 0.1 ms; Δ = stamp step in frames, which a lead-labelled tap shows as the PREVIOUS
-    /// buffer's frames).
-    public static func describe(_ c: Capture) -> String {
+    /// buffer's frames; @n = first sounding sample), then, with `target`, the self-check against the seek target.
+    public static func describe(_ c: Capture, target: Double? = nil, rate: Double = 1) -> String {
         var parts: [String] = []
         var prev: TapBufferRecord?
         for (i, b) in c.buffers.enumerated() {
@@ -122,11 +143,17 @@ public final class TapDiagnostics: @unchecked Sendable {
                 s += String(format: " Δ%+.0ff", (b.stamp - p.stamp) * b.sampleRate)
             }
             s += String(format: " %.0fHz", b.sampleRate)
-            s += b.sounding ? " snd" : " sil"
+            s += b.sounding ? (b.firstSound >= 0 ? " snd@\(b.firstSound)" : " snd") : " sil"
             parts.append(s)
             prev = b
         }
-        return "lane \(c.lane) tap lead \(c.leadBuffers): " + parts.joined(separator: " | ")
+        var line = "lane \(c.lane) tap lead \(c.leadBuffers): " + parts.joined(separator: " | ")
+        if let target {
+            func ms(_ v: Double?) -> String { v.map { String(format: "%+.1f ms", $0 * 1000) } ?? "?" }
+            let k = selfCheck(c, target: target, rate: rate)
+            line += " || vs target: first stamp \(ms(k.firstStamp)), sound onset raw \(ms(k.rawOnset)) / labelled \(ms(k.onset))"
+        }
+        return line
     }
 }
 

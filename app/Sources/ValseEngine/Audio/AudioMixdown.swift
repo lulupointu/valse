@@ -7,9 +7,10 @@ import ValseCore
 public enum AudioMixdown {
     /// Streams the mix as 48 kHz stereo Float32 blocks. Returns frames delivered.
     @discardableResult
-    public static func stream(_ project: Project, range: TimeRange? = nil, chunk: Int = 8192,
+    /// `audioState`: the lanes' shared state (tests read `tapCapture` / `tapObserver` through it).
+    public static func stream(_ project: Project, range: TimeRange? = nil, chunk: Int = 8192, audioState: AudioMixState? = nil,
                               _ body: (AudioBlock) throws -> Void) async throws -> Int {
-        let built = try await CompositionBuilder.build(project: project, purpose: .export, conformsAudio: true)
+        let built = try await CompositionBuilder.build(project: project, purpose: .export, audioState: audioState, conformsAudio: true)
         let tracks = try await built.composition.loadTracks(withMediaType: .audio)
         // the read loop blocks in copyNextSampleBuffer: keep it off the cooperative pool (OffPool)
         return try await OffPool.run { ctx in
@@ -65,9 +66,9 @@ public enum AudioMixdown {
     }
 
     /// Whole mix in memory (tests, short projects).
-    public static func render(_ project: Project, range: TimeRange? = nil) async throws -> AudioBuffer {
+    public static func render(_ project: Project, range: TimeRange? = nil, audioState: AudioMixState? = nil) async throws -> AudioBuffer {
         var l: [Float] = [], r: [Float] = []
-        try await stream(project, range: range) { b in
+        try await stream(project, range: range, audioState: audioState) { b in
             l.append(contentsOf: UnsafeBufferPointer(start: b[0], count: b.frames))
             r.append(contentsOf: UnsafeBufferPointer(start: b[1], count: b.frames))
         }

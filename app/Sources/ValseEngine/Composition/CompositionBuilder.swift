@@ -395,6 +395,10 @@ public enum CompositionBuilder {
         return out
     }
 
+    /// Time-pitch algorithm of the composition audio lanes. Test hook only (TapProbeTests, BUG-CUT-AUDIO-HOLE: the lane's
+    /// stretcher decides how AVPlayer stamps the lane taps); ships `.spectral`.
+    nonisolated(unsafe) static var laneTimePitch: AVAudioTimePitchAlgorithm = .spectral
+
     /// Inserts every clip's audio on shared composition audio tracks (`audioLanePlan`), in time order on each track
     /// (`insert` appends: a segment placed before a track's end would shift what follows).
     static func packAudio(_ pending: [PendingAudio], into comp: AVMutableComposition, sharesAcrossTracks: Bool = true) throws -> [PackedAudioLane] {
@@ -407,7 +411,7 @@ public enum CompositionBuilder {
             guard let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
             let params = AVMutableAudioMixInputParameters(track: at)
             params.trackID = at.trackID
-            params.audioTimePitchAlgorithm = .spectral
+            params.audioTimePitchAlgorithm = laneTimePitch
             let placements = (byLane[l] ?? []).sorted { $0.start < $1.start }
             for p in placements { try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at) }
             out.append(PackedAudioLane(track: at, params: params, placements: placements))
