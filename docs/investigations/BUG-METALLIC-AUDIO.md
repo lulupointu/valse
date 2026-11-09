@@ -223,6 +223,41 @@ onset = (stamp + first sounding sample) − seek target = −(the stamps' lead) 
 the owner's next macOS 13 log shows its lead per lane directly (≈ 0 expected); labelled = the same with the lead the lane
 applied (≈ 0 = right). Each buffer also shows `snd@n` (first sounding sample).
 
+### Part 4: is there a stamp-only rule? No (2026-11-09, same Mac). Fix NOT shipped: owner decision needed
+Two checks of whether anything the tap or the engine sees (besides content) predicts the lead:
+- **Architecture is not the cause.** `TapProbeTests.previewLead` (none) run as an x86_64 build under Rosetta
+  (`scripts/test_x86.sh`; AudioQueue's stretcher runs in-process, translated) gives the same leads and stamp structure as
+  arm64: r1 s1 +85.33 ms, r2 s1 ≈ +60..100, r0.5 s1 ≈ +135, scaled segments 0, first stamp − target −170.65 ms at r1.
+  The owner's Intel difference is the OS (13.7.8 vs 26) or his output path, not x86 code.
+- **The first stamp after a seek does not reveal the lead.** First stamp − seek target vs content lead (rate 1 unless
+  noted, unscaled, 48 kHz built-in output):
+
+  | lane stretcher | first stamp − target | content lead |
+  |---|---|---|
+  | spectral r1 / r2 / r0.5 | −170.7 / −192.0 / −192.0 ms | +85.3 / ≈ +60..100 / ≈ +135 ms |
+  | varispeed r1 / r2 / r0.5 | −86.3 / −85.8 / −3.0 ms | +86.3 / +0.5 / +2 ms |
+  | time-domain r1 / r2 / r0.5 | −23.2 / −11.6 / −29.0 ms | −9.1 / −24.2 / +7.2 ms |
+  | any, scaled segment (s2) | 0.00 | ≈ 0 (time-domain −10..−34) |
+
+  Spectral and varispeed share the r1 lead but not the first-stamp offset; the preroll varies per stretcher, so
+  "first stamp − target" cannot be turned into a lead. Stamp steps (Δ) follow the previous buffer's frames in every case.
+- What remains: the lead is only knowable from CONTENT. Options for the owner:
+  1. **Pilot lane** (recommended general rule, part 3): every preview composition with lane taps gets one hidden audio
+     track tiling a generated 48 kHz click file unscaled over the item, with the lanes' stretcher; its tap finds the
+     clicks, publishes `lead frames` (per player rate, remembered across launches) and zeroes its output; lanes add
+     `leadFrames / laneSampleRate` on unscaled segments, 0 on scaled ones. OS-independent and self-correcting by
+     construction. Costs: one extra AudioQueue + decode per preview, a generated file, labels are the remembered value
+     (or 0) during the first ~0.5 s of the first play at a new rate. Accuracy: exact at rate 1 (bit-exact content);
+     at J/K/L rates the spectral stretch smears the clicks (this Mac's two methods disagree at r2: +60 vs +100 ms).
+  2. **Source self-check** (no extra lane): after a seek, correlate the first sounding lane buffers with the clip's
+     source decoded off-thread and publish the lead. Fails on lanes with live effects, quiet media, conformed audio;
+     more code paths than 1.
+  3. **Wait for the owner's next Intel log** (this branch's `|| vs target: … sound onset raw …` self-check): it gives
+     macOS 13's lead and first-stamp structure per lane; if it shows exact stamps with 'tido' queues, the rule may be
+     "lead = the stretcher's latency when the queue runs spectral", still needing a runtime way to see the queue's
+     stretcher (no public API found).
+  Until then preview keeps lead 1 buffer (+ the `ValseTapLabelLead` override: `-int 0` fixes the Intel hole).
+
 ## Files
 - `app/Sources/ValseEngine/Audio/TapDiagnostics.swift` (`TapLabelLead` switch, `TapDiagnostics` stamp capture,
   default output format), `app/Tests/ValseEngineTests/TapLabelLeadTests.swift` (BUG-CUT-AUDIO-HOLE).
