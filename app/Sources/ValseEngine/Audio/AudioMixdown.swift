@@ -41,6 +41,12 @@ public enum AudioMixdown {
                     try ctx.checkCancellation()
                     guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
                     let at = Int(((Time(cmTime: CMSampleBufferGetPresentationTimeStamp(sb)) - r.start).seconds * sr).rounded())
+                    // BUG-ECHO-EXPORT-SILENT: the mix output skips ahead when a lane tap's first callback is slow
+                    // (LiveProcessor doc); the gap is padded with silence, log it so a skipped export is visible.
+                    if at - expected > 2400 {
+                        EngineLog.error(String(format: "audio mixdown: reader output jumped %.3f s at %.3f s (gap padded with silence)",
+                                               Double(at - expected) / sr, Double(expected) / sr))
+                    }
                     while expected < at { try push(0, 0); expected += 1 }
                     let len = CMBlockBufferGetDataLength(bb)
                     if scratch.count < len / 4 { scratch = [Float](repeating: 0, count: len / 4) }

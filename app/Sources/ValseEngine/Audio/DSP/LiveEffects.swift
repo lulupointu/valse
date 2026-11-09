@@ -46,6 +46,11 @@ public enum LiveNode: Hashable, Sendable {
 }
 
 /// Processing object for a `LiveNode`. Max 2 channels are processed (stereo); extra channels pass through.
+/// `process` and `reset` run inside the lane tap's render callback (`LaneProcessor`): keep both cheap, no allocation.
+/// BUG-ECHO-EXPORT-SILENT: AVAssetReaderAudioMixOutput skips ahead when the FIRST tap callback of a read is slow
+/// (measured: a 25 ms first callback made the next buffer start 10.7 s later, the export silent; 12 ms, or 100 ms on a
+/// later buffer, did not), and that first callback resets the clip's chain. Resetting a 2 s echo line element by element
+/// took ~25 ms in debug builds: resets clear memory in bulk (`zeroFill`) and skip state that was never written.
 class LiveProcessor {
     var sampleRate: Double = 48000
     func prepare(sampleRate: Double) { self.sampleRate = sampleRate }
@@ -161,12 +166,19 @@ final class FilterProc: LiveProcessor {
     override func reset() { for c in 0..<2 { for i in sections[c].indices { sections[c][i].reset() } } }
 }
 
+/// Clears `a` in one bulk write (fast in debug builds too; no allocation).
+@inline(__always) func zeroFill(_ a: inout [Float]) {
+    a.withUnsafeMutableBytes { b in if let base = b.baseAddress { memset(base, 0, b.count) } }
+}
+
 /// Circular delay buffer with fractional reads.
 struct DelayLine {
     var buf: [Float]
     var w = 0
+    /// Something was written since the last reset (a reset of a clean line is free).
+    private var dirty = false
     init(maxSamples: Int) { buf = [Float](repeating: 0, count: max(4, maxSamples + 2)) }
-    @inline(__always) mutating func write(_ x: Float) { buf[w] = x; w += 1; if w == buf.count { w = 0 } }
+    @inline(__always) mutating func write(_ x: Float) { buf[w] = x; w += 1; if w == buf.count { w = 0 }; dirty = true }
     /// Sample written `d` samples ago (d ≥ 1, fractional).
     @inline(__always) func read(_ d: Double) -> Float {
         let n = buf.count
@@ -176,7 +188,10 @@ struct DelayLine {
         var b2 = a - 1; if b2 < 0 { b2 += n }
         return buf[a] * (1 - f) + buf[b2] * f
     }
-    mutating func reset() { for i in buf.indices { buf[i] = 0 } }
+    mutating func reset() {
+        guard dirty else { return }
+        zeroFill(&buf); w = 0; dirty = false
+    }
 }
 
 final class EchoProc: LiveProcessor {
@@ -247,15 +262,19 @@ final class ReverbProc: LiveProcessor {
             let y = buf[i]; store = y * (1 - damp) + store * damp
             buf[i] = x + store * fb; i += 1; if i == buf.count { i = 0 }; return y
         }
+        mutating func clear() { zeroFill(&buf); i = 0; store = 0 }
     }
     struct AllPass { var buf: [Float]; var i = 0
         @inline(__always) mutating func tick(_ x: Float) -> Float {
             let b = buf[i]; let y = -x + b; buf[i] = x + b * 0.5; i += 1; if i == buf.count { i = 0 }; return y
         }
+        mutating func clear() { zeroFill(&buf); i = 0 }
     }
     static let combs = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617], allpasses = [556, 441, 341, 225]
     var c: [[Comb]] = [], a: [[AllPass]] = []
     var fb: Float = 0.84, damp: Float = 0.2, wet: Float = 0.3, width: Float = 1
+    /// Processed since the last reset (a fresh reverb needs no clearing).
+    private var dirty = false
     override func prepare(sampleRate: Double) {
         super.prepare(sampleRate: sampleRate)
         let k = sampleRate / 44100
@@ -273,6 +292,7 @@ final class ReverbProc: LiveProcessor {
         let l = b[0], r = stereo ? b[1] : b[0]
         let wet1 = wet * 3 * (width / 2 + 0.5), wet2 = wet * 3 * ((1 - width) / 2)
         let dry = 1 - wet * 0.5
+        dirty = true
         for i in 0..<b.frames {
             let input = (l[i] + r[i]) * 0.015 * (stereo ? 1 : 2) * 0.5
             var ol: Float = 0, or: Float = 0
@@ -283,7 +303,13 @@ final class ReverbProc: LiveProcessor {
             if stereo { r[i] = or * wet1 + ol * wet2 + xr * dry }
         }
     }
-    override func reset() { prepare(sampleRate: sampleRate) }
+    /// Clears the tails in place (was: `prepare`, which reallocated 24 buffers on the audio thread).
+    override func reset() {
+        guard dirty else { return }
+        for ch in c.indices { for j in c[ch].indices { c[ch][j].clear() } }
+        for ch in a.indices { for j in a[ch].indices { a[ch][j].clear() } }
+        dirty = false
+    }
 }
 
 final class TremoloProc: LiveProcessor {
@@ -335,7 +361,7 @@ final class BitcrushProc: LiveProcessor {
             }
         }
     }
-    override func reset() { counter = 0; held = [0, 0] }
+    override func reset() { counter = 0; held[0] = 0; held[1] = 0 }
 }
 
 final class DistortionProc: LiveProcessor {
