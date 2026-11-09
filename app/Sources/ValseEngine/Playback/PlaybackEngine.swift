@@ -658,7 +658,9 @@ public final class PlaybackEngine {
                              TapLabelLead.describePreview(), v.majorVersion, v.minorVersion, v.patchVersion, out)
         for c in logged {
             tapStampLines += 1
-            EngineLog.error("tap stamps " + TapDiagnostics.describe(c) + " (" + context + "): BUG-CUT-AUDIO-HOLE probe")
+            EngineLog.error("tap stamps " + TapDiagnostics.describe(c, target: seekTarget.isNumeric ? seekTarget.seconds : nil,
+                                                                  rate: audioState.playerRate)
+                            + " (" + context + "): BUG-CUT-AUDIO-HOLE probe")
         }
     }
 

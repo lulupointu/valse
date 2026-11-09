@@ -110,9 +110,10 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     /// The previous buffer was stamped and not silent (jump probe).
     private var lastSounded = false
 
-    @inline(__always) static func hasSound(_ p: UnsafeMutablePointer<Float>, _ n: Int) -> Bool {
-        for i in 0..<n where p[i] != 0 { return true }
-        return false
+    /// Index of the first non-zero sample (-1: silent).
+    @inline(__always) static func firstSound(_ p: UnsafeMutablePointer<Float>, _ n: Int) -> Int {
+        for i in 0..<n where p[i] != 0 { return i }
+        return -1
     }
 
     /// BUG-METALLIC-AUDIO: in AVPlayer playback a post-effects tap's timestamp is the start of the PREVIOUS pull — the
@@ -183,12 +184,13 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     }
 
     /// Audio thread: records the raw buffer (before any processing) while the capture is open.
-    @inline(__always) private func recordDiagnostics(time: CMTime, frames: Int, duration: CMTime, sounding: Bool) {
+    @inline(__always) private func recordDiagnostics(time: CMTime, frames: Int, duration: CMTime, firstSound: Int, label: Double) {
         guard !diagPublished else { return }
         if diagCount < TapDiagnostics.buffersPerCapture {
             diag[diagCount] = TapBufferRecord(stamp: time.isNumeric ? time.seconds : .nan, frames: frames,
                                               duration: duration.isNumeric ? duration.seconds : .nan,
-                                              sampleRate: sampleRate, sounding: sounding)
+                                              sampleRate: sampleRate, sounding: firstSound >= 0, firstSound: firstSound,
+                                              label: time.isNumeric ? label : .nan)
             diagCount += 1
         }
         if diagCount >= TapDiagnostics.buffersPerCapture { publishDiagnostics() }   // (busy lock: retried next buffer)
@@ -215,8 +217,9 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         let t0 = stamped ? time.seconds + Double(leadBuffers * frames) * step : nextTime ?? 0
         // probe: a stamped buffer with sound that does not follow the previous one (which had sound too) by < 0.5 s.
         // Seeks reset the taps; the buffers a paused item repeats are silent.
-        let sounding = Self.hasSound(table[0], frames)
-        recordDiagnostics(time: time, frames: frames, duration: duration, sounding: sounding)
+        let first = Self.firstSound(table[0], frames)
+        let sounding = first >= 0
+        recordDiagnostics(time: time, frames: frames, duration: duration, firstSound: first, label: t0)
         if stamped, sounding, lastSounded, let e = nextTime, abs(t0 - e) > 0.001, abs(t0 - e) < 0.5 { state.noteLaneJump(t0 - e, at: t0) }
         lastSounded = sounding && stamped
         nextTime = t0 + Double(frames) * step

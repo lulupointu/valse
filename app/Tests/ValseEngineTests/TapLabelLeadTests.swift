@@ -84,4 +84,39 @@ import ValseCore
         let line = TapDiagnostics.describe(partial)
         #expect(line.contains("lane 3") && line.contains("nostamp") && line.contains("60.0000"))
     }
+
+    /// The lane records each captured buffer's first sounding sample and the label it used (stamp + lead).
+    @Test func recordsFirstSoundAndLabel() throws {
+        let state = AudioMixState()
+        let p = LaneProcessor(clips: [], state: state, gains: nil, leadBuffers: 1)
+        p.prepare(sampleRate: 48000, channels: 2, maxFrames: 4096)
+        for i in 0..<6 { _ = LaneGainTests.run(p, at: 2 + Double(i * 4096) / 48000, frames: 4096) }
+        let c = try #require(state.tapDiagnostics.take().first)
+        #expect(c.buffers.allSatisfy { $0.firstSound == 0 })
+        #expect(abs(c.buffers[0].label - (CMTime(seconds: 2, preferredTimescale: 48000).seconds + 4096.0 / 48000)) < 1e-9)
+    }
+
+    /// Self-check against the seek target: the macOS 26 spectral-lane shape (preroll silence stamped from
+    /// target − 2 × 4096 frames, then the target's audio stamped target − 4096) reads raw onset −85.3 ms and, with the
+    /// one-buffer lead, labelled onset 0; exact stamps read 0 raw.
+    @Test func selfCheckAgainstTheSeekTarget() {
+        let s = 4096.0 / 48000
+        func rec(_ stamp: Double, _ first: Int, lead: Double = s) -> TapBufferRecord {
+            TapBufferRecord(stamp: stamp, frames: 4096, duration: s, sampleRate: 48000, sounding: first >= 0, firstSound: first,
+                            label: stamp + lead)
+        }
+        let early = TapDiagnostics.Capture(lane: 0, leadBuffers: 1,
+                                           buffers: [rec(.nan, -1), rec(2 - 2 * s, -1), rec(2 - s, 0), rec(2, 0)])
+        let k = TapDiagnostics.selfCheck(early, target: 2, rate: 1)
+        #expect(abs((k.firstStamp ?? 0) * 1000 + 170.67) < 0.01)
+        #expect(abs((k.rawOnset ?? 0) * 1000 + 85.33) < 0.01)
+        #expect(abs(k.onset ?? 1) < 1e-9)
+        let exact = TapDiagnostics.Capture(lane: 1, leadBuffers: 0, buffers: [rec(2 - s, -1, lead: 0), rec(2, 0, lead: 0)])
+        #expect(abs(TapDiagnostics.selfCheck(exact, target: 2, rate: 1).rawOnset ?? 1) < 1e-9)
+        // sound mid-buffer at 2×: offset × rate / sample rate
+        let mid = TapDiagnostics.Capture(lane: 2, leadBuffers: 0, buffers: [rec(1.9, 4800, lead: 0)])
+        #expect(abs((TapDiagnostics.selfCheck(mid, target: 2, rate: 2).rawOnset ?? 1) - 0.1) < 1e-9)
+        let line = TapDiagnostics.describe(early, target: 2, rate: 1)
+        #expect(line.contains("first stamp -170.7 ms") && line.contains("sound onset raw -85.3 ms / labelled +0.0 ms"))
+    }
 }

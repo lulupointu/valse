@@ -168,7 +168,60 @@ log can discriminate since its buffer sizes vary: 4474 / 4096 frames).
 Side finding (pre-existing, also post-effects = main): export of a mono WAV clip with the micEcho voice effect at speed
 1 is silent or nearly so: the tap stamps jump from 0 to 2.2187 s after the first 512-frame buffer (also +93.9 s at speed
 2 post-effects) and the reader's output timestamps jump with them (`echoDelay` probe). Without the effect the same clip
-exports fine. Not investigated further (out of scope).
+exports fine. Fixed since as BUG-ECHO-EXPORT-SILENT (a slow first tap callback made the reader skip ahead).
+
+### Part 3: root cause of the post-effects lead (2026-11-09, Apple Silicon / macOS 26). Owner: keep post-effects
+Method (`TapProbeTests.previewLead` / `exportLead` / `seekStructure` / `longPlayDrift`, opt-in `VALSE_TAP_PROBE=1`):
+irregular 30 ms noise bursts (120–320 ms apart: a periodic train aliased the first measurement) or white noise, lane
+output vs the source decoded offline; lead = content time − stamp (positive: stamps EARLY), preview lead override 0.
+`VALSE_PROBE_DEVICE` routes the player to an output (built-in speakers 48 kHz / 4096-frame tap buffers; Steam virtual
+speakers 44.1 kHz / 4474 frames, the owner's Intel shape; the default AirPods were at 24 kHz / 8208 frames), the
+`CompositionBuilder.laneTimePitch` test hook sets the lanes' algorithm. Lead in ms of item time:
+
+| lane stretcher (mix input `audioTimePitchAlgorithm`) | r1 s1 | r2 s1 | r0.5 s1 | r1 s2 | r2 s2 | r1 s0.5 | r2 s0.5 |
+|---|---|---|---|---|---|---|---|
+| `.spectral` (ships) | **+85.33** | ≈ +60 | ≈ +135 | ≈ 0 | ≈ 0 | ≈ −2 | **0.00** |
+| `.timeDomain` | −7.7 | −24 | +7 | −10 | −34 | **+32** (s0.25: **+102**) | 0.00 |
+| `.varispeed` | +86.3 | +0.5 | +2 | +0.5 | +0.5 | — | — |
+| export (AVAssetReaderAudioMixOutput), any algorithm | 0.00 | — | — | 0 (spectral), −11 (time-domain) | — | — | — |
+
+- The item's own `audioTimePitchAlgorithm` changes nothing (lanes carry theirs); re-assigning it after `readyToPlay` is
+  ignored. Each lane's AudioQueue logs `AQ Time-stretcher … Enabled the time-stretcher as (nutp)` (spectral) or `(ipto)`;
+  queues are CREATED with `TimePitch (Algorithm 'tido')` on both systems, then switched to 'spec' (`qtpa`) here.
+- AUNewTimePitch (`nutp`, what `.spectral` instantiates) reports kAudioUnitProperty_Latency = **4096 frames at rate 1,
+  3072 at 2×, 6144 at 0.5×** (`timePitchUnitLatency`). The spectral lead on UNSCALED segments is exactly that latency in
+  the LANE's frames: 85.33 ms for 48 kHz media, **92.85 ms for 44.1 kHz media** (4096 / 44100), ≈ 64 / 128 ms at 2× /
+  0.5× — constant in frames, independent of the tap buffer size (4096, 4474 or 8208 frames) and of the output rate.
+  On SCALED segments (clip speed ≠ 1), and whenever speed × rate brings the stretch back to 1 through a scaled
+  segment (r2 s0.5), the spectral stamps are exact. Content is bit-exact and contiguous in every case at rate 1.
+- After a seek (spectral, unscaled, r1): `nostamp` silent buffer, a silent buffer stamped target − 2 × 4096 frames, then
+  the target's audio from frame 0 of a buffer stamped target − 4096 (`seekStructure`), at every target tried.
+- So: on macOS 26 AVFoundation stamps a post-effects tap on an unscaled segment EARLY by the spectral stretcher's
+  latency (as if the latency were compensated in the stamps although the bypassed stretcher adds none), and exactly on
+  scaled segments; the reader (export) has no such stage. Main's "one buffer" lead only matches when the tap buffer is
+  4096 frames, the media 48 kHz, the clip unscaled and the rate 1: it labels sped-up / slowed clips one buffer LATE,
+  J/K/L by ~100 ms, 44.1 kHz media 7 ms off on a 48 kHz output, and everything 85 ms late on an 8208-frame output.
+- The owner's macOS 13.7.8 Intel: no hole with lead 0 → its spectral stamps are ≈ exact on unscaled segments; its
+  queues were created 'tido' (logged; the 'spec' switch is not in the logs he sent).
+
+Candidate fixes tried / rejected:
+- `.timeDomain` preview lanes (no lead): uniform on both systems in theory (macOS 13 queues looked 'tido'), labels a
+  constant −7.7 ms at r1 s1 (stamps jitter ±4 ms; a continuity rule keeps the labels flat over 12 s), but the lead grows
+  in slow motion (+32 ms at 0.5×, +102 ms at 0.25×) and J/K/L reaches −34 ms, plus lower quality on music: rejected.
+- Lead = AUNewTimePitch's reported latency (queried at runtime) on unscaled segments: matches every macOS 26 case
+  above, but the owner's macOS 13 needs 0 there with presumably the same AU: not general, not shipped.
+- No AVFoundation knob makes the stamps exact on unscaled segments here (spectral/varispeed +1 latency, time-domain
+  −8 ms ± 4). Proposed general fix (not implemented, needs a decision): MEASURE the lead at runtime from known content —
+  a hidden "pilot" lane in preview compositions (a generated WAV of clicks every 0.4 s, tiled unscaled over the whole
+  item, its tap detects the clicks, publishes `lead = latency frames` to `AudioMixState` and zeroes its own output);
+  lanes add `leadFrames / laneSampleRate` on unscaled segments only. OS-independent, self-checking; to verify first:
+  label continuity at an unscaled ↔ scaled boundary on one lane, cost of the extra queue, lanes at other rates.
+
+Diagnostics added (ships, default behaviour unchanged): every `tap stamps … BUG-CUT-AUDIO-HOLE probe` line now ends with
+`|| vs target: first stamp −170.7 ms, sound onset raw −85.3 ms / labelled +0.0 ms` (`TapDiagnostics.selfCheck`): raw
+onset = (stamp + first sounding sample) − seek target = −(the stamps' lead) whenever the media sounds at the target, so
+the owner's next macOS 13 log shows its lead per lane directly (≈ 0 expected); labelled = the same with the lead the lane
+applied (≈ 0 = right). Each buffer also shows `snd@n` (first sounding sample).
 
 ## Files
 - `app/Sources/ValseEngine/Audio/TapDiagnostics.swift` (`TapLabelLead` switch, `TapDiagnostics` stamp capture,
@@ -176,7 +229,9 @@ exports fine. Not investigated further (out of scope).
 - `app/Sources/ValseEngine/Audio/AudioMix.swift` (`LaneProcessor.labelsLeadOneBuffer`, jump probe, `tapCapture`),
   `Audio/AudioTap.swift` (doc), `Composition/CompositionBuilder.swift` (preview → labels lead),
   `Playback/PlaybackEngine.swift` (`reportLaneAudio`, `laneAudioJumps`).
-- `app/Tests/ValseEngineTests/TapProbeTests.swift`: part 2 probes (opt-in `VALSE_TAP_PROBE=1`, `VALSE_TAP_PRE=1`);
-  `AudioMixdown.render(…, audioState:)` lets a test read the export lanes' taps.
+- `app/Tests/ValseEngineTests/TapProbeTests.swift`: part 2 / 3 probes (opt-in `VALSE_TAP_PROBE=1`; `VALSE_TAP_PRE=1`,
+  `VALSE_PROBE_DEVICE=<output UID>`, `VALSE_PROBE_ALGOS=none,x/S,x/T,x/V`, `VALSE_PROBE_SPEEDS=1`, `VALSE_PROBE_SRC=44100|aac`);
+  `CutAudioTimingTests.swift`: acceptance tests for the future fix (opt-in, fail on main as described in part 3);
+  `AudioMixdown.render(…, audioState:)` lets a test read the export lanes' taps; `CompositionBuilder.laneTimePitch` hook.
 - `app/Tests/ValseEngineTests/MetallicAudioTests.swift`: two regression tests (preview / export clip start) and the
   opt-in owner-session replay + tap timeline probe (`VALSE_METALLIC_REPRO=1`, `VALSE_METALLIC_MEDIA=wav`).
