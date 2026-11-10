@@ -4,8 +4,8 @@ import Perception
 import ValseCore
 import ValseEngine
 
-/// Progress of "Pack project": a non-modal banner (Home and editor) with a determinate bar, the percentage and a
-/// Cancel button, like Finder's copy progress and Final Cut's background tasks: packing copies every media file, so it
+/// Progress of "Pack project": a non-modal card (Home and editor; the bottom-right download card) with a determinate bar, the percentage and a
+/// cancel X: packing copies every media file, so it
 /// can take minutes, and the user keeps working (or cancels) meanwhile. Runs through `JobQueue` (`job.pack`).
 @MainActor @Perceptible
 public final class PackProgress {
@@ -71,27 +71,15 @@ public final class PackProgress {
     }
 }
 
-struct PackProgressBanner: View {
+/// Home: the same bottom-right card the editor uses for model downloads (`ModelDownloadIndicator`), with only the pack row.
+struct PackProgressCard: View {
     let model: PackProgress
     var body: some View {
         WithPerceptionTracking {
-            if let item = model.current {
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(verbatim: item.cancelling ? tr("pack.cancelling") : tr("pack.progress", item.name, Int((item.progress * 100).rounded(.down))))
-                            .font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                        ProgressView(value: item.progress).tint(Theme.Valse.ink).frame(width: 220).testID("pack.progress.bar")
-                    }
-                    Button(tr("common.cancel")) { model.cancel() }
-                        .buttonStyle(.plain).font(.system(size: 12, weight: .bold)).underline()
-                        .disabled(item.cancelling).testID("pack.cancel")
-                }
-                .foregroundStyle(Theme.Valse.ink)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(Theme.Valse.mint, in: Capsule())
-                .offset(x: -1, y: -1)
-                .background(Capsule().fill(Theme.Valse.teal).offset(x: 2, y: 2))
-                .testID("pack.progress")
+            if model.current != nil {
+                ModelDownloadIndicator(flow: nil, pack: model)
+                    .reportsSnapshotFrame { SnapshotRegistry.shared.floatingFrames["modelDownloads"] = $0 }
+                    .padding(.trailing, 16).padding(.bottom, 16)
             }
         }
     }

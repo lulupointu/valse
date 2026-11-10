@@ -49,7 +49,6 @@ public struct EditorView: View {
         .overlay { QuickCutOverlay(store: store) }   // TL-048 Quick cut popover (hangs from the timeline toolbar button)
         .overlay(alignment: .top) { SaveFailureBanner(store: store).padding(.top, 92) }   // BUG-ERROR-COPY: work at risk
         .overlay(alignment: .top) { ToastView(toast: store.toast).padding(.top, 54) }
-        .overlay(alignment: .bottom) { PackProgressBanner(model: .shared).padding(.bottom, 24) }   // Pack project progress + Cancel
         .overlay(alignment: .topTrailing) {
             // W5: during UI tests the keyframe panel (normally a floating NSPanel) lives in the offscreen test window
             if TestAnchors.isEnabled && store.keyframeUI.showsPanel {
