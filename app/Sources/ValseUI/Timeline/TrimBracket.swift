@@ -56,12 +56,14 @@ extension TrimBracket {
                 color.setStroke(); ns.stroke()
             }
             for (c, w) in [(NSColor.black, CGFloat(4.2)), (NSColor.white, CGFloat(2))] {
-                stroke(TrimBracketPaths.bracketPath(head: head), c, w)
+                // Owner feedback: the cursor brackets are mirrored against the toolbar glyphs (head edge "[", tail edge "]");
+                // the arrow still points to the side the edge moves into. The toolbar glyph is unchanged.
+                stroke(TrimBracketPaths.bracketPath(head: !head), c, w)
                 stroke(TrimBracketPaths.arrowPath(head: head), c, w * 0.8)
             }
             return true
         }
-        return NSCursor(image: img, hotSpot: NSPoint(x: head ? 13.5 : 8.5, y: 11))
+        return NSCursor(image: img, hotSpot: NSPoint(x: head ? 8.5 : 13.5, y: 11))
     }
 }
 

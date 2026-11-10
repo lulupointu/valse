@@ -1,0 +1,25 @@
+// Media panel search focus: not focused on appear; clicking the search field focuses it; clicking the grid (card or
+// empty space) gives the keyboard back, so ⌘A selects every item instead of the field's text.
+{
+  "project": "demo-bin",
+  "settle": 2.5,
+  "steps": [
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}},
+    {"expect": {"path": "ui.editingText", "equals": null}},
+    {"click": "id:asset.search"},
+    {"expect": {"path": "ui.firstResponder", "contains": "Text"}},
+    {"type": "ab"},
+    {"expect": {"path": "ui.editingText", "equals": "ab"}},
+    {"click": "id:asset.search.clear"},
+    {"click": "id:asset.search"},
+    {"expect": {"path": "ui.firstResponder", "contains": "Text"}},
+    {"click": "id:media.card.0"},
+    {"waitFor": {"path": "ui.editingText", "equals": null, "timeout": 10}},
+    {"key": "cmd+a"},
+    {"waitFor": {"path": "ui.assets.mediaSelection.count", "equals": 5, "timeout": 30}},
+    {"click": "id:asset.search"},
+    {"expect": {"path": "ui.firstResponder", "contains": "Text"}},
+    {"click": "id:asset.tab.media"},
+    {"waitFor": {"path": "ui.editingText", "equals": null, "timeout": 10}}
+  ]
+}
