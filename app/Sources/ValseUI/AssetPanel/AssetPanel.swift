@@ -65,6 +65,15 @@ enum AssetPanelFocus {
     static var lastClickModifiers: NSEvent.ModifierFlags = []
     private static var monitor: Any?
 
+    /// A click inside the panel on anything but a text field gives the keyboard back to the editor (the search field
+    /// keeps the caret otherwise: ⌘A / Delete would go to the text instead of the grid).
+    static func clickHitsTextField(_ host: NSView, at windowPoint: NSPoint) -> Bool {
+        guard let sup = host.superview, let v = host.hitTest(sup.convert(windowPoint, from: nil)) else { return false }
+        var cur: NSView? = v
+        while let c = cur { if c is NSTextField || c is NSText { return true }; cur = c.superview }
+        return false
+    }
+
     static func install() {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { e in
@@ -76,6 +85,7 @@ enum AssetPanelFocus {
                 let p = e.locationInWindow
                 let pt = CGPoint(x: p.x, y: host.bounds.height - p.y)
                 if !panelFrame.contains(pt) { AssetPanelState.shared.keyboardTab = nil }
+                else if store?.ai.pilot.isOpen != true, let w = e.window, w.firstResponder is NSText, !clickHitsTextField(host, at: p) { EditorKeyFocus.restore(in: w) }
                 if !panelFrame.contains(pt), !playerFrame.contains(pt), let s = store, s.isPreviewing { s.exitPreview() }
             }
             return e
