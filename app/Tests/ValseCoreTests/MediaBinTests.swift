@@ -54,6 +54,20 @@ import Foundation
         #expect(s.project.folders.isEmpty && s.project.mediaFolders == nil)
     }
 
+    @Test func removeMediaIsUndoableAndDropsItsClips() throws {
+        let (p, _) = Fx.project(mainClips: 2)
+        let doomed = p.media[0].id
+        let clipsBefore = p.timeline.tracks.flatMap(\.clips).count
+        var s = EditSession(project: p)
+        try s.perform(BinCommand.removeMedia([doomed]))
+        #expect(!s.project.media.contains { $0.id == doomed })
+        #expect(!s.project.timeline.tracks.flatMap(\.clips).contains { $0.mediaID == doomed })
+        _ = s.undo()
+        #expect(s.project.media.contains { $0.id == doomed })
+        #expect(s.project.timeline.tracks.flatMap(\.clips).count == clipsBefore)
+        #expect(throws: EditError.nothingToDo) { try s.perform(BinCommand.removeMedia([MediaID()])) }
+    }
+
     @Test func foldersAndMediaExtrasPersist() throws {
         var (p, ids) = Fx.project(mainClips: 1)
         let f = try BinOps.createFolder("B-roll", parent: nil, in: &p)

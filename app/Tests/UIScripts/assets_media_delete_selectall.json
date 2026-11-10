@@ -1,0 +1,25 @@
+// Media panel (Import): ⌘A selects every item, Delete removes the selection (undoable, no confirmation),
+// right-click ▸ Delete removes one card, ⌘Z restores.
+{
+  "project": "demo-bin",
+  "settle": 2.5,
+  "steps": [
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}},
+    {"click": "id:media.card.0"},
+    {"waitFor": {"path": "ui.assets.keyboardTab", "equals": "media", "timeout": 30}},
+    {"key": "cmd+a"},
+    {"waitFor": {"path": "ui.assets.mediaSelection.count", "equals": 5, "timeout": 30}},
+    {"expect": {"path": "selectedClips.count", "equals": 0}},
+    {"snapshot": "media-select-all", "element": "id:panel.assets"},
+    {"key": "delete"},
+    {"waitFor": {"path": "media.count", "equals": 0, "timeout": 30}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}},
+    {"click": "id:media.card.1"},
+    {"waitFor": {"path": "ui.assets.mediaSelection.count", "equals": 1, "timeout": 30}},
+    {"key": "delete"},
+    {"waitFor": {"path": "media.count", "equals": 4, "timeout": 30}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}}
+  ]
+}

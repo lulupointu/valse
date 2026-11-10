@@ -6,3 +6,4 @@
 "cmd.renameFolder" = "Renommer le dossier";
 "cmd.moveToFolder" = "Déplacer vers le dossier";
 "cmd.deleteFolder" = "Supprimer le dossier";
+"cmd.removeMedia" = "Retirer les médias";

@@ -139,6 +139,12 @@ struct MediaCardMenu: View {
                 }
             }
             Button(tr("media.copyToProject")) { store.copyMediaToProject() }
+            Divider()
+            Button(tr("media.remove")) {
+                let sel = AssetPanelState.shared.mediaSelection
+                store.removeMedia(sel.contains(asset.id) ? Set(sel) : [asset.id])
+            }
+            .testID("media.remove")
         }
     }
 }

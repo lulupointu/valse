@@ -118,6 +118,25 @@ public final class AssetPanelState {
     /// Media tab multi-selection (bin card ids).
     public var mediaSelection: [MediaID] = []
 
+    /// Tab id → ⌘A / ⌫ actions of the multi-selectable bins (Import, Audio ▸ Yours).
+    @PerceptionIgnored var selectAllActions: [String: () -> Void] = [:]
+    @PerceptionIgnored var deleteActions: [String: () -> Void] = [:]
+
+    /// ⌘A while a panel grid has keyboard focus: selects the panel's items (nothing for lists without multi-selection)
+    /// instead of the timeline clips behind it. Returns true when the panel consumed it.
+    func selectAllInFocusedPanel() -> Bool {
+        guard let tab = keyboardTab else { return false }
+        selectAllActions[tab]?()
+        return true
+    }
+
+    /// ⌫ / Delete menu while a bin has keyboard focus and a selection: removes the selected media.
+    func deleteInFocusedPanel() -> Bool {
+        guard let tab = keyboardTab, let a = deleteActions[tab], !mediaSelection.isEmpty else { return false }
+        a()
+        return true
+    }
+
     func navBinding(_ tab: String, default d: String) -> Binding<String> {
         Binding.perceived(get: { self.nav[tab] ?? d }, set: { self.nav[tab] = $0 })
     }

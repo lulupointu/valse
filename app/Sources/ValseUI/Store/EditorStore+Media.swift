@@ -112,6 +112,12 @@ extension EditorStore {
     public func renameFolder(_ id: MediaFolderID, to name: String) { perform(BinCommand.rename(id, name)) }
     public func deleteFolder(_ id: MediaFolderID) { perform(BinCommand.deleteFolder(id)) }
     public func moveMedia(_ ids: Set<MediaID>, to folder: MediaFolderID?) { perform(BinCommand.moveMedia(ids, to: folder)) }
+    /// Delete / right-click ▸ Delete in the media panel: removes the media from the bin (and the clips using it), undoable.
+    public func removeMedia(_ ids: Set<MediaID>) {
+        guard perform(BinCommand.removeMedia(ids)) else { return }
+        AssetPanelState.shared.mediaSelection.removeAll { ids.contains($0) }
+        selection = selection.filter { project.timeline.clip($0) != nil }
+    }
     public func moveFolder(_ id: MediaFolderID, to parent: MediaFolderID?) { perform(BinCommand.moveFolder(id, to: parent)) }
 
     // MARK: Missing media / relink

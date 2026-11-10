@@ -5,6 +5,7 @@
 "media.folder.name" = "Folder name";
 "media.folder.delete" = "Delete folder";
 "media.moveTo" = "Move to";
+"media.remove" = "Delete";
 "media.missing.one" = "%d missing file";
 "media.missing.other" = "%d missing files";
 "media.lost" = "Media lost";

@@ -6,3 +6,4 @@
 "cmd.renameFolder" = "Rename folder";
 "cmd.moveToFolder" = "Move to folder";
 "cmd.deleteFolder" = "Delete folder";
+"cmd.removeMedia" = "Remove media";
