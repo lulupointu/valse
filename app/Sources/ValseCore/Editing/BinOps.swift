@@ -93,9 +93,19 @@ public enum BinOps {
     public static func removeMedia(_ ids: Set<MediaID>, in p: inout Project) throws {
         guard p.media.contains(where: { ids.contains($0.id) }) else { throw EditError.nothingToDo }
         p.media.removeAll { ids.contains($0.id) }
-        for ti in p.timeline.tracks.indices {
-            p.timeline.tracks[ti].clips.removeAll { c in c.mediaID.map(ids.contains) == true }
+        func strip(_ tl: inout Timeline) {
+            for ti in tl.tracks.indices { tl.tracks[ti].clips.removeAll { c in c.mediaID.map(ids.contains) == true } }
         }
+        strip(&p.timeline)
+        if p.compoundEdit != nil { for i in p.compoundEdit!.indices { strip(&p.compoundEdit![i].parent) } }
+        if p.timelines != nil { for i in p.timelines!.indices { strip(&p.timelines![i].timeline) } }
+        if p.compounds != nil { for i in p.compounds!.indices { strip(&p.compounds![i].timeline) } }
+    }
+
+    /// The members of `ids` that some clip uses, in any timeline (main, other timelines, compounds).
+    public static func usedMedia(_ ids: Set<MediaID>, in p: Project) -> Set<MediaID> {
+        let tls = MultiTimelineOps.allTimelines(p) + (p.compounds ?? []).map(\.timeline)
+        return Set(tls.flatMap(\.allClips).compactMap(\.mediaID)).intersection(ids)
     }
 
     /// Deletes a folder and its sub-folders. Contained media is kept and moves up to the deleted folder's parent

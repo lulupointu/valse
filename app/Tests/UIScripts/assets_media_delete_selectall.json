@@ -20,6 +20,42 @@
     {"key": "delete"},
     {"waitFor": {"path": "media.count", "equals": 4, "timeout": 30}},
     {"key": "cmd+z"},
-    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}}
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}},
+
+    // media used by timeline clips: confirmation with three choices (Return/Esc = Don't Delete)
+    {"click": "id:media.card.0"},
+    {"click": "id:media.card.2", "modifiers": ["cmd"]},
+    {"key": "return"},
+    {"waitFor": {"path": "main.clips.count", "equals": 2, "timeout": 30}},
+    {"click": "id:media.card.0"},
+    {"waitFor": {"path": "ui.assets.mediaSelection.count", "equals": 1, "timeout": 30}},
+    {"key": "delete"},
+    {"waitFor": {"path": "app.modal", "equals": "removeUsedMedia", "timeout": 30}},
+    {"snapshot": "media-remove-used-dialog"},
+    {"click": "id:media.remove.cancel"},
+    {"waitFor": {"path": "app.modal", "equals": "", "timeout": 30}},
+    {"expect": [{"path": "media.count", "equals": 5}, {"path": "main.clips.count", "equals": 2}]},
+    // used + unused selected: "Delete Unused Media Only" keeps the used one and its clips
+    {"click": "id:media.card.0"},
+    {"click": "id:media.card.3", "modifiers": ["cmd"]},
+    {"waitFor": {"path": "ui.assets.mediaSelection.count", "equals": 2, "timeout": 30}},
+    {"key": "delete"},
+    {"waitFor": {"path": "app.modal", "equals": "removeUsedMedia", "timeout": 30}},
+    {"click": "id:media.remove.unused"},
+    {"waitFor": {"path": "media.count", "equals": 4, "timeout": 30}},
+    {"expect": {"path": "main.clips.count", "equals": 2}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}},
+    // "Delete Media and Clips": one undo step brings both back
+    {"click": "id:media.card.0"},
+    {"waitFor": {"path": "ui.assets.mediaSelection.count", "equals": 1, "timeout": 30}},
+    {"key": "delete"},
+    {"waitFor": {"path": "app.modal", "equals": "removeUsedMedia", "timeout": 30}},
+    {"click": "id:media.remove.all"},
+    {"waitFor": {"path": "media.count", "equals": 4, "timeout": 30}},
+    {"expect": {"path": "main.clips.count", "equals": 1}},
+    {"key": "cmd+z"},
+    {"waitFor": {"path": "media.count", "equals": 5, "timeout": 30}},
+    {"expect": {"path": "main.clips.count", "equals": 2}}
   ]
 }

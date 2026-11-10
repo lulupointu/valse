@@ -204,7 +204,7 @@ struct MediaBinView: View {
         state.selectAllActions[tab] = { AssetPanelState.shared.mediaSelection = list.map(\.id) }
         state.deleteActions[tab] = { [weak store] in
             guard let store else { return }
-            store.removeMedia(Set(AssetPanelState.shared.mediaSelection))
+            store.requestRemoveMedia(Set(AssetPanelState.shared.mediaSelection))
         }
         state.visibleCount[tab] = list.count
         state.mediaSelection.removeAll { id in !store.mediaBin.media.contains { $0.id == id } }

@@ -27,6 +27,7 @@ public final class AppModel {
         case projectSettings
         case newFolder
         case renameFolder(ProjectFolder)
+        case removeUsedMedia(Set<MediaID>, used: Int)
         public var id: String {
             switch self {
             case .settings: return "settings"
@@ -40,6 +41,7 @@ public final class AppModel {
             case .projectSettings: return "projectSettings"
             case .newFolder: return "newFolder"
             case .renameFolder(let f): return "renameFolder-\(f.id)"
+            case .removeUsedMedia: return "removeUsedMedia"
             }
         }
     }
@@ -85,6 +87,7 @@ public final class AppModel {
         preferences.apply(to: store)
         TitleBar.showShortcuts = { [weak self] in self?.modal = .shortcuts }
         TitleBar.goHome = { [weak self] in self?.backToHome() }   // VALSE-APP round 12: the title bar's back arrow
+        EditorStore.confirmUsedMediaRemoval = { [weak self] ids, used in self?.modal = .removeUsedMedia(ids, used: used) }
         OnlineAudioState.openSettings = { [weak self] in self?.modal = .settings(.music) }
         ModifyProjectButton.openProjectSettings = { [weak self] in self?.modal = .projectSettings }   // BUG-OVERSIZED-SHEETS
         // UI tests / demo screenshots (sandbox) neither read nor write the user's Home view preferences

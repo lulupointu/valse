@@ -142,7 +142,7 @@ struct MediaCardMenu: View {
             Divider()
             Button(tr("media.remove")) {
                 let sel = AssetPanelState.shared.mediaSelection
-                store.removeMedia(sel.contains(asset.id) ? Set(sel) : [asset.id])
+                store.requestRemoveMedia(sel.contains(asset.id) ? Set(sel) : [asset.id])
             }
             .testID("media.remove")
         }
