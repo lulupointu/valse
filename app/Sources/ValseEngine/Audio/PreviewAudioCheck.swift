@@ -428,13 +428,18 @@ public enum PreviewAudioCheck {
         let state = AudioMixState(project: p)
         var r = SwapResult()
         var swapClock = 0.0
+        // built BEFORE playing: a slow build under load used to let the clock reach `until` (pause → the edit became a
+        // re-seek, swaps 0) before the replace was even requested
+        var edited = p
+        edited.timeline[clip: clip.id]?.audio.volume = 0.5
+        let built = try await build(edited, state: state)
         let (rec, audio) = try await play(p, seek: 1.3, until: 3.0, state: state) { a in
             _ = await wait(10) { a.currentTime > 1.8 }
-            var edited = p
-            edited.timeline[clip: clip.id]?.audio.volume = 0.5
-            let built = try await build(edited, state: state)
             swapClock = a.currentTime
             a.replace(built)
+            // the swap runs on the feeder queue: wait for it, then for the new gain to have played (load-robust)
+            _ = await wait(20) { a.stats.swaps >= 1 }
+            _ = await wait(20) { a.currentTime > swapClock + 1.0 }
         }
         let s = audio.stats
         audio.stop()

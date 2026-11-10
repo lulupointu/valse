@@ -30,9 +30,21 @@ import ValseTestSupport
         }
         defer { Exporter.testWillCopy = nil }
         let project = p.project
-        let task = Task { try await Exporter.export(project: project, settings: s, to: url) }
-        for _ in 0..<600 where !box.blocked { try await Task.sleep(for: .milliseconds(50)) }   // hang bound 30 s
-        try #require(box.blocked, "the injected read never blocked")
+        let finished = Box()
+        let task = Task {
+            defer { finished.markBlocked() }   // (reused as a "done" flag)
+            return try await Exporter.export(project: project, settings: s, to: url)
+        }
+        // Under heavy load the export only reaches its 5th read late (setup, writer retries): wait for the read or for
+        // the export to end (a real failure then shows its error), bounded at 3 min as a hang guard.
+        for _ in 0..<3600 where !box.blocked && !finished.blocked { try await Task.sleep(for: .milliseconds(50)) }
+        if !box.blocked {
+            var outcome = "still running"
+            if finished.blocked { do { try await task.value; outcome = "completed" } catch { outcome = "failed: \(error)" } }
+            else { task.cancel() }
+            Issue.record("the injected read never blocked (export \(outcome), reads \(box.copy() - 1))")
+            return
+        }
 
         let t0 = Date()
         task.cancel()
