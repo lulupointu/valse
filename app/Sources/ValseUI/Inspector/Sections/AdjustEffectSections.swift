@@ -206,7 +206,7 @@ struct EffectClipSection: View {
 
 // MARK: - Transition
 
-/// Transition ▸ Transition parameters ↺: Name, Duration 0.1 s … half of the shorter neighbour, frame-quantised
+/// Transition ▸ Transition parameters ↺: Name, Duration 0.1 s … the shorter neighbour, frame-quantised
 /// (CapCut, TR-MODEL-CAPCUT); footer Apply to all (§5.7).
 struct TransitionSection: View {
     let ctx: InspectorContext
@@ -276,6 +276,10 @@ struct TransitionSection: View {
                               },
                               commit: { write($0, live: false) },
                               step: { write(value + Double($0) * 0.1, live: false) }, testID: "transition.duration")
+                if t != nil, value >= maxD - 0.001 {
+                    Text(loc: "inspector.transition.maxHint")   // at the shorter clip's length: why the slider stops
+                        .font(Theme.Fonts.row).foregroundStyle(Theme.textSecondary).testID("transition.maxHint")
+                }
                 TransitionParamRows(ctx: ctx)   // W5: direction / colour / softness… (ValseUI/Transitions)
             }
         }

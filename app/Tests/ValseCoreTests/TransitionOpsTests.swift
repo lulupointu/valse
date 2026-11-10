@@ -55,25 +55,25 @@ import Testing
         #expect(FrameEvaluator.evaluate(p, at: Time(3.6)).items.contains(where: Self.isTransition))
         #expect(FrameEvaluator.evaluate(p, at: Time(4.4)).items.contains(where: Self.isTransition))
         #expect(!FrameEvaluator.evaluate(p, at: Time(4.6)).items.contains(where: Self.isTransition))
-        // longer duration: clamped to half the shorter neighbour, still nothing moves
-        try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: Time(5)), in: &p.timeline)
+        // longer duration: clamped to twice the shorter neighbour (3 s), still nothing moves
+        try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: Time(9)), in: &p.timeline)
         let c2 = p.timeline.tracks[p.timeline.trackIndex(tid)!].clips
-        #expect(c2[0].transitionOut?.duration == Time(1.5))
+        #expect(c2[0].transitionOut?.duration == Time(6))
         #expect(c2.map(\.start) == [Time(1), Time(4), Time(7)])
         try TimelineOps.setTransition(ids[0], nil, in: &p.timeline)
         #expect(p.timeline.tracks[p.timeline.trackIndex(tid)!].clips.map(\.start) == [Time(1), Time(4), Time(7)])
     }
 
     @Test func durationRulesMatchCapCut() throws {
-        // 5 s | 5 s → 2.5 s; 1 s | 4 s → 0.5 s (frame multiples); min 0.1 s
+        // 5 s | 5 s → 10 s; 1 s | 4 s → 2 s (twice the shorter neighbour, frame multiples); min 0.1 s
         var (p, ids) = Fx.project(mainClips: 2, seconds: 5)
         let fps = p.settings.frameRate
-        #expect(TimelineOps.maxTransitionDuration(after: ids[0], in: p.timeline, frameRate: fps) == Time(2.5))
+        #expect(TimelineOps.maxTransitionDuration(after: ids[0], in: p.timeline, frameRate: fps) == Time(10))
         _ = try TimelineOps.split(ids[0], at: Time(1), in: &p.timeline)
         let left = Fx.main(p)[0].id
-        #expect(TimelineOps.maxTransitionDuration(after: left, in: p.timeline, frameRate: fps) == Time(0.5))
+        #expect(TimelineOps.maxTransitionDuration(after: left, in: p.timeline, frameRate: fps) == Time(2))
         #expect(TimelineOps.quantizedTransitionDuration(Time(0.01), after: left, in: p.timeline, frameRate: fps) == Time(0.1))
-        #expect(TimelineOps.quantizedTransitionDuration(Time(9), after: left, in: p.timeline, frameRate: fps) == Time(0.5))
+        #expect(TimelineOps.quantizedTransitionDuration(Time(9), after: left, in: p.timeline, frameRate: fps) == Time(2))
         let q = TimelineOps.quantizedTransitionDuration(Time(0.31), after: left, in: p.timeline, frameRate: fps)
         #expect(q.ticks % fps.frameDuration.ticks == 0)
     }
@@ -81,8 +81,31 @@ import Testing
     @Test func splittingAClipClampsItsTransitions() throws {
         var (p, ids) = Fx.project(mainClips: 2, seconds: 4)
         try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: Time(2)), in: &p.timeline)
-        _ = try TimelineOps.split(ids[1], at: Time(5), in: &p.timeline)   // B → 1 s | 3 s
-        #expect(Fx.main(p)[0].transitionOut?.duration == Time(0.5))
+        _ = try TimelineOps.split(ids[1], at: Time(4.5), in: &p.timeline)   // B → 0.5 s | 3.5 s: max = 1 s
+        #expect(Fx.main(p)[0].transitionOut?.duration == Time(1))
+        #expect(TimelineOps.validate(p.timeline).isEmpty)
+    }
+
+    @Test func transitionsAtBothEndsOfAClipNeverOverlap() throws {
+        // 2 s clips: a lone transition may reach 4 s (covers the whole 2 s clip on its side). Set the first to 4 s:
+        // the middle clip then has no room left for the second one, which is limited (d_in/2 + d_out/2 <= length).
+        var (p, ids) = Fx.project(mainClips: 3, seconds: 2)
+        let fps = p.settings.frameRate
+        #expect(TimelineOps.maxTransitionDuration(after: ids[0], in: p.timeline, frameRate: fps) == Time(4))
+        try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: Time(9)), in: &p.timeline)
+        #expect(Fx.main(p)[0].transitionOut?.duration == Time(4))
+        #expect(TimelineOps.maxTransitionDuration(after: ids[1], in: p.timeline, frameRate: fps) == TimelineOps.minTransitionDuration)
+        try TimelineOps.setTransition(ids[1], TransitionInstance(typeID: "x", duration: Time(9)), in: &p.timeline)
+        let c = Fx.main(p)
+        #expect(c[0].transitionOut?.duration == Time(4))   // the earlier one is untouched
+        #expect(c[1].transitionOut?.duration == TimelineOps.minTransitionDuration)
+        // with the first at 2 s the second gets what is left: 2 * (2 - 1) = 2 s
+        try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: Time(2)), in: &p.timeline)
+        #expect(TimelineOps.maxTransitionDuration(after: ids[1], in: p.timeline, frameRate: fps) == Time(2))
+        for clip in Fx.main(p).dropFirst().dropLast() {
+            let used = ((Fx.main(p)[0].transitionOut?.duration ?? .zero) + (clip.transitionOut?.duration ?? .zero)).seconds / 2
+            #expect(used <= clip.duration.seconds + 0.0001)
+        }
         #expect(TimelineOps.validate(p.timeline).isEmpty)
     }
 

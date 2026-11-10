@@ -1,0 +1,14 @@
+// Transition duration max is twice the shorter neighbouring clip (the window straddles the cut): typing a huge value clamps to it (demo: 4.75 s clip → 9.5 s)
+// inspector explains why the slider stops.
+{
+  "project": "demo",
+  "steps": [
+    {"drop": {"transition": "valse.transition.wipeLeft"}, "on": "time:10.5@main"},
+    {"expect": {"path": "main.clips.1.transition", "equals": "valse.transition.wipeLeft"}},
+    {"idle": 1},
+    {"click": "id:transition.duration.field"},
+    {"type": "999", "replace": true},
+    {"key": "return"},
+    {"expect": {"path": "main.clips.1.transitionDuration", "approx": 9.5}}
+  ]
+}
