@@ -110,9 +110,13 @@ public final class RenderState: @unchecked Sendable {
     }
 
     /// Decoded sources incl. aux lanes (matte / blend frames) of the composed frame closest to `time`.
-    public func sourceProvider(near time: Time) -> DictionarySourceProvider? {
+    /// `within`: nil = the closest whatever its distance; else nil when the closest decoded frame is further than that
+    /// (a re-render at `time` from far-away sources would show another moment's picture: scrub flicker).
+    public func sourceProvider(near time: Time, within: Time? = nil) -> DictionarySourceProvider? {
         lock.withLock {
-            recent.min { abs(($0.time - time).ticks) < abs(($1.time - time).ticks) }.map { DictionarySourceProvider($0.sources, aux: $0.aux) }
+            guard let best = recent.min(by: { abs(($0.time - time).ticks) < abs(($1.time - time).ticks) }) else { return nil }
+            if let within, abs((best.time - time).ticks) > within.ticks { return nil }
+            return DictionarySourceProvider(best.sources, aux: best.aux)
         }
     }
 

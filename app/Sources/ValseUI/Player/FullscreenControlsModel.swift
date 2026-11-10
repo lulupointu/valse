@@ -12,7 +12,9 @@ public final class FullscreenControlsModel {
     public enum Visibility: String, Sendable { case hidden, visible, pinned }
     public enum Pin: String, Hashable, Sendable { case hover, drag, timecode, voiceOver, focus }
 
-    public static let defaultIdle: TimeInterval = 3
+    /// 1.5 s (was 3 s): long enough to read the timecode after a pointer stop, short enough that the picture is clear
+    /// quickly (QuickTime-style). The bar stays pinned while hovered / dragged, so a faster hide never interrupts use.
+    public static let defaultIdle: TimeInterval = 1.5
     public static let flashDuration: TimeInterval = 1.5
     /// Pointer movement (pt, cumulative since the last hide) that wakes the bar.
     public static let deadBand: CGFloat = 3
