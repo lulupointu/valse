@@ -97,7 +97,7 @@ import Testing
         #expect(TimelineOps.maxTransitionDuration(after: ids[1], in: p.timeline, frameRate: fps) == TimelineOps.minTransitionDuration)
         try TimelineOps.setTransition(ids[1], TransitionInstance(typeID: "x", duration: Time(9)), in: &p.timeline)
         let c = Fx.main(p)
-        #expect(c[0].transitionOut?.duration == Time(4))   // the earlier one is untouched
+        #expect(c[0].transitionOut?.duration == Time(3.9))   // only a hair of room is taken back (0.1 s minimum)
         #expect(c[1].transitionOut?.duration == TimelineOps.minTransitionDuration)
         // with the first at 2 s the second gets what is left: 2 * (2 - 1) = 2 s
         try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: Time(2)), in: &p.timeline)
