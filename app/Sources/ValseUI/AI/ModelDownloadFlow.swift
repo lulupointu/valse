@@ -124,7 +124,7 @@ struct ModelDownloadOverlay: View {
             ZStack {
                 // FB-08: pinned to the window's bottom-right corner. Without the full-size frame the overlay shrank to
                 // the card and centred it over the player whenever the popup (which fills the window) was closed.
-                if !flow.activeSpecs.isEmpty || !flow.failures.isEmpty {
+                if !flow.activeSpecs.isEmpty || !flow.failures.isEmpty || PackProgress.shared.current != nil {
                     ModelDownloadIndicator(flow: flow)
                         .reportsSnapshotFrame { SnapshotRegistry.shared.floatingFrames["modelDownloads"] = $0 }
                         .padding(.trailing, 16).padding(.bottom, 16)
@@ -199,14 +199,47 @@ struct ModelDownloadPrompt: View {
     }
 }
 
-/// Bottom-right card: one row per download (name, %, bar, ✕ → "Stop download?" [Keep] [Stop]) and failed ones.
+/// Bottom-right card: one row per download (name, %, bar, ✕ → "Stop download?" [Keep] [Stop]), failed ones, and the
+/// running "Pack project" job (same row layout, ✕ cancels). `flow` is nil on Home (no editor): only the pack row shows.
 struct ModelDownloadIndicator: View {
-    let flow: ModelDownloadFlow
+    let flow: ModelDownloadFlow?
+    var pack: PackProgress = .shared
     var body: some View {
         WithPerceptionTracking {
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(flow.activeSpecs) { s in row(s) }
-                ForEach(flow.failures.keys.sorted(), id: \.self) { id in
+                if let item = pack.current { packRow(item) }
+                if let flow {
+                    ForEach(flow.activeSpecs) { s in row(s, flow) }
+                    failureRows(flow)
+                }
+            }
+            .padding(12)
+            .frame(width: 280)
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 8))
+            .valseFloatingCard(radius: 8, depth: 4)
+            .testID("modelDownloads.indicator")
+        }
+    }
+
+    @ViewBuilder func packRow(_ item: PackProgress.Item) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "shippingbox").foregroundStyle(Theme.accent)
+                Text(verbatim: tr("pack.progress", item.name)).font(Theme.Fonts.row).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Spacer()
+                Text(verbatim: item.cancelling ? tr("pack.cancelling") : "\(Int((item.progress * 100).rounded(.down))) %")
+                    .font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).monospacedDigit()
+                Button { pack.cancel() } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("pack.cancel"))
+                    .disabled(item.cancelling).testID("pack.cancel")
+            }
+            ProgressView(value: item.progress).tint(Theme.accent).testID("pack.progress.bar")
+        }
+        .testID("pack.progress")
+    }
+
+    @ViewBuilder func failureRows(_ flow: ModelDownloadFlow) -> some View {
+        ForEach(flow.failures.keys.sorted(), id: \.self) { id in
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(IStyle.warning)
                         VStack(alignment: .leading, spacing: 2) {
@@ -226,17 +259,10 @@ struct ModelDownloadIndicator: View {
                             .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("download.dismiss"))
                             .testID("modelDownloads.dismiss.\(id)")
                     }
-                }
-            }
-            .padding(12)
-            .frame(width: 280)
-            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 8))
-            .valseFloatingCard(radius: 8, depth: 4)
-            .testID("modelDownloads.indicator")
         }
     }
 
-    @ViewBuilder func row(_ s: AIModelSpec) -> some View {
+    @ViewBuilder func row(_ s: AIModelSpec, _ flow: ModelDownloadFlow) -> some View {
         let state = flow.manager.state(s)
         let p: Double? = { if case .downloading(let v) = state { return v }; return nil }()
         VStack(alignment: .leading, spacing: 6) {

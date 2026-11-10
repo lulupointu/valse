@@ -24,7 +24,7 @@ struct HomeView: View {
             .background(Theme.Valse.canvas)
             .overlay { ShortsWizardHost(app: app) }   // AI2 (AI-031)
             .overlay(alignment: .top) { ToastView(toast: app.store.toast).padding(.top, 54) }
-            .overlay(alignment: .bottom) { PackProgressBanner(model: .shared).padding(.bottom, 24) }   // Pack project progress + Cancel
+            .overlay(alignment: .bottomTrailing) { PackProgressCard(model: .shared) }   // Pack project progress + Cancel
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in
                 HomeDrop.load(providers) { urls in
                     let projects = urls.filter { ProjectPackage.isPackage($0) || $0.pathExtension.lowercased() == "zip" }
