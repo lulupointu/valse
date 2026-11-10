@@ -80,7 +80,8 @@ import ValseTestSupport
     }
 
     /// Seeks while playing across lanes that switch between the rendered and the original audio: the clock keeps
-    /// running. `legacy`: the old mixed-format lanes — the frozen-clock watchdog must replace the wedged item.
+    /// running. `legacy`: the old mixed-format lanes, which wedged AVPlayer's tap (PB-QC); `PreviewAudio` reads them
+    /// with a reader (BUG-CUT-AUDIO-HOLE phase B), so both layouts must play.
     @Test(arguments: [false, true]) func seeksAcrossRenderedAndOriginalAudioKeepPlaying(_ legacy: Bool) async throws {
         let project = try await Self.mixedFormatProject()
         try await HeavyWorkGate.run {
@@ -95,12 +96,13 @@ import ValseTestSupport
             for target in [10.6, 1.0, 7.6, 4.0, 11.0, 2.5] {
                 engine.seek(to: Time(target))
                 let ok = try await Self.clockAdvances(engine)
-                #expect(ok, "clock frozen after seeking to \(target) s (legacy \(legacy), rebuilds \(engine.clockRebuilds), t \(engine.player.currentTime().seconds))")
+                #expect(ok, "clock frozen after seeking to \(target) s (legacy \(legacy), t \(engine.player.currentTime().seconds), audio \(engine.audio.currentTime))")
                 if !ok { break }
+                #expect(engine.audio.isRunning, "audio clock stopped after seeking to \(target) s")
+                #expect(abs(engine.lastAVDrift) < 0.034, "A/V drift \(engine.lastAVDrift) s after seeking to \(target) s")
             }
-            print("PB-QC legacy \(legacy): frozen-clock rebuilds \(engine.clockRebuilds)")
-            if legacy { #expect(engine.clockRebuilds <= 2, "recovery must stick (taps off), not rebuild again and again") }
-            else { #expect(engine.clockRebuilds == 0, "the clock froze with homogeneous lanes") }
+            print("PB-QC legacy \(legacy): rejoins \(engine.videoRejoins), max A/V drift \(String(format: "%.2f", engine.maxAVDrift * 1000)) ms")
+            #expect(engine.driftRejoins == 0)
             engine.pause()
         }
     }
@@ -118,9 +120,8 @@ import ValseTestSupport
             while (AudioRenderCache.shared.isBusy || engine.isBuilding) && waited < 6000 { try await Task.sleep(nanoseconds: 50_000_000); waited += 1 }
             try await PlaybackProbe.waitReady(engine, timeout: 60)
             let r = try await PlaybackStressTests.stress(engine, actions: 60, seed: 42, timeout: 3)
-            print("PB-QC real project: \(r.actions) actions, stalls \(r.stalls.count), frozen-clock rebuilds \(engine.clockRebuilds)")
+            print("PB-QC real project: \(r.actions) actions, stalls \(r.stalls.count), drift re-joins \(engine.driftRejoins)")
             #expect(r.stalls.isEmpty, "\(r.stalls.prefix(3))")
-            #expect(engine.clockRebuilds == 0)
         }
     }
 }

@@ -91,8 +91,8 @@ struct PlaybackDeviceReproTests {
         var p = TestProject(frameRate: .fps25)
         _ = try await p.addMedia(try Self.media(hz: 440, rate: 48000, seconds: 12, video: true))
         let engine = PlaybackEngine(project: p.project)
-        engine.player.audioOutputDeviceUniqueID = uid
-        engine.player.volume = 1   // tests export VALSE_MUTE_AUDIO; this output is a virtual device
+        engine.outputDeviceUID = uid
+        engine.audio.renderer.volume = 1   // tests export VALSE_MUTE_AUDIO; this output is a virtual device
         Self.setBuffer(uid, frames: 4096)
         try await PlaybackProbe.waitReady(engine)
         var failures = 0
@@ -163,14 +163,14 @@ struct PlaybackDeviceReproTests {
         let engine = PlaybackEngine(project: project)
         // VALSE_PB_SWITCH_FROM: start on that output, play a while, then switch to `uid` (AirPods unplugged → speakers)
         let from = Self.env["VALSE_PB_SWITCH_FROM"]
-        engine.player.audioOutputDeviceUniqueID = from ?? uid
-        engine.player.volume = 1   // tests export VALSE_MUTE_AUDIO; this output is a virtual device
+        engine.outputDeviceUID = from ?? uid
+        engine.audio.renderer.volume = 1   // tests export VALSE_MUTE_AUDIO; this output is a virtual device
         try await PlaybackProbe.waitReady(engine)
         if from != nil {
             engine.seek(to: Time(3))
             engine.play()
             _ = try await Self.drive(engine, seconds: 4)
-            engine.player.audioOutputDeviceUniqueID = uid
+            engine.outputDeviceUID = uid
             _ = try await Self.drive(engine, seconds: 3)
             engine.pause()
             Self.log("switched output \(from!) → \(uid) while playing")
@@ -202,11 +202,11 @@ struct PlaybackDeviceReproTests {
         let switchEach = from != nil && Self.env["VALSE_PB_SWITCH_EACH"] != nil
         for run in 0..<plays {
             if switchEach, run > 0, let from {
-                engine.player.audioOutputDeviceUniqueID = from
+                engine.outputDeviceUID = from
                 engine.seek(to: Time(3))
                 engine.play()
                 _ = try await Self.drive(engine, seconds: 2)
-                engine.player.audioOutputDeviceUniqueID = uid
+                engine.outputDeviceUID = uid
                 _ = try await Self.drive(engine, seconds: 2)
                 engine.pause()
             }

@@ -22,6 +22,7 @@ import ValseUI
 ///   --imgdiff <a.png> <b.png> [--threshold 16] [--tolerance 0.005] [--diff out.png]   compare two images, JSON result
 ///   --analyze-content <manifest.json> <content-dir> <out.json>   analyse the music/SFX library (fetch_music_pack.sh)
 ///   --check-project <package>  load a project like the editor does, print a JSON verdict (scripts/updater_e2e.sh)
+///   --preview-audio-check <dir>  PreviewAudio timing / seek / live-edit checks (macOS 13 VM: scripts/audio_probe.sh --vm --app)
 struct Options {
     var open: URL?
     var demo = false
@@ -338,6 +339,8 @@ if CommandLine.arguments.contains("--uitest") { AppDefaults.isolateForUITest() }
 if let i = CommandLine.arguments.firstIndex(of: "--imgdiff") { exit(ImageDiffCLI.run(Array(CommandLine.arguments[(i + 1)...]))) }
 // scripts/fetch_music_pack.sh: offline analysis of the content library (beats, key, peaks, similarity features)
 if let i = CommandLine.arguments.firstIndex(of: "--analyze-content") { exit(ContentAnalyzer.runCLI(Array(CommandLine.arguments[(i + 1)...]))) }
+// BUG-CUT-AUDIO-HOLE: PreviewAudio checks on the machine's own audio stack (macOS 13 VM, docs/TESTING.md §4)
+if let i = CommandLine.arguments.firstIndex(of: "--preview-audio-check") { exit(PreviewAudioCheck.runCLI(Array(CommandLine.arguments[(i + 1)...]))) }
 Tooltips.install()   // hover tooltips after 0.4 s app-wide (CapCut-like), C3
 if CommandLine.arguments.contains("--uitest") { UITestDriver.prepareProcess() }
 let app = NSApplication.shared

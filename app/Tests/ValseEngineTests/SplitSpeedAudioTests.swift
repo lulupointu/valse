@@ -16,20 +16,18 @@ import ValseTestSupport
 
     /// A buffer of 1.0 straddling the end of a 2× clip whose tap reports `duration` = span × 4 (what AVFoundation does):
     /// the gain must stay 1 up to the clip end and fall to 0 exactly there.
-    @Test(arguments: [false, true])
-    func tapStepOnSpedUpSegmentFollowsTheTimestamps(leads: Bool) {
+    @Test func tapStepOnSpedUpSegmentFollowsTheTimestamps() {
         var clip = Clip(content: .solid(.black), start: .zero, duration: Time(1.5))
         clip.speed = .constant(2)
         let p = LaneProcessor(clips: [clip], state: AudioMixState(),
-                              gains: [GainRamp(start: .zero, end: Time(1.5), from: 1, to: 1)], labelsLeadOneBuffer: leads)
+                              gains: [GainRamp(start: .zero, end: Time(1.5), from: 1, to: 1)])
         p.prepare(sampleRate: 48000, channels: 2, maxFrames: 4096)
         let n = 512, span = Double(n) / 48000
-        // consecutive buffers; with `leads` each is stamped one buffer early (AVPlayer)
-        var t = 1.4 - (leads ? span : 0)
+        var t = 1.4
         var out: [Float] = []
         var times: [Double] = []
         while out.count < 48000 / 5 {
-            times.append(t + (leads ? span : 0))
+            times.append(t)
             out += LaneGainTests.run(p, at: t, frames: n, rate: 4)   // duration = span × speed²
             t += span
         }

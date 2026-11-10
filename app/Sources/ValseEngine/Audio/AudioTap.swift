@@ -2,16 +2,15 @@
 import MediaToolbox
 import Foundation
 
-/// Block-processing callback installed on one audio-mix lane. Called on the audio render thread (real-time in
-/// preview): no locks that can block for long, no allocation in steady state.
+/// Block-processing callback of one audio lane: an MTAudioProcessingTap on an export / mixdown reader's audio-mix lane
+/// (`AudioTap.make`), or called directly by `PreviewAudioLanes` on the preview reader's buffers (no tap in preview).
+/// No locks that can block for long, no allocation in steady state.
 /// `buffers` are non-interleaved Float32 channels, `time` is the composition time of the first frame and `duration` the
-/// composition time the buffer covers (`frames / sampleRate` × the playback rate: the tap runs after the time-pitch
-/// stage) — except on speed-scaled segments, where `duration` is that span × speed² (both paths: see
-/// `LaneProcessor.step`, which measures the span from consecutive timestamps); either may be invalid. In AVPlayer playback `time` is one buffer EARLY (the start of the previous pull:
-/// the samples are those of `time + duration`); in AVAssetReaderAudioMixOutput (export) it is exact. See
-/// `LaneProcessor.labelsLeadOneBuffer` and docs/investigations/BUG-METALLIC-AUDIO.md. (A pre-effects tap is labelled
-/// exactly in both, but its `duration` is wrong on speed-scaled segments: 1.5× the frames' span at speed 1.5, the
-/// labels advancing 1/1.5×.)
+/// composition time the buffer covers (`frames / sampleRate`) — except on speed-scaled segments in a tap, where
+/// `duration` is that span × speed² (see `LaneProcessor.step`, which measures the span from consecutive timestamps);
+/// either may be invalid. AVAssetReaderAudioMixOutput stamps exactly on every OS. AVPlayer's post-effects tap stamps
+/// do NOT (macOS 26 subtracts the time-pitch latency twice, macOS 13 is exact: docs/investigations/BUG-METALLIC-AUDIO.md
+/// part 5), which is why preview audio no longer goes through AVPlayer and taps (`PreviewAudio`).
 public protocol AudioTapProcessor: AnyObject, Sendable {
     func prepare(sampleRate: Double, channels: Int, maxFrames: Int)
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime, duration: CMTime)

@@ -124,7 +124,7 @@ struct SkipTimeMapTests {
                 #expect(inside.isEmpty, "frames of skipped ranges shown: \(inside.map(\.seconds)) — \(diag)")
                 let skippedTimes = times.filter(inSlice)
                 #expect(skippedTimes.isEmpty, "playhead inside a slice: \(skippedTimes.map(\.seconds)) — \(diag)")
-                #expect(engine.clockRebuilds == 0, "\(diag)")
+                #expect(engine.driftRejoins == 0, "\(diag)")
                 let keptShown = frames.contains { $0 >= Time(2) && $0 < Time(3) } && frames.contains { $0 >= Time(3.5) }
                 if keptShown { break }
                 let loaded = maxGap >= Self.loadGap || primes > 0 || rebuilds > 0

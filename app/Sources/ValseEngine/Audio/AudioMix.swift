@@ -31,13 +31,6 @@ public final class AudioMixState: @unchecked Sendable {
 
     var currentVersion: Int { lock.withLock { version } }
 
-    /// Playback rate of the player the lanes feed (preview J/K/L; 1 for export): composition time per output frame is
-    /// `playerRate / sampleRate`, whatever the segment speed (`LaneProcessor.step`). Set by `PlaybackEngine`.
-    private var _playerRate: Double = 1
-    public var playerRate: Double {
-        get { lock.withLock { _playerRate } }
-        set { lock.withLock { _playerRate = newValue } }
-    }
     func liveChain(_ id: ClipID) -> [LiveNode] { lock.withLock { live[id] ?? [] } }
 
     /// What the lane taps see (tests / diagnostics): called on the audio render thread, keep it cheap.
@@ -53,20 +46,6 @@ public final class AudioMixState: @unchecked Sendable {
     /// covers (what the gains used). Audio render thread: copy and return.
     public typealias TapCapture = @Sendable (_ time: Double, _ samples: UnsafeBufferPointer<Float>, _ sampleRate: Double,
                                              _ step: Double) -> Void
-    /// Lane taps' time jumps while sounding (BUG-METALLIC-AUDIO probe, `PlaybackEngine.reportLaneAudio`).
-    private var jumps = 0, worstJump = 0.0, worstJumpAt = 0.0
-    func noteLaneJump(_ d: Double, at t: Double) {
-        lock.withLock { jumps += 1; if abs(d) > abs(worstJump) { worstJump = d; worstJumpAt = t } }
-    }
-    /// Jumps since the last call: count, largest (seconds, negative = audio repeated), composition time of it.
-    public func takeLaneJumps() -> (count: Int, worst: Double, at: Double) {
-        lock.withLock {
-            defer { jumps = 0; worstJump = 0; worstJumpAt = 0 }
-            return (jumps, worstJump, worstJumpAt)
-        }
-    }
-    /// First buffers of each lane tap after each prepare / reset (BUG-CUT-AUDIO-HOLE probe, `reportLaneAudio`).
-    public let tapDiagnostics = TapDiagnostics()
     private var _tapCapture: TapCapture?
     public var tapCapture: TapCapture? {
         get { lock.withLock { _tapCapture } }
@@ -80,10 +59,11 @@ struct GainRamp: Equatable, Sendable {
     let from: Float, to: Float
 }
 
-/// The tap processor of one composition audio lane: routes each buffer to the live chain of the clip playing at that
-/// composition time, then applies the lane's clip volumes. The tap runs AFTER the time-pitch stage ("post-effects"):
-/// at a playback rate ≠ 1 a frame covers `rate / sampleRate` of composition time; a clip boundary inside a buffer
-/// splits it.
+/// The processor of one composition audio lane: routes each buffer to the live chain of the clip playing at that
+/// composition time, then applies the lane's clip volumes; a clip boundary inside a buffer splits it. It runs on
+/// reader buffers labelled by their own (exact) timestamps: in export as a post-effects tap of the
+/// `AVAssetReaderAudioMixOutput`, in preview on `PreviewAudio`'s reader buffers before they are mixed and enqueued
+/// (BUG-CUT-AUDIO-HOLE: preview no longer uses AVPlayer taps, whose stamps macOS 26 mislabels).
 final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     struct Entry { let id: ClipID; let start: Double; let end: Double; let clip: Clip }
     let entries: [Entry]
@@ -107,43 +87,10 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     private let scratch = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 8)
     private let table = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 8)
     private var last: ClipID?
-    /// The previous buffer was stamped and not silent (jump probe).
-    private var lastSounded = false
-
-    /// Index of the first non-zero sample (-1: silent).
-    @inline(__always) static func firstSound(_ p: UnsafeMutablePointer<Float>, _ n: Int) -> Int {
-        for i in 0..<n where p[i] != 0 { return i }
-        return -1
-    }
-
-    /// BUG-METALLIC-AUDIO: in AVPlayer playback a post-effects tap's timestamp is the start of the PREVIOUS pull — the
-    /// samples it carries begin one buffer later (4096 frames = 85 ms, measured on the content: lane output vs source,
-    /// `MetallicAudioTests`). Read as is, the clip gains muted the first 85 ms of every clip after a gap or a cut on its
-    /// lane and ran every fade / volume keyframe / live effect switch 85 ms late. Export (AVAssetReaderAudioMixOutput)
-    /// stamps exactly. 1 = preview builds: the buffer's time is its stamp + its own span.
-    /// BUG-CUT-AUDIO-HOLE: that lead was measured on Apple Silicon / macOS 26 only; an Intel Mac on macOS 13 had an
-    /// 85 ms hole at a cut in preview, so preview builds take it from `TapLabelLead.preview()` (0, 1 or 2 buffers:
-    /// the time is stamp + leadBuffers × the buffer's span).
-    let leadBuffers: Int
-    var labelsLeadOneBuffer: Bool { leadBuffers > 0 }
-    /// AVPlayer lane (preview): composition time per frame follows `state.playerRate` (export: rate 1).
-    let followsPlayerRate: Bool
-    /// BUG-CUT-AUDIO-HOLE probe: lane index (log), diagnostics slot, the first buffers since the last prepare / reset.
-    private let diagLane: Int
-    private let diagSlot: Int
-    private let diag = UnsafeMutablePointer<TapBufferRecord>.allocate(capacity: TapDiagnostics.buffersPerCapture)
-    private var diagCount = 0
-    private var diagPublished = true
 
     /// `skip`: timeline ranges the composition leaves out (quick cut preview) — entries are in composition time.
-    /// `leadBuffers` (preview builds) overrides `labelsLeadOneBuffer` and marks an AVPlayer lane.
-    init(clips: [Clip], state: AudioMixState, skip: SkipTimeMap = .identity, gains: [GainRamp]? = nil,
-         labelsLeadOneBuffer: Bool = false, leadBuffers: Int? = nil, lane: Int = 0) {
-        self.leadBuffers = max(0, leadBuffers ?? (labelsLeadOneBuffer ? 1 : 0))
-        followsPlayerRate = labelsLeadOneBuffer || leadBuffers != nil
-        diagLane = lane
-        diagSlot = state.tapDiagnostics.slot(forLane: lane)
-        diag.initialize(repeating: .empty, count: TapDiagnostics.buffersPerCapture)
+    /// `lane`: index of the lane in the composition (diagnostics).
+    init(clips: [Clip], state: AudioMixState, skip: SkipTimeMap = .identity, gains: [GainRamp]? = nil, lane: Int = 0) {
         entries = clips.sorted { $0.start < $1.start }.flatMap { c in
             skip.kept(c.range).map { k in
                 let s = skip.item(k.start)
@@ -155,45 +102,18 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         for e in entries { chains[e.id] = LiveChain(state.liveChain(e.id), sampleRate: 48000) }
         seenVersion = state.currentVersion
     }
-    deinit { scratch.deallocate(); table.deallocate(); diag.deallocate() }
+    deinit { scratch.deallocate(); table.deallocate() }
 
     func prepare(sampleRate: Double, channels: Int, maxFrames: Int) {
         self.sampleRate = sampleRate
         for c in chains.values { c.prepare(sampleRate: sampleRate); c.reset() }
-        restartDiagnostics()
         state.tapObserver?(.prepare)
     }
 
     func reset() {
         for c in chains.values { c.reset() }
-        last = nil; nextTime = nil; gainIndex = 0; lastSounded = false; lastStamp = nil; lastStep = nil
-        restartDiagnostics()
+        last = nil; nextTime = nil; gainIndex = 0; lastStamp = nil; lastStep = nil
         state.tapObserver?(.reset)
-    }
-
-    /// A new capture starts (a partial one not yet published is published first, if the lock is free).
-    private func restartDiagnostics() {
-        if !diagPublished, diagCount > 0 { publishDiagnostics() }
-        diagCount = 0; diagPublished = false
-    }
-
-    private func publishDiagnostics() {
-        if state.tapDiagnostics.publish(slot: diagSlot, lane: diagLane, lead: leadBuffers, records: diag, count: diagCount) {
-            diagPublished = true
-        }
-    }
-
-    /// Audio thread: records the raw buffer (before any processing) while the capture is open.
-    @inline(__always) private func recordDiagnostics(time: CMTime, frames: Int, duration: CMTime, firstSound: Int, label: Double) {
-        guard !diagPublished else { return }
-        if diagCount < TapDiagnostics.buffersPerCapture {
-            diag[diagCount] = TapBufferRecord(stamp: time.isNumeric ? time.seconds : .nan, frames: frames,
-                                              duration: duration.isNumeric ? duration.seconds : .nan,
-                                              sampleRate: sampleRate, sounding: firstSound >= 0, firstSound: firstSound,
-                                              label: time.isNumeric ? label : .nan)
-            diagCount += 1
-        }
-        if diagCount >= TapDiagnostics.buffersPerCapture { publishDiagnostics() }   // (busy lock: retried next buffer)
     }
 
     func process(_ buffers: UnsafeMutableAudioBufferListPointer, frames: Int, time: CMTime, duration: CMTime = .invalid) {
@@ -210,18 +130,10 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
         let stamped = time.isNumeric
         let step = Self.step(stamp: stamped ? time.seconds : nil, previous: lastStamp, lastStep: lastStep, frames: frames,
                              duration: duration, sampleRate: sampleRate,
-                             playerRate: followsPlayerRate ? state.playerRate : 1, leads: leadBuffers,
                              speed: { self.segmentScale(at: $0) })
         lastStamp = stamped ? (time.seconds, frames) : nil
         lastStep = step
-        let t0 = stamped ? time.seconds + Double(leadBuffers * frames) * step : nextTime ?? 0
-        // probe: a stamped buffer with sound that does not follow the previous one (which had sound too) by < 0.5 s.
-        // Seeks reset the taps; the buffers a paused item repeats are silent.
-        let first = Self.firstSound(table[0], frames)
-        let sounding = first >= 0
-        recordDiagnostics(time: time, frames: frames, duration: duration, firstSound: first, label: t0)
-        if stamped, sounding, lastSounded, let e = nextTime, abs(t0 - e) > 0.001, abs(t0 - e) < 0.5 { state.noteLaneJump(t0 - e, at: t0) }
-        lastSounded = sounding && stamped
+        let t0 = stamped ? time.seconds : nextTime ?? 0
         nextTime = t0 + Double(frames) * step
         routeLive(block, frames: frames, from: t0, step: step)
         if gains != nil {
@@ -240,19 +152,17 @@ final class LaneProcessor: AudioTapProcessor, @unchecked Sendable {
     /// On a speed-scaled segment the post-effects tap's `duration` is NOT the composition time the buffer covers: it is
     /// that span × speed² (measured, AVPlayer and AVAssetReaderAudioMixOutput alike: 4× at speed 2, ¼ at speed 0.5),
     /// while the timestamps advance by the true span. Taken as is, the clip gains ran 4× too fast inside each buffer at
-    /// 2× (the end of a sped-up clip and the frames before a cut muted) and, in preview, the one-buffer lead put every
-    /// buffer 256 ms late (the last quarter second of a 2× clip muted). The step therefore comes from consecutive stamps
+    /// 2× (the end of a sped-up clip and the frames before a cut muted). The step therefore comes from consecutive stamps
     /// (Δ / previous frames: exact at any segment speed and player rate) when that agrees with the previous step or the
-    /// estimate (else it is a seek, not a buffer span). The estimate (first buffer after a seek, paused repeats) is the
-    /// reported duration on an unscaled segment, else `playerRate / sampleRate` (the first buffer of a play on a scaled
-    /// segment reports neither span × speed² nor the span).
+    /// estimate (else it is a seek, not a buffer span). The estimate (first buffer after a seek) is the reported
+    /// duration on an unscaled segment, else `playerRate / sampleRate` (the first buffer on a scaled segment reports
+    /// neither span × speed² nor the span). Readers deliver at rate 1 (`playerRate` 1: export and preview alike).
     static func step(stamp: Double?, previous: (time: Double, frames: Int)?, lastStep: Double?, frames: Int,
-                     duration: CMTime, sampleRate: Double, playerRate: Double = 1, leads: Int = 0,
+                     duration: CMTime, sampleRate: Double, playerRate: Double = 1,
                      speed: (Double) -> Double) -> Double {
         let nominal = 1 / sampleRate
         let d = duration.isNumeric ? duration.seconds : 0
-        // the segment the samples come from: `leads` buffers after a leading stamp (located at rate 1)
-        let k = stamp.map { speed($0 + Double(leads * frames) * nominal) } ?? 1
+        let k = stamp.map { speed($0) } ?? 1
         let estimate = d > 0 && frames > 0 && abs(k - 1) < 1e-3 ? d / Double(frames) : nominal * max(playerRate, 1e-3)
         func near(_ a: Double, _ b: Double) -> Bool { abs(a - b) <= 0.05 * b }
         if let stamp, let previous, previous.frames > 0 {

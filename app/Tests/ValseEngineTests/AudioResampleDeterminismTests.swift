@@ -372,7 +372,9 @@ import ValseTestSupport
         let ctl = plays > 3 ? "pre-fix 48 kHz reader under the same load: \(control.holed)/\(control.reads) reads with the dropout (at \(control.at.sorted()) s)" : "control not run"
         print("PREVIEW-RESAMPLE-PROBE tap rates \(rates.sorted()); \(complete)/\(plays) complete plays, \(buffers) tap buffers (\(String(format: "%.1f", seconds)) s of audio): \(found.count) dropouts \(found.prefix(8)); \(ctl)")
         try #require(complete > 0, "no play reached \(end - 0.5) s (loaded machine?)")
-        #expect(rates == [44100], "the preview tap no longer runs at the file's rate \(rates.sorted()): re-check preview for resampling dropouts")
+        // BUG-CUT-AUDIO-HOLE phase B: preview lanes run on PreviewAudio's reader at 48 kHz (the reader resamples 44.1 kHz
+        // media, like the pre-fix export reader did): the dropout check below is what guards it now
+        #expect(rates == [48000], "preview lanes no longer run at PreviewAudio's 48 kHz: \(rates.sorted())")
         #expect(found.isEmpty, "preview dropouts: \(found)")
     }
 }

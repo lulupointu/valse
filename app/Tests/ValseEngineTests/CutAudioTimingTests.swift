@@ -6,15 +6,12 @@ import ValseCore
 @testable import ValseEngine
 import ValseTestSupport
 
-/// BUG-CUT-AUDIO-HOLE (docs/investigations/BUG-METALLIC-AUDIO.md, "Part 3: root cause"): the composition time a lane
-/// tap gives its buffers — what the clip gains, fades and live-effect switches use — measured against the CONTENT the
-/// buffers carry (irregular 30 ms noise bursts located in the source decoded offline), preview (AVPlayer) and export.
-/// ACCEPTANCE TESTS FOR THE FUTURE FIX, opt-in (`VALSE_TAP_PROBE=1`): on main (spectral lanes + one-buffer lead) they
-/// pass for an unscaled 48 kHz clip at rate 1 on a 4096-frame output only; they fail, measured on Apple Silicon /
-/// macOS 26, for sped-up / slowed clips (labels one buffer late: the stretcher stamps scaled segments exactly), J/K/L
-/// (lead = the stretcher latency at that rate, not a buffer), 44.1 kHz media (4096 frames of 44.1 kHz) and any output
-/// whose buffers are not 4096 frames (AirPods: 8208). The macOS 13 owner Mac needs no lead at all.
-@MainActor @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["VALSE_TAP_PROBE"] != nil))
+/// BUG-CUT-AUDIO-HOLE (docs/investigations/BUG-METALLIC-AUDIO.md, parts 3-7): the composition time a lane gives its
+/// buffers — what the clip gains, fades and live-effect switches use — measured against the CONTENT the buffers carry
+/// (irregular 30 ms noise bursts located in the source decoded offline), preview and export. ACCEPTANCE TESTS of the
+/// phase B switchover: preview lanes now run on `PreviewAudio`'s reader buffers (exact stamps on every OS, one frame =
+/// 1 / sample rate at any player rate), where AVPlayer's taps were one buffer (macOS 26) or zero (macOS 13) off.
+@MainActor @Suite(.serialized)
 struct CutAudioTimingTests {
     typealias Captured = MetallicAudioTests.Captured
 
@@ -79,12 +76,12 @@ struct CutAudioTimingTests {
             }
             engine.pause()
         }
-        let m = try await Self.lead(cap.snapshot, clip: clip, playerRate: Double(c.rate))
+        let m = try await Self.lead(cap.snapshot, clip: clip, playerRate: 1)   // reader frames: 1 / sr each
         print(String(format: "CUTTIMING preview %@: lead %+.2f ms (%d bursts, envelope corr %.3f)", c.testDescription, m.lead * 1000, m.bursts, m.corr))
         // (the spectral stretch smears the bursts: then the envelope alignment alone, 1 ms bins)
         try #require(m.bursts >= 3 || m.corr > 0.5, "no alignment (\(m.bursts) bursts, corr \(m.corr)): loaded machine?")
-        // target: labels within a few ms of the content at rate 1, ≤ 40 ms at J/K/L
-        let range = c.rate == 1 ? -0.005 ... 0.005 : -0.040 ... 0.040
+        // labels on the content: exact (± 0.5 ms) on unscaled clips at any rate; the spectral stretch smears scaled ones
+        let range = c.speed == 1 && !c.curve ? -0.0005 ... 0.0005 : -0.0025 ... 0.0025
         #expect(range.contains(m.lead), "preview \(c.testDescription): labels \(String(format: "%+.1f", -m.lead * 1000)) ms off the content")
     }
 
@@ -103,9 +100,9 @@ struct CutAudioTimingTests {
     }
 
     /// The owner's cut (BUG-CUT-AUDIO-HOLE): main track A | B with B fading in from the cut, and a 0.2 s audio clip over
-    /// the cut fading out just after it. The lanes' outputs, placed at their labels (what the mixer sums, up to the
-    /// common label offset), never fall silent around the cut — preview (85 ms of exact zeros there on the owner's
-    /// Mac) and export. Noise sources: any silence comes from the gains.
+    /// the cut fading out just after it. The lanes' outputs, placed at their labels (what the mixer sums), never fall
+    /// silent around the cut — preview (85 ms of exact zeros there on the owner's macOS 13 Mac before phase B) and
+    /// export. Noise sources: any silence comes from the gains. (`PlaybackEngineAudioTests` checks the mixed stream.)
     @Test func noHoleAtACutWithFades() async throws {
         var p = TestProject(frameRate: .fps30)
         let noise = try MetallicAudioTests.noiseFile()
