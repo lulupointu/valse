@@ -47,6 +47,14 @@ final class PreviewAudioLanes {
     nonisolated(unsafe) static var live = 0
     private static let liveLock = NSLock()
     static var liveCount: Int { liveLock.withLock { live } }
+    /// Readers alive for one owner (per-instance leak check: the process-wide count also sees other engines).
+    final class ReaderCount: @unchecked Sendable {
+        private let lock = NSLock()
+        private var n = 0
+        var value: Int { lock.withLock { n } }
+        func add(_ d: Int) { lock.withLock { n += d } }
+    }
+    private let owner: ReaderCount?
 
     private var interleaved = UnsafeMutablePointer<Float>.allocate(capacity: 2 * 8192)
     private var capacity = 8192
@@ -57,8 +65,9 @@ final class PreviewAudioLanes {
 
     /// Opens a reader on `built` from absolute frame `start` (nil reader: no audio lane, past the end, or the reader
     /// failed: the mixer then delivers silence, so the clock still runs).
-    init(built: BuiltComposition, state: AudioMixState, start: Int) {
+    init(built: BuiltComposition, state: AudioMixState, start: Int, counter: ReaderCount? = nil) {
         self.start = start
+        owner = counter
         end = max(start, Self.frame(built.duration.cmTime))
         var lanes: [Lane] = []
         var reader: AVAssetReader?
@@ -78,6 +87,7 @@ final class PreviewAudioLanes {
             if !lanes.isEmpty, r.startReading() {
                 reader = r
                 Self.liveLock.withLock { Self.live += 1 }
+                counter?.add(1)
             } else {
                 if r.status == .failed { EngineLog.error("preview audio: reader failed: \(r.error.map { "\($0)" } ?? "?")") }
                 lanes = []
@@ -99,6 +109,7 @@ final class PreviewAudioLanes {
         if let reader {
             reader.cancelReading()
             Self.liveLock.withLock { Self.live -= 1 }
+            owner?.add(-1)
         }
     }
 

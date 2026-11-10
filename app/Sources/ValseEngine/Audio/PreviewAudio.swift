@@ -50,6 +50,7 @@ public final class PreviewAudio: @unchecked Sendable {
     // MARK: queue-confined state
     private var built: BuiltComposition?
     private var lanes: PreviewAudioLanes?
+    private let readerCounter = PreviewAudioLanes.ReaderCount()
     /// Absolute frame of the next chunk to enqueue.
     private var cursor = 0
     private var endFrame = 0
@@ -227,6 +228,8 @@ public final class PreviewAudio: @unchecked Sendable {
 
     /// Readers currently open in the process (tests: leaks after seek storms).
     public static var openReaders: Int { PreviewAudioLanes.liveCount }
+    /// Readers currently open for this instance only.
+    public var openReaderCount: Int { readerCounter.value }
 
     // MARK: - Queue
 
@@ -250,7 +253,7 @@ public final class PreviewAudio: @unchecked Sendable {
         lanes?.cancel(); lanes = nil
         let f = PreviewAudioLanes.frame(time)
         cursor = f
-        if let built { lanes = PreviewAudioLanes(built: built, state: audioState, start: f) }
+        if let built { lanes = PreviewAudioLanes(built: built, state: audioState, start: f, counter: readerCounter) }
         lock.withLock { _stats.seeks += 1; _stats.firstChunkAfterSeek = 0; _stats.enqueuedEnd = time }
         ensureTimer()
         tick()
@@ -263,7 +266,7 @@ public final class PreviewAudio: @unchecked Sendable {
     private func swap(generation gen: Int) {
         guard let built else { return }
         guard synchronizer.rate != 0, lanes != nil else { performSeek(currentTime, generation: gen); return }
-        let next = PreviewAudioLanes(built: built, state: audioState, start: cursor)
+        let next = PreviewAudioLanes(built: built, state: audioState, start: cursor, counter: readerCounter)
         next.fill(upTo: cursor + Self.chunkFrames)   // first decode before dropping the old reader
         lanes?.cancel()
         lanes = next

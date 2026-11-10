@@ -323,7 +323,7 @@ public enum PreviewAudioCheck {
         let (p, clip) = try await burstProject(dir: dir)
         var r = StormResult()
         weak var released: PreviewAudio?
-        let readersBefore = PreviewAudio.openReaders
+        var readersAfterStop = 0
         do {
             let (rec, audio) = try await play(p, seek: 1.2, until: 1.3) { _ in }
             audio.play()
@@ -340,14 +340,16 @@ public enum PreviewAudioCheck {
             r.settledMs = (CACurrentMediaTime() - t0 - (audio.currentTime - last)) * 1000
             _ = await wait(10) { audio.currentTime > last + 0.8 }
             r.seeksPerformed = audio.stats.seeks - before
-            r.readersWhilePlaying = PreviewAudio.openReaders - readersBefore
+            r.readersWhilePlaying = audio.openReaderCount
             r.leads = onsetLeads(rec, clip: clip, from: last)
             audio.stop()
+            _ = await wait(5) { audio.openReaderCount == 0 }
+            readersAfterStop = audio.openReaderCount
             released = audio
         }
         _ = await wait(5) { released == nil }
         r.released = released == nil
-        r.readersAfter = PreviewAudio.openReaders - readersBefore
+        r.readersAfter = readersAfterStop
         return r
     }
 
