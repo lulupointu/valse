@@ -215,7 +215,7 @@ struct FullscreenHoverTip: View {
                 let rate = store.projectSettings.frameRate
                 let time = Timecode.display(t, rate: rate)
                 VStack(spacing: 4) {
-                    if !model.isScrubbing, let img = model.thumbnails.readyImage {
+                    if !model.isScrubbing, let img = model.thumbnails.displayImage {
                         let sz = FullscreenThumbnailLoader.pointSize(canvas: store.projectSettings.canvasSize)
                         Image(decorative: img, scale: 2).resizable().frame(width: sz.width, height: sz.height)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
