@@ -22,11 +22,17 @@ final class FullscreenThumbnailLoader {
     /// "none" (not hovering) / "pending" / "ready" (UI scripts wait for "ready" before a snapshot).
     var state: String { wantedQ == nil ? "none" : (image != nil && imageQ == wantedQ ? "ready" : "pending") }
     var readyImage: CGImage? { image != nil && imageQ == wantedQ ? image : nil }
+    /// What the tooltip draws while hovering: the wanted frame once ready, else the previous one (the thumbnail used to
+    /// vanish at every new hovered frame until its render landed, then pop back: owner-reported flicker). Nil only
+    /// before the first render of a hover session.
+    var displayImage: CGImage? { wantedQ == nil ? nil : image }
 
     @PerceptionIgnored private var keyCache: (revision: Int, duration: Time, key: String)?
     @PerceptionIgnored private var inflight = false
     @PerceptionIgnored private var pending: Request?
     @PerceptionIgnored private(set) var renders = 0
+    /// Tests: replaces the compositor render (project, time, pixel height).
+    @PerceptionIgnored var renderer: (@Sendable (Project, Time, Int) async -> CGImage?)?
 
     struct Request { let project: Project; let revision: Int; let time: Time; let height: Int }
 
@@ -81,7 +87,10 @@ final class FullscreenThumbnailLoader {
             if let cached { k = cached } else {
                 k = await Task.detached(priority: .userInitiated) { CompoundPreviewCache.key(timeline: project.timeline, in: project) }.value
             }
-            let img = await CompoundPreviewCache.shared.thumbnail(project, key: k, at: r.time, height: r.height)
+            let render = self?.renderer
+            let img: CGImage?
+            if let render { img = await render(project, r.time, r.height) }
+            else { img = await CompoundPreviewCache.shared.thumbnail(project, key: k, at: r.time, height: r.height) }
             guard let self else { return }
             self.keyCache = (r.revision, project.duration, k)
             self.renders += 1

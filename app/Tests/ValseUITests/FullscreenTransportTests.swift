@@ -303,6 +303,34 @@ import ValseCore
         #expect(abs(s.timelineUI.scrollTime - (9 - 4.0 / 3)) < 0.001)
     }
 
+    /// Owner-reported scrub flicker (screen recording 14.55.52): the hover thumbnail vanished at every new hovered frame
+    /// until its render landed, then popped back. Once a first thumbnail exists, a hover sweep must never show none.
+    @Test func hoverThumbnailNeverBlanksBetweenFrames() async throws {
+        let (s, _) = try store()
+        let loader = FullscreenThumbnailLoader()
+        loader.renderer = { _, _, h in
+            try? await Task.sleep(nanoseconds: 20_000_000)   // a render takes a while: the window the old view blanked in
+            let ctx = CGContext(data: nil, width: h, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            return ctx.makeImage()
+        }
+        #expect(loader.displayImage == nil)
+        loader.request(project: s.project, revision: s.session.revision, at: Time(0.5))
+        for _ in 0..<2000 where loader.state != "ready" { try await Task.sleep(nanoseconds: 5_000_000) }
+        try #require(loader.state == "ready")
+        var blanks = 0, sawPending = false
+        for i in 1...6 {
+            loader.request(project: s.project, revision: s.session.revision, at: Time(0.5 + Double(i) * 0.25))
+            if loader.state == "pending" { sawPending = true }
+            if loader.displayImage == nil { blanks += 1 }       // the old view drew nothing while "pending"
+            for _ in 0..<2000 where loader.state != "ready" { try await Task.sleep(nanoseconds: 5_000_000) }
+        }
+        #expect(blanks == 0)
+        #expect(sawPending)   // the sweep really had frames in flight
+        loader.clear()
+        #expect(loader.displayImage == nil)                      // pointer left: nothing
+    }
+
     @Test func thumbnailSizes() {
         #expect(FullscreenThumbnailLoader.pointSize(canvas: Size2(1920, 1080)) == CGSize(width: 160, height: 90))
         #expect(FullscreenThumbnailLoader.pixelHeight(canvas: Size2(1920, 1080)) == 180)
