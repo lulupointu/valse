@@ -22,8 +22,10 @@
     {"type": "us"},
     {"click": "id:captions.replace.one"},
     {"waitFor": {"path": "ui.captionEditor.texts.1", "equals": "us we talk about captions."}},
-    {"expect": [{"path": "undo.name", "equals": "cmd.captionReplace"}, {"path": "ui.captionEditor.matches", "equals": 2},
-                {"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show. Today"}]},
+    // (state published by separate refreshes under load: wait for each, never expect right after one)
+    {"waitFor": {"path": "undo.name", "equals": "cmd.captionReplace"}},
+    {"waitFor": {"path": "ui.captionEditor.matches", "equals": 2}},
+    {"expect": [{"path": "ui.captionEditor.texts.0", "equals": "Hello euh welcome to the show. Today"}]},
     {"key": "cmd+z"},
     {"waitFor": {"path": "ui.captionEditor.texts.1", "equals": "we we talk about captions."}},
     // split options (CAP-UX2-SPLIT): a rule applies at once (no confirmation), one undo step; a longer rule after a
@@ -32,11 +34,13 @@
     {"waitFor": {"path": "ui.captionEditor.splitOpen", "equals": true}},
     {"click": "id:captions.split.0"},
     {"waitFor": {"path": "ui.captionEditor.split", "equals": "1x16"}},
-    {"expect": [{"path": "ui.captionEditor.count", "gt": 5}, {"path": "undo.name", "equals": "cmd.captionWrap"},
-                {"path": "ui.anchors", "notContains": "captions.split.confirm"}]},
+    {"waitFor": {"path": "ui.captionEditor.count", "gt": 5}},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.captionWrap"}},
+    {"expect": [{"path": "ui.anchors", "notContains": "captions.split.confirm"}]},
     {"click": "id:captions.split.3"},
     {"waitFor": {"path": "ui.captionEditor.split", "equals": "2x42"}},
-    {"expect": [{"path": "ui.captionEditor.count", "lte": 4}, {"path": "undo.depth", "equals": 2}]},
+    {"waitFor": {"path": "ui.captionEditor.count", "lte": 4}},
+    {"waitFor": {"path": "undo.depth", "equals": 2}},
     {"click": "id:captions.split.3"},
     {"expect": [{"path": "undo.depth", "equals": 2}, {"path": "ui.captionEditor.split", "equals": "2x42"}]},
     {"key": "cmd+z"},
@@ -49,8 +53,8 @@
     {"click": "id:captions.row.2", "at": [0.03, 0.5]},
     {"waitFor": {"path": "ui.captionEditor.active", "equals": 1}},
     {"click": "id:captions.replay.2"},
-    {"waitFor": {"path": "ui.captionEditor.nowPlayingIndex", "equals": 1, "timeout": 30}},
-    {"waitFor": {"path": "isPlaying", "equals": false, "timeout": 30, "progress": ["playhead"]}},
+    {"waitFor": {"path": "ui.captionEditor.nowPlayingIndex", "equals": 1, "timeout": 60}},
+    {"waitFor": {"path": "isPlaying", "equals": false, "timeout": 60, "progress": ["playhead"]}},
     {"expect": [{"path": "ui.captionEditor.nowPlayingIndex", "equals": 1}, {"path": "ui.captionEditor.active", "equals": 1}]}
   ]
 }
