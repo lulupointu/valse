@@ -21,6 +21,17 @@ import ValseCore
         return (m, c)
     }
 
+    /// Owner report: the bars hid too slowly (was 3 s). The default must stay at most half of that.
+    @Test func defaultIdleIsAtMostHalfOfTheOldThreeSeconds() {
+        #expect(FullscreenControlsModel.defaultIdle <= 1.5)
+        let (m, c) = model(idle: FullscreenControlsModel.defaultIdle)
+        m.enter(voiceOver: false)
+        c.t += 1.4; m.tick()
+        #expect(m.isShown)
+        m.pin(.hover); c.t += 10; m.tick()
+        #expect(m.isShown)   // never hides under the pointer
+    }
+
     @Test func entersVisibleThenHidesAfterIdle() {
         let (m, c) = model()
         m.enter(voiceOver: false)

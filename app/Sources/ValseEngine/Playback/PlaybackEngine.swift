@@ -903,7 +903,21 @@ public final class PlaybackEngine {
     public func renderCurrentFrame(into output: MTLTexture, commandBuffer: MTLCommandBuffer) -> Bool {
         let t = hoverTime ?? requestedTime
         let frame = FrameEvaluator.evaluate(project, at: t)
+        // Scrub flicker: while a seek is in flight, or when the closest decoded frame is another moment (a first visit
+        // to a region: nothing cached near the target), a re-render would draw the NEW time's layers over an OLD
+        // picture, then the real frame replaces it. Return false: the view keeps the last good frame until the seek lands.
+        if !frame.mediaLayers.isEmpty {
+            if seekInFlight { return false }
+            let fd = project.settings.frameRate.frameDuration
+            guard let near = state.sourceProvider(near: t, within: Time(ticks: fd.ticks * 2)) else { return false }
+            return encodeCurrentFrame(frame, sources: near, into: output, commandBuffer: commandBuffer)
+        }
         let sources = state.sourceProvider(near: t) ?? DictionarySourceProvider([:])
+        return encodeCurrentFrame(frame, sources: sources, into: output, commandBuffer: commandBuffer)
+    }
+
+    private func encodeCurrentFrame(_ frame: FrameDescription, sources: DictionarySourceProvider, into output: MTLTexture,
+                                    commandBuffer: MTLCommandBuffer) -> Bool {
         if sources.buffers.isEmpty && !frame.mediaLayers.isEmpty { return false }
         let media = Dictionary(uniqueKeysWithValues: project.media.map { ($0.id, $0) })
         FrameRenderer.shared.encode(frame, media: media, sources: sources, output: output,

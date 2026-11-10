@@ -90,7 +90,10 @@ import ValseTestSupport
             let media = try await t.load(.segments).filter { !$0.isEmpty }.map(\.timeMapping.target)
             let start = try #require(media.first?.start), end = try #require(media.last?.end)
             #expect(Time(cmTime: start) == clip.start)
-            #expect(Time(cmTime: CMTimeSubtract(end, start)) == clip.duration,
+            // (a stretched clip with nothing close after it carries up to 0.1 s of silenced tail audio: the stretcher
+            // would drop the clip's last ~60 ms otherwise, BUG-CUT-AUDIO-SWEEP)
+            let len = Time(cmTime: CMTimeSubtract(end, start))
+            #expect(len >= clip.duration && len <= clip.duration + Time(0.1) + Time(0.001),
                     "audio lasts \(CMTimeSubtract(end, start).seconds) s on the track, clip \(clip.duration.seconds) s")
         }
         let mix = try await p.mixdown().channel(0)

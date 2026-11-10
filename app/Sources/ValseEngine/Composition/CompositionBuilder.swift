@@ -233,7 +233,8 @@ public enum CompositionBuilder {
                    let first = segments.first, let last = segments.last {
                     pendingAudio.append(PendingAudio(clip: clip, mapped: mapped, segments: segments, source: src,
                                                      sourceRange: srcAudioRange,
-                                                     format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex),
+                                                     format: mixesAudioFormats ? "" : audioEntry.audioFormat(streamIndex)
+                                                         + stretchKey(segments, clip: clip.id),
                                                      group: group, start: first.output.start, end: last.output.end))
                 }
             }
@@ -434,10 +435,35 @@ public enum CompositionBuilder {
             params.trackID = at.trackID
             params.audioTimePitchAlgorithm = laneTimePitch
             let placements = (byLane[l] ?? []).sorted { $0.start < $1.start }
-            for p in placements { try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at) }
+            for (i, p) in placements.enumerated() {
+                // stretched clips: a tail pad where nothing follows closely (BUG-CUT-AUDIO-SWEEP, see `stretchKey`)
+                var pad = Time.zero
+                if p.segments.contains(where: { abs($0.source.duration / max($0.output.duration, Time(ticks: 1)) - 1) > 1e-3 }) {
+                    let room = i + 1 < placements.count ? placements[i + 1].start - p.end : Time(0.1)
+                    // (a short empty edit before the next clip makes the stretcher restart: its priming then eats the next
+                    // clip's first ~85 ms, so a pad only where the next clip is further than 0.2 s away)
+                    pad = room >= Time(0.2) ? Time(0.1) : .zero
+                }
+                try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at, tailPad: pad)
+            }
             out.append(PackedAudioLane(track: at, params: params, placements: placements))
         }
         return out
+    }
+
+    /// BUG-CUT-AUDIO-SWEEP ("laser saber", owner): a composition audio track runs one time-pitch stretcher; where its
+    /// stretch ratio changes between butted segments (2× clip then a 1× clip) the stretcher ramps from the old ratio to
+    /// the new one, and the tone sweeps in pitch for ~10 ms after the cut (measured: half periods 10-20 % short, then
+    /// settling; with 1.5× → 1× the following 100 ms is dropped), in the preview and in the export. So lanes are shared
+    /// only between clips of the same constant stretch ratio (suffix of the lane "format"); a clip with several
+    /// ratios (speed curve) keeps a lane of its own. Unscaled clips keep the plain format key (lane count unchanged).
+    static func stretchKey(_ segments: [(output: TimeRange, source: TimeRange)], clip: ClipID) -> String {
+        let ratios = segments.compactMap { s -> Double? in
+            s.output.duration.ticks > 0 ? Double(s.source.duration.ticks) / Double(s.output.duration.ticks) : nil
+        }
+        guard let first = ratios.first else { return "" }
+        if ratios.contains(where: { abs($0 / first - 1) > 1e-3 }) { return "-curve\(clip)" }
+        return abs(first - 1) < 1e-3 ? "" : String(format: "-x%.3f", first)
     }
 
     /// Format identity of an audio stream: codec, sample rate, channels, channel layout.
@@ -572,14 +598,26 @@ public enum CompositionBuilder {
     /// (0 = `src`, 1 = `alias`; see `decodeVariants`). Without them every segment reads `src`.
     static func insert(clip: Clip, segments: [(output: TimeRange, source: TimeRange)], from src: AVAssetTrack,
                        alias: AVAssetTrack? = nil, variants: [Int] = [],
-                       sourceRange srcRange: CMTimeRange, into dst: AVMutableCompositionTrack, stretch: Bool = true) throws {
+                       sourceRange srcRange: CMTimeRange, into dst: AVMutableCompositionTrack, stretch: Bool = true,
+                       tailPad: Time = .zero) throws {
         for (k, seg) in segments.enumerated() {
             let src = k < variants.count && variants[k] == 1 ? alias ?? src : src
             var at = (clip.start + seg.output.start).cmTime
-            let wanted = CMTimeRange(start: (clip.sourceStart + seg.source.start).cmTime, duration: seg.source.duration.cmTime)
+            var wanted = CMTimeRange(start: (clip.sourceStart + seg.source.start).cmTime, duration: seg.source.duration.cmTime)
+            var padded = false
+            if tailPad > .zero, k == segments.count - 1, seg.output.duration.ticks > 0 {
+                // extra audio after the clip's end (silenced by the lane gains) so the stretcher does not drop the clip's tail
+                let rate = seg.source.duration / seg.output.duration
+                wanted.duration = (seg.source.duration + tailPad * rate).cmTime
+                padded = true
+            }
             let s = CMTimeRangeGetIntersection(wanted, otherRange: srcRange)
             guard s.duration > .zero else { continue }
             var outDur = seg.output.duration.cmTime
+            if padded {
+                let rate = seg.source.duration / seg.output.duration
+                outDur = Time(Time(cmTime: s.duration).seconds / rate).cmTime
+            }
             if !stretch, s != wanted {
                 let rate = seg.source.duration / seg.output.duration
                 at = CMTimeAdd(at, Time(Time(cmTime: CMTimeSubtract(s.start, wanted.start)).seconds / rate).cmTime)
