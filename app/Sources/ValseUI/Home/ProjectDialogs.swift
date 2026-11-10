@@ -264,15 +264,15 @@ struct RemoveUsedMediaDialog: View {
                 Text(verbatim: trCount("media.remove.message", used)).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true).padding([.top, .horizontal], 16)
             } footer: {
-                HStack(spacing: 8) {
-                    Button(tr("media.remove.all")) { app.modal = nil; app.store.removeMedia(ids) }
-                        .buttonStyle(SecondaryButtonStyle()).foregroundStyle(Theme.dangerText).testID("media.remove.all")
-                    Spacer()
-                    Button(tr("media.remove.unused")) { app.modal = nil; app.store.removeUnusedMedia(ids) }
+                // stacked: long (French) labels never truncate; the safe default is first and highlighted
+                VStack(spacing: 8) {
+                    Button { app.modal = nil } label: { Text(tr("media.remove.cancel")).frame(maxWidth: .infinity) }
+                        .buttonStyle(AccentButtonStyle()).keyboardShortcut(.defaultAction).testID("media.remove.cancel")
+                    Button { app.modal = nil; app.store.removeUnusedMedia(ids) } label: { Text(tr("media.remove.unused")).frame(maxWidth: .infinity) }
                         .buttonStyle(SecondaryButtonStyle()).disabled(BinOps.usedMedia(ids, in: app.store.project).count == ids.count)
                         .testID("media.remove.unused")
-                    Button(tr("media.remove.cancel")) { app.modal = nil }
-                        .buttonStyle(AccentButtonStyle()).keyboardShortcut(.defaultAction).testID("media.remove.cancel")
+                    Button { app.modal = nil; app.store.removeMedia(ids) } label: { Text(tr("media.remove.all")).frame(maxWidth: .infinity) }
+                        .buttonStyle(SecondaryButtonStyle()).foregroundStyle(Theme.dangerText).testID("media.remove.all")
                 }
             }
         }
