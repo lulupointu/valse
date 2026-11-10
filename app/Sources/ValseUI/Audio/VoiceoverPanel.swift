@@ -137,7 +137,7 @@ struct VoiceoverPanel: View {
             try recorder.start(device: device == 0 ? nil : device, echoReduction: echoReduction, recordTo: url)
         } catch { errorKey = "record.error.device"; phase = .idle; return }
         startTime = store.transport.playhead
-        if muteProject { store.engine.player.isMuted = true }
+        if muteProject { store.engine.isMuted = true }
         if !store.engine.isPlaying { store.togglePlay() }
         elapsed = 0
         phase = .recording
@@ -150,7 +150,7 @@ struct VoiceoverPanel: View {
         let url = recorder.stop()
         if wasRecording {
             if store.engine.isPlaying { store.togglePlay() }
-            store.engine.player.isMuted = false
+            store.engine.isMuted = false
             store.seek(to: startTime)
         }
         phase = .idle

@@ -59,7 +59,7 @@ Project ──FrameEvaluator(t)──▶ FrameDescription (pure, Sendable)
 CVPixelBuffers (decoder) ─────────┐ ▼
                                  FrameRenderer.encode(frame, sources, output)   ← Metal, rgba16Float working space
                                    ▲
-   preview: AVPlayer → ValseCompositor (AVVideoCompositing) ─┐
+   preview: AVPlayer (video only) → ValseCompositor (AVVideoCompositing) ─┐
    export:  AVAssetReaderVideoCompositionOutput → ValseCompositor ─┤ same code path ⇒ identical pixels
    thumbnails/tests: AVAssetImageGenerator → ValseCompositor ─┘
    paused edits: PlaybackEngine.renderCurrentFrame (last decoded sources, no decode)
@@ -92,9 +92,9 @@ CVPixelBuffers (decoder) ─────────┐ ▼
 
 ## 5. Playback clock & A/V sync
 
-- `PlaybackEngine` (@MainActor) owns an `AVPlayer`. AVPlayer is the master clock, driven by the audio device. `PlayerView` (a CAMetalLayer) pulls the frame for each vsync with `pixelBuffer(forHostTime: displayLink.targetTimestamp)` (`AVPlayerItemVideoOutput.itemTime(forHostTime:)`) and presents it zero-copy. Video therefore follows audio, and a dropped frame never shifts the clock. J/K/L sets `rate` (reverse only if `canPlayReverse`).
+- `PlaybackEngine` (@MainActor) owns an `AVPlayer` for the VIDEO only (its item is the composition without audio tracks, `BuiltComposition.playerAsset`) and a `PreviewAudio` for the audio (BUG-CUT-AUDIO-HOLE, 2026-11: AVPlayer's tap stamps are wrong on macOS 26; docs/investigations/BUG-METALLIC-AUDIO.md parts 5-7). `PreviewAudio` = one `AVAssetReader` on the same composition (one audio-mix output per lane, exact stamps), each lane's `LaneProcessor` at enqueue time, lanes summed into stereo chunks → `AVSampleBufferAudioRenderer` (spectral time-pitch) under an `AVSampleBufferRenderSynchronizer`, fed 150 ms ahead of its clock. The player's `sourceClock` is the output device clock; every start sets both timebases to one (item time, host time) pair once the video seek landed and the audio is primed (`launch`), pause / rate changes apply to both, so they run in step (≤ 1 ms measured). `PlayerView` (a CAMetalLayer) pulls the frame for each vsync with `pixelBuffer(forHostTime: displayLink.targetTimestamp)` (`AVPlayerItemVideoOutput.itemTime(forHostTime:)`) and presents it zero-copy; a dropped frame never shifts the clock. J/K/L sets both rates (the renderer stretches; reverse only if `canPlayReverse`, else emulated, silent). Output device (Settings) / default-device / route changes: `PreviewAudio.onReanchor` → the engine restarts both from the playhead.
 - `update(project:)` runs after every edit. It compares a **structure key** (media clips, timing, speed, audio, sources, canvas, preview size):
-  - When the key changes, the composition is rebuilt off-main (debounced 40 ms, builds serialized) and the item is swapped at the same time position.
+  - When the key changes, the composition is rebuilt off-main (debounced 40 ms, builds serialized) and the item is swapped at the same time position. While playing, the audio swaps gaplessly (`PreviewAudio.replace`: heard after the ≈ 150 ms already queued) and the new item's video re-joins the running audio clock (`rejoinVideo`: seek ahead, start at the host time the audio gets there); the stall watchdog re-joins the same way.
   - When it doesn't change (opacity, transform, effects, text, masks…), there is no rebuild. The compositor reads the new project, and when paused `onRedrawNeeded` → `renderCurrentFrame` re-renders the last decoded frame within the same display refresh.
 - Seeking: at most one seek in flight, and the latest request wins. While dragging, seeks are keyframe-tolerant (`exact: false`); on mouse-up an exact seek follows (STACK.md lesson 1).
 
@@ -296,9 +296,10 @@ Shared hotspots (coordinate, keep edits small and additive): `Clip`/`Project` mo
      in `Caches/Valse/audio/<hash>-<spec>.caf` (`AudioRenderCache`). The composition inserts the rendered file instead of the original.
      Export awaits it; preview plays the original until ready, then `onReady` → rebuild (structure key includes readiness).
   2. **Live stage** (`[LiveNode]`: EQ, voice-filter colour — filters, echo, chorus, Freeverb, tremolo, ring-mod, bitcrush, distortion, noise,
-     compressor, limiter — and channel matrix): one `MTAudioProcessingTap` per composition audio lane (`LaneProcessor`, post-effects),
-     reading `AudioMixState` each buffer, so edits are heard without a rebuild (not part of the structure key).
-  3. **Gains** (volume/keyframes, fades, loudness gain, ducking envelope) → AVAudioMix ramps.
+     compressor, limiter — and channel matrix): one `LaneProcessor` per composition audio lane, reading `AudioMixState` each buffer,
+     so edits are heard without a rebuild (not part of the structure key; preview: ≈ 180 ms later, the queued audio). Export runs it as a
+     post-effects `MTAudioProcessingTap` on the reader's audio mix; preview runs it on `PreviewAudio`'s reader buffers (no tap).
+  3. **Gains** (volume/keyframes, fades, loudness gain, ducking envelope) → applied by the `LaneProcessor` sample by sample (PB-DROP).
   Speed/time remap = the shared segments + AVFoundation spectral time-pitch. Never use `.varispeed`: it stalls
   `AVAssetReaderAudioMixOutput` on sped-up segments (pitch-follows-speed is done in the rendered stage).
 - **Analysis**: `AudioAnalysis` (BS.1770 loudness meter, onset envelope, tempo + DP beat tracker, onset cross-correlation sync),

@@ -100,3 +100,25 @@ public enum NotificationSounds {
         return d
     }
 }
+
+extension AudioDevices {
+    /// Nominal sample rate and IO buffer size (frames) of the system default output device (diagnostics).
+    public static func defaultOutputFormat() -> (sampleRate: Double, bufferFrames: UInt32)? {
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                                              mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var device = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &device) == noErr,
+              device != 0 else { return nil }
+        var rate = Float64(0)
+        size = UInt32(MemoryLayout<Float64>.size)
+        addr.mSelector = kAudioDevicePropertyNominalSampleRate
+        guard AudioObjectGetPropertyData(device, &addr, 0, nil, &size, &rate) == noErr else { return nil }
+        var frames = UInt32(0)
+        size = UInt32(MemoryLayout<UInt32>.size)
+        addr.mSelector = kAudioDevicePropertyBufferFrameSize
+        addr.mScope = kAudioObjectPropertyScopeOutput
+        if AudioObjectGetPropertyData(device, &addr, 0, nil, &size, &frames) != noErr { frames = 0 }
+        return (rate, frames)
+    }
+}

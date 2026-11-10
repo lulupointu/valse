@@ -7,8 +7,8 @@ import ValseCore
 import ValseTestSupport
 
 /// BUG-METALLIC-AUDIO (docs/investigations/BUG-METALLIC-AUDIO.md): voices sounded metallic during preview playback
-/// until a pause → play. Measured where Valse can see the audio: each lane tap's output (`AudioMixState.tapCapture`,
-/// what goes to AVPlayer's mixer) is compared, buffer by buffer, with the source decoded offline at the composition
+/// until a pause → play. Measured where Valse can see the audio: each lane's output (`AudioMixState.tapCapture`; since
+/// BUG-CUT-AUDIO-HOLE phase B, what `PreviewAudio` mixes and enqueues) is compared, buffer by buffer, with the source decoded offline at the composition
 /// time the tap reports. A copy of the voice delayed by a few ms (comb filter), a time-stretch or a wrong timestamp all
 /// show up as a large residual at lag 0.
 @MainActor @Suite(.serialized) struct MetallicAudioTests {
@@ -273,8 +273,7 @@ import ValseTestSupport
             try await Self.play(engine, seconds: 3)
             engine.pause(); mark("pause")
             let caps = cap.snapshot
-            let pending = engine.audioState.takeLaneJumps()
-            print("METALLIC lane jumps logged \(engine.laneAudioJumps), pending \(pending.count) (largest \(pending.worst) s at \(pending.at))")
+            print("METALLIC video re-joins \(engine.videoRejoins), max A/V drift \(String(format: "%.2f", engine.maxAVDrift * 1000)) ms")
             print("METALLIC events:\n" + events.joined(separator: "\n"))
             for c in caps.filter({ $0.time.isFinite }).prefix(60).enumerated().filter({ $0.offset % 6 == 0 }).map(\.element) {
                 let rms = (c.samples.reduce(0.0) { $0 + Double($1) * Double($1) } / Double(c.samples.count)).squareRoot()

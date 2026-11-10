@@ -13,7 +13,8 @@ import ValseTestSupport
 /// `PROBE …` lines and assert nothing:
 /// - `preview` / `export`: per buffer, raw stamp, frames, Δstamp / frames, and where the buffer's head and tail sit in
 ///   the source decoded offline (normalised correlation, lag in samples vs the composition's own time remap).
-///   Preview runs with `VALSE_TAP_LABEL_LEAD=0` (stamps used as is).
+/// Since BUG-CUT-AUDIO-HOLE phase B the preview probes measure `PreviewAudio` (reader buffers, no AVPlayer tap): the
+/// AVPlayer tap measurements of parts 2-5 are reproduced by `scripts/audio_probe.sh` (standalone probe).
 /// - `echoDelay`: delay of the micEcho voice effect (0.16 s) in the export mix at clip speed 1 / 2 / 0.5.
 /// - `previewLookAhead`: how far ahead of the playhead the tap processes (live-effect edit latency).
 @MainActor @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["VALSE_TAP_PROBE"] != nil))
@@ -114,8 +115,6 @@ struct TapProbeTests {
 
     @Test(arguments: Layout.allCases)
     func preview(_ layout: Layout) async throws {
-        setenv("VALSE_TAP_LABEL_LEAD", "0", 1)
-        defer { unsetenv("VALSE_TAP_LABEL_LEAD") }
         let (p, url, remap) = try await Self.project(layout)
         let refRate = layout == .k44 ? 44100.0 : 48000
         let ref = try await AudioFileIO.read(url, sampleRate: refRate, channels: 1).channel(0)
@@ -378,8 +377,6 @@ struct TapProbeTests {
     /// output, `VALSE_PROBE_DEVICE_RATE` sets its nominal rate for the test (restored after).
     @Test(arguments: leadCases)
     func previewLead(_ algo: String, _ rate: Float, _ speed: Double) async throws {
-        setenv("VALSE_TAP_LABEL_LEAD", "0", 1)
-        defer { unsetenv("VALSE_TAP_LABEL_LEAD") }
         let env = ProcessInfo.processInfo.environment
         var restore: (String, Double)?
         if let uid = env["VALSE_PROBE_DEVICE"], let r = env["VALSE_PROBE_DEVICE_RATE"].flatMap(Double.init), let old = Self.setDeviceRate(uid, r) {
@@ -405,7 +402,6 @@ struct TapProbeTests {
         let clip = p[id]
         let project = p.project
         let cap = MetallicAudioTests.Capture()
-        var diag: [TapDiagnostics.Capture] = []
         let seekTo = 1.3
         // "x/L" (S spectral, T timeDomain, V varispeed): preview lane algorithm set at build time (the item's own setting
         // was measured to change nothing). "none" = the shipping lanes.
@@ -417,7 +413,7 @@ struct TapProbeTests {
         try await HeavyWorkGate.run {
             let engine = PlaybackEngine(project: project)
             engine.usesProxies = false
-            if let uid = env["VALSE_PROBE_DEVICE"] { engine.player.audioOutputDeviceUniqueID = uid }
+            if let uid = env["VALSE_PROBE_DEVICE"] { engine.outputDeviceUID = uid }
             try await PlaybackProbe.waitReady(engine)
             // "none": the shipping item untouched; "itemOnly": only the item's algorithm (spectral) re-set;
             // "remix": the same audio mix re-assigned (mutable copies, spectral); else: item + mix inputs set to `algo`
@@ -429,7 +425,6 @@ struct TapProbeTests {
             case "itemTimeDomain": item.audioTimePitchAlgorithm = .timeDomain   // mix inputs stay spectral
             default: Self.setAlgorithm(Self.algorithm(algo), item: item)
             }
-            _ = engine.audioState.tapDiagnostics.take()
             MetallicAudioTests.record(engine, into: cap)
             defer { engine.audioState.tapCapture = nil }
             engine.seek(to: Time(seekTo))
@@ -437,28 +432,22 @@ struct TapProbeTests {
             let t0 = CACurrentMediaTime()
             while CACurrentMediaTime() - t0 < 2.5 / Double(rate) + 0.5, engine.currentTime.seconds < clip.end.seconds - 0.3 {
                 _ = engine.pixelBuffer(forHostTime: CACurrentMediaTime())
-                diag += engine.audioState.tapDiagnostics.take()
                 try await Task.sleep(nanoseconds: 4_000_000)
             }
             engine.pause()
-            diag += engine.audioState.tapDiagnostics.take()
         }
         let caps = cap.snapshot
         let fmt = AudioDevices.defaultOutputFormat()
         let src = try await AudioFileIO.read(try Self.burstFile(), sampleRate: 48000, channels: 1).channel(0)
-        let el = Self.envelopeLead(caps, clip: clip, playerRate: Double(rate), source: src)
-        let l = Self.leads(caps, clip: clip, playerRate: Double(rate), coarse: el.lead / 1000)
+        // (preview lanes run on reader buffers since BUG-CUT-AUDIO-HOLE phase B: one frame = 1 / sample rate at any rate)
+        let el = Self.envelopeLead(caps, clip: clip, playerRate: 1, source: src)
+        let l = Self.leads(caps, clip: clip, playerRate: 1, coarse: el.lead / 1000)
         print("PROBE lead preview algo \(algo) rate \(rate) speed \(speed) device \(env["VALSE_PROBE_DEVICE"] ?? "default") (default out \(fmt.map { "\($0.sampleRate) Hz / \($0.bufferFrames) f" } ?? "?")): ENVELOPE lead \(el.lead) ms (corr \(String(format: "%.3f", el.corr))); bursts: \(Self.summary(l, rate: 48000))")
-        for d in diag where d.buffers.contains(where: \.sounding) {
-            let first = d.buffers.first { !$0.stamp.isNaN }
-            print("PROBE lead preview algo \(algo) rate \(rate) speed \(speed) stamps: \(TapDiagnostics.describe(d))"
-                  + (first.map { String(format: " | first stamp − seek target %+.2f ms", ($0.stamp - seekTo) * 1000) } ?? ""))
-        }
         // stamp step vs frames: Δstamp (in item time, × sr / rate) == previous buffer's frames, or current's?
         var prevF = 0, prevT = Double.nan, matchPrev = 0, matchCur = 0, other = 0
         for c in caps where c.time.isFinite {
             if prevT.isFinite {
-                let d = (c.time - prevT) * c.rate / Double(rate)
+                let d = (c.time - prevT) * c.rate
                 if abs(d - Double(prevF)) < 2 { matchPrev += 1 } else if abs(d - Double(c.samples.count)) < 2 { matchCur += 1 } else { other += 1 }
             }
             prevT = c.time; prevF = c.samples.count
@@ -576,7 +565,7 @@ struct TapProbeTests {
         try await HeavyWorkGate.run {
             let engine = PlaybackEngine(project: project)
             engine.usesProxies = false
-            if let uid = env["VALSE_PROBE_DEVICE"] { engine.player.audioOutputDeviceUniqueID = uid }
+            if let uid = env["VALSE_PROBE_DEVICE"] { engine.outputDeviceUID = uid }
             try await PlaybackProbe.waitReady(engine)
             engine.seek(to: Time(1.0))
             try await Task.sleep(nanoseconds: 300_000_000)
@@ -604,8 +593,6 @@ struct TapProbeTests {
     func seekStructure(_ algo: String) async throws {
         if algo.contains("/") { CompositionBuilder.laneTimePitch = .timeDomain }
         defer { CompositionBuilder.laneTimePitch = .spectral }
-        setenv("VALSE_TAP_LABEL_LEAD", "0", 1)
-        defer { unsetenv("VALSE_TAP_LABEL_LEAD") }
         let env = ProcessInfo.processInfo.environment
         let url = try MetallicAudioTests.noiseFile()
         let ref = try await AudioFileIO.read(url, sampleRate: 48000, channels: 1).channel(0)
@@ -617,7 +604,7 @@ struct TapProbeTests {
             try await HeavyWorkGate.run {
                 let engine = PlaybackEngine(project: project)
                 engine.usesProxies = false
-                if let uid = env["VALSE_PROBE_DEVICE"] { engine.player.audioOutputDeviceUniqueID = uid }
+                if let uid = env["VALSE_PROBE_DEVICE"] { engine.outputDeviceUID = uid }
                 try await PlaybackProbe.waitReady(engine)
                 engine.seek(to: Time(target))
                 try await Task.sleep(nanoseconds: 300_000_000)

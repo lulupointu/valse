@@ -456,14 +456,23 @@ public enum PreviewAudioCheck {
     /// `Valse --preview-audio-check <dir>`: runs every scenario, prints one line each, exit 0 when all pass.
     public static func runCLI(_ args: [String]) -> Int32 {
         let dir = URL(fileURLWithPath: args.first ?? NSTemporaryDirectory() + "/valse-preview-audio", isDirectory: true)
-        final class Box: @unchecked Sendable { var code: Int32 = 0 }
-        let box = Box()
-        let sem = DispatchSemaphore(value: 0)
-        Task.detached {
-            box.code = await runAll(dir: dir) { print($0); fflush(stdout) } ? 0 : 1
-            sem.signal()
+        final class Box: @unchecked Sendable {
+            let lock = NSLock()
+            var code: Int32 = 0
+            var _finished = false
+            var finished: Bool { get { lock.withLock { _finished } } set { lock.withLock { _finished = newValue } } }
         }
-        sem.wait()
+        let box = Box()
+        Task.detached {
+            let log: @Sendable (String) -> Void = { print($0); fflush(stdout) }
+            var ok = await runAll(dir: dir, log: log)
+            // phase B: the same scenarios through PlaybackEngine (main actor: served by the run loop below)
+            ok = await PlaybackEngineCheck.runAll(dir: dir, log: log) && ok
+            box.code = ok ? 0 : 1
+            box.finished = true
+        }
+        // the main run loop serves the main actor (PlaybackEngine, AVPlayer notifications) while the checks run
+        while !box.finished { _ = RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.05)) }
         return box.code
     }
 

@@ -9,6 +9,10 @@ import ValseEngine
         guard ProcessInfo.processInfo.environment["VALSE_MUTE_AUDIO"] == "1" else { return }   // plain `swift test`
         #expect(AudioOutput.isSilenced)
         #expect(AudioOutput.volume(0.6) == 0)
-        #expect(PlaybackEngine(project: Project()).player.volume == 0)
+        let engine = PlaybackEngine(project: Project())
+        #expect(engine.volume == 0)   // PreviewAudio (the player renders video only and is muted)
+        engine.volume = 1
+        #expect(engine.volume == 0)
+        #expect(engine.player.isMuted)
     }
 }

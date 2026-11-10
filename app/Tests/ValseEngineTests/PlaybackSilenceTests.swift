@@ -63,9 +63,9 @@ import ValseTestSupport
             lanes.add(CACurrentMediaTime(), p)
         }
         defer { engine.audioState.tapCapture = nil }
-        engine.player.audioOutputDeviceUniqueID = virtualOutput
-        engine.player.volume = 1   // tests export VALSE_MUTE_AUDIO (volume 0): the capture is muted and the device virtual
-        defer { engine.player.volume = AudioOutput.volume(1) }
+        engine.outputDeviceUID = virtualOutput
+        engine.audio.renderer.volume = 1   // tests export VALSE_MUTE_AUDIO (volume 0): the capture is muted and the device virtual
+        defer { engine.audio.renderer.volume = AudioOutput.volume(1) }
         let capture = try OutputCapture(clockDeviceUID: virtualOutput)
         defer { capture.stop() }
         var rng = SplitMix(seed: seed)

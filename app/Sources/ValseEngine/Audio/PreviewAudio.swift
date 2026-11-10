@@ -1,14 +1,15 @@
 @preconcurrency import AVFoundation
 import Foundation
 
-/// Preview audio without AVPlayer (BUG-CUT-AUDIO-HOLE, owner decision 2026-11-09; phase A: built and tested, not yet
-/// wired into `PlaybackEngine`). AVFoundation on macOS 26 mislabels post-effects tap stamps by the time-pitch unit's
+/// Preview audio without AVPlayer (BUG-CUT-AUDIO-HOLE, owner decision 2026-11-09; phase B: `PlaybackEngine`'s audio and
+/// clock, the player renders the video only). AVFoundation on macOS 26 mislabels post-effects tap stamps by the time-pitch unit's
 /// latency (macOS 13 is exact: docs/investigations/BUG-METALLIC-AUDIO.md part 5), so preview audio no longer goes
 /// through AVPlayer and taps:
 ///   AVAssetReader (one `AVAssetReaderAudioMixOutput` per composition audio lane, exact PTS on every OS)
 ///   → `LaneProcessor` per lane at ENQUEUE time on PTS-labelled samples (`PreviewAudioLanes`)
 ///   → mixed stereo chunks → `AVSampleBufferAudioRenderer` (spectral time-pitch for J/K/L rates)
-///   under an `AVSampleBufferRenderSynchronizer`, whose `timebase` is the preview clock (phase B slaves the video to it).
+///   under an `AVSampleBufferRenderSynchronizer`, whose `timebase` is the preview clock (the engine starts the video's
+///   timebase, on the same device clock, with the same (time, host time) pair: `start(rate:time:atHostTime:)`).
 /// The feeder runs on a private serial queue, paced `ahead` (150 ms) of the clock: a live-effect edit is heard after
 /// at most that much (plus one chunk). Nothing runs on the main thread; every public call only takes a lock, sets the
 /// synchronizer and dispatches to the queue.
@@ -42,6 +43,9 @@ public final class PreviewAudio: @unchecked Sendable {
     private var generation = 0
     private var _capture: Capture?
     private var _stats = Stats()
+    /// `whenPrimed` callbacks waiting for the queue to hold `prime` of audio past the clock.
+    private var primedHandlers: [@Sendable () -> Void] = []
+    private var _onReanchor: (@Sendable () -> Void)?
 
     // MARK: queue-confined state
     private var built: BuiltComposition?
@@ -106,6 +110,20 @@ public final class PreviewAudio: @unchecked Sendable {
         get { renderer.volume }
         set { renderer.volume = AudioOutput.volume(newValue) }
     }
+    public var isMuted: Bool {
+        get { renderer.isMuted }
+        set { renderer.isMuted = newValue }
+    }
+    /// The clock is running (rate ≠ 0, or scheduled to start at a host time).
+    public var isRunning: Bool { synchronizer.rate != 0 }
+
+    /// Slaved mode (`PlaybackEngine`): when set, an output change or a failed renderer only stops the clock and calls
+    /// this (any thread) instead of re-seeking and restarting on its own, so that the owner can restart the audio AND
+    /// its video together (`seek` + `start`). nil = re-anchor alone (standalone use, `PreviewAudioCheck`).
+    public var onReanchor: (@Sendable () -> Void)? {
+        get { lock.withLock { _onReanchor } }
+        set { lock.withLock { _onReanchor = newValue } }
+    }
     public var outputDeviceUID: String? {
         get { renderer.audioOutputDeviceUniqueID }
         set { renderer.audioOutputDeviceUniqueID = newValue }   // posts OutputConfigurationDidChange → re-anchor
@@ -143,6 +161,27 @@ public final class PreviewAudio: @unchecked Sendable {
         queue.async { self.ensureTimer(); self.tick() }
     }
 
+    /// Slaved start (`PlaybackEngine`): the clock reads `time` at `hostTime` and runs at `rate` from there, whether the
+    /// audio is primed or not (call it from `whenPrimed`), so that a video timebase started with the same pair stays in
+    /// step. A host time already past is honoured too (the clock is then already ahead by the difference, like the video).
+    public func start(rate: Double, time: Double, atHostTime hostTime: CMTime) {
+        guard rate > 0 else { pause(); return }
+        lock.withLock {
+            wantsRate = rate; startHostTime = nil
+            synchronizer.setRate(Float(rate), time: CMTime(seconds: max(0, time), preferredTimescale: Int32(Self.sampleRate)),
+                                 atHostTime: hostTime)
+            _stats.clockStarted = CACurrentMediaTime()
+        }
+        queue.async { self.ensureTimer(); self.tick() }
+    }
+
+    /// Calls `handler` (on the feeder queue) once `prime` of audio past the clock is enqueued for the latest seek (or
+    /// nothing is left to enqueue): right away when it already is.
+    public func whenPrimed(_ handler: @escaping @Sendable () -> Void) {
+        lock.withLock { primedHandlers.append(handler) }
+        queue.async { self.ensureTimer(); self.tick() }
+    }
+
     public func pause() {
         lock.withLock {
             wantsRate = 0; startHostTime = nil
@@ -165,8 +204,14 @@ public final class PreviewAudio: @unchecked Sendable {
     /// Output device / route / format change (AVSampleBufferAudioRendererOutputConfigurationDidChange, or called by
     /// the owner on a default-device change): Apple's rule is flush and re-enqueue from the current time.
     public func outputConfigurationChanged() {
-        lock.withLock { _stats.outputChanges += 1 }
-        seek(to: currentTime)
+        let handler: (@Sendable () -> Void)? = lock.withLock {
+            _stats.outputChanges += 1
+            guard let h = _onReanchor else { return nil }
+            wantsRate = 0; startHostTime = nil
+            synchronizer.rate = 0
+            return h
+        }
+        if let handler { handler() } else { seek(to: currentTime) }
     }
 
     /// Stops everything (clock, feeder, reader). The instance can be reused with `load`.
@@ -240,10 +285,23 @@ public final class PreviewAudio: @unchecked Sendable {
         if renderer.status == .failed {
             EngineLog.error("preview audio: renderer failed (\(renderer.error.map { "\($0)" } ?? "?")): re-anchoring")
             renderer.flush()
+            if let handler = lock.withLock({ () -> (@Sendable () -> Void)? in
+                guard let h = _onReanchor else { return nil }
+                wantsRate = 0; startHostTime = nil; synchronizer.rate = 0
+                return h
+            }) {
+                // slaved: the owner re-seeks (audio and video together); keep the timer off until then
+                timer?.cancel(); timer = nil
+                handler()
+                return
+            }
             lock.withLock { pendingSeek = currentTime; generation &+= 1 }
             drain()
             return
         }
+        // a seek / swap requested since: perform it first (a tick before its `drain` would feed — and report primed —
+        // from the old position)
+        if lock.withLock({ pendingSeek != nil || pendingBuilt != nil }) { drain() }
         let (rate, gen) = lock.withLock { (wantsRate, generation) }
         let limit = Int((rate > 0 ? ahead * max(1, rate) : max(ahead, prime)) * Self.sampleRate)
         var clock = clockFrame()
@@ -274,6 +332,12 @@ public final class PreviewAudio: @unchecked Sendable {
                 startHostTime = nil
                 _stats.clockStarted = CACurrentMediaTime()
             }
+            let handlers: [@Sendable () -> Void] = lock.withLock {
+                guard generation == gen else { return [] }
+                defer { primedHandlers = [] }
+                return primedHandlers
+            }
+            for h in handlers { h() }
         }
         // idle: paused and primed, or everything enqueued
         if (rate == 0 && primed) || cursor >= endFrame { timer?.cancel(); timer = nil }

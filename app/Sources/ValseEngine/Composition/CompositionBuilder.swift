@@ -17,6 +17,9 @@ public struct BuiltComposition: @unchecked Sendable {
     /// The composition audio lanes with what their taps get (clips, gain ramps): `PreviewAudio` runs the same
     /// `LaneProcessor`s on the reader's buffers instead of taps (BUG-CUT-AUDIO-HOLE). Same order as the audio mix inputs.
     public var audioLanes: [AudioLane] = []
+    /// Preview builds without taps (`PlaybackEngine`): `composition` without its audio tracks, for the AVPlayer that
+    /// renders the video only (the audio is `PreviewAudio`'s). nil = play `composition`.
+    public var playerAsset: AVComposition?
 }
 
 /// One composition audio track and the clips packed onto it (`CompositionBuilder.packAudio`), with its gain ramps.
@@ -237,8 +240,6 @@ public enum CompositionBuilder {
             for v in vLanes.compactMap({ $0 }) { videoTrackIDs.append(v.trackID) }
             videoTrackIDs += auxOrder
         }
-        // BUG-CUT-AUDIO-HOLE: preview tap label lead (default 1 buffer; `defaults write fr.valse.Valse ValseTapLabelLead`)
-        let previewLead = purpose == .preview ? TapLabelLead.preview().buffers : nil
         var audioLanes: [AudioLane] = []
         for (laneIndex, lane) in try packAudio(pendingAudio, into: comp, sharesAcrossTracks: !separatesTrackAudio).enumerated() {
             let a = lane.params
@@ -263,8 +264,7 @@ public enum CompositionBuilder {
             // (frozen-clock recovery, tap creation failed) the mix carries the real ramps, as before.
             if audioTaps {
                 a.audioTapProcessor = AudioTap.make(LaneProcessor(clips: lane.placements.map(\.clip), state: audioState, skip: skip,
-                                                                  gains: volumes.flatMap { $0.ramps },
-                                                                  leadBuffers: previewLead, lane: laneIndex))   // lead: AVPlayer only
+                                                                  gains: volumes.flatMap { $0.ramps }, lane: laneIndex))
             }
             if a.audioTapProcessor == nil {
                 a.setVolume(0, at: .zero)
@@ -320,6 +320,13 @@ public enum CompositionBuilder {
                                      duration: duration, state: state, audioState: audioState)
         built.skip = skip
         built.audioLanes = audioLanes
+        if purpose == .preview, !audioTaps {
+            // BUG-CUT-AUDIO-HOLE phase B: the player only renders video; `PreviewAudio` reads the audio lanes of
+            // `composition` itself. Same track IDs (the video composition's instructions name them).
+            let video = comp.mutableCopy() as! AVMutableComposition
+            for t in video.tracks(withMediaType: .audio) { video.removeTrack(t) }
+            built.playerAsset = video
+        }
         return built
     }
 
