@@ -232,8 +232,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Finder "Open With" / drop on the Dock icon (MI-028): projects open, media files are imported.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let store, let app else { return }
-        let projects = urls.filter(ProjectPackage.isPackage)
-        if let p = projects.first { app.open(p) }
+        let projects = urls.filter { ProjectPackage.isPackage($0) || $0.pathExtension.lowercased() == "zip" }
+        if let p = projects.first { app.openFromFinder(p) }
         let media = urls.filter { !projects.contains($0) }
         if !media.isEmpty, app.screen == .editor { store.importMedia(media) }
     }

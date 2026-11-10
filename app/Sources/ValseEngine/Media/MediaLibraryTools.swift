@@ -73,6 +73,7 @@ public enum MediaConsolidator {
         var taken = Set((try? fm.contentsOfDirectory(atPath: mediaDir.path)) ?? [])
         let todo = project.media.filter { !$0.url.standardizedFileURL.path.hasPrefix(mediaDir.standardizedFileURL.path) && MediaRelinker.fileExists($0) }
         for (k, a) in todo.enumerated() {
+            try Task.checkCancellation()   // "Cancel" while packing / consolidating
             if a.conversion == .imageSequence, let s = a.sequence {
                 // copy the whole sequence into its own sub-folder
                 let sub = mediaDir.appendingPathComponent(uniqueName(a.name, taken: &taken), isDirectory: true)

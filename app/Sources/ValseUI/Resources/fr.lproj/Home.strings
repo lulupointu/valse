@@ -131,6 +131,10 @@
 "job.pack" = "Empaquetage du projet";
 "toast.packed" = "Empaqueté : %@";
 "toast.packFailed" = "Le projet n'a pas pu être empaqueté.";
+"toast.packCancelled" = "Empaquetage annulé.";
+"pack.progress" = "Empaquetage de « %@ »… %d %%";
+"pack.cancelling" = "Annulation…";
+"home.imported.fromFinder" = "« %@ » a été importé dans votre bibliothèque.";
 "toast.saved" = "Enregistré";
 
 /* Cache */

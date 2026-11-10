@@ -402,6 +402,26 @@ public final class AppModel {
         }
     }
 
+    /// Finder "Open With" / double-click of a project file (`.valse`, legacy `.montage`, packed `.zip`): imported into the
+    /// library (a copy: the original may be deleted afterwards) and opened. Projects already in the library just open.
+    public func openFromFinder(_ url: URL) {
+        let known = entries.contains { $0.url.standardizedFileURL == url.standardizedFileURL }
+        if known { open(url); return }
+        let lib = library
+        Task {
+            do {
+                let r = try await Task.detached { try lib.adoptForOpening(url) }.value
+                if r.imported {
+                    store.showToast(tr("home.imported.fromFinder", r.url.deletingPathExtension().lastPathComponent))
+                    await refresh()
+                }
+                open(r.url)
+            } catch {
+                store.showToast(tr("home.error.import"), error: true)
+            }
+        }
+    }
+
     /// Pack project (current editor project, or a Home card).
     public func packPanel(_ entry: LibraryEntry? = nil) {
         let panel = NSOpenPanel()
@@ -419,17 +439,11 @@ public final class AppModel {
         if let entry, !(screen == .editor && store.packageURL?.standardizedFileURL == entry.url) {
             let url = entry.url
             Task {
-                let box = PackBox()
-                let id = await JobQueue.shared.enqueue(titleKey: "job.pack", priority: 1) { progress in
+                let outcome = await PackProgress.shared.run(name: entry.name) { report in
                     let p = try ProjectPackage.load(from: url)
-                    box.url = try ProjectPacker.pack(p, from: url, into: dir, zip: zip) { progress.report($0) }
+                    return try ProjectPacker.pack(p, from: url, into: dir, zip: zip, progress: report)
                 }
-                if await JobQueue.shared.wait(id) == .done, let u = box.url {
-                    store.showToast(tr("toast.packed", u.lastPathComponent))
-                    NSWorkspace.shared.activateFileViewerSelecting([u])
-                } else {
-                    store.showToast(tr("toast.packFailed"), error: true)
-                }
+                PackProgress.present(outcome, store: store)
             }
         } else {
             store.packProject(to: dir, zip: zip)
