@@ -56,10 +56,9 @@ extension TrimBracket {
                 color.setStroke(); ns.stroke()
             }
             for (c, w) in [(NSColor.black, CGFloat(4.2)), (NSColor.white, CGFloat(2))] {
-                // Owner feedback: the cursor brackets are mirrored against the toolbar glyphs (head edge "[", tail edge "]");
-                // the arrow still points to the side the edge moves into. The toolbar glyph is unchanged.
+                // Owner feedback: the cursor is the bracket only (head edge "[", tail edge "]", mirrored against the toolbar
+                // glyphs), no arrow: the edge can be extended or shortened. The toolbar glyph is unchanged.
                 stroke(TrimBracketPaths.bracketPath(head: !head), c, w)
-                stroke(TrimBracketPaths.arrowPath(head: head), c, w * 0.8)
             }
             return true
         }
