@@ -471,6 +471,16 @@ public final class ProjectLibrary: @unchecked Sendable {
         return dest
     }
 
+    /// Finder double-click / Open With on a project file: a package already in the library opens in place; any other
+    /// (a downloaded `.valse` / `.montage` / `.zip`) is COPIED into the library first, so the project never depends
+    /// on where the original sits and the user may delete it.
+    public func adoptForOpening(_ source: URL) throws -> (url: URL, imported: Bool) {
+        let s = source.standardizedFileURL.resolvingSymlinksInPath().path
+        let r = root.standardizedFileURL.resolvingSymlinksInPath().path
+        if s.hasPrefix(r + "/") { return (source, false) }
+        return (try importProject(from: source), true)
+    }
+
     // MARK: Helpers
 
     private func rekey(from old: URL, to new: URL) {

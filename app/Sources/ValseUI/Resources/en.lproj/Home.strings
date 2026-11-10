@@ -131,6 +131,10 @@
 "job.pack" = "Packing project";
 "toast.packed" = "Packed: %@";
 "toast.packFailed" = "The project couldn't be packed.";
+"toast.packCancelled" = "Packing cancelled.";
+"pack.progress" = "Packing “%@”… %d %%";
+"pack.cancelling" = "Cancelling…";
+"home.imported.fromFinder" = "Imported “%@” into your library.";
 "toast.saved" = "Saved";
 
 /* Cache */

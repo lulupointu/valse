@@ -157,6 +157,35 @@ import Foundation
         #expect(try ProjectPackage.load(from: again).id != q.id)
         #expect(lib.scan().count == 2)
     }
+
+    /// Finder double-click of a downloaded `.valse` (and a legacy `.montage`): copied into the library, the original
+    /// can then be deleted; a package already in the library opens in place.
+    @Test func finderOpenCopiesIntoTheLibraryAndSurvivesDeletingTheOriginal() throws {
+        let (lib, dir) = library()
+        for ext in ["valse", "montage"] {
+            let media = dir.appendingPathComponent("src/\(ext).mp4")
+            try FileManager.default.createDirectory(at: media.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(repeating: 3, count: 500).write(to: media)
+            var p = project("Shared \(ext)", clips: 1)
+            let pkg = dir.appendingPathComponent("Downloads/Shared \(ext).\(ext)")
+            try FileManager.default.createDirectory(at: pkg.appendingPathComponent("media"), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: media, to: pkg.appendingPathComponent("media/clip.mp4"))
+            p.media[0].url = pkg.appendingPathComponent("media/clip.mp4")
+            try ProjectPackage.save(p, to: pkg)
+
+            let r = try lib.adoptForOpening(pkg)
+            #expect(r.imported && r.url.standardizedFileURL.path.hasPrefix(lib.root.standardizedFileURL.path))
+            try FileManager.default.removeItem(at: pkg)   // the user deletes the downloaded file
+            let q = try ProjectPackage.load(from: r.url)
+            #expect(q.name == "Shared \(ext)")
+            #expect(FileManager.default.fileExists(atPath: q.media[0].url.path))
+            #expect(q.media[0].url.standardizedFileURL.path.hasPrefix(r.url.standardizedFileURL.path))
+            // double-clicking the library copy does not import again
+            let again = try lib.adoptForOpening(r.url)
+            #expect(!again.imported && again.url == r.url)
+        }
+        #expect(lib.scan().count == 2)
+    }
 }
 
 @Suite struct ProjectVersionsTests {

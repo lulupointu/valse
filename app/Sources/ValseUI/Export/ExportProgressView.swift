@@ -107,6 +107,7 @@ struct JobRow: View {
                     if job.isActive {
                         Button { queue.cancel(job) } label: { Image(systemName: "xmark.circle.fill") }
                             .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.stop"))
+                            .accessibilityLabel(Text(verbatim: tr("export.stop"))).testID("export.job.stop")
                     } else if job.state == .done {
                         Button { NSWorkspace.shared.activateFileViewerSelecting(job.written) } label: { Image(systemName: "magnifyingglass.circle.fill") }
                             .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.reveal"))

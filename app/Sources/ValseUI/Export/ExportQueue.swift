@@ -102,10 +102,14 @@ public final class ExportQueue {
         let spec = next.spec, outputs = next.outputs
         next.task = Task { [weak self, weak next] in
             let progressBox = ProgressRelay { p in next?.progress = max(next?.progress ?? 0, p) }
-            let result: Result<[URL], Error> = await Task.detached(priority: .userInitiated) {
+            // A detached task does not inherit its parent's cancellation: Stop cancelled only this outer task and the
+            // export ran on to the end. The handler forwards the cancel to the export task.
+            let worker = Task.detached(priority: .userInitiated) { () -> Result<[URL], Error> in
                 do { return .success(try await ExportRunner.run(spec, outputs: outputs) { p in progressBox.send(p) }) }
                 catch { return .failure(error) }
-            }.value
+            }
+            let result: Result<[URL], Error> = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+            if case .failure = result { Self.removePartial(outputs) }
             guard let next else { return }
             switch result {
             case .success(let urls): next.written = urls; next.progress = 1; next.state = .done
@@ -121,6 +125,11 @@ public final class ExportQueue {
             self?.finished(next)
             self?.pump()
         }
+    }
+
+    /// A cancelled / failed job leaves none of its (uniqued, hence new) output files behind.
+    nonisolated static func removePartial(_ outputs: [ExportJobSpec.Output]) {
+        for o in outputs { try? FileManager.default.removeItem(at: o.url) }
     }
 
     /// User message + technical detail of an export failure (BUG-ERROR-COPY): what happened and what to do; error

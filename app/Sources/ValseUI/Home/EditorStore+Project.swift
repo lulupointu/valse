@@ -104,16 +104,10 @@ extension EditorStore {
     public func packProject(to directory: URL, zip: Bool) {
         let p = project, src = packageURL
         Task {
-            let box = PackBox()
-            let id = await JobQueue.shared.enqueue(titleKey: "job.pack", priority: 1) { progress in
-                box.url = try ProjectPacker.pack(p, from: src, into: directory, zip: zip) { progress.report($0) }
+            let outcome = await PackProgress.shared.run(name: p.name) { report in
+                try ProjectPacker.pack(p, from: src, into: directory, zip: zip, progress: report)
             }
-            if await JobQueue.shared.wait(id) == .done, let u = box.url {
-                showToast(tr("toast.packed", u.lastPathComponent))
-                NSWorkspace.shared.activateFileViewerSelecting([u])
-            } else {
-                showToast(tr("toast.packFailed"), error: true)
-            }
+            PackProgress.present(outcome, store: self)
         }
     }
 
@@ -173,6 +167,20 @@ nonisolated enum ProjectPacker {
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { if zip { try? fm.removeItem(at: staging) } }
         let dest = ProjectLibrary.uniquePackageURL(for: name, in: staging)
+        var zipOut: URL?
+        do {
+            return try build(project, from: package, dest: dest, directory: directory, zip: zip, zipOut: &zipOut, progress: progress)
+        } catch {
+            // cancelled or failed: no half-written package / archive is left behind
+            try? fm.removeItem(at: dest)
+            if let zipOut { try? fm.removeItem(at: zipOut) }
+            throw error
+        }
+    }
+
+    private static func build(_ project: Project, from package: URL?, dest: URL, directory: URL, zip: Bool, zipOut: inout URL?,
+                              progress: (@Sendable (Double) -> Void)?) throws -> URL {
+        let fm = FileManager.default
         if let package, fm.fileExists(atPath: package.path) {
             try fm.copyItem(at: package, to: dest)
             for junk in [".session.lock", ProjectVersions.directoryName] { try? fm.removeItem(at: dest.appendingPathComponent(junk)) }
@@ -187,7 +195,10 @@ nonisolated enum ProjectPacker {
         let out = fm.fileExists(atPath: z.path)
             ? directory.appendingPathComponent("\(dest.deletingPathExtension().lastPathComponent) \(Int(Date().timeIntervalSince1970))").appendingPathExtension("zip")
             : z
+        try Task.checkCancellation()
+        zipOut = out
         try ProjectArchive.zip(dest, to: out)
+        try Task.checkCancellation()
         progress?(1)
         return out
     }
