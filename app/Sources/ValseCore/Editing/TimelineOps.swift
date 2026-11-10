@@ -195,7 +195,9 @@ public enum TimelineOps {
         guard !tl.tracks[loc.track].isLocked else { throw EditError.trackLocked }
         var c = tl.tracks[loc.track].clips[loc.clip]
         if c.isFreezeFrame { return try trimFreeze(id, edge: edge, to: time, in: &project) }
-        let mediaDuration = c.mediaID.flatMap { project.asset($0) }.map { $0.kind == .image ? Time.indefinite : $0.duration }
+        var mediaDuration = c.mediaID.flatMap { project.asset($0) }.map { $0.kind == .image ? Time.indefinite : $0.duration }
+        // A compound clip can't be stretched past the content of its nested timeline (like a media clip past its media).
+        if case .compound(let cid) = c.content, let comp = project.compound(cid) { mediaDuration = comp.timeline.duration }
         let rate = c.speed.averageRate
         let oldMainStarts = mainStarts(tl)
         switch edge {
@@ -213,6 +215,11 @@ public enum TimelineOps {
             // On the magnetic main track the clip may grow leftwards past 0; compaction re-packs it.
             let magnetic = tl.tracks[loc.track].isMain && tl.mainTrackMagnet
             if !magnetic { newStart = max(newStart, .zero) }
+            // inside a compound the head stops at the previous clip instead of failing the whole drag
+            if project.isInsideCompound, tl.tracks[loc.track].isMain, !magnetic,
+               let prev = tl.tracks[loc.track].clips.filter({ $0.id != c.id && $0.end <= c.start }).map(\.end).max() {
+                newStart = max(newStart, prev)
+            }
             let delta = newStart - c.start
             guard delta.ticks != 0 else { return }
             if !c.reversed { c.sourceStart = max(.zero, c.sourceStart + delta * rate) }
@@ -230,6 +237,16 @@ public enum TimelineOps {
             guard newDuration != c.duration else { return }
             if c.reversed { c.sourceStart += c.sourceDuration - c.speed.sourceDuration(forOutput: newDuration) }
             c.duration = newDuration
+        }
+        // Inside a compound the (magnet-less) nested main track still lets any clip be lengthened: the clips after it
+        // are pushed right by the overlap, like a ripple on the main timeline.
+        if edge == .tail, project.isInsideCompound, tl.tracks[loc.track].isMain, !tl.mainTrackMagnet {
+            var cursor = c.end
+            for i in tl.tracks[loc.track].clips.indices where i != loc.clip && tl.tracks[loc.track].clips[i].start >= tl.tracks[loc.track].clips[loc.clip].start {
+                let o = tl.tracks[loc.track].clips[i]
+                if o.start < cursor { tl.tracks[loc.track].clips[i].start = cursor }
+                cursor = tl.tracks[loc.track].clips[i].end
+            }
         }
         // other clips on a free track must not overlap
         if !(tl.tracks[loc.track].isMain && tl.mainTrackMagnet) {
@@ -425,6 +442,12 @@ public enum TimelineOps {
             guard track.kind == .video else { throw EditError.incompatibleTrack }
             guard isJoined(track.clips[loc.clip], track.clips[loc.clip + 1]) else { throw EditError.invalidTime }
         }
+        var transition = transition
+        if var t = transition {
+            tl.tracks[loc.track].clips[loc.clip].transitionOut = nil   // measure the room without itself
+            let room = maxTransitionDuration(after: id, in: tl, frameRate: .fps30)
+            t.duration = min(t.duration, max(room, minTransitionDuration)); transition = t
+        }
         tl.tracks[loc.track].clips[loc.clip].transitionOut = transition
         clampTransitions(&tl.tracks[loc.track])
     }
@@ -483,12 +506,17 @@ public enum TimelineOps {
         return idx
     }
 
-    /// Transitions can't exceed half of either neighbour.
+    /// Transitions are centred on the cut, so a clip gives up d/2 per side: at most twice the shorter neighbour, and
+    /// the two windows on one clip (d_in/2 + d_out/2) can't exceed its length. `setTransition` limits the transition
+    /// being edited first (via `maxTransitionDuration`); here the outgoing one gives way as a fallback.
     static func clampTransitions(_ track: inout Track) {
         for i in track.clips.indices {
             guard var tr = track.clips[i].transitionOut else { continue }
             guard i + 1 < track.clips.count else { track.clips[i].transitionOut = nil; continue }
-            let maxD = min(track.clips[i].duration, track.clips[i + 1].duration) / 2.0
+            let a = track.clips[i], b = track.clips[i + 1]
+            let aInHalf = i > 0 ? (track.clips[i - 1].transitionOut?.duration.ticks ?? 0) / 2 : 0
+            let bOutHalf = (b.transitionOut?.duration.ticks ?? 0) / 2
+            let maxD = Time(ticks: max(2 * min(a.duration.ticks - aInHalf, b.duration.ticks - bOutHalf), 0))
             if tr.duration > maxD { tr.duration = maxD; track.clips[i].transitionOut = tr }
         }
         dropUnjoinedTransitions(&track)

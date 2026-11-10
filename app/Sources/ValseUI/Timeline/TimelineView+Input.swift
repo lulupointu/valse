@@ -454,7 +454,7 @@ extension TimelineView {
             if ui.tool == .split { Self.bladeCursor.set() }
             else if hoverFade != nil { NSCursor.resizeLeftRight.set() }
             else if hoverVolumeClip != nil { NSCursor.resizeUpDown.set() }
-            else if region != .body { NSCursor.resizeLeftRight.set() }
+            else if region != .body { (region == .leadingEdge ? TrimBracket.headCursor : TrimBracket.tailCursor).set() }   // bracket matching the edge
             else { NSCursor.arrow.set() }
         case .transition(_, let edge, _): (edge != nil ? NSCursor.resizeLeftRight : NSCursor.pointingHand).set()
         case .keyframe, .marker: NSCursor.pointingHand.set()

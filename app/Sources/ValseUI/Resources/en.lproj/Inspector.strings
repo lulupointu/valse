@@ -131,3 +131,4 @@
 "mask.brush.hint" = "Paint the area to adjust on the player";
 "cmd.maskBrush" = "Brush mask";
 "cmd.maskErase" = "Erase mask";
+"inspector.transition.maxHint" = "Maximum: twice the shorter neighbouring clip, minus what its other transition uses";

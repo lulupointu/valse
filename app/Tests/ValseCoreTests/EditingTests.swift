@@ -101,9 +101,9 @@ import Testing
         let f = FrameEvaluator.evaluate(p, at: 4)
         guard case .transition(_, _, _, let progress, _) = f.items.first else { Issue.record("no transition"); return }
         #expect(abs(progress - 0.5) < 1e-9)
-        // clamped to half the shorter neighbour
+        // clamped to twice the shorter neighbour (4 s clips)
         try TimelineOps.setTransition(ids[0], TransitionInstance(typeID: "x", duration: 10), in: &p.timeline)
-        #expect(p.timeline.clip(ids[0])!.transitionOut!.duration == Time(2))
+        #expect(p.timeline.clip(ids[0])!.transitionOut!.duration == Time(8))
         #expect(TimelineOps.validate(p.timeline).isEmpty)
     }
 

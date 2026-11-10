@@ -131,3 +131,4 @@
 "mask.brush.hint" = "Peignez la zone à ajuster sur le lecteur";
 "cmd.maskBrush" = "Masque au pinceau";
 "cmd.maskErase" = "Gommer le masque";
+"inspector.transition.maxHint" = "Maximum : deux fois le plus court des clips voisins, moins la part de son autre transition";

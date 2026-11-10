@@ -108,8 +108,8 @@ struct TimelineToolbarBar: View, Equatable {
                 IconButton("arrow.uturn.forward", help: tr("toolbar.redo"), enabled: m.canRedo) { store.redo() }.testID("toolbar.redo")
                 divider
                 IconButton("square.split.2x1", help: tr("toolbar.split")) { store.split() }.testID("toolbar.split")
-                IconButton("arrow.left.to.line", help: tr("toolbar.deleteLeft"), enabled: m.hasTarget) { store.deleteLeftRight(.head) }.testID("toolbar.deleteLeft")
-                IconButton("arrow.right.to.line", help: tr("toolbar.deleteRight"), enabled: m.hasTarget) { store.deleteLeftRight(.tail) }.testID("toolbar.deleteRight")
+                IconButton(glyph: AnyView(TrimBracketGlyph(head: true)), help: tr("toolbar.deleteLeft"), enabled: m.hasTarget) { store.deleteLeftRight(.head) }.testID("toolbar.deleteLeft")
+                IconButton(glyph: AnyView(TrimBracketGlyph(head: false)), help: tr("toolbar.deleteRight"), enabled: m.hasTarget) { store.deleteLeftRight(.tail) }.testID("toolbar.deleteRight")
                 IconButton("trash", help: tr("toolbar.delete"), enabled: m.canDelete) { store.deleteSmart() }.testID("toolbar.delete")
                 IconButton("bookmark", help: tr("toolbar.marker")) { store.addMarker() }
                 QuickCutButton(store: store, isOpen: m.quickCut)   // TL-048

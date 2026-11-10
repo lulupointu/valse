@@ -270,13 +270,20 @@ public struct IconButton: View {
     var active = false
     var enabled = true
     let action: () -> Void
+    /// Custom drawing instead of an SF Symbol (trim brackets).
+    var glyph: AnyView?
     public init(_ symbol: String, help: String, active: Bool = false, enabled: Bool = true, action: @escaping () -> Void) {
         self.symbol = symbol; self.help = help; self.active = active; self.enabled = enabled; self.action = action
+    }
+    init(glyph: AnyView, help: String, enabled: Bool = true, action: @escaping () -> Void) {
+        self.symbol = ""; self.glyph = glyph; self.help = help; self.enabled = enabled; self.action = action
     }
     public var body: some View {
         WithPerceptionTracking {
             Button(action: action) {
-                Image(systemName: symbol)
+                Group {
+                    if let glyph { glyph } else { Image(systemName: symbol) }
+                }
                     .font(.system(size: 14, weight: active ? .medium : .regular))
                     .frame(width: 26, height: 26)
                     .contentShape(Rectangle())
