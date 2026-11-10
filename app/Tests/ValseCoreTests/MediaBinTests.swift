@@ -54,6 +54,37 @@ import Foundation
         #expect(s.project.folders.isEmpty && s.project.mediaFolders == nil)
     }
 
+    @Test func removeMediaIsUndoableAndDropsItsClips() throws {
+        let (p, _) = Fx.project(mainClips: 2)
+        let doomed = p.media[0].id
+        let clipsBefore = p.timeline.tracks.flatMap(\.clips).count
+        var s = EditSession(project: p)
+        try s.perform(BinCommand.removeMedia([doomed]))
+        #expect(!s.project.media.contains { $0.id == doomed })
+        #expect(!s.project.timeline.tracks.flatMap(\.clips).contains { $0.mediaID == doomed })
+        _ = s.undo()
+        #expect(s.project.media.contains { $0.id == doomed })
+        #expect(s.project.timeline.tracks.flatMap(\.clips).count == clipsBefore)
+        #expect(throws: EditError.nothingToDo) { try s.perform(BinCommand.removeMedia([MediaID()])) }
+    }
+
+    @Test func usedMediaCountsNestedTimelines() throws {
+        let (p0, _) = Fx.project(mainClips: 2)
+        var p = p0
+        let a = p.media[0].id, b = p.media[1].id
+        #expect(BinOps.usedMedia([a, b], in: p) == [a, b])
+        // move media b's clip into a compound: still "used"
+        var inner = Timeline()
+        inner.tracks = p.timeline.tracks
+        for ti in p.timeline.tracks.indices { p.timeline.tracks[ti].clips.removeAll { $0.mediaID == b } }
+        inner.tracks = inner.tracks.map { t in var t = t; t.clips = t.clips.filter { $0.mediaID == b }; return t }
+        p.compounds = [CompoundClip(name: "C", timeline: inner)]
+        #expect(BinOps.usedMedia([a, b], in: p) == [a, b])
+        try BinOps.removeMedia([b], in: &p)
+        #expect(BinOps.usedMedia([b], in: p).isEmpty)
+        #expect(p.compounds?.first?.timeline.allClips.isEmpty == true)
+    }
+
     @Test func foldersAndMediaExtrasPersist() throws {
         var (p, ids) = Fx.project(mainClips: 1)
         let f = try BinOps.createFolder("B-roll", parent: nil, in: &p)

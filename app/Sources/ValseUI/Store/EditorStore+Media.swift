@@ -112,6 +112,29 @@ extension EditorStore {
     public func renameFolder(_ id: MediaFolderID, to name: String) { perform(BinCommand.rename(id, name)) }
     public func deleteFolder(_ id: MediaFolderID) { perform(BinCommand.deleteFolder(id)) }
     public func moveMedia(_ ids: Set<MediaID>, to folder: MediaFolderID?) { perform(BinCommand.moveMedia(ids, to: folder)) }
+    /// Presents the "media is used on the timeline" confirmation (wired by `AppModel`: an in-app modal). Without a
+    /// presenter (unit tests) the removal is cancelled.
+    public static var confirmUsedMediaRemoval: (@MainActor (Set<MediaID>, Int) -> Void)?
+
+    /// Delete key / context menu: no question when none of the media is used by a clip; otherwise the confirmation
+    /// (Cancel / Delete only unused / Delete anyway) decides.
+    public func requestRemoveMedia(_ ids: Set<MediaID>) {
+        let used = BinOps.usedMedia(ids, in: project)
+        if used.isEmpty { removeMedia(ids); return }
+        Self.confirmUsedMediaRemoval?(ids, used.count)
+    }
+
+    /// The confirmation's "Delete only unused media".
+    public func removeUnusedMedia(_ ids: Set<MediaID>) {
+        removeMedia(ids.subtracting(BinOps.usedMedia(ids, in: project)))
+    }
+
+    /// Removes the media from the bin (and the clips using it), undoable (one step).
+    public func removeMedia(_ ids: Set<MediaID>) {
+        guard perform(BinCommand.removeMedia(ids)) else { return }
+        AssetPanelState.shared.mediaSelection.removeAll { ids.contains($0) }
+        selection = selection.filter { project.timeline.clip($0) != nil }
+    }
     public func moveFolder(_ id: MediaFolderID, to parent: MediaFolderID?) { perform(BinCommand.moveFolder(id, to: parent)) }
 
     // MARK: Missing media / relink

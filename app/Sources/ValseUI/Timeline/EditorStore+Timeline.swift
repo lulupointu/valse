@@ -31,7 +31,9 @@ extension EditorStore {
         if !adding { ui.selectedKeyframe = nil }
     }
 
-    public func selectAll() { select(Set(project.timeline.tracks.filter { !$0.isLocked }.flatMap(\.clips).map(\.id))) }
+    public func selectAll() {
+        if AssetPanelState.shared.selectAllInFocusedPanel() { return }   // ⌘A in a focused media panel
+        select(Set(project.timeline.tracks.filter { !$0.isLocked }.flatMap(\.clips).map(\.id))) }
     public func deselectAll() { selection = []; ui.selectedTransition = nil; ui.selectedMarker = nil; ui.selectedKeyframe = nil }
     public func selectLeftOfPlayhead() { select(TimelineOps.clips(leftOf: playhead, in: project.timeline)) }
     public func selectRightOfPlayhead() { select(TimelineOps.clips(rightOf: playhead, in: project.timeline)) }
@@ -65,6 +67,7 @@ extension EditorStore {
 
     /// ⌫: deletes the selected transition, marker, keyframe or clips (in that priority).
     public func deleteSmart() {
+        if AssetPanelState.shared.deleteInFocusedPanel() { return }   // media panel focused with a selection
         if let k = ui.selectedKeyframe {
             ui.selectedKeyframe = nil
             edit("cmd.keyframe") { p in p.timeline[clip: k.clip]?.keyframes[k.key]?.remove(near: k.time, tolerance: Time(ticks: 1000)) }

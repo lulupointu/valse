@@ -229,6 +229,9 @@ enum CaptionEditorKeys {
         let mods = e.modifierFlags.intersection([.command, .shift, .option, .control])
         let ed = store.captionEditor
         switch (e.keyCode, mods) {
+        case (0, .command):   // ⌘A in the caption list: every caption of the active language (not the timeline's clips)
+            if let ti = store.activeCaptionTrackIndex { store.select(Set(store.project.timeline.tracks[ti].clips.map(\.id))) }
+            return true
         case (3, .command): ed.searchFocusToken += 1; return true
         case (3, [.command, .option]): ed.showReplace.toggle(); ed.searchFocusToken += 1; return true
         case (5, .command): store.captionStepMatch(1); return true

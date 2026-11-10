@@ -5,6 +5,7 @@
 "media.folder.name" = "Nom du dossier";
 "media.folder.delete" = "Supprimer le dossier";
 "media.moveTo" = "Déplacer vers";
+"media.remove" = "Supprimer";
 "media.missing.one" = "%d fichier introuvable";
 "media.missing.other" = "%d fichiers introuvables";
 "media.lost" = "Média perdu";
@@ -51,3 +52,9 @@
 "cmd.relink" = "Lier le média";
 "cmd.consolidate" = "Copier les médias dans le projet";
 "cmd.importCaptions" = "Importer des sous-titres";
+"media.remove.title" = "Supprimer des médias utilisés dans la timeline ?";
+"media.remove.message.one" = "%d des fichiers média sélectionnés est utilisé par des clips de la timeline. Le supprimer retire aussi ces clips. Vous pouvez annuler avec ⌘Z.";
+"media.remove.message.other" = "%d des fichiers média sélectionnés sont utilisés par des clips de la timeline. Les supprimer retire aussi ces clips. Vous pouvez annuler avec ⌘Z.";
+"media.remove.cancel" = "Ne pas supprimer";
+"media.remove.unused" = "Supprimer seulement les médias inutilisés";
+"media.remove.all" = "Supprimer les médias et les clips";

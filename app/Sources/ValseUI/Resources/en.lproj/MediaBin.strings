@@ -5,6 +5,7 @@
 "media.folder.name" = "Folder name";
 "media.folder.delete" = "Delete folder";
 "media.moveTo" = "Move to";
+"media.remove" = "Delete";
 "media.missing.one" = "%d missing file";
 "media.missing.other" = "%d missing files";
 "media.lost" = "Media lost";
@@ -51,3 +52,9 @@
 "cmd.relink" = "Link media";
 "cmd.consolidate" = "Copy media to project";
 "cmd.importCaptions" = "Import captions";
+"media.remove.title" = "Delete media used on the timeline?";
+"media.remove.message.one" = "%d of the selected media files is used by clips on the timeline. Deleting it also removes those clips. You can undo this with ⌘Z.";
+"media.remove.message.other" = "%d of the selected media files are used by clips on the timeline. Deleting them also removes those clips. You can undo this with ⌘Z.";
+"media.remove.cancel" = "Don’t Delete";
+"media.remove.unused" = "Delete Unused Media Only";
+"media.remove.all" = "Delete Media and Clips";

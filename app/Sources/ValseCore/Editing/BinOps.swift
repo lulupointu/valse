@@ -88,6 +88,26 @@ public enum BinOps {
         for i in p.media.indices where ids.contains(p.media[i].id) { p.media[i].folderID = folder }
     }
 
+    /// Removes media from the bin (not from disk). Timeline clips that use it go too (locked tracks included), so
+    /// no clip points at a missing asset; one undo step restores both.
+    public static func removeMedia(_ ids: Set<MediaID>, in p: inout Project) throws {
+        guard p.media.contains(where: { ids.contains($0.id) }) else { throw EditError.nothingToDo }
+        p.media.removeAll { ids.contains($0.id) }
+        func strip(_ tl: inout Timeline) {
+            for ti in tl.tracks.indices { tl.tracks[ti].clips.removeAll { c in c.mediaID.map(ids.contains) == true } }
+        }
+        strip(&p.timeline)
+        if p.compoundEdit != nil { for i in p.compoundEdit!.indices { strip(&p.compoundEdit![i].parent) } }
+        if p.timelines != nil { for i in p.timelines!.indices { strip(&p.timelines![i].timeline) } }
+        if p.compounds != nil { for i in p.compounds!.indices { strip(&p.compounds![i].timeline) } }
+    }
+
+    /// The members of `ids` that some clip uses, in any timeline (main, other timelines, compounds).
+    public static func usedMedia(_ ids: Set<MediaID>, in p: Project) -> Set<MediaID> {
+        let tls = MultiTimelineOps.allTimelines(p) + (p.compounds ?? []).map(\.timeline)
+        return Set(tls.flatMap(\.allClips).compactMap(\.mediaID)).intersection(ids)
+    }
+
     /// Deletes a folder and its sub-folders. Contained media is kept and moves up to the deleted folder's parent
     /// (media may be used on the timeline; deleting media is a separate, explicit action).
     public static func deleteFolder(_ id: MediaFolderID, in p: inout Project) throws {
@@ -142,6 +162,9 @@ public struct BinCommand: EditCommand {
     }
     public static func moveMedia(_ ids: Set<MediaID>, to folder: MediaFolderID?) -> BinCommand {
         BinCommand(nameKey: "cmd.moveToFolder") { try BinOps.moveMedia(ids, to: folder, in: &$0) }
+    }
+    public static func removeMedia(_ ids: Set<MediaID>) -> BinCommand {
+        BinCommand(nameKey: "cmd.removeMedia") { try BinOps.removeMedia(ids, in: &$0) }
     }
     public static func deleteFolder(_ id: MediaFolderID) -> BinCommand {
         BinCommand(nameKey: "cmd.deleteFolder") { try BinOps.deleteFolder(id, in: &$0) }
