@@ -85,7 +85,7 @@ enum AssetPanelFocus {
                 let p = e.locationInWindow
                 let pt = CGPoint(x: p.x, y: host.bounds.height - p.y)
                 if !panelFrame.contains(pt) { AssetPanelState.shared.keyboardTab = nil }
-                else if let w = e.window, w.firstResponder is NSText, !clickHitsTextField(host, at: p) { EditorKeyFocus.restore(in: w) }
+                else if store?.ai.pilot.isOpen != true, let w = e.window, w.firstResponder is NSText, !clickHitsTextField(host, at: p) { EditorKeyFocus.restore(in: w) }
                 if !panelFrame.contains(pt), !playerFrame.contains(pt), let s = store, s.isPreviewing { s.exitPreview() }
             }
             return e
