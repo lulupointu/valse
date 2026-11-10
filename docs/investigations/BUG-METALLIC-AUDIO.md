@@ -383,17 +383,76 @@ same numbers on macOS 26.4.1 (host) and 13.7.4 (VM, `scripts/audio_probe.sh --vm
   consumed the paced queue): a swap continues where the queue ends instead.
 - Reverse shuttle: rates ≤ 0 pause the audio (silent, as with AVPlayer today; the prototype has no reverse either).
 
+### Part 7: phase B, preview switched to `PreviewAudio` (2026-11-10). Shipped
+What changed (`PlaybackEngine`):
+- The player's item is the composition WITHOUT audio tracks (`BuiltComposition.playerAsset`, preview builds with
+  `audioTaps: false`), player muted: AVPlayer renders the video only. `PreviewAudio` reads the same composition.
+- Clock: `player.sourceClock` = `CMAudioDeviceClock` of the output (nil UID = the default device, followed). Every start
+  (play, resume after a seek, resume in place, J/K/L rate change) goes through `launch`: once the video seek has landed
+  AND the audio is primed (`PreviewAudio.whenPrimed`), both timebases get one (item time, host time + 12 ms) pair
+  (`player.setRate(_:time:atHostTime:)`, `PreviewAudio.start(rate:time:atHostTime:)`). Pause stops both; resume in
+  place keeps the queued audio (no flush, PB-RESUME holds by construction). A rate change while playing stops both and
+  re-launches them (setting both rates directly desynchronised them by up to 0.5 s: AVPlayer applies it late).
+  Seeks stop the audio clock at the target at once; keyframe-tolerant seeks while paused (scrub, hover, reverse
+  shuttle) do not re-read the audio: `launch` re-seeks it to the video's position if they differ by > 5 ms.
+- Edits while playing (same quick-cut ranges): `PreviewAudio.replace` (gapless) + `rejoinVideo` (seek the new item
+  250 ms × rate ahead of the audio clock, start it at the host time the audio gets there; 2 retries further ahead, then
+  restart both). The stall watchdog re-joins the same way (the audio never stops for a video stall). A drift watch
+  re-joins if |audio − video| > 45 ms for 12 display polls (never fired in any run).
+- Output device (Settings) / default device / route / format change / renderer failure: `PreviewAudio.onReanchor` →
+  the engine restarts both from the playhead. Volume / mute go to the renderer (`engine.volume`, `engine.isMuted`).
+- Removed: `TapLabelLead` (+ `ValseTapLabelLead` defaults key, `VALSE_TAP_LABEL_LEAD`), `LaneProcessor.leadBuffers` /
+  `followsPlayerRate` / jump probe, `TapDiagnostics` + `reportTapStamps` / `reportLaneAudio`, `AudioMixState.playerRate`,
+  the frozen-clock watchdog (PB-QC: it existed for the tap wedge) and `audioTapsDisabled`, `primeIfPausedInPlace`.
+  Export is unchanged (taps on the reader, exact; export tests unchanged).
+
+Measurements (`Valse --preview-audio-check`, release app; PREVIEWAUDIO = phase A scenarios, PLAYBACKENGINE = the new
+end-to-end scenarios through `PlaybackEngine`; `scripts/audio_probe.sh --host --vm --app`, all PASS on both):
+
+| | host macOS 26.4.1 arm64 | VM macOS 13.7.4 arm64 |
+|---|---|---|
+| owner's cut (A \| B fade-in + overlapping clip fading out) vs export | max \|diff\| 3.8e-6, lag 0, no silent 5 ms window | 3.6e-6, lag 0, none |
+| audio clock − video clock, play / seek / rate 2 / 0.5 / 1 / pause-resume | ≤ 0.2 ms | ≤ 0.1 ms |
+| start latency after the request (audio primed) | play 23 ms, seek while playing 57 ms, rate change 17 ms | 94 / 52 / 16-22 ms |
+| 12 seeks 80 ms apart while playing | restarts 5 ms after the last, frames flowing, 1 reader | 11 ms, same |
+| forceRebuild + volume edit while playing | 0 audio discontinuities, 2 video re-joins, edit heard 360 ms after | 0, 2, 350 ms |
+| end of project | both stop, audio clock 7.002 / 7.000 | 7.005 / 7.000 |
+| burst onsets vs labels (rate 1 / 2 / 0.5) | 0 frames | 0 frames |
+
+Unit tests (host): `PlaybackEngineAudioTests` (same scenarios), `CutAudioTimingTests` now always on (labels ± 0.5 ms
+unscaled, ± 2.5 ms scaled, at any rate; no hole at the owner's cut), PlaybackResume / Silence / Skip / CutStall /
+Stress / SeekLag / Latency ported. What the VM did NOT run: Intel hardware, Bluetooth / high-latency outputs, real
+device switches (the VM has one virtual output).
+
+Behaviour changes the owner will notice: live-effect edits (EQ, voice filter) heard ≈ 180 ms after the edit (the
+queued audio; was ~30-100 ms); a structural edit while playing (volume, trim) heard ≈ 350 ms after (debounced rebuild +
+queue) but without the old gap: the audio no longer stops, the video freezes ≈ 0.25 s while it re-joins; play / seek
+start ≈ 0.1-0.2 s (audio priming); CPU for the audio ≈ 2× AVPlayer's (part 5: 5-9 % of a core on the host, 11-16 % in
+the VM); reverse shuttle stays silent; 44.1 kHz media is resampled by the reader to 48 kHz (the preview lanes used to
+run at the file's rate: the resampling-dropout check `previewOf44kFootageHasNoDropout` still passes).
+
+Remaining risks: AVSampleBufferAudioRenderer + `setRate(_:time:atHostTime:)` on an Intel Mac / macOS 13 hardware
+(only the arm64 VM measured); output latency on Bluetooth (the renderer compensates its own latency; the video is
+displayed at the clock, not delayed by it: to verify with AirPods); reader cost per seek under heavy load (many lanes);
+AVFoundation's resampling dropout (BUG-SPLIT-AUDIO-FLAKE) could now reach preview on 44.1 kHz media under load;
+PlaybackSkipTests flaked once (video frames stopped at 0.37 s with no watchdog fire, passed on retry, FLAKY-PB-SKIP).
+
+Owner recipe (Intel Mac, macOS 13): update the app, then in Terminal `defaults delete fr.valse.Valse ValseTapLabelLead`
+(the old override is no longer read; this only cleans it up, "does not exist" is fine). Open the project with the cut,
+play across it a few times (from a seek, after pause → play, at J ×2), and report: any gap or click at the cut, A/V
+lip-sync, how fast play starts, anything odd after switching the output device in Settings ▸ Audio.
+
 ## Files
-- `app/Sources/ValseEngine/Audio/TapDiagnostics.swift` (`TapLabelLead` switch, `TapDiagnostics` stamp capture,
-  default output format), `app/Tests/ValseEngineTests/TapLabelLeadTests.swift` (BUG-CUT-AUDIO-HOLE).
-- `app/Sources/ValseEngine/Audio/AudioMix.swift` (`LaneProcessor.labelsLeadOneBuffer`, jump probe, `tapCapture`),
-  `Audio/AudioTap.swift` (doc), `Composition/CompositionBuilder.swift` (preview → labels lead),
-  `Playback/PlaybackEngine.swift` (`reportLaneAudio`, `laneAudioJumps`).
-- `app/Tests/ValseEngineTests/TapProbeTests.swift`: part 2 / 3 probes (opt-in `VALSE_TAP_PROBE=1`; `VALSE_TAP_PRE=1`,
-  `VALSE_PROBE_DEVICE=<output UID>`, `VALSE_PROBE_ALGOS=none,x/S,x/T,x/V`, `VALSE_PROBE_SPEEDS=1`, `VALSE_PROBE_SRC=44100|aac`);
-  `CutAudioTimingTests.swift`: acceptance tests for the future fix (opt-in, fail on main as described in part 3);
+- `app/Sources/ValseEngine/Audio/PreviewAudio.swift` (+ `PreviewAudioLanes.swift`, `PreviewAudioCheck.swift`),
+  `Playback/PlaybackEngine.swift` (transport, `launch`, `rejoinVideo`, drift / stall watches),
+  `Playback/PlaybackEngineCheck.swift` (end-to-end scenarios, also in `Valse --preview-audio-check`),
+  `Composition/CompositionBuilder.swift` (`playerAsset`), `Audio/AudioMix.swift` (`LaneProcessor`, `tapCapture`).
+- Tests: `PlaybackEngineAudioTests.swift`, `PreviewAudioTests.swift`, `CutAudioTimingTests.swift` (acceptance),
+  `TapProbeTests.swift` (opt-in `VALSE_TAP_PROBE=1`; preview probes now measure PreviewAudio), `MetallicAudioTests.swift`.
   `AudioMixdown.render(…, audioState:)` lets a test read the export lanes' taps; `CompositionBuilder.laneTimePitch` hook.
 - `scripts/audio_probe/AudioTimingProbe.swift` + `scripts/audio_probe.sh` (part 5): standalone probe (player / export /
   aq / renderer / clocks / au / devices / matrix / replacement), host and macOS 13 VM; logs in build/audio_probe/.
 - `app/Tests/ValseEngineTests/MetallicAudioTests.swift`: two regression tests (preview / export clip start) and the
-  opt-in owner-session replay + tap timeline probe (`VALSE_METALLIC_REPRO=1`, `VALSE_METALLIC_MEDIA=wav`).
+  opt-in owner-session replay + lane timeline probe (`VALSE_METALLIC_REPRO=1`, `VALSE_METALLIC_MEDIA=wav`).
+- Removed in part 7: `Audio/TapDiagnostics.swift` (`TapLabelLead`, stamp capture; `defaultOutputFormat` moved to
+  `AudioDevices.swift`), `TapLabelLeadTests.swift`.

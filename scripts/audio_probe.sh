@@ -11,7 +11,8 @@
 #     --logs   also print the unified-log lines of the probe process (AudioQueue / time-stretcher / AQME) for the run
 #     --app    instead of the probe: build the release app (build_app.sh --host-only --no-content, or --x86 for
 #              universal) and run `Valse --preview-audio-check` (PreviewAudio, the real ValseEngine code: the scenarios
-#              of PreviewAudioTests with their thresholds); no command needed. Log: build/audio_probe/<host|vm>-app.log
+#              of PreviewAudioTests, then PlaybackEngineAudioTests' end-to-end ones through PlaybackEngine, with their
+#              thresholds); no command needed. Log: build/audio_probe/<host|vm>-app.log
 #   Output: build/audio_probe/<host|vm>-<command>.log (also printed). Examples:
 #     scripts/audio_probe.sh --vm -- matrix
 #     scripts/audio_probe.sh --host --vm -- player --algo spectral --rate 1 --speed 1
