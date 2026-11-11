@@ -38,7 +38,7 @@ BIN="$(swift build -c release --show-bin-path)/Valse"
 # the measurement (sampled before / after each part, max taken; VALSE_PERF_CORES overrides the core count). Taking
 # every slot does not stop load from outside the slot system (VMs, other builds). Above it, the measurement is retried
 # once after waiting <= 5 min for the load to drop; if still loaded, those metrics are reported "UNRELIABLE" and don't
-# gate. Memory and gross GPU-time bounds always gate.
+# gate. Memory, gross GPU-time bounds and GPU costs in reference units (`_gpu_units_`) always gate.
 CORES="${VALSE_PERF_CORES:-$(sysctl -n hw.ncpu)}"
 export VALSE_PERF_CORES="$CORES"   # TimingBudget uses the same core count for its load rule
 LOADMAX=0
@@ -134,7 +134,9 @@ def load_ruled(k):
     # memory metrics are load-robust: they always gate; wall-clock, GPU-time and thread-CPU ones follow the load rule
     # (see the top of this script). PERF-R1: thread-CPU did NOT inflate under load (OB-PERF's 0.8 → 3.5 ms was a quiet
     # machine clocking down between the bursty perf events); the UI driver's PerfClockWarmer keeps the clocks up.
-    return not ("memory" in k or k.endswith("_mb"))
+    # FLAKY-ENG: GPU cost in reference units (`_gpu_units_`: frame GPU time ÷ an interleaved fixed GPU workload,
+    # GPUReference in ValseUI/Testing/PerfProbe.swift) is load-independent too: it always gates.
+    return not ("memory" in k or k.endswith("_mb") or "_gpu_units_" in k)
 for k, lim in limits.items():
     if k not in metrics: continue
     v = metrics[k]
