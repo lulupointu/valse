@@ -101,36 +101,25 @@ public enum FFmpegSidecar {
     /// Transcodes `input` to `output` (.mov). Progress 0…1 parsed from `-progress`. Cancelling the Task kills ffmpeg.
     public static func transcode(_ input: URL, to output: URL, duration: Time, alpha: Bool, progress: JobProgress? = nil) async throws {
         guard let ffmpeg = executableURL else { throw SidecarError.notInstalled }
+        try await transcode(ffmpeg: ffmpeg, transcodeArguments(input: input, output: output, alpha: alpha),
+                            output: output, duration: duration, progress: progress)
+    }
+
+    /// `transcode` with an explicit executable (tests: a fake ffmpeg script). stdout (progress) and stderr (the error
+    /// text) are read to EOF by `ProcessPipes` (FLAKY-PIPE: readabilityHandler chunks could land after the error was built).
+    static func transcode(ffmpeg: URL, _ arguments: [String], output: URL, duration: Time, progress: JobProgress?) async throws {
         let total = max(duration.seconds, 0.001)
-        let process = Process()
-        process.executableURL = ffmpeg
-        process.arguments = transcodeArguments(input: input, output: output, alpha: alpha)
-        let outPipe = Pipe(), errPipe = Pipe()
-        process.standardOutput = outPipe
-        process.standardError = errPipe
-        process.standardInput = FileHandle.nullDevice
-        let errBox = DataBox()
-        outPipe.fileHandleForReading.readabilityHandler = { h in
-            let d = h.availableData
-            guard !d.isEmpty, let s = String(data: d, encoding: .utf8) else { return }
+        let r = try await ProcessPipes.run(ffmpeg, arguments, stdout: .init(keep: false) { d in
+            guard let s = String(data: d, encoding: .utf8) else { return }
             for line in s.split(separator: "\n") where line.hasPrefix("out_time_us=") || line.hasPrefix("out_time_ms=") {
                 if let us = Double(line.split(separator: "=").last ?? "") { progress?.report(min(1, us / 1_000_000 / total)) }
             }
-        }
-        errPipe.fileHandleForReading.readabilityHandler = { h in errBox.append(h.availableData) }
-        let proc = UncheckedSendable(process)
-        let status: Int32 = try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Int32, any Error>) in
-                process.terminationHandler = { p in c.resume(returning: p.terminationStatus) }
-                do { try process.run() } catch { process.terminationHandler = nil; c.resume(throwing: error) }
-            }
-        } onCancel: { if proc.value.isRunning { proc.value.terminate() } }
-        outPipe.fileHandleForReading.readabilityHandler = nil
-        errPipe.fileHandleForReading.readabilityHandler = nil
+        }, stderr: .all)
+        let status = r.status
         if Task.isCancelled { try? FileManager.default.removeItem(at: output); throw CancellationError() }
         guard status == 0 else {
             try? FileManager.default.removeItem(at: output)
-            throw SidecarError.failed(String(data: errBox.data, encoding: .utf8) ?? "ffmpeg exit \(status)")
+            throw SidecarError.failed(String(data: r.stderr, encoding: .utf8) ?? "ffmpeg exit \(status)")
         }
     }
 
