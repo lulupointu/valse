@@ -238,9 +238,9 @@ struct CoverEditorView: View {
                 HStack {
                     Text(loc: "cover.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
-                    Button { store.closeCoverEditor() } label: {
+                    GlyphButton(outset: 6) { store.closeCoverEditor() } label: {
                         Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
-                    }.buttonStyle(.plain).testID("cover.close")
+                    }.testID("cover.close")
                 }
                 .padding(.horizontal, 16).frame(height: 40)
                 Rectangle().fill(Theme.separator).frame(height: 1)

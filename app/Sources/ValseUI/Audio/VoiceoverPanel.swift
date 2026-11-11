@@ -69,6 +69,7 @@ struct VoiceoverPanel: View {
                                     Circle().fill(Theme.danger).frame(width: 34, height: 34)
                                 }
                             }
+                            .contentShape(Circle())   // BUG-HIT-AREA: the ring and the gap inside it click too
                         }
                         .buttonStyle(.plain)
                         .help(tr(phase == .recording ? "record.stop" : "record.start"))

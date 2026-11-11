@@ -1,0 +1,12 @@
+// BUG-HIT-AREA (Home): the search field's ✕ clears on a click just outside its 11 pt glyph.
+{
+  "project": "home:12",
+  "steps": [
+    {"click": "id:home.search"},
+    {"type": "vlog"},
+    {"waitFor": {"path": "app.projects", "equals": ["Gym vlog"]}},
+    {"click": "id:home.search.clear", "at": [1, 1], "offset": [3, 3]},
+    {"waitFor": {"path": "app.projects.count", "equals": 11}},
+    {"expect": {"path": "app.search", "equals": ""}}
+  ]
+}

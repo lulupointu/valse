@@ -113,6 +113,7 @@ struct EditPilotPanel: View {
             Button { store.sendPilot() } label: {
                 Image(systemName: "arrow.up.circle.fill").font(.system(size: 24))
                     .foregroundStyle(pilot.input.trimmingCharacters(in: .whitespaces).isEmpty || pilot.isBusy ? Theme.textTertiary : Theme.accent)
+                    .contentShape(Rectangle())   // BUG-HIT-AREA: the corners around the round glyph
             }
             .buttonStyle(.plain)
             .disabled(pilot.input.trimmingCharacters(in: .whitespaces).isEmpty || pilot.isBusy)

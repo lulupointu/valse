@@ -105,16 +105,16 @@ struct JobRow: View {
                     Spacer()
                     Text(verbatim: status).font(Theme.Fonts.hint).foregroundStyle(statusColor)
                     if job.isActive {
-                        Button { queue.cancel(job) } label: { Image(systemName: "xmark.circle.fill") }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.stop"))
+                        GlyphButton(outset: 4) { queue.cancel(job) } label: { Image(systemName: "xmark.circle.fill") }
+                            .foregroundStyle(Theme.textTertiary).help(tr("export.stop"))
                             .accessibilityLabel(Text(verbatim: tr("export.stop"))).testID("export.job.stop")
                     } else if job.state == .done {
-                        Button { NSWorkspace.shared.activateFileViewerSelecting(job.written) } label: { Image(systemName: "magnifyingglass.circle.fill") }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("export.reveal"))
+                        GlyphButton(outset: 4) { NSWorkspace.shared.activateFileViewerSelecting(job.written) } label: { Image(systemName: "magnifyingglass.circle.fill") }
+                            .foregroundStyle(Theme.textTertiary).help(tr("export.reveal"))
                     } else if let detail = job.failureDetail {
                         // BUG-ERROR-COPY: the technical detail is copied, never shown in the message
-                        Button { ErrorDetails.copy(detail) } label: { Image(systemName: "doc.on.doc") }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("action.copyDetails"))
+                        GlyphButton(outset: 4) { ErrorDetails.copy(detail) } label: { Image(systemName: "doc.on.doc") }
+                            .foregroundStyle(Theme.textTertiary).help(tr("action.copyDetails"))
                             .accessibilityLabel(Text(verbatim: tr("action.copyDetails")))
                             .testID("export.job.copyDetails")
                     }

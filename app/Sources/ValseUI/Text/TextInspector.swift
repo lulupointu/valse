@@ -586,7 +586,8 @@ struct SearchField: View {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(IStyle.caption)
                 TextField(placeholder, text: $text).textFieldStyle(.plain).font(.system(size: 12))
                 if !text.isEmpty {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(IStyle.caption).onTapGesture { text = "" }
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(IStyle.caption)
+                        .valseTapArea { text = "" }   // BUG-HIT-AREA
                 }
             }
             .padding(.horizontal, 10).frame(height: 28)

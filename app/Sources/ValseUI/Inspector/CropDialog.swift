@@ -176,9 +176,9 @@ struct CropDialogView: View {
                 HStack {
                     Text(loc: "crop.title").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Spacer()
-                    Button { store.closeCropDialog() } label: {
+                    GlyphButton(outset: 6) { store.closeCropDialog() } label: {
                         Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
-                    }.buttonStyle(.plain).testID("crop.close")
+                    }.testID("crop.close")
                 }
                 .padding(.horizontal, 16).frame(height: 40)
                 Rectangle().fill(Theme.separator).frame(height: 1)
@@ -315,8 +315,8 @@ struct CropDialogView: View {
                     .frame(width: 300).testID("crop.rotate")
                 Text(verbatim: String(format: "%.1f°", model.crop.rotation ?? 0)).font(.system(size: 12).monospacedDigit())
                     .foregroundStyle(Theme.textPrimary).frame(width: 52, alignment: .trailing)
-                Button { model.crop.rotation = 0 } label: { Image(systemName: "arrow.counterclockwise") }
-                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("inspector.reset")).testID("crop.rotate.reset")
+                GlyphButton(outset: 4) { model.crop.rotation = 0 } label: { Image(systemName: "arrow.counterclockwise") }
+                    .foregroundStyle(Theme.textSecondary).help(tr("inspector.reset")).testID("crop.rotate.reset")
                 Spacer()
             }
             HStack {

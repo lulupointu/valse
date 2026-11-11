@@ -114,8 +114,8 @@ struct DialogCard<Content: View, Footer: View>: View {
                     Text(verbatim: title).font(.system(size: 14, weight: .bold, design: .rounded)).foregroundStyle(Theme.textPrimary)
                     Spacer()
                     if let onClose {
-                        Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("common.close"))
+                        GlyphButton(outset: 6, action: onClose) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
+                            .foregroundStyle(Theme.textSecondary).help(tr("common.close"))
                             .keyboardShortcut(.cancelAction)
                             .testID("dialog.close")
                     }

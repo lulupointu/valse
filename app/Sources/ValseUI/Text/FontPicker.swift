@@ -117,7 +117,7 @@ struct FontPickerList: View {
             if !name.isEmpty {
                 Image(systemName: fav ? "star.fill" : "star").font(.system(size: 11))
                     .foregroundStyle(fav ? IStyle.curve : IStyle.iconDim)
-                    .onTapGesture {
+                    .valseTapArea {   // BUG-HIT-AREA
                         let ui = TextUIState.shared
                         if fav { ui.favoriteFonts.removeAll { $0 == name } } else { ui.favoriteFonts.append(name) }
                     }

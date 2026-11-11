@@ -493,6 +493,7 @@ struct MaskSettingsSection: View {
                             Button { InspectorUIState.shared.maskLock.toggle() } label: {
                                 Image(systemName: locked ? "link" : "link").font(.system(size: 11))
                                     .foregroundStyle(locked ? Theme.accent : IStyle.iconDim).frame(width: 20, height: 24)
+                                    .contentShape(Rectangle())   // BUG-HIT-AREA: the whole 20 × 24 frame
                             }
                             .buttonStyle(.plain).help(tr("inspector.mask.lockRatio"))
                             sizeField(1, layer: layer, locked: locked)

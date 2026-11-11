@@ -41,8 +41,8 @@ public struct SectionHeader: View {
                     .foregroundStyle(Theme.textTertiary)
                 Spacer()
                 if let onReset {
-                    Button(action: onReset) { Image(systemName: "arrow.counterclockwise").font(.system(size: 11)) }
-                        .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("inspector.reset"))
+                    GlyphButton(action: onReset) { Image(systemName: "arrow.counterclockwise").font(.system(size: 11)) }
+                        .foregroundStyle(Theme.textSecondary).help(tr("inspector.reset"))
                 }
             }
             .contentShape(Rectangle())
@@ -123,17 +123,17 @@ public struct KeyframeButton: View {
     public var body: some View {
         WithPerceptionTracking {
             HStack(spacing: 2) {
-                Button { state.previous?() } label: { Image(systemName: "chevron.left").font(.system(size: 8)) }
-                    .buttonStyle(.plain).opacity(state.previous == nil ? 0.3 : 0.8).disabled(state.previous == nil)
-                Button(action: state.toggle) {
+                // BUG-HIT-AREA: 2 pt apart, so the targets grow vertically (≥ 20 pt tall) and by 1 pt sideways
+                GlyphButton(h: 1, v: 6) { state.previous?() } label: { Image(systemName: "chevron.left").font(.system(size: 8)) }
+                    .opacity(state.previous == nil ? 0.3 : 0.8).disabled(state.previous == nil)
+                GlyphButton(h: 1, v: 5, action: state.toggle) {
                     Image(systemName: state.isOnKeyframe ? "diamond.fill" : "diamond")
                         .font(.system(size: 10))
                         .foregroundStyle(state.isOnKeyframe ? Theme.toolActive : Theme.textSecondary)
                 }
-                .buttonStyle(.plain)
                 .help(tr("inspector.keyframe"))
-                Button { state.next?() } label: { Image(systemName: "chevron.right").font(.system(size: 8)) }
-                    .buttonStyle(.plain).opacity(state.next == nil ? 0.3 : 0.8).disabled(state.next == nil)
+                GlyphButton(h: 1, v: 6) { state.next?() } label: { Image(systemName: "chevron.right").font(.system(size: 8)) }
+                    .opacity(state.next == nil ? 0.3 : 0.8).disabled(state.next == nil)
             }
             .foregroundStyle(Theme.textSecondary)
         }
@@ -311,6 +311,7 @@ struct ValseTabLabel<Content: View>: View {
             .foregroundStyle(active ? Theme.onAccent : (hover ? Theme.textPrimary : Theme.textPrimary.opacity(0.78)))
             .padding(.horizontal, 6).padding(.vertical, 3)
             .valseSticker(active, radius: 6, fill: Theme.Valse.mintDeep)
+            .contentShape(RoundedRectangle(cornerRadius: 6))   // BUG-HIT-AREA: an idle tab clicks on its padding too
             .valseHover($hover)
     }
 }
@@ -342,8 +343,47 @@ private struct ValseIconKey<Label: View>: View {
             .foregroundStyle(glyph.opacity(pressed ? 0.75 : 1))
             .background(pressed && enabled ? Theme.control : (hot ? Theme.buttonSecondary : .clear),
                         in: RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
+            // BUG-HIT-AREA: the key (its hover fill) clicks, not only the glyph: the fill is clear at rest
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Metrics.buttonRadius))
             .animation(ValseMotion.live(reduceMotion) ? .easeOut(duration: 0.12) : nil, value: hot)
             .valseHover($hover)
+    }
+}
+
+/// BUG-HIT-AREA: a borderless (`.plain`) button whose whole target clicks, not only the drawn glyph, grown by an
+/// outset on each side WITHOUT changing layout or pixels. A `.plain` button hit-tests what its label draws, clipped
+/// to the button's own frame: a `contentShape` larger than the frame does nothing on macOS (measured, hit_area_home).
+/// So the label is padded (the button's frame grows to glyph + 2 × outset, the whole of it clicks) and the button
+/// is padded back in (`padding(-outset)`: its neighbours keep their place). An 11 pt `xmark` is ~10 pt: `outset: 5`
+/// gives a 20 × 20 target. Keep the outset ≤ half the gap to the next control where that matters (the later sibling
+/// wins where targets overlap). With a visible key / hover background, make that background the hit shape instead
+/// (`.contentShape` after it, as `IconButton` does). ButtonHitAreaLintTests flags icon-only plain buttons without one.
+struct GlyphButton<Label: View>: View {
+    var h: CGFloat
+    var v: CGFloat
+    let action: () -> Void
+    let label: Label
+    init(outset: CGFloat = 5, action: @escaping () -> Void, @ViewBuilder label: () -> Label) {
+        self.h = outset; self.v = outset; self.action = action; self.label = label()
+    }
+    /// Distinct horizontal / vertical outsets (tightly packed rows: keyframe ◀ ◆ ▶, list column headers).
+    init(h: CGFloat, v: CGFloat, action: @escaping () -> Void, @ViewBuilder label: () -> Label) {
+        self.h = h; self.v = v; self.action = action; self.label = label()
+    }
+    var body: some View {
+        Button(action: action) {
+            label.padding(.horizontal, h).padding(.vertical, v).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, -h).padding(.vertical, -v)
+    }
+}
+
+extension View {
+    /// `onTapGesture` on a small icon (search-field ✕, ☆) with the `GlyphButton` target: the whole glyph rectangle
+    /// grown by `outset`, layout unchanged.
+    func valseTapArea(_ outset: CGFloat = 5, perform action: @escaping () -> Void) -> some View {
+        padding(outset).contentShape(Rectangle()).onTapGesture(perform: action).padding(-outset)
     }
 }
 

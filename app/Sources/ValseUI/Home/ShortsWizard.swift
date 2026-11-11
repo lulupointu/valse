@@ -254,6 +254,7 @@ struct ShortsWizardView: View {
                                 Text(verbatim: url.deletingPathExtension().lastPathComponent).font(.system(size: 11))
                                     .foregroundStyle(Theme.textSecondary).lineLimit(1)
                             }
+                            .contentShape(Rectangle())   // BUG-HIT-AREA: the gap under the tile clicks too
                         }
                         .buttonStyle(.plain)
                         .testID("shorts.result.\(i)")

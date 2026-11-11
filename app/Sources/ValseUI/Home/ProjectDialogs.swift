@@ -99,9 +99,13 @@ struct ProjectDetailsDialog: View {
                     DetailRow(label: tr("details.saved"), value: entry.url.path)
                     HStack(spacing: 8) {
                         DetailRow(label: tr("home.details.cache"), value: app.cacheSizes[entry.id].map(HomeFormat.bytes) ?? "…")
-                        Button { app.clearCache(entry) } label: { Image(systemName: "trash").font(.system(size: 12)) }
+                        // BUG-HIT-AREA: the whole 28 pt key clicks (its frame / fill were outside the button)
+                        Button { app.clearCache(entry) } label: {
+                            Image(systemName: "trash").font(.system(size: 12))
+                                .frame(width: 28, height: 28).background(Theme.stepper, in: RoundedRectangle(cornerRadius: 4))
+                                .contentShape(RoundedRectangle(cornerRadius: 4))
+                        }
                             .buttonStyle(.plain).foregroundStyle(Theme.textSecondary)
-                            .frame(width: 28, height: 28).background(Theme.stepper, in: RoundedRectangle(cornerRadius: 4))
                             .help(tr("cache.clear"))
                             .disabled((app.cacheSizes[entry.id] ?? 0) == 0)
                     }
