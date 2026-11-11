@@ -620,6 +620,8 @@ struct AsyncArt: View {
                 if let img = image ?? LibraryArtCache.shared.get(key) {
                     Image(decorative: img, scale: 2).resizable().interpolation(.high)
                         .aspectRatio(contentMode: fit || letterbox ? .fit : .fill).padding(fit ? 6 : 0)
+                        .onAppear { LibraryArtCache.shared.shown(key, true) }
+                        .onDisappear { LibraryArtCache.shared.shown(key, false) }
                 } else {
                     Image(systemName: placeholder).font(.system(size: 18)).foregroundStyle(Theme.textTertiary)
                 }
@@ -647,6 +649,17 @@ final class LibraryArtCache {
     final class CGImageBox { let image: CGImage; init(_ i: CGImage) { image = i } }
     func get(_ k: String) -> CGImage? { cache.object(forKey: k as NSString)?.image }
     func set(_ k: String, _ i: CGImage) { cache.setObject(CGImageBox(i), forKey: k as NSString, cost: i.bytesPerRow * i.height) }
+
+    /// UI tests (`ui.assets.stockThumbsMissing`): keys whose picture is drawn by a card on screen now (count per key).
+    /// FLAKY-UI4: the dump used to ask the NSCache, which the system purges under memory pressure while the cards keep
+    /// showing their own copy: "16 missing" with all 16 pictures drawn, a waitFor that never held (assets_library).
+    private(set) var shownCount: [String: Int] = [:]
+    func shown(_ k: String, _ on: Bool) {
+        guard TestAnchors.isEnabled else { return }
+        let n = (shownCount[k] ?? 0) + (on ? 1 : -1)
+        shownCount[k] = n > 0 ? n : nil
+    }
+    func isShown(_ k: String) -> Bool { shownCount[k] != nil }
 }
 
 /// Left rail (120 pt): plain entries, collapsible group headers (filled, chevron) with indented children.

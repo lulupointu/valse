@@ -1,6 +1,8 @@
 // CAP-EDITOR-UX pinned tools: the editor shows with nothing selected; search highlights (list not filtered) with a
 // "n/N" counter and Enter = next match (row active); Replace = the current match only; Split options re-cut the
 // whole language at once (one undo step, CAP-UX2-SPLIT); ↻ replays the line and pauses at its end.
+// FLAKY-UI4: Return stepped to the PREVIOUS match ("matchIndex 2") when Shift was held on the real keyboard while the
+// test ran: the field read the hardware modifier state (NSEvent.modifierFlags), now the key event's own (EventModifiers).
 {
   "project": "demo-transcript:captions",
   "steps": [

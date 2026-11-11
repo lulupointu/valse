@@ -40,7 +40,7 @@ struct BubblePaddingRows: View {
                              set: { c, v, _ in
                                  guard case .text(var t) = c.content else { return }
                                  let ui = TextUIState.shared
-                                 let linked = ui.bubblePaddingLinked && !NSEvent.modifierFlags.contains(.option)
+                                 let linked = ui.bubblePaddingLinked && !EventModifiers.current.contains(.option)
                                  t.editBubble { $0.setPadding(axis: axis, to: v / 100, linked: linked) }
                                  if ui.bubblePaddingGuide, c.id == primary, let s = t.bubbleStyle { ui.bubblePaddingLive = s.padding }
                                  c.content = .text(t)
