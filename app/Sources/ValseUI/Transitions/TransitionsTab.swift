@@ -12,8 +12,12 @@ struct TransitionsTab: View {
     let store: EditorStore
     @State private var group = ""
     @State private var query = ""
-    /// Last clicked tile (shows its ⊕ without hover, like CapCut's selected card).
-    @State private var highlighted: String?
+    /// Last clicked tile (shows its ⊕ without hover, like CapCut's selected card): `AssetPanelState.cursor["transitions"]`
+    /// (BUG-PANEL-SELECT: a blank click in the panel clears it).
+    private var highlighted: String? {
+        get { AssetPanelState.shared.cursor["transitions"] }
+        nonmutating set { AssetPanelState.shared.cursor["transitions"] = newValue }
+    }
 
     /// "Trending" (CapCut's first category): a curated pick across groups.
     static let trending = ["dissolve", "pullIn", "whipLeft", "glitch", "lightLeak", "cubeLeft", "zoomBlur", "slideRight",
@@ -53,7 +57,7 @@ struct TransitionsTab: View {
                     .padding(.horizontal, 10).frame(height: 28)
                     .background(Theme.inset, in: RoundedRectangle(cornerRadius: 4))
                     .padding(.horizontal, 12).padding(.top, 10)
-                    ScrollView {
+                    PanelScrollView(tab: "transitions", store: store) {   // BUG-PANEL-SELECT: blank space / caption deselects
                         VStack(alignment: .leading, spacing: 8) {
                             Text(verbatim: q.isEmpty ? title : tr("transitions.results"))
                                 .font(.system(size: 13)).foregroundStyle(Theme.textPrimary)
@@ -126,10 +130,17 @@ struct TransitionTile: View {
                     }
                 }
                 .aspectRatio(1, contentMode: .fit)
-                Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1).truncationMode(.middle)
+                // BUG-PANEL-SELECT: the name is part of the card (click selects; the card's double-click adds)
+                Button(action: select) {
+                    Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1).truncationMode(.middle)
+                        .frame(maxWidth: .infinity).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .testID("transition.name.\(shortID)")
             }
             .contentShape(Rectangle())
+            .onTapGesture(perform: select)   // the gap between picture and name is the card too (not panel blank space)
             .onHover { h in hover = h; if h { start = Date() } }
             .simultaneousGesture(TapGesture(count: 2).onEnded(add))
             .onDrag { NSItemProvider(object: DragPayload.transition(descriptor.id) as NSString) }

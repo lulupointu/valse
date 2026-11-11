@@ -500,7 +500,9 @@ struct StateCard: View {
                     Button(p.0) { p.1() }.buttonStyle(AccentButtonStyle()).testID("\(id).primary")
                 }
                 if let s = secondary {
-                    Button { s.1() } label: { Text(verbatim: s.0).font(.system(size: 11.5, weight: .medium)).foregroundStyle(Theme.accent) }
+                    Button { s.1() } label: {
+                        Text(verbatim: s.0).font(.system(size: 11.5, weight: .medium)).foregroundStyle(Theme.accent).contentShape(Rectangle())
+                    }
                         .buttonStyle(.plain).testID("\(id).secondary")
                 }
             }

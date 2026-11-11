@@ -46,6 +46,9 @@ struct FolderCard: View {
     @State private var newName = ""
 
     var count: Int { BinOps.media(in: folder.id, of: store.mediaBin).count + BinOps.children(of: folder.id, in: store.mediaBin).count }
+    /// Selected folder card: `AssetPanelState.cursor[cursorKey]` (cleared with the Media tab's selection).
+    static let cursorKey = "media.folder"
+    var selected: Bool { AssetPanelState.shared.cursor[Self.cursorKey] == folder.id.description }
 
     var body: some View {
         WithPerceptionTracking {
@@ -59,12 +62,20 @@ struct FolderCard: View {
                     Text(verbatim: "\(count)").font(.system(size: 10).monospacedDigit())
                         .padding(.horizontal, 4).padding(.vertical, 1).background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3)).padding(4)
                 }
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(targeted ? Theme.accent : (hover ? Theme.hoverRing : .clear), lineWidth: 1.5))
-                Text(verbatim: folder.name).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(targeted || selected ? Theme.accent : (hover ? Theme.hoverRing : .clear),
+                                                                  lineWidth: selected && !targeted ? 2 : 1.5))
+                Text(verbatim: folder.name).font(.system(size: 11)).foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
+                    .lineLimit(1).truncationMode(.middle)
             }
             .contentShape(Rectangle())
             .onHover { hover = $0 }
-            .onTapGesture(count: 2) { current = folder.id }
+            // BUG-PANEL-SELECT: click (picture or name) selects the folder (and clears the media selection, Finder-like);
+            // double-click opens it.
+            .assetTap("folder." + folder.id.description, single: {
+                AssetPanelState.shared.mediaSelection = []
+                AssetPanelState.shared.cursor["media"] = nil
+                AssetPanelState.shared.cursor[FolderCard.cursorKey] = folder.id.description
+            }, double: { current = folder.id })
             .onDrag { NSItemProvider(object: BinPayload.folder(folder.id) as NSString) }
             .onDrop(of: [.text], isTargeted: $targeted) { providers in dropMedia(providers, into: folder.id, store: store) }
             .contextMenu {

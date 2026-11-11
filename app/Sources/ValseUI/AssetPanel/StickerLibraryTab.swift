@@ -91,7 +91,11 @@ struct StickerLibraryTab: View {
     let store: EditorStore
     @State private var nav = ""
     @State private var query = ""
-    @State private var selected: String?
+    /// Selected card: `AssetPanelState.cursor["stickers"]` (BUG-PANEL-SELECT: a blank click clears it).
+    private var selected: String? {
+        get { AssetPanelState.shared.cursor["stickers"] }
+        nonmutating set { AssetPanelState.shared.cursor["stickers"] = newValue }
+    }
     @State private var revision = 0   // bumps after importing / deleting custom stickers
     @State private var sort: StickerCatalog.Sort = .standard
     private var favorites: EffectFavorites { EffectFavorites.shared }
@@ -142,11 +146,12 @@ struct StickerLibraryTab: View {
                         }
                     }
                     .padding(.horizontal, 12)
+                    .deselectsPanel("stickers", store: store)   // BUG-PANEL-SELECT: the caption row is blank space (sort menu excepted)
                     if items.isEmpty && !(yours && !searching) {
                         EmptyState(symbol: searching ? "magnifyingglass" : (recentNav ? "clock" : "star"),
                                    title: tr(searching ? "fxlib.noResults" : (recentNav ? "asset.empty.recent" : "fxlib.favorites.empty")))
                     } else {
-                        ScrollView {
+                        PanelScrollView(tab: "stickers", store: store) {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
                                 if yours && !searching {
                                     ImportStickerCard { store.importStickersWithPanel(); revision += 1 }.testID("sticker.import")

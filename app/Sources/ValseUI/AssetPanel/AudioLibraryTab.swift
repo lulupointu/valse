@@ -315,7 +315,7 @@ struct ExtractedAudioView: View {
                 if items.isEmpty {
                     EmptyState(symbol: "music.note", title: tr("audio.extract.empty"))
                 } else {
-                    ScrollView {
+                    PanelScrollView(tab: "audio", store: store) {   // BUG-PANEL-SELECT: blank space deselects
                         LazyVStack(spacing: 8) {
                             ForEach(items) { a in
                                 WithPerceptionTracking {
@@ -430,7 +430,7 @@ struct LocalMusicView: View {
                 } else if tracks.isEmpty {
                     EmptyState(symbol: "music.note.house", title: tr("audio.folder.empty"))
                 } else {
-                    ScrollView {
+                    PanelScrollView(tab: "audio", store: store) {   // BUG-PANEL-SELECT: blank space deselects
                         LazyVStack(spacing: 8) {
                             ForEach(tracks) { t in WithPerceptionTracking { LibraryRow(tab: "audio", namespace: "audio", item: item(t)).testID("asset.tile.\(t.id)") } }
                         }

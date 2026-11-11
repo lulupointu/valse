@@ -195,8 +195,24 @@ struct EffectLibraryTab: View {
     let category: EffectCategory
     @State private var nav: String = ""
     @State private var query = ""
-    @State private var selected: String?
     private var favorites: EffectFavorites { EffectFavorites.shared }
+
+    /// Asset tab id: the selected card lives in `AssetPanelState.cursor[tabID]` (BUG-PANEL-SELECT: blank click clears it).
+    var tabID: String {
+        switch category {
+        case .filter: return "filters"
+        case .adjustment: return "adjustment"
+        default: return "effects"
+        }
+    }
+    private var selected: String? {
+        get { AssetPanelState.shared.cursor[tabID] }
+        nonmutating set { AssetPanelState.shared.cursor[tabID] = newValue }
+    }
+    private var selectedBinding: Binding<String?> {
+        let tab = tabID
+        return Binding.perceived(get: { AssetPanelState.shared.cursor[tab] }, set: { AssetPanelState.shared.cursor[tab] = $0 })
+    }
 
     var searchKey: String {
         switch category {
@@ -208,6 +224,9 @@ struct EffectLibraryTab: View {
 
     var body: some View {
         WithPerceptionTracking {
+            // FX-018: re-list after import / reload / delete. Read here, in this body: the grid's builder closure runs
+            // inside PanelScrollView, whose re-render would keep the stale `items` computed below.
+            let _ = CustomEffectsState.shared.revision
             let navItems = EffectLibraryCatalog.nav(category)
             let current = nav.isEmpty ? (navItems.dropFirst().first?.id ?? navItems[0].id) : nav
             let searching = !EffectLibraryCatalog.fold(query).isEmpty
@@ -219,11 +238,13 @@ struct EffectLibraryTab: View {
                 VStack(alignment: .leading, spacing: 8) {
                     searchField
                     Text(verbatim: title).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .deselectsPanel(tabID, store: store)   // BUG-PANEL-SELECT: the section caption is blank space
                     if current == CustomEffectLibrary.groupKey && !searching {
                         CustomEffectsHeader(store: store, isEmpty: items.isEmpty)   // FX-018
                     }
                     if current == EffectLibraryCatalog.customAdjustNav && !searching {
-                        ScrollView {
+                        PanelScrollView(tab: tabID, store: store) {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
                                 CustomAdjustmentCard(selected: selected == EffectLibraryCatalog.customAdjustNav,
                                                      select: { selected = EffectLibraryCatalog.customAdjustNav },
@@ -233,14 +254,14 @@ struct EffectLibraryTab: View {
                             .padding(.horizontal, 12).padding(.bottom, 12)
                         }
                     } else if current == EffectLibraryCatalog.myPresetsNav && !searching {
-                        AdjustPresetGrid(store: store, pickedID: $selected)
+                        AdjustPresetGrid(store: store, pickedID: selectedBinding, tab: tabID)
                     } else if items.isEmpty && current == CustomEffectLibrary.groupKey && !searching {
                         Spacer()
                     } else if items.isEmpty {
                         EmptyState(symbol: current == EffectLibraryCatalog.favoritesNav && !searching ? "star" : "magnifyingglass",
                                    title: tr(searching ? "fxlib.noResults" : (current == EffectLibraryCatalog.favoritesNav ? "fxlib.favorites.empty" : "fxlib.noResults")))
                     } else {
-                        ScrollView {
+                        PanelScrollView(tab: tabID, store: store) {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
                                 let used = store.usedEffectIDs
                                 let _ = CustomEffectsState.shared.revision   // FX-018: re-list after import / reload / delete
@@ -254,6 +275,7 @@ struct EffectLibraryTab: View {
                             }
                             .padding(.horizontal, 12).padding(.bottom, 12)
                         }
+                        .testID("fxlib.grid")
                     }
                 }
                 .padding(.top, 10)
@@ -267,7 +289,9 @@ struct EffectLibraryTab: View {
             Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
             TextField(tr(searchKey), text: $query).textFieldStyle(.plain).font(.system(size: 12))
             if !query.isEmpty {
-                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 11)).frame(width: 18, height: 18).contentShape(Rectangle())
+                }
                     .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help(tr("fxlib.clearSearch"))
             }
         }
@@ -374,10 +398,17 @@ struct EffectCard: View {
                     }
                 }
                 .aspectRatio(1, contentMode: .fit)
-                Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1).truncationMode(.middle)
+                // BUG-PANEL-SELECT: the name is part of the card (click selects, double-click adds)
+                Button(action: clicked) {
+                    Text(verbatim: tr(descriptor.nameKey)).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1).truncationMode(.middle)
+                        .frame(maxWidth: .infinity).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .testID("asset.name.\(descriptor.id)")
             }
             .contentShape(Rectangle())
+            .onTapGesture(perform: clicked)   // the gap between picture and name is the card too (not panel blank space)
             .onHover { h in hover = h; if h { hoverStart = Date() } }
             .onDrag { NSItemProvider(object: DragPayload.effect(descriptor.id) as NSString) }
             .contextMenu {
