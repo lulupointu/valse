@@ -86,6 +86,7 @@ public final class PreviewAudio: @unchecked Sendable {
         renderer.audioTimePitchAlgorithm = .spectral
         renderer.volume = AudioOutput.volume(1)
         if let outputDeviceUID { renderer.audioOutputDeviceUniqueID = outputDeviceUID }
+        refreshOutputLatency()
         synchronizer.addRenderer(renderer)
         synchronizer.setRate(0, time: .zero)
         observer = NotificationCenter.default.addObserver(forName: .AVSampleBufferAudioRendererOutputConfigurationDidChange,
@@ -127,7 +128,40 @@ public final class PreviewAudio: @unchecked Sendable {
     }
     public var outputDeviceUID: String? {
         get { renderer.audioOutputDeviceUniqueID }
-        set { renderer.audioOutputDeviceUniqueID = newValue }   // posts OutputConfigurationDidChange → re-anchor
+        set {
+            renderer.audioOutputDeviceUniqueID = newValue   // posts OutputConfigurationDidChange → re-anchor
+            refreshOutputLatency()
+        }
+    }
+
+    // MARK: Output latency (BUG-AIRPODS-SILENT)
+
+    /// Shortest lead of a scheduled clock start, and the margin kept past the output latency.
+    public static let minStartLead = 0.012
+    public static let latencyMargin = 0.025
+    /// Host-time lead a scheduled start (`setRate(_:time:atHostTime:)`) needs on an output with `outputLatency`:
+    /// a start scheduled closer than the output latency leaves the renderer silent for the WHOLE playback, with no
+    /// error (Bluetooth: AirPods ≈ 171 ms). An immediate `rate = …` start is not affected.
+    public static func startLead(outputLatency: Double) -> Double {
+        max(minStartLead, outputLatency + latencyMargin)
+    }
+    /// Total output latency (s) of the current output (cached; refreshed on a device / configuration change).
+    public var outputLatency: Double { lock.withLock { _outputLatency } }
+    /// Lead to schedule a start with on the current output (`startLead(outputLatency:)`).
+    public var startLead: Double { Self.startLead(outputLatency: outputLatency) }
+    /// Reads the output latency of a device UID (nil = system default). Tests inject a fixed value; setting it refreshes.
+    public var latencyProvider: @Sendable (String?) -> Double? {
+        get { lock.withLock { _latencyProvider } }
+        set { lock.withLock { _latencyProvider = newValue }; refreshOutputLatency() }
+    }
+    private var _latencyProvider: @Sendable (String?) -> Double? = { AudioDevices.outputLatency(uid: $0) }
+    private var _outputLatency: Double = 0
+
+    /// Re-reads the output latency (CoreAudio; any thread).
+    public func refreshOutputLatency() {
+        let provider = lock.withLock { _latencyProvider }
+        let latency = max(0, provider(renderer.audioOutputDeviceUniqueID) ?? 0)
+        lock.withLock { _outputLatency = latency }
     }
 
     /// Installs `built` and seeks to `time` (first load, or a rebuild when a gap is fine).
@@ -205,6 +239,7 @@ public final class PreviewAudio: @unchecked Sendable {
     /// Output device / route / format change (AVSampleBufferAudioRendererOutputConfigurationDidChange, or called by
     /// the owner on a default-device change): Apple's rule is flush and re-enqueue from the current time.
     public func outputConfigurationChanged() {
+        refreshOutputLatency()   // the default output may have changed (AirPods connected): before the re-anchor
         let handler: (@Sendable () -> Void)? = lock.withLock {
             _stats.outputChanges += 1
             guard let h = _onReanchor else { return nil }
@@ -288,6 +323,7 @@ public final class PreviewAudio: @unchecked Sendable {
         if renderer.status == .failed {
             EngineLog.error("preview audio: renderer failed (\(renderer.error.map { "\($0)" } ?? "?")): re-anchoring")
             renderer.flush()
+            refreshOutputLatency()
             if let handler = lock.withLock({ () -> (@Sendable () -> Void)? in
                 guard let h = _onReanchor else { return nil }
                 wantsRate = 0; startHostTime = nil; synchronizer.rate = 0
@@ -328,7 +364,9 @@ public final class PreviewAudio: @unchecked Sendable {
                 guard generation == gen, wantsRate > 0, synchronizer.rate == 0 else { return }
                 let now = CMClockGetTime(CMClockGetHostTimeClock())
                 if let h = startHostTime, CMTimeCompare(h, now) > 0 {
-                    synchronizer.setRate(Float(wantsRate), time: synchronizer.currentTime(), atHostTime: h)
+                    // never closer than the output latency (silent renderer otherwise): start a little later instead
+                    let earliest = now + CMTime(seconds: Self.startLead(outputLatency: _outputLatency), preferredTimescale: 1_000_000)
+                    synchronizer.setRate(Float(wantsRate), time: synchronizer.currentTime(), atHostTime: CMTimeMaximum(h, earliest))
                 } else {
                     synchronizer.rate = Float(wantsRate)
                 }
