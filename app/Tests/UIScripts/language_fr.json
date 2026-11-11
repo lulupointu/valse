@@ -1,4 +1,7 @@
 // Switch the UI language to French from the View menu: the whole UI (and the menu bar) rebuilds without relaunch.
+// FLAKY-UI4: editor-fr-assets was 0.05 % off in 4 of 20 runs (two exact variants: the Overlay card picture 1 px taller):
+// ThumbnailCache shared one AVAssetImageGenerator per file across heights, so a card poster was sometimes generated
+// at the timeline filmstrip's size. One generator per (file, height) now; 20/20 identical afterwards.
 {
   "project": "demo",
   "steps": [

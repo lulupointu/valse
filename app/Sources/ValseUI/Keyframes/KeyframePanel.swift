@@ -181,7 +181,7 @@ struct KeyframeLane: View {
             store.seek(to: clip.start + hit.time)
             store.beginGesture("cmd.keyframe")
             grabbed = ref
-        } else if NSEvent.modifierFlags.contains(.shift) {
+        } else if EventModifiers.current.contains(.shift) {
             // ⇧-click: add a keyframe for this property here (CapCut "Add keyframe on keyframe panel")
             let t = time(atX: v.location.x, width: w), id = clip.id, key = ParamKey(self.key)
             store.edit("cmd.keyframe") { p in

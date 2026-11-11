@@ -19,7 +19,8 @@ public final class ThumbnailCache: @unchecked Sendable {
     private let memory = NSCache<NSString, CGImage>()
     private let directory: URL
     private let lock = NSLock()
-    private var generators: [URL: AVAssetImageGenerator] = [:]
+    private struct GeneratorKey: Hashable { let url: URL; let height: Int }
+    private var generators: [GeneratorKey: AVAssetImageGenerator] = [:]
     private var inflight: Set<String> = []
     private let semaphore = AsyncSemaphore(limit: 3)
 
@@ -73,16 +74,21 @@ public final class ThumbnailCache: @unchecked Sendable {
     private func store(_ img: CGImage, _ k: String) { memory.setObject(img, forKey: k as NSString, cost: img.bytesPerRow * img.height) }
 
     private func videoThumb(_ url: URL, at seconds: Double, height: Int) async -> CGImage? {
+        // FLAKY-UI4: one generator per (file, height). A generator shared by every height had its `maximumSize` set by
+        // each request while up to 3 requests of different heights (card poster, timeline filmstrip) ran on it: a poster
+        // was sometimes made at the filmstrip's size (other width rounding → the card's aspect-fit picture 1 px taller;
+        // language_fr editor-fr-assets 0.05 % off, 4 of 20 runs) and cached under the poster's key.
         let gen: AVAssetImageGenerator = lock.withLock {
-            if let g = generators[url] { return g }
+            let gk = GeneratorKey(url: url, height: height)
+            if let g = generators[gk] { return g }
             let g = AVAssetImageGenerator(asset: AVURLAsset(url: url))
             g.appliesPreferredTrackTransform = true
             g.requestedTimeToleranceBefore = CMTime(seconds: Self.quantum / 2, preferredTimescale: 600)
             g.requestedTimeToleranceAfter = CMTime(seconds: Self.quantum / 2, preferredTimescale: 600)
-            generators[url] = g
+            g.maximumSize = CGSize(width: height * 4, height: height)
+            generators[gk] = g
             return g
         }
-        gen.maximumSize = CGSize(width: height * 4, height: height)
         if let img = try? await gen.image(at: CMTime(seconds: seconds + Self.quantum / 2, preferredTimescale: 600)).image { return img }
         // No frame in this quantum (the last one of the media: a filmstrip tile at the clip end): the last frame before
         // it. Without this the request failed, nothing was cached and every timeline redraw generated it again.

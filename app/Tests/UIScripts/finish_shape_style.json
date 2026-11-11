@@ -1,5 +1,7 @@
 // ST-008: Stickers ▸ Basic ▸ Shape on a shape sticker — fill off, stroke on, dashed line style, then "Draw on canvas"
 // replaces the outline with points clicked on the player (click the first point to close), one undo step each.
+// FLAKY-UI4: twice the drawing got 0 points with the playhead back at 0 (sticker at 1-4 s, so not under the clicks):
+// PlaybackEngine's rate observer took a rate "change" 0 → 0 (rebuild) for a stop and adopted the fresh item's time.
 {
   "project": "demo",
   "steps": [
@@ -20,6 +22,8 @@
     {"click": "id:shape.fill.toggle"},
     {"expect": {"path": "selectedClips.0.shapeStyle.fill", "equals": true}},
     {"click": "id:shape.draw"},
+    // the paused playhead stays at 1 s through the edits' rebuilds (FLAKY-UI4: it fell back to 0, off the sticker)
+    {"expect": [{"path": "playhead", "approx": 1, "tolerance": 0.05}, {"path": "isPlaying", "equals": false}]},
     {"click": "player:0.2,0.2"},
     {"click": "player:0.45,0.25"},
     {"click": "player:0.4,0.5"},

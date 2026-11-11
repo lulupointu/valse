@@ -44,7 +44,7 @@ enum AssetStateDump {
         TestAnchors.shared.ids.filter { a in
             guard a.hasPrefix("asset.tile.stock."), let i = StockLibrary[String(a.dropFirst("asset.tile.stock.".count))] else { return false }
             if case .solid = i.kind { return false }
-            return LibraryArtCache.shared.get("stock.\(i.id)") == nil
+            return !LibraryArtCache.shared.isShown("stock.\(i.id)")   // drawn, not merely cached (FLAKY-UI4)
         }.count
     }
 }

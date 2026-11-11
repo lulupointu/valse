@@ -700,11 +700,18 @@ public final class UITestDriver {
             try await idle(settle: settle)
         } else if let text = step["type"] as? String {
             // typing goes to the focused text field: wait for the field editor to take focus (a click on a field
-            // focuses it a few main-loop turns later on a loaded machine; the keys were lost: home_project_flow)
-            let focusDeadline = Date().addingTimeInterval(3)
+            // focuses it a few main-loop turns later on a loaded machine; the keys were lost: home_project_flow).
+            // FLAKY-UI4: a field that never takes the focus is an app bug (home_library rename field: typed keys went
+            // nowhere, the step "passed" and a later waitFor timed out): fail HERE, after the same 10 s bound as
+            // click targets. No passing run ever typed without a focused field (report.json survey 2026-11-11).
+            let focusDeadline = Date().addingTimeInterval(10)
             while !(window.firstResponder is NSText), Date() < focusDeadline {
                 try await Task.sleep(for: .milliseconds(20))
                 _ = await SyntheticEvents.drain(timeout: 1)
+            }
+            guard window.firstResponder is NSText else {
+                throw Failure("type: no text field has the keyboard focus (first responder: "
+                              + "\(window.firstResponder.map { String(describing: type(of: $0)) } ?? "none"))")
             }
             if (step["replace"] as? Bool) == true { (window.firstResponder as? NSText)?.selectAll(nil) }
             SyntheticEvents.type(text, in: window)

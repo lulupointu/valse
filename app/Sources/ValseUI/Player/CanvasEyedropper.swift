@@ -36,7 +36,12 @@ final class CanvasEyedropperTool: CanvasTool {
         pixels = buf
         size = (w, h)
         revision += 1
+        if let p = pendingPick { pendingPick = nil; mouseDown(at: p) }
     }
+
+    /// FLAKY-UI4 (finish_sticker_layer): a click that came before the frame was rendered (a loaded machine takes
+    /// seconds) was dropped and the colour never changed; it is now picked as soon as the frame is there.
+    @PerceptionIgnored private var pendingPick: Vec2?
 
     /// Colour of the frame at a canvas point (nil outside the frame or before the render is ready).
     func color(at p: Vec2) -> RGBA? {
@@ -49,6 +54,7 @@ final class CanvasEyedropperTool: CanvasTool {
     func hover(at p: Vec2?) { hover = p; revision += 1 }
 
     func mouseDown(at p: Vec2) {
+        guard isReady else { pendingPick = p; return }
         guard let c = color(at: p) else { return }
         onPick(c)
     }

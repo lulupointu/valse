@@ -348,7 +348,7 @@ struct CaptionSearchField: NSViewRepresentable {
         func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
             switch sel {
             case #selector(NSResponder.insertNewline(_:)):
-                store.captionStepMatch(NSEvent.modifierFlags.contains(.shift) ? -1 : 1); return true
+                store.captionStepMatch(EventModifiers.current.contains(.shift) ? -1 : 1); return true
             case #selector(NSResponder.cancelOperation(_:)):
                 if !store.captionEditor.findText.isEmpty {
                     store.captionEditor.findText = ""; (control as? NSTextField)?.stringValue = ""

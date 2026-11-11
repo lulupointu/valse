@@ -154,12 +154,17 @@ public final class PlaybackEngine {
                 self.onTimeUpdate?(self.requestedTime)
             }
         }
-        rateObservation = player.observe(\.rate, options: [.new]) { [weak self] p, _ in
+        rateObservation = player.observe(\.rate, options: [.old, .new]) { [weak self] p, change in
             let playing = p.rate != 0
+            // FLAKY-UI4: only a RUNNING clock that stopped is news. A rate set to 0 while already paused (`install` on
+            // every rebuild, item replacement) also notifies; read back then, the fresh item's time (0, its seek not
+            // landed) became the playhead: paused at 1 s, ticking "Draw on canvas" after a few edits jumped the playhead
+            // to 0 and the shape clicks missed the sticker (finish_shape_style, 2 retries, playhead 0 in both).
+            let stopped = (change.oldValue ?? 0) != 0 && !playing
             Task { @MainActor in
                 guard let self else { return }
                 // stopped by itself (end of item): the playhead is where the player stopped, and the audio stops too
-                if !playing, self.player.rate == 0, !self.seekInFlight, self.reverseShuttleRate == 0, self.resumeRate == nil {
+                if stopped, self.player.rate == 0, !self.seekInFlight, self.reverseShuttleRate == 0, self.resumeRate == nil {
                     self.requestedTime = self.timeline(self.player.currentTime())
                     self.audio.pause()
                 }
