@@ -135,8 +135,9 @@ import ValseTestSupport
     /// was effectively never gated. It is now measured in GPU WORK UNITS: each transition's pass time divided by the
     /// time of a fixed reference workload (32 dissolve passes, ≈ the same command-buffer length) measured right after
     /// it, best of 5 each, interleaved. Contention and clock state stretch both by the same factor, so the ratio is the
-    /// pass's cost relative to the GPU's speed at that moment (measured on this M1 Pro: dissolve 0.065-0.075 ms/pass,
-    /// worst transitions ≈ 45-50 dissolves at load 10-30, ratio spread across loads below ±15 %). Budget: 8 ms /
+    /// pass's cost relative to the GPU's speed at that moment (measured on this M1 Pro: dissolve 0.065-0.075 ms/pass;
+    /// worst transition 27-50 dissolve passes over 30 runs at load 5-18 while its raw GPU time read 3.4-5.1 ms —
+    /// contention stretches the reference at least as much, so the ratio never errs high). Budget: 8 ms /
     /// 0.07 ms ≈ 114 dissolve passes, gated at 100 (≈ 7 ms on an M1 Pro), in every run. The absolute GPU time stays a
     /// perf.sh metric (`transition_1080p_worst_gpu_ms`, perf runs on a quiet machine assert ≤ 8 ms).
     @Test func everyTransitionIsRealTimeAt1080p() async throws {
