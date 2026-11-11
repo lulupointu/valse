@@ -13,7 +13,7 @@ struct ButtonHitAreaLintTests {
     static let hitShapes = ["valseTapArea", "contentShape", ".background("]
     /// TODO(BUG-HIT-AREA): AssetPanel was being reworked by another agent when this lint landed; it still has bare glyph
     /// buttons (EffectLibraryTab, Library/LibraryBrowser, SubprojectsView). Fix them, then drop this exclusion.
-    static let excluded = ["/AssetPanel/"]
+    static let excluded: [String] = []
 
     static func swiftFiles() -> [URL] {
         var out: [URL] = []
