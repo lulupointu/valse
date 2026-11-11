@@ -504,6 +504,39 @@ public enum ProjectArchive {
         try run(["-c", "-k", "--sequesterRsrc", "--keepParent", package.path, zipURL.path])
     }
 
+    /// Zip with progress and cancellation (BUG-PACK-PROGRESS): `ditto` streams the archive, so the output size over
+    /// `expectedBytes` (the package size; media barely compresses) is the progress, polled every `pollInterval`.
+    /// Reports stay below 1 until `ditto` exits. A cancelled task terminates `ditto`, removes the partial archive and
+    /// throws `CancellationError`.
+    public static func zip(_ package: URL, to zipURL: URL, expectedBytes: Int64, pollInterval: TimeInterval = 0.1,
+                           progress: (Double) -> Void) throws {
+        let fm = FileManager.default
+        try? fm.removeItem(at: zipURL)
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        p.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent", package.path, zipURL.path]
+        p.standardError = FileHandle.nullDevice
+        let exited = DispatchSemaphore(value: 0)
+        p.terminationHandler = { _ in exited.signal() }
+        try p.run()
+        let expected = Double(max(expectedBytes, 1))
+        while exited.wait(timeout: .now() + pollInterval) == .timedOut {
+            if Task.isCancelled {
+                p.terminate()
+                exited.wait()
+                try? fm.removeItem(at: zipURL)
+                throw CancellationError()
+            }
+            let size = ((try? fm.attributesOfItem(atPath: zipURL.path))?[.size] as? NSNumber)?.doubleValue ?? 0
+            progress(min(size / expected, 0.99))
+        }
+        p.waitUntilExit()
+        if p.terminationStatus != 0 {
+            try? fm.removeItem(at: zipURL)
+            throw PersistenceError.unreadable("ditto \(p.terminationStatus)")
+        }
+    }
+
     public static func unzip(_ zipURL: URL, into dir: URL) throws {
         try run(["-x", "-k", zipURL.path, dir.path])
     }

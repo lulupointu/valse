@@ -82,4 +82,91 @@ import ValseTestSupport
         let ok = try ProjectPacker.pack(project, from: nil, into: out, zip: false)
         #expect(FileManager.default.fileExists(atPath: ok.path))
     }
+
+    // MARK: BUG-PACK-PROGRESS: progress tracks the bytes (copy phase, zip phase), not the file count
+
+    /// A project with one big (48 MB, incompressible) and two small media files outside any package.
+    func fakeMedia(_ dir: URL) throws -> Project {
+        var block = Data(count: 1 << 20)
+        var rng = SystemRandomNumberGenerator()
+        block.withUnsafeMutableBytes { raw in for i in stride(from: 0, to: raw.count, by: 8) { raw.storeBytes(of: rng.next() as UInt64, toByteOffset: i, as: UInt64.self) } }
+        var big = Data(); for _ in 0..<48 { big.append(block) }
+        var p = Project()
+        for (name, data) in [("big.mov", big), ("a.png", block.prefix(4096)), ("b.wav", block.prefix(100_000))] {
+            let u = dir.appendingPathComponent(name)
+            try Data(data).write(to: u)
+            p.media.append(MediaAsset(name: name, kind: .video, url: u, duration: 1, pixelSize: Size2(16, 9), frameRate: nil,
+                                      hasVideo: true, hasAudio: false, contentHash: name, fileSize: Int64(data.count)))
+        }
+        p.name = "Packed"
+        return p
+    }
+
+    final class Reports: @unchecked Sendable {
+        let lock = NSLock()
+        var values: [Double] = []
+        private var onReport: (@Sendable (Double) -> Void)?
+        func add(_ v: Double) { let cb = lock.withLock { values.append(v); return onReport }; cb?(v) }
+        func setOnReport(_ f: @escaping @Sendable (Double) -> Void) { lock.withLock { onReport = f } }
+        var all: [Double] { lock.withLock { values } }
+    }
+
+    func expectSmooth(_ r: [Double], _ label: String) {
+        #expect(r.last == 1, "\(label): ends at 1")
+        #expect(zip(r, r.dropFirst()).allSatisfy { $0 <= $1 }, "\(label): monotonic")
+        let jumps = zip([0] + r, r).map { $1 - $0 }
+        #expect((jumps.max() ?? 1) < 0.25, "\(label): no big jump \(r)")
+    }
+
+    @Test func packProgressIsByteProportionalAcrossCopyAndZip() throws {
+        let src = try tempDir("packsrc"), out = try tempDir("packout")
+        defer { try? FileManager.default.removeItem(at: src); try? FileManager.default.removeItem(at: out) }
+        let project = try fakeMedia(src)
+        let work = ProjectPacker.plan(project, from: nil, dest: out.appendingPathComponent("Packed.valse"), zip: true, clone: false)
+        let zipStart = work.zipStart
+        // zip bytes weigh more than copied bytes (deflate is slower than a copy): the zip is the larger phase
+        #expect(zipStart > 0.05 && zipStart < 0.5)
+        let reports = Reports()
+        let url = try ProjectPacker.pack(project, from: nil, into: out, zip: true, clone: false, progress: reports.add)
+        #expect(url.pathExtension == "zip")
+        #expect(FileManager.default.fileExists(atPath: url.path))
+        let r = reports.all
+        expectSmooth(r, "zip")
+        // byte-level inside the big file: several reports during the copy phase, not one jump per file
+        #expect(r.filter { $0 > 0.01 && $0 < zipStart }.count >= 4, "copy phase \(r)")
+        // the zip phase reports while ditto runs, including its second half (no stall then jump to 1)
+        #expect(r.filter { $0 > zipStart + 0.01 && $0 < 1 }.count >= 2, "zip phase \(r)")
+        #expect(r.contains { $0 > zipStart + (1 - zipStart) / 2 && $0 < 1 }, "zip second half \(r)")
+        // the staging package was removed, only the archive is left
+        #expect((try FileManager.default.contentsOfDirectory(atPath: out.path)) == [url.lastPathComponent])
+    }
+
+    @Test func packWithoutZipIsByteProportional() throws {
+        let src = try tempDir("packsrc"), out = try tempDir("packout")
+        defer { try? FileManager.default.removeItem(at: src); try? FileManager.default.removeItem(at: out) }
+        let project = try fakeMedia(src)
+        let reports = Reports()
+        let pkg = try ProjectPacker.pack(project, from: nil, into: out, zip: false, clone: false, progress: reports.add)
+        let r = reports.all
+        expectSmooth(r, "no zip")
+        #expect(r.filter { $0 > 0.01 && $0 < 1 }.count >= 6, "copy reports \(r)")
+        // the streamed copies are complete
+        #expect(FileCopier.size(pkg.appendingPathComponent("media/big.mov")) == 48 << 20)
+        #expect(FileCopier.size(pkg.appendingPathComponent("media/b.wav")) == 100_000)
+    }
+
+    @Test func cancelDuringZipRemovesTheArchive() async throws {
+        let src = try tempDir("packsrc"), out = try tempDir("packout")
+        defer { try? FileManager.default.removeItem(at: src); try? FileManager.default.removeItem(at: out) }
+        let project = try fakeMedia(src)
+        let zipStart = ProjectPacker.plan(project, from: nil, dest: out.appendingPathComponent("Packed.valse"), zip: true, clone: false).zipStart
+        let reports = Reports()
+        let task = Task.detached { () -> Bool in
+            (try? ProjectPacker.pack(project, from: nil, into: out, zip: true, clone: false, progress: reports.add)) != nil
+        }
+        reports.setOnReport { if $0 > zipStart + 0.01, $0 < 1 { task.cancel() } }
+        #expect(await task.value == false)
+        #expect(reports.all.contains { $0 > zipStart })
+        #expect(((try? FileManager.default.contentsOfDirectory(atPath: out.path)) ?? []).isEmpty)
+    }
 }
