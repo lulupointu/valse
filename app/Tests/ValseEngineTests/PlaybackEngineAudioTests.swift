@@ -60,7 +60,7 @@ struct PlaybackEngineAudioTests {
             #expect(r.discontinuities.isEmpty, "audio jumped at \(r.discontinuities)")
             #expect(r.rejoins >= 2, "each new item re-joins the running audio")
             #expect(r.after.avSpreadMs < 34)
-            #expect(r.heardEditAfterMs < 400, "the volume edit was heard \(r.heardEditAfterMs) ms after")
+            #expect(r.heardEditAfterMs < r.heardBudgetMs, "the volume edit was heard \(r.heardEditAfterMs) ms after (horizon \(r.feedAheadMs) ms)")
         }
     }
 

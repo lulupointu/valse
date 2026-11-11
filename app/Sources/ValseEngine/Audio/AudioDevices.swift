@@ -30,6 +30,17 @@ public enum AudioDevices {
         return list.first { $0.uid == uid }?.id
     }
 
+    /// UID of the system default output device (nil when there is none).
+    public static func defaultOutputUID() -> String? {
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                                              mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var device = AudioDeviceID(0)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &device) == noErr,
+              device != 0 else { return nil }
+        return string(device, kAudioDevicePropertyDeviceUID)
+    }
+
     static func devices(scope: AudioObjectPropertyScope) -> [Device] {
         var addr = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDevices, mScope: kAudioObjectPropertyScopeGlobal,
                                               mElement: kAudioObjectPropertyElementMain)

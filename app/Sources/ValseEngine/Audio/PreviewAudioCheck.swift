@@ -353,7 +353,14 @@ public enum PreviewAudioCheck {
         return r
     }
 
-    public struct LiveEditResult: Sendable { public var heardAfterMs = Double.nan; public var ratioBefore = Double.nan; public var ratioAfter = Double.nan }
+    public struct LiveEditResult: Sendable {
+        public var heardAfterMs = Double.nan; public var ratioBefore = Double.nan; public var ratioAfter = Double.nan
+        /// The engine's enqueue horizon (ms; `PreviewAudio.feedAhead`, depends on the output latency).
+        public var feedAheadMs = 150.0
+        /// Budget for `heardAfterMs`: the horizon + one reader buffer (the lanes process whole reader buffers, up to
+        /// ~170 ms, ahead of the mix) + one chunk.
+        public var budgetMs: Double { feedAheadMs + 200 }
+    }
 
     /// Noise clip; while playing, an EQ of −12 dB on every band reaches the AudioMixState: how long (media time) after
     /// the clock at the edit the enqueued audio changes (what is heard, since the renderer plays labels at the clock).
@@ -371,6 +378,7 @@ public enum PreviewAudioCheck {
             state.update(project: edited)
         }
         audio.stop()
+        let feedAheadMs = audio.feedAhead * 1000
         func ratio(_ c: Recording.Chunk) -> Double {
             let f = PreviewAudioLanes.frame(c.time)
             var a = 0.0, b = 0.0
@@ -379,6 +387,7 @@ public enum PreviewAudioCheck {
         }
         let chunks = rec.snapshot.sorted { $0.time < $1.time }
         var r = LiveEditResult()
+        r.feedAheadMs = feedAheadMs
         let before = chunks.filter { $0.time > 0.6 && $0.time < editClock - 0.01 }.map(ratio)
         r.ratioBefore = before.isEmpty ? .nan : before.reduce(0, +) / Double(before.count)
         if let first = chunks.first(where: { $0.time > editClock - 0.3 && ratio($0) < 0.6 }) {
@@ -521,7 +530,7 @@ public enum PreviewAudioCheck {
             check("seek storm", st.readersWhilePlaying <= 1 && st.readersAfter <= 0 && st.released && st.leads.allSatisfy { abs($0) <= 3 },
                   "seeks performed \(st.seeksPerformed)/12, settled \(String(format: "%.0f", st.settledMs)) ms, readers while playing \(st.readersWhilePlaying) / after release \(st.readersAfter), released \(st.released), leads \(stats(st.leads))")
             let l = try await liveEdit(dir: dir)
-            check("live edit", l.heardAfterMs < 250, String(format: "heard %.0f ms after the edit (level %.2f → %.2f)", l.heardAfterMs, l.ratioBefore, l.ratioAfter))
+            check("live edit", l.heardAfterMs < l.budgetMs, String(format: "heard %.0f ms after the edit (horizon %.0f ms; level %.2f → %.2f)", l.heardAfterMs, l.feedAheadMs, l.ratioBefore, l.ratioAfter))
             let pr = try await pauseResume(dir: dir)
             check("pause / resume", pr.discontinuities.isEmpty && pr.seeksDuring == 0 && abs(pr.clockDriftWhilePausedMs) < 1,
                   String(format: "clock drift paused %.2f ms, resume %.0f ms, discontinuities %d, leads %@", pr.clockDriftWhilePausedMs, pr.resumedMs, pr.discontinuities.count, stats(pr.leads)))

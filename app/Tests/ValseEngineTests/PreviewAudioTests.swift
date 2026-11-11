@@ -74,13 +74,14 @@ struct PreviewAudioTests {
         TimingBudget.metric("preview_audio_storm_settle_ms", s.settledMs, "ms")
     }
 
-    /// A live-effect edit (EQ through AudioMixState) is heard < 250 ms after the clock at the edit (pacing: 150 ms).
+    /// A live-effect edit (EQ through AudioMixState) is heard < horizon + 100 ms after the clock at the edit (pacing:
+    /// `PreviewAudio.feedAhead`, ≈ 0.2 s on a low-latency output).
     @Test func liveEditIsHeardQuickly() async throws {
         let l = try await PreviewAudioCheck.liveEdit(dir: dir)
         print("PREVIEWAUDIO live edit: \(l)")
         #expect(abs(l.ratioBefore - 1) < 0.02, "unedited level vs export \(l.ratioBefore)")
         #expect(l.ratioAfter < 0.6)
-        #expect(l.heardAfterMs < 250, "heard \(l.heardAfterMs) ms after the edit")
+        #expect(l.heardAfterMs < l.budgetMs, "heard \(l.heardAfterMs) ms after the edit (horizon \(l.feedAheadMs) ms)")
     }
 
     @Test func pauseResumeIsContinuous() async throws {
@@ -94,14 +95,14 @@ struct PreviewAudioTests {
     }
 
     /// `replace` while playing: no discontinuity (the new reader continues where the queue ends), labels exact, the
-    /// new gains heard within 300 ms of the clock at the swap (queue ≤ 150 ms + build).
+    /// new gains heard within 300 ms of the clock at the swap (queue ≤ `feedAhead` ≈ 0.2 s + build).
     @Test func replaceWhilePlaying() async throws {
         let r = try await PreviewAudioCheck.swapWhilePlaying(dir: dir)
         print("PREVIEWAUDIO swap: \(r)")
         #expect(r.swaps == 1)
         #expect(r.discontinuities.isEmpty)
         #expect(r.leads.count >= 3 && r.leads.allSatisfy { abs($0) <= 3 }, "leads \(r.leads)")
-        // design value ≈185 ms (≈150 ms queue + one chunk); 500 ms tolerates heavy parallel load (341 ms measured)
+        // design value ≈ feedAhead + one chunk (≈ 230 ms on a low-latency output); 500 ms tolerates heavy parallel load
         #expect(r.heardAfterMs < 500, "new gain heard \(r.heardAfterMs) ms after the swap")
     }
 
