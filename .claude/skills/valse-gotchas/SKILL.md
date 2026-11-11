@@ -48,6 +48,9 @@ description: Known Valse engineering traps by topic (async tests and AVFoundatio
   one decode stream and iPhone open-GOP HEVC (CRA) frames after the cut freeze, in preview and export (BUG-FRAME-DROP).
   Test media needs Apple's HEVC encoder with AllowOpenGOP; x265 does not reproduce it.
 - On speed-scaled segments a tap's buffer `duration` is span × speed²; step by timestamps (BUG-SPEED-AUDIO-TAIL).
+- A synchronizer start `setRate(_:time:atHostTime:)` closer than the output latency (AirPods ≈ 171 ms) leaves the
+  renderer silent for the WHOLE playback, no error: lead by `PreviewAudio.startLead` (latency + margin), never a fixed
+  few ms (BUG-AIRPODS-SILENT).
 - Never use `AVAudioTimePitchAlgorithm.varispeed`: hangs the audio reader during export of sped-up clips.
 - MP3 export needs the FFmpeg sidecar (libmp3lame), absent on a fresh Mac: option disabled with a hint; audio format only
   matters when audio is exported.

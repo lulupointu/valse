@@ -121,4 +121,43 @@ extension AudioDevices {
         if AudioObjectGetPropertyData(device, &addr, 0, nil, &size, &frames) != noErr { frames = 0 }
         return (rate, frames)
     }
+
+    /// Total output latency (s) of the device with `uid` (nil, or a UID no longer present = the system default output):
+    /// device latency + safety offset + IO buffer + first output stream's latency, over the nominal rate. ~0.17 s on
+    /// AirPods, a few ms on built-in speakers. nil when CoreAudio can't tell (no output device).
+    public static func outputLatency(uid: String?) -> Double? {
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        var device = AudioDeviceID(0)
+        if let uid, let id = outputs().first(where: { $0.uid == uid })?.id { device = id }
+        if device == 0 {
+            var addr = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                                                  mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+            var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+            guard AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &device) == noErr, device != 0 else { return nil }
+        }
+        func u32(_ sel: AudioObjectPropertySelector, _ scope: AudioObjectPropertyScope, of obj: AudioObjectID) -> UInt32 {
+            var a = AudioObjectPropertyAddress(mSelector: sel, mScope: scope, mElement: kAudioObjectPropertyElementMain)
+            var v = UInt32(0)
+            var s = UInt32(MemoryLayout<UInt32>.size)
+            return AudioObjectGetPropertyData(obj, &a, 0, nil, &s, &v) == noErr ? v : 0
+        }
+        var a = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyNominalSampleRate,
+                                           mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var rate = Float64(0)
+        var s = UInt32(MemoryLayout<Float64>.size)
+        guard AudioObjectGetPropertyData(device, &a, 0, nil, &s, &rate) == noErr, rate > 0 else { return nil }
+        let out = kAudioObjectPropertyScopeOutput
+        var frames = u32(kAudioDevicePropertyLatency, out, of: device)
+            + u32(kAudioDevicePropertySafetyOffset, out, of: device)
+            + u32(kAudioDevicePropertyBufferFrameSize, out, of: device)
+        a = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyStreams, mScope: out, mElement: kAudioObjectPropertyElementMain)
+        s = 0
+        if AudioObjectGetPropertyDataSize(device, &a, 0, nil, &s) == noErr, s >= UInt32(MemoryLayout<AudioStreamID>.size) {
+            var streams = [AudioStreamID](repeating: 0, count: Int(s) / MemoryLayout<AudioStreamID>.size)
+            if AudioObjectGetPropertyData(device, &a, 0, nil, &s, &streams) == noErr, let first = streams.first {
+                frames += u32(kAudioStreamPropertyLatency, kAudioObjectPropertyScopeGlobal, of: first)
+            }
+        }
+        return Double(frames) / rate
+    }
 }

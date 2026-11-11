@@ -684,8 +684,9 @@ public final class PlaybackEngine {
         audio.whenPrimed { [weak self] in Task { @MainActor in self?.launch(token) } }
     }
 
-    /// Host-time lead of a start: both timebases get the same (item time, host time) pair, a little in the future.
-    static let startLead = CMTime(value: 12, timescale: 1000)
+    /// Host-time lead of a start: both timebases get the same (item time, host time) pair, a little in the future, and
+    /// never closer than the output latency (BUG-AIRPODS-SILENT: a nearer audio start stays silent on Bluetooth).
+    var startLead: CMTime { CMTime(seconds: audio.startLead, preferredTimescale: 1_000_000) }
     /// Starts done by `launch` (diagnostics / tests).
     public private(set) var launches = 0
     /// Host time (CACurrentMediaTime base) the last scheduled video start takes effect: before it the player reports a
@@ -705,7 +706,7 @@ public final class PlaybackEngine {
             return
         }
         resumeRate = nil
-        let h = CMClockGetTime(CMClockGetHostTimeClock()) + Self.startLead
+        let h = CMClockGetTime(CMClockGetHostTimeClock()) + startLead
         player.setRate(r, time: t, atHostTime: h)
         scheduledStartHost = h.seconds
         audio.start(rate: Double(r), time: t.seconds, atHostTime: h)   // (r < 0: native reverse, audio stays silent)
