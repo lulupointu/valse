@@ -30,7 +30,7 @@ struct TextAssetTab: View {
                     case "fonts": FontBookPanel(store: store)   // MI-021 (F3)
                     case "writer": AIWriterPanel(store: store)   // W10
                     default:
-                        ScrollView {
+                        PanelScrollView(tab: "text", store: store) {   // BUG-PANEL-SELECT: blank space / captions deselect
                             VStack(alignment: .leading, spacing: 12) {
                                 if nav == "effects" || nav == "templates" {
                                     SearchField(text: $search, placeholder: tr(nav == "effects" ? "text.effects.search" : "text.templates.search"))
@@ -133,13 +133,20 @@ struct TextAssetTile<Preview: View>: View {
     @ViewBuilder let preview: () -> Preview
     @State private var hover = false
 
+    /// BUG-PANEL-SELECT: click (picture or name) selects the tile (`AssetPanelState.cursor["text"]`), like every other
+    /// asset card; double-click adds.
+    var selectionID: String { favorite?.id ?? title }
+    var selected: Bool { AssetPanelState.shared.cursor["text"] == selectionID }
+
     var body: some View {
         WithPerceptionTracking {
+            let selected = selected
             VStack(spacing: 5) {
                 ZStack(alignment: .bottomTrailing) {
                     RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
                         .overlay { preview() }
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(hover ? Theme.hoverRing : .clear, lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.accent : (hover ? Theme.hoverRing : .clear),
+                                                                           lineWidth: selected ? 2 : 1.5))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     if let f = favorite {
                         let on = AssetLibraryStore.shared.isFavorite(f.ns, f.id)
@@ -154,7 +161,7 @@ struct TextAssetTile<Preview: View>: View {
                             .testID("text.fav.\(f.id)")
                         }
                     }
-                    if hover {
+                    if hover || selected {
                         Button(action: add) {
                             Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent)
                                 .frame(width: 20, height: 20).background(Theme.accent, in: Circle())
@@ -165,8 +172,9 @@ struct TextAssetTile<Preview: View>: View {
                 .aspectRatio(1, contentMode: .fit)
                 Text(verbatim: title).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1).truncationMode(.middle)
             }
+            .contentShape(Rectangle())
             .onHover { hover = $0 }
-            .onTapGesture(count: 2, perform: add)
+            .assetTap("text." + selectionID, single: { AssetPanelState.shared.cursor["text"] = selectionID }, double: add)
             .onDrag { NSItemProvider(object: payload as NSString) }
             .accessibilityElement(children: .combine)
             .testID("text.tile.\(favorite?.id ?? title)")

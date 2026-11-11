@@ -1,0 +1,43 @@
+// BUG-PANEL-SELECT: a card's NAME selects it like its picture (Media, Effects, Audio; double-click on the name adds), and a
+// click on blank panel space clears that tab's panel selection (Media multi-selection included), ends the preview it drove
+// / stops the audio preview, and never touches the timeline selection.
+{
+  "project": "demo",
+  "requires": {"content": true},
+  "steps": [
+    {"click": "clip:main/0"},
+    {"expect": {"path": "selection", "count": 1}},
+    // Media: the name row of a card selects + previews; ⌘ click extends; blank space below the cards clears both
+    {"click": "id:media.card.1", "at": [0.5, 0.95]},
+    {"expect": [{"path": "ui.assets.mediaSelection", "count": 1}, {"path": "ui.assets.preview.active", "equals": true}]},
+    {"click": "id:media.card.0", "modifiers": ["cmd"]},
+    {"expect": {"path": "ui.assets.mediaSelection", "count": 2}},
+    {"click": "id:media.grid", "at": [0.5, 0.97]},
+    {"expect": [{"path": "ui.assets.mediaSelection", "count": 0}, {"path": "ui.assets.preview.active", "equals": false},
+                {"path": "selection", "count": 1}]},
+    // Effects: the name under the card selects + previews; blank space clears the card and ends the preview
+    {"click": "id:asset.tab.effects"},
+    {"click": "id:asset.search"},
+    {"type": "vignette"},
+    {"click": "id:asset.name.valse.effect.vignette"},
+    {"expect": [{"path": "ui.assets.cursor.effects", "equals": "valse.effect.vignette"}, {"path": "ui.assets.preview.kind", "equals": "effect"}]},
+    {"snapshot": "effect-name-selected", "element": "id:asset.tile.valse.effect.vignette"},
+    {"click": "id:fxlib.grid", "at": [0.5, 0.9]},
+    {"expect": [{"path": "ui.assets.cursor.effects", "exists": false}, {"path": "ui.assets.preview.active", "equals": false},
+                {"path": "selection", "count": 1}]},
+    {"doubleClick": "id:asset.name.valse.effect.vignette"},
+    {"waitFor": {"path": "undo.name", "equals": "cmd.effect", "timeout": 10}},
+    // Audio: the row title selects + plays the preview; blank space below the rows stops it and clears the row
+    {"click": "id:asset.tab.audio"},
+    {"click": "id:asset.nav.music.cat.vlog"},
+    {"click": "id:asset.tile.lib.freepd.fresh-focus.favorite"},
+    {"click": "id:asset.nav.favorites"},
+    {"expect": {"path": "ui.assets.count.audio", "equals": 1}},
+    {"click": "id:asset.name.lib.freepd.fresh-focus"},
+    {"waitFor": {"path": "ui.assets.playing", "equals": "lib.freepd.fresh-focus", "timeout": 30}},
+    {"expect": {"path": "ui.assets.cursor.audio", "equals": "lib.freepd.fresh-focus"}},
+    {"click": "id:asset.grid", "at": [0.5, 0.9]},
+    {"expect": [{"path": "ui.assets.playing", "exists": false}, {"path": "ui.assets.cursor.audio", "exists": false},
+                {"path": "selection", "count": 1}]}
+  ]
+}

@@ -28,7 +28,7 @@ struct SubprojectsView: View {
                     Text(loc: "subprojects.empty").font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .center).padding(.top, 40).testID("subprojects.empty")
                 }
-                ScrollView {
+                PanelScrollView(tab: "media", store: store) {   // BUG-PANEL-SELECT: blank space deselects
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10)], spacing: 10) {
                         ForEach(Array(comps.enumerated()), id: \.element.id) { i, c in
                             WithPerceptionTracking {
@@ -55,19 +55,30 @@ struct SubprojectsView: View {
         }
     }
 
+    /// Selected card (BUG-PANEL-SELECT): `AssetPanelState.cursor[cursorKey]` = "sub.<id>" / "preset.<id>".
+    static let cursorKey = "media.subprojects"
+    func isSelected(_ key: String) -> Bool { AssetPanelState.shared.cursor[Self.cursorKey] == key }
+    func select(_ key: String) { AssetPanelState.shared.cursor[Self.cursorKey] = key }
+
     func presetCard(_ pr: CompoundPreset) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let key = "preset.\(pr.id)"
+        let sel = isSelected(key)
+        return VStack(alignment: .leading, spacing: 4) {
             RoundedRectangle(cornerRadius: 6).fill(Theme.inset)
                 .overlay(Image(systemName: "square.stack.3d.down.right").font(.system(size: 22)).foregroundStyle(Theme.accent.opacity(0.7)))
                 .frame(height: 60)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(sel ? Theme.accent : .clear, lineWidth: 2))
                 .overlay(alignment: .bottomTrailing) {
                     Button { store.addCompoundPreset(pr) } label: {
                         Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundStyle(Theme.accent)
+                            .frame(width: 22, height: 22).contentShape(Circle())
                     }
                     .buttonStyle(.plain).padding(4).testID("preset.add")
                 }
             Text(verbatim: pr.name).font(.system(size: 11.5)).foregroundStyle(Theme.textPrimary).lineLimit(1)
         }
+        .contentShape(Rectangle())
+        .assetTap(key, single: { select(key) }, double: { store.addCompoundPreset(pr) })
         .contextMenu {
             Button(tr("asset.addToTrack")) { store.addCompoundPreset(pr) }
             Button(tr("preset.delete")) { CompoundPresetLibrary.shared.delete(pr.id) }
@@ -75,11 +86,14 @@ struct SubprojectsView: View {
     }
 
     func card(_ c: CompoundClip, index: Int, uses: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let key = "sub.\(c.id)"
+        let sel = isSelected(key)
+        return VStack(alignment: .leading, spacing: 4) {
             ZStack(alignment: .topTrailing) {
                 RoundedRectangle(cornerRadius: 6).fill(Theme.inset)
                     .overlay(Image(systemName: "square.stack.3d.up").font(.system(size: 22)).foregroundStyle(Theme.textTertiary))
                     .frame(height: 80)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(sel ? Theme.accent : .clear, lineWidth: 2))
                 Text(verbatim: Timecode.shortDuration(c.duration)).font(.system(size: 10, weight: .medium).monospacedDigit())
                     .padding(.horizontal, 4).padding(.vertical, 1).background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
                     .foregroundStyle(Theme.textPrimary).padding(4)
@@ -87,6 +101,7 @@ struct SubprojectsView: View {
             .overlay(alignment: .bottomTrailing) {
                 Button { store.addSubproject(c.id) } label: {
                     Image(systemName: "plus.circle.fill").font(.system(size: 18)).foregroundStyle(Theme.accent)
+                        .frame(width: 22, height: 22).contentShape(Circle())
                 }
                 .buttonStyle(.plain).padding(4).help(tr("asset.addToTrack")).testID("subprojects.add.\(index)")
             }
@@ -96,10 +111,14 @@ struct SubprojectsView: View {
                     .testID("subprojects.renameField")
             } else {
                 Text(verbatim: c.name).font(.system(size: 11.5)).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                    .onTapGesture(count: 2) { name = c.name; renaming = c.id }
+                    // the name selects like the card; its double-click renames (TL-022) instead of adding
+                    .assetTap(key, single: { select(key) }, double: { name = c.name; renaming = c.id })
             }
             Text(verbatim: trCount("subprojects.uses", uses)).font(Theme.Fonts.hint).foregroundStyle(Theme.textTertiary)
         }
+        .contentShape(Rectangle())
+        // click selects; double-click adds (on the name, double-click keeps renaming: TL-022)
+        .assetTap(key, single: { select(key) }, double: { store.addSubproject(c.id) })
         .contextMenu {
             Button(tr("asset.addToTrack")) { store.addSubproject(c.id) }
             Button(tr("subprojects.rename")) { name = c.name; renaming = c.id }

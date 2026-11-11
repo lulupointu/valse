@@ -55,6 +55,8 @@ extension EditorStore {
 struct AdjustPresetGrid: View {
     let store: EditorStore
     @Binding var pickedID: String?
+    /// Asset tab whose blank space deselects (BUG-PANEL-SELECT).
+    var tab = "adjustment"
     @State private var presets = AdjustPresets.shared
 
     var body: some View {
@@ -62,7 +64,7 @@ struct AdjustPresetGrid: View {
             if presets.all.isEmpty {
                 EmptyState(symbol: "slider.horizontal.3", title: tr("adjust.preset.empty")).testID("asset.presets.empty")
             } else {
-                ScrollView {
+                PanelScrollView(tab: tab, store: store) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 12)], spacing: 14) {
                         ForEach(Array(presets.all.enumerated()), id: \.element.id) { i, p in
                             WithPerceptionTracking {
@@ -97,9 +99,7 @@ struct AdjustPresetCard: View {
         WithPerceptionTracking {
             VStack(spacing: 5) {
                 ZStack(alignment: .bottomTrailing) {
-                    Button {
-                        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { add() } else { select() }
-                    } label: {
+                    Button(action: clicked) {
                         RoundedRectangle(cornerRadius: 6).fill(Theme.segmentSelected)
                             .overlay {
                                 Image(systemName: "slider.horizontal.3").font(.system(size: 24)).foregroundStyle(Theme.textPrimary.opacity(0.85))
@@ -116,10 +116,17 @@ struct AdjustPresetCard: View {
                     }
                 }
                 .aspectRatio(1, contentMode: .fit)
-                Text(verbatim: preset.name).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1).truncationMode(.middle)
+                // BUG-PANEL-SELECT: the name is part of the card (click selects, double-click adds)
+                Button(action: clicked) {
+                    Text(verbatim: preset.name).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1).truncationMode(.middle)
+                        .frame(maxWidth: .infinity).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .testID("asset.preset.\(index).name")
             }
             .contentShape(Rectangle())
+            .onTapGesture(perform: clicked)
             .onHover { hover = $0 }
             .contextMenu {
                 Button(tr("asset.addToTrack"), action: add)
@@ -129,5 +136,9 @@ struct AdjustPresetCard: View {
             }
             .help(tr("adjust.preset.cardHelp"))
         }
+    }
+
+    private func clicked() {
+        if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { add() } else { select() }
     }
 }

@@ -218,6 +218,7 @@ struct LicenseCard: View {
                             AppPasteboard.general.setString(credit, forType: .string)
                         } label: {
                             Text(loc: "audio.license.copyCredit").font(.system(size: 10.5, weight: .medium)).foregroundStyle(Theme.accent)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain).testID("audio.license.copyCredit")
                     }
@@ -259,6 +260,7 @@ struct LicenseCard: View {
     func link(_ title: String, _ url: String) -> some View {
         Button { if let u = URL(string: url) { NSWorkspace.shared.open(u) } } label: {
             Text(verbatim: title).font(.system(size: 10.5, weight: .medium)).foregroundStyle(Theme.accent)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain).help(url)
     }

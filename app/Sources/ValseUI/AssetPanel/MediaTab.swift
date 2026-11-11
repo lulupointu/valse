@@ -122,9 +122,10 @@ struct MediaBinView: View {
                         Text(loc: "media.filter.\(prefs.filter.rawValue)").font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 12).padding(.bottom, 6)
+                            .deselectsPanel(tab, store: store)   // BUG-PANEL-SELECT: section caption = blank space
                     }
                     if showsFolders && currentFolder != nil { BinBreadcrumb(store: store, folder: $folder) }
-                    ScrollView {
+                    PanelScrollView(tab: tab, store: store) {
                         if !showsFolders {
                             // Audio ▸ Imported: the same 56 pt rows as the music / sound-effect libraries (UX_GAPS W8-1).
                             LazyVStack(spacing: 8) {
@@ -225,6 +226,7 @@ struct MediaBinView: View {
             if missing > 0 {
                 Button { LinkMediaPanel.runFolder(store) } label: {
                     Label(trCount("media.missing", missing), systemImage: "exclamationmark.triangle").font(.system(size: 11))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).foregroundStyle(Theme.danger).help(tr("media.linkFolder.message"))
             }
@@ -428,6 +430,7 @@ enum MediaSelection {
             sel = [a.id]
         }
         state.mediaSelection = sel
+        if state.cursor[FolderCard.cursorKey] != nil { state.cursor[FolderCard.cursorKey] = nil }
         if !mods.contains(.shift) { state.cursor[tab] = a.id.description }
         state.keyboardTab = tab
     }
@@ -530,8 +533,7 @@ struct MediaCard: View {
                         }
                     }
                 Text(verbatim: asset.name).font(.system(size: 11)).foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(1).truncationMode(.middle)
-            }
+                    .lineLimit(1).truncationMode(.middle)            }
             .contentShape(Rectangle())
             .onHover { hover = $0 }
             .contextMenu { MediaCardMenu(store: store, asset: asset, showInfo: $showInfo) }

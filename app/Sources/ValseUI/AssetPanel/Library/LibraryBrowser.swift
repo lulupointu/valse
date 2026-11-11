@@ -265,7 +265,7 @@ struct LibraryItemsView: View {
                 if items.isEmpty {
                     EmptyState(symbol: "tray", title: empty).testID("asset.empty")
                 } else {
-                    ScrollView {
+                    PanelScrollView(tab: tab) {   // BUG-PANEL-SELECT: blank space / caption click deselects
                         VStack(alignment: .leading, spacing: 8) {
                             if !title.isEmpty {
                                 Text(verbatim: title).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary)
@@ -345,6 +345,7 @@ struct LibraryTile: View {
                         .stroke(selected ? Theme.accent : (hover ? Theme.hoverRing : .clear), lineWidth: selected ? 2 : 1.5))
                 Text(verbatim: item.title).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
                     .lineLimit(1).truncationMode(.middle).frame(maxWidth: .infinity)
+                    .testID("asset.name.\(item.id)")
             }
             .contentShape(Rectangle())
             .onHover { hover = $0 }
@@ -441,6 +442,7 @@ struct LibraryRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 5) {
                             Text(verbatim: item.title).font(.system(size: 13)).foregroundStyle(item.playing ? Theme.accent : Theme.textPrimary).lineLimit(1)
+                                .testID("asset.name.\(item.id)")
                             if let l = item.license { SafeForSocialBadge(itemID: item.id, needsCredit: l.credit != nil) }
                             if item.added { AddedChip(inline: true) }
                         }
@@ -453,14 +455,14 @@ struct LibraryRow: View {
                     if let similar = item.similar, hover || selected || item.playing || LicenseCardState.shared.shownID == item.id {
                         Button { similar() } label: {
                             Image(systemName: "waveform.and.magnifyingglass").font(.system(size: 12))
-                                .foregroundStyle(Theme.textSecondary).frame(width: 22, height: 22)
+                                .foregroundStyle(Theme.textSecondary).frame(width: 22, height: 22).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain).help(tr("audio.similar.find"))
                         .testID("asset.tile.\(item.id).similar")
                     }
                     Button { lib.toggleFavorite(namespace, item.id) } label: {
                         Image(systemName: fav ? "star.fill" : "star").font(.system(size: 12))
-                            .foregroundStyle(fav ? Theme.favorite : Theme.textTertiary).frame(width: 22, height: 22)
+                            .foregroundStyle(fav ? Theme.favorite : Theme.textTertiary).frame(width: 22, height: 22).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain).help(tr(fav ? "asset.unfavorite" : "asset.favorite"))
                     .testID("asset.tile.\(item.id).favorite")
@@ -744,6 +746,7 @@ struct AssetSearchField: View {
                 if !text.isEmpty {
                     Button { text = ""; commit("", now: true) } label: {
                         Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(Theme.textTertiary)
+                            .frame(width: 18, height: 18).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain).help(tr("asset.search.clear")).testID("asset.search.clear")
                 }
