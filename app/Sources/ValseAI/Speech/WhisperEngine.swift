@@ -61,16 +61,10 @@ public enum WhisperEngine {
     }
 
     static func run(_ cli: URL, _ args: [String], progress: (@Sendable (Double) -> Void)?) async throws {
-        let p = Process()
-        p.executableURL = cli
-        p.arguments = args
-        p.standardOutput = FileHandle.nullDevice
-        let err = Pipe()
-        p.standardError = err
+        // stderr (progress lines, error text) is read to EOF by ProcessPipes before the exit status is used
+        // (FLAKY-PIPE: with a readabilityHandler the last chunks could arrive after `tail` was taken)
         let progressBox = LineBuffer()
-        err.fileHandleForReading.readabilityHandler = { h in
-            let d = h.availableData
-            guard !d.isEmpty else { return }
+        let stderr = ProcessPipes.Capture(keep: false) { d in
             for line in progressBox.append(d) {
                 if let r = line.range(of: "progress =") {
                     let v = line[r.upperBound...].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
@@ -80,18 +74,12 @@ public enum WhisperEngine {
         }
         let end: (status: Int32, signal: Bool)
         do {
-            end = try await withTaskCancellationHandler {
-                try await withCheckedThrowingContinuation { (c: CheckedContinuation<(status: Int32, signal: Bool), Error>) in
-                    p.terminationHandler = { proc in c.resume(returning: (proc.terminationStatus, proc.terminationReason == .uncaughtSignal)) }
-                    do { try p.run() } catch { p.terminationHandler = nil; c.resume(throwing: error) }
-                }
-            } onCancel: { if p.isRunning { p.terminate() } }
+            let r = try await ProcessPipes.run(cli, args, stderr: stderr)
+            end = (r.status, r.uncaughtSignal)
         } catch {
-            err.fileHandleForReading.readabilityHandler = nil
             EngineLog.error("whisper-cli failed to launch: \(error)")
             throw classifyLaunch(error)
         }
-        err.fileHandleForReading.readabilityHandler = nil
         try Task.checkCancellation()
         guard end.status == 0 else {
             let tail = progressBox.tail
@@ -264,5 +252,6 @@ final class LineBuffer: @unchecked Sendable {
             return lines
         }
     }
-    var tail: String { lock.withLock { last.joined(separator: " | ") } }
+    /// The last 6 lines, including an unterminated last line (an error message written without a final newline).
+    var tail: String { lock.withLock { (pending.isEmpty ? last : Array((last + [pending]).suffix(6))).joined(separator: " | ") } }
 }

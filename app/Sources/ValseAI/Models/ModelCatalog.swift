@@ -1,5 +1,6 @@
 import Foundation
 import ValseCore
+import ValseEngine
 
 /// A downloadable on-device model. Models are never bundled or committed (`.gitignore` has `models/`); the user
 /// downloads them once from the Model manager (Settings / the feature panel), or points Valse at an existing file.
@@ -254,34 +255,20 @@ public enum LlamaRuntime {
     /// One chat turn (system + user) → the reply text. Runs off the caller's actor; cancel = terminate.
     public static func respond(_ prompt: String, instructions: String, temperature: Double, maxTokens: Int = 700) async throws -> String {
         guard let cli = cliURL, let model else { throw AIToolError.modelMissing(ModelCatalog.qwen3_4b.id) }
-        let p = Process()
-        p.executableURL = cli
-        p.arguments = ["-m", model.path, "-sys", instructions, "-p", prompt, "-cnv", "-st", "--jinja", "-n", "\(maxTokens)",
-                       "--temp", String(format: "%.2f", temperature), "-c", "8192", "--no-display-prompt"]
-        let out = Pipe()
-        p.standardOutput = out
-        p.standardError = FileHandle.nullDevice
-        p.standardInput = FileHandle.nullDevice
-        let box = OutputBox()
-        out.fileHandleForReading.readabilityHandler = { h in box.append(h.availableData) }
-        try p.run()
-        try await withTaskCancellationHandler {
-            while p.isRunning { try await Task.sleep(nanoseconds: 50_000_000) }
-        } onCancel: { p.terminate() }
+        return try await respond(cli: cli, ["-m", model.path, "-sys", instructions, "-p", prompt, "-cnv", "-st", "--jinja", "-n", "\(maxTokens)",
+                                            "--temp", String(format: "%.2f", temperature), "-c", "8192", "--no-display-prompt"])
+    }
+
+    /// Runs the CLI (tests: a fake script) and cleans its reply. stdout is read to EOF by `ProcessPipes`, then the exit
+    /// awaited (FLAKY-PIPE: a `readabilityHandler` chunk still in flight could be lost → empty or cut reply).
+    static func respond(cli: URL, _ arguments: [String]) async throws -> String {
+        let r = try await ProcessPipes.run(cli, arguments, stdout: .all)
         try Task.checkCancellation()
-        out.fileHandleForReading.readabilityHandler = nil
-        box.append(out.fileHandleForReading.readDataToEndOfFile())
-        guard p.terminationStatus == 0 else { throw AIToolError.unavailable("llama exit \(p.terminationStatus)") }
-        var text = String(decoding: box.data, as: UTF8.self)
+        guard r.status == 0 else { throw AIToolError.unavailable("llama exit \(r.status)") }
+        var text = String(decoding: r.stdout, as: UTF8.self)
         if let r = text.range(of: "[end of text]") { text = String(text[..<r.lowerBound]) }
         // Qwen3 hybrid models may emit an empty think block
         text = text.replacingOccurrences(of: "<think>\n\n</think>", with: "")
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    final class OutputBox: @unchecked Sendable {
-        private let lock = NSLock()
-        private(set) var data = Data()
-        func append(_ d: Data) { lock.withLock { data.append(d) } }
     }
 }
