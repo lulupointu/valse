@@ -184,7 +184,7 @@ public enum PlaybackEngineCheck {
         r.after = await poll(e, timeout: 20) { e.player.rate > 0 && e.audio.isRunning && e.currentTime.seconds >= target + 0.6 }
         r.restarted = e.player.rate > 0 && e.audio.isRunning
         r.framesAfter = e.framesSinceSeek
-        r.readersAfter = PreviewAudio.openReaders
+        r.readersAfter = e.audio.openReaderCount   // this engine's (other suites run readers in parallel)
         e.pause()
         e.audio.stop()
         return r
@@ -196,6 +196,10 @@ public enum PlaybackEngineCheck {
         public var after = Phase()
         public var playing = false
         public var heardEditAfterMs = Double.nan
+        /// The audio's enqueue horizon (ms; `PreviewAudio.feedAhead`, depends on the output latency).
+        public var feedAheadMs = 150.0
+        /// Budget for `heardEditAfterMs`: the horizon + the build + the next burst (bursts are ≤ 320 ms apart).
+        public var heardBudgetMs: Double { feedAheadMs + 350 }
     }
 
     /// Item rebuilds while playing (`forceRebuild`, then a structural edit: the clip's volume halved): the audio goes
@@ -204,6 +208,7 @@ public enum PlaybackEngineCheck {
         let (p, clip) = try await PreviewAudioCheck.burstProject(dir: dir)
         let (e, rec) = try await engine(p)
         var r = RebuildResult()
+        r.feedAheadMs = e.audio.feedAhead * 1000
         e.seek(to: Time(1.2))
         e.play()
         await poll(e, timeout: 20) { e.currentTime.seconds >= 1.6 }

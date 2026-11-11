@@ -10,14 +10,16 @@ import Foundation
 ///   → mixed stereo chunks → `AVSampleBufferAudioRenderer` (spectral time-pitch for J/K/L rates)
 ///   under an `AVSampleBufferRenderSynchronizer`, whose `timebase` is the preview clock (the engine starts the video's
 ///   timebase, on the same device clock, with the same (time, host time) pair: `start(rate:time:atHostTime:)`).
-/// The feeder runs on a private serial queue, paced `ahead` (150 ms) of the clock: a live-effect edit is heard after
-/// at most that much (plus one chunk). Nothing runs on the main thread; every public call only takes a lock, sets the
+/// The feeder runs on a private serial queue, paced `feedAhead` of the clock: max(`ahead` (150 ms), output latency +
+/// `feedMargin` (200 ms)), about 0.2 s on wired / built-in outputs and 0.37 s on AirPods (BUG-AIRPODS-SILENT: a
+/// horizon shorter than the output latency leaves the output silent, no error). A live-effect edit is heard after at
+/// most that much (plus one chunk). Nothing runs on the main thread; every public call only takes a lock, sets the
 /// synchronizer and dispatches to the queue.
 ///
 /// Transport: `seek` stops the clock at the target at once (the video can follow `timebase` right away), flushes the
 /// renderer and opens a new reader there; the clock (re)starts once `prime` of audio is enqueued (or at the requested
 /// host time if later). `pause` / `play` keep what is enqueued (no flush: continuous). `replace` swaps the composition
-/// while playing without a gap: the new reader continues where the queue ends (edit heard after ≤ `ahead` + a chunk).
+/// while playing without a gap: the new reader continues where the queue ends (edit heard after ≤ `feedAhead` + a chunk).
 /// Rates ≤ 0 (reverse shuttle) pause the audio: reverse stays silent, as with AVPlayer today.
 public final class PreviewAudio: @unchecked Sendable {
     public static let sampleRate = PreviewAudioLanes.sampleRate
@@ -28,7 +30,8 @@ public final class PreviewAudio: @unchecked Sendable {
     public let synchronizer = AVSampleBufferRenderSynchronizer()
     public var timebase: CMTimebase { synchronizer.timebase }
     public let audioState: AudioMixState
-    /// Media seconds kept enqueued past the clock while playing (× the rate when > 1), and before a start.
+    /// Minimum media seconds kept enqueued past the clock while playing (× the rate when > 1), and before a start; the
+    /// feeder uses `feedAhead`, which also covers the output latency.
     public let ahead: Double
     public let prime: Double
     let renderer = AVSampleBufferAudioRenderer()
@@ -140,11 +143,22 @@ public final class PreviewAudio: @unchecked Sendable {
     public static let minStartLead = 0.012
     public static let latencyMargin = 0.025
     /// Host-time lead a scheduled start (`setRate(_:time:atHostTime:)`) needs on an output with `outputLatency`:
-    /// a start scheduled closer than the output latency leaves the renderer silent for the WHOLE playback, with no
-    /// error (Bluetooth: AirPods ≈ 171 ms). An immediate `rate = …` start is not affected.
+    /// a start scheduled closer than the output latency drops the first samples (AirPods, latency ≈ 171 ms: a 12 ms lead
+    /// lost 0.26-0.9 s of the first 2 s, a 196 ms lead ~0.07 s). Steady silence comes from a short enqueue horizon
+    /// instead (`feedAhead`).
     public static func startLead(outputLatency: Double) -> Double {
         max(minStartLead, outputLatency + latencyMargin)
     }
+    /// Margin the enqueue horizon keeps past the output latency (measured on AirPods, latency 0.171 s: a horizon of
+    /// 0.15 s left 85-100 % of the IO cycles silent, 0.25 s 0-1 %, 0.40 s none).
+    public static let feedMargin = 0.2
+    /// Media seconds (at 1×) the feeder keeps enqueued past the clock: the renderer needs each sample about one output
+    /// latency before the clock reaches it and silently drops the late ones, so the horizon must exceed the latency.
+    public static func feedAhead(_ ahead: Double, outputLatency: Double) -> Double {
+        max(ahead, outputLatency + feedMargin)
+    }
+    /// The enqueue horizon on the current output (`feedAhead(ahead, outputLatency:)`).
+    public var feedAhead: Double { Self.feedAhead(ahead, outputLatency: outputLatency) }
     /// Total output latency (s) of the current output (cached; refreshed on a device / configuration change).
     public var outputLatency: Double { lock.withLock { _outputLatency } }
     /// Lead to schedule a start with on the current output (`startLead(outputLatency:)`).
@@ -295,7 +309,7 @@ public final class PreviewAudio: @unchecked Sendable {
     }
 
     /// Hot swap of the composition while playing: the new reader continues exactly where the queue ends (no flush,
-    /// no gap); the edit is heard once the queued audio (`ahead`, ≤ 150 ms + one chunk) has played.
+    /// no gap); the edit is heard once the queued audio (`feedAhead`, + one chunk) has played.
     /// (`renderer.flush(fromSourceTime:)` to drop the queued tail was tried: the renderer refused it even 80 ms ahead
     /// of the clock with 40 ms queued past that point — it has already consumed the paced queue.)
     private func swap(generation gen: Int) {
@@ -341,8 +355,10 @@ public final class PreviewAudio: @unchecked Sendable {
         // a seek / swap requested since: perform it first (a tick before its `drain` would feed — and report primed —
         // from the old position)
         if lock.withLock({ pendingSeek != nil || pendingBuilt != nil }) { drain() }
-        let (rate, gen) = lock.withLock { (wantsRate, generation) }
-        let limit = Int((rate > 0 ? ahead * max(1, rate) : max(ahead, prime)) * Self.sampleRate)
+        let (rate, gen, latency) = lock.withLock { (wantsRate, generation, _outputLatency) }
+        // the horizon must exceed the output latency, else every sample reaches the renderer late: silence, no error
+        let horizon = Self.feedAhead(ahead, outputLatency: latency)
+        let limit = Int((rate > 0 ? horizon * max(1, rate) : max(horizon, prime)) * Self.sampleRate)
         var clock = clockFrame()
         while cursor < endFrame, cursor - clock < limit, renderer.isReadyForMoreMediaData {
             let n = min(Self.chunkFrames, endFrame - cursor)
