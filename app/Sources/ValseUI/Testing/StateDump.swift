@@ -197,6 +197,8 @@ public enum StateDump {
         ui["compoundPreview"] = ["pending": cps.pending, "made": cps.made]
         ui["playback"] = ["framesSinceSeek": store.engine.framesSinceSeek, "lastFrameTime": store.engine.lastFrameTime.seconds,
                           "rate": Double(store.engine.player.rate)] as [String: Any]   // C3-5 freeze checks
+        // canvas eyedropper: on, and its sampled frame rendered (FLAKY-UI4: scripts wait for it, not for 1 s)
+        ui["eyedropper"] = ["active": store.canvasEyedropper != nil, "ready": store.canvasEyedropper?.isReady ?? false]
         ui["focusedPanel"] = PanelFocus.shared.current?.rawValue ?? ""   // SE-017
         ui["numericFieldKeys"] = NumericFieldKeys.isActive   // OB-11: a focused numeric field takes ↑ / ↓
         ui["playerDetached"] = store.playerUI.isDetached   // PB-006 (other panels: ui.layout.detached)
