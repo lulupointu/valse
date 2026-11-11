@@ -1,13 +1,15 @@
 // F4 AI-041: AI remove on a long source. A 40 s recording (red "logo" box) is too long while the clip uses all of it
 // (no AI remove section); cut to 8 s, the section appears, the brushed logo is removed from the clip's part only
 // (frames outside it are copied) with temporal smoothing of the fill.
+// FLAKY-UI4: its one retry (2026-11-04) was an app crash, not the script: SIGABRT in MPSGraph (MTLReportFailure in
+// MPSGraphTensorData initWithMTLBuffer) inside LaMaInpainter.inpaint's CoreML prediction on a loaded machine
+// (Valse-2026-11-04-201454.ips). Fixed waits replaced by waits on state.
 {
   "project": "empty",
   "requires": {"models": ["coreml.lama-800"]},
   "steps": [
     {"drop": {"files": ["fixtures/remove/long_logo.mp4"]}, "on": "time:0@main"},
     {"waitFor": {"path": "main.clips.count", "equals": 1, "timeout": 20}},
-    {"wait": 1.0},
     {"click": "clip:main/0"},
     {"click": "id:inspector.tab.video"},
     {"expect": {"path": "ui.anchors", "notContains": "inspector.section.video.aiRemove"}},
@@ -31,7 +33,8 @@
     {"click": "id:remove.apply"},
     {"waitFor": {"path": "undo.name", "equals": "cmd.aiRemove", "timeout": 240}},
     {"seek": 4},
-    {"wait": 1.5},
+    // the player shows the frame at 4 s (not a fixed 1.5 s wait)
+    {"waitFor": {"path": "ui.playback.lastFrameTime", "approx": 4, "tolerance": 0.05}},
     {"snapshot": "remove-long-result", "element": "id:panel.player"}
   ]
 }

@@ -13,7 +13,8 @@
     {"expect": {"path": "ui.toast", "exists": true}},
     {"key": "escape"},
     {"click": "id:inspector.chroma.pick"},
-    {"wait": 1},
+    // the sampled frame renders asynchronously: wait for it, not for a fixed 1 s (FLAKY-UI4, finish_sticker_layer)
+    {"waitFor": {"path": "ui.eyedropper.ready", "equals": true}},
     {"hover": "player:0.8,0.3"},
     {"snapshot": "eyedropper-loupe", "element": "id:panel.player"},
     {"dump": "before-pick"},
