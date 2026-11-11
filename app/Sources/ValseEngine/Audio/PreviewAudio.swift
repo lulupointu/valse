@@ -242,6 +242,17 @@ public final class PreviewAudio: @unchecked Sendable {
         }
     }
 
+    /// Stops the clock AT `time` (the slaved owner's paused position: the video stopped a moment before, on the same
+    /// device clock), keeping what is enqueued (no flush). Without it the audio clock stands where the call found it,
+    /// a few ms past the video when the thread was preempted between the two stops, and the resume then re-read the
+    /// audio from the video's time (a flush: an audible jump; FLAKY-PB, PlaybackResumeTests 3/30 at load 4).
+    public func pause(at time: Double) {
+        lock.withLock {
+            wantsRate = 0; startHostTime = nil
+            synchronizer.setRate(0, time: CMTime(seconds: max(0, time), preferredTimescale: Int32(Self.sampleRate)))
+        }
+    }
+
     /// J/K/L: changes the rate of a running clock (the renderer time-stretches, spectral); starts it if paused.
     public func setRate(_ rate: Double) {
         guard rate > 0 else { pause(); return }

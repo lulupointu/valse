@@ -459,12 +459,21 @@ public final class PlaybackEngine {
         // Only a running clock is news: when already paused, `requestedTime` is authoritative and the player may still be
         // mid-seek (reading it back raced the seek and moved the playhead — flaky library preview test).
         let rejoining = player.rate == 0 && resumeRate != nil && audio.isRunning
-        if player.rate != 0 || rejoining { requestedTime = currentTime }
+        let running = player.rate != 0
+        if running || rejoining { requestedTime = currentTime }
         let held = resumeRate != nil
         resumeRate = nil
         startToken &+= 1
         player.pause()
-        audio.pause()
+        // both clocks stand at the playhead: the audio stops at the video's paused time, not where it got to a moment
+        // later (else resume finds them apart and re-reads the audio: a flush, FLAKY-PB)
+        let paused = player.currentTime()
+        if running, !rejoining, paused.isNumeric {
+            requestedTime = timeline(paused)
+            audio.pause(at: paused.seconds)
+        } else {
+            audio.pause()
+        }
         if held { onPlayStateChange?(false) }   // rate was already 0 (seek in flight / priming): no KVO change
         onTimeUpdate?(requestedTime)
         // the re-joining video was sought ahead of the audio: bring it back to the paused time
