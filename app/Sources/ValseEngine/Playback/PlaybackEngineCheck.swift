@@ -43,11 +43,16 @@ public enum PlaybackEngineCheck {
 
     /// Polls like the player view until `until` returns true or `timeout` wall seconds; measures the A/V spread.
     @discardableResult
-    public static func poll(_ e: PlaybackEngine, timeout: Double, until: () -> Bool) async -> Phase {
+    /// `since`: the video clock when the phase's request was made (default: now, at the poll's start).
+    public static func poll(_ e: PlaybackEngine, timeout: Double, since: CMTime? = nil, until: () -> Bool) async -> Phase {
         var ph = Phase()
         let t0 = CACurrentMediaTime()
-        let from = e.player.currentTime()
-        while !until(), CACurrentMediaTime() - t0 < timeout {
+        let from = since ?? e.player.currentTime()
+        // measure, THEN test the exit condition: when the main actor is starved (parallel suites) for longer than the
+        // phase, the first poll after the start already finds `until` true; checked first, that phase got 0 reads
+        // ("the clocks never ran together", FLAKY-PB) although both ran. Measured first, the poll that ends a phase
+        // whose condition implies a running clock always reads it.
+        while CACurrentMediaTime() - t0 < timeout {
             if e.pixelBuffer(forHostTime: CACurrentMediaTime()) != nil { ph.frames += 1 }
             // (until a scheduled start the player reports its rate while its clock still holds: not a drift)
             if e.player.rate > 0, e.audio.isRunning, CACurrentMediaTime() > e.scheduledStartHost + 0.002 {
@@ -58,6 +63,7 @@ public enum PlaybackEngineCheck {
                     ph.avReads += 1
                 }
             }
+            if until() { break }
             try? await Task.sleep(nanoseconds: 4_000_000)
         }
         return ph
@@ -164,6 +170,8 @@ public enum PlaybackEngineCheck {
         public var after = Phase()
         public var readersAfter = 0
         public var framesAfter = 0
+        /// Hot audio swaps (item rebuilds while playing) and stall-watchdog rebuilds during the storm (diagnostics).
+        public var swaps = 0, rebuilds = 0
     }
 
     /// 12 seeks 80 ms apart while playing: video and audio both run again afterwards, in step, one reader open.
@@ -184,7 +192,12 @@ public enum PlaybackEngineCheck {
         r.after = await poll(e, timeout: 20) { e.player.rate > 0 && e.audio.isRunning && e.currentTime.seconds >= target + 0.6 }
         r.restarted = e.player.rate > 0 && e.audio.isRunning
         r.framesAfter = e.framesSinceSeek
-        r.readersAfter = e.audio.openReaderCount   // this engine's (other suites run readers in parallel)
+        // this engine's (other suites run readers in parallel), between two feeder operations: read while the feeder
+        // was inside a hot swap (an item rebuild while playing: stall watchdog, a cache becoming ready), the count is 2
+        // for a moment by design (FLAKY-PB: the flake, `readersAfter 2`)
+        r.readersAfter = await e.audio.settledOpenReaderCount()
+        r.swaps = e.audio.stats.swaps
+        r.rebuilds = e.stallRebuilds
         e.pause()
         e.audio.stop()
         return r

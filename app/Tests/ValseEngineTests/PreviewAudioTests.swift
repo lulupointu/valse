@@ -94,16 +94,24 @@ struct PreviewAudioTests {
         TimingBudget.metric("preview_audio_resume_ms", r.resumedMs, "ms")
     }
 
-    /// `replace` while playing: no discontinuity (the new reader continues where the queue ends), labels exact, the
-    /// new gains heard within 300 ms of the clock at the swap (queue ≤ `feedAhead` ≈ 0.2 s + build).
+    /// `replace` while playing: no discontinuity (the new reader continues where the queue ends), labels exact, and the
+    /// edit is heard from the queue's end at the swap on: every burst before that frame at the old gain, every one from
+    /// it on at the new gain, and that frame at most `feedAhead` + one chunk past the clock when the swap ran.
+    ///
+    /// FLAKY-PB: this asserted the wall-clock latency from the request (`heardAfterMs` < 300, then < 500 ms), which adds
+    /// the time the swap waits for the feeder queue and its first decode (load: 341 ms measured at load 7.5). That
+    /// latency is now a metric (`preview_audio_swap_queue_ms`); what the product guarantees is checked in media time.
     @Test func replaceWhilePlaying() async throws {
         let r = try await PreviewAudioCheck.swapWhilePlaying(dir: dir)
         print("PREVIEWAUDIO swap: \(r)")
         #expect(r.swaps == 1)
         #expect(r.discontinuities.isEmpty)
         #expect(r.leads.count >= 3 && r.leads.allSatisfy { abs($0) <= 3 }, "leads \(r.leads)")
-        // design value ≈ feedAhead + one chunk (≈ 230 ms on a low-latency output); 500 ms tolerates heavy parallel load
-        #expect(r.heardAfterMs < 500, "new gain heard \(r.heardAfterMs) ms after the swap")
+        #expect(r.wrongGain.isEmpty, "bursts at the wrong gain around the swap frame: \(r.wrongGain)")
+        #expect(r.onsetsAfter >= 1, "no burst played after the swap")
+        #expect(r.swapLeadMs <= r.horizonMs + 1, "the edit starts \(r.swapLeadMs) ms past the clock (horizon \(r.horizonMs) ms)")
+        if r.queueMs.isFinite { TimingBudget.metric("preview_audio_swap_queue_ms", r.queueMs, "ms") }
+        TimingBudget.metric("preview_audio_swap_heard_ms", r.heardAfterMs, "ms")
     }
 
     /// Output configuration change (device switch): flush + re-anchor at the clock, then plays on with exact labels.

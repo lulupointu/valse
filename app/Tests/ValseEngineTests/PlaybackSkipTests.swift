@@ -74,16 +74,24 @@ struct SkipTimeMapTests {
         #expect(abs(plain.duration.seconds - project.duration.seconds) < 0.01)
     }
 
-    /// Playback runs over the slices without a single seek: the rate never drops (a seek holds it at 0), no frame of a
-    /// skipped range is shown, and the playhead (timeline time) jumps over them.
+    /// What it protects (PB-QC quick-cut preview): playback runs over the marked slices without a single seek — the
+    /// rate never drops (a seek holds it at 0), the item clock never jumps, the playhead (timeline time) is never inside
+    /// a slice, no frame of a skipped range is ever shown — and the kept parts between / after the slices are shown.
     ///
-    /// Load (FLAKY-PB-SKIP): the shown frames are sampled by polling the view's frame source from the main actor, and
-    /// the kept part between the slices is only 1 s long. A main actor busy with other suites for ~1 s, or a starved
-    /// video pipeline whose late frames AVFoundation drops (the stall watchdog then re-primes), can leave no sample in
-    /// that second without anything being wrong with the skips. Every pass is checked strictly for what the skips must
-    /// never do (a skipped frame, a playhead inside a slice, a seek, a clock rebuild); only a pass that missed a kept
-    /// part AND shows measured load (a poll gap ≥ `loadGap`, a watchdog re-prime / rebuild) is played again. A pass
-    /// without load evidence that misses a kept part fails at once.
+    /// FLAKY-PB (history: 8 failures, load 2.7-25, in the parallel suite only; 15/15 alone at load 24-54):
+    /// - "playback paused N polls": another suite's reversed render / matte / cache segment finishing rebuilt THIS
+    ///   playing item (process-wide `onReady` callbacks, rebuild for any media): the gapless re-join holds the rate for
+    ///   its seek. Reproduced by injecting `forceRebuild()` 0-2500 ms into a pass (14/14 failed); fixed in the product:
+    ///   `PlaybackEngine` rebuilds only for its project's media (`PlaybackDerivedReadyTests`).
+    /// - "kept parts not shown: frames [0.30]" (all before the BUG-CUT-AUDIO-HOLE phase B transport): a pass that ends
+    ///   after a few polls. Each pass now records the item clock against the wall clock: a clock jump fails at once
+    ///   with its size (a playhead teleport is a product bug, never load).
+    /// The displayed frames are sampled by polling the view's frame source; under load AVFoundation drops late frames
+    /// and a 1 s kept part can get none, without anything being wrong with the skips. Whether a pass was starved is
+    /// measured in frames, not wall time: the frames the view got against the frames the item clock covered (plus a
+    /// starved main actor, a watchdog re-prime / rebuild). Only a starved pass that missed a kept part is played again
+    /// (at most `maxPasses`); a pass that got most of its frames and still missed a kept part fails at once. Every pass
+    /// is checked strictly for what the skips must never do.
     @Test func playbackRunsOverSkippedRangesWithoutSeeking() async throws {
         let project = try await Self.project()
         try await HeavyWorkGate.run {
@@ -95,7 +103,8 @@ struct SkipTimeMapTests {
             try await PlaybackProbe.waitReady(engine)
             var times: [Time] = []
             engine.onTimeUpdate = { times.append($0) }
-            let fd = project.settings.frameRate.frameDuration
+            let fps = project.settings.frameRate
+            let fd = fps.frameDuration
             let skips = Self.skips
             let inSlice: (Time) -> Bool = { t in skips.contains { $0.start + fd <= t && t < $0.end - fd } }
             for attempt in 1...Self.maxPasses {
@@ -104,22 +113,34 @@ struct SkipTimeMapTests {
                 try #require(await Self.until { engine.player.rate != 0 }, "never started")   // the start seek landed
                 times.removeAll()
                 let start = CACurrentMediaTime()
-                var frames: [Time] = [], rateDrops = 0, lastPoll = start, maxGap = 0.0
+                var frames: [Time] = [], rateDrops = 0, lastPoll = start, maxGap = 0.0, polls = 0
+                var firstItem = -1.0, lastItem = 0.0, maxJump = 0.0
                 let primes0 = engine.stallRecoveries, rebuilds0 = engine.stallRebuilds
                 while engine.currentTime < Time(4.2), CACurrentMediaTime() - start < 60 {
                     let now = CACurrentMediaTime()
-                    maxGap = max(maxGap, now - lastPoll); lastPoll = now
+                    let item = engine.player.currentTime().seconds
+                    if polls > 0 { maxJump = max(maxJump, (item - lastItem) - (now - lastPoll) * Double(engine.player.rate)) } else { firstItem = item }
+                    maxGap = max(maxGap, now - lastPoll); lastPoll = now; lastItem = item; polls += 1
                     if let (_, t) = engine.pixelBuffer(forHostTime: now), frames.last != t { frames.append(t) }
                     if engine.player.rate == 0 { rateDrops += 1 }
                     try await Task.sleep(nanoseconds: 4_000_000)
                 }
                 engine.pause()
                 let primes = engine.stallRecoveries - primes0, rebuilds = engine.stallRebuilds - rebuilds0
-                let diag = "pass \(attempt): frames \(frames.map { String(format: "%.2f", $0.seconds) }), max poll gap "
-                    + "\(String(format: "%.2f", maxGap)) s, watchdog primes \(primes) rebuilds \(rebuilds)"
+                // frames the item clock covered during the pass vs frames the view got
+                let covered = max(1, Int(((lastItem - firstItem) / fd.seconds).rounded()))
+                let diag = "pass \(attempt): frames \(frames.map { String(format: "%.2f", $0.seconds) }) (\(frames.count) of \(covered) "
+                    + "covered), item clock \(String(format: "%.2f", firstItem)) → \(String(format: "%.2f", lastItem)) s, max jump "
+                    + "\(String(format: "%.3f", maxJump)) s, \(polls) polls, max poll gap \(String(format: "%.2f", maxGap)) s, "
+                    + "watchdog primes \(primes) rebuilds \(rebuilds), wall \(String(format: "%.2f", CACurrentMediaTime() - start)) s"
                 #expect(engine.currentTime >= Time(4.2) || engine.requestedTime >= Time(4.2), "playback did not get past the slices: \(diag)")
-                // (a stall watchdog re-prime / rebuild under heavy load also holds the rate for its seek: not a slice seek)
-                if primes == 0 && rebuilds == 0 { #expect(rateDrops == 0, "playback paused \(rateDrops) polls (a seek at a slice): \(diag)") }
+                // (a stall watchdog re-prime / rebuild under heavy load also holds the rate for its seek, and re-joins the
+                // video ahead of the audio: not a slice seek)
+                if primes == 0 && rebuilds == 0 {
+                    #expect(rateDrops == 0, "playback paused \(rateDrops) polls (a seek at a slice): \(diag)")
+                    #expect(maxJump < Self.maxClockJump, "the item clock jumped: \(diag)")
+                    #expect(firstItem < 0.3 + Self.maxClockJump + (start - engine.scheduledStartHost), "the clock started past the seek target: \(diag)")
+                }
                 let inside = frames.filter(inSlice)
                 #expect(inside.isEmpty, "frames of skipped ranges shown: \(inside.map(\.seconds)) — \(diag)")
                 let skippedTimes = times.filter(inSlice)
@@ -127,10 +148,10 @@ struct SkipTimeMapTests {
                 #expect(engine.driftRejoins == 0, "\(diag)")
                 let keptShown = frames.contains { $0 >= Time(2) && $0 < Time(3) } && frames.contains { $0 >= Time(3.5) }
                 if keptShown { break }
-                let loaded = maxGap >= Self.loadGap || primes > 0 || rebuilds > 0
-                #expect(loaded && attempt < Self.maxPasses,
-                        "kept parts between / after the slices not shown\(loaded ? " in \(Self.maxPasses) loaded passes" : " (no load measured)"): \(diag)")
-                if !loaded { break }
+                let starved = frames.count * 2 < covered || maxGap >= Self.loadGap || primes > 0 || rebuilds > 0
+                #expect(starved && attempt < Self.maxPasses,
+                        "kept parts between / after the slices not shown\(starved ? " in \(Self.maxPasses) starved passes" : " although the view got most frames"): \(diag)")
+                if !starved { break }
             }
             // back to the plain timeline: the skip map goes once the rebuild is in place
             engine.skipRanges = []
@@ -139,9 +160,11 @@ struct SkipTimeMapTests {
         }
     }
 
-    /// Passes played at most when load hides a kept part; poll gap (s) that counts as a starved main actor.
+    /// Passes played at most when a starved pass hides a kept part; poll gap (s) that counts as a starved main actor.
     static let maxPasses = 3
     static let loadGap = 0.25
+    /// Item-clock advance beyond the wall clock between two polls (s) that counts as a jump (a frame is 0.033 s).
+    static let maxClockJump = 0.2
 
     /// Waits (polling the main actor) until `ok`, at most `ceiling` s.
     static func until(_ ceiling: Double = 120, _ ok: () -> Bool) async -> Bool {
@@ -151,5 +174,29 @@ struct SkipTimeMapTests {
             try? await Task.sleep(nanoseconds: 10_000_000)
         }
         return true
+    }
+}
+
+/// FLAKY-PB: a derived render (reversed file, matte) finishing for media the project does not use must not rebuild the
+/// playing item (each rebuild re-joins the video 0.25 s ahead: a hitch, and the rate drop PlaybackSkipTests saw when
+/// another suite's reversed render finished); one of the project's media still rebuilds.
+@MainActor struct PlaybackDerivedReadyTests {
+    @Test func onlyTheProjectsMediaRebuild() async throws {
+        let project = try await PlaybackSkipTests.project()
+        let engine = PlaybackEngine(project: project)
+        // the callbacks this engine registered (process-wide singletons: read them before any suspension point)
+        let reverse = try #require(ReverseManager.shared.onReady), matte = try #require(MatteStore.shared.onMatteReady)
+        engine.usesProxies = false
+        try await PlaybackProbe.waitReady(engine)
+        #expect(await PlaybackSkipTests.until { !engine.isBuilding })
+        let hash = try #require(project.media.first?.contentHash)
+        reverse("0123456789abcdef-unrelated")
+        matte("0123456789abcdef-unrelated", "subject")
+        #expect(!engine.isBuilding, "a render of media the project does not use rebuilt the preview")
+        reverse(hash + "-matte-subject")
+        #expect(engine.isBuilding, "the project's own reversed matte did not rebuild the preview")
+        #expect(await PlaybackSkipTests.until { !engine.isBuilding })
+        matte(hash, "subject")
+        #expect(engine.isBuilding, "the project's own matte did not rebuild the preview")
     }
 }
