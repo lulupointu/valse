@@ -224,6 +224,9 @@ struct EffectLibraryTab: View {
 
     var body: some View {
         WithPerceptionTracking {
+            // FX-018: re-list after import / reload / delete. Read here, in this body: the grid's builder closure runs
+            // inside PanelScrollView, whose re-render would keep the stale `items` computed below.
+            let _ = CustomEffectsState.shared.revision
             let navItems = EffectLibraryCatalog.nav(category)
             let current = nav.isEmpty ? (navItems.dropFirst().first?.id ?? navItems[0].id) : nav
             let searching = !EffectLibraryCatalog.fold(query).isEmpty
