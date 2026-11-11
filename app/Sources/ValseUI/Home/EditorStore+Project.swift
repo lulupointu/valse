@@ -157,8 +157,17 @@ nonisolated final class ResumeOnce: @unchecked Sendable {
 }
 
 /// Builds a self-contained project copy (W12 "Pack project"). Off-main.
+/// Progress (BUG-PACK-PROGRESS) is weighted by the real work, so it moves roughly linearly in time: the package copy
+/// and the media copies count their bytes (an APFS clone only a small per-file cost), the zip counts the package bytes
+/// times `zipCostPerByte` (deflating runs ~50 MB/s, far slower than a disk copy), and every phase reports byte-level
+/// progress (chunked copies, the growing archive). Reports are throttled (≥ 0.5 % or 0.1 s) and monotonic.
 nonisolated enum ProjectPacker {
-    static func pack(_ project: Project, from package: URL?, into directory: URL, zip: Bool,
+    /// Relative cost of one zipped byte vs one streamed copied byte.
+    static let zipCostPerByte: Int64 = 4
+    static let packageJunk: Set<String> = [".session.lock", ProjectVersions.directoryName]
+
+    /// `clone: false` never clones files (tests: byte-level copy progress on one volume).
+    static func pack(_ project: Project, from package: URL?, into directory: URL, zip: Bool, clone: Bool = true,
                      progress: (@Sendable (Double) -> Void)? = nil) throws -> URL {
         let fm = FileManager.default
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -169,7 +178,8 @@ nonisolated enum ProjectPacker {
         let dest = ProjectLibrary.uniquePackageURL(for: name, in: staging)
         var zipOut: URL?
         do {
-            return try build(project, from: package, dest: dest, directory: directory, zip: zip, zipOut: &zipOut, progress: progress)
+            return try build(project, from: package, dest: dest, directory: directory, zip: zip, clone: clone,
+                             zipOut: &zipOut, progress: progress)
         } catch {
             // cancelled or failed: no half-written package / archive is left behind
             try? fm.removeItem(at: dest)
@@ -178,28 +188,57 @@ nonisolated enum ProjectPacker {
         }
     }
 
-    private static func build(_ project: Project, from package: URL?, dest: URL, directory: URL, zip: Bool, zipOut: inout URL?,
-                              progress: (@Sendable (Double) -> Void)?) throws -> URL {
+    /// Work plan of a pack, in cost units (see `FileCopier.cost`).
+    struct Plan { var packageCost: Int64, saveCost: Int64, mediaCost: Int64, zipCost: Int64
+        var total: Int64 { max(packageCost + saveCost + mediaCost + zipCost, 1) }
+        /// Fraction at which the zip phase starts.
+        var zipStart: Double { Double(packageCost + saveCost + mediaCost) / Double(total) }
+    }
+
+    static func plan(_ project: Project, from package: URL?, dest: URL, zip: Bool, clone: Bool) -> Plan {
+        let source = package.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+        let pkgBytes = source.map { FileCopier.treeFiles($0, skip: packageJunk).reduce(Int64(0)) { $0 + $1.size } } ?? 0
+        let pkgCost = source.map { FileCopier.treeCost($0, into: dest.deletingLastPathComponent(), skip: packageJunk, clone: clone) } ?? 0
+        let media = MediaConsolidator.plannedCost(project, packageURL: dest,
+                                                  existingIn: source?.appendingPathComponent("media", isDirectory: true), clone: clone)
+        let zipCost = zip ? (pkgBytes + media.bytes + FileCopier.perFileCost) * zipCostPerByte : 0
+        return Plan(packageCost: pkgCost, saveCost: 2 * FileCopier.perFileCost, mediaCost: media.cost, zipCost: zipCost)
+    }
+
+    private static func build(_ project: Project, from package: URL?, dest: URL, directory: URL, zip: Bool, clone: Bool,
+                              zipOut: inout URL?, progress: (@Sendable (Double) -> Void)?) throws -> URL {
         let fm = FileManager.default
+        let work = plan(project, from: package, dest: dest, zip: zip, clone: clone)
+        let total = Double(work.total)
+        let throttle = ProgressThrottle { progress?($0) }
+        let report: @Sendable (Int64) -> Void = { throttle.report(Double($0) / total) }
         if let package, fm.fileExists(atPath: package.path) {
-            try fm.copyItem(at: package, to: dest)
-            for junk in [".session.lock", ProjectVersions.directoryName] { try? fm.removeItem(at: dest.appendingPathComponent(junk)) }
+            try FileCopier.copyTree(at: package, to: dest, skip: packageJunk, clone: clone) { report(min($0, work.packageCost)) }
         }
+        var done = work.packageCost
+        report(done)
         var p = project
         try ProjectPackage.save(p, to: dest)
-        let map = try MediaConsolidator.consolidate(p, packageURL: dest) { progress?($0 * 0.9) }
+        done += FileCopier.perFileCost
+        report(done)
+        let mediaBase = done, mediaCost = Double(work.mediaCost)
+        let map = try MediaConsolidator.consolidate(p, packageURL: dest, clone: clone) { report(mediaBase + Int64($0 * mediaCost)) }
         MediaRelinker.apply(map, to: &p)
         try ProjectPackage.save(p, to: dest)
-        guard zip else { progress?(1); return dest }
+        done = mediaBase + work.mediaCost + FileCopier.perFileCost
+        report(done)
+        guard zip else { throttle.report(1); return dest }
         let z = directory.appendingPathComponent(dest.deletingPathExtension().lastPathComponent).appendingPathExtension("zip")
         let out = fm.fileExists(atPath: z.path)
             ? directory.appendingPathComponent("\(dest.deletingPathExtension().lastPathComponent) \(Int(Date().timeIntervalSince1970))").appendingPathExtension("zip")
             : z
         try Task.checkCancellation()
         zipOut = out
-        try ProjectArchive.zip(dest, to: out)
+        let bytes = FileCopier.treeFiles(dest).reduce(Int64(0)) { $0 + $1.size }
+        let zipBase = done, zipCost = Double(work.zipCost)
+        try ProjectArchive.zip(dest, to: out, expectedBytes: bytes) { report(zipBase + Int64($0 * zipCost)) }
         try Task.checkCancellation()
-        progress?(1)
+        throttle.report(1)
         return out
     }
 }

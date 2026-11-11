@@ -65,40 +65,96 @@ public enum MediaRelinker {
 /// "Copy media to project" (MI-007): copies every external media file into `<package>/media/` and rewrites the URLs.
 public enum MediaConsolidator {
     /// Copies files off the main thread; returns asset id → new URL. Existing copies with the same name+size are reused.
-    public static func consolidate(_ project: Project, packageURL: URL, progress: (@Sendable (Double) -> Void)? = nil) throws -> [MediaID: URL] {
+    /// `progress` is proportional to the bytes to copy (byte-level inside large files, BUG-PACK-PROGRESS), not to the
+    /// file count. `clone: false` never clones (tests). Cancellation is checked between chunks.
+    public static func consolidate(_ project: Project, packageURL: URL, clone: Bool = true,
+                                   progress: (@Sendable (Double) -> Void)? = nil) throws -> [MediaID: URL] {
         let fm = FileManager.default
         let mediaDir = packageURL.appendingPathComponent("media", isDirectory: true)
         try fm.createDirectory(at: mediaDir, withIntermediateDirectories: true)
         var out: [MediaID: URL] = [:]
         var taken = Set((try? fm.contentsOfDirectory(atPath: mediaDir.path)) ?? [])
-        let todo = project.media.filter { !$0.url.standardizedFileURL.path.hasPrefix(mediaDir.standardizedFileURL.path) && MediaRelinker.fileExists($0) }
-        for (k, a) in todo.enumerated() {
+        let items = plan(project, mediaDir: mediaDir, existingIn: mediaDir, clone: clone)
+        let total = max(items.reduce(Int64(0)) { $0 + $1.cost }, 1)
+        var done: Int64 = 0
+        let throttle = progress.map { ProgressThrottle($0) }   // byte-level reports, throttled for the UI
+        func report(_ c: Int64) { throttle?.report(Double(c) / Double(total)) }
+        for item in items {
             try Task.checkCancellation()   // "Cancel" while packing / consolidating
-            if a.conversion == .imageSequence, let s = a.sequence {
+            let a = item.asset
+            switch item.action {
+            case .sequence(let files):
                 // copy the whole sequence into its own sub-folder
                 let sub = mediaDir.appendingPathComponent(uniqueName(a.name, taken: &taken), isDirectory: true)
                 try fm.createDirectory(at: sub, withIntermediateDirectories: true)
                 let src = a.url.deletingLastPathComponent()
-                for i in 0..<s.count {
-                    let f = s.fileName(i)
-                    let d = sub.appendingPathComponent(f)
-                    if !fm.fileExists(atPath: d.path) { try fm.copyItem(at: src.appendingPathComponent(f), to: d) }
+                for f in files {
+                    let d = sub.appendingPathComponent(f.name)
+                    let before = done
+                    if !fm.fileExists(atPath: d.path) {
+                        try FileCopier.copyFile(at: src.appendingPathComponent(f.name), to: d, clone: clone) { b in
+                            report(before + (item.cloneable ? 0 : b))
+                        }
+                    }
+                    done = before + FileCopier.cost(bytes: f.size, cloneable: item.cloneable)
+                    report(done)
                 }
-                out[a.id] = sub.appendingPathComponent(s.fileName(0))
-            } else {
-                let existing = mediaDir.appendingPathComponent(a.url.lastPathComponent)
-                let size = ((try? fm.attributesOfItem(atPath: existing.path))?[.size] as? NSNumber)?.int64Value
-                if size == a.fileSize, a.fileSize > 0 {
-                    out[a.id] = existing
-                } else {
-                    let dst = mediaDir.appendingPathComponent(uniqueName(a.url.lastPathComponent, taken: &taken))
-                    try fm.copyItem(at: a.url, to: dst)
-                    out[a.id] = dst
-                }
+                out[a.id] = sub.appendingPathComponent(files.first?.name ?? a.url.lastPathComponent)
+            case .reuse(let existing):
+                out[a.id] = existing
+                done += item.cost
+                report(done)
+            case .copy:
+                let dst = mediaDir.appendingPathComponent(uniqueName(a.url.lastPathComponent, taken: &taken))
+                let before = done
+                try FileCopier.copyFile(at: a.url, to: dst, clone: clone) { b in report(before + (item.cloneable ? 0 : b)) }
+                out[a.id] = dst
+                done = before + item.cost
+                report(done)
             }
-            progress?(Double(k + 1) / Double(max(todo.count, 1)))
         }
+        report(total)
         return out
+    }
+
+    /// Work units of `consolidate` (bytes to stream + a per-file cost; clones cost only the per-file cost) and the
+    /// bytes the package grows by. `existingIn`: where already-copied files are looked up (default `<package>/media`;
+    /// "Pack project" passes the source package's media folder, which is copied into the new package first).
+    public static func plannedCost(_ project: Project, packageURL: URL, existingIn: URL? = nil, clone: Bool = true) -> (cost: Int64, bytes: Int64) {
+        let mediaDir = packageURL.appendingPathComponent("media", isDirectory: true)
+        let items = plan(project, mediaDir: mediaDir, existingIn: existingIn ?? mediaDir, clone: clone)
+        return (items.reduce(0) { $0 + $1.cost }, items.reduce(0) { $0 + $1.bytes })
+    }
+
+    struct Item {
+        enum Action { case sequence([(name: String, size: Int64)]), reuse(URL), copy }
+        var asset: MediaAsset
+        var action: Action
+        var cloneable: Bool
+        var cost: Int64
+        var bytes: Int64
+    }
+
+    static func plan(_ project: Project, mediaDir: URL, existingIn: URL, clone: Bool) -> [Item] {
+        let todo = project.media.filter { !$0.url.standardizedFileURL.path.hasPrefix(mediaDir.standardizedFileURL.path) && MediaRelinker.fileExists($0) }
+        return todo.map { a in
+            let cloneable = clone && FileCopier.canClone(a.url, into: mediaDir)
+            if a.conversion == .imageSequence, let s = a.sequence {
+                let src = a.url.deletingLastPathComponent()
+                let files = (0..<s.count).map { i in (name: s.fileName(i), size: FileCopier.size(src.appendingPathComponent(s.fileName(i)))) }
+                let bytes = files.reduce(Int64(0)) { $0 + $1.size }
+                let cost = files.reduce(Int64(0)) { $0 + FileCopier.cost(bytes: $1.size, cloneable: cloneable) }
+                return Item(asset: a, action: .sequence(files), cloneable: cloneable, cost: cost, bytes: bytes)
+            }
+            let existing = existingIn.appendingPathComponent(a.url.lastPathComponent)
+            if a.fileSize > 0, FileCopier.size(existing) == a.fileSize, FileManager.default.fileExists(atPath: existing.path) {
+                return Item(asset: a, action: .reuse(mediaDir.appendingPathComponent(a.url.lastPathComponent)),
+                            cloneable: cloneable, cost: FileCopier.perFileCost, bytes: 0)
+            }
+            let size = FileCopier.size(a.url)
+            return Item(asset: a, action: .copy, cloneable: cloneable,
+                        cost: FileCopier.cost(bytes: size, cloneable: cloneable), bytes: size)
+        }
     }
 
     static func uniqueName(_ name: String, taken: inout Set<String>) -> String {
