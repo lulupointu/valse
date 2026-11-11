@@ -311,6 +311,7 @@ struct ContentLibraryCredits: View {
                         Text(loc: expanded ? "about.content.hide" : "about.content.show").font(.system(size: 12))
                     }
                     .foregroundStyle(Theme.accent)
+                    .contentShape(Rectangle())   // BUG-HIT-AREA: the gap between ▸ and the label clicks too
                 }
                 .buttonStyle(.plain)
                 .testID("about.content.toggle")

@@ -1,0 +1,18 @@
+// BUG-HIT-AREA: small icon buttons click on their whole target, not only the drawn glyph. Clicks land OUTSIDE the
+// glyph (beyond the crop ✕'s edge, in the corner of the title-bar EditPilot key) and still act.
+{
+  "project": "demo",
+  "steps": [
+    {"click": "clip:main/0"},
+    {"seek": 1.0},
+    {"click": "id:toolbar.crop"},
+    {"waitFor": {"path": "ui.crop.open", "equals": true, "timeout": 10}},
+    // 3 pt beyond the ✕ glyph's bottom-right corner
+    {"click": "id:crop.close", "at": [1, 1], "offset": [3, 3]},
+    {"waitFor": {"path": "ui.crop.open", "equals": false, "timeout": 10}},
+    {"expect": {"path": "undo.depth", "equals": 0}},
+    // the quiet key's corner (its hover fill), left of the ✦ glyph
+    {"click": "id:titlebar.pilot", "at": [0.03, 0.1]},
+    {"waitFor": {"path": "ui.pilot.open", "equals": true, "timeout": 10}}
+  ]
+}

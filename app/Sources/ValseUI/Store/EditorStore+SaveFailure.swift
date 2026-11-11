@@ -80,8 +80,8 @@ struct SaveFailureBanner: View {
                             .foregroundStyle(Theme.dangerText)
                     }
                     .buttonStyle(.plain).testID("saveFailure.action")
-                    Button { store.dismissSaveFailure() } label: { Image(systemName: "xmark").foregroundStyle(Theme.textSecondary) }
-                        .buttonStyle(.plain).help(tr("action.dismiss")).testID("saveFailure.dismiss")
+                    GlyphButton { store.dismissSaveFailure() } label: { Image(systemName: "xmark").foregroundStyle(Theme.textSecondary) }
+                        .help(tr("action.dismiss")).testID("saveFailure.dismiss")
                 }
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 14).padding(.vertical, 8)

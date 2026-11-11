@@ -70,21 +70,21 @@ struct FontBookPanel: View {
             Text(verbatim: "Aa").font(previewFont(name, size: 20)).foregroundStyle(Theme.textPrimary).frame(width: 36)
             Text(verbatim: name).font(previewFont(name, size: 14)).foregroundStyle(Theme.textPrimary).lineLimit(1)
             Spacer()
-            Button {
+            GlyphButton {
                 if fav { ui.favoriteFonts.removeAll { $0 == name } } else { ui.favoriteFonts.append(name) }
             } label: {
                 Image(systemName: fav ? "star.fill" : "star").font(.system(size: 12)).foregroundStyle(fav ? IStyle.curve : IStyle.iconDim)
             }
-            .buttonStyle(.plain).help(tr("text.font.favorite")).testID("fontbook.favorite.\(name)")
+            .help(tr("text.font.favorite")).testID("fontbook.favorite.\(name)")
             if removable {
-                Button { NSWorkspace.shared.activateFileViewerSelecting(FontLibrary.files(ofFamily: name)) } label: {
+                GlyphButton { NSWorkspace.shared.activateFileViewerSelecting(FontLibrary.files(ofFamily: name)) } label: {
                     Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(IStyle.iconDim)
                 }
-                .buttonStyle(.plain).help(tr("fontbook.reveal"))
-                Button { store.removeImportedFont(name) } label: {
+                .help(tr("fontbook.reveal"))
+                GlyphButton { store.removeImportedFont(name) } label: {
                     Image(systemName: "trash").font(.system(size: 12)).foregroundStyle(IStyle.iconDim)
                 }
-                .buttonStyle(.plain).help(tr("fontbook.remove")).testID("fontbook.remove.\(name)")
+                .help(tr("fontbook.remove")).testID("fontbook.remove.\(name)")
             }
         }
         .padding(.horizontal, 12).frame(height: 40)

@@ -50,8 +50,8 @@ struct TransitionsTab: View {
                         TextField(tr("transitions.search"), text: $query).textFieldStyle(.plain).font(.system(size: 12))
                             .testID("transitions.search")
                         if !query.isEmpty {
-                            Button { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
-                                .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
+                            GlyphButton { query = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
+                                .foregroundStyle(Theme.textTertiary)
                         }
                     }
                     .padding(.horizontal, 10).frame(height: 28)

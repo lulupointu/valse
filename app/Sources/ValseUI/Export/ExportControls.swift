@@ -124,11 +124,11 @@ struct ExportSectionHeader: View {
                     }.contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).disabled(!enabled).testID("export.section.\(id)")
-                Button { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
+                GlyphButton(outset: 2) { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
                     Image(systemName: expanded ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill").font(.system(size: 7))
                         .foregroundStyle(enabled ? Theme.textSecondary : ExportStyle.disabledLabel).frame(width: 16, height: 16)
                 }
-                .buttonStyle(.plain).testID("export.section.\(id).expand")
+                .testID("export.section.\(id).expand")
                 Spacer()
             }
             .frame(height: 32)

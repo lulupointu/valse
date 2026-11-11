@@ -593,8 +593,8 @@ struct ProjectsHeader: View {
                         TextField(tr("home.search.placeholder"), text: $app.search)
                             .textFieldStyle(.plain).font(.system(size: 12)).focused($searchFocused).testID("home.search.field")
                             .onExitCommand { app.search = ""; app.isSearching = false }
-                        Button { app.search = ""; app.isSearching = false } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
-                            .buttonStyle(.plain).foregroundStyle(Theme.Valse.text3).testID("home.search.clear")
+                        GlyphButton { app.search = ""; app.isSearching = false } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 11)) }
+                            .foregroundStyle(Theme.Valse.text3).testID("home.search.clear")
                     }
                     .padding(.horizontal, 8).frame(width: 220, height: 28)
                     .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: ValseShape.control))
@@ -1139,13 +1139,13 @@ struct ProjectListHeader: View {
         }
     }
     func col(_ t: String, _ s: LibrarySort) -> some View {
-        Button { app.setSort(s) } label: {
+        // BUG-HIT-AREA: the gap and a 20 pt band click, not only the small caps
+        GlyphButton(h: 0, v: 5) { app.setSort(s) } label: {
             HStack(spacing: 3) {
                 Text(verbatim: t)
                 if app.sort == s { Image(systemName: app.ascending ? "chevron.up" : "chevron.down").font(.system(size: 8, weight: .bold)) }
             }
         }
-        .buttonStyle(.plain)
         .testID("home.col.\(s.rawValue)")
     }
 }

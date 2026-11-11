@@ -229,8 +229,8 @@ struct ModelDownloadIndicator: View {
                 Spacer()
                 Text(verbatim: item.cancelling ? tr("pack.cancelling") : "\(Int((item.progress * 100).rounded(.down))) %")
                     .font(Theme.Fonts.hint).foregroundStyle(IStyle.caption).monospacedDigit()
-                Button { pack.cancel() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("pack.cancel"))
+                GlyphButton { pack.cancel() } label: { Image(systemName: "xmark") }
+                    .foregroundStyle(Theme.textSecondary).help(tr("pack.cancel"))
                     .disabled(item.cancelling).testID("pack.cancel")
             }
             ProgressView(value: item.progress).tint(Theme.accent).testID("pack.progress.bar")
@@ -255,8 +255,8 @@ struct ModelDownloadIndicator: View {
                             }
                         }
                         Spacer()
-                        Button { flow.dismissFailure(id) } label: { Image(systemName: "xmark") }
-                            .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("download.dismiss"))
+                        GlyphButton { flow.dismissFailure(id) } label: { Image(systemName: "xmark") }
+                            .foregroundStyle(Theme.textSecondary).help(tr("download.dismiss"))
                             .testID("modelDownloads.dismiss.\(id)")
                     }
         }
@@ -273,8 +273,8 @@ struct ModelDownloadIndicator: View {
                 Text(verbatim: p.map { "\(Int($0 * 100)) %" } ?? tr("models.verifying")).font(Theme.Fonts.hint).foregroundStyle(IStyle.caption)
                     .monospacedDigit()
                 if !flow.confirmingCancel.contains(s.id) {
-                    Button { flow.askCancel(s) } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).foregroundStyle(Theme.textSecondary).help(tr("download.cancel"))
+                    GlyphButton { flow.askCancel(s) } label: { Image(systemName: "xmark") }
+                        .foregroundStyle(Theme.textSecondary).help(tr("download.cancel"))
                         .testID("modelDownloads.cancel.\(s.id)")
                 }
             }
