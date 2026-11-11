@@ -21,7 +21,8 @@ final class TextAtlas: @unchecked Sendable {
         self.texture = texture; self.uv = uv; self.cells = cells; bytes = texture.width * texture.height * 4
     }
 
-    static func build(_ scene: TextScene, keepImage: Bool = false) -> TextAtlas? {
+    /// `costly`: paint under `TextPainter.painting(costly:)` (blurred looks are not deterministic in parallel).
+    static func build(_ scene: TextScene, keepImage: Bool = false, costly: Bool = false) -> TextAtlas? {
         let n = scene.items.count
         guard n > 0 else { return nil }
         var cells = scene.items.map { $0.rect.integral }
@@ -51,14 +52,16 @@ final class TextAtlas: @unchecked Sendable {
         else { return nil }
         ctx.translateBy(x: 0, y: CGFloat(H)); ctx.scaleBy(x: 1, y: -1)
         var uv = [SIMD4<Float>?](repeating: nil, count: n)
-        for i in 0..<n {
-            let c = cells[i], o = origins[i]
-            ctx.saveGState()
-            ctx.clip(to: CGRect(origin: o, size: c.size))
-            ctx.translateBy(x: o.x - c.minX, y: o.y - c.minY)
-            TextPainter.draw(scene.items[i], scene: scene, in: ctx)
-            ctx.restoreGState()
-            uv[i] = SIMD4(Float(o.x) / Float(W), Float(o.y) / Float(H), Float(c.width) / Float(W), Float(c.height) / Float(H))
+        TextPainter.painting(costly: costly) {
+            for i in 0..<n {
+                let c = cells[i], o = origins[i]
+                ctx.saveGState()
+                ctx.clip(to: CGRect(origin: o, size: c.size))
+                ctx.translateBy(x: o.x - c.minX, y: o.y - c.minY)
+                TextPainter.draw(scene.items[i], scene: scene, in: ctx)
+                ctx.restoreGState()
+                uv[i] = SIMD4(Float(o.x) / Float(W), Float(o.y) / Float(H), Float(c.width) / Float(W), Float(c.height) / Float(H))
+            }
         }
         guard let tex = TextGPU.upload(ctx, W, H) else { return nil }
         let atlas = TextAtlas(texture: tex, uv: uv, cells: cells)

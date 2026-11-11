@@ -134,7 +134,14 @@ public enum FFmpegSidecar {
         }
     }
 
-    /// Runs a tool to completion, returning stdout.
+    /// Runs a tool to completion, returning its whole stdout and exit status.
+    ///
+    /// stdout is read by ONE reader, to end of file, then the exit status is awaited. (It used to be collected by a
+    /// `readabilityHandler` whose last call could still be in flight when the process exited: `run` then removed the
+    /// handler, read the rest and returned before that call appended its chunk, so stdout came back empty or cut —
+    /// for ffprobe, invalid JSON, and an MKV failed to import with AVFoundation's "Cannot Open"; FLAKY-ENG,
+    /// ImportTests.ffmpegFallbackForMKV, FFmpegSidecarRunTests.) The blocking read runs on an OffPool thread, never on
+    /// the cooperative pool.
     static func run(_ exe: URL, _ args: [String]) async throws -> (Data, Int32) {
         let p = Process()
         p.executableURL = exe
@@ -143,15 +150,35 @@ public enum FFmpegSidecar {
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice
         p.standardInput = FileHandle.nullDevice
-        let box = DataBox()
-        out.fileHandleForReading.readabilityHandler = { h in box.append(h.availableData) }
-        let status: Int32 = try await withCheckedThrowingContinuation { c in
-            p.terminationHandler = { p in c.resume(returning: p.terminationStatus) }
-            do { try p.run() } catch { p.terminationHandler = nil; c.resume(throwing: error) }
+        let exit = ExitStatus()
+        p.terminationHandler = { exit.set($0.terminationStatus) }
+        try p.run()
+        let reader = UncheckedSendable(out.fileHandleForReading)
+        // EOF comes when the tool (and anything it spawned) closed stdout, i.e. at its exit at the latest
+        let data = try await OffPool.run { _ in reader.value.readDataToEndOfFile() }
+        try? reader.value.close()
+        return (data, await exit.wait())
+    }
+
+    /// A process's exit status, set once by its termination handler, awaited by `run`.
+    private final class ExitStatus: @unchecked Sendable {
+        private let lock = NSLock()
+        private var status: Int32?
+        private var waiter: CheckedContinuation<Int32, Never>?
+        func set(_ s: Int32) {
+            let w: CheckedContinuation<Int32, Never>? = lock.withLock {
+                status = s
+                defer { waiter = nil }
+                return waiter
+            }
+            w?.resume(returning: s)
         }
-        out.fileHandleForReading.readabilityHandler = nil
-        box.append(out.fileHandleForReading.readDataToEndOfFile())
-        return (box.data, status)
+        func wait() async -> Int32 {
+            await withCheckedContinuation { (c: CheckedContinuation<Int32, Never>) in
+                let s: Int32? = lock.withLock { if status == nil { waiter = c }; return status }
+                if let s { c.resume(returning: s) }
+            }
+        }
     }
 }
 

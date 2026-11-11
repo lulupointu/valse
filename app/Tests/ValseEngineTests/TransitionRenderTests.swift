@@ -126,22 +126,43 @@ import ValseTestSupport
         #expect(Self.meanDiff(try frame(ff, 0.985), try frame(rw, 0.985)) < 0.03)
     }
 
-    /// Real time at 1080p: each transition pass well under a frame (M1 Pro numbers; the Air is ~2× slower).
+    /// Real time at 1080p: each transition pass well under a frame — 8 ms of GPU on an M1 Pro (the Air is ~2× slower).
+    ///
+    /// FLAKY-ENG: the pass's GPU time (command buffer gpuEnd − gpuStart) is not load-independent: it includes the
+    /// time the GPU spends on other processes' work (time-slicing; 8-9 ms measured for 3.4 ms passes at load 10-48,
+    /// 4 flakes) and the GPU clock state (a quiet GPU clocks down). Best-of-5 only made it rarer, so since 0808cd4a the
+    /// absolute budget was asserted in perf runs only (and skipped there whenever the machine was loaded): the property
+    /// was effectively never gated. It is now measured in GPU WORK UNITS: each transition's pass time divided by the
+    /// time of a fixed reference workload (32 dissolve passes, ≈ the same command-buffer length) measured right after
+    /// it, best of 5 each, interleaved. Contention and clock state stretch both by the same factor, so the ratio is the
+    /// pass's cost relative to the GPU's speed at that moment (measured on this M1 Pro: dissolve 0.065-0.075 ms/pass;
+    /// worst transition 27-50 dissolve passes over 30 runs at load 5-18 while its raw GPU time read 3.4-5.1 ms —
+    /// contention stretches the reference at least as much, so the ratio never errs high). Budget: 8 ms /
+    /// 0.07 ms ≈ 114 dissolve passes, gated at 100 (≈ 7 ms on an M1 Pro), in every run. The absolute GPU time stays a
+    /// perf.sh metric (`transition_1080p_worst_gpu_ms`, perf runs on a quiet machine assert ≤ 8 ms).
     @Test func everyTransitionIsRealTimeAt1080p() async throws {
         try await HeavyWorkGate.run {   // GPU-saturating loop: keep real-time probes (PlaybackTests) from starving
             let (ta, tb) = try #require(PresetPreviewRenderer.sampleTextures(width: 1920, height: 1080))
-            // GPU time includes time-slicing against other processes' GPU work: take the best of 5 (the pass itself,
-            // not the contention), and assert the budget only in perf runs (TimingBudget: nothing under load).
-            var slow: [String] = [], worst = 0.0
+            let reference = try #require(Registries.transitions["valse.transition.dissolve"])
+            let budget = 100.0   // reference passes (see above)
+            var slow: [String] = [], tooHeavy: [String] = [], worst = 0.0, worstUnits = 0.0
             for d in BuiltinTransitions.all {
                 _ = PresetPreviewRenderer.transitionGPUTime(d, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080, repeats: 1)
-                let runs = (0..<5).compactMap { _ in PresetPreviewRenderer.transitionGPUTime(d, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080) }
-                guard let ms = runs.min() else { continue }
-                #expect(ms.isFinite && ms >= 0, "\(d.id): gpu time \(ms)")   // it ran
-                worst = max(worst, ms)
+                var ms = Double.infinity, ref = Double.infinity
+                for _ in 0..<5 {
+                    if let t = PresetPreviewRenderer.transitionGPUTime(d, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080) { ms = min(ms, t) }
+                    if let r = PresetPreviewRenderer.transitionGPUTime(reference, from: ta, to: tb, progress: 0.5, width: 1920, height: 1080,
+                                                                       repeats: 32) { ref = min(ref, r) }
+                }
+                guard ms.isFinite, ref.isFinite, ref > 0 else { Issue.record("\(d.id): no GPU time (pass \(ms), reference \(ref))"); continue }
+                let units = ms / ref
+                worst = max(worst, ms); worstUnits = max(worstUnits, units)
+                if units > budget { tooHeavy.append("\(d.id): \(String(format: "%.0f", units)) dissolve passes (\(String(format: "%.2f", ms)) ms)") }
                 if ms > 8 { slow.append("\(d.id): \(String(format: "%.2f", ms)) ms") }
             }
             TimingBudget.metric("transition_1080p_worst_gpu_ms", worst, "ms")
+            TimingBudget.metric("transition_1080p_worst_dissolve_units", worstUnits, "x")
+            #expect(tooHeavy.isEmpty, "over \(budget) reference passes:\n\(tooHeavy.joined(separator: "\n"))")
             if TimingBudget.limit(8, "transition pass at 1080p") != nil { #expect(slow.isEmpty, "\(slow.joined(separator: "\n"))") }
         }
     }

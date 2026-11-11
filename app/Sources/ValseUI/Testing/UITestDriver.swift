@@ -1444,25 +1444,27 @@ public final class UITestDriver {
         let mods = SyntheticEvents.modifiers((step["modifiers"] as? [String]) ?? [])
         let alternate = (step["alternate"] as? Bool) ?? false
         let period = max(1, (step["period"] as? Int) ?? 60)
-        var cpu: [Double] = [], gpu: [Double] = [], wall: [Double] = []
+        var cpu: [Double] = [], gpu: [Double] = [], wall: [Double] = [], units: [Double] = []
         _ = probe.measure(tl)  // warm-up
         for i in 0..<frames {
             let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
             if dx != 0 || dy != 0, let e = SyntheticEvents.scroll(at: p, in: window, dx: dx * sign, dy: dy * sign, modifiers: mods) {
                 tl.scrollWheel(with: SyntheticEvents.pinned(e))
             }
-            let (c, g, w) = probe.measure(tl)
-            cpu.append(c); gpu.append(g); wall.append(w)
+            let (c, g, w, u) = probe.measure(tl)
+            cpu.append(c); gpu.append(g); wall.append(w); units.append(u)
             if i % 30 == 29 { await Task.yield() }
         }
-        let c = Percentiles(cpu), g = Percentiles(gpu), w = Percentiles(wall)
+        let c = Percentiles(cpu), g = Percentiles(gpu), w = Percentiles(wall), u = Percentiles(units)
         metrics["\(name)_cpu_p50_ms"] = c.p50
         metrics["\(name)_cpu_p95_ms"] = c.p95
         metrics["\(name)_cpu_max_ms"] = c.max
-        metrics["\(name)_gpu_p95_ms"] = g.p95
+        metrics["\(name)_gpu_p95_ms"] = g.p95   // informative: includes other processes' GPU work (GPUReference)
+        metrics["\(name)_gpu_units_p95"] = u.p95   // gated: frame GPU cost ÷ reference workload, load-independent
         metrics["\(name)_wall_p50_ms"] = w.p50
         metrics["\(name)_wall_p95_ms"] = w.p95
-        log(String(format: "      %@: cpu p50 %.2f ms, p95 %.2f ms, max %.2f ms; wall p95 %.2f ms; gpu p95 %.2f ms (%d frames)", name, c.p50, c.p95, c.max, w.p95, g.p95, frames))
+        log(String(format: "      %@: cpu p50 %.2f ms, p95 %.2f ms, max %.2f ms; wall p95 %.2f ms; gpu p95 %.2f ms, %.2f reference units (%d frames)",
+                   name, c.p50, c.p95, c.max, w.p95, g.p95, u.p95, frames))
         try await idle(settle: 0.1)
     }
 
@@ -1623,7 +1625,7 @@ public final class UITestDriver {
         try store.open(url)
         window.contentView?.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
-        if let tl = timelineView { _ = probe.measure(tl) }
+        if let tl = timelineView { _ = probe.measure(tl, calibrated: false) }
         let wall = Double(DispatchTime.now().uptimeNanoseconds - w0) / 1e6, cpu = Double(ThreadCPU.nanoseconds() - c0) / 1e6
         metrics["open_project_ms"] = wall
         metrics["open_project_cpu_ms"] = cpu

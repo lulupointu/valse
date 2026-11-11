@@ -244,6 +244,27 @@ enum TextPainter {
 
     // MARK: Whole scene
 
+    // MARK: Serialized painting (FLAKY-ENG)
+
+    /// Core Graphics rasters of a costly look (shadow blurs: neon, glow, soft shadows) are NOT bit-identical when
+    /// several threads of the process paint such looks at once: the orange neon burst bubble with neon letters
+    /// painted on 64-128 threads at once differed from the single-threaded raster in 3-22 of 128 runs (bands of
+    /// rows, up to 192/255 per channel; ScratchRasterDeterminism, macOS 26), never when painted one at a time
+    /// (0/128, and 0/16 sequential runs on a loaded machine). Neither the bubble nor the neon letters alone show it;
+    /// isolated CGContext shadow fills don't either, so the shared state is inside Core Graphics. The effect: a
+    /// paused preview refined off-thread (BUG-BUBBLE-TEXT-LAG) could differ from the export of the same frame
+    /// whenever another raster ran meanwhile (TextSizeEditPerfTests.neonBubbleSizeDragFitsOneFrame flake). Costly
+    /// looks are therefore painted under one process-wide lock; cheap text (no blur) still paints in parallel.
+    private static let costlyPaintLock = NSLock()
+
+    /// Runs `body` (Core Graphics painting of a scene) under the costly-look lock when `costly`.
+    static func painting<T>(costly: Bool, _ body: () -> T) -> T {
+        guard costly else { return body() }
+        costlyPaintLock.lock()
+        defer { costlyPaintLock.unlock() }
+        return body()
+    }
+
     /// Paints every base item at rest into `ctx` (static image).
     static func drawStatic(_ scene: TextScene, in ctx: CGContext) {
         for it in scene.items {
