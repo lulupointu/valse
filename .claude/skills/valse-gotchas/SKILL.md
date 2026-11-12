@@ -65,6 +65,10 @@ description: Known Valse engineering traps by topic (async tests and AVFoundatio
   (AirPods ≈ 171 ms), else every sample arrives late and the output stays silent for the whole play, no error: feed
   `PreviewAudio.feedAhead` (latency + 0.2 s). A host-time start closer than the latency only drops the start: lead by
   `PreviewAudio.startLead` (BUG-AIRPODS-SILENT; verify at the output: `VALSE_REAL_OUTPUT=1`, PreviewAudioRealOutputTests).
+- An empty AVMutableCompositionTrack's `timeRange` is invalid, and an invalid CMTime compares greater than any time.
+  Changing the extent of an audio edit that directly continues a same-ratio edit restarts the spectral stretcher (~85 ms lost).
+- Read a clock against host time with `CMSyncConvertTime` at one host instant, never (CACurrentMediaTime, clock) across
+  an await or a pause.
 - Never use `AVAudioTimePitchAlgorithm.varispeed`: hangs the audio reader during export of sped-up clips.
 - MP3 export needs the FFmpeg sidecar (libmp3lame), absent on a fresh Mac: option disabled with a hint; audio format only
   matters when audio is exported.
@@ -124,6 +128,9 @@ description: Known Valse engineering traps by topic (async tests and AVFoundatio
   ValseCore/Persistence/Autosave.swift); tests faking "open elsewhere" call `SessionLock.registerTestHolder(pid)`.
 - New background work goes through `JobQueue` (or checks `Task.isCancelled`): quit / end of a UI test runs
   `AppShutdown.stopBackgroundWork()` (ValseUI/AI/AppShutdown.swift); exiting under live Core ML/Metal crashed in MPSGraph.
+- Core ML: load models only through `CoreMLModels` (ValseAI/Vision/CoreMLLoadLock.swift; lint CoreMLLoadLintTests). The
+  e5rt GPU-program cache is shared by every process named Valse and rewritten in place: an unlocked load can read a
+  half-written program and abort at the first prediction (FLAKY-LAMA). Never nest `CoreMLModels` calls (flock waits for itself).
 - `EditSession.postProcess` runs after every command and gesture tick: keep additions cheap (`CaptionStyleSync`).
 - Transcript ripple cuts move caption tracks themselves: don't also shift captions by linkage.
 - Inspector writes go through `Bind.apply` / `ClipParamRow` / `store.performInspector(...)` so they apply to every selected
