@@ -109,10 +109,9 @@ public final class ClipEmbedder: @unchecked Sendable {
         try lock.withLock {
             if let image, let text, let tokenizer { return (image, text, tokenizer) }
             guard let dir = ModelCatalog.installedURL(ModelCatalog.clip) else { throw AIToolError.modelMissing(ModelCatalog.clip.id) }
-            let cfg = MLModelConfiguration()
-            cfg.computeUnits = .all
-            let i = try MLModel(contentsOf: dir.appendingPathComponent("CLIP_ImageEncoder.mlmodelc"), configuration: cfg)
-            let t = try MLModel(contentsOf: dir.appendingPathComponent("CLIP_TextEncoder.mlmodelc"), configuration: cfg)
+            // FLAKY-LAMA: load + first prediction under the cross-process Core ML lock
+            let i = try CoreMLModels.load(dir.appendingPathComponent("CLIP_ImageEncoder.mlmodelc"))
+            let t = try CoreMLModels.load(dir.appendingPathComponent("CLIP_TextEncoder.mlmodelc"))
             let tok = try CLIPTokenizer(vocab: dir.appendingPathComponent("vocab.json"), merges: dir.appendingPathComponent("merges.txt"))
             image = i; text = t; tokenizer = tok
             return (i, t, tok)

@@ -49,31 +49,18 @@ public final class LaMaInpainter: @unchecked Sendable {
 
     convenience init(computeUnits: MLComputeUnits, cancelled: () -> Bool = { false }) throws {
         let compiled = ValsePaths.cacheDirectory.appendingPathComponent("models/LaMa.mlmodelc")
-        try CoreMLLoadLock.withLock(CoreMLLoadLock.url(for: compiled), cancelled: cancelled) { try Self.install(compiled) }
+        try Self.install(compiled)
         try self.init(compiled: compiled, computeUnits: computeUnits, cancelled: cancelled)
     }
 
-    /// Loads a compiled LaMa and runs one warm-up prediction, both under `CoreMLLoadLock` (FLAKY-LAMA): Core ML keeps
-    /// the GPU program it builds from a model in an on-disk cache shared by every process of the same name
-    /// (`~/Library/Caches/Valse/com.apple.e5rt.e5bundlecache`: all UI-test apps, the dev app) and (re)writes it in place
-    /// while loading. A process loading while another writes reads a half-written `model_0.mpsgraph`; the load
-    /// "succeeds" and the first prediction aborts the app in MPSGraph (`MPSGraphTensorData.mm:223: failed assertion
-    /// 'shape.count = 0 != strides.count = 4'`, f4_ai_remove_long, Valse-2026-11-04-201454.ips; reproduced by
-    /// truncating that file before a load). Loads + first predictions of every Valse process are serialized, so none
-    /// reads the cache while another writes it.
+    /// Loads a compiled LaMa and runs one warm-up prediction under `CoreMLLoadLock` (FLAKY-LAMA: another Valse process
+    /// writing Core ML's shared program cache during this load aborted the first prediction in MPSGraph).
     init(compiled: URL, computeUnits: MLComputeUnits = .all, cancelled: () -> Bool = { false }) throws {
-        let cfg = MLModelConfiguration()
-        cfg.computeUnits = computeUnits
-        let url = compiled.resolvingSymlinksInPath()
-        model = try CoreMLLoadLock.withLock(CoreMLLoadLock.url(for: url), cancelled: cancelled) {
-            let m = try MLModel(contentsOf: url, configuration: cfg)
-            try Self.warmUp(m)
-            return m
-        }
+        model = try CoreMLModels.load(compiled, computeUnits: computeUnits, cancelled: cancelled) { _ in try Self.warmUpInput() }
     }
 
-    /// One prediction on a blank frame: Core ML finishes building (and caching) the GPU program here.
-    static func warmUp(_ m: MLModel) throws {
+    /// A blank frame with a small hole to fill.
+    static func warmUpInput() throws -> MLFeatureProvider {
         let S = side
         let ctx = CGContext(data: nil, width: S, height: S, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -82,8 +69,7 @@ public final class LaMaInpainter: @unchecked Sendable {
         for y in S / 2 - 8..<S / 2 + 8 { for x in S / 2 - 8..<S / 2 + 8 { mask[y * S + x] = 255 } }
         let full = CGRect(x: 0, y: 0, width: S, height: S)
         guard let img = ctx.makeImage(), let i = bgra(img, crop: full, S), let mk = maskBuffer(mask, S, S, crop: full, S) else { throw AIToolError.noInput }
-        let input = try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: i), "mask": MLFeatureValue(pixelBuffer: mk)])
-        _ = try predictLock.withLock { try m.prediction(from: input) }
+        return try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: i), "mask": MLFeatureValue(pixelBuffer: mk)])
     }
 
     /// First use: unzip the downloaded package and compile it to `compiled` (once, shared by every process).
@@ -105,7 +91,7 @@ public final class LaMaInpainter: @unchecked Sendable {
                 try AtomicInstall.place(scratch.appendingPathComponent("LaMa.mlpackage"), at: pkg)
             }
             // compiled once, shared by every process: an existing copy (another process won the race) is kept
-            try AtomicInstall.place(try MLModel.compileModel(at: pkg), at: compiled)
+            try AtomicInstall.place(try CoreMLModels.compile(pkg, for: compiled), at: compiled)
         }
     }
 

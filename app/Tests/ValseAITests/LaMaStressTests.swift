@@ -37,7 +37,7 @@ import ValseEngine
     static func cacheWriterRace() throws {
         let fm = FileManager.default
         let shared = ValsePaths.cacheDirectory.appendingPathComponent("models/LaMa.mlmodelc")
-        try CoreMLLoadLock.withLock(CoreMLLoadLock.url(for: shared)) { try LaMaInpainter.install(shared) }   // first use: unzip + compile
+        try LaMaInpainter.install(shared)   // first use: unzip + compile
         let src = shared.resolvingSymlinksInPath()
         let dir = fm.temporaryDirectory.appendingPathComponent("lama-race-\(UUID().uuidString)")
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -178,6 +178,26 @@ import ValseEngine
             try CoreMLLoadLock.withLock(lock) { order.add("acquired") }
             p.waitUntilExit()
             #expect(order.items == ["release", "acquired"])
+        }
+    }
+
+    /// The default warm-up (blank inputs from the model description) covers the installed models: their first
+    /// prediction happens under the lock. Skipped per model when not installed.
+    @Test func defaultWarmUpBuildsInputsForInstalledModels() async throws {
+        try await HeavyWorkGate.run {
+            try await OffPool.run { _ in
+                var models: [URL] = []
+                if let pkg = ModelCatalog.installedDepthPackage { models.append(try DepthEstimator.compiled(pkg)) }
+                if let dir = ModelCatalog.installedURL(ModelCatalog.clip) {
+                    models += ["CLIP_ImageEncoder.mlmodelc", "CLIP_TextEncoder.mlmodelc"].map { dir.appendingPathComponent($0) }
+                }
+                if LaMaInpainter.isAvailable { models.append(ValsePaths.cacheDirectory.appendingPathComponent("models/LaMa.mlmodelc")) }
+                print("warm-up check on \(models.map(\.lastPathComponent))")
+                for u in models {
+                    let m = try CoreMLModels.load(u, warmUp: { _ in nil })   // load only
+                    #expect(CoreMLModels.blankInput(for: m) != nil, "no blank input for \(u.lastPathComponent)")
+                }
+            }
         }
     }
 
