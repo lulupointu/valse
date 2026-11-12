@@ -240,7 +240,7 @@ extension AppModel {
 
     /// Click handling: plain click opens, ⌘-click toggles, ⇧-click extends the selection.
     func click(_ e: LibraryEntry, in list: [LibraryEntry]) {
-        let mods = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags  // the click's own modifiers
+        let mods = EventModifiers.current  // the click's own modifiers
         if mods.contains(.command) {
             if selectedIDs.contains(e.id) { selectedIDs.remove(e.id) } else { selectedIDs.insert(e.id) }
         } else if mods.contains(.shift), let anchor = list.firstIndex(where: { selectedIDs.contains($0.id) }),
@@ -1049,26 +1049,89 @@ struct ProjectCard: View {
     }
 }
 
+/// Inline rename (card / row): appears with the name selected and the caret in it; Return or leaving the field
+/// commits, Esc cancels.
 struct InlineRenameField: View {
     let initial: String
     let onCommit: (String) -> Void
     let onCancel: () -> Void
-    @State private var text = ""
-    @FocusState private var focused: Bool
     var body: some View {
-        WithPerceptionTracking {
-            TextField("", text: $text)
-                .textFieldStyle(.plain).font(.system(size: 13))
-                .padding(.horizontal, 4).frame(height: 20)
-                .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: 4))
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.Valse.teal))
-                .focused($focused)
-                .onSubmit { onCommit(text) }
-                .onExitCommand(perform: onCancel)
-                .testID("home.rename.field")
-                .onAppear { text = initial; focused = true }
-                .onValueChange(of: focused) { _, f in if !f { onCommit(text) } }
+        RenameNSField(initial: initial, onCommit: onCommit, onCancel: onCancel)
+            .padding(.horizontal, 4).frame(height: 20)
+            .background(Theme.Valse.control, in: RoundedRectangle(cornerRadius: 4))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.Valse.teal))
+            .testID("home.rename.field")
+    }
+}
+
+/// FLAKY-UI4 (home_library "rename step", 8 retries): the SwiftUI field took focus from `.onAppear { focused = true }`,
+/// which SwiftUI drops when it runs before the field's NSTextField is in the window (Edit ▸ Rename on a loaded
+/// machine): the field showed without a caret, typing went nowhere, and the user had to click into it. This AppKit
+/// field makes itself first responder when it joins its window, so the caret is there as soon as the field is.
+struct RenameNSField: NSViewRepresentable {
+    let initial: String
+    let onCommit: (String) -> Void
+    let onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> FocusingTextField {
+        let f = FocusingTextField(string: initial)
+        f.isBordered = false; f.drawsBackground = false; f.focusRingType = .none
+        f.font = .systemFont(ofSize: 13)
+        f.textColor = NSColor(Theme.Valse.text)
+        f.cell?.usesSingleLineMode = true
+        f.cell?.lineBreakMode = .byTruncatingTail
+        f.delegate = context.coordinator
+        return f
+    }
+
+    func updateNSView(_ f: FocusingTextField, context: Context) {
+        context.coordinator.onCommit = onCommit
+        context.coordinator.onCancel = onCancel
+    }
+
+    @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
+        var onCommit: (String) -> Void = { _ in }
+        var onCancel: () -> Void = {}
+        private var done = false
+
+        private func finish(_ f: NSTextField, cancelled: Bool) {
+            guard !done else { return }
+            done = true
+            if cancelled { onCancel() } else { onCommit(f.stringValue) }
         }
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+            guard let f = control as? NSTextField else { return false }
+            switch sel {
+            case #selector(NSResponder.insertNewline(_:)): finish(f, cancelled: false); return true
+            case #selector(NSResponder.cancelOperation(_:)): finish(f, cancelled: true); return true
+            default: return false
+            }
+        }
+        /// Leaving the field (click elsewhere) commits, like Return.
+        func controlTextDidEndEditing(_ n: Notification) {
+            if let f = n.object as? NSTextField { finish(f, cancelled: false) }
+        }
+    }
+}
+
+/// A text field that takes the keyboard (whole text selected) as soon as it is in a window.
+final class FocusingTextField: NSTextField {
+    private var focusedOnce = false
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil, !focusedOnce else { return }
+        focusedOnce = true
+        takeFocus(attempts: 10)
+    }
+    /// A window in the middle of a SwiftUI update can refuse the first responder: try again on the next turns.
+    private func takeFocus(attempts: Int) {
+        guard let w = window else { return }
+        if currentEditor() != nil { return }
+        if w.makeFirstResponder(self) { currentEditor()?.selectAll(nil); return }
+        guard attempts > 1 else { return }
+        DispatchQueue.main.async { [weak self] in self?.takeFocus(attempts: attempts - 1) }
     }
 }
 

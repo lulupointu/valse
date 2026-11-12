@@ -83,18 +83,28 @@ import ValseTestSupport
 
     /// The subject matte composited by the renderer: the object stays, the clip's background disappears and the
     /// track below shows through (preview and export use the same compositor).
+    ///
+    /// FLAKY-ENG: this test used the same media (same content hash → same matte file) as
+    /// `subjectMatteFollowsMovingObject` and ValseUITests' `AIUITests.cutoutToggleRunsJobAndComposites`, which DELETE
+    /// that "subject" matte to force a regeneration. All suites share one test process, and this test ran outside the
+    /// heavy-work gate: when the UI test deleted the matte between this test's `generate` and its render, the frame
+    /// was rendered without a matte (background = the source's gray 0.549 instead of the blue track; 1 flake,
+    /// check_clean 2026-11-07). It now uses media of its own (a size no other test generates: no test touches its
+    /// matte) and runs its Vision work inside `HeavyWorkGate` like the other ML tests.
     @Test func cutoutCompositesOverLowerTrack() async throws {
-        var p = TestProject()
-        _ = try await p.addVideo(.solid(Self.blue), seconds: 1)
-        let url = try await TestMedia.video(.movingBox(Self.gray, Self.red), seconds: 1)
-        let top = try await p.addMedia(url, at: .zero, target: .newTrack)
-        let asset = p.project.asset(p[top].mediaID!)!
-        try await MatteGenerator.generate(asset, mode: .subject)
-        p[top].matte = ClipMatte(kind: CutoutMode.subject.kind)
-        let img = try await p.render(at: 0.5)
-        let (cx, cy) = Self.boxCenter(0.5)
-        #expect(img[cx, cy].r > 0.6 && img[cx, cy].b < 0.4, "object kept: \(img[cx, cy])")
-        #expect(img[0.05, 0.1].b > 0.6 && img[0.05, 0.1].r < 0.4, "background removed: \(img[0.05, 0.1])")
+        try await HeavyWorkGate.run {
+            var p = TestProject()
+            _ = try await p.addVideo(.solid(Self.blue), seconds: 1)
+            let url = try await TestMedia.video(.movingBox(Self.gray, Self.red), seconds: 1, size: CGSize(width: 352, height: 198))
+            let top = try await p.addMedia(url, at: .zero, target: .newTrack)
+            let asset = p.project.asset(p[top].mediaID!)!
+            try await MatteGenerator.generate(asset, mode: .subject)
+            p[top].matte = ClipMatte(kind: CutoutMode.subject.kind)
+            let img = try await p.render(at: 0.5)
+            let (cx, cy) = Self.boxCenter(0.5)
+            #expect(img[cx, cy].r > 0.6 && img[cx, cy].b < 0.4, "object kept: \(img[cx, cy])")
+            #expect(img[0.05, 0.1].b > 0.6 && img[0.05, 0.1].r < 0.4, "background removed: \(img[0.05, 0.1])")
+        }
     }
 }
 

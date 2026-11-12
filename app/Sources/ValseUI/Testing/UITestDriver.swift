@@ -700,11 +700,18 @@ public final class UITestDriver {
             try await idle(settle: settle)
         } else if let text = step["type"] as? String {
             // typing goes to the focused text field: wait for the field editor to take focus (a click on a field
-            // focuses it a few main-loop turns later on a loaded machine; the keys were lost: home_project_flow)
-            let focusDeadline = Date().addingTimeInterval(3)
+            // focuses it a few main-loop turns later on a loaded machine; the keys were lost: home_project_flow).
+            // FLAKY-UI4: a field that never takes the focus is an app bug (home_library rename field: typed keys went
+            // nowhere, the step "passed" and a later waitFor timed out): fail HERE, after the same 10 s bound as
+            // click targets. No passing run ever typed without a focused field (report.json survey 2026-11-11).
+            let focusDeadline = Date().addingTimeInterval(10)
             while !(window.firstResponder is NSText), Date() < focusDeadline {
                 try await Task.sleep(for: .milliseconds(20))
                 _ = await SyntheticEvents.drain(timeout: 1)
+            }
+            guard window.firstResponder is NSText else {
+                throw Failure("type: no text field has the keyboard focus (first responder: "
+                              + "\(window.firstResponder.map { String(describing: type(of: $0)) } ?? "none"))")
             }
             if (step["replace"] as? Bool) == true { (window.firstResponder as? NSText)?.selectAll(nil) }
             SyntheticEvents.type(text, in: window)
@@ -1444,25 +1451,27 @@ public final class UITestDriver {
         let mods = SyntheticEvents.modifiers((step["modifiers"] as? [String]) ?? [])
         let alternate = (step["alternate"] as? Bool) ?? false
         let period = max(1, (step["period"] as? Int) ?? 60)
-        var cpu: [Double] = [], gpu: [Double] = [], wall: [Double] = []
+        var cpu: [Double] = [], gpu: [Double] = [], wall: [Double] = [], units: [Double] = []
         _ = probe.measure(tl)  // warm-up
         for i in 0..<frames {
             let sign: Double = alternate && (i / period) % 2 == 1 ? -1 : 1
             if dx != 0 || dy != 0, let e = SyntheticEvents.scroll(at: p, in: window, dx: dx * sign, dy: dy * sign, modifiers: mods) {
                 tl.scrollWheel(with: SyntheticEvents.pinned(e))
             }
-            let (c, g, w) = probe.measure(tl)
-            cpu.append(c); gpu.append(g); wall.append(w)
+            let (c, g, w, u) = probe.measure(tl)
+            cpu.append(c); gpu.append(g); wall.append(w); units.append(u)
             if i % 30 == 29 { await Task.yield() }
         }
-        let c = Percentiles(cpu), g = Percentiles(gpu), w = Percentiles(wall)
+        let c = Percentiles(cpu), g = Percentiles(gpu), w = Percentiles(wall), u = Percentiles(units)
         metrics["\(name)_cpu_p50_ms"] = c.p50
         metrics["\(name)_cpu_p95_ms"] = c.p95
         metrics["\(name)_cpu_max_ms"] = c.max
-        metrics["\(name)_gpu_p95_ms"] = g.p95
+        metrics["\(name)_gpu_p95_ms"] = g.p95   // informative: includes other processes' GPU work (GPUReference)
+        metrics["\(name)_gpu_units_p95"] = u.p95   // gated: frame GPU cost ÷ reference workload, load-independent
         metrics["\(name)_wall_p50_ms"] = w.p50
         metrics["\(name)_wall_p95_ms"] = w.p95
-        log(String(format: "      %@: cpu p50 %.2f ms, p95 %.2f ms, max %.2f ms; wall p95 %.2f ms; gpu p95 %.2f ms (%d frames)", name, c.p50, c.p95, c.max, w.p95, g.p95, frames))
+        log(String(format: "      %@: cpu p50 %.2f ms, p95 %.2f ms, max %.2f ms; wall p95 %.2f ms; gpu p95 %.2f ms, %.2f reference units (%d frames)",
+                   name, c.p50, c.p95, c.max, w.p95, g.p95, u.p95, frames))
         try await idle(settle: 0.1)
     }
 
@@ -1623,7 +1632,7 @@ public final class UITestDriver {
         try store.open(url)
         window.contentView?.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
-        if let tl = timelineView { _ = probe.measure(tl) }
+        if let tl = timelineView { _ = probe.measure(tl, calibrated: false) }
         let wall = Double(DispatchTime.now().uptimeNanoseconds - w0) / 1e6, cpu = Double(ThreadCPU.nanoseconds() - c0) / 1e6
         metrics["open_project_ms"] = wall
         metrics["open_project_cpu_ms"] = cpu

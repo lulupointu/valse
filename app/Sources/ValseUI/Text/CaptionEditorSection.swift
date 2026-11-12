@@ -203,7 +203,7 @@ struct CaptionRow: View, Equatable {
     var buttons: some View {
         HStack(spacing: 4) {
             rowButton("arrow.counterclockwise", tr("capedit.replay")) {
-                store.captionReplay(clip.id, keepPlaying: NSEvent.modifierFlags.contains(.option))
+                store.captionReplay(clip.id, keepPlaying: EventModifiers.current.contains(.option))
             }.testID("captions.replay.\(index)")
             rowButton("plus", tr("capedit.insertAfter")) { store.captionInsertAfter(clip.id) }.testID("captions.add.\(index)")
             rowButton("trash", tr("captions.delete")) { store.captionDelete(clip.id, focusNext: store.captionEditor.editingID == clip.id) }
@@ -284,14 +284,14 @@ struct CaptionTimingBar: View {
     func nudge(_ id: String, _ value: String?, helpKey: String, _ step: @escaping (Int) -> Void) -> some View {
         HStack(spacing: 1) {
             arrow("chevron.left", tr("capedit.nudgeEarlier", tr(helpKey)), enabled: value != nil) {
-                step(NSEvent.modifierFlags.contains(.shift) ? -10 : -1)
+                step(EventModifiers.current.contains(.shift) ? -10 : -1)
             }
             .testID("captions.timing.\(id).minus")
             Text(verbatim: value ?? "–:––.––").font(.system(size: 10.5).monospacedDigit())
                 .foregroundStyle(value == nil ? Theme.textTertiary : Theme.textPrimary)
                 .frame(minWidth: 40)
             arrow("chevron.right", tr("capedit.nudgeLater", tr(helpKey)), enabled: value != nil) {
-                step(NSEvent.modifierFlags.contains(.shift) ? 10 : 1)
+                step(EventModifiers.current.contains(.shift) ? 10 : 1)
             }
             .testID("captions.timing.\(id).plus")
         }

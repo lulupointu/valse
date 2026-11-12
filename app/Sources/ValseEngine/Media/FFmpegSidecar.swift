@@ -101,40 +101,36 @@ public enum FFmpegSidecar {
     /// Transcodes `input` to `output` (.mov). Progress 0…1 parsed from `-progress`. Cancelling the Task kills ffmpeg.
     public static func transcode(_ input: URL, to output: URL, duration: Time, alpha: Bool, progress: JobProgress? = nil) async throws {
         guard let ffmpeg = executableURL else { throw SidecarError.notInstalled }
+        try await transcode(ffmpeg: ffmpeg, transcodeArguments(input: input, output: output, alpha: alpha),
+                            output: output, duration: duration, progress: progress)
+    }
+
+    /// `transcode` with an explicit executable (tests: a fake ffmpeg script). stdout (progress) and stderr (the error
+    /// text) are read to EOF by `ProcessPipes` (FLAKY-PIPE: readabilityHandler chunks could land after the error was built).
+    static func transcode(ffmpeg: URL, _ arguments: [String], output: URL, duration: Time, progress: JobProgress?) async throws {
         let total = max(duration.seconds, 0.001)
-        let process = Process()
-        process.executableURL = ffmpeg
-        process.arguments = transcodeArguments(input: input, output: output, alpha: alpha)
-        let outPipe = Pipe(), errPipe = Pipe()
-        process.standardOutput = outPipe
-        process.standardError = errPipe
-        process.standardInput = FileHandle.nullDevice
-        let errBox = DataBox()
-        outPipe.fileHandleForReading.readabilityHandler = { h in
-            let d = h.availableData
-            guard !d.isEmpty, let s = String(data: d, encoding: .utf8) else { return }
+        let r = try await ProcessPipes.run(ffmpeg, arguments, stdout: .init(keep: false) { d in
+            guard let s = String(data: d, encoding: .utf8) else { return }
             for line in s.split(separator: "\n") where line.hasPrefix("out_time_us=") || line.hasPrefix("out_time_ms=") {
                 if let us = Double(line.split(separator: "=").last ?? "") { progress?.report(min(1, us / 1_000_000 / total)) }
             }
-        }
-        errPipe.fileHandleForReading.readabilityHandler = { h in errBox.append(h.availableData) }
-        let proc = UncheckedSendable(process)
-        let status: Int32 = try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Int32, any Error>) in
-                process.terminationHandler = { p in c.resume(returning: p.terminationStatus) }
-                do { try process.run() } catch { process.terminationHandler = nil; c.resume(throwing: error) }
-            }
-        } onCancel: { if proc.value.isRunning { proc.value.terminate() } }
-        outPipe.fileHandleForReading.readabilityHandler = nil
-        errPipe.fileHandleForReading.readabilityHandler = nil
+        }, stderr: .all)
+        let status = r.status
         if Task.isCancelled { try? FileManager.default.removeItem(at: output); throw CancellationError() }
         guard status == 0 else {
             try? FileManager.default.removeItem(at: output)
-            throw SidecarError.failed(String(data: errBox.data, encoding: .utf8) ?? "ffmpeg exit \(status)")
+            throw SidecarError.failed(String(data: r.stderr, encoding: .utf8) ?? "ffmpeg exit \(status)")
         }
     }
 
-    /// Runs a tool to completion, returning stdout.
+    /// Runs a tool to completion, returning its whole stdout and exit status.
+    ///
+    /// stdout is read by ONE reader, to end of file, then the exit status is awaited. (It used to be collected by a
+    /// `readabilityHandler` whose last call could still be in flight when the process exited: `run` then removed the
+    /// handler, read the rest and returned before that call appended its chunk, so stdout came back empty or cut —
+    /// for ffprobe, invalid JSON, and an MKV failed to import with AVFoundation's "Cannot Open"; FLAKY-ENG,
+    /// ImportTests.ffmpegFallbackForMKV, FFmpegSidecarRunTests.) The blocking read runs on an OffPool thread, never on
+    /// the cooperative pool.
     static func run(_ exe: URL, _ args: [String]) async throws -> (Data, Int32) {
         let p = Process()
         p.executableURL = exe
@@ -143,15 +139,35 @@ public enum FFmpegSidecar {
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice
         p.standardInput = FileHandle.nullDevice
-        let box = DataBox()
-        out.fileHandleForReading.readabilityHandler = { h in box.append(h.availableData) }
-        let status: Int32 = try await withCheckedThrowingContinuation { c in
-            p.terminationHandler = { p in c.resume(returning: p.terminationStatus) }
-            do { try p.run() } catch { p.terminationHandler = nil; c.resume(throwing: error) }
+        let exit = ExitStatus()
+        p.terminationHandler = { exit.set($0.terminationStatus) }
+        try p.run()
+        let reader = UncheckedSendable(out.fileHandleForReading)
+        // EOF comes when the tool (and anything it spawned) closed stdout, i.e. at its exit at the latest
+        let data = try await OffPool.run { _ in reader.value.readDataToEndOfFile() }
+        try? reader.value.close()
+        return (data, await exit.wait())
+    }
+
+    /// A process's exit status, set once by its termination handler, awaited by `run`.
+    private final class ExitStatus: @unchecked Sendable {
+        private let lock = NSLock()
+        private var status: Int32?
+        private var waiter: CheckedContinuation<Int32, Never>?
+        func set(_ s: Int32) {
+            let w: CheckedContinuation<Int32, Never>? = lock.withLock {
+                status = s
+                defer { waiter = nil }
+                return waiter
+            }
+            w?.resume(returning: s)
         }
-        out.fileHandleForReading.readabilityHandler = nil
-        box.append(out.fileHandleForReading.readDataToEndOfFile())
-        return (box.data, status)
+        func wait() async -> Int32 {
+            await withCheckedContinuation { (c: CheckedContinuation<Int32, Never>) in
+                let s: Int32? = lock.withLock { if status == nil { waiter = c }; return status }
+                if let s { c.resume(returning: s) }
+            }
+        }
     }
 }
 

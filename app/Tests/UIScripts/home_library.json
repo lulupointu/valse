@@ -1,4 +1,7 @@
 // W12 Home: grid, search, list view + column sort, folders, trash, multi-select, duplicate, rename, delete → Trash.
+// Rename (FLAKY-UI4): Edit ▸ Rename puts the caret in the card's name field at once, so typing + Return renames.
+// The field used to take focus from SwiftUI .onAppear, which a loaded machine dropped (8 retries: typed keys lost);
+// now an AppKit field takes the first responder when it joins the window, and `type` fails if no field has focus.
 {
   "project": "home:12",
   "steps": [

@@ -69,12 +69,31 @@ public final class ParkedReaders: @unchecked Sendable {
     public func isParked(_ id: String) -> Bool { lock.withLock { (parked[id] ?? 0) > 0 } }
     public func wasCleanedUp(_ id: String) -> Bool { lock.withLock { cleaned.contains(id) } }
 
+    private var cleanupWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
+
     func park(_ id: String, _ pumps: Task<Void, Never>, cleanup: @escaping @Sendable () -> Void) {
         lock.withLock { parked[id, default: 0] += 1; cleaned.remove(id) }
         Task.detached { [self] in
             await pumps.value
             cleanup()
-            lock.withLock { parked[id, default: 1] -= 1; if parked[id] == 0 { parked[id] = nil }; cleaned.insert(id) }
+            let waiters: [CheckedContinuation<Void, Never>] = lock.withLock {
+                parked[id, default: 1] -= 1; if parked[id] == 0 { parked[id] = nil }; cleaned.insert(id)
+                return cleanupWaiters.removeValue(forKey: id) ?? []
+            }
+            for w in waiters { w.resume() }
+        }
+    }
+
+    /// Returns once the reader parked for `id` was cancelled and released (at once if it already was): an event to
+    /// await instead of polling `wasCleanedUp` against a time budget (tests).
+    public func waitUntilCleanedUp(_ id: String) async {
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            let done: Bool = lock.withLock {
+                if cleaned.contains(id) { return true }
+                cleanupWaiters[id, default: []].append(c)
+                return false
+            }
+            if done { c.resume() }
         }
     }
 

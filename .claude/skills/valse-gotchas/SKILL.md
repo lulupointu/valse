@@ -35,6 +35,19 @@ description: Known Valse engineering traps by topic (async tests and AVFoundatio
   (use-after-free crash under load). Cancel handlers / stall monitors only `ReaderCancel.request()`; the pumps stop at
   the next sample; a cancelled export whose read is stuck is PARKED (`ParkedReaders`) and cancelled + released only after
   its pumps return (ValseEngine/Export/ReaderCancel.swift, Exporter.swift). Keep this for any new reader loop.
+- **Helper-process pipes**: never `readabilityHandler` then `readDataToEndOfFile` (a running handler appends after you
+  return: lost output 1/1280). Use `ProcessPipes.run` (ValseEngine/Media/ProcessPipes.swift): read each pipe to EOF on
+  OffPool, then the exit (FLAKY-ENG / FLAKY-PIPE).
+- GPU budgets: never raw `gpuEndTime − gpuStartTime` (other processes' GPU work and clock state inflate it 2-3×);
+  express cost in units of `GPUReference` measured right next to the work (FLAKY-ENG).
+- Costly Core Graphics looks (neon / glow blurs) are not bit-identical when painted on several threads at once: paint
+  through `TextPainter.painting(costly:)`.
+- File dates in tests: set access date ≥ mtime + 1 s (same-Date backdating can land atime before mtime; APFS then bumps
+  atime on any outside read, e.g. XProtect). Tests that delete a derived file (matte, proxy) use media of their own.
+- Pollers measure first, then test the exit condition (a starved main actor otherwise leaves a phase unmeasured);
+  read a feeder's state on its own queue (`settledOpenReaderCount`), never mid-operation from another thread.
+- Process-wide `onReady` singletons (ReverseManager / MatteStore / RenderCache) belong to the last engine created:
+  filter by your project's media (`usesMedia`) or other projects' renders rebuild your playing engine (FLAKY-PB).
 - Use `RealLikeMedia` (iPhone HEVC HLG portrait, speech, 120 BPM music) for media features, not only testsrc: rotation,
   10-bit HLG and 44.1 kHz AAC are what real footage breaks.
 
@@ -96,6 +109,13 @@ description: Known Valse engineering traps by topic (async tests and AVFoundatio
 - In-window modals (Settings, dialogs, export / crop / cover / recorder) put `.modalHoverShield()` on their card: views
   underneath then must not change the cursor; set cursors with `NSCursor.setUnlessCovered(at:in:)` or guard hover
   handlers with `ModalHoverGate.isBlocked` (FB-07, Support/ModalHoverGate.swift).
+- Never read `NSEvent.modifierFlags` in an action (the real keyboard leaks into UI tests and users' shortcuts): use
+  `EventModifiers.current` (the event's own flags; lint EventModifiersLintTests).
+- A field that must be focused takes first responder itself (AppKit, when it joins its window): FocusState set in
+  `.onAppear` gets dropped under load. Driver `type` fails when no field has focus.
+- A state-dump key reflects what is drawn, never a purgeable cache (NSCache). Never share a mutable
+  AVAssetImageGenerator across request sizes (`ThumbnailCache`: one per file + height).
+- Don't edit sources while a uitest build runs ("modified during the build").
 - UI tests are environment-independent: AI models sandboxed (`requires.models` else SKIP), fixed cache sizes / clock,
   overlay scroll bars, Europe/Paris TZ. Tests never make sound (`VALSE_MUTE_AUDIO=1`, `AudioOutput.isSilenced`).
 

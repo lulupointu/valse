@@ -1,5 +1,7 @@
 // ST-009: a sticker is a full layer — Stickers ▸ Basic has Position & Size + Blend (opacity, mode), Stickers ▸ Mask
 // adds a mask with canvas handles. CL-024: the text colour row's eyedropper picks the colour from the video.
+// FLAKY-UI4: the pick click came before the eyedropper's frame was rendered (fixed 1 s wait; the loupe snapshot was
+// black) and was dropped; the script waits for ui.eyedropper.ready and the tool keeps an early click until the frame.
 {
   "project": "demo",
   "steps": [
@@ -25,7 +27,8 @@
     {"drop": {"text": "valse.text.default"}, "on": "time:1@2"},
     {"expect": {"path": "selectedClips.0.kind", "equals": "text"}},
     {"click": "id:text.color.eyedropper"},
-    {"wait": 1},
+    // the sampled frame renders asynchronously (seconds on a loaded machine): wait for it, not for a fixed 1 s
+    {"waitFor": {"path": "ui.eyedropper.ready", "equals": true}},
     {"hover": "player:0.9,0.15"},
     {"snapshot": "text-eyedropper-loupe", "element": "id:panel.player"},
     {"click": "player:0.9,0.15"},

@@ -1,5 +1,7 @@
 // Media ▸ Library (W13): locally generated stock. ⊕ on an animated background renders it once, imports it and adds it
 // at the playhead; a gradient dropped on the timeline (drop ghost + handler); multi-media drop; Recent lists used items.
+// Each stock category shows a picture on every card (ui.assets.stockThumbsMissing = on-screen cards not DRAWING their
+// picture; FLAKY-UI4: it used to ask the memory cache, purged under memory pressure while every picture was drawn).
 {
   "project": "demo-bin",
   "steps": [

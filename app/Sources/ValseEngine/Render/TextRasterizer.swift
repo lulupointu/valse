@@ -250,7 +250,7 @@ public final class TextRasterizer: @unchecked Sendable {
     /// Rest-pose CGImage of a text at `fontPx` (asset tiles, previews, tests). Not cached.
     public static func image(_ t: TextContent, fontPx: Double, canvasWidthPx: Double = 1920, duration: Double = 3) -> CGImage? {
         let s = TextSceneBuilder.build(t, fontPx: CGFloat(fontPx), canvasWidthPx: CGFloat(canvasWidthPx), duration: duration, dynamic: false)
-        return render(s)?.image
+        return render(s, costly: isCostly(t))?.image
     }
 
     /// Frames of a per-glyph text animation painted with Core Graphics (inspector tiles, tests): the same scene, atlas
@@ -260,7 +260,7 @@ public final class TextRasterizer: @unchecked Sendable {
                                        canvasWidthPx: Double = 1920, maxMarginEm: Double = 1) -> [CGImage] {
         guard let d = Registries.animations[animationID], let spec = d.glyph, fontPx >= 1 else { return [] }
         let scene = TextSceneBuilder.build(t, fontPx: CGFloat(fontPx), canvasWidthPx: CGFloat(canvasWidthPx), duration: 3, dynamic: true)
-        guard let atlas = TextAtlas.build(scene, keepImage: true), let atlasImage = atlas.image else { return [] }
+        guard let atlas = TextAtlas.build(scene, keepImage: true, costly: isCostly(t)), let atlasImage = atlas.image else { return [] }
         let probe = TextFrameInput(anims: [(spec, d.phase, 0)], localTime: 0, duration: 3)
         let em = scene.blocks.map(\.em).max() ?? CGFloat(fontPx)
         let m = min(TextAnimator.margin(scene, probe), CGFloat(maxMarginEm) * em).rounded(.up)
@@ -349,7 +349,7 @@ public final class TextRasterizer: @unchecked Sendable {
     private func rasterizeStatic(_ t: TextContent, _ k: Key, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double) -> StaticImage? {
         let t0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         let sc = scene(t, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration)
-        guard let r = Self.render(sc), let tex = TextGPU.upload(r.ctx, r.w, r.h) else { return nil }
+        guard let r = Self.render(sc, costly: Self.isCostly(t)), let tex = TextGPU.upload(r.ctx, r.w, r.h) else { return nil }
         statsLock.withLock { _rasterizations += 1 }
         let img = StaticImage(texture: tex, size: CGSize(width: r.w, height: r.h))
         statics.put(k, img, bytes: r.w * r.h * 4)
@@ -373,7 +373,7 @@ public final class TextRasterizer: @unchecked Sendable {
     private func buildDynamic(_ t: TextContent, _ k: Key, fontPx: CGFloat, canvasWidthPx: CGFloat, duration: Double) -> Dynamic? {
         let t0 = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
         let sc = TextSceneBuilder.build(t, fontPx: fontPx, canvasWidthPx: canvasWidthPx, duration: duration, dynamic: true)
-        guard let atlas = TextAtlas.build(sc) else { return nil }
+        guard let atlas = TextAtlas.build(sc, costly: Self.isCostly(t)) else { return nil }
         statsLock.withLock { _rasterizations += 1 }
         let d = Dynamic(scene: sc, atlas: atlas)
         dynamics.put(k, d, bytes: atlas.bytes)
@@ -482,7 +482,8 @@ public final class TextRasterizer: @unchecked Sendable {
     }
 
     /// Paints a scene's rest pose into a bitmap sized to its (padded) bounds.
-    static func render(_ s: TextScene) -> (ctx: CGContext, w: Int, h: Int, image: CGImage?)? {
+    /// `costly`: paint under `TextPainter.painting(costly:)` (blurred looks are not deterministic in parallel).
+    static func render(_ s: TextScene, costly: Bool) -> (ctx: CGContext, w: Int, h: Int, image: CGImage?)? {
         let b = padded(s.bounds)
         let w = Int(b.width), h = Int(b.height)
         guard w > 0, h > 0, w <= 16384, h <= 16384 else { return nil }
@@ -492,7 +493,7 @@ public final class TextRasterizer: @unchecked Sendable {
         else { return nil }
         ctx.translateBy(x: 0, y: CGFloat(h)); ctx.scaleBy(x: 1, y: -1)
         ctx.translateBy(x: -b.minX, y: -b.minY)
-        TextPainter.drawStatic(s, in: ctx)
+        TextPainter.painting(costly: costly) { TextPainter.drawStatic(s, in: ctx) }
         return (ctx, w, h, ctx.makeImage())
     }
 }

@@ -10,6 +10,8 @@ import ValseTestSupport
 /// BUG-BUBBLE-TEXT-LAG: a Size drag on a text with a neon bubble re-rasterized the whole look (50–170 ms of Core
 /// Graphics blurs at 1080p) on the main thread at every tick. Interactive frames (paused preview re-render) now draw
 /// the previous raster scaled and refine off-thread; once the refine lands the frame is exactly the export's.
+/// Load-independent measures: calling-thread CPU time (`CLOCK_THREAD_CPUTIME_ID`, preemption excluded) and stand-in
+/// counts; the preview/export equality relies on deterministic rasters (`costlyLookRastersAreIdenticalWhenPaintedConcurrently`).
 @Suite(.serialized) struct TextSizeEditPerfTests {
     /// Vertical 1080p, like the owner's project (1080 × 1920 captions with an orange neon burst bubble).
     static let canvas = Size2(1080, 1920)
@@ -106,6 +108,33 @@ import ValseTestSupport
         let preview = pixels(p, r, interactive: true)
         let export = pixels(p, FrameRenderer(), interactive: false)
         #expect(preview == export, "preview after the drag differs from the exact render")
+    }
+
+    /// FLAKY-ENG: `neonBubbleSizeDragFitsOneFrame` failed once (preview ≠ export in a 44-row band, ≤ 25/255) because
+    /// Core Graphics rasters of this look are not bit-identical when other threads paint costly looks at the same
+    /// time (the refine thread vs any other raster in the process). Costly looks now paint under one lock
+    /// (`TextPainter.painting`): rasters made on 32 threads at once all equal the single-threaded one. Before the
+    /// lock, 3-22 of 128 such concurrent rasters differed.
+    @Test func costlyLookRastersAreIdenticalWhenPaintedConcurrently() {
+        let t = neonCaption()
+        let px = Self.canvas.height * t.fontSize * 1.4
+        func bytes(_ img: CGImage) -> [UInt8] {
+            var b = [UInt8](repeating: 0, count: img.width * img.height * 4)
+            let ctx = CGContext(data: &b, width: img.width, height: img.height, bitsPerComponent: 8, bytesPerRow: img.width * 4,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
+            ctx.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
+            return b
+        }
+        guard let refImg = TextRasterizer.image(t, fontPx: px, canvasWidthPx: Self.canvas.width) else { Issue.record("no raster"); return }
+        let ref = bytes(refImg)
+        final class Diffs: @unchecked Sendable { let lock = NSLock(); var runs: [Int] = [] }
+        let diffs = Diffs()
+        DispatchQueue.concurrentPerform(iterations: 64) { i in
+            let img = TextRasterizer.image(t, fontPx: px, canvasWidthPx: Self.canvas.width)
+            if img.map(bytes) != ref { diffs.lock.withLock { diffs.runs.append(i) } }
+        }
+        #expect(diffs.runs.isEmpty, "\(diffs.runs.count) of 64 concurrent rasters differ from the single-threaded one")
     }
 
     @Test func cheapTextStaysExactWhileEditing() {

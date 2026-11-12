@@ -35,10 +35,12 @@ final class TimelineFrameProbe {
     private let renderer = Canvas2DRenderer()
     private var target: MTLTexture?
 
-    /// (cpu ms, gpu ms, wall ms). cpu = this thread's CPU time (`CLOCK_THREAD_CPUTIME_ID`): the work the frame costs,
-    /// insensitive to preemption when other processes load the machine (perf runs share it with parallel builds);
-    /// wall = elapsed time (what a user sees on an idle machine; includes preemption and any blocking wait).
-    func measure(_ view: TimelineView) -> (Double, Double, Double) {
+    /// (cpu ms, gpu ms, wall ms, gpu units). cpu = this thread's CPU time (`CLOCK_THREAD_CPUTIME_ID`): the work the
+    /// frame costs, insensitive to preemption when other processes load the machine (perf runs share it with parallel
+    /// builds); wall = elapsed time (what a user sees on an idle machine; includes preemption and any blocking wait).
+    /// gpu = the frame's command-buffer GPU time (includes other processes' GPU work and the GPU clock state);
+    /// gpu units = the frame's GPU cost in `GPUReference` units, the load-independent measure (see there).
+    func measure(_ view: TimelineView, calibrated: Bool = true) -> (Double, Double, Double, Double) {
         let s = view.window?.backingScaleFactor ?? 2
         let w = max(1, Int(view.bounds.width * s)), h = max(1, Int(view.bounds.height * s))
         if target?.width != w || target?.height != h {
@@ -49,15 +51,56 @@ final class TimelineFrameProbe {
         let t0 = DispatchTime.now().uptimeNanoseconds
         let c0 = ThreadCPU.nanoseconds()
         let canvas = view.buildCanvas()
-        guard let target, let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return (0, 0, 0) }
+        guard let target, let cmd = MetalContext.shared.queue.makeCommandBuffer() else { return (0, 0, 0, 0) }
         renderer.encode(canvas, into: target, scale: s, clear: RGBA(hex: 0x1B1B1C), commandBuffer: cmd)
         cmd.commit()
         let wall = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6
         let cpu = Double(ThreadCPU.nanoseconds() - c0) / 1e6
-        view.recycle(canvas)
         cmd.waitUntilCompleted()  // tests only (ARCHITECTURE §13 exception)
         let gpu = max(0, (cmd.gpuEndTime - cmd.gpuStartTime) * 1000)
-        return (cpu, gpu, wall)
+        guard calibrated else { view.recycle(canvas); return (cpu, gpu, wall, 0) }
+        // calibrated GPU cost: the same frame once more, each copy followed by the reference workload; best of 2 each
+        var frameMin = gpu, refMin = Double.infinity
+        if let r = reference.ms() { refMin = r }
+        if let cmd2 = MetalContext.shared.queue.makeCommandBuffer() {
+            renderer.encode(canvas, into: target, scale: s, clear: RGBA(hex: 0x1B1B1C), commandBuffer: cmd2)
+            cmd2.commit(); cmd2.waitUntilCompleted()
+            frameMin = min(frameMin, max(0, (cmd2.gpuEndTime - cmd2.gpuStartTime) * 1000))
+        }
+        if let r = reference.ms() { refMin = min(refMin, r) }
+        view.recycle(canvas)
+        let units = refMin.isFinite && refMin > 0 ? frameMin / refMin : 0
+        return (cpu, gpu, wall, units)
+    }
+
+    private let reference = GPUReference()
+}
+
+/// FLAKY-ENG: a fixed GPU workload (4 blit copies of a 2048 × 1024 BGRA texture, ≈ 0.1 ms each on an M1 Pro: about a
+/// timeline frame's GPU cost) measured next to each timeline frame. A command buffer's GPU time (gpuEnd − gpuStart)
+/// also counts the time the GPU spends on OTHER processes' work and depends on the GPU clock state: the timeline's
+/// `_gpu_p95_ms` (≈ 0.55 ms) read 2.02 ms once under load and failed perf.sh. Contention and clocks stretch the frame
+/// and the reference alike, so frame ÷ reference (best of 2 each, interleaved) is the frame's GPU cost in units of
+/// the reference: `<name>_gpu_units_p95` (gated in bench/perf_thresholds.json), load-independent. The reference is
+/// independent of the code measured (a blit, not Canvas2D), so a timeline regression still shows.
+@MainActor
+final class GPUReference {
+    private var src: MTLTexture?, dst: MTLTexture?
+
+    /// GPU ms of one reference command buffer, nil if Metal is unavailable.
+    func ms() -> Double? {
+        let dev = MetalContext.shared.device
+        if src == nil {
+            let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 2048, height: 1024, mipmapped: false)
+            d.usage = [.shaderRead, .renderTarget]; d.storageMode = .private
+            src = dev.makeTexture(descriptor: d); dst = dev.makeTexture(descriptor: d)
+        }
+        guard let src, let dst, let cmd = MetalContext.shared.queue.makeCommandBuffer(),
+              let blit = cmd.makeBlitCommandEncoder() else { return nil }
+        for _ in 0..<4 { blit.copy(from: src, to: dst) }
+        blit.endEncoding()
+        cmd.commit(); cmd.waitUntilCompleted()
+        return max(0, (cmd.gpuEndTime - cmd.gpuStartTime) * 1000)
     }
 }
 

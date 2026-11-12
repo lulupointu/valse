@@ -331,16 +331,28 @@ import Foundation
         #expect(CacheManager.hash(of: "abcd-spec1.caf") == "abcd")
     }
 
+    /// Cache limits evict the least recently used item first (last use = max(access, modification) date), and purge
+    /// removes items unused for N days.
+    ///
+    /// FLAKY-ENG: r1 is backdated as "last used 40 days ago". Setting the modification date (`setAttributes`, µs
+    /// precision) and the access date (`setResourceValue`, ns precision) from the same `Date` left atime a fraction of a
+    /// µs BEFORE mtime in ~40 % of runs (measured: 21/50). APFS updates atime on a read only when atime < mtime, so any
+    /// outside reader of the freshly written .mov (Falcon / XProtect / Spotlight scan, delayed under load) bumped r1's
+    /// atime to "now", r1 became the most recently used and r2 was evicted (2 flakes: removed == ["r2.mov"]). The
+    /// access date is now set 1 s after the modification date (a read never moves it), and the test reads r1 itself
+    /// before enforcing the limit, so that condition is exercised on every run instead of by chance.
     @Test func purgeAndLimit() throws {
         let m = try cache()
         let old = Date().addingTimeInterval(-40 * 86_400)
         let r1 = m.directory(.render).appendingPathComponent("r1.mov")
         try FileManager.default.setAttributes([.modificationDate: old], ofItemAtPath: r1.path)
-        try (r1 as NSURL).setResourceValue(old, forKey: .contentAccessDateKey)
+        try (r1 as NSURL).setResourceValue(old.addingTimeInterval(1), forKey: .contentAccessDateKey)
         // r2 explicitly recent (a clean checkout / loaded volume can leave equal or stale timestamps)
         let r2 = m.directory(.render).appendingPathComponent("r2.mov")
         try FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: r2.path)
         try (r2 as NSURL).setResourceValue(Date(), forKey: .contentAccessDateKey)
+        // an outside reader (virus scanner, indexer) opens r1 after it was backdated: not a use by Valse
+        _ = try Data(contentsOf: r1, options: .uncached)
         let removed = m.enforceLimit(60_000, category: .render)
         #expect(removed == ["r1.mov"])  // least recently used goes first
         #expect(m.purge(olderThan: 30, categories: [.proxies]).isEmpty)
