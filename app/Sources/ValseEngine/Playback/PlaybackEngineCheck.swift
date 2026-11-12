@@ -44,14 +44,19 @@ public enum PlaybackEngineCheck {
     /// Polls like the player view until `until` returns true or `timeout` wall seconds; measures the A/V spread.
     @discardableResult
     /// `since`: the video clock when the phase's request was made (default: now, at the poll's start).
-    public static func poll(_ e: PlaybackEngine, timeout: Double, since: CMTime? = nil, until: () -> Bool) async -> Phase {
+    /// `measures`: false = only wait for `until` (no A/V reading required, e.g. a phase that may end paused).
+    public static func poll(_ e: PlaybackEngine, timeout: Double, since: CMTime? = nil, measures: Bool = true,
+                            until: () -> Bool) async -> Phase {
         var ph = Phase()
         let t0 = CACurrentMediaTime()
         let from = since ?? e.player.currentTime()
-        // measure, THEN test the exit condition: when the main actor is starved (parallel suites) for longer than the
-        // phase, the first poll after the start already finds `until` true; checked first, that phase got 0 reads
-        // ("the clocks never ran together", FLAKY-PB) although both ran. Measured first, the poll that ends a phase
-        // whose condition implies a running clock always reads it.
+        // A phase ends once `until` holds AND both clocks were read running together at least once (else at `timeout`,
+        // unmeasured: a real failure). FLAKY-PB ("seek while playing: the clocks never ran together", 0 reads, 1 run in
+        // 3-6 of the full suite, with 20 frames shown): under load the stall watchdog re-joins the video by seeking it
+        // up to 1 s AHEAD of the audio, then schedules its start for when the audio gets there; meanwhile the player
+        // reports its rate and the landed time (≥ the phase's target), so `until` held while no read was allowed
+        // (scheduled start pending) and the phase ended unmeasured. Measuring before testing `until` also covers a
+        // main actor starved past the whole phase.
         while CACurrentMediaTime() - t0 < timeout {
             if e.pixelBuffer(forHostTime: CACurrentMediaTime()) != nil { ph.frames += 1 }
             // (until a scheduled start the player reports its rate while its clock still holds: not a drift)
@@ -63,7 +68,7 @@ public enum PlaybackEngineCheck {
                     ph.avReads += 1
                 }
             }
-            if until() { break }
+            if until(), ph.avReads > 0 || !measures { break }
             try? await Task.sleep(nanoseconds: 4_000_000)
         }
         return ph
@@ -270,7 +275,7 @@ public enum PlaybackEngineCheck {
         r.duration = e.duration.seconds
         e.seek(to: e.duration - Time(0.5))
         e.play()
-        await poll(e, timeout: 20) { !e.isPlaying }
+        await poll(e, timeout: 20, measures: false) { !e.isPlaying }
         await poll(e, timeout: 0.3) { false }
         r.stopped = !e.isPlaying
         r.audioStopped = !e.audio.isRunning

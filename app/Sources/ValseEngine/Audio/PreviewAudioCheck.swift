@@ -273,11 +273,21 @@ public enum PreviewAudioCheck {
     /// Bursts clip, seek 1.3, play to 2.6 at `rate`: onset leads (speed 1) or envelope lead (scaled).
     public static func timing(sourceRate: Double = 48000, speed: Double = 1, rate: Double = 1, dir: URL) async throws -> Timing {
         let (p, clip) = try await burstProject(sourceRate: sourceRate, speed: speed, dir: dir)
+        // Clock rate: two (host time, clock time) pairs, each read as the clock's time AT one host time (exact, whatever
+        // the thread does in between), both while the clock runs. FLAKY-PB (`labelsFollowTheContent`, "clock rate 0.779" /
+        // 0.883 in the parallel suite): the second pair was read after `play` paused the clock and returned — the wall
+        // time between the pause and that read (a late resume of this task under load) counted as clock time not run.
         var marks: [(Double, Double)] = []
-        let (rec, audio) = try await play(p, seek: 1.3, until: min(2.6, clip.end.seconds - 0.2), rate: rate) { a in
-            marks.append((CACurrentMediaTime(), a.currentTime))
+        let until = min(2.6, clip.end.seconds - 0.2)
+        func mark(_ a: PreviewAudio) -> (Double, Double) {
+            let h = CMClockGetTime(CMClockGetHostTimeClock())
+            return (h.seconds, CMSyncConvertTime(h, from: CMClockGetHostTimeClock(), to: a.timebase).seconds)
         }
-        marks.append((CACurrentMediaTime(), audio.currentTime))
+        let (rec, audio) = try await play(p, seek: 1.3, until: until, rate: rate) { a in
+            marks.append(mark(a))
+            _ = await wait(30) { a.currentTime >= until - 0.2 * rate }
+            if a.isRunning { marks.append(mark(a)) }
+        }
         audio.stop()
         var t = Timing(leads: speed == 1 ? onsetLeads(rec, clip: clip, sourceRate: sourceRate) : [])
         if speed != 1 { (t.envelopeMs, t.corr) = envelopeLead(rec, clip: clip, from: 1.3) }

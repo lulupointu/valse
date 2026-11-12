@@ -443,7 +443,9 @@ public enum CompositionBuilder {
                     // silence came in at 30-60 % of its level for its first ~20 ms, the stretcher's start-up — measured
                     // by CutPitchSweepTests' level check, "1x | 1.5x", "1x | 0.5x"): the start-up then happens in the
                     // pre-roll, silenced by the lane gains
-                    let free = p.start - (at.timeRange.duration > .zero ? Time(cmTime: at.timeRange.end) : .zero)
+                    // (an empty track's timeRange is invalid, and an invalid CMTime compares greater than any other)
+                    let used = at.timeRange.duration.isNumeric && at.timeRange.duration > .zero
+                    let free = p.start - (used ? Time(cmTime: at.timeRange.end) : .zero)
                     head = free >= Time(0.1) ? Time(0.1) : .zero
                     // (a short empty edit before the next clip makes the stretcher restart: its priming then eats the next
                     // clip's first ~85 ms, so a pad only where the next clip is further than 0.2 s away)
@@ -455,7 +457,12 @@ public enum CompositionBuilder {
                         // before a cut to another lane, or before the project's end) or delivered them fading out, which
                         // of the two varying run to run). A pad past the composition's end is read by nobody: export /
                         // mixdown / PreviewAudio read [0, duration), the player's asset has no audio tracks.
-                        pad = Time(0.1)
+                        // Except when it directly continues the lane's previous clip (a split at the same speed): a
+                        // padded edit there made the stretcher restart at the split and drop ~85 ms after it, in 27 of
+                        // 30 SplitSpeedAudioTests runs and 11 of 40 CutPitchSweepTests "split 1.5x both" runs (measured,
+                        // exact stretch ratio or not).
+                        let continues = used && free <= .zero
+                        pad = continues ? .zero : Time(0.1)
                     }
                 }
                 try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at,
@@ -625,8 +632,8 @@ public enum CompositionBuilder {
             if (headPad > .zero && k == 0) || (tailPad > .zero && k == segments.count - 1), seg.output.duration.ticks > 0 {
                 // Pads (silenced by the lane gains): source audio before the clip's start so the stretcher is primed
                 // when the clip starts, and after its end so it does not drop the clip's tail. The padded segment keeps
-                // EXACTLY the clip's stretch ratio (whole multiples of out / gcd ticks): a ratio off by rounding made the
-                // stretcher restart at the segment's start and drop its first ~85 ms (SplitSpeedAudioTests, FLAKY-PB).
+                // EXACTLY the clip's stretch ratio (whole multiples of out / gcd ticks; seconds-based rounding changed
+                // it by ~1e-9): the stretcher ramps at every ratio change (BUG-CUT-AUDIO-SWEEP).
                 let o = seg.output.duration.ticks, sTicks = seg.source.duration.ticks
                 let g = Self.gcd(o, sTicks), unitOut = o / g, unitSrc = sTicks / g
                 /// Whole units of at most `pad` (output) whose source the file has.

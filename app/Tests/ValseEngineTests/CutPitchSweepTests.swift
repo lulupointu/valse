@@ -61,7 +61,8 @@ struct CutPitchSweepTests {
     /// stretched clip never got its tail pad, and the stretcher either dropped the clip's last ~60 ms — silence, which
     /// the zero-crossing check cannot see, so that run passed — or delivered them fading out (the "anomalies"). Which of
     /// the two varied per mixdown in one process (probe: 2/40). Fixed in `CompositionBuilder.packAudio` (the last clip
-    /// is padded too); the level check makes the silence a failure as well (before the fix: 60 ms silent before the cut
+    /// is padded too, unless it directly continues the lane's previous clip: padding that edit made the stretcher
+    /// restart at the split, "split 1.5x both" 11/40); the level check makes the silence a failure as well (before the fix: 60 ms silent before the cut
     /// in "1.5x | 1x", 50 ms in "2x | 1x 44.1k", deterministic). It also found the stretcher's start-up dip (30-60 % for
     /// ~20 ms) of a stretched clip after silence ("1x | 1.5x", "1x | 0.5x"): fixed with a head pre-roll.
     /// Not checked here: a slowed clip at the PROJECT's end can still lose its last ~0.1 s (the export reader stops at
