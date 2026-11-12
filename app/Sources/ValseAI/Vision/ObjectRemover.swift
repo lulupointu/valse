@@ -24,11 +24,12 @@ public final class LaMaInpainter: @unchecked Sendable {
     nonisolated(unsafe) private static var users = 0
     private static let predictLock = NSLock()
 
-    /// The shared inpainter; pair every call with `release()`.
-    public static func acquire() throws -> LaMaInpainter {
+    /// The shared inpainter; pair every call with `release()`. Blocks (first-use compile, `CoreMLLoadLock`): call it
+    /// off the cooperative pool (`OffPool.run`). `cancelled` stops waiting for another process's load.
+    public static func acquire(cancelled: () -> Bool = { false }) throws -> LaMaInpainter {
         try sharedLock.withLock {
             if let s = sharedInstance { users += 1; return s }
-            let s = try LaMaInpainter()
+            let s = try LaMaInpainter(computeUnits: .all, cancelled: cancelled)
             sharedInstance = s; users = 1
             return s
         }
@@ -44,9 +45,50 @@ public final class LaMaInpainter: @unchecked Sendable {
     /// Number of loaded models (tests: always ≤ 1).
     public static var loadedCount: Int { sharedLock.withLock { sharedInstance == nil ? 0 : 1 } }
 
-    public init() throws {
-        guard let zip = ModelCatalog.installedURL(ModelCatalog.lama) else { throw AIToolError.modelMissing(ModelCatalog.lama.id) }
+    public convenience init() throws { try self.init(computeUnits: .all) }
+
+    convenience init(computeUnits: MLComputeUnits, cancelled: () -> Bool = { false }) throws {
         let compiled = ValsePaths.cacheDirectory.appendingPathComponent("models/LaMa.mlmodelc")
+        try CoreMLLoadLock.withLock(CoreMLLoadLock.url(for: compiled), cancelled: cancelled) { try Self.install(compiled) }
+        try self.init(compiled: compiled, computeUnits: computeUnits, cancelled: cancelled)
+    }
+
+    /// Loads a compiled LaMa and runs one warm-up prediction, both under `CoreMLLoadLock` (FLAKY-LAMA): Core ML keeps
+    /// the GPU program it builds from a model in an on-disk cache shared by every process of the same name
+    /// (`~/Library/Caches/Valse/com.apple.e5rt.e5bundlecache`: all UI-test apps, the dev app) and (re)writes it in place
+    /// while loading. A process loading while another writes reads a half-written `model_0.mpsgraph`; the load
+    /// "succeeds" and the first prediction aborts the app in MPSGraph (`MPSGraphTensorData.mm:223: failed assertion
+    /// 'shape.count = 0 != strides.count = 4'`, f4_ai_remove_long, Valse-2026-11-04-201454.ips; reproduced by
+    /// truncating that file before a load). Loads + first predictions of every Valse process are serialized, so none
+    /// reads the cache while another writes it.
+    init(compiled: URL, computeUnits: MLComputeUnits = .all, cancelled: () -> Bool = { false }) throws {
+        let cfg = MLModelConfiguration()
+        cfg.computeUnits = computeUnits
+        let url = compiled.resolvingSymlinksInPath()
+        model = try CoreMLLoadLock.withLock(CoreMLLoadLock.url(for: url), cancelled: cancelled) {
+            let m = try MLModel(contentsOf: url, configuration: cfg)
+            try Self.warmUp(m)
+            return m
+        }
+    }
+
+    /// One prediction on a blank frame: Core ML finishes building (and caching) the GPU program here.
+    static func warmUp(_ m: MLModel) throws {
+        let S = side
+        let ctx = CGContext(data: nil, width: S, height: S, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.setFillColor(CGColor(gray: 0.5, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: S, height: S))
+        var mask = [UInt8](repeating: 0, count: S * S)
+        for y in S / 2 - 8..<S / 2 + 8 { for x in S / 2 - 8..<S / 2 + 8 { mask[y * S + x] = 255 } }
+        let full = CGRect(x: 0, y: 0, width: S, height: S)
+        guard let img = ctx.makeImage(), let i = bgra(img, crop: full, S), let mk = maskBuffer(mask, S, S, crop: full, S) else { throw AIToolError.noInput }
+        let input = try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: i), "mask": MLFeatureValue(pixelBuffer: mk)])
+        _ = try predictLock.withLock { try m.prediction(from: input) }
+    }
+
+    /// First use: unzip the downloaded package and compile it to `compiled` (once, shared by every process).
+    static func install(_ compiled: URL) throws {
+        guard let zip = ModelCatalog.installedURL(ModelCatalog.lama) else { throw AIToolError.modelMissing(ModelCatalog.lama.id) }
         let fm = FileManager.default
         if !fm.fileExists(atPath: compiled.path) {
             let pkg = zip.deletingLastPathComponent().appendingPathComponent("LaMa.mlpackage")
@@ -65,9 +107,6 @@ public final class LaMaInpainter: @unchecked Sendable {
             // compiled once, shared by every process: an existing copy (another process won the race) is kept
             try AtomicInstall.place(try MLModel.compileModel(at: pkg), at: compiled)
         }
-        let cfg = MLModelConfiguration()
-        cfg.computeUnits = .all
-        model = try MLModel(contentsOf: compiled, configuration: cfg)
     }
 
     /// Inpaints `mask` (white = remove) in `image`: the mask's bounding box, padded ×2, is processed at 800 px and
@@ -245,7 +284,8 @@ public enum ObjectRemover {
     public static func process(_ a: MediaAsset, strokes: [RemovalStroke], tracking: RemovalTracking? = nil, range: TimeRange? = nil,
                                progress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let lama = try LaMaInpainter.acquire()
+        // blocking (compile, load, cross-process load lock): off the cooperative pool
+        let lama = try await OffPool.run { ctx in try LaMaInpainter.acquire(cancelled: { ctx.isCancelled }) }
         defer { LaMaInpainter.release() }
         if a.kind == .image {
             let out = directory.appendingPathComponent(key(a, strokes) + ".png")
