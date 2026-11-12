@@ -150,9 +150,8 @@ final class DepthEstimator {
         person.outputPixelFormat = kCVPixelFormatType_OneComponent8
         if useModel, let pkg = ModelCatalog.installedDepthPackage {
             let compiled = try Self.compiled(pkg)
-            let cfg = MLModelConfiguration()
-            cfg.computeUnits = .all
-            let model = try VNCoreMLModel(for: MLModel(contentsOf: compiled, configuration: cfg))
+            // FLAKY-LAMA: load + first prediction under the cross-process Core ML lock
+            let model = try VNCoreMLModel(for: CoreMLModels.load(compiled))
             let r = VNCoreMLRequest(model: model)
             r.imageCropAndScaleOption = .scaleFill
             request = r
@@ -170,7 +169,7 @@ final class DepthEstimator {
         let stamp = (try? fm.attributesOfItem(atPath: pkg.appendingPathComponent("Data/com.apple.CoreML/weights/weight.bin").path))?[.modificationDate] as? Date
         let built = (try? fm.attributesOfItem(atPath: dst.path))?[.modificationDate] as? Date
         if let built, let stamp, built >= stamp, fm.fileExists(atPath: dst.path) { return dst }
-        let tmp = try MLModel.compileModel(at: pkg)
+        let tmp = try CoreMLModels.compile(pkg, for: dst)
         // atomic: concurrent processes share this cache (an outdated copy is renamed aside, never deleted under a reader)
         return try AtomicInstall.place(tmp, at: dst, replace: fm.fileExists(atPath: dst.path))
     }

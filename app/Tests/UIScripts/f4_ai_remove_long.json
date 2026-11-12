@@ -4,6 +4,8 @@
 // FLAKY-UI4: its one retry (2026-11-04) was an app crash, not the script: SIGABRT in MPSGraph (MTLReportFailure in
 // MPSGraphTensorData initWithMTLBuffer) inside LaMaInpainter.inpaint's CoreML prediction on a loaded machine
 // (Valse-2026-11-04-201454.ips). Fixed waits replaced by waits on state.
+// FLAKY-LAMA: that crash = another Valse process writing Core ML's shared GPU-program cache while this one loaded
+// LaMa; loads are now serialized across processes (CoreMLLoadLock, LaMaStressTests).
 {
   "project": "empty",
   "requires": {"models": ["coreml.lama-800"]},
