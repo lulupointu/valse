@@ -437,14 +437,36 @@ public enum CompositionBuilder {
             let placements = (byLane[l] ?? []).sorted { $0.start < $1.start }
             for (i, p) in placements.enumerated() {
                 // stretched clips: a tail pad where nothing follows closely (BUG-CUT-AUDIO-SWEEP, see `stretchKey`)
-                var pad = Time.zero
+                var pad = Time.zero, head = Time.zero
                 if p.segments.contains(where: { abs($0.source.duration / max($0.output.duration, Time(ticks: 1)) - 1) > 1e-3 }) {
-                    let room = i + 1 < placements.count ? placements[i + 1].start - p.end : Time(0.1)
+                    // and a head pre-roll where the lane is empty before it (FLAKY-PB: a stretched clip starting after
+                    // silence came in at 30-60 % of its level for its first ~20 ms, the stretcher's start-up — measured
+                    // by CutPitchSweepTests' level check, "1x | 1.5x", "1x | 0.5x"): the start-up then happens in the
+                    // pre-roll, silenced by the lane gains
+                    // (an empty track's timeRange is invalid, and an invalid CMTime compares greater than any other)
+                    let used = at.timeRange.duration.isNumeric && at.timeRange.duration > .zero
+                    let free = p.start - (used ? Time(cmTime: at.timeRange.end) : .zero)
+                    head = free >= Time(0.1) ? Time(0.1) : .zero
                     // (a short empty edit before the next clip makes the stretcher restart: its priming then eats the next
                     // clip's first ~85 ms, so a pad only where the next clip is further than 0.2 s away)
-                    pad = room >= Time(0.2) ? Time(0.1) : .zero
+                    if i + 1 < placements.count {
+                        pad = placements[i + 1].start - p.end >= Time(0.2) ? Time(0.1) : .zero
+                    } else {
+                        // the lane's last clip always gets one (FLAKY-PB, CutPitchSweepTests: it never did — `room` was a
+                        // fixed 0.1 s here — and the stretcher then either dropped the clip's last 50-120 ms (silence
+                        // before a cut to another lane, or before the project's end) or delivered them fading out, which
+                        // of the two varying run to run). A pad past the composition's end is read by nobody: export /
+                        // mixdown / PreviewAudio read [0, duration), the player's asset has no audio tracks.
+                        // Except when it directly continues the lane's previous clip (a split at the same speed): a
+                        // padded edit there made the stretcher restart at the split and drop ~85 ms after it, in 27 of
+                        // 30 SplitSpeedAudioTests runs and 11 of 40 CutPitchSweepTests "split 1.5x both" runs (measured,
+                        // exact stretch ratio or not).
+                        let continues = used && free <= .zero
+                        pad = continues ? .zero : Time(0.1)
+                    }
                 }
-                try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at, tailPad: pad)
+                try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at,
+                           headPad: head, tailPad: pad)
             }
             out.append(PackedAudioLane(track: at, params: params, placements: placements))
         }
@@ -591,6 +613,8 @@ public enum CompositionBuilder {
                                                 tolerance: srcFrame * 0.5, sourceFrame: (clip.sourceStart, srcFrame))
     }
 
+    static func gcd(_ a: Int64, _ b: Int64) -> Int64 { b == 0 ? max(1, abs(a)) : gcd(b, a % b) }
+
     /// Inserts a clip's speed segments into a composition track at the clip's timeline position.
     /// `stretch`: when the media is shorter than the segment asks for, stretch what exists over the whole output
     /// range (main lanes: no black frame) or keep the exact rate and leave the rest empty (aux lanes: timing matters).
@@ -599,25 +623,36 @@ public enum CompositionBuilder {
     static func insert(clip: Clip, segments: [(output: TimeRange, source: TimeRange)], from src: AVAssetTrack,
                        alias: AVAssetTrack? = nil, variants: [Int] = [],
                        sourceRange srcRange: CMTimeRange, into dst: AVMutableCompositionTrack, stretch: Bool = true,
-                       tailPad: Time = .zero) throws {
+                       headPad: Time = .zero, tailPad: Time = .zero) throws {
         for (k, seg) in segments.enumerated() {
             let src = k < variants.count && variants[k] == 1 ? alias ?? src : src
             var at = (clip.start + seg.output.start).cmTime
             var wanted = CMTimeRange(start: (clip.sourceStart + seg.source.start).cmTime, duration: seg.source.duration.cmTime)
-            var padded = false
-            if tailPad > .zero, k == segments.count - 1, seg.output.duration.ticks > 0 {
-                // extra audio after the clip's end (silenced by the lane gains) so the stretcher does not drop the clip's tail
-                let rate = seg.source.duration / seg.output.duration
-                wanted.duration = (seg.source.duration + tailPad * rate).cmTime
-                padded = true
+            var outDur = seg.output.duration.cmTime
+            if (headPad > .zero && k == 0) || (tailPad > .zero && k == segments.count - 1), seg.output.duration.ticks > 0 {
+                // Pads (silenced by the lane gains): source audio before the clip's start so the stretcher is primed
+                // when the clip starts, and after its end so it does not drop the clip's tail. The padded segment keeps
+                // EXACTLY the clip's stretch ratio (whole multiples of out / gcd ticks; seconds-based rounding changed
+                // it by ~1e-9): the stretcher ramps at every ratio change (BUG-CUT-AUDIO-SWEEP).
+                let o = seg.output.duration.ticks, sTicks = seg.source.duration.ticks
+                let g = Self.gcd(o, sTicks), unitOut = o / g, unitSrc = sTicks / g
+                /// Whole units of at most `pad` (output) whose source the file has.
+                func units(_ pad: Time, available: Int64) -> Int64 {
+                    guard pad > .zero else { return 0 }
+                    return min(pad.ticks / unitOut, max(0, available) / unitSrc)
+                }
+                let before = k == 0 ? units(headPad, available: Time(cmTime: CMTimeSubtract(wanted.start, srcRange.start)).ticks) : 0
+                let after = k == segments.count - 1 ? units(tailPad, available: Time(cmTime: CMTimeSubtract(srcRange.end, wanted.end)).ticks) : 0
+                if before > 0 {
+                    wanted = CMTimeRange(start: CMTimeSubtract(wanted.start, Time(ticks: before * unitSrc).cmTime),
+                                         duration: CMTimeAdd(wanted.duration, Time(ticks: before * unitSrc).cmTime))
+                    at = CMTimeSubtract(at, Time(ticks: before * unitOut).cmTime)
+                }
+                if after > 0 { wanted.duration = CMTimeAdd(wanted.duration, Time(ticks: after * unitSrc).cmTime) }
+                outDur = Time(ticks: o + (before + after) * unitOut).cmTime
             }
             let s = CMTimeRangeGetIntersection(wanted, otherRange: srcRange)
             guard s.duration > .zero else { continue }
-            var outDur = seg.output.duration.cmTime
-            if padded {
-                let rate = seg.source.duration / seg.output.duration
-                outDur = Time(Time(cmTime: s.duration).seconds / rate).cmTime
-            }
             if !stretch, s != wanted {
                 let rate = seg.source.duration / seg.output.duration
                 at = CMTimeAdd(at, Time(Time(cmTime: CMTimeSubtract(s.start, wanted.start)).seconds / rate).cmTime)

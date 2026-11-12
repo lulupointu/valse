@@ -78,6 +78,10 @@ public final class PreviewAudio: @unchecked Sendable {
         /// Host time (CACurrentMediaTime) of the last seek request, of its first enqueued chunk, of the clock start.
         public var seekRequested = 0.0, firstChunkAfterSeek = 0.0, clockStarted = 0.0
         public var outputChanges = 0
+        /// Last hot swap, as the feeder performed it: the clock (frame) when it ran, the frame the new composition starts
+        /// at (the queue's end), and the host time (CACurrentMediaTime) it ran at.
+        public var swapClockFrame = 0, swapFrame = 0
+        public var swapRan = 0.0
     }
     public var stats: Stats { lock.withLock { _stats } }
 
@@ -238,6 +242,17 @@ public final class PreviewAudio: @unchecked Sendable {
         }
     }
 
+    /// Stops the clock AT `time` (the slaved owner's paused position: the video stopped a moment before, on the same
+    /// device clock), keeping what is enqueued (no flush). Without it the audio clock stands where the call found it,
+    /// a few ms past the video when the thread was preempted between the two stops, and the resume then re-read the
+    /// audio from the video's time (a flush: an audible jump; FLAKY-PB, PlaybackResumeTests 3/30 at load 4).
+    public func pause(at time: Double) {
+        lock.withLock {
+            wantsRate = 0; startHostTime = nil
+            synchronizer.setRate(0, time: CMTime(seconds: max(0, time), preferredTimescale: Int32(Self.sampleRate)))
+        }
+    }
+
     /// J/K/L: changes the rate of a running clock (the renderer time-stretches, spectral); starts it if paused.
     public func setRate(_ rate: Double) {
         guard rate > 0 else { pause(); return }
@@ -277,8 +292,17 @@ public final class PreviewAudio: @unchecked Sendable {
 
     /// Readers currently open in the process (tests: leaks after seek storms).
     public static var openReaders: Int { PreviewAudioLanes.liveCount }
-    /// Readers currently open for this instance only.
+    /// Readers currently open for this instance only. Read from another thread while the feeder works, this can be 2
+    /// for a moment by design: a hot swap (`replace`) opens the new reader and decodes its first chunk before it drops
+    /// the old one (gapless). A leak check reads `settledOpenReaderCount()` instead.
     public var openReaderCount: Int { readerCounter.value }
+    /// Readers open for this instance between two feeder operations (after everything requested so far has run on the
+    /// feeder queue): a seek or a swap never leaves more than one reader open, whatever the load (FLAKY-PB).
+    public func settledOpenReaderCount() async -> Int {
+        await withCheckedContinuation { (k: CheckedContinuation<Int, Never>) in
+            queue.async { k.resume(returning: self.readerCounter.value) }
+        }
+    }
 
     // MARK: - Queue
 
@@ -315,11 +339,15 @@ public final class PreviewAudio: @unchecked Sendable {
     private func swap(generation gen: Int) {
         guard let built else { return }
         guard synchronizer.rate != 0, lanes != nil else { performSeek(currentTime, generation: gen); return }
+        let clock = clockFrame()
         let next = PreviewAudioLanes(built: built, state: audioState, start: cursor, counter: readerCounter)
         next.fill(upTo: cursor + Self.chunkFrames)   // first decode before dropping the old reader
         lanes?.cancel()
         lanes = next
-        lock.withLock { _stats.swaps += 1 }
+        lock.withLock {
+            _stats.swaps += 1
+            _stats.swapClockFrame = clock; _stats.swapFrame = cursor; _stats.swapRan = CACurrentMediaTime()
+        }
         ensureTimer(); tick()
     }
 

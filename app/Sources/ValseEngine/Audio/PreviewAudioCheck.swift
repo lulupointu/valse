@@ -273,11 +273,21 @@ public enum PreviewAudioCheck {
     /// Bursts clip, seek 1.3, play to 2.6 at `rate`: onset leads (speed 1) or envelope lead (scaled).
     public static func timing(sourceRate: Double = 48000, speed: Double = 1, rate: Double = 1, dir: URL) async throws -> Timing {
         let (p, clip) = try await burstProject(sourceRate: sourceRate, speed: speed, dir: dir)
+        // Clock rate: two (host time, clock time) pairs, each read as the clock's time AT one host time (exact, whatever
+        // the thread does in between), both while the clock runs. FLAKY-PB (`labelsFollowTheContent`, "clock rate 0.779" /
+        // 0.883 in the parallel suite): the second pair was read after `play` paused the clock and returned — the wall
+        // time between the pause and that read (a late resume of this task under load) counted as clock time not run.
         var marks: [(Double, Double)] = []
-        let (rec, audio) = try await play(p, seek: 1.3, until: min(2.6, clip.end.seconds - 0.2), rate: rate) { a in
-            marks.append((CACurrentMediaTime(), a.currentTime))
+        let until = min(2.6, clip.end.seconds - 0.2)
+        func mark(_ a: PreviewAudio) -> (Double, Double) {
+            let h = CMClockGetTime(CMClockGetHostTimeClock())
+            return (h.seconds, CMSyncConvertTime(h, from: CMClockGetHostTimeClock(), to: a.timebase).seconds)
         }
-        marks.append((CACurrentMediaTime(), audio.currentTime))
+        let (rec, audio) = try await play(p, seek: 1.3, until: until, rate: rate) { a in
+            marks.append(mark(a))
+            _ = await wait(30) { a.currentTime >= until - 0.2 * rate }
+            if a.isRunning { marks.append(mark(a)) }
+        }
         audio.stop()
         var t = Timing(leads: speed == 1 ? onsetLeads(rec, clip: clip, sourceRate: sourceRate) : [])
         if speed != 1 { (t.envelopeMs, t.corr) = envelopeLead(rec, clip: clip, from: 1.3) }
@@ -428,7 +438,15 @@ public enum PreviewAudioCheck {
         return r
     }
 
-    public struct SwapResult: Sendable { public var discontinuities: [Double] = []; public var swaps = 0; public var heardAfterMs = Double.nan; public var leads: [Double] = [] }
+    public struct SwapResult: Sendable {
+        public var discontinuities: [Double] = []; public var swaps = 0; public var heardAfterMs = Double.nan; public var leads: [Double] = []
+        /// Queue ahead of the clock when the swap ran (ms, media time: where the edit starts to be heard) and the design
+        /// bound (`feedAhead` + one chunk); wall ms from the request to the swap running (load-dependent: metric).
+        public var swapLeadMs = Double.nan, horizonMs = Double.nan, queueMs = Double.nan
+        /// Burst onsets at the old gain before the swap frame, at the new gain from it on; onsets at the wrong gain (s).
+        public var onsetsBefore = 0, onsetsAfter = 0
+        public var wrongGain: [Double] = []
+    }
 
     /// `replace` while playing (the bursts clip's volume halved): the new gains are heard ≈ 100 ms after the clock at
     /// the swap, with at most one discontinuity (the flush point) and exact content around it.
@@ -436,7 +454,7 @@ public enum PreviewAudioCheck {
         let (p, clip) = try await burstProject(dir: dir)
         let state = AudioMixState(project: p)
         var r = SwapResult()
-        var swapClock = 0.0
+        var swapClock = 0.0, swapRequested = 0.0
         // built BEFORE playing: a slow build under load used to let the clock reach `until` (pause → the edit became a
         // re-seek, swaps 0) before the replace was even requested
         var edited = p
@@ -445,6 +463,7 @@ public enum PreviewAudioCheck {
         let (rec, audio) = try await play(p, seek: 1.3, until: 3.0, state: state) { a in
             _ = await wait(10) { a.currentTime > 1.8 }
             swapClock = a.currentTime
+            swapRequested = CACurrentMediaTime()
             a.replace(built)
             // the swap runs on the feeder queue: wait for it, then for the new gain to have played (load-robust)
             _ = await wait(20) { a.stats.swaps >= 1 }
@@ -455,12 +474,22 @@ public enum PreviewAudioCheck {
         r.swaps = s.swaps
         r.discontinuities = rec.discontinuities
         r.leads = onsetLeads(rec, clip: clip)
-        // first burst onset at half level after the swap
+        r.swapLeadMs = Double(s.swapFrame - s.swapClockFrame) / sr * 1000
+        r.horizonMs = (audio.feedAhead + Double(PreviewAudio.chunkFrames) / sr) * 1000
+        r.queueMs = s.swapRan > 0 ? (s.swapRan - swapRequested) * 1000 : .nan
+        // burst onsets (first sample 0.8, halved by the edit): full level before the swap frame, half level from it on
         let st = rec.stream()
         var calm = 0
         for (i, v) in st.left.enumerated() {
             if abs(v) > 0.2 {
-                if calm >= 240, abs(abs(v) - 0.4) < 0.05, Double(st.start + i) / sr > swapClock - 0.2 { r.heardAfterMs = (Double(st.start + i) / sr - swapClock) * 1000; break }
+                if calm >= 240 {
+                    let f = st.start + i
+                    let level = abs(v)
+                    if f < s.swapFrame { if abs(level - 0.8) < 0.05 { r.onsetsBefore += 1 } else { r.wrongGain.append(Double(f) / sr) } }
+                    else if abs(level - 0.4) < 0.05 { r.onsetsAfter += 1 } else { r.wrongGain.append(Double(f) / sr) }
+                    // first burst onset at half level after the swap request (wall-clock dependent: a metric)
+                    if r.heardAfterMs.isNaN, abs(level - 0.4) < 0.05, Double(f) / sr > swapClock - 0.2 { r.heardAfterMs = (Double(f) / sr - swapClock) * 1000 }
+                }
                 calm = 0
             } else if abs(v) < 0.02 { calm += 1 } else { calm = 0 }
         }

@@ -194,10 +194,23 @@ public final class PlaybackEngine {
                                                                     queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { if let self, !self.isPlaying { self.onRedrawNeeded?() } }
         }
-        ReverseManager.shared.onReady = { [weak self] _ in self?.forceRebuild() }
+        // Derived renders finishing: rebuild only for this project's media (FLAKY-PB: any reversed render / matte /
+        // cache segment of the process rebuilt the playing item — the video re-joins 0.25 s ahead, a visible hitch —
+        // even for media the project does not use; in the unit suite another suite's renders hit a playing engine).
+        ReverseManager.shared.onReady = { [weak self] key in
+            guard let self, self.usesMedia(key) else { return }
+            self.forceRebuild()
+        }
         StabilizationStore.shared.onReady = { [weak self] _ in self?.onRedrawNeeded?() }
-        MatteStore.shared.onMatteReady = { [weak self] _, _ in self?.forceRebuild() }
-        RenderCache.shared.onReady = { [weak self] _ in self?.forceRebuild() }
+        MatteStore.shared.onMatteReady = { [weak self] hash, _ in
+            guard let self, self.usesMedia(hash) else { return }
+            self.forceRebuild()
+        }
+        // a ready segment of this project changes the structure key (`update` hashes the valid segments): rebuild then only
+        RenderCache.shared.onReady = { [weak self] _ in
+            guard let self else { return }
+            self.update(project: self.project)
+        }
         AudioRenderCache.shared.onReady = { [weak self] hash in
             // only rebuild when the finished render belongs to this project (variants are "<hash>~<suffix>")
             guard let self, self.project.media.contains(where: { hash.hasPrefix($0.contentHash) }) else { return }
@@ -253,6 +266,10 @@ public final class PlaybackEngine {
     }
 
     public func forceRebuild() { update(project: project, force: true) }
+
+    /// A derived-render key (content hash, or "<hash>-<suffix>" for variants such as reversed mattes) belongs to one of
+    /// the project's media.
+    func usesMedia(_ key: String) -> Bool { project.media.contains { !$0.contentHash.isEmpty && key.hasPrefix($0.contentHash) } }
 
     /// Background renders the project needs (reversed media, stabilization analysis, decoder-budget proxies);
     /// each is idempotent and rebuilds/redraws the preview when ready. Clip ids are job subjects so the timeline can
@@ -447,12 +464,21 @@ public final class PlaybackEngine {
         // Only a running clock is news: when already paused, `requestedTime` is authoritative and the player may still be
         // mid-seek (reading it back raced the seek and moved the playhead — flaky library preview test).
         let rejoining = player.rate == 0 && resumeRate != nil && audio.isRunning
-        if player.rate != 0 || rejoining { requestedTime = currentTime }
+        let running = player.rate != 0
+        if running || rejoining { requestedTime = currentTime }
         let held = resumeRate != nil
         resumeRate = nil
         startToken &+= 1
         player.pause()
-        audio.pause()
+        // both clocks stand at the playhead: the audio stops at the video's paused time, not where it got to a moment
+        // later (else resume finds them apart and re-reads the audio: a flush, FLAKY-PB)
+        let paused = player.currentTime()
+        if running, !rejoining, paused.isNumeric {
+            requestedTime = timeline(paused)
+            audio.pause(at: paused.seconds)
+        } else {
+            audio.pause()
+        }
         if held { onPlayStateChange?(false) }   // rate was already 0 (seek in flight / priming): no KVO change
         onTimeUpdate?(requestedTime)
         // the re-joining video was sought ahead of the audio: bring it back to the paused time
