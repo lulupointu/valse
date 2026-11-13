@@ -64,7 +64,12 @@ public enum WhisperEngine {
             let spans = VADTimeMap.Collector()
             do {
                 try await run(exe, pre + vargs, progress: progress, onLine: spans.add, onLaunch: o.onLaunch)
-                return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en", vad: spans.map)
+                let t = try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en", vad: spans.map)
+                // Silero hears no voice under a loud music bed (speech 15 dB under a band: whole clip dropped → "No
+                // speech", F4AITests lyricsCaptionsOnSeparatedVocalsBeatTheMix) — silent pieces never get here
+                // (`AudioExtractor.isSilent`), so an empty VAD result is retried without VAD.
+                guard !t.words.isEmpty else { throw SpeechFailure.other(detail: "whisper VAD: no words kept") }
+                return t
             } catch is CancellationError { throw CancellationError() }
             catch let f as SpeechFailure where [.appIncomplete, .diskFull].contains(f) { throw f }
             catch { EngineLog.error("whisper VAD run failed (\(error)), retrying without VAD") }
