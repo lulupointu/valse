@@ -21,7 +21,7 @@ public final class CompoundPreviewCache: @unchecked Sendable {
     /// Mixed waveforms kept in memory.
     static let maxWaves = 48
 
-    private let memory = NSCache<NSString, CGImage>()
+    private let memory: FrameStore
     private let lock = NSLock()
     private var waves: [String: Waveform] = [:]
     private var waveOrder: [String] = []
@@ -33,8 +33,53 @@ public final class CompoundPreviewCache: @unchecked Sendable {
     private let thumbGate = AsyncSemaphore(limit: 2)
     private let waveGate = AsyncSemaphore(limit: 1)
 
-    init() {
-        memory.totalCostLimit = MemoryBudget.thumbnailCacheBytes / 2
+    /// `purgeable` (the app): frames live in an NSCache, which the system empties under memory pressure (the timeline
+    /// then re-requests the tiles it draws: `hasThumbnail` turns false). Unit tests of the key / stale-fallback logic
+    /// pass `false`: a cost-bounded dictionary only `clearMemory` empties, so another process's load cannot drop the
+    /// frame the test just rendered (FLAKY-COMPOUND: `cachedThumbnail` nil right after `thumbnail` under a busy machine).
+    init(purgeable: Bool = true) {
+        memory = FrameStore(costLimit: MemoryBudget.thumbnailCacheBytes / 2, purgeable: purgeable)
+    }
+
+    /// Composite frames by tile key: NSCache (purgeable) or a FIFO dictionary bounded by the same cost.
+    final class FrameStore: @unchecked Sendable {
+        private let cache: NSCache<NSString, CGImage>?
+        private let lock = NSLock()
+        private var pinned: [String: (image: CGImage, cost: Int)] = [:]
+        private var order: [String] = []
+        private var cost = 0
+        private let costLimit: Int
+
+        init(costLimit: Int, purgeable: Bool) {
+            self.costLimit = costLimit
+            if purgeable {
+                let c = NSCache<NSString, CGImage>()
+                c.totalCostLimit = costLimit
+                cache = c
+            } else { cache = nil }
+        }
+
+        func object(forKey k: String) -> CGImage? {
+            if let cache { return cache.object(forKey: k as NSString) }
+            return lock.withLock { pinned[k]?.image }
+        }
+
+        func setObject(_ img: CGImage, forKey k: String, cost c: Int) {
+            if let cache { cache.setObject(img, forKey: k as NSString, cost: c); return }
+            lock.withLock {
+                if let old = pinned.removeValue(forKey: k) { cost -= old.cost; order.removeAll { $0 == k } }
+                pinned[k] = (img, c); order.append(k); cost += c
+                while cost > costLimit, order.count > 1, let first = order.first {
+                    order.removeFirst()
+                    cost -= pinned.removeValue(forKey: first)?.cost ?? 0
+                }
+            }
+        }
+
+        func removeAllObjects() {
+            cache?.removeAllObjects()
+            lock.withLock { pinned.removeAll(); order.removeAll(); cost = 0 }
+        }
     }
 
     // MARK: Content key
@@ -84,14 +129,14 @@ public final class CompoundPreviewCache: @unchecked Sendable {
     /// Memory-cached composite frame at nested time `t` (the previous content of `compound` while `key`'s is pending).
     public func cachedThumbnail(key: String, compound: CompoundID? = nil, at t: Time, height: Int) -> CGImage? {
         let q = Self.quantize(t)
-        if let img = memory.object(forKey: thumbKey(key, q, height) as NSString) { return img }
+        if let img = memory.object(forKey: thumbKey(key, q, height)) { return img }
         guard let id = compound, let prev = lock.withLock({ previous[id] }), prev != key else { return nil }
-        return memory.object(forKey: thumbKey(prev, q, height) as NSString)
+        return memory.object(forKey: thumbKey(prev, q, height))
     }
 
     /// Exact (not stale) cached frame.
     public func hasThumbnail(key: String, at t: Time, height: Int) -> Bool {
-        memory.object(forKey: thumbKey(key, Self.quantize(t), height) as NSString) != nil
+        memory.object(forKey: thumbKey(key, Self.quantize(t), height)) != nil
     }
 
     /// Composite frame of `nested` (the project seen from inside the compound, `Project.nested`) at nested time `t`,
@@ -99,7 +144,7 @@ public final class CompoundPreviewCache: @unchecked Sendable {
     public func thumbnail(_ nested: Project, key: String, at t: Time, height: Int) async -> CGImage? {
         let q = Self.quantize(t)
         let k = thumbKey(key, q, height)
-        if let img = memory.object(forKey: k as NSString) { return img }
+        if let img = memory.object(forKey: k) { return img }
         guard nested.duration > .zero, height > 0, lock.withLock({ inflight.insert(k).inserted }) else { return nil }
         defer { _ = lock.withLock { inflight.remove(k) } }
         await thumbGate.wait()
@@ -108,7 +153,7 @@ public final class CompoundPreviewCache: @unchecked Sendable {
         let last = max(.zero, nested.duration - nested.settings.frameRate.frameDuration)
         let at = min(Time(Double(q) * Self.quantum + Self.quantum / 2), last)
         guard let raw = try? await gen.image(at: at.cmTime).image, let img = ThumbnailCache.flatten(raw) else { return nil }
-        memory.setObject(img, forKey: k as NSString, cost: img.bytesPerRow * img.height)
+        memory.setObject(img, forKey: k, cost: img.bytesPerRow * img.height)
         lock.withLock { made += 1 }
         return img
     }
