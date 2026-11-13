@@ -638,6 +638,7 @@ struct PerformanceSettings: View {
             SettingsRow(tr("settings.backgroundTranscription"), hint: tr("settings.backgroundTranscription.hint")) {
                 SwitchButton(isOn: $draft.backgroundTranscription, id: "backgroundTranscription", label: tr("settings.backgroundTranscription"))
             }
+            .testID("settings.row.backgroundTranscription")
             SettingsDivider()
             SettingsRow(tr("settings.cacheLocation"), hint: tr("settings.cacheLocation.hint")) {
                 PathSetting(path: draft.cacheDirectory ?? ValsePaths.defaultCacheDirectory.path,

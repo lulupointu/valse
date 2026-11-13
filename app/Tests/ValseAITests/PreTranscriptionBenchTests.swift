@@ -8,8 +8,8 @@ import ValseTestSupport
 
 /// PERF-CAPTIONS-2, opt-in measurements on a real project (a COPY: media are read from its `media/` folder).
 /// `VALSE_PRETRANS_PROJECT=/path/COPY.valse VALSE_PRETRANS_OUT=/empty/dir scripts/test.sh --filter PreTranscriptionBenchTests`
-/// - `benefit`: cold caption request (fresh cache) vs background pass + warm request; captions and per-range
-///   transcripts (on-demand vs whole-file sliced) written for a word diff; whisper peak memory.
+/// - `benefit`: cold caption request (fresh cache, twice) vs background pass + warm request; captions and per-range
+///   transcripts of each written for a diff (`ondemand/`, `ondemand2/`, `pre/`); whisper peak memory.
 /// - `cost`: playback (composed fps, dropped %, delivered frames, compose p95) and main-thread lateness, interleaved
 ///   without / with a background pass running (and with a foreground-priority run for comparison); pause latency
 ///   from "busy" to the whisper process gone. `VALSE_PRETRANS_ROUNDS` (default 3).

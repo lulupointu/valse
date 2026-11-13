@@ -7,7 +7,8 @@
     {"click": "id:settings.tab.performance"},
     {"expect": {"path": "app.settings.backgroundTranscription", "equals": true}},
     {"click": "id:settings.switch.backgroundTranscription"},
-    {"snapshot": "background-transcription-off", "element": "id:settings", "baseline": true},
+    {"hover": "id:settings.row.backgroundTranscription"},
+    {"snapshot": "background-transcription-off", "element": "id:settings.row.backgroundTranscription", "baseline": true},
     {"click": "id:dialog.ok"},
     {"expect": [{"path": "app.modal", "equals": ""}, {"path": "app.settings.backgroundTranscription", "equals": false}]}
   ]

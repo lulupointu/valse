@@ -209,7 +209,7 @@
 "settings.autoRender" = "Rendu automatique";
 "settings.autoRender.hint" = "Effectuer automatiquement le rendu des passages lourds pour un aperçu plus fluide.";
 "settings.backgroundTranscription" = "Préparer les sous-titres en arrière-plan";
-"settings.backgroundTranscription.hint" = "Reconnaît la parole des médias importés quand votre Mac est inactif : les sous-titres automatiques sont alors presque instantanés. Se met en pause pendant la lecture, l'exportation et les autres outils.";
+"settings.backgroundTranscription.hint" = "Reconnaît la parole de votre montage quand votre Mac est inactif : les sous-titres automatiques sont alors presque instantanés. Se met en pause pendant la lecture, l'exportation et les autres outils.";
 "settings.cacheLocation" = "Emplacement du cache";
 "settings.cacheLocation.hint" = "Prend effet au prochain démarrage de Valse.";
 "settings.export.followProject" = "Comme le projet";
