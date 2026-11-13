@@ -1,0 +1,14 @@
+// PERF-CAPTIONS-2: Settings ▸ Performance "Prepare captions in the background" (background pre-transcription for Auto
+// captions): on by default on Apple silicon, turned off with its switch, Save → persisted.
+{
+  "project": "home",
+  "steps": [
+    {"click": "id:home.top.settings"},
+    {"click": "id:settings.tab.performance"},
+    {"expect": {"path": "app.settings.backgroundTranscription", "equals": true}},
+    {"click": "id:settings.switch.backgroundTranscription"},
+    {"snapshot": "background-transcription-off", "element": "id:settings", "baseline": true},
+    {"click": "id:dialog.ok"},
+    {"expect": [{"path": "app.modal", "equals": ""}, {"path": "app.settings.backgroundTranscription", "equals": false}]}
+  ]
+}

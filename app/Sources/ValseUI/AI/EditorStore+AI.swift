@@ -151,6 +151,7 @@ extension EditorStore {
     public func generateCaptions(lyrics: Bool = false) {
         guard ai.captionJob == nil else { return }
         ModelManager.shared.fetchMissingAddOns()   // voice detection for whisper (PERF-CAPTIONS-4); this run doesn't wait
+        PreTranscriber.shared.stopRun()   // PERF-CAPTIONS-2: the request redoes the background run in progress, now
         var options = captionOptions
         options.lyrics = lyrics
         let project = self.project

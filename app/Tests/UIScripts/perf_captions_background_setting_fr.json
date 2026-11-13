@@ -1,0 +1,14 @@
+// PERF-CAPTIONS-2 (fr): the "Préparer les sous-titres en arrière-plan" row and its hint fit the Performance tab.
+{
+  "project": "home",
+  "lang": "fr",
+  "steps": [
+    {"click": "id:home.top.settings"},
+    {"click": "id:settings.tab.performance"},
+    {"click": "id:settings.switch.backgroundTranscription"},
+    {"expect": [{"path": "ui.settings.overflow", "lte": 0}, {"path": "ui.settings.innerOverflow", "lte": 0}]},
+    {"snapshot": "background-transcription-fr", "element": "id:settings", "baseline": true},
+    {"click": "id:dialog.ok"},
+    {"expect": {"path": "app.settings.backgroundTranscription", "equals": false}}
+  ]
+}

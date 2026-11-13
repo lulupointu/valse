@@ -111,30 +111,32 @@ import ValseTestSupport
         guard let (p, out) = try Self.load() else { return }
         try await HeavyWorkGate.run {
             let watch = ChildWatch(); watch.start(); defer { watch.end() }
-            let dirs = ["ondemand", "pre", "sliced"].map { out.appendingPathComponent($0) }
+            let dirs = ["ondemand", "ondemand2", "pre"].map { out.appendingPathComponent($0) }
             for d in dirs { try? FileManager.default.removeItem(at: d); try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true) }
-            let onDemand = TranscriptStore(directory: dirs[0]), pre = TranscriptStore(directory: dirs[1])
+            let onDemand = TranscriptStore(directory: dirs[0]), onDemand2 = TranscriptStore(directory: dirs[1])
+            let pre = TranscriptStore(directory: dirs[2])
             let o = CaptionOptions(language: nil, engine: .automatic, source: .allTracks)
             Self.line("benefit start \(Self.load1())", out)
 
-            // cold: what the user waits for today (PERF-CAPTIONS-1)
+            // cold: what the user waits for today (PERF-CAPTIONS-1), twice (run-to-run variation of whisper itself)
             watch.resetPeak()
             var t0 = CaptionTimings.now()
             let cold = try await CaptionGenerator.run(project: p, options: o, store: onDemand)
             let tCold = CaptionTimings.now() - t0
             Self.line(String(format: "cold_request %.2fs whisper_peak %.0fMB | %@", tCold, watch.peakMB, cold.timings.logLine), out)
             try Self.captionLines(p, cold).write(to: out.appendingPathComponent("captions_cold.txt"), atomically: true, encoding: .utf8)
+            t0 = CaptionTimings.now()
+            let cold2 = try await CaptionGenerator.run(project: p, options: o, store: onDemand2)
+            Self.line(String(format: "cold_request_again %.2fs | %@", CaptionTimings.now() - t0, cold2.timings.logLine), out)
+            try Self.captionLines(p, cold2).write(to: out.appendingPathComponent("captions_cold2.txt"), atomically: true, encoding: .utf8)
 
-            // background pass over every media item (what import triggers)
-            let audioMedia = p.media.filter { $0.hasAudio }
-            Self.line(String(format: "media %d with audio %d (%.1fs), qualifying %d", p.media.count, audioMedia.count,
-                             audioMedia.reduce(0) { $0 + $1.duration.seconds },
-                             p.media.filter { PreTranscription.qualifies($0, store: pre) }.count), out)
+            // the background pass (what the scheduler runs after import / save), background priority
+            Self.line(String(format: "pending before the pass %.1fs of audio", PreTranscription.pendingSeconds(p, o, store: pre)), out)
             watch.resetPeak()
             t0 = CaptionTimings.now()
-            let stats = try await Task.detached(priority: .background) { try await PreTranscription.pass(p.media, store: pre) }.value
+            let tm = try await Task.detached(priority: .background) { try await PreTranscription.prepare(p, o, store: pre) }.value
             let tPass = CaptionTimings.now() - t0
-            Self.line(String(format: "background_pass %.2fs whisper_peak %.0fMB | %@ | %@", tPass, watch.peakMB, stats.logLine, Self.load1()), out)
+            Self.line(String(format: "background_pass %.2fs whisper_peak %.0fMB | %@ | %@", tPass, watch.peakMB, tm.logLine, Self.load1()), out)
 
             // warm: the request after the pass
             t0 = CaptionTimings.now()
@@ -142,23 +144,6 @@ import ValseTestSupport
             let tWarm = CaptionTimings.now() - t0
             Self.line(String(format: "warm_request %.3fs | %@", tWarm, warm.timings.logLine), out)
             try Self.captionLines(p, warm).write(to: out.appendingPathComponent("captions_warm.txt"), atomically: true, encoding: .utf8)
-            // explicit language = the detected one: served from the auto transcript too
-            t0 = CaptionTimings.now()
-            let warmFr = try await CaptionGenerator.run(project: p, options: CaptionOptions(language: cold.language), store: pre)
-            Self.line(String(format: "warm_request_%@ %.3fs | %@", cold.language, CaptionTimings.now() - t0, warmFr.timings.logLine), out)
-
-            // per-range: on-demand transcript vs whole-file slice, same keys (word diff with worddiff.py)
-            let names = (try? FileManager.default.contentsOfDirectory(atPath: dirs[0].path)) ?? []
-            for n in names where n.hasSuffix(".json") {
-                let key = String(n.dropLast(5))
-                let parts = key.split(separator: "-")
-                guard parts.count > 3, let s = Double(parts[1]), let e = Double(parts[2]),
-                      let whole = pre.get(PreTranscription.key(hash: String(parts[0]))) else { continue }
-                let slice = PreTranscription.slice(whole, to: TimeRange(start: Time(s / 1000), end: Time(e / 1000)))
-                // slices in range time, like the on-demand transcripts (shifted by the range start)
-                let shifted = Transcript(engine: slice.engine, language: slice.language, words: slice.words)
-                try JSONEncoder().encode(shifted).write(to: dirs[2].appendingPathComponent(n))
-            }
             #expect(warm.timings.transcribed == 0)
         }
     }
@@ -203,16 +188,16 @@ import ValseTestSupport
             let modes = ["idle", "background", "paused", "foreground"]
             for round in 1...rounds {
                 for mode in modes {
-                    var task: Task<PreTranscription.Stats, any Error>?
+                    var task: Task<CaptionTimings, any Error>?
                     let dir = out.appendingPathComponent("cost-\(round)-\(mode)")
                     try? FileManager.default.removeItem(at: dir)
                     let control = PassControl()
                     if mode != "idle" {
                         let store = TranscriptStore(directory: dir)
-                        let rec: CaptionBatch.Recognizer? = mode == "foreground" ? Self.foregroundRecognizer() : nil
-                        let media = p.media
+                        // foreground = what the request itself runs (normal priority)
+                        let rec: CaptionBatch.Recognizer? = mode == "foreground" ? CaptionBatch.defaultRecognizer : nil
                         task = Task.detached(priority: mode == "foreground" ? .userInitiated : .background) {
-                            try await PreTranscription.pass(media, store: store, recognizer: rec, control: control)
+                            try await PreTranscription.prepare(p, CaptionOptions(), store: store, recognizer: rec, control: control)
                         }
                         await waitUntil({ watch.alive })   // whisper running (extraction done for the first run)
                         try await Task.sleep(for: .seconds(2))
@@ -238,23 +223,23 @@ import ValseTestSupport
             }
 
             // pause latency through the real scheduler (app delays, real poll): busy → whisper process stopped (SSTOP)
-            // (kept: word diff against the uninterrupted pass of `benefit` shows that pausing changes nothing)
+            // (kept: word diff against the uninterrupted runs of `benefit` shows what pausing changes)
             try? FileManager.default.removeItem(at: out.appendingPathComponent("cost-pause"))
             let store = TranscriptStore(directory: out.appendingPathComponent("cost-pause"))
             let pt = PreTranscriber()
             pt.store = store
-            pt.configureForTests(now: Date.init, importQuietDelay: 0, startQuietDelay: 0, resumeQuietDelay: 2, pollInterval: 0.25)
+            pt.configureForTests(now: Date.init, quietDelay: 0, startQuietDelay: 0, resumeQuietDelay: 2, pollInterval: 0.25)
             pt.systemBlocker = { nil }
             var busy = false
             let owner = NSObject()
-            pt.setActivitySource(owner) { busy }
-            pt.isEnabled = true
+            let work = PreTranscriber.Work(project: p, options: CaptionOptions())
+            pt.setSource(owner, busy: { busy }, work: { work })
             let t0Pass = CaptionTimings.now()
-            pt.enqueue(p.media)
+            pt.isEnabled = true
             var latencies: [Double] = []
             for i in 0..<6 {
-                await waitUntil({ pt.processID != nil && pt.state == .running })
-                guard let pid = pt.processID else { break }
+                await waitUntil({ (pt.processID != nil && pt.state == .running) || pt.finished > 0 })
+                guard let pid = pt.processID, pt.finished == 0 else { break }
                 try await Task.sleep(for: .milliseconds(1500 + 900 * i))
                 let t0 = CaptionTimings.now()
                 busy = true
@@ -266,8 +251,8 @@ import ValseTestSupport
             Self.line("pause_latency_s " + latencies.map { String(format: "%.3f", $0) }.joined(separator: " ")
                       + String(format: " median %.3f (poll %.2fs)", Self.median(latencies), pt.pollInterval), out)
             await waitUntil({ pt.finished == 1 }, max: 1800)
-            Self.line(String(format: "pass_with_6_pauses %.1fs (paused 6 x 3 s + resume delays) | %@ | %@", CaptionTimings.now() - t0Pass,
-                             pt.lastStats?.logLine ?? "not finished", Self.load1()), out)
+            Self.line(String(format: "pass_with_%d_pauses %.1fs (each 3 s + 2 s resume delay) | %@ | %@", latencies.count,
+                             CaptionTimings.now() - t0Pass, pt.lastTimings?.logLine ?? "not finished", Self.load1()), out)
             await pt.stopAll()
         }
     }

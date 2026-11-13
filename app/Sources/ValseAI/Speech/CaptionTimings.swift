@@ -19,8 +19,6 @@ public struct CaptionTimings: Sendable, Equatable {
     public var total = 0.0
     /// Media ranges in the request / served from the transcript cache / silent / sent to the engine, engine runs.
     public var ranges = 0, cached = 0, silent = 0, transcribed = 0, engineRuns = 0
-    /// Of `cached`: ranges sliced from a whole-file transcript (background pre-transcription, PERF-CAPTIONS-2).
-    public var wholeFile = 0
     /// Seconds of audio sent to the engine.
     public var audioSeconds = 0.0
 
@@ -30,8 +28,7 @@ public struct CaptionTimings: Sendable, Equatable {
         func f(_ v: Double) -> String { String(format: "%.2f", v) }
         return "captions: total \(f(total))s = extraction \(f(extraction)) separation \(f(separation)) silence \(f(silenceCheck)) "
             + "join \(f(joining)) engine \(f(engine)) snapping \(f(snapping)) segmenting \(f(segmenting)) | ranges \(ranges) "
-            + "cached \(cached) (whole-file \(wholeFile)) silent \(silent) transcribed \(transcribed) (\(f(audioSeconds))s audio) "
-            + "engine runs \(engineRuns)"
+            + "cached \(cached) silent \(silent) transcribed \(transcribed) (\(f(audioSeconds))s audio) engine runs \(engineRuns)"
     }
 
     /// Monotonic clock (seconds).
