@@ -27,9 +27,21 @@ public enum Transcriber {
         public var keepFillers: Bool
         /// Languages tried by Apple-engine auto-detection.
         public var candidates: [String]
-        public init(language: String? = nil, engine: SpeechEngine = .automatic, keepFillers: Bool = false, candidates: [String] = ["fr", "en"]) {
+        /// whisper's voice activity detection when its model is installed (PERF-CAPTIONS-4). Off for Auto lyrics:
+        /// Silero detects speech and was never measured on sung vocals.
+        public var voiceActivity: Bool
+        public init(language: String? = nil, engine: SpeechEngine = .automatic, keepFillers: Bool = false, candidates: [String] = ["fr", "en"],
+                    voiceActivity: Bool = true) {
             self.language = language; self.engine = engine; self.keepFillers = keepFillers; self.candidates = candidates
+            self.voiceActivity = voiceActivity
         }
+    }
+
+    /// whisper options for a request (`vad`: the installed VAD model, dropped when the request turns it off).
+    static func whisperOptions(_ r: Request, model: URL, cli: URL, vad: URL? = WhisperEngine.defaultVADModel) -> WhisperEngine.Options {
+        var o = WhisperEngine.Options(language: r.language, model: model, cli: cli, keepFillers: r.keepFillers)
+        o.vadModel = r.voiceActivity ? vad : nil
+        return o
     }
 
     /// Transcribes a 16 kHz mono WAV (see `AudioExtractor`). `progress` 0…1. Word boundaries are snapped to the speech
@@ -51,8 +63,7 @@ public enum Transcriber {
         if r.engine != .apple {
             if let cli = helper, let model {
                 do {
-                    return try await WhisperEngine.transcribe(wav: wav, options: .init(language: r.language, model: model, cli: cli,
-                                                                                        keepFillers: r.keepFillers), progress: progress)
+                    return try await WhisperEngine.transcribe(wav: wav, options: whisperOptions(r, model: model, cli: cli), progress: progress)
                 } catch is CancellationError { throw CancellationError() }
                 catch { log.append("whisper: \(error)"); failures.append(SpeechFailure.classify(error, language: r.language)) }
             } else if r.engine == .whisper {

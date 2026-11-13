@@ -78,7 +78,7 @@ public enum CaptionGenerator {
         guard !clips.isEmpty else { throw SpeechFailure.nothingToCaption(trackChosen: o.source != .allTracks) }
         if let forced = SpeechTestHooks.forcedFailure { throw forced }   // UI tests: failure cards
         let request = Transcriber.Request(language: o.language, engine: o.engine, keepFillers: o.settings.removeFillers,
-                                          candidates: Self.candidates(uiLanguage: L10n.shared.language))
+                                          candidates: Self.candidates(uiLanguage: L10n.shared.language), voiceActivity: !o.lyrics)
         // merged source ranges per media, in timeline order (the joined run reads them in the order they are heard)
         var ranges: [MediaID: [TimeRange]] = [:]
         for c in clips { ranges[c.mediaID!, default: []].append(c.sourceRange) }

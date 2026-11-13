@@ -175,6 +175,15 @@ import ValseTestSupport
         #expect(log.all.count == 2, "retried later")
     }
 
+    /// Auto lyrics keeps today's path: no VAD on sung vocals (never measured there).
+    @Test func lyricsRequestsRunWithoutVAD() {
+        let vad = URL(fileURLWithPath: "/tmp/ggml-silero-v6.2.0.bin"), m = URL(fileURLWithPath: "/tmp/m.bin"), cli = URL(fileURLWithPath: "/tmp/cli")
+        #expect(Transcriber.Request().voiceActivity, "captions: on by default")
+        #expect(Transcriber.whisperOptions(.init(language: "fr"), model: m, cli: cli, vad: vad).vadModel == vad)
+        let lyrics = Transcriber.Request(language: "fr", voiceActivity: false)
+        #expect(Transcriber.whisperOptions(lyrics, model: m, cli: cli, vad: vad).vadModel == nil)
+    }
+
     @Test func catalogEntry() {
         let s = ModelCatalog.sileroVAD
         #expect(ModelCatalog.spec(s.id) == s)
