@@ -38,10 +38,14 @@ public struct CaptionResult: Sendable {
     public let count: Int
     public let language: String
     public let engine: String
+    /// Where the time went (also logged).
+    public var timings = CaptionTimings()
 }
 
 /// Runs speech recognition for the chosen clips and builds the undoable "Auto captions" edit. Each media range is
-/// transcribed once (cached in `TranscriptStore`); one heavy model at a time (whisper runs in its own process).
+/// transcribed once (cached per range in `TranscriptStore`); the uncached ranges are recognised together in one engine
+/// run (`CaptionBatch`, PERF-CAPTIONS-1); one heavy model at a time (whisper runs in its own process). Logs the time
+/// spent per phase (`CaptionTimings`).
 public enum CaptionGenerator {
     /// Clips whose audio gets captioned.
     public static func sourceClips(_ p: Project, _ source: CaptionOptions.Source) -> [Clip] {
@@ -60,77 +64,121 @@ public enum CaptionGenerator {
 
     public static func run(project p: Project, options o: CaptionOptions, progress: (@Sendable (Double) -> Void)? = nil,
                            phase: (@Sendable (CaptionPhase) -> Void)? = nil) async throws -> CaptionResult {
+        try await run(project: p, options: o, store: .shared, progress: progress, phase: phase)
+    }
+
+    /// `store`, `recognizer`: injectable for tests (a private cache, a fake engine).
+    static func run(project p: Project, options o: CaptionOptions, store: TranscriptStore,
+                    recognizer: @escaping CaptionBatch.Recognizer = CaptionBatch.defaultRecognizer,
+                    progress: (@Sendable (Double) -> Void)? = nil,
+                    phase: (@Sendable (CaptionPhase) -> Void)? = nil) async throws -> CaptionResult {
+        let started = CaptionTimings.now()
+        var tm = CaptionTimings()
         let clips = sourceClips(p, o.source)
         guard !clips.isEmpty else { throw SpeechFailure.nothingToCaption(trackChosen: o.source != .allTracks) }
         if let forced = SpeechTestHooks.forcedFailure { throw forced }   // UI tests: failure cards
         let request = Transcriber.Request(language: o.language, engine: o.engine, keepFillers: o.settings.removeFillers,
                                           candidates: Self.candidates(uiLanguage: L10n.shared.language))
-        // merged source ranges per media
+        // merged source ranges per media, in timeline order (the joined run reads them in the order they are heard)
         var ranges: [MediaID: [TimeRange]] = [:]
         for c in clips { ranges[c.mediaID!, default: []].append(c.sourceRange) }
-        let jobs: [(MediaAsset, TimeRange)] = ranges.flatMap { mid, rs -> [(MediaAsset, TimeRange)] in
+        var jobs: [(asset: MediaAsset, range: TimeRange, at: Time)] = ranges.flatMap { mid, rs -> [(asset: MediaAsset, range: TimeRange, at: Time)] in
             guard let a = p.asset(mid) else { return [] }
-            return merge(rs, pad: Time(0.5), limit: a.duration).map { (a, $0) }
+            return merge(rs, pad: Time(0.5), limit: a.duration).map { r in
+                let at = clips.filter { $0.mediaID == mid && $0.sourceRange.start < r.end && $0.sourceRange.end > r.start }
+                    .map(\.start).min() ?? .zero
+                return (a, r, at)
+            }
         }
-        let total = jobs.reduce(0.0) { $0 + $1.1.duration.seconds }
-        var done = 0.0
+        jobs.sort { ($0.at, $0.asset.id.description, $0.range.start) < ($1.at, $1.asset.id.description, $1.range.start) }
+        tm.ranges = jobs.count
+        let keepFillers = o.settings.removeFillers
+        // Auto lyrics (AI-002): recognise the separated vocals, not the band
+        let lyricsMethod = o.lyrics ? LyricsVocals.preferred : nil
+        let keys: [String] = jobs.map { j in
+            var key = TranscriptStore.key(hash: j.asset.contentHash, range: j.range, language: o.language, engine: o.engine, fillers: keepFillers)
+            if let m = lyricsMethod { key += LyricsVocals.cacheSuffix(m) }
+            return key
+        }
+        var results = [Transcript?](repeating: nil, count: jobs.count)
+        for i in jobs.indices { if let cached = store.get(keys[i]) { results[i] = cached; tm.cached += 1 } }
+
+        // 1. extraction of the uncached ranges (each to its own 16 kHz WAV); a silent one is simply left out
+        let separating = (lyricsMethod ?? .none) != .none
+        let extractShare = separating ? 0.45 : 0.1
+        let pending = jobs.indices.filter { results[$0] == nil }
+        let pendingSeconds = max(pending.reduce(0.0) { $0 + jobs[$1].range.duration.seconds }, 0.001)
+        var extracted = 0.0
+        var pieces: [(job: Int, wav: URL)] = []
+        defer { for piece in pieces { try? FileManager.default.removeItem(at: piece.wav) } }
+        for i in pending {
+            try Task.checkCancellation()
+            let (asset, range, _) = jobs[i]
+            let frac = range.duration.seconds / pendingSeconds
+            var c0 = CaptionTimings.now()
+            phase?(.extracting)
+            var source = PlayableURL.resolve(asset)
+            guard FileManager.default.fileExists(atPath: source.path) else {
+                throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id)
+            }
+            if let m = lyricsMethod, m != .none {
+                phase?(.separating)   // AI-002 "Separating vocals…"
+                let base = extracted
+                let v = try await LyricsVocals.vocals(asset, method: m) { f in progress?(0.05 + extractShare * (base + f * frac)) }
+                if let u = v.url { source = u }
+                tm.separation += CaptionTimings.now() - c0; c0 = CaptionTimings.now()
+            }
+            let wav: URL
+            do { wav = try await AudioExtractor.wav16k(source, range: range) }
+            catch SpeechFailure.mediaOffline { throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id) }
+            catch SpeechFailure.noSoundInFile { throw SpeechFailure.noSoundInFile(name: asset.name) }
+            tm.extraction += CaptionTimings.now() - c0; c0 = CaptionTimings.now()
+            let silent = AudioExtractor.isSilent(wav)
+            tm.silenceCheck += CaptionTimings.now() - c0
+            if silent {
+                try? FileManager.default.removeItem(at: wav)
+                let t = Transcript(engine: "silence", language: o.language ?? "", words: [])
+                results[i] = t; tm.silent += 1
+                store.put(t, keys[i])
+            } else {
+                pieces.append((i, wav))
+            }
+            extracted += frac
+            progress?(0.05 + extractShare * extracted)
+        }
+
+        // 2. one engine run over all the speech pieces (CaptionBatch), words mapped back to their range
+        if !pieces.isEmpty {
+            // Apple speech asks for permission once: wait for the user's answer ("Waiting for permission…")
+            if Transcriber.willAskPermission(request) {
+                phase?(.permission)
+                _ = await Transcriber.requestAuthorization()
+                try Task.checkCancellation()
+            }
+            phase?(.transcribing)
+            let from = 0.05 + extractShare, span = 0.9 - from
+            let out = try await CaptionBatch.transcribe(pieces.map(\.wav), request: request, recognizer: recognizer, timings: &tm) { f in
+                progress?(from + span * f)
+            }
+            tm.transcribed = pieces.count
+            tm.audioSeconds = pieces.reduce(0.0) { $0 + jobs[$1.job].range.duration.seconds }
+            for (k, piece) in pieces.enumerated() {
+                let t = out[k].shifted(by: jobs[piece.job].range.start.seconds)
+                results[piece.job] = t
+                store.put(t, keys[piece.job])
+            }
+        }
+        progress?(0.9)
         var transcripts: [MediaID: [Transcript]] = [:]
         var detected: [String: Int] = [:]
         var engineUsed = ""
-        let keepFillers = o.settings.removeFillers
-        for (asset, range) in jobs {
-            try Task.checkCancellation()
-            // Auto lyrics (AI-002): recognise the separated vocals, not the band
-            let lyricsMethod = o.lyrics ? LyricsVocals.preferred : nil
-            var key = TranscriptStore.key(hash: asset.contentHash, range: range, language: o.language, engine: o.engine, fillers: keepFillers)
-            if let m = lyricsMethod { key += LyricsVocals.cacheSuffix(m) }
-            let frac = range.duration.seconds / max(total, 0.001)
-            let t: Transcript
-            if let cached = TranscriptStore.shared.get(key) {
-                t = cached
-            } else {
-                phase?(.extracting)
-                var source = PlayableURL.resolve(asset)
-                guard FileManager.default.fileExists(atPath: source.path) else {
-                    throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id)
-                }
-                if let m = lyricsMethod, m != .none {
-                    phase?(.separating)   // AI-002 "Separating vocals…"
-                    let base = done
-                    let v = try await LyricsVocals.vocals(asset, method: m) { f in progress?(0.05 + 0.85 * (base + 0.5 * f * frac)) }
-                    if let u = v.url { source = u }
-                }
-                let wav: URL
-                do { wav = try await AudioExtractor.wav16k(source, range: range) }
-                catch SpeechFailure.mediaOffline { throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id) }
-                catch SpeechFailure.noSoundInFile { throw SpeechFailure.noSoundInFile(name: asset.name) }
-                defer { try? FileManager.default.removeItem(at: wav) }
-                if AudioExtractor.isSilent(wav) {
-                    t = Transcript(engine: "silence", language: o.language ?? "", words: [])
-                } else {
-                    // Apple speech asks for permission once: wait for the user's answer ("Waiting for permission…")
-                    if Transcriber.willAskPermission(request) {
-                        phase?(.permission)
-                        _ = await Transcriber.requestAuthorization()
-                        try Task.checkCancellation()
-                    }
-                    phase?(.transcribing)
-                    // with vocal separation the transcription is the second half of this range's progress
-                    let sep = (lyricsMethod ?? .none) == .none ? 0.0 : 0.5
-                    let base = done + sep * frac
-                    let r = try await Transcriber.transcribe(wav: wav, request: request) { f in
-                            progress?(0.05 + 0.85 * (base + (1 - sep) * f * frac))
-                        }
-                    t = r.shifted(by: range.start.seconds)
-                }
-                TranscriptStore.shared.put(t, key)
-            }
-            done += frac
-            progress?(0.05 + 0.85 * done)
-            transcripts[asset.id, default: []].append(t)
+        for (i, j) in jobs.enumerated() {
+            guard let t = results[i] else { continue }
+            transcripts[j.asset.id, default: []].append(t)
             if !t.words.isEmpty { detected[t.language, default: 0] += t.words.count; engineUsed = t.engine }
         }
         phase?(.splitting)
+        let g0 = CaptionTimings.now()
         var settings = o.settings
         if o.lyrics { settings.removeFillers = false; settings.maxPause = 1.2 }
         // lines that fit the frame at the caption size (≈ 25 characters on 9:16, ≤ 40 on 16:9)
@@ -143,6 +191,9 @@ public enum CaptionGenerator {
                 segments += SpeechCaptions.segments(t, for: c, settings: settings)
             }
         }
+        tm.segmenting = CaptionTimings.now() - g0
+        tm.total = CaptionTimings.now() - started
+        EngineLog.info(tm.logLine)
         guard !segments.isEmpty else { throw SpeechFailure.noSpeech(language: o.language) }
         phase?(.adding)
         progress?(0.97)
@@ -154,7 +205,7 @@ public enum CaptionGenerator {
         let cmd = Edit(o.lyrics ? "cmd.lyrics" : "cmd.captions") { p in
             try insert(final, style: style, origin: origin, replacing: replace, language: lang, into: &p)
         }
-        return CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed)
+        return CaptionResult(command: cmd, count: segments.count, language: lang, engine: engineUsed, timings: tm)
     }
 
     /// The "Auto captions" / "Auto lyrics" edit body: a new caption track (never on an existing track, so no existing
