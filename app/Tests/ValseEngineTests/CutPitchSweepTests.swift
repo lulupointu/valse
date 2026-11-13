@@ -68,7 +68,8 @@ struct CutPitchSweepTests {
     /// FLAKY-PB2: the level is also checked up to the PROJECT's end. The mixdown reader stopped at the end before the
     /// stretcher delivered a stretched clip's last 20-120 ms (silent: "1x | 0.5x" from 4.38 s of 4.5, "1x | 1.5x"
     /// 2.4375-2.49, "split 1.5x both" 1.98-1.99): readers now read 0.5 s past the end (`Exporter.audioReadRange`), and
-    /// the lane's last clip gets a 0.25 s tail pad (0.1 s still lost ~20 ms at 0.5×).
+    /// the lane's last clip gets a 0.25 s tail pad (0.1 s still lost ~20 ms at 0.5×), an edit of its own when the clip
+    /// continues the previous one ("split 1.5x both" dipped ~20 ms before the end under load: CutPitchSweepStressTests).
     @Test(arguments: cases)
     func tonePitchStaysConstantAcrossACut(_ c: Case) async throws {
         var p = TestProject(frameRate: .fps30)

@@ -94,7 +94,10 @@ struct SkipTimeMapTests {
     /// is checked strictly for what the skips must never do.
     @Test func playbackRunsOverSkippedRangesWithoutSeeking() async throws {
         let project = try await Self.project()
+        for _ in 0..<TestBurners.repeats {   // (opt-in stress: VALSE_TEST_REPEAT)
         try await HeavyWorkGate.run {
+            let burners = TestBurners.fromEnvironment()   // (opt-in stress)
+            defer { burners?.value = true }
             let engine = PlaybackEngine(project: project)
             engine.usesProxies = false
             engine.skipRanges = Self.skips
@@ -116,14 +119,24 @@ struct SkipTimeMapTests {
                 var frames: [Time] = [], rateDrops = 0, lastPoll = start, maxGap = 0.0, polls = 0
                 var firstItem = -1.0, lastItem = 0.0, maxJump = 0.0
                 let primes0 = engine.stallRecoveries, rebuilds0 = engine.stallRebuilds
+                var trace: [String] = []
+                let launches0 = engine.launches, sched = engine.scheduledStartHost
                 while engine.currentTime < Time(4.2), CACurrentMediaTime() - start < 60 {
                     let now = CACurrentMediaTime()
                     let item = engine.player.currentTime().seconds
-                    if polls > 0 { maxJump = max(maxJump, (item - lastItem) - (now - lastPoll) * Double(engine.player.rate)) } else { firstItem = item }
+                    let jump = polls > 0 ? (item - lastItem) - (now - lastPoll) * Double(engine.player.rate) : 0
+                    if polls < 6 || jump > 0.05 { trace.append(Self.traceLine(engine, start: start, now: now, item: item)) }
+                    if polls > 0 { maxJump = max(maxJump, jump) } else { firstItem = item }
                     maxGap = max(maxGap, now - lastPoll); lastPoll = now; lastItem = item; polls += 1
                     if let (_, t) = engine.pixelBuffer(forHostTime: now), frames.last != t { frames.append(t) }
                     if engine.player.rate == 0 { rateDrops += 1 }
                     try await Task.sleep(nanoseconds: 4_000_000)
+                }
+                // the poll that ended the pass: a jump to past 4.2 s ends the loop before the loop body measures it
+                do {
+                    let now = CACurrentMediaTime(), item = engine.player.currentTime().seconds
+                    if engine.player.rate != 0 { maxJump = max(maxJump, (item - lastItem) - (now - lastPoll) * Double(engine.player.rate)) }
+                    trace.append("end " + Self.traceLine(engine, start: start, now: now, item: item))
                 }
                 engine.pause()
                 let primes = engine.stallRecoveries - primes0, rebuilds = engine.stallRebuilds - rebuilds0
@@ -132,7 +145,9 @@ struct SkipTimeMapTests {
                 let diag = "pass \(attempt): frames \(frames.map { String(format: "%.2f", $0.seconds) }) (\(frames.count) of \(covered) "
                     + "covered), item clock \(String(format: "%.2f", firstItem)) → \(String(format: "%.2f", lastItem)) s, max jump "
                     + "\(String(format: "%.3f", maxJump)) s, \(polls) polls, max poll gap \(String(format: "%.2f", maxGap)) s, "
-                    + "watchdog primes \(primes) rebuilds \(rebuilds), wall \(String(format: "%.2f", CACurrentMediaTime() - start)) s"
+                    + "watchdog primes \(primes) rebuilds \(rebuilds), wall \(String(format: "%.2f", CACurrentMediaTime() - start)) s, "
+                    + "launches \(engine.launches - launches0), scheduled start \(String(format: "%+.3f", sched - start)) s; "
+                    + "trace [t item audio rate item(host) devΔ]: \(trace.joined(separator: " | "))"
                 #expect(engine.currentTime >= Time(4.2) || engine.requestedTime >= Time(4.2), "playback did not get past the slices: \(diag)")
                 // (a stall watchdog re-prime / rebuild under heavy load also holds the rate for its seek, and re-joins the
                 // video ahead of the audio: not a slice seek)
@@ -158,6 +173,7 @@ struct SkipTimeMapTests {
             #expect(await Self.until { !engine.isBuilding && engine.itemSkip.isIdentity })
             #expect(engine.currentTime == engine.requestedTime)
         }
+        }
     }
 
     /// Passes played at most when a starved pass hides a kept part; poll gap (s) that counts as a starved main actor.
@@ -165,6 +181,18 @@ struct SkipTimeMapTests {
     static let loadGap = 0.25
     /// Item-clock advance beyond the wall clock between two polls (s) that counts as a jump (a frame is 0.033 s).
     static let maxClockJump = 0.2
+
+    /// One poll of a pass, for the failure message: wall time since the pass started, item clock, audio clock, rate, the
+    /// video output's item time for the poll's host time, and the player's source (device) clock minus the host clock.
+    static func traceLine(_ engine: PlaybackEngine, start: CFTimeInterval, now: CFTimeInterval, item: Double) -> String {
+        let host = CMClockGetHostTimeClock()
+        let h = CMClockGetTime(host)
+        let dev = engine.player.sourceClock.map { CMSyncConvertTime(h, from: host, to: $0).seconds - h.seconds } ?? .nan
+        let out = engine.videoOutput?.itemTime(forHostTime: now).seconds ?? .nan
+        return String(format: "%.3f %.3f %.3f %.0f %.3f %.4f req %.3f tc %d item %d", now - start, item, engine.audio.currentTime,
+                      engine.player.rate, out, dev, engine.requestedTime.seconds, engine.player.timeControlStatus.rawValue,
+                      engine.player.currentItem?.status.rawValue ?? -1)
+    }
 
     /// Waits (polling the main actor) until `ok`, at most `ceiling` s.
     static func until(_ ceiling: Double = 120, _ ok: () -> Bool) async -> Bool {

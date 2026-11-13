@@ -78,6 +78,8 @@ public final class PreviewAudio: @unchecked Sendable {
         /// Host time (CACurrentMediaTime) of the last seek request, of its first enqueued chunk, of the clock start.
         public var seekRequested = 0.0, firstChunkAfterSeek = 0.0, clockStarted = 0.0
         public var outputChanges = 0
+        /// Composition time (s) the last performed seek started from (diagnostics / tests).
+        public var lastSeekTime = 0.0
         /// Last hot swap, as the feeder performed it: the clock (frame) when it ran, the frame the new composition starts
         /// at (the queue's end), and the host time (CACurrentMediaTime) it ran at.
         public var swapClockFrame = 0, swapFrame = 0
@@ -327,7 +329,7 @@ public final class PreviewAudio: @unchecked Sendable {
         let f = PreviewAudioLanes.frame(time)
         cursor = f
         if let built { lanes = PreviewAudioLanes(built: built, state: audioState, start: f, counter: readerCounter) }
-        lock.withLock { _stats.seeks += 1; _stats.firstChunkAfterSeek = 0; _stats.enqueuedEnd = time }
+        lock.withLock { _stats.seeks += 1; _stats.firstChunkAfterSeek = 0; _stats.enqueuedEnd = time; _stats.lastSeekTime = time }
         ensureTimer()
         tick()
     }

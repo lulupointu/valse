@@ -421,6 +421,10 @@ public enum CompositionBuilder {
     /// stretcher decides how AVPlayer stamps the lane taps); ships `.spectral`.
     nonisolated(unsafe) static var laneTimePitch: AVAudioTimePitchAlgorithm = .spectral
 
+    /// Silenced source audio after a lane's last stretched clip (output time), read by the stretcher so that it delivers
+    /// the clip's last samples (FLAKY-PB2: 0.1 s still lost ~20 ms of a 0.5× clip at the project's end).
+    static let lastClipTailPad = Time(0.25)
+
     /// Inserts every clip's audio on shared composition audio tracks (`audioLanePlan`), in time order on each track
     /// (`insert` appends: a segment placed before a track's end would shift what follows).
     static func packAudio(_ pending: [PendingAudio], into comp: AVMutableComposition, sharesAcrossTracks: Bool = true) throws -> [PackedAudioLane] {
@@ -437,7 +441,7 @@ public enum CompositionBuilder {
             let placements = (byLane[l] ?? []).sorted { $0.start < $1.start }
             for (i, p) in placements.enumerated() {
                 // stretched clips: a tail pad where nothing follows closely (BUG-CUT-AUDIO-SWEEP, see `stretchKey`)
-                var pad = Time.zero, head = Time.zero
+                var pad = Time.zero, head = Time.zero, continues = false
                 if p.segments.contains(where: { abs($0.source.duration / max($0.output.duration, Time(ticks: 1)) - 1) > 1e-3 }) {
                     // and a head pre-roll where the lane is empty before it (FLAKY-PB: a stretched clip starting after
                     // silence came in at 30-60 % of its level for its first ~20 ms, the stretcher's start-up — measured
@@ -455,21 +459,21 @@ public enum CompositionBuilder {
                         // the lane's last clip always gets one (FLAKY-PB, CutPitchSweepTests: it never did — `room` was a
                         // fixed 0.1 s here — and the stretcher then either dropped the clip's last 50-120 ms (silence
                         // before a cut to another lane, or before the project's end) or delivered them fading out, which
-                        // of the two varying run to run). A pad past the composition's end is read by nobody: export /
-                        // mixdown / PreviewAudio read [0, duration), the player's asset has no audio tracks.
-                        // Except when it directly continues the lane's previous clip (a split at the same speed): a
-                        // padded edit there made the stretcher restart at the split and drop ~85 ms after it, in 27 of
-                        // 30 SplitSpeedAudioTests runs and 11 of 40 CutPitchSweepTests "split 1.5x both" runs (measured,
-                        // exact stretch ratio or not).
-                        // FLAKY-PB2: 0.25 s (the export / mixdown / preview readers read 0.5 s past the end): with 0.1 s a
-                        // 0.5× clip ending the project still lost its last ~20 ms (the stretcher's output lags more at
-                        // slow ratios)
-                        let continues = used && free <= .zero
-                        pad = continues ? .zero : Time(0.25)
+                        // of the two varying run to run). FLAKY-PB2: the audio readers read 0.5 s past the end
+                        // (`Exporter.audioReadRange`; the player's asset has no audio tracks) — before, a pad past the
+                        // project's end was read by nobody and the end lost its last 20-120 ms — and the pad is 0.25 s
+                        // (0.1 s still lost ~20 ms of a 0.5× clip).
+                        // When it directly continues the lane's previous clip (a split at the same speed), padding its
+                        // edit made the stretcher restart at the split and drop ~85 ms after it (27 of 30
+                        // SplitSpeedAudioTests runs, 11 of 40 CutPitchSweepTests "split 1.5x both", exact ratio or not);
+                        // without a pad its last ~20 ms dipped under load (15 of 20 mixdowns with 14 busy threads): the
+                        // pad is then an edit of its own after it (`tailPadOwnEdit`; 0 of 20 / 0 of 20 at the split).
+                        continues = used && free <= .zero
+                        pad = Self.lastClipTailPad
                     }
                 }
                 try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at,
-                           headPad: head, tailPad: pad)
+                           headPad: head, tailPad: pad, tailPadOwnEdit: continues)
             }
             out.append(PackedAudioLane(track: at, params: params, placements: placements))
         }
@@ -626,8 +630,10 @@ public enum CompositionBuilder {
     static func insert(clip: Clip, segments: [(output: TimeRange, source: TimeRange)], from src: AVAssetTrack,
                        alias: AVAssetTrack? = nil, variants: [Int] = [],
                        sourceRange srcRange: CMTimeRange, into dst: AVMutableCompositionTrack, stretch: Bool = true,
-                       headPad: Time = .zero, tailPad: Time = .zero) throws {
+                       headPad: Time = .zero, tailPad: Time = .zero, tailPadOwnEdit: Bool = false) throws {
+        // `tailPadOwnEdit`: the tail pad is a separate edit after the clip's last one instead of extending it
         for (k, seg) in segments.enumerated() {
+            var ownPad: (source: CMTimeRange, output: CMTime)?
             let src = k < variants.count && variants[k] == 1 ? alias ?? src : src
             var at = (clip.start + seg.output.start).cmTime
             var wanted = CMTimeRange(start: (clip.sourceStart + seg.source.start).cmTime, duration: seg.source.duration.cmTime)
@@ -651,8 +657,13 @@ public enum CompositionBuilder {
                                          duration: CMTimeAdd(wanted.duration, Time(ticks: before * unitSrc).cmTime))
                     at = CMTimeSubtract(at, Time(ticks: before * unitOut).cmTime)
                 }
-                if after > 0 { wanted.duration = CMTimeAdd(wanted.duration, Time(ticks: after * unitSrc).cmTime) }
-                outDur = Time(ticks: o + (before + after) * unitOut).cmTime
+                if after > 0, tailPadOwnEdit {
+                    ownPad = (CMTimeRange(start: wanted.end, duration: Time(ticks: after * unitSrc).cmTime), Time(ticks: after * unitOut).cmTime)
+                    outDur = Time(ticks: o + before * unitOut).cmTime
+                } else {
+                    if after > 0 { wanted.duration = CMTimeAdd(wanted.duration, Time(ticks: after * unitSrc).cmTime) }
+                    outDur = Time(ticks: o + (before + after) * unitOut).cmTime
+                }
             }
             let s = CMTimeRangeGetIntersection(wanted, otherRange: srcRange)
             guard s.duration > .zero else { continue }
@@ -669,6 +680,14 @@ public enum CompositionBuilder {
             try dst.insertTimeRange(s, of: src, at: at)
             if CMTimeCompare(s.duration, outDur) != 0 {
                 dst.scaleTimeRange(CMTimeRange(start: at, duration: s.duration), toDuration: outDur)
+            }
+            // a tail pad as an edit of its own, right after the clip, same ratio (`tailPadOwnEdit`)
+            if let pad = ownPad, CMTimeRangeGetIntersection(pad.source, otherRange: srcRange) == pad.source {
+                let padAt = CMTimeAdd(at, outDur)
+                try dst.insertTimeRange(pad.source, of: src, at: padAt)
+                if CMTimeCompare(pad.source.duration, pad.output) != 0 {
+                    dst.scaleTimeRange(CMTimeRange(start: padAt, duration: pad.source.duration), toDuration: pad.output)
+                }
             }
         }
     }
