@@ -86,6 +86,12 @@ struct SkipTimeMapTests {
     /// - "kept parts not shown: frames [0.30]" (all before the BUG-CUT-AUDIO-HOLE phase B transport): a pass that ends
     ///   after a few polls. Each pass now records the item clock against the wall clock: a clock jump fails at once
     ///   with its size (a playhead teleport is a product bug, never load).
+    /// FLAKY-PB2: not reproduced (≥ 60 more passes: 5 full-suite runs, 8 passes per run with `VALSE_TEST_REPEAT`, 15 with
+    /// 12 busy threads `VALSE_TEST_BURNERS`). The jump check missed the poll that ENDED the pass (a jump past 4.2 s ends
+    /// the loop before its body measured it): it is now measured, and every failure prints a per-poll trace (item clock,
+    /// audio clock, rate, the video output's item time, device − host clock, requested time, timeControlStatus, item
+    /// status) to tell an item-clock jump, a device-clock jump and an item end apart. Fixed meanwhile: a feeder tick could
+    /// report the audio primed for a seek it had not performed yet (`PreviewAudioTests.seekDuringATick…`).
     /// The displayed frames are sampled by polling the view's frame source; under load AVFoundation drops late frames
     /// and a 1 s kept part can get none, without anything being wrong with the skips. Whether a pass was starved is
     /// measured in frames, not wall time: the frames the view got against the frames the item clock covered (plus a

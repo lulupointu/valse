@@ -55,6 +55,12 @@ import ValseTestSupport
     /// a product race, fixed (`PreviewAudio.pause(at:)`). (2) the test took the recording's length before the seek as
     /// the seek's start, but the paused feeder can still queue a chunk from the old position before the seek runs:
     /// chunks are now tagged with the feeder's seek count.
+    /// FLAKY-PB2 (seen again: first chunk after the seek 25 / 44 ms past the target, exactly on the grid of the stream
+    /// started at 0.5 s, i.e. the old queue end, tagged with a later seek count; then the target re-read): not reproduced
+    /// in ≥ 40 more runs (full suites with `VALSE_TEST_REPEAT`, `VALSE_TEST_BURNERS`). Found and fixed on the way: a feeder
+    /// tick could feed from the old position and report primed for a seek requested during it (PreviewAudioTests
+    /// `seekDuringATick…`). A failure now prints the chunks around the first one with their feeder seek count / start /
+    /// swaps and the engine's launches / seek retries / re-joins / output changes.
     @Test func pausePlayKeepsTheAudioHead() async throws {
         var p = TestProject()
         _ = try await p.addMedia(try await TestMedia.video(.frameIndex, seconds: 8, audioHz: 440))

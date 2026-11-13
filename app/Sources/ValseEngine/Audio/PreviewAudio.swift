@@ -87,6 +87,14 @@ public final class PreviewAudio: @unchecked Sendable {
     }
     public var stats: Stats { lock.withLock { _stats } }
 
+    /// Tests only: run once, on the feeder queue, by the next tick right after it read the pending requests (a request
+    /// made from there lands in the window between that read and the feeding).
+    var afterPendingCheckForTesting: (@Sendable () -> Void)? {
+        get { lock.withLock { _afterPendingCheck } }
+        set { lock.withLock { _afterPendingCheck = newValue } }
+    }
+    private var _afterPendingCheck: (@Sendable () -> Void)?
+
     /// `outputDeviceUID`: nil = the system default output.
     public init(audioState: AudioMixState, outputDeviceUID: String? = nil, ahead: Double = 0.15, prime: Double = 0.1) {
         self.audioState = audioState
@@ -384,8 +392,17 @@ public final class PreviewAudio: @unchecked Sendable {
         }
         // a seek / swap requested since: perform it first (a tick before its `drain` would feed — and report primed —
         // from the old position)
-        if lock.withLock({ pendingSeek != nil || pendingBuilt != nil }) { drain() }
-        let (rate, gen, latency) = lock.withLock { (wantsRate, generation, _outputLatency) }
+        // FLAKY-PB2: the generation this tick feeds for is read in the SAME lock as the pending check. Read after it, a
+        // seek requested in between (its generation, its clock time) passed the tick's checks with the queue still at
+        // the old position: chunks from there were enqueued and counted as primed for the new seek — a `whenPrimed`
+        // start could launch the clock before the feeder had even performed the seek.
+        var state = lock.withLock { (pendingSeek != nil || pendingBuilt != nil, wantsRate, generation, _outputLatency) }
+        while state.0 {
+            drain()
+            state = lock.withLock { (pendingSeek != nil || pendingBuilt != nil, wantsRate, generation, _outputLatency) }
+        }
+        let (_, rate, gen, latency) = state
+        if let hook = lock.withLock({ () -> (@Sendable () -> Void)? in defer { _afterPendingCheck = nil }; return _afterPendingCheck }) { hook() }
         // the horizon must exceed the output latency, else every sample reaches the renderer late: silence, no error
         let horizon = Self.feedAhead(ahead, outputLatency: latency)
         let limit = Int((rate > 0 ? horizon * max(1, rate) : max(horizon, prime)) * Self.sampleRate)
