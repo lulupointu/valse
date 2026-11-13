@@ -91,16 +91,9 @@ public struct AppSettings: Codable, Sendable, Equatable {
     /// Playback priority: "quality" or "performance" (PB-004).
     public var playbackPriority = "quality"
     /// PERF-CAPTIONS-2: recognise the speech of imported media in the background (lowest priority, paused while the
-    /// app works) so Auto captions is near instant. Off by default on Intel Macs (whisper runs on the CPU there:
-    /// minutes of full load per project).
-    public var backgroundTranscription = AppSettings.backgroundTranscriptionDefault
-    public static var backgroundTranscriptionDefault: Bool {
-        #if arch(arm64)
-        return true
-        #else
-        return false
-        #endif
-    }
+    /// app works) so Auto captions is near instant. On by default everywhere, Intel Macs included (owner 2026-11-13:
+    /// whisper runs on the CPU there, minutes of background-priority load per project, paused whenever the app works).
+    public var backgroundTranscription = true
 
     // MARK: Export defaults
     /// `ExportSettings.Codec` raw value.
