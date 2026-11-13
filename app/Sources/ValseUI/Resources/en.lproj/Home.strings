@@ -208,6 +208,8 @@
 "settings.autoClear.hint" = "Early rendering cache is cleared if it exceeds %d GB.";
 "settings.autoRender" = "Auto render";
 "settings.autoRender.hint" = "Automatically render the heavy parts of your video to make the preview smoother.";
+"settings.backgroundTranscription" = "Prepare captions in the background";
+"settings.backgroundTranscription.hint" = "Recognizes the speech in your timeline while your Mac is idle, so Auto captions is almost instant. Pauses while you play, export or use other tools.";
 "settings.cacheLocation" = "Cache location";
 "settings.cacheLocation.hint" = "Takes effect the next time Valse starts.";
 "settings.export.followProject" = "Same as project";

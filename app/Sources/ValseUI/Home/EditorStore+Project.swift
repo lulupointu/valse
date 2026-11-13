@@ -18,6 +18,7 @@ extension EditorStore {
             if wantsCover { await Self.writeCover(snapshot, to: url) }
         }
         if AppPreferences.shared.settings.autoRender && persistsPreferences { autoRenderHeavyRanges() }
+        kickPreTranscription()   // PERF-CAPTIONS-2: the timeline changed, Auto captions prepared again in the background
     }
 
     private func coverIsStale(_ url: URL) -> Bool {

@@ -23,6 +23,11 @@ public enum WhisperEngine {
         public var dtw = true
         /// Silero VAD model for whisper.cpp's voice activity detection (`--vad -vm`, see `VADTimeMap`); nil = no VAD.
         public var vadModel: URL? = WhisperEngine.defaultVADModel
+        /// PERF-CAPTIONS-2 background pre-transcription: launch through `taskpolicy -b` (darwin background policy:
+        /// lowest CPU priority, efficiency cores, throttled I/O).
+        public var background = false
+        /// Gets the whisper process id at launch (background pre-transcription pauses it in place).
+        public var onLaunch: (@Sendable (Int32) -> Void)?
         public init(language: String?, model: URL, cli: URL, keepFillers: Bool = false,
                     threads: Int = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))) {
             self.language = language; self.model = model; self.cli = cli; self.keepFillers = keepFillers; self.threads = threads
@@ -50,6 +55,7 @@ public enum WhisperEngine {
             }
             if !prompt.isEmpty { args += ["--prompt", prompt] }
         }
+        let (exe, pre) = launcher(o)
         // PERF-CAPTIONS-4: with the VAD model installed, whisper decodes only the voiced parts (one attempt, with DTW
         // when available); any failure falls back to the run without VAD below.
         if let vad = o.vadModel {
@@ -57,7 +63,7 @@ public enum WhisperEngine {
             if o.dtw, let preset = dtwPreset(model: o.model) { vargs += ["-nfa", "-dtw", preset] }
             let spans = VADTimeMap.Collector()
             do {
-                try await run(o.cli, vargs, progress: progress, onLine: spans.add)
+                try await run(exe, pre + vargs, progress: progress, onLine: spans.add, onLaunch: o.onLaunch)
                 return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en", vad: spans.map)
             } catch is CancellationError { throw CancellationError() }
             catch let f as SpeechFailure where [.appIncomplete, .diskFull].contains(f) { throw f }
@@ -65,18 +71,26 @@ public enum WhisperEngine {
         }
         if o.dtw, let preset = dtwPreset(model: o.model) {
             do {
-                try await run(o.cli, args + ["-nfa", "-dtw", preset], progress: progress)
+                try await run(exe, pre + args + ["-nfa", "-dtw", preset], progress: progress, onLaunch: o.onLaunch)
                 return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en")
             } catch is CancellationError { throw CancellationError() }
             catch let f as SpeechFailure where [.appIncomplete, .speechModelDamaged, .diskFull].contains(f) { throw f }   // no retry helps
             catch { EngineLog.error("whisper DTW run failed (\(error)), retrying without DTW") }
         }
-        try await run(o.cli, args, progress: progress)
+        try await run(exe, pre + args, progress: progress, onLaunch: o.onLaunch)
         return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en")
     }
 
+    /// Executable + leading arguments: `taskpolicy -b <cli>` for background runs (the CLI itself when taskpolicy is
+    /// missing). taskpolicy execs the CLI in place, so terminating the process still stops whisper.
+    static func launcher(_ o: Options) -> (URL, [String]) {
+        let tp = "/usr/sbin/taskpolicy"
+        guard o.background, FileManager.default.isExecutableFile(atPath: tp) else { return (o.cli, []) }
+        return (URL(fileURLWithPath: tp), ["-b", o.cli.path])
+    }
+
     static func run(_ cli: URL, _ args: [String], progress: (@Sendable (Double) -> Void)?,
-                    onLine: (@Sendable (String) -> Void)? = nil) async throws {
+                    onLine: (@Sendable (String) -> Void)? = nil, onLaunch: (@Sendable (Int32) -> Void)? = nil) async throws {
         // stderr (progress lines, error text) is read to EOF by ProcessPipes before the exit status is used
         // (FLAKY-PIPE: with a readabilityHandler the last chunks could arrive after `tail` was taken)
         let progressBox = LineBuffer()
@@ -91,7 +105,7 @@ public enum WhisperEngine {
         }
         let end: (status: Int32, signal: Bool)
         do {
-            let r = try await ProcessPipes.run(cli, args, stderr: stderr)
+            let r = try await ProcessPipes.run(cli, args, stderr: stderr, onLaunch: onLaunch)
             end = (r.status, r.uncaughtSignal)
         } catch {
             EngineLog.error("whisper-cli failed to launch: \(error)")

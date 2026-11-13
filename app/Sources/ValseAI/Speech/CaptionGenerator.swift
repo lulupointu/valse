@@ -67,16 +67,17 @@ public enum CaptionGenerator {
         try await run(project: p, options: o, store: .shared, progress: progress, phase: phase)
     }
 
-    /// `store`, `recognizer`: injectable for tests (a private cache, a fake engine).
-    static func run(project p: Project, options o: CaptionOptions, store: TranscriptStore,
-                    recognizer: @escaping CaptionBatch.Recognizer = CaptionBatch.defaultRecognizer,
-                    progress: (@Sendable (Double) -> Void)? = nil,
-                    phase: (@Sendable (CaptionPhase) -> Void)? = nil) async throws -> CaptionResult {
-        let started = CaptionTimings.now()
-        var tm = CaptionTimings()
+    /// The media ranges a caption request transcribes, in the order the joined run reads them, with their cache keys.
+    struct Plan: Sendable {
+        var clips: [Clip]
+        var jobs: [(asset: MediaAsset, range: TimeRange, at: Time)]
+        var keys: [String]
+        var request: Transcriber.Request
+        var lyricsMethod: LyricsVocals.Method?
+    }
+
+    static func plan(_ p: Project, _ o: CaptionOptions) -> Plan {
         let clips = sourceClips(p, o.source)
-        guard !clips.isEmpty else { throw SpeechFailure.nothingToCaption(trackChosen: o.source != .allTracks) }
-        if let forced = SpeechTestHooks.forcedFailure { throw forced }   // UI tests: failure cards
         let request = Transcriber.Request(language: o.language, engine: o.engine, keepFillers: o.settings.removeFillers,
                                           candidates: Self.candidates(uiLanguage: L10n.shared.language), voiceActivity: !o.lyrics)
         // merged source ranges per media, in timeline order (the joined run reads them in the order they are heard)
@@ -91,83 +92,30 @@ public enum CaptionGenerator {
             }
         }
         jobs.sort { ($0.at, $0.asset.id.description, $0.range.start) < ($1.at, $1.asset.id.description, $1.range.start) }
-        tm.ranges = jobs.count
-        let keepFillers = o.settings.removeFillers
         // Auto lyrics (AI-002): recognise the separated vocals, not the band
         let lyricsMethod = o.lyrics ? LyricsVocals.preferred : nil
         let keys: [String] = jobs.map { j in
-            var key = TranscriptStore.key(hash: j.asset.contentHash, range: j.range, language: o.language, engine: o.engine, fillers: keepFillers)
+            var key = TranscriptStore.key(hash: j.asset.contentHash, range: j.range, language: o.language, engine: o.engine,
+                                          fillers: o.settings.removeFillers)
             if let m = lyricsMethod { key += LyricsVocals.cacheSuffix(m) }
             return key
         }
-        var results = [Transcript?](repeating: nil, count: jobs.count)
-        for i in jobs.indices { if let cached = store.get(keys[i]) { results[i] = cached; tm.cached += 1 } }
+        return Plan(clips: clips, jobs: jobs, keys: keys, request: request, lyricsMethod: lyricsMethod)
+    }
 
-        // 1. extraction of the uncached ranges (each to its own 16 kHz WAV); a silent one is simply left out
-        let separating = (lyricsMethod ?? .none) != .none
-        let extractShare = separating ? 0.45 : 0.1
-        let pending = jobs.indices.filter { results[$0] == nil }
-        let pendingSeconds = max(pending.reduce(0.0) { $0 + jobs[$1].range.duration.seconds }, 0.001)
-        var extracted = 0.0
-        var pieces: [(job: Int, wav: URL)] = []
-        defer { for piece in pieces { try? FileManager.default.removeItem(at: piece.wav) } }
-        for i in pending {
-            try Task.checkCancellation()
-            let (asset, range, _) = jobs[i]
-            let frac = range.duration.seconds / pendingSeconds
-            var c0 = CaptionTimings.now()
-            phase?(.extracting)
-            var source = PlayableURL.resolve(asset)
-            guard FileManager.default.fileExists(atPath: source.path) else {
-                throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id)
-            }
-            if let m = lyricsMethod, m != .none {
-                phase?(.separating)   // AI-002 "Separating vocals…"
-                let base = extracted
-                let v = try await LyricsVocals.vocals(asset, method: m) { f in progress?(0.05 + extractShare * (base + f * frac)) }
-                if let u = v.url { source = u }
-                tm.separation += CaptionTimings.now() - c0; c0 = CaptionTimings.now()
-            }
-            let wav: URL
-            do { wav = try await AudioExtractor.wav16k(source, range: range) }
-            catch SpeechFailure.mediaOffline { throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id) }
-            catch SpeechFailure.noSoundInFile { throw SpeechFailure.noSoundInFile(name: asset.name) }
-            tm.extraction += CaptionTimings.now() - c0; c0 = CaptionTimings.now()
-            let silent = AudioExtractor.isSilent(wav)
-            tm.silenceCheck += CaptionTimings.now() - c0
-            if silent {
-                try? FileManager.default.removeItem(at: wav)
-                let t = Transcript(engine: "silence", language: o.language ?? "", words: [])
-                results[i] = t; tm.silent += 1
-                store.put(t, keys[i])
-            } else {
-                pieces.append((i, wav))
-            }
-            extracted += frac
-            progress?(0.05 + extractShare * extracted)
-        }
-
-        // 2. one engine run over all the speech pieces (CaptionBatch), words mapped back to their range
-        if !pieces.isEmpty {
-            // Apple speech asks for permission once: wait for the user's answer ("Waiting for permission…")
-            if Transcriber.willAskPermission(request) {
-                phase?(.permission)
-                _ = await Transcriber.requestAuthorization()
-                try Task.checkCancellation()
-            }
-            phase?(.transcribing)
-            let from = 0.05 + extractShare, span = 0.9 - from
-            let out = try await CaptionBatch.transcribe(pieces.map(\.wav), request: request, recognizer: recognizer, timings: &tm) { f in
-                progress?(from + span * f)
-            }
-            tm.transcribed = pieces.count
-            tm.audioSeconds = pieces.reduce(0.0) { $0 + jobs[$1.job].range.duration.seconds }
-            for (k, piece) in pieces.enumerated() {
-                let t = out[k].shifted(by: jobs[piece.job].range.start.seconds)
-                results[piece.job] = t
-                store.put(t, keys[piece.job])
-            }
-        }
+    /// `store`, `recognizer`: injectable for tests (a private cache, a fake engine).
+    static func run(project p: Project, options o: CaptionOptions, store: TranscriptStore,
+                    recognizer: @escaping CaptionBatch.Recognizer = CaptionBatch.defaultRecognizer,
+                    progress: (@Sendable (Double) -> Void)? = nil,
+                    phase: (@Sendable (CaptionPhase) -> Void)? = nil) async throws -> CaptionResult {
+        let started = CaptionTimings.now()
+        var tm = CaptionTimings()
+        let pl = plan(p, o)
+        let clips = pl.clips, jobs = pl.jobs
+        guard !clips.isEmpty else { throw SpeechFailure.nothingToCaption(trackChosen: o.source != .allTracks) }
+        if let forced = SpeechTestHooks.forcedFailure { throw forced }   // UI tests: failure cards
+        let results = try await transcribe(pl, store: store, recognizer: recognizer, control: nil, timings: &tm,
+                                           progress: progress, phase: phase)
         progress?(0.9)
         var transcripts: [MediaID: [Transcript]] = [:]
         var detected: [String: Int] = [:]
@@ -243,4 +191,95 @@ public enum CaptionGenerator {
 /// once the media pipeline provides it; until then the original URL).
 enum PlayableURL {
     static func resolve(_ a: MediaAsset) -> URL { a.url }
+}
+
+extension CaptionGenerator {
+    /// Transcripts of `plan`'s ranges: cached ones from `store`, the others extracted (a silent one is cached as
+    /// silence) and recognised in one engine run (`CaptionBatch`), then cached. Shared by the caption request and the
+    /// background pre-transcription (PERF-CAPTIONS-2), so a range prepared in the background is exactly what the request
+    /// would have computed. `control`: background pass (waits while paused, no permission prompt).
+    static func transcribe(_ plan: Plan, store: TranscriptStore, recognizer: @escaping CaptionBatch.Recognizer,
+                           control: PassControl?, timings tm: inout CaptionTimings,
+                           progress: (@Sendable (Double) -> Void)? = nil,
+                           phase: (@Sendable (CaptionPhase) -> Void)? = nil) async throws -> [Transcript?] {
+        let jobs = plan.jobs, keys = plan.keys, lyricsMethod = plan.lyricsMethod, request = plan.request
+        tm.ranges = jobs.count
+        var results = [Transcript?](repeating: nil, count: jobs.count)
+        for i in jobs.indices { if let cached = store.get(keys[i]) { results[i] = cached; tm.cached += 1 } }
+
+        // 1. extraction of the uncached ranges (each to its own 16 kHz WAV); a silent one is simply left out
+        let separating = (lyricsMethod ?? .none) != .none
+        let extractShare = separating ? 0.45 : 0.1
+        let pending = jobs.indices.filter { results[$0] == nil }
+        let pendingSeconds = max(pending.reduce(0.0) { $0 + jobs[$1].range.duration.seconds }, 0.001)
+        var extracted = 0.0
+        var pieces: [(job: Int, wav: URL)] = []
+        defer { for piece in pieces { try? FileManager.default.removeItem(at: piece.wav) } }
+        for i in pending {
+            try await control?.checkpoint()
+            try Task.checkCancellation()
+            let (asset, range, _) = jobs[i]
+            let frac = range.duration.seconds / pendingSeconds
+            var c0 = CaptionTimings.now()
+            phase?(.extracting)
+            var source = PlayableURL.resolve(asset)
+            guard FileManager.default.fileExists(atPath: source.path) else {
+                throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id)
+            }
+            if let m = lyricsMethod, m != .none {
+                phase?(.separating)   // AI-002 "Separating vocals…"
+                let base = extracted
+                let v = try await LyricsVocals.vocals(asset, method: m) { f in progress?(0.05 + extractShare * (base + f * frac)) }
+                if let u = v.url { source = u }
+                tm.separation += CaptionTimings.now() - c0; c0 = CaptionTimings.now()
+            }
+            let wav: URL
+            do { wav = try await AudioExtractor.wav16k(source, range: range) }
+            catch SpeechFailure.mediaOffline { throw SpeechFailure.mediaOffline(name: asset.name, media: asset.id) }
+            catch SpeechFailure.noSoundInFile { throw SpeechFailure.noSoundInFile(name: asset.name) }
+            tm.extraction += CaptionTimings.now() - c0; c0 = CaptionTimings.now()
+            let silent = AudioExtractor.isSilent(wav)
+            tm.silenceCheck += CaptionTimings.now() - c0
+            if silent {
+                try? FileManager.default.removeItem(at: wav)
+                let t = Transcript(engine: "silence", language: request.language ?? "", words: [])
+                results[i] = t; tm.silent += 1
+                store.put(t, keys[i])
+            } else {
+                pieces.append((i, wav))
+            }
+            extracted += frac
+            progress?(0.05 + extractShare * extracted)
+        }
+
+        // 2. one engine run over all the speech pieces (CaptionBatch), words mapped back to their range
+        if !pieces.isEmpty {
+            // Apple speech asks for permission once: wait for the user's answer ("Waiting for permission…")
+            if control == nil, Transcriber.willAskPermission(request) {
+                phase?(.permission)
+                _ = await Transcriber.requestAuthorization()
+                try Task.checkCancellation()
+            }
+            try await control?.checkpoint()
+            phase?(.transcribing)
+            let from = 0.05 + extractShare, span = 0.9 - from
+            let out = try await CaptionBatch.transcribe(pieces.map(\.wav), request: request, recognizer: recognizer, timings: &tm) { f in
+                progress?(from + span * f)
+            }
+            tm.transcribed = pieces.count
+            tm.audioSeconds = pieces.reduce(0.0) { $0 + jobs[$1.job].range.duration.seconds }
+            for (k, piece) in pieces.enumerated() {
+                let t = out[k].shifted(by: jobs[piece.job].range.start.seconds)
+                results[piece.job] = t
+                store.put(t, keys[piece.job])
+            }
+        }
+        return results
+    }
+
+    /// Seconds of audio a request with `o` would still send to the engine (uncached ranges; silent ones count too,
+    /// their check is part of the work). Cheap: no audio is read.
+    static func pendingSeconds(_ plan: Plan, store: TranscriptStore) -> Double {
+        plan.jobs.indices.filter { !store.contains(plan.keys[$0]) }.reduce(0.0) { $0 + plan.jobs[$1].range.duration.seconds }
+    }
 }
