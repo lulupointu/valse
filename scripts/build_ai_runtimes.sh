@@ -13,6 +13,10 @@
 # `--sse42` additionally builds test-only x86_64 binaries without AVX (build/ai-runtimes/sse42/, not installed): Rosetta
 # can't run AVX2 code inside a macOS 13 VM, so VM smoke tests use these.
 # Models are downloaded separately from the app's AI models sheet.
+# No -DWHISPER_COREML (PERF-CAPTIONS-3, measured 2026-11-13 on M1 Pro, large-v3-turbo + HF encoder.mlmodelc): the ANE
+# encoder is faster once compiled (Episode 6, 109 s speech: whisper 14.2 s -> 10.6 s, same words / DTW onsets) but
+# each compile costs ~140 s, and it recurred: another path, cache evicted within ~20 min, cache keyed by OS build.
+# It also adds a 1.17 GB download. Re-measure before enabling.
 # Usage: scripts/build_ai_runtimes.sh [--bundle path/to/Valse.app] [--only whisper|demucs|llama] [--arch arm64|x86_64] [--sse42]
 set -euo pipefail
 cd "$(dirname "$0")/.."
