@@ -2,6 +2,8 @@
 "model.whisperTurbo.desc" = "High-accuracy speech recognition for captions and transcripts (French, English and 90+ languages).";
 "model.whisperSmall" = "Whisper small";
 "model.whisperSmall.desc" = "Lighter speech model for Macs with little free memory.";
+"model.sileroVAD" = "Voice detection (Silero VAD)";
+"model.sileroVAD.desc" = "Downloaded automatically with the speech model: skips silences and music-only parts, so captions are faster on clips with pauses and no text is invented there.";
 "model.error.checksum" = "The downloaded file is damaged. Try again.";
 "model.error.network" = "Couldn't download the model. Check your internet connection, then try again.";
 "model.error.cancelled" = "Download canceled";

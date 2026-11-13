@@ -125,6 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // scripts/updater_e2e.sh: an offscreen test copy runs the updater too (installs when --quit-after quits it)
         let updaterTest = ProcessInfo.processInfo.environment["VALSE_UPDATER_TEST"] == "1"
         if !tooling || updaterTest { updater = SparkleUpdater.startIfConfigured(test: updaterTest) }
+        if !tooling { EditorStore.fetchModelAddOns() }   // e.g. the speech models' voice detection (PERF-CAPTIONS-4)
         Task { await loadInitialProject() }
         if let q = options.quitAfter { QuitDeadline.arm(seconds: q, snapshot: options.snapshot != nil) }
     }

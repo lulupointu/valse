@@ -143,10 +143,14 @@ extension EditorStore {
         SpeechCaptions.captions(in: project.timeline).contains { CaptionOps.text($0)?.caption?.origin == .auto }
     }
 
+    /// Silent background fetch of the installed models' missing add-ons (app launch; `ModelManager.addOns`).
+    public static func fetchModelAddOns() { ModelManager.shared.fetchMissingAddOns() }
+
     /// Text ▸ Auto captions ▸ Generate (or Auto lyrics). Non-blocking: the caption track (W7 model, word timings for
     /// karaoke) is inserted atomically at the end as one undo step; the panel shows the phase + % and Cancel.
     public func generateCaptions(lyrics: Bool = false) {
         guard ai.captionJob == nil else { return }
+        ModelManager.shared.fetchMissingAddOns()   // voice detection for whisper (PERF-CAPTIONS-4); this run doesn't wait
         var options = captionOptions
         options.lyrics = lyrics
         let project = self.project

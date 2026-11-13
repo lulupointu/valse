@@ -2,6 +2,8 @@
 "model.whisperTurbo.desc" = "Reconnaissance vocale haute précision pour les sous-titres et les transcriptions (français, anglais et plus de 90 langues).";
 "model.whisperSmall" = "Whisper small";
 "model.whisperSmall.desc" = "Modèle vocal plus léger pour les Mac disposant de peu de mémoire libre.";
+"model.sileroVAD" = "Détection de la voix (Silero VAD)";
+"model.sileroVAD.desc" = "Téléchargé automatiquement avec le modèle vocal : ignore les silences et les passages purement musicaux, pour des sous-titres plus rapides sur les clips avec des pauses, sans texte inventé à ces endroits.";
 "model.error.checksum" = "Le fichier téléchargé est endommagé. Réessayez.";
 "model.error.network" = "Impossible de télécharger le modèle. Vérifiez votre connexion Internet, puis réessayez.";
 "model.error.cancelled" = "Téléchargement annulé";

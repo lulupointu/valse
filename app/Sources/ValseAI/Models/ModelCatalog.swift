@@ -6,7 +6,7 @@ import ValseEngine
 /// downloads them once from the Model manager (Settings / the feature panel), or points Valse at an existing file.
 /// Everything runs locally afterwards — the download is the only network access, always user-initiated.
 public struct AIModelSpec: Sendable, Identifiable, Hashable {
-    public enum Kind: String, Sendable { case whisper, demucs, coreML, llm }
+    public enum Kind: String, Sendable { case whisper, demucs, coreML, llm, vad }
     public let id: String
     public let kind: Kind
     public let nameKey: String
@@ -59,6 +59,17 @@ public enum ModelCatalog {
         fileName: "ggml-small-q5_1.bin",
         url: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin")!,
         bytes: 190_085_487, sha256: "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb", license: "MIT", runtimeMB: 450)
+
+    /// Silero VAD v6.2.0 (MIT, snakers4; ggml conversion by whisper.cpp, ggml-org/whisper-vad), 0.9 MB: speech
+    /// recognition skips silence and music-only parts (faster on clips with pauses, no text invented there). Fetched
+    /// silently with the speech models (`ModelManager.addOns`), never required: without it whisper reads the whole
+    /// audio (`WhisperVAD.swift`). v6 rather than v5.1.2: on the owner's dialogue
+    /// project v5 cut short quiet replies ("Moi,", "Attends, quoi ?") that v6 keeps, and v6 was the faster of the two.
+    public static let sileroVAD = AIModelSpec(
+        id: "vad.silero-v6.2.0", kind: .vad, nameKey: "model.sileroVAD", descriptionKey: "model.sileroVAD.desc",
+        fileName: "ggml-silero-v6.2.0.bin",
+        url: URL(string: "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin")!,
+        bytes: 885_098, sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987", license: "MIT", runtimeMB: 20)
 
     /// HTDemucs v4, 4 stems (drums / bass / other / vocals), f16 ggml for demucs.cpp (MIT weights by Meta, conversion by
     /// demucs.cpp). ~2× real time on CPU (Accelerate) — background job.
@@ -153,7 +164,7 @@ public enum ModelCatalog {
         return modelsDirectory.appendingPathComponent("DepthAnythingV2SmallF16.mlpackage", isDirectory: true)
     }
 
-    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, demucs4, demucs6, qwen3_4b, lama]
+    public static let all: [AIModelSpec] = [whisperTurbo, whisperSmall, sileroVAD, demucs4, demucs6, qwen3_4b, lama]
         + (depthModelSupported ? [depthAnything] : []) + [clip]
     public static func spec(_ id: String) -> AIModelSpec? { all.first { $0.id == id } }
 
