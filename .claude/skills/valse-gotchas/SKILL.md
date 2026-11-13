@@ -69,6 +69,10 @@ description: Known Valse engineering traps by topic (async tests and AVFoundatio
   Changing the extent of an audio edit that directly continues a same-ratio edit restarts the spectral stretcher (~85 ms lost).
 - Read a clock against host time with `CMSyncConvertTime` at one host instant, never (CACurrentMediaTime, clock) across
   an await or a pause.
+- Audio readers must read past the project end (`Exporter.audioReadRange`, +0.5 s, trimmed after): the time-stretcher
+  emits a stretched clip's last samples only after reading beyond them.
+- To reproduce a load flake, use in-process busy threads (`VALSE_TEST_BURNERS`) + `VALSE_TEST_REPEAT`: other-process
+  load often does not starve the same queues.
 - Never use `AVAudioTimePitchAlgorithm.varispeed`: hangs the audio reader during export of sped-up clips.
 - MP3 export needs the FFmpeg sidecar (libmp3lame), absent on a fresh Mac: option disabled with a hint; audio format only
   matters when audio is exported.
