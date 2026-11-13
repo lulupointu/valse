@@ -74,7 +74,8 @@ public enum ModelFailureReason: Sendable, Equatable {
 }
 
 /// Downloads, verifies, imports and removes on-device models (main actor, observable). Files live in
-/// `ModelCatalog.modelsDirectory`; the download is the only network access and is always started by the user.
+/// `ModelCatalog.modelsDirectory`; the download is the only network access and is always started by the user (except
+/// the small add-ons of a model the user installed, e.g. the voice-detection model of the speech models: `addOns`).
 @MainActor @Perceptible
 public final class ModelManager {
     public static let shared = ModelManager()
@@ -124,7 +125,10 @@ public final class ModelManager {
     private func complete(_ id: String, _ error: Error?) {
         let spec = ModelCatalog.spec(id)
         guard let error else {
-            if let u = spec.flatMap(ModelCatalog.installedURL) { failureReasons[id] = nil; finish(id, .installed(u)) }
+            if let u = spec.flatMap(ModelCatalog.installedURL) {
+                failureReasons[id] = nil; finish(id, .installed(u))
+                if let spec { didInstall(spec) }
+            }
             else { fail(id, .notInstalled) }
             return
         }
@@ -268,6 +272,64 @@ public final class ModelManager {
         if let u = ModelCatalog.installedURL(spec) { try? FileManager.default.removeItem(at: u) }
         for c in spec.companions { try? FileManager.default.removeItem(at: ModelCatalog.modelsDirectory.appendingPathComponent(c.path)) }
         states[spec.id] = .notInstalled
+    }
+
+    // MARK: Add-ons (PERF-CAPTIONS-4)
+
+    /// Small models fetched automatically, without a prompt, for the model they serve (owner decision 2026-11-13: the
+    /// Silero VAD with either speech model). Never required: the feature runs without them (today's path) until the
+    /// fetch succeeds. Not shown as downloads (no progress, no indicator); their own Models row turns installed.
+    public nonisolated static func addOns(of spec: AIModelSpec) -> [AIModelSpec] {
+        spec.kind == .whisper ? [ModelCatalog.sileroVAD] : []
+    }
+    /// After a failed fetch (offline…), the next trigger tries again only after this long.
+    public static let addOnRetryInterval: TimeInterval = 600
+
+    /// Downloads, checks and installs one add-on (tests replace it).
+    @PerceptionIgnored public var addOnFetcher: @Sendable (AIModelSpec) async throws -> Void = { spec in
+        let tmp = try await ModelDownloader.download(spec.url, progress: { _ in }, onTask: { _ in })
+        try await ModelManager.verifyAndInstall(tmp, spec: spec, move: true)
+    }
+    /// Off in UI tests (simulated downloads: never the network) and unit-test processes (tests turn it on with a fake
+    /// `addOnFetcher`).
+    @PerceptionIgnored public var addOnsEnabled = !ValseProcess.isUnitTest
+    @PerceptionIgnored private var addOnTasks: [String: Task<Void, Never>] = [:]
+    @PerceptionIgnored private var addOnFailedAt: [String: Date] = [:]
+
+    /// A model was installed (download or import): fetch its add-ons.
+    func didInstall(_ spec: AIModelSpec) {
+        for a in Self.addOns(of: spec) { fetchAddOn(a, now: Date()) }
+    }
+
+    /// Fetches, in the background and silently, the missing add-ons of the installed models (at launch, before a
+    /// caption run). A failure is only logged; a later call retries (after `addOnRetryInterval`).
+    public func fetchMissingAddOns(now: Date = Date(), installed: (AIModelSpec) -> URL? = ModelCatalog.installedURL) {
+        for spec in ModelCatalog.all where installed(spec) != nil {
+            for a in Self.addOns(of: spec) where installed(a) == nil { fetchAddOn(a, now: now) }
+        }
+    }
+
+    private func fetchAddOn(_ a: AIModelSpec, now: Date) {
+        guard addOnsEnabled, simulation == nil, addOnTasks[a.id] == nil, !state(a).isBusy, ModelCatalog.installedURL(a) == nil else { return }
+        if let t = addOnFailedAt[a.id], now.timeIntervalSince(t) < Self.addOnRetryInterval { return }
+        let fetch = addOnFetcher
+        addOnTasks[a.id] = Task { [weak self] in
+            var failure: Error?
+            do { try await fetch(a) } catch { failure = error }
+            self?.addOnFinished(a, failure, at: now)
+        }
+    }
+
+    private func addOnFinished(_ a: AIModelSpec, _ error: Error?, at now: Date) {
+        addOnTasks[a.id] = nil
+        if let error { EngineLog.error("add-on \(a.id) not fetched (retried later): \(error)"); addOnFailedAt[a.id] = now }
+        else { addOnFailedAt[a.id] = nil }
+        if !state(a).isBusy { states[a.id] = ModelCatalog.installedURL(a).map(AIModelState.installed) ?? .notInstalled }
+    }
+
+    /// Tests: waits for the add-on fetches in flight.
+    func waitForAddOns() async {
+        while let t = addOnTasks.values.first { await t.value }
     }
 
     /// SHA-256 check (streamed, off-main) then move/clone into place.

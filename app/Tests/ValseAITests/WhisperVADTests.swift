@@ -91,7 +91,88 @@ import ValseTestSupport
             o.vadModel = bad
             let t = try await WhisperEngine.transcribe(wav: piece, options: o)
             #expect(t.words.count >= 5)
+            // a fetch that never completed (partial / missing file): same
+            o.vadModel = bad.deletingLastPathComponent().appendingPathComponent("valse-missing-\(UUID().uuidString).bin")
+            let t2 = try await WhisperEngine.transcribe(wav: piece, options: o)
+            #expect(t2.words.map(\.text) == t.words.map(\.text))
         }
+    }
+
+    // MARK: automatic fetch (owner decision: the VAD comes with the speech models, silently)
+
+    final class FetchLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var ids: [String] = []
+        func add(_ id: String) { lock.withLock { ids.append(id) } }
+        var all: [String] { lock.withLock { ids } }
+    }
+
+    @MainActor static func manager(_ log: FetchLog, fail: Bool = false) -> ModelManager {
+        let mm = ModelManager()
+        mm.addOnsEnabled = true
+        mm.addOnFetcher = { spec in
+            log.add(spec.id)
+            if fail { throw URLError(.notConnectedToInternet) }
+        }
+        return mm
+    }
+
+    @MainActor @Test func whisperInstallFetchesTheVADModel() async {
+        guard ModelCatalog.installedURL(ModelCatalog.sileroVAD) == nil else { print("skip: VAD model installed"); return }
+        let log = FetchLog()
+        let mm = Self.manager(log)
+        mm.didInstall(ModelCatalog.demucs4)
+        await mm.waitForAddOns()
+        #expect(log.all.isEmpty, "only the speech models have it")
+        mm.didInstall(ModelCatalog.whisperTurbo)
+        #expect(!mm.state(ModelCatalog.sileroVAD).isBusy, "silent: not shown as a download")
+        await mm.waitForAddOns()
+        #expect(log.all == [ModelCatalog.sileroVAD.id])
+        #expect(ModelManager.addOns(of: ModelCatalog.whisperSmall) == [ModelCatalog.sileroVAD])
+    }
+
+    @MainActor @Test func alreadyInstalledWhisperGetsTheVADModelSilently() async {
+        guard ModelCatalog.installedURL(ModelCatalog.sileroVAD) == nil else { print("skip: VAD model installed"); return }
+        let log = FetchLog()
+        let mm = Self.manager(log)
+        let fake = URL(fileURLWithPath: "/tmp/ggml-small-q5_1.bin")
+        mm.fetchMissingAddOns(installed: { _ in nil })
+        await mm.waitForAddOns()
+        #expect(log.all.isEmpty, "no speech model: nothing to fetch")
+        mm.fetchMissingAddOns(installed: { $0 == ModelCatalog.whisperSmall ? fake : nil })
+        mm.fetchMissingAddOns(installed: { $0 == ModelCatalog.whisperSmall ? fake : nil })   // in flight: not twice
+        #expect(!mm.state(ModelCatalog.sileroVAD).isBusy)
+        await mm.waitForAddOns()
+        #expect(log.all == [ModelCatalog.sileroVAD.id])
+        // UI tests (simulated downloads) and unit-test processes never fetch
+        let quiet = Self.manager(log)
+        quiet.simulation = .complete
+        quiet.fetchMissingAddOns(installed: { $0 == ModelCatalog.whisperSmall ? fake : nil })
+        quiet.addOnsEnabled = false; quiet.simulation = nil
+        quiet.fetchMissingAddOns(installed: { $0 == ModelCatalog.whisperSmall ? fake : nil })
+        await quiet.waitForAddOns()
+        #expect(log.all.count == 1)
+        #expect(ModelManager().addOnsEnabled == false, "off by default in a test process")
+    }
+
+    @MainActor @Test func failedFetchIsSilentAndRetriedLater() async {
+        guard ModelCatalog.installedURL(ModelCatalog.sileroVAD) == nil else { print("skip: VAD model installed"); return }
+        let log = FetchLog()
+        let mm = Self.manager(log, fail: true)
+        let t0 = Date()
+        mm.didInstall(ModelCatalog.whisperTurbo)
+        await mm.waitForAddOns()
+        #expect(log.all.count == 1)
+        #expect(mm.state(ModelCatalog.sileroVAD) == .notInstalled, "no failure shown")
+        #expect(mm.failureReasons[ModelCatalog.sileroVAD.id] == nil)
+        let fake = URL(fileURLWithPath: "/tmp/ggml-large-v3-turbo-q5_0.bin")
+        let installed: (AIModelSpec) -> URL? = { $0 == ModelCatalog.whisperTurbo ? fake : nil }
+        mm.fetchMissingAddOns(now: t0.addingTimeInterval(60), installed: installed)
+        await mm.waitForAddOns()
+        #expect(log.all.count == 1, "not hammered")
+        mm.fetchMissingAddOns(now: t0.addingTimeInterval(ModelManager.addOnRetryInterval + 1), installed: installed)
+        await mm.waitForAddOns()
+        #expect(log.all.count == 2, "retried later")
     }
 
     @Test func catalogEntry() {

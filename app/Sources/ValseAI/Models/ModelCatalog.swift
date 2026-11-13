@@ -61,8 +61,9 @@ public enum ModelCatalog {
         bytes: 190_085_487, sha256: "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb", license: "MIT", runtimeMB: 450)
 
     /// Silero VAD v6.2.0 (MIT, snakers4; ggml conversion by whisper.cpp, ggml-org/whisper-vad), 0.9 MB: speech
-    /// recognition skips silence and music-only parts (faster on clips with pauses, no text invented there). Optional:
-    /// without it whisper reads the whole audio (`WhisperVAD.swift`). v6 rather than v5.1.2: on the owner's dialogue
+    /// recognition skips silence and music-only parts (faster on clips with pauses, no text invented there). Fetched
+    /// silently with the speech models (`ModelManager.addOns`), never required: without it whisper reads the whole
+    /// audio (`WhisperVAD.swift`). v6 rather than v5.1.2: on the owner's dialogue
     /// project v5 cut short quiet replies ("Moi,", "Attends, quoi ?") that v6 keeps, and v6 was the faster of the two.
     public static let sileroVAD = AIModelSpec(
         id: "vad.silero-v6.2.0", kind: .vad, nameKey: "model.sileroVAD", descriptionKey: "model.sileroVAD.desc",
