@@ -21,6 +21,8 @@ public enum WhisperEngine {
         public var threads: Int
         /// DTW token timestamps (accurate word times; off = whisper's interpolated timestamps, the pre-2026-10 behaviour).
         public var dtw = true
+        /// Silero VAD model for whisper.cpp's voice activity detection (`--vad -vm`, see `VADTimeMap`); nil = no VAD.
+        public var vadModel: URL? = WhisperEngine.defaultVADModel
         public init(language: String?, model: URL, cli: URL, keepFillers: Bool = false,
                     threads: Int = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))) {
             self.language = language; self.model = model; self.cli = cli; self.keepFillers = keepFillers; self.threads = threads
@@ -48,6 +50,19 @@ public enum WhisperEngine {
             }
             if !prompt.isEmpty { args += ["--prompt", prompt] }
         }
+        // PERF-CAPTIONS-4: with the VAD model installed, whisper decodes only the voiced parts (one attempt, with DTW
+        // when available); any failure falls back to the run without VAD below.
+        if let vad = o.vadModel {
+            var vargs = args + ["--vad", "-vm", vad.path]
+            if o.dtw, let preset = dtwPreset(model: o.model) { vargs += ["-nfa", "-dtw", preset] }
+            let spans = VADTimeMap.Collector()
+            do {
+                try await run(o.cli, vargs, progress: progress, onLine: spans.add)
+                return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en", vad: spans.map)
+            } catch is CancellationError { throw CancellationError() }
+            catch let f as SpeechFailure where [.appIncomplete, .diskFull].contains(f) { throw f }
+            catch { EngineLog.error("whisper VAD run failed (\(error)), retrying without VAD") }
+        }
         if o.dtw, let preset = dtwPreset(model: o.model) {
             do {
                 try await run(o.cli, args + ["-nfa", "-dtw", preset], progress: progress)
@@ -60,12 +75,14 @@ public enum WhisperEngine {
         return try parse(Data(contentsOf: jsonURL), fallbackLanguage: o.language ?? "en")
     }
 
-    static func run(_ cli: URL, _ args: [String], progress: (@Sendable (Double) -> Void)?) async throws {
+    static func run(_ cli: URL, _ args: [String], progress: (@Sendable (Double) -> Void)?,
+                    onLine: (@Sendable (String) -> Void)? = nil) async throws {
         // stderr (progress lines, error text) is read to EOF by ProcessPipes before the exit status is used
         // (FLAKY-PIPE: with a readabilityHandler the last chunks could arrive after `tail` was taken)
         let progressBox = LineBuffer()
         let stderr = ProcessPipes.Capture(keep: false) { d in
             for line in progressBox.append(d) {
+                onLine?(line)
                 if let r = line.range(of: "progress =") {
                     let v = line[r.upperBound...].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
                     if let pct = Double(v) { progress?(pct / 100) }
@@ -146,7 +163,24 @@ public enum WhisperEngine {
     }
 
     /// Parses `-ojf` output into words.
+    /// `vad`: the run used whisper's VAD (nil = it didn't). Token times are then in the VAD's condensed audio (only the
+    /// segment offsets are mapped back by whisper.cpp): words are built in that time base and mapped with `vad`.
+    public static func parse(_ data: Data, fallbackLanguage: String, vad: VADTimeMap?) throws -> Transcript {
+        let t = try parse(data, fallbackLanguage: fallbackLanguage, segmentStart: vad.map { m in { m.condensed($0) } } ?? { $0 })
+        guard let vad else { return t }
+        if vad.spans.isEmpty {
+            // no speech found (empty output), or a whisper build that doesn't log its time map: can't place the words
+            guard t.words.isEmpty else { throw SpeechFailure.other(detail: "whisper VAD: no time map") }
+            return t
+        }
+        return Transcript(engine: t.engine, language: t.language, words: vad.original(t.words))
+    }
+
     public static func parse(_ data: Data, fallbackLanguage: String) throws -> Transcript {
+        try parse(data, fallbackLanguage: fallbackLanguage, segmentStart: { $0 })
+    }
+
+    static func parse(_ data: Data, fallbackLanguage: String, segmentStart: (Double) -> Double) throws -> Transcript {
         guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw SpeechFailure.other(detail: "whisper: bad json") }
         let lang = (obj["result"] as? [String: Any])?["language"] as? String ?? fallbackLanguage
         let segments = obj["transcription"] as? [[String: Any]] ?? []
@@ -157,7 +191,7 @@ public enum WhisperEngine {
         }
         let hasDTW = segments.contains { ($0["tokens"] as? [[String: Any]] ?? []).contains { t in
             !isSpecial(t["text"] as? String ?? "[_") && dtw(t) != nil } }
-        if hasDTW { return Transcript(engine: "whisper.cpp", language: lang, words: dtwWords(segments)) }
+        if hasDTW { return Transcript(engine: "whisper.cpp", language: lang, words: dtwWords(segments, segmentStart: segmentStart)) }
         var words: [TranscriptWord] = []
         var cur: (text: String, start: Double, end: Double, p: [Double])?
         func flush() {
@@ -196,7 +230,7 @@ public enum WhisperEngine {
     }
 
     /// Words from DTW token times (see the type comment).
-    static func dtwWords(_ segments: [[String: Any]]) -> [TranscriptWord] {
+    static func dtwWords(_ segments: [[String: Any]], segmentStart: (Double) -> Double = { $0 }) -> [TranscriptWord] {
         var words: [TranscriptWord] = []
         var cur: (text: String, start: Double, end: Double, p: [Double])?
         func flush() {
@@ -213,7 +247,7 @@ public enum WhisperEngine {
             cur = nil
         }
         for seg in segments {
-            let segStart = ((seg["offsets"] as? [String: Any])?["from"] as? Double ?? 0) / 1000
+            let segStart = segmentStart(((seg["offsets"] as? [String: Any])?["from"] as? Double ?? 0) / 1000)
             var prev: Double? = nil
             for tok in seg["tokens"] as? [[String: Any]] ?? [] {
                 guard let text = tok["text"] as? String, !(text.hasPrefix("[_") || text.hasPrefix("<|")) else { continue }
