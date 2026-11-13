@@ -461,8 +461,11 @@ public enum CompositionBuilder {
                         // padded edit there made the stretcher restart at the split and drop ~85 ms after it, in 27 of
                         // 30 SplitSpeedAudioTests runs and 11 of 40 CutPitchSweepTests "split 1.5x both" runs (measured,
                         // exact stretch ratio or not).
+                        // FLAKY-PB2: 0.25 s (the export / mixdown / preview readers read 0.5 s past the end): with 0.1 s a
+                        // 0.5× clip ending the project still lost its last ~20 ms (the stretcher's output lags more at
+                        // slow ratios)
                         let continues = used && free <= .zero
-                        pad = continues ? .zero : Time(0.1)
+                        pad = continues ? .zero : Time(0.25)
                     }
                 }
                 try insert(clip: p.mapped, segments: p.segments, from: p.source, sourceRange: p.sourceRange, into: at,
