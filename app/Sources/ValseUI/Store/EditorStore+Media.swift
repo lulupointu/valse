@@ -43,6 +43,7 @@ extension EditorStore {
             proxyPending.formUnion(all.filter { ProxyManager.shared.isPending($0) }.map(\.contentHash))
             offerTranscode(fresh)   // MI-009
             prefetchQuickCut(fresh)   // TL-048: blank analysis in the background (audio only, utility QoS)
+            preTranscribeImported(fresh)   // PERF-CAPTIONS-2: speech recognised in the background for Auto captions
             if let time {
                 var t = time
                 for a in all {

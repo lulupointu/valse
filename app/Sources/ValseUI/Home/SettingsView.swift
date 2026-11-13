@@ -634,6 +634,10 @@ struct PerformanceSettings: View {
             SettingsRow(tr("settings.autoRender"), hint: tr("settings.autoRender.hint")) {
                 SwitchButton(isOn: $draft.autoRender, id: "autoRender", label: tr("settings.autoRender"))
             }
+            // PERF-CAPTIONS-2: background pre-transcription for Auto captions
+            SettingsRow(tr("settings.backgroundTranscription"), hint: tr("settings.backgroundTranscription.hint")) {
+                SwitchButton(isOn: $draft.backgroundTranscription, id: "backgroundTranscription", label: tr("settings.backgroundTranscription"))
+            }
             SettingsDivider()
             SettingsRow(tr("settings.cacheLocation"), hint: tr("settings.cacheLocation.hint")) {
                 PathSetting(path: draft.cacheDirectory ?? ValsePaths.defaultCacheDirectory.path,

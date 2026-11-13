@@ -130,12 +130,13 @@ enum CaptionBatch {
     /// Recognises `wavs` (16 kHz pieces) in as few engine runs as `groups` allows. Returns one transcript per piece, in
     /// piece time, boundary-snapped on the piece's own audio. `progress` 0…1 over all runs.
     static func transcribe(_ wavs: [URL], request: Transcriber.Request, recognizer: Recognizer = defaultRecognizer,
-                           timings tm: inout CaptionTimings, progress: (@Sendable (Double) -> Void)? = nil) async throws -> [Transcript] {
+                           timings tm: inout CaptionTimings, maxSeconds: Double = maxJoinedSeconds,
+                           progress: (@Sendable (Double) -> Void)? = nil) async throws -> [Transcript] {
         let durations = wavs.map(duration)
         let total = max(durations.reduce(0, +), 0.001)
         var out = [Transcript?](repeating: nil, count: wavs.count)
         var done = 0.0
-        for g in groups(durations) {
+        for g in groups(durations, maxSeconds: maxSeconds) {
             try Task.checkCancellation()
             let j0 = CaptionTimings.now()
             let input: URL, offs: [Double]

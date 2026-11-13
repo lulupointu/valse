@@ -101,7 +101,21 @@ public enum CaptionGenerator {
             return key
         }
         var results = [Transcript?](repeating: nil, count: jobs.count)
-        for i in jobs.indices { if let cached = store.get(keys[i]) { results[i] = cached; tm.cached += 1 } }
+        // a whole-file transcript (background pre-transcription, PERF-CAPTIONS-2) serves any range of its media
+        var whole: [MediaID: Transcript?] = [:]
+        let whisperReady = lyricsMethod == nil && o.engine != .apple ? WhisperRuntime.isAvailable : false
+        for i in jobs.indices {
+            if let cached = store.get(keys[i]) { results[i] = cached; tm.cached += 1; continue }
+            guard lyricsMethod == nil else { continue }
+            let a = jobs[i].asset
+            if whole[a.id] == nil {
+                whole[a.id] = .some(PreTranscription.wholeFile(hash: a.contentHash, language: o.language, engine: o.engine,
+                                                               keepFillers: keepFillers, whisperAvailable: whisperReady, store: store))
+            }
+            if let t = whole[a.id] ?? nil {
+                results[i] = PreTranscription.slice(t, to: jobs[i].range); tm.cached += 1; tm.wholeFile += 1
+            }
+        }
 
         // 1. extraction of the uncached ranges (each to its own 16 kHz WAV); a silent one is simply left out
         let separating = (lyricsMethod ?? .none) != .none

@@ -30,8 +30,10 @@ public enum ProcessPipes {
     /// Launches `executable` with `arguments` (stdin = /dev/null; a stream with no capture goes to /dev/null), reads the
     /// captured streams to EOF, then waits for the exit. Cancelling the calling task terminates the process (the result
     /// is still returned once it ended: check `Task.isCancelled`). Throws only when the process cannot be launched.
+    /// `onLaunch` gets the process id right after the launch (PERF-CAPTIONS-2: background transcription stops /
+    /// continues its whisper process in place).
     public static func run(_ executable: URL, _ arguments: [String], stdout: Capture? = nil, stderr: Capture? = nil,
-                           environment: [String: String]? = nil) async throws -> Result {
+                           environment: [String: String]? = nil, onLaunch: (@Sendable (Int32) -> Void)? = nil) async throws -> Result {
         let p = Process()
         p.executableURL = executable
         p.arguments = arguments
@@ -43,6 +45,7 @@ public enum ProcessPipes {
         let exit = ExitBox()
         p.terminationHandler = { exit.set($0.terminationStatus, signal: $0.terminationReason == .uncaughtSignal) }
         try p.run()
+        onLaunch?(p.processIdentifier)
         let proc = UncheckedSendable(p)
         return await withTaskCancellationHandler {
             async let out = drain(outPipe, stdout)

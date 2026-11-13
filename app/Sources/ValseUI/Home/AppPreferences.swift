@@ -69,6 +69,7 @@ public final class AppPreferences {
         if store.engine.outputDeviceUID != uid { store.engine.outputDeviceUID = uid }
         store.engine.volume = AudioOutput.volume(Float(min(max(settings.monitorVolume, 0), 1)))
         if previous?.proxyPolicy != settings.proxyPolicy || previous?.proxyOnlyAbove != settings.proxyOnlyAbove { Task { await ProxyManager.shared.request(store.project.media) } }
+        store.syncPreTranscription(enabled: settings.backgroundTranscription)   // PERF-CAPTIONS-2
     }
 
     /// The editor changed preview quality / proxies from the player menu: remember it.

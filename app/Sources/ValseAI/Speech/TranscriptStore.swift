@@ -33,6 +33,12 @@ public final class TranscriptStore: @unchecked Sendable {
         return t
     }
 
+    /// True when `key` is cached (memory or disk), without decoding it.
+    public func contains(_ key: String) -> Bool {
+        if lock.withLock({ memory[key] != nil }) { return true }
+        return FileManager.default.fileExists(atPath: url(key).path)
+    }
+
     public func put(_ t: Transcript, _ key: String) {
         lock.withLock { memory[key] = t }
         if let d = try? JSONEncoder().encode(t) { try? d.write(to: url(key), options: .atomic) }

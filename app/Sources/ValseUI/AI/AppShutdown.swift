@@ -1,5 +1,6 @@
 import Foundation
 import ValseEngine
+import ValseAI
 
 /// Clean stop of background work on app quit / at the end of a UI test.
 ///
@@ -19,6 +20,7 @@ public enum AppShutdown {
         store?.exports.queue.cancelAll()
         store?.cancelPilotWork()
         QuickCutPrefetch.cancelAll()   // TL-048 background blank analyses
+        await PreTranscriber.shared.stopAll()   // PERF-CAPTIONS-2: its whisper process ends before the app
         let ok = await JobQueue.shared.shutdown(timeout: timeout)
         // readers of cancelled exports stuck inside AVFoundation: a bounded wait, never a hang at quit
         let readersOK = await ParkedReaders.shared.waitAll(timeout: 2)
