@@ -92,8 +92,14 @@ import ValseTestSupport
         func leave(cancelled: Bool) { lock.withLock { _running -= 1; if cancelled { _cancelled += 1 } } }
     }
 
+    /// Waits for a state (hang bound only: the pass runs at background priority, which a loaded test process can
+    /// starve for tens of seconds — check_fast saw > 20 s).
     func waitUntil(_ what: String, _ cond: () -> Bool) async {
-        for _ in 0..<4000 { if cond() { return }; try? await Task.sleep(for: .milliseconds(5)) }
+        let t0 = Date()
+        while Date().timeIntervalSince(t0) < 300 {
+            if cond() { return }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
         Issue.record("timed out waiting for \(what)")
     }
 
