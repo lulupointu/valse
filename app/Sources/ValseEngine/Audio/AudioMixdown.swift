@@ -31,7 +31,9 @@ public enum AudioMixdown {
             var expected = 0
             if !tracks.isEmpty {
                 let reader = try AVAssetReader(asset: built.composition)
-                reader.timeRange = r.cmTimeRange
+                // read past the range's end (what is past it is dropped by `push`): the stretcher delivers a stretched
+                // clip's last ~0.1 s only once it has read beyond them (FLAKY-PB2)
+                reader.timeRange = Exporter.audioReadRange(r, composition: built.composition)
                 let o = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: Exporter.mixPCMSettings)
                 o.audioMix = built.audioMix
                 o.audioTimePitchAlgorithm = .spectral
@@ -108,6 +110,20 @@ public enum AudioExporter {
 }
 
 extension Exporter {
+    /// Media read past an export range's end by the audio reader (the samples there are dropped).
+    static let audioReadTail = Time(0.5)
+
+    /// Time range the audio reader of an export / mixdown of `range` reads: the range plus `audioReadTail`, within the
+    /// composition (FLAKY-PB2). A reader stopped at the range's end cut the time-pitch stretcher off before it delivered a
+    /// stretched clip's last 20-120 ms (spectral: it outputs a block only once it has read past it), so a sped-up or
+    /// slowed clip ending the project faded / went silent early in the file, at 0.5× its whole last ~0.12 s. The clip's
+    /// tail pad (`CompositionBuilder.packAudio`, silenced by the lane gains) is what the stretcher reads there.
+    static func audioReadRange(_ range: TimeRange, composition: AVComposition) -> CMTimeRange {
+        let d = composition.duration
+        let end = d.isNumeric ? min(range.end + audioReadTail, max(range.end, Time(cmTime: d))) : range.end
+        return TimeRange(start: range.start, end: end).cmTimeRange
+    }
+
     /// Float32 interleaved stereo 48 kHz, used for offline mixdowns.
     static var mixPCMSettings: [String: Any] { [
         AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2,

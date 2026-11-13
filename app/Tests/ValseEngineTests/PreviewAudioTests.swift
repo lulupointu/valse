@@ -130,4 +130,44 @@ struct PreviewAudioTests {
         let leads = PreviewAudioCheck.onsetLeads(rec, clip: clip, from: at)
         #expect(leads.count >= 2 && leads.allSatisfy { abs($0) <= 3 }, "leads after the change \(leads)")
     }
+
+    /// Chunks the feeder enqueued (label s) with the last performed seek's start at the time.
+    final class FeedLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var v: [(time: Double, seekFrom: Double)] = []
+        func append(_ t: Double, _ from: Double) { lock.withLock { v.append((t, from)) } }
+        var values: [(time: Double, seekFrom: Double)] { lock.withLock { v } }
+    }
+
+    static func primed(_ a: PreviewAudio) async -> PreviewAudio.Stats {
+        await withCheckedContinuation { (k: CheckedContinuation<PreviewAudio.Stats, Never>) in a.whenPrimed { k.resume(returning: a.stats) } }
+    }
+
+    /// What it protects (FLAKY-PB2): a seek requested while a feeder tick is under way (between its check for pending
+    /// requests and its feeding) is never fed from the OLD position nor reported primed before the feeder performed it.
+    /// Before, the tick read the new seek's generation after its check: with the clock already moved to the target, it
+    /// enqueued chunks from the old queue end (a seek target just before it) and fired `whenPrimed` for the new seek, so
+    /// a slaved start could launch the clock before the seek was even performed. The window is opened deterministically
+    /// with a test hook that requests the seek from inside the tick.
+    @Test func seekDuringATickIsNeverFedFromTheOldPosition() async throws {
+        let p = try await PreviewAudioCheck.cutProject(dir: dir)
+        let state = AudioMixState()
+        state.update(project: p)
+        let built = try await PreviewAudioCheck.build(p, state: state)
+        let audio = PreviewAudio(audioState: state)
+        defer { audio.stop() }
+        audio.load(built, at: 0.5)
+        let before = await Self.primed(audio)
+        let target = before.enqueuedEnd - 0.04   // just before the queue end: the old position looks "primed" for it
+        let log = FeedLog()
+        audio.capture = { t, _ in log.append(t, audio.stats.lastSeekTime) }
+        audio.afterPendingCheckForTesting = { audio.seek(to: target) }
+        let atPrimed = await Self.primed(audio)
+        audio.capture = nil
+        #expect(abs(atPrimed.lastSeekTime - target) < 1e-9 && atPrimed.seeks == before.seeks + 1,
+                "primed reported for the seek to \(target) s before it was performed (last seek from \(atPrimed.lastSeekTime) s, seeks \(atPrimed.seeks))")
+        let stale = log.values.filter { abs($0.seekFrom - target) > 1e-9 }
+        #expect(stale.isEmpty, "chunks fed from the old position after the seek request: \(stale.prefix(6).map { String(format: "%.4f", $0.time) })")
+        #expect(log.values.first.map { abs($0.time - target) < 0.001 } ?? true, "first chunk after the seek at \(log.values.first?.time ?? -1) s, target \(target) s")
+    }
 }

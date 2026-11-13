@@ -65,8 +65,11 @@ struct CutPitchSweepTests {
     /// restart at the split, "split 1.5x both" 11/40); the level check makes the silence a failure as well (before the fix: 60 ms silent before the cut
     /// in "1.5x | 1x", 50 ms in "2x | 1x 44.1k", deterministic). It also found the stretcher's start-up dip (30-60 % for
     /// ~20 ms) of a stretched clip after silence ("1x | 1.5x", "1x | 0.5x"): fixed with a head pre-roll.
-    /// Not checked here: a slowed clip at the PROJECT's end can still lose its last ~0.1 s (the export reader stops at
-    /// the end before the stretcher delivers it; reported separately).
+    /// FLAKY-PB2: the level is also checked up to the PROJECT's end. The mixdown reader stopped at the end before the
+    /// stretcher delivered a stretched clip's last 20-120 ms (silent: "1x | 0.5x" from 4.38 s of 4.5, "1x | 1.5x"
+    /// 2.4375-2.49, "split 1.5x both" 1.98-1.99): readers now read 0.5 s past the end (`Exporter.audioReadRange`), and
+    /// the lane's last clip gets a 0.25 s tail pad (0.1 s still lost ~20 ms at 0.5×), an edit of its own when the clip
+    /// continues the previous one ("split 1.5x both" dipped ~20 ms before the end under load: CutPitchSweepStressTests).
     @Test(arguments: cases)
     func tonePitchStaysConstantAcrossACut(_ c: Case) async throws {
         var p = TestProject(frameRate: .fps30)
@@ -91,5 +94,43 @@ struct CutPitchSweepTests {
         print("PITCHSWEEP \(c.name): cut at \(cutOut) s; anomalies \(bad.prefix(12).map { String(format: "%.4f×%.2f", $0.t, $0.ratio) }); weak \(weak.prefix(12).map { String(format: "%.4f", $0) }); peaks from cut − 20 ms \(peaks.map { String(format: "%.2f", $0) })")
         #expect(bad.isEmpty, "\(c.name): pitch leaves 440 Hz at \(bad.prefix(6).map { String(format: "%.4f s (%.2f×)", $0.t, $0.ratio) })")
         #expect(weak.isEmpty, "\(c.name): the tone drops below 90 % of its level at \(weak.prefix(6).map { String(format: "%.4f s", $0) }) (\(weak.count) windows of 2.5 ms)")
+        // ... and up to the project's end (the clip's 3 ms end ramp aside): the export reader used to stop at the end
+        // before the stretcher delivered the clip's last ~0.1 s
+        let end = p[right].end.seconds
+        let weakEnd = Self.weakWindows(mix, amplitude: 0.5, from: end - 0.5, to: end - 0.006)
+        print("PITCHSWEEP \(c.name): end at \(end) s, \(mix.count) frames; weak before the end \(weakEnd.prefix(12).map { String(format: "%.4f", $0) })")
+        #expect(weakEnd.isEmpty, "\(c.name): the tone drops below 90 % of its level before the project's end at \(weakEnd.prefix(6).map { String(format: "%.4f s", $0) }) (\(weakEnd.count) windows of 2.5 ms)")
+    }
+
+    /// What it protects (FLAKY-PB2): a slowed (0.5×) clip ending the project keeps its last ~0.1 s in a video export
+    /// (the export's audio reader reads past the end, `Exporter.audioReadRange`, and the file still ends at the
+    /// project's end). Before: its last ~120 ms were silent in the file. The tone is checked after an AAC round trip:
+    /// 80 % of its level, up to 20 ms before the end (AAC's last frame).
+    @Test func slowedClipAtTheEndKeepsItsTailInAVideoExport() async throws {
+        var p = TestProject(frameRate: .fps30)
+        let id = try await p.addAudio(AudioTestSignals.sine(440, seconds: 6, amplitude: 0.5, sampleRate: 48000, channels: 2))
+        p[id].duration = Time(2.0)
+        try TimelineOps.setSpeed(id, .constant(0.5), in: &p.project.timeline)
+        let end = p[id].end.seconds
+        #expect(abs(p.project.duration.seconds - end) < 0.001)
+        var s = ExportSettings(); s.resolution = .p480
+        let url = TestMedia.directory.appendingPathComponent("pb2-tail-\(UUID().uuidString).mp4")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try await Exporter.export(project: p.project, settings: s, to: url)
+        let info = try await MediaProbe.probe(url)
+        #expect(abs(info.duration.seconds - end) < 0.05, "file duration \(info.duration.seconds) s, project \(end) s")
+        let audio = try await AudioFileIO.read(url).channel(0)
+        let asset = AVURLAsset(url: url)
+        for t in try await asset.loadTracks(withMediaType: .audio) {
+            let r = try await t.load(.timeRange)
+            #expect(abs(r.end.seconds - end) < 0.03, "the exported audio track ends at \(r.end.seconds) s, project \(end) s")
+        }
+        let w = Int(0.0025 * 48000)
+        let weak = stride(from: Int((end - 0.5) * 48000), to: min(audio.count, Int((end - 0.02) * 48000)) - w, by: w).filter { s in
+            audio[s ..< s + w].reduce(Float(0)) { max($0, abs($1)) } < 0.8 * 0.5
+        }.map { Double($0) / 48000 }
+        print("PITCHSWEEP export: \(audio.count) frames, end \(end) s, weak \(weak.prefix(12).map { String(format: "%.4f", $0) })")
+        #expect(audio.count >= Int((end - 0.02) * 48000), "the exported audio stops at \(Double(audio.count) / 48000) s")
+        #expect(weak.isEmpty, "the slowed clip's tail is missing from the export at \(weak.prefix(6).map { String(format: "%.4f s", $0) }) (\(weak.count) windows of 2.5 ms)")
     }
 }

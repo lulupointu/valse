@@ -141,6 +141,10 @@ public enum Exporter {
         reader.add(vOut)
 
         var aOut: AVAssetReaderAudioMixOutput?
+        // the audio has a reader of its own, reading past the range's end (`audioReadRange`: the stretcher delivers a
+        // stretched clip's last ~0.1 s only once it read beyond them); the pump writes nothing past the end (FLAKY-PB2)
+        let aReader = try AVAssetReader(asset: built.composition)
+        aReader.timeRange = Self.audioReadRange(exportRange, composition: built.composition)
         let aTracks = try await built.composition.loadTracks(withMediaType: .audio)
         if settings.includeAudio, !aTracks.isEmpty {
             let o = AVAssetReaderAudioMixOutput(audioTracks: aTracks, audioSettings: [
@@ -150,7 +154,7 @@ public enum Exporter {
             o.audioMix = built.audioMix
             o.audioTimePitchAlgorithm = .spectral
             o.alwaysCopiesSampleData = false
-            reader.add(o); aOut = o
+            aReader.add(o); aOut = o
         }
 
         let writer = try AVAssetWriter(outputURL: url, fileType: fileType(for: url, settings: settings))
@@ -183,6 +187,10 @@ public enum Exporter {
         }
 
         guard reader.startReading() else { throw ExportError.failed(reader.error.map { "reader: " + Self.describe($0) } ?? "reader") }
+        if aOut != nil, !aReader.startReading() {
+            reader.cancelReading()   // (no pump runs yet)
+            throw ExportError.failed(aReader.error.map { "audio reader: " + Self.describe($0) } ?? "audio reader")
+        }
         guard writer.startWriting() else { throw ExportError.failed(writer.error.map { "writer: " + Self.describe($0) } ?? "writer") }
         writer.startSession(atSourceTime: .zero)
 
@@ -191,6 +199,8 @@ public enum Exporter {
         let total = exportRange.duration.seconds
         let start = exportRange.start.seconds
         let io = UncheckedSendable((reader, writer, vOut, vIn, aOut, aIn, coverSample))
+        let aio = UncheckedSendable(aReader)
+        let audioEnd = exportRange.end.cmTime
         let stop = ReaderCancel()
         let activity = ExportActivity()
         let monitor = Task.detached { [state = built.state] in
@@ -231,7 +241,7 @@ public enum Exporter {
                 if hasAudio {
                     g.addTask {
                         let (_, _, _, _, aOut, aIn, _) = io.value
-                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, label: "export.audio", id: pumpID, stop: stop, onSample: { _ in activity.tick() }) }
+                        if let aOut, let aIn { await pump(aOut, aIn, shift: shift, prefix: nil, until: audioEnd, label: "export.audio", id: pumpID, stop: stop, onSample: { _ in activity.tick() }) }
                     }
                 }
             }
@@ -251,6 +261,7 @@ public enum Exporter {
             ParkedReaders.shared.park(pumpID, pumps) {
                 let (reader, writer, _, _, _, _, _) = io.value
                 reader.cancelReading()
+                aio.value.cancelReading()
                 writer.cancelWriting()
                 try? FileManager.default.removeItem(at: url)
             }
@@ -259,6 +270,7 @@ public enum Exporter {
         stop.finish()
         if activity.stalled {
             reader.cancelReading()
+            aReader.cancelReading()
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
             Self.noteStallRestart()
@@ -267,15 +279,17 @@ public enum Exporter {
             if attempt < 2, !ValseProcess.isUnitTest { continue }
             throw ExportError.failed("export stalled")
         }
-        if reader.status == .failed || writer.status == .failed {
-            let msg = reader.error.map { "reader: " + Self.describe($0) } ?? writer.error.map { "writer: " + Self.describe($0) } ?? "read failed"
+        if reader.status == .failed || aReader.status == .failed || writer.status == .failed {
+            let msg = reader.error.map { "reader: " + Self.describe($0) } ?? aReader.error.map { "audio reader: " + Self.describe($0) }
+                ?? writer.error.map { "writer: " + Self.describe($0) } ?? "read failed"
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
             // VideoToolbox refuses / loses a hardware session now and then when the media engines are saturated (other
             // exports, apps, checkouts' tests: -12902 seen on 1 of ~150 HEVC Main10 exports under load). That is
             // transient: the pass restarts (twice at most) instead of failing the user's export.
-            if attempt < 3, let e = writer.error ?? reader.error, VideoToolboxErrors.isTransient(e) {
+            if attempt < 3, let e = writer.error ?? reader.error ?? aReader.error, VideoToolboxErrors.isTransient(e) {
                 reader.cancelReading()   // the pumps have returned: nothing is inside copyNextSampleBuffer
+                aReader.cancelReading()
                 Self.noteTransientRestart()
                 NSLog("Valse export: transient encoder/decoder failure (%@), attempt %d: restarting the pass", Self.describe(e), attempt)
                 try await Task.sleep(nanoseconds: UInt64(attempt) * 300_000_000)
@@ -283,6 +297,7 @@ public enum Exporter {
             }
             throw ExportError.failed(msg)
         }
+        aReader.cancelReading()   // (the pumps have returned; the audio pump stops at the range's end, before the read tail)
         writer.endSession(atSourceTime: (exportRange.duration + lead).cmTime)
         await writer.finishWriting()
         guard writer.status == .completed else {
@@ -484,8 +499,10 @@ public enum Exporter {
         return out
     }
 
+    /// `until`: composition time where the written media ends (audio is read past the range: what is past it is cut
+    /// off, a buffer straddling it is trimmed to it, and the pump finishes there).
     private static func pump(_ out: AVAssetReaderOutput, _ input: AVAssetWriterInput, shift: CMTime, prefix: CMSampleBuffer?,
-                             label: String, id: String = "", stop: ReaderCancel, onSample: (@Sendable (Double) -> Void)?) async {
+                             until end: CMTime? = nil, label: String, id: String = "", stop: ReaderCancel, onSample: (@Sendable (Double) -> Void)?) async {
         let io = UncheckedSendable((out, input, prefix))
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             let q = DispatchQueue(label: label, qos: .userInitiated)
@@ -500,9 +517,13 @@ public enum Exporter {
                 while input.isReadyForMoreMediaData && !st.done {
                     if stop.requested {
                         st.done = true
-                    } else if let sb = { Self.testWillCopy?(id, label); return out.copyNextSampleBuffer() }() {
+                    } else if var sb = { Self.testWillCopy?(id, label); return out.copyNextSampleBuffer() }() {
                         let pts = CMSampleBufferGetPresentationTimeStamp(sb)
                         onSample?(pts.seconds)
+                        if let end {
+                            guard let cut = trimmed(sb, before: end) else { st.done = true; input.markAsFinished(); cont.resume(); return }
+                            sb = cut
+                        }
                         let t = CMTimeSubtract(pts, shift)
                         if t < .zero && CMSampleBufferGetNumSamples(sb) <= 1 { continue }
                         let moved = shift == .zero ? sb : (retimed(sb, pts: t) ?? sb)
@@ -515,6 +536,22 @@ public enum Exporter {
     }
 
     private final class PumpState { var done = false; var prefixed = false }
+
+    /// `sb` (PCM audio) without its samples at or after `end`: nil when none is left, `sb` itself when all are before.
+    static func trimmed(_ sb: CMSampleBuffer, before end: CMTime) -> CMSampleBuffer? {
+        let pts = CMSampleBufferGetPresentationTimeStamp(sb)
+        guard CMTimeCompare(pts, end) < 0 else { return nil }
+        let n = CMSampleBufferGetNumSamples(sb)
+        guard let rate = CMSampleBufferGetFormatDescription(sb).flatMap({ CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee.mSampleRate }),
+              rate > 0, n > 0 else { return sb }
+        let keep = Int((CMTimeSubtract(end, pts).seconds * rate).rounded())
+        if keep >= n { return sb }
+        guard keep > 0 else { return nil }
+        var out: CMSampleBuffer?
+        let st = CMSampleBufferCopySampleBufferForRange(allocator: nil, sampleBuffer: sb, sampleRange: CFRange(location: 0, length: keep),
+                                                        sampleBufferOut: &out)
+        return st == noErr ? out : sb
+    }
 
     private final class BlurPumpState {
         var done = false, prefixed = false, group = -1

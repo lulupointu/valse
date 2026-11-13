@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import Foundation
+import ValseCore
 
 /// The reading side of `PreviewAudio` (BUG-CUT-AUDIO-HOLE phase A): one `AVAssetReader` over a preview composition,
 /// one `AVAssetReaderAudioMixOutput` per composition audio lane (no tap, no volume ramps: the reader stamps exactly on
@@ -72,8 +73,10 @@ final class PreviewAudioLanes {
         var lanes: [Lane] = []
         var reader: AVAssetReader?
         if !built.audioLanes.isEmpty, start < end, let r = try? AVAssetReader(asset: built.composition) {
-            r.timeRange = CMTimeRange(start: CMTime(value: CMTimeValue(start), timescale: Int32(Self.sampleRate)),
-                                      end: built.duration.cmTime)
+            // read past the end (only what the clock asks for is mixed): the stretcher delivers a stretched clip's last
+            // ~0.1 s only once it read beyond them (FLAKY-PB2, `Exporter.audioReadRange`)
+            let from = Time(cmTime: CMTime(value: CMTimeValue(start), timescale: Int32(Self.sampleRate)))
+            r.timeRange = Exporter.audioReadRange(TimeRange(start: from, end: max(from, built.duration)), composition: built.composition)
             for (i, lane) in built.audioLanes.enumerated() {
                 let o = AVAssetReaderAudioMixOutput(audioTracks: [lane.track], audioSettings: Self.pcmSettings)
                 o.audioTimePitchAlgorithm = CompositionBuilder.laneTimePitch   // .spectral (never varispeed: export hangs)

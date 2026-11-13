@@ -78,12 +78,22 @@ public final class PreviewAudio: @unchecked Sendable {
         /// Host time (CACurrentMediaTime) of the last seek request, of its first enqueued chunk, of the clock start.
         public var seekRequested = 0.0, firstChunkAfterSeek = 0.0, clockStarted = 0.0
         public var outputChanges = 0
+        /// Composition time (s) the last performed seek started from (diagnostics / tests).
+        public var lastSeekTime = 0.0
         /// Last hot swap, as the feeder performed it: the clock (frame) when it ran, the frame the new composition starts
         /// at (the queue's end), and the host time (CACurrentMediaTime) it ran at.
         public var swapClockFrame = 0, swapFrame = 0
         public var swapRan = 0.0
     }
     public var stats: Stats { lock.withLock { _stats } }
+
+    /// Tests only: run once, on the feeder queue, by the next tick right after it read the pending requests (a request
+    /// made from there lands in the window between that read and the feeding).
+    var afterPendingCheckForTesting: (@Sendable () -> Void)? {
+        get { lock.withLock { _afterPendingCheck } }
+        set { lock.withLock { _afterPendingCheck = newValue } }
+    }
+    private var _afterPendingCheck: (@Sendable () -> Void)?
 
     /// `outputDeviceUID`: nil = the system default output.
     public init(audioState: AudioMixState, outputDeviceUID: String? = nil, ahead: Double = 0.15, prime: Double = 0.1) {
@@ -327,7 +337,7 @@ public final class PreviewAudio: @unchecked Sendable {
         let f = PreviewAudioLanes.frame(time)
         cursor = f
         if let built { lanes = PreviewAudioLanes(built: built, state: audioState, start: f, counter: readerCounter) }
-        lock.withLock { _stats.seeks += 1; _stats.firstChunkAfterSeek = 0; _stats.enqueuedEnd = time }
+        lock.withLock { _stats.seeks += 1; _stats.firstChunkAfterSeek = 0; _stats.enqueuedEnd = time; _stats.lastSeekTime = time }
         ensureTimer()
         tick()
     }
@@ -382,8 +392,17 @@ public final class PreviewAudio: @unchecked Sendable {
         }
         // a seek / swap requested since: perform it first (a tick before its `drain` would feed — and report primed —
         // from the old position)
-        if lock.withLock({ pendingSeek != nil || pendingBuilt != nil }) { drain() }
-        let (rate, gen, latency) = lock.withLock { (wantsRate, generation, _outputLatency) }
+        // FLAKY-PB2: the generation this tick feeds for is read in the SAME lock as the pending check. Read after it, a
+        // seek requested in between (its generation, its clock time) passed the tick's checks with the queue still at
+        // the old position: chunks from there were enqueued and counted as primed for the new seek — a `whenPrimed`
+        // start could launch the clock before the feeder had even performed the seek.
+        var state = lock.withLock { (pendingSeek != nil || pendingBuilt != nil, wantsRate, generation, _outputLatency) }
+        while state.0 {
+            drain()
+            state = lock.withLock { (pendingSeek != nil || pendingBuilt != nil, wantsRate, generation, _outputLatency) }
+        }
+        let (_, rate, gen, latency) = state
+        if let hook = lock.withLock({ () -> (@Sendable () -> Void)? in defer { _afterPendingCheck = nil }; return _afterPendingCheck }) { hook() }
         // the horizon must exceed the output latency, else every sample reaches the renderer late: silence, no error
         let horizon = Self.feedAhead(ahead, outputLatency: latency)
         let limit = Int((rate > 0 ? horizon * max(1, rate) : max(horizon, prime)) * Self.sampleRate)
