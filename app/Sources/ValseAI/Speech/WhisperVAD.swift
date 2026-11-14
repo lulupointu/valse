@@ -1,3 +1,4 @@
+@preconcurrency import AVFoundation
 import Foundation
 import ValseCore
 
@@ -74,6 +75,78 @@ public struct VADTimeMap: Sendable, Equatable {
             { [self] line in if let s = VADTimeMap.span(fromLog: line) { lock.withLock { spans.append(s) } } }
         }
         var map: VADTimeMap { lock.withLock { VADTimeMap(spans: spans.sorted { $0.start < $1.start }) } }
+    }
+}
+
+/// PERF-CAPTIONS-5: when whisper's VAD may run, and whether its run can be trusted. Silero drops speech under a music
+/// bed, not only all of it (the empty-result fallback) but whole lines: measured 2026-11 on the owner's Episode 6
+/// dialogue (134 s, 28 lines) mixed with a synthetic band / a dense broadband bed, VAD lost 2 lines with the bed 12 dB
+/// under the voice, 5–10 lines at 6–0 dB, WER 85 % vs 5.6 % plain at −6 dB. On every clip where VAD was proven (speech,
+/// speech with pauses in room noise) the audio it drops is quiet — 44–60 dB under the kept audio's median level —
+/// whereas under a bed it drops 50–134 s of audio within 20 dB of the kept level. So:
+/// - before the run: audio without quiet parts (10 ms frames, p90 − p10 < 25 dB: a bed under everything; measured
+///   7–23 dB with a bed 18 dB under the voice or louder, ≥ 30.7 dB on speech without one) never takes the VAD path —
+///   nothing for VAD to skip but the bed, and continuous speech gains nothing from it (measured);
+/// - after the run: if the dropped audio holds more than 1 s + 2 % of the kept duration within 20 dB of the kept
+///   audio's median level (measured ≤ 0.5 s on the proven clips, ≥ 27 s with any bed up to 24 dB under the voice),
+///   the run is redone without VAD (costs the VAD run, ≈ +80 % on such pieces; correctness first).
+public enum VADGuard {
+    /// Frame hop (seconds) of the energies.
+    static let hop = 0.01
+    /// Dropped audio this close (dB) to the kept audio's median level is "near speech".
+    static let nearSpeechDB = 20.0
+    /// Near-speech dropped audio allowed: segment edges (`allowedSeconds` + `allowedFraction` × kept duration).
+    static let allowedSeconds = 1.0, allowedFraction = 0.02
+    /// Spread (dB) between the 90th and 10th percentile frames below which the audio has no quiet part.
+    static let quietSpreadDB = 25.0
+
+    /// 10 ms frame energies (dB) of a mono PCM file (the whisper input WAV); nil when it can't be read.
+    public static func frameDB(wav: URL) -> [Double]? {
+        guard let f = try? AVAudioFile(forReading: wav, commonFormat: .pcmFormatFloat32, interleaved: false) else { return nil }
+        let hopN = max(1, Int(f.processingFormat.sampleRate * hop))
+        guard let buf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(hopN * 1000)) else { return nil }
+        var db: [Double] = []
+        db.reserveCapacity(Int(f.length) / hopN + 1)
+        var acc = 0.0, n = 0
+        while (try? f.read(into: buf, frameCount: buf.frameCapacity)) != nil, buf.frameLength > 0 {
+            guard let ch = buf.floatChannelData?[0] else { return nil }
+            for i in 0..<Int(buf.frameLength) {
+                let x = Double(ch[i]); acc += x * x; n += 1
+                if n == hopN { db.append(10 * log10(acc / Double(n) + 1e-12)); acc = 0; n = 0 }
+            }
+        }
+        return db
+    }
+
+    private static func percentile(_ sorted: [Double], _ p: Double) -> Double { sorted[Int(Double(sorted.count - 1) * p)] }
+
+    /// The audio has quiet parts VAD could skip (false: a steady bed or noise under everything → no VAD).
+    public static func hasQuietParts(_ db: [Double]) -> Bool {
+        guard db.count >= 10 else { return false }
+        let s = db.sorted()
+        return percentile(s, 0.9) - percentile(s, 0.1) >= quietSpreadDB
+    }
+
+    /// Seconds of the audio VAD dropped that are within `nearSpeechDB` of the kept audio's median level, and the kept
+    /// duration (input time, from the run's time map).
+    public static func nearSpeechDropped(_ db: [Double], map: VADTimeMap) -> (dropped: Double, kept: Double) {
+        var inside = [Bool](repeating: false, count: db.count)
+        for s in map.spans {
+            let a = max(0, Int((s.original / hop).rounded()))
+            let b = min(db.count, Int(((s.original + s.end - s.start) / hop).rounded()))
+            if a < b { for k in a..<b { inside[k] = true } }
+        }
+        let kept = zip(db, inside).filter(\.1).map(\.0).sorted()
+        guard !kept.isEmpty else { return (0, 0) }
+        let level = percentile(kept, 0.5) - nearSpeechDB
+        let dropped = zip(db, inside).reduce(0) { n, f in !f.1 && f.0 > level ? n + 1 : n }
+        return (Double(dropped) * hop, Double(kept.count) * hop)
+    }
+
+    /// The VAD run left out audio that sounds like the speech it kept (a music bed: lines may be missing).
+    public static func droppedSpeech(_ db: [Double], map: VADTimeMap) -> Bool {
+        let r = nearSpeechDropped(db, map: map)
+        return r.dropped > allowedSeconds + allowedFraction * r.kept
     }
 }
 
