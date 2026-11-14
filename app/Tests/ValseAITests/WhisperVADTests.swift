@@ -1,4 +1,5 @@
 import Testing
+import AVFoundation
 import Foundation
 @testable import ValseAI
 import ValseCore
@@ -87,6 +88,7 @@ import ValseTestSupport
             defer { try? FileManager.default.removeItem(at: bad) }
             let piece = try await AudioExtractor.wav16k(wav, range: TimeRange(start: .zero, end: Time(6)))
             defer { try? FileManager.default.removeItem(at: piece) }
+            #expect(VADGuard.hasQuietParts(try #require(VADGuard.frameDB(wav: piece))), "else the VAD path isn't tried")
             var o = WhisperEngine.Options(language: "fr", model: model, cli: cli)
             o.vadModel = bad
             let t = try await WhisperEngine.transcribe(wav: piece, options: o)
@@ -96,6 +98,67 @@ import ValseTestSupport
             let t2 = try await WhisperEngine.transcribe(wav: piece, options: o)
             #expect(t2.words.map(\.text) == t.words.map(\.text))
         }
+    }
+
+    // MARK: PERF-CAPTIONS-5 guard (VAD drops whole lines under a music bed)
+
+    /// Frames (10 ms, dB) from (seconds, level) runs.
+    static func frames(_ runs: [(Double, Double)]) -> [Double] {
+        runs.flatMap { [Double](repeating: $0.1, count: Int(($0.0 * 100).rounded())) }
+    }
+
+    @Test func quietPartsNeededForVAD() {
+        // speech with pauses in room noise: VAD may run
+        #expect(VADGuard.hasQuietParts(Self.frames([(3, -20), (2, -70), (3, -22), (2, -65)])))
+        // a steady bed under the voice (measured p90 − p10 7–17 dB on every mix): no VAD
+        #expect(!VADGuard.hasQuietParts(Self.frames([(3, -18), (2, -28), (3, -17), (2, -30)])))
+        #expect(!VADGuard.hasQuietParts([]))
+    }
+
+    @Test func droppedAudioNearTheSpeechLevelMeansPlainRun() {
+        let map = VADTimeMap(spans: [.init(original: 1, start: 0, end: 3), .init(original: 6, start: 3.1, end: 6.1)])
+        // dropped parts quiet (pauses): fine
+        let clean = Self.frames([(1, -70), (3, -20), (2, -65), (3, -21), (1, -70)])
+        var r = VADGuard.nearSpeechDropped(clean, map: map)
+        #expect(r.dropped == 0 && abs(r.kept - 6) < 1e-9)
+        #expect(!VADGuard.droppedSpeech(clean, map: map))
+        // segment edges near the speech level: a little is allowed (1 s + 2 % of the kept time)
+        let edges = Self.frames([(0.5, -70), (0.5, -25), (3, -20), (1.5, -65), (0.5, -24), (3, -21), (1, -70)])
+        #expect(abs(VADGuard.nearSpeechDropped(edges, map: map).dropped - 1) < 1e-9)
+        #expect(!VADGuard.droppedSpeech(edges, map: map))
+        // a bed: the dropped audio sounds like the kept audio (a line under music never reached whisper)
+        let bed = Self.frames([(1, -28), (3, -18), (2, -24), (3, -19), (1, -27)])
+        r = VADGuard.nearSpeechDropped(bed, map: map)
+        #expect(abs(r.dropped - 4) < 1e-9)
+        #expect(VADGuard.droppedSpeech(bed, map: map))
+        // a span past the end of the audio is clipped
+        #expect(abs(VADGuard.nearSpeechDropped(Self.frames([(2, -20)]), map: map).kept - 1) < 1e-9)
+    }
+
+    @Test func frameEnergiesFromAWav() throws {
+        let fmt = AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
+        let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: 16_000)!
+        buf.frameLength = 16_000
+        for i in 0..<16_000 { buf.floatChannelData![0][i] = i < 8_000 ? 0.1 * Float(sin(2 * Double.pi * 440 * Double(i) / 16_000)) : 0 }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("valse-vadguard-\(UUID().uuidString).caf")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try AVAudioFile(forWriting: url, settings: fmt.settings).write(from: buf)
+        let db = try #require(VADGuard.frameDB(wav: url))
+        #expect(db.count == 100)
+        #expect(abs(db[10] - 10 * log10(0.005)) < 0.2, "sine at 0.1: −23 dB")
+        #expect(db[90] < -100)
+        #expect(VADGuard.hasQuietParts(db))
+        #expect(VADGuard.frameDB(wav: url.appendingPathExtension("missing")) == nil)
+    }
+
+    /// The real decision inputs: the bench speech has quiet parts, the same speech under the F4 band doesn't.
+    @Test func speechUnderABandSkipsVAD() async throws {
+        guard let wav = AIFixtures.speechFR, let song = try F4AITests.makeSong(seconds: 12) else { print("skip: bench media missing"); return }
+        defer { try? FileManager.default.removeItem(at: song.url) }
+        let piece = try await AudioExtractor.wav16k(wav, range: TimeRange(start: .zero, end: Time(12)))
+        defer { try? FileManager.default.removeItem(at: piece) }
+        #expect(VADGuard.hasQuietParts(try #require(VADGuard.frameDB(wav: piece))))
+        #expect(!VADGuard.hasQuietParts(try #require(VADGuard.frameDB(wav: song.url))))
     }
 
     // MARK: automatic fetch (owner decision: the VAD comes with the speech models, silently)
@@ -213,6 +276,8 @@ import ValseTestSupport
                         return (String(p[0]), t)
                     }
                 let activity = SpeechActivity.analyze(wav: wav)
+                let energy = VADGuard.frameDB(wav: wav) ?? []
+                print("metric vad_bench \(f) quiet_parts \(VADGuard.hasQuietParts(energy))")
                 for r in 0..<rounds {
                     for useVAD in (r % 2 == 0 ? [false, true] : [true, false]) {
                         var o = WhisperEngine.Options(language: lang, model: model, cli: cli)

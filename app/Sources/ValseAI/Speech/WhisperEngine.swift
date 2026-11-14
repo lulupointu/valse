@@ -58,7 +58,10 @@ public enum WhisperEngine {
         let (exe, pre) = launcher(o)
         // PERF-CAPTIONS-4: with the VAD model installed, whisper decodes only the voiced parts (one attempt, with DTW
         // when available); any failure falls back to the run without VAD below.
-        if let vad = o.vadModel {
+        // PERF-CAPTIONS-5: only where VAD was proven (`VADGuard`): audio with quiet parts, and a run that dropped no
+        // audio sounding like the speech it kept (else whole lines go missing under a music bed).
+        let energy = o.vadModel == nil ? nil : VADGuard.frameDB(wav: wav)
+        if let vad = o.vadModel, let energy, VADGuard.hasQuietParts(energy) {
             var vargs = args + ["--vad", "-vm", vad.path]
             if o.dtw, let preset = dtwPreset(model: o.model) { vargs += ["-nfa", "-dtw", preset] }
             let spans = VADTimeMap.Collector()
@@ -69,6 +72,11 @@ public enum WhisperEngine {
                 // speech", F4AITests lyricsCaptionsOnSeparatedVocalsBeatTheMix) — silent pieces never get here
                 // (`AudioExtractor.isSilent`), so an empty VAD result is retried without VAD.
                 guard !t.words.isEmpty else { throw SpeechFailure.other(detail: "whisper VAD: no words kept") }
+                let map = spans.map
+                guard !VADGuard.droppedSpeech(energy, map: map) else {
+                    let d = VADGuard.nearSpeechDropped(energy, map: map)
+                    throw SpeechFailure.other(detail: String(format: "whisper VAD dropped %.1f s near the speech level (kept %.1f s)", d.dropped, d.kept))
+                }
                 return t
             } catch is CancellationError { throw CancellationError() }
             catch let f as SpeechFailure where [.appIncomplete, .diskFull].contains(f) { throw f }
